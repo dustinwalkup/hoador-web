@@ -49,7 +49,6 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => {
             const isActive = item.url === pathname;
-            console.log("isActive", item.url === pathname);
             return (
               <SidebarMenuItem key={item.title} className="!cursor-pointer">
                 <Link href={item.url} passHref>
