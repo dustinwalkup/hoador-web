@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import CategoryCard from "@/components/category-card";
 import FeatureCard from "@/components/feature-card";
+import FadeIn from "@/components/fade-in";
+import AnimatedSection from "@/components/animated-section";
 
 // Header
 const SIGN_UP = "Sign up";
@@ -72,12 +74,12 @@ const FEATURED_CARDS = [
   },
   {
     icon: <Coins className="h-12 w-12" />,
-    title: "Earn ToolShare Points",
+    title: "Earn Hoador Points",
     description:
       "Use points to pay for rentals or get discounts on your next tool rental.",
     benefits: [
-      "Redeem payouts for loans with ToolShare points and get 25% more on your payout earnings!",
-      "Earn ToolShare points by getting outstanding reviews and reaching milestones",
+      "Redeem payouts for loans with Hoador points and get 25% more on your payout earnings!",
+      "Earn Hoador points by getting outstanding reviews and reaching milestones",
       "Points never expire and can be used for any rental on the platform",
     ],
     variant: "primary",
@@ -148,42 +150,50 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="from-background mobile-padding to-skyBlue relative overflow-hidden bg-gradient-to-b pt-16 md:pt-24">
+      <section className="mobile-padding bg-[linear-gradient(to_bottom,theme(colors.background)_0%,theme(colors.skyBlue)_60%,theme(colors.skyBlue)_100%)] relative overflow-hidden pt-16 md:pt-24">
         <div className="relative z-10 container mx-auto flex flex-col items-center justify-center">
-          <div className="max-w-3xl text-center">
-            <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-              {HERO_TITLE_A}{" "}
-              <span className="text-primary">{HERO_TITLE_B}</span>
-            </h1>
-            <p className="text-muted-foreground mb-8 text-xl">
-              {HERO_DESCRIPTION}
-            </p>
-            <div className="mx-auto mb-8 max-w-xl">
-              <div className="relative">
-                <Search className="text-muted-foreground absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2" />
-                <Input
-                  type="text"
-                  placeholder={INPUT_PLACEHOLDER}
-                  className="border-muted bg-background focus-visible:ring-primary h-12 rounded-full pr-4 pl-10 shadow-sm"
-                />
+          <FadeIn>
+            <div className="max-w-3xl text-center">
+              <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
+                {HERO_TITLE_A}{" "}
+                <span className="text-primary">{HERO_TITLE_B}</span>
+              </h1>
+              <p className="text-muted-foreground mb-8 text-xl">
+                {HERO_DESCRIPTION}
+              </p>
+              <div className="mx-auto mb-8 max-w-xl">
+                <div className="relative">
+                  <Search className="text-muted-foreground absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2" />
+                  <Input
+                    type="text"
+                    placeholder={INPUT_PLACEHOLDER}
+                    className="border-muted bg-background focus-visible:ring-primary h-12 rounded-full pr-4 pl-10 shadow-sm"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          </FadeIn>
         </div>
 
         <div className="bg-skyBlue relative mt-8 flex w-full justify-center">
-          <Image
-            src="/images/cartoon.png"
-            width={322}
-            height={108}
-            alt="Cartoon image of neighbors sharing tools"
-            className="w-full md:w-1/2 lg:w-1/3"
-          />
+          <FadeIn
+            delay={300}
+            duration={1000}
+            className="flex w-full justify-center"
+          >
+            <Image
+              src="/images/cartoon.png"
+              width={322}
+              height={108}
+              alt="Cartoon image of neighbors sharing tools"
+              className="w-full md:w-1/2 lg:w-1/3"
+            />
+          </FadeIn>
         </div>
       </section>
 
       {/* Value Proposition */}
-      <section className="mobile-padding py-16 md:py-24">
+      <AnimatedSection className="mobile-padding py-16 md:py-24">
         <div className="container mx-auto flex flex-col items-center justify-center text-center">
           <div className="mb-16 max-w-3xl">
             <div className="bg-primary/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full">
@@ -218,10 +228,10 @@ export default function HomePage() {
             </Button>
           </div>
         </div>
-      </section>
+      </AnimatedSection>
 
       {/* Community Section */}
-      <section className="bg-accent mobile-padding py-16 md:py-24">
+      <AnimatedSection className="bg-accent mobile-padding py-16 md:py-24">
         <div className="container mx-auto flex flex-col items-center justify-center">
           <div className="mb-16 max-w-3xl text-center">
             <div className="bg-primary/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full">
@@ -254,10 +264,10 @@ export default function HomePage() {
             </Button>
           </div>
         </div>
-      </section>
+      </AnimatedSection>
 
       {/* How It Works */}
-      <section className="mobile-padding py-16 md:py-24">
+      <AnimatedSection className="mobile-padding py-16 md:py-24">
         <div className="container mx-auto flex flex-col items-center justify-center">
           <div className="mb-16 max-w-3xl text-center">
             <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
@@ -295,10 +305,10 @@ export default function HomePage() {
             </Button>
           </div>
         </div>
-      </section>
+      </AnimatedSection>
 
       {/* CTA Section */}
-      <section className="bg-primary mobile-padding text-primary-foreground py-16 md:py-24">
+      <AnimatedSection className="bg-primary mobile-padding text-primary-foreground py-16 md:py-24">
         <div className="container mx-auto flex flex-col items-center justify-center">
           <div className="max-w-3xl text-center">
             <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
@@ -315,7 +325,7 @@ export default function HomePage() {
             </Button>
           </div>
         </div>
-      </section>
+      </AnimatedSection>
     </div>
   );
 }
