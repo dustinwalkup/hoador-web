@@ -1,103 +1,321 @@
 import Image from "next/image";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Coins,
+  Search,
+  Home,
+  Truck,
+  PenToolIcon as Tool,
+  Users,
+} from "lucide-react";
 
-export default function Home() {
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import CategoryCard from "@/components/category-card";
+import FeatureCard from "@/components/feature-card";
+
+// Header
+const SIGN_UP = "Sign up";
+const LOG_IN = "Log in";
+
+// Hero Section
+const HERO_TITLE_A = "Your neighborhood";
+const HERO_TITLE_B = "rental marketplace";
+const HERO_DESCRIPTION =
+  "Borrow tools from neighbors, save money, and build community";
+const INPUT_PLACEHOLDER = "What are you looking for?";
+
+//  Value Proposition
+const VALUE_PROPOSITION_TITLE = "Save Time, Make Money";
+const VALUE_PROPOSITION_DESCRIPTION =
+  "Tools from a hyper-local marketplace are cheaper than renting or buying from big box stores. Leverage what you already have to make money.";
+const VALUE_PROPOSITION_BUTTON = "Explore all categories";
+const CATEGORY_CARDS = [
+  {
+    title: "Power & Hand Tools",
+    description:
+      "Drills, saws, sanders, and more available in your neighborhood.",
+    imageUrl: "/assorted-power-tools.png",
+    icon: <Tool className="h-6 w-6" />,
+  },
+  {
+    title: "Trucks & Trailers",
+    description: "Moving? Need to haul something? Your neighbors can help.",
+    imageUrl: "/truck-and-trailer.png",
+    icon: <Truck className="h-6 w-6" />,
+  },
+  {
+    title: "Lawn & Garden",
+    description: "Mowers, trimmers, pressure washers, and more for your yard.",
+    imageUrl: "/lawn-mower-tools.png",
+    icon: <Home className="h-6 w-6" />,
+  },
+];
+
+// Community Section
+const COMMUNITY_TITLE = "Neighbor-to-neighborhood";
+const COMMUNITY_DESCRIPTION =
+  "Trust in a community marketplace that is limited to households in your neighborhood. Build connections while sharing resources.";
+const FEATURED_CARDS = [
+  {
+    icon: <Users className="text-primary h-12 w-12" />,
+    title: "Now that's a win-win",
+    description:
+      "The whole neighborhood wins. Improve property value and make money while helping neighbors.",
+    benefits: [
+      "Save money by borrowing instead of buying rarely used tools",
+      "Earn passive income from tools sitting unused in your garage",
+      "Build community connections with neighbors",
+    ],
+    variant: "default",
+  },
+  {
+    icon: <Coins className="h-12 w-12" />,
+    title: "Earn ToolShare Points",
+    description:
+      "Use points to pay for rentals or get discounts on your next tool rental.",
+    benefits: [
+      "Redeem payouts for loans with ToolShare points and get 25% more on your payout earnings!",
+      "Earn ToolShare points by getting outstanding reviews and reaching milestones",
+      "Points never expire and can be used for any rental on the platform",
+    ],
+    variant: "primary",
+  },
+];
+const COMMUNITY_SECTION_BUTTON_LABEL = "Join Hoador";
+
+// How it works section
+const HOW_IT_WORKS_TITLE = "How Hoador works";
+const HOW_IT_WORKS_DESCRIPTION =
+  "Simple, secure, and designed to build community";
+const HOW_IT_WORKS_ITEMS = [
+  {
+    id: 1,
+    title: "List your tools",
+    description:
+      "Take a few photos, set your price, and share what's sitting unused in your garage",
+  },
+  {
+    id: 2,
+    title: "Connect with neighbors",
+    description:
+      "Approve rental requests and coordinate pickup times that work for you",
+  },
+  {
+    id: 3,
+    title: "Earn & save",
+    description:
+      "Make money from your tools or save by borrowing instead of buying",
+  },
+];
+const HOW_IT_WORKS_BUTTON_LABEL = "Learn more about our process";
+
+// CTA Section
+const CTA_TITLE = "Ready to join your neighborhood marketplace?";
+const CTA_DESCRIPTION =
+  "Sign up today and start sharing tools with your neighbors";
+const CTA_BUTTON_LABEL = "Get started";
+
+export default function HomePage() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+    <div className="flex min-h-screen flex-col">
+      {/* Header */}
+      <header className="bg-background/95 mobile-padding supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
+        <div className="container mx-auto flex h-16 items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
             <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+              src="/hoador-logo.svg"
+              alt="Hoador Logo"
+              width={100}
+              height={40}
+              className="h-6 w-auto"
+              priority
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/login"
+              className="text-muted-foreground hover:text-foreground text-sm font-medium"
+            >
+              {LOG_IN}
+            </Link>
+            <Button asChild className="rounded-full">
+              <Link href="/signup">{SIGN_UP}</Link>
+            </Button>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+      </header>
+
+      {/* Hero Section */}
+      <section className="from-background mobile-padding to-skyBlue relative overflow-hidden bg-gradient-to-b pt-16 md:pt-24">
+        <div className="relative z-10 container mx-auto flex flex-col items-center justify-center">
+          <div className="max-w-3xl text-center">
+            <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
+              {HERO_TITLE_A}{" "}
+              <span className="text-primary">{HERO_TITLE_B}</span>
+            </h1>
+            <p className="text-muted-foreground mb-8 text-xl">
+              {HERO_DESCRIPTION}
+            </p>
+            <div className="mx-auto mb-8 max-w-xl">
+              <div className="relative">
+                <Search className="text-muted-foreground absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2" />
+                <Input
+                  type="text"
+                  placeholder={INPUT_PLACEHOLDER}
+                  className="border-muted bg-background focus-visible:ring-primary h-12 rounded-full pr-4 pl-10 shadow-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-skyBlue relative mt-8 flex w-full justify-center">
           <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+            src="/images/cartoon.png"
+            width={322}
+            height={108}
+            alt="Cartoon image of neighbors sharing tools"
+            className="w-full md:w-1/2 lg:w-1/3"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+      </section>
+
+      {/* Value Proposition */}
+      <section className="mobile-padding py-16 md:py-24">
+        <div className="container mx-auto flex flex-col items-center justify-center text-center">
+          <div className="mb-16 max-w-3xl">
+            <div className="bg-primary/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full">
+              <Coins className="text-primary h-10 w-10" />
+            </div>
+            <h2 className="text-primary mb-4 text-3xl font-bold tracking-tight md:text-4xl">
+              {VALUE_PROPOSITION_TITLE}
+            </h2>
+            <p className="text-muted-foreground text-xl">
+              {VALUE_PROPOSITION_DESCRIPTION}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {CATEGORY_CARDS.map((categoryCard) => (
+              <CategoryCard
+                key={categoryCard.title}
+                icon={categoryCard.icon}
+                title={categoryCard.title}
+                description={categoryCard.description}
+                imageUrl={categoryCard.imageUrl}
+              />
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <Button asChild size="lg" className="rounded-full">
+              <Link href="/categories" className="flex items-center gap-2">
+                {VALUE_PROPOSITION_BUTTON}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Community Section */}
+      <section className="bg-accent mobile-padding py-16 md:py-24">
+        <div className="container mx-auto flex flex-col items-center justify-center">
+          <div className="mb-16 max-w-3xl text-center">
+            <div className="bg-primary/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full">
+              <Home className="text-primary h-10 w-10" />
+            </div>
+            <h2 className="text-primary mb-4 text-3xl font-bold tracking-tight md:text-4xl">
+              {COMMUNITY_TITLE}
+            </h2>
+            <p className="text-muted-foreground text-xl">
+              {COMMUNITY_DESCRIPTION}
+            </p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-2">
+            {FEATURED_CARDS.map((featureCard) => (
+              <FeatureCard
+                key={featureCard.title}
+                icon={featureCard.icon}
+                title={featureCard.title}
+                description={featureCard.description}
+                benefits={featureCard.benefits}
+                variant={featureCard.variant as "default" | "primary"}
+              />
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <Button asChild size="lg" className="rounded-full">
+              <Link href="/signup">{COMMUNITY_SECTION_BUTTON_LABEL}</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="mobile-padding py-16 md:py-24">
+        <div className="container mx-auto flex flex-col items-center justify-center">
+          <div className="mb-16 max-w-3xl text-center">
+            <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
+              {HOW_IT_WORKS_TITLE}
+            </h2>
+            <p className="text-muted-foreground text-xl">
+              {HOW_IT_WORKS_DESCRIPTION}{" "}
+            </p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            {HOW_IT_WORKS_ITEMS.map((howItWorksItem) => (
+              <div key={howItWorksItem.id} className="text-center">
+                <div className="bg-primary text-primary-foreground mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full text-2xl font-bold">
+                  {howItWorksItem.id}
+                </div>
+                <h3 className="mb-2 text-xl font-semibold">
+                  {howItWorksItem.title}
+                </h3>
+                <p className="text-muted-foreground">
+                  {howItWorksItem.description}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="rounded-full"
+            >
+              <Link href="/how-it-works">{HOW_IT_WORKS_BUTTON_LABEL}</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="bg-primary mobile-padding text-primary-foreground py-16 md:py-24">
+        <div className="container mx-auto flex flex-col items-center justify-center">
+          <div className="max-w-3xl text-center">
+            <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
+              {CTA_TITLE}
+            </h2>
+            <p className="mb-8 text-xl opacity-90">{CTA_DESCRIPTION} </p>
+            <Button
+              asChild
+              size="lg"
+              variant="secondary"
+              className="rounded-full"
+            >
+              <Link href="/signup">{CTA_BUTTON_LABEL}</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
