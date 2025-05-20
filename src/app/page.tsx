@@ -38,19 +38,19 @@ const CATEGORY_CARDS = [
     title: "Power & Hand Tools",
     description:
       "Drills, saws, sanders, and more available in your neighborhood.",
-    imageUrl: "/assorted-power-tools.png",
+    imageUrl: "/images/mock/tool-bench.jpg",
     icon: <Tool className="h-6 w-6" />,
   },
   {
     title: "Trucks & Trailers",
     description: "Moving? Need to haul something? Your neighbors can help.",
-    imageUrl: "/truck-and-trailer.png",
+    imageUrl: "/images/mock/trailer-hitch.jpg",
     icon: <Truck className="h-6 w-6" />,
   },
   {
     title: "Lawn & Garden",
     description: "Mowers, trimmers, pressure washers, and more for your yard.",
-    imageUrl: "/lawn-mower-tools.png",
+    imageUrl: "/images/mock/garden-tools.jpg",
     icon: <Home className="h-6 w-6" />,
   },
 ];
@@ -150,9 +150,9 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="mobile-padding bg-[linear-gradient(to_bottom,theme(colors.background)_0%,theme(colors.skyBlue)_60%,theme(colors.skyBlue)_100%)] relative overflow-hidden pt-16 md:pt-24">
-        <div className="relative z-10 container mx-auto flex flex-col items-center justify-center">
-          <FadeIn>
+      <FadeIn>
+        <section className="mobile-padding bg-[linear-gradient(to_bottom,theme(colors.background)_0%,theme(colors.skyBlue)_60%,theme(colors.skyBlue)_100%)] relative overflow-hidden pt-16 md:pt-24">
+          <div className="relative z-10 container mx-auto flex flex-col items-center justify-center">
             <div className="max-w-3xl text-center">
               <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
                 {HERO_TITLE_A}{" "}
@@ -172,25 +172,25 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-          </FadeIn>
-        </div>
+          </div>
 
-        <div className="bg-skyBlue relative mt-8 flex w-full justify-center">
-          <FadeIn
-            delay={300}
-            duration={1000}
-            className="flex w-full justify-center"
-          >
-            <Image
-              src="/images/cartoon.png"
-              width={322}
-              height={108}
-              alt="Cartoon image of neighbors sharing tools"
-              className="w-full md:w-1/2 lg:w-1/3"
-            />
-          </FadeIn>
-        </div>
-      </section>
+          <div className="bg-skyBlue relative mt-8 flex w-full justify-center">
+            <FadeIn
+              delay={300}
+              duration={1000}
+              className="flex w-full justify-center"
+            >
+              <Image
+                src="/images/cartoon.png"
+                width={322}
+                height={108}
+                alt="Cartoon image of neighbors sharing tools"
+                className="w-full md:w-1/2 lg:w-1/3"
+              />
+            </FadeIn>
+          </div>
+        </section>
+      </FadeIn>
 
       {/* Value Proposition */}
       <AnimatedSection className="mobile-padding py-16 md:py-24">

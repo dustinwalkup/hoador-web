@@ -15,7 +15,7 @@ export default function CategoryCard({
   imageUrl,
 }: CategoryCardProps) {
   return (
-    <div className="group bg-card rounded-xl border p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="group bg-card flex flex-grow flex-col rounded-xl border p-6 shadow-sm transition-all hover:shadow-md">
       <div className="bg-primary/10 text-primary mb-4 rounded-full p-3">
         {icon}
       </div>
@@ -26,7 +26,7 @@ export default function CategoryCard({
         alt={title}
         width={320}
         height={180}
-        className="rounded-lg object-cover"
+        className="w-full flex-1 rounded-lg object-cover"
       />
     </div>
   );
