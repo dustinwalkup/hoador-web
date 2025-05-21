@@ -5,12 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 
 import {
-  CameraIcon,
-  ClipboardListIcon,
-  DatabaseIcon,
-  FileCodeIcon,
-  FileIcon,
-  FileTextIcon,
+  BookOpenIcon,
+  CreditCardIcon,
+  FileSignatureIcon,
   HelpCircleIcon,
   SearchIcon,
   SettingsIcon,
@@ -33,59 +30,11 @@ import { mainNav } from "@/lib/constants";
 
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: "stevemiller",
+    email: "stevemiller@gmail.com",
+    avatar: "/images/mock/testUser.jpg",
   },
 
-  navClouds: [
-    {
-      title: "Capture",
-      icon: CameraIcon,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: FileTextIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: FileCodeIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
   navSecondary: [
     {
       title: "Settings",
@@ -105,19 +54,24 @@ const data = {
   ],
   documents: [
     {
-      name: "Data Library",
-      url: "#",
-      icon: DatabaseIcon,
+      name: "Rental Agreements",
+      url: "/agreements",
+      icon: FileSignatureIcon,
     },
     {
-      name: "Reports",
-      url: "#",
-      icon: ClipboardListIcon,
+      name: "Invoices & Receipts",
+      url: "/invoices",
+      icon: CreditCardIcon,
     },
     {
-      name: "Word Assistant",
-      url: "#",
-      icon: FileIcon,
+      name: "Safety Manuals",
+      url: "/safety-manuals",
+      icon: BookOpenIcon,
+    },
+    {
+      name: "FAQs",
+      url: "/faq",
+      icon: HelpCircleIcon,
     },
   ],
 };

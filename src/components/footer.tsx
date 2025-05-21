@@ -7,7 +7,7 @@ const FOOTER_SECTIONS = [
   {
     title: "About",
     links: [
-      { label: "How ToolShare works", href: "/how-it-works" },
+      { label: "How Hoador works", href: "/how-it-works" },
       { label: "Trust & Safety", href: "/trust-safety" },
       { label: "Careers", href: "/careers" },
       { label: "About us", href: "/about" },
@@ -90,7 +90,7 @@ export default function Footer() {
           <div className="flex items-center gap-4">
             <Image
               src="/hoador-logo.svg"
-              alt="ToolShare"
+              alt="Hoador logo"
               width={120}
               height={40}
               className="h-8 w-auto"
