@@ -50,7 +50,7 @@ export default function ExplorePage() {
                 </SheetDescription>
               </SheetHeader>
 
-              <div className="mt-6 space-y-6">
+              <div className="mt-6 space-y-6 px-4">
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium">Distance</h3>
                   <div className="space-y-4">
