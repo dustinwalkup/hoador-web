@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  FolderIcon,
-  MoreHorizontalIcon,
-  ShareIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { FolderIcon, MoreHorizontalIcon, ShareIcon } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -22,16 +17,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { DocumentLink } from "@/lib/constants/navbar";
 
-export function NavDocuments({
-  items,
-}: {
-  items: {
-    name: string;
-    url: string;
-    icon: LucideIcon;
-  }[];
-}) {
+export function NavDocuments({ items }: { items: readonly DocumentLink[] }) {
   const { isMobile } = useSidebar();
 
   return (
@@ -50,7 +38,7 @@ export function NavDocuments({
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction
                   showOnHover
-                  className="rounded-sm data-[state=open]:bg-accent"
+                  className="data-[state=open]:bg-accent rounded-sm"
                 >
                   <MoreHorizontalIcon />
                   <span className="sr-only">More</span>

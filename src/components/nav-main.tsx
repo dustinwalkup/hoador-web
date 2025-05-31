@@ -1,10 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { LucideIcon } from "lucide-react";
 
-// import { MailIcon, PlusCircleIcon, type LucideIcon } from "lucide-react";
-// import { Button } from "@/components/ui/button";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -12,16 +9,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { MainNavItem } from "@/lib/constants/navbar";
 
-export function NavMain({
-  items,
-}: {
-  items: {
-    title: string;
-    url: string;
-    icon?: LucideIcon | React.FC<React.SVGProps<SVGSVGElement>>;
-  }[];
-}) {
+export function NavMain({ items }: { items: readonly MainNavItem[] }) {
   const pathname = usePathname();
 
   return (

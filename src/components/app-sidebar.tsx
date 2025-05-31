@@ -1,17 +1,7 @@
 "use client";
 
-import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-
-import {
-  BookOpenIcon,
-  CreditCardIcon,
-  FileSignatureIcon,
-  HelpCircleIcon,
-  SearchIcon,
-  SettingsIcon,
-} from "lucide-react";
 
 import { NavDocuments } from "@/components/nav-documents";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -26,55 +16,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { mainNav } from "@/lib/constants";
+import { DASHBOARD } from "@/lib/constants/navbar";
 
-const data = {
-  user: {
-    name: "stevemiller",
-    email: "stevemiller@gmail.com",
-    avatar: "/images/mock/testUser.jpg",
-  },
-
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: SettingsIcon,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: HelpCircleIcon,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: SearchIcon,
-    },
-  ],
-  documents: [
-    {
-      name: "Rental Agreements",
-      url: "/agreements",
-      icon: FileSignatureIcon,
-    },
-    {
-      name: "Invoices & Receipts",
-      url: "/invoices",
-      icon: CreditCardIcon,
-    },
-    {
-      name: "Safety Manuals",
-      url: "/safety-manuals",
-      icon: BookOpenIcon,
-    },
-    {
-      name: "FAQs",
-      url: "/faq",
-      icon: HelpCircleIcon,
-    },
-  ],
-};
+const { mainNav, navSecondary, documents, user } = DASHBOARD;
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -100,11 +44,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={mainNav} />
-        <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavDocuments items={documents} />
+        <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   );
