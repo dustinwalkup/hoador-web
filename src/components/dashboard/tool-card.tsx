@@ -27,7 +27,7 @@ export default function ToolCard({
   isNew = false,
 }: ToolCardProps) {
   return (
-    <Card className="group overflow-hidden pt-0 pb-2 transition-all hover:shadow-md">
+    <Card className="group overflow-hidden transition-all hover:shadow-md">
       <div className="relative">
         <div className="bg-muted aspect-[4/3] overflow-hidden">
           <Image
