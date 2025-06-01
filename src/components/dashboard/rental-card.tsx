@@ -27,7 +27,7 @@ export default function RentalCard({
   availability,
 }: RentalCardProps) {
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden pt-0 pb-2">
       <div className="bg-muted aspect-[4/3] overflow-hidden">
         <Image
           src={imageUrl || "/placeholder.svg"}
