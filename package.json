@@ -10,9 +10,11 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed:users": "./src/db/seeds/users.ts"
   },
   "dependencies": {
+    "@faker-js/faker": "^9.8.0",
     "@neondatabase/serverless": "^1.0.0",
     "@radix-ui/react-avatar": "^1.1.7",
     "@radix-ui/react-checkbox": "^1.3.2",
@@ -25,6 +27,7 @@
     "@radix-ui/react-separator": "^1.1.4",
     "@radix-ui/react-slider": "^1.3.5",
     "@radix-ui/react-slot": "^1.2.0",
+    "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.4",
     "@walkup/walkup-utils": "^1.1.0",
