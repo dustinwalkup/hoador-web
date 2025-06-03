@@ -60,13 +60,15 @@ export interface UserData {
   readonly name: string;
   readonly firstName: string;
   readonly email: string;
-  readonly avatar: string; // path or URL
+  readonly avatar: string;
+  readonly initials: string;
 }
 
 export const USER: UserData = {
-  name: "stevemiller",
-  firstName: "Steve",
-  email: "stevemiller@gmail.com",
+  name: "Tyler Durden",
+  firstName: "Tyler",
+  initials: "TD",
+  email: "tyler@example.com",
   avatar: "/images/mock/testUser.jpg",
 };
 
