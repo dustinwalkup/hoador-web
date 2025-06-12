@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "db:seed:users": "./src/db/seeds/users.ts"
+    "db:seed:users": "./src/db/seeds/users.ts",
+    "seed": "tsx src/db/seeds/seed.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^9.8.0",
