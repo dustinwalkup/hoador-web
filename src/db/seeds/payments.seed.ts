@@ -2,9 +2,9 @@ import { faker } from "@faker-js/faker";
 import { InferInsertModel } from "drizzle-orm";
 import "dotenv/config";
 import { db } from "../db";
-import { payments } from "../schemas/payments";
-import { rentals } from "../schemas/rentals";
-import { users } from "../schemas/users";
+import { payments } from "../schemas/payments.schema";
+import { rentals } from "../schemas/rentals.schema";
+import { users } from "../schemas/users.schema";
 
 // Infer type
 

@@ -22,17 +22,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { DASHBOARD_PAGE } from "@/lib/constants/dashboard";
-import { DASHBOARD } from "@/lib/constants/navbar";
 import ActivityFeed from "@/components/dashboard/activity-feed";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RentalCard from "@/components/dashboard/rental-card";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 const { header, alerts, quickActions, pendingRequests } = DASHBOARD_PAGE;
-const { user } = DASHBOARD;
+// const { user } = DASHBOARD;
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const user = await getCurrentUser();
   return (
     <div className="space-y-6">
       <div>

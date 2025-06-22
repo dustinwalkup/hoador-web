@@ -1,12 +1,16 @@
 import { relations } from "drizzle-orm";
 
-import { toolAvailability, toolCategories, tools } from "./tools";
-import { users } from "./users";
-import { collectionItems, userCollections, userFavorites } from "./collections";
-import { messages } from "./messages";
-import { notifications } from "./notifications";
-import { rentalRequests, rentals, reviews } from "./rentals";
-import { payments } from "./payments";
+import { toolAvailability, toolCategories, tools } from "./tools.schema";
+import { users } from "./users.schema";
+import {
+  collectionItems,
+  userCollections,
+  userFavorites,
+} from "./collections.schema";
+import { messages } from "./messages.schema";
+import { notifications } from "./notifications.schema";
+import { rentalRequests, rentals, reviews } from "./rentals.schema";
+import { payments } from "./payments.schema";
 
 export const collectionItemsRelations = relations(
   collectionItems,

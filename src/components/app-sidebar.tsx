@@ -1,12 +1,11 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
-import { NavMain } from "./nav-main";
 import {
   Sidebar,
   SidebarContent,
@@ -16,11 +15,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { DASHBOARD } from "@/lib/constants/navbar";
+import { NavMain } from "./nav-main";
 
-const { mainNav, navSecondary, documents, user } = DASHBOARD;
-
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export async function AppSidebar({
+  ...props
+}: React.ComponentProps<typeof Sidebar>) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/");
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -43,9 +44,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={mainNav} />
-        <NavDocuments items={documents} />
-        <NavSecondary items={navSecondary} className="mt-auto" />
+        <NavMain />
+        <NavDocuments />
+        <NavSecondary className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

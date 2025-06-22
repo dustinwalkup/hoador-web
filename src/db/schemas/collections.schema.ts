@@ -9,8 +9,8 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { tools } from "./tools";
-import { users } from "./users";
+import { tools } from "./tools.schema";
+import { users } from "./users.schema";
 
 // User favorites
 export const userFavorites = pgTable(

@@ -7,11 +7,11 @@ import {
   userAddresses,
   userPreferences,
   userPaymentMethods,
-} from "../schemas/users";
+} from "../schemas/users.schema";
 
 // Infer types
 
-type NewUser = InferInsertModel<typeof users>;
+type NewUser = typeof users.$inferInsert;
 type NewAddress = InferInsertModel<typeof userAddresses>;
 type NewPreference = InferInsertModel<typeof userPreferences>;
 type NewPaymentMethod = InferInsertModel<typeof userPaymentMethods>;

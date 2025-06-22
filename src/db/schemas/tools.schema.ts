@@ -13,7 +13,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { users } from "./users";
+import { users } from "./users.schema";
 
 export const toolConditionEnum = pgEnum("tool_condition", [
   "new",

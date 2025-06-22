@@ -12,13 +12,21 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { userStatusEnum } from "./_enums";
-import { tools } from "./tools";
-import { rentalRequests, rentals, reviews } from "./rentals";
-import { payments } from "./payments";
-import { collectionItems, userCollections, userFavorites } from "./collections";
-import { messages } from "./messages";
-import { notifications } from "./notifications";
-import { userSessions } from "./sessions";
+import { tools } from "./tools.schema";
+import { rentalRequests, rentals, reviews } from "./rentals.schema";
+import { payments } from "./payments.schema";
+import {
+  collectionItems,
+  userCollections,
+  userFavorites,
+} from "./collections.schema";
+import { messages } from "./messages.schema";
+import { notifications } from "./notifications.schema";
+import { userSessions } from "./sessions.schema";
+
+export type UserDB = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type UpdateUser = Partial<NewUser>;
 
 // Users table
 export const users = pgTable(

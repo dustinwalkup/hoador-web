@@ -7,13 +7,13 @@ async function runSeed(file: string) {
 
 async function main() {
   const seedFiles = [
-    "users.ts",
-    "tools.ts",
-    "rentals.ts",
-    "payments.ts",
-    "notifications.ts",
-    "messages.ts",
-    "collections.ts",
+    "users.seed.ts",
+    "tools.seed.ts",
+    "rentals.seed.ts",
+    "payments.seed.ts",
+    "notifications.seed.ts",
+    "messages.seed.ts",
+    "collections.seed.ts",
   ];
 
   for (const file of seedFiles) {

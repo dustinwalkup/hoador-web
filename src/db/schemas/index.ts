@@ -1,11 +1,11 @@
-import * as users from "./users";
-import * as tools from "./tools";
-import * as rentals from "./rentals";
-import * as payments from "./payments";
-import * as collections from "./collections";
-import * as messages from "./messages";
-import * as notifications from "./notifications";
-import * as sessions from "./sessions";
+import * as users from "./users.schema";
+import * as tools from "./tools.schema";
+import * as rentals from "./rentals.schema";
+import * as payments from "./payments.schema";
+import * as collections from "./collections.schema";
+import * as messages from "./messages.schema";
+import * as notifications from "./notifications.schema";
+import * as sessions from "./sessions.schema";
 
 export const schema = {
   ...users,

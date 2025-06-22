@@ -8,8 +8,8 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
-import { rentals } from "./rentals";
-import { users } from "./users";
+import { rentals } from "./rentals.schema";
+import { users } from "./users.schema";
 import { paymentStatusEnum } from "./_enums";
 
 export const payments = pgTable(

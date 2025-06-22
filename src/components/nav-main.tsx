@@ -9,9 +9,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { MainNavItem } from "@/lib/constants/navbar";
+import { DASHBOARD } from "@/lib/constants/navbar";
 
-export function NavMain({ items }: { items: readonly MainNavItem[] }) {
+const { mainNav } = DASHBOARD;
+
+export function NavMain() {
   const pathname = usePathname();
 
   return (
@@ -37,7 +39,7 @@ export function NavMain({ items }: { items: readonly MainNavItem[] }) {
           </SidebarMenuItem>
         </SidebarMenu> */}
         <SidebarMenu>
-          {items.map((item) => {
+          {mainNav.map((item) => {
             const isActive = item.url === pathname;
             return (
               <SidebarMenuItem key={item.title} className="!cursor-pointer">

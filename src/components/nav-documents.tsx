@@ -17,16 +17,18 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { DocumentLink } from "@/lib/constants/navbar";
+import { DASHBOARD } from "@/lib/constants/navbar";
 
-export function NavDocuments({ items }: { items: readonly DocumentLink[] }) {
+const { documents } = DASHBOARD;
+
+export function NavDocuments() {
   const { isMobile } = useSidebar();
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Documents</SidebarGroupLabel>
       <SidebarMenu>
-        {items.map((item) => (
+        {documents.map((item) => (
           <SidebarMenuItem key={item.name}>
             <SidebarMenuButton asChild>
               <a href={item.url}>

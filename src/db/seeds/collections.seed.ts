@@ -6,9 +6,9 @@ import {
   userFavorites,
   userCollections,
   collectionItems,
-} from "../schemas/collections";
-import { users } from "../schemas/users";
-import { tools } from "../schemas/tools";
+} from "../schemas/collections.schema";
+import { users } from "../schemas/users.schema";
+import { tools } from "../schemas/tools.schema";
 
 // Infer types
 

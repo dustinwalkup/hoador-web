@@ -64,24 +64,14 @@ export interface UserData {
   readonly initials: string;
 }
 
-export const USER: UserData = {
-  name: "Tyler Durden",
-  firstName: "Tyler",
-  initials: "TD",
-  email: "tyler@example.com",
-  avatar: "/images/mock/testUser.jpg",
-};
-
 export interface DashboardConstants {
   readonly mainNav: readonly MainNavItem[];
-  readonly user: UserData;
   readonly navSecondary: readonly SecondaryNavItem[];
   readonly documents: readonly DocumentLink[];
 }
 
 export const DASHBOARD: DashboardConstants = {
   mainNav: MAIN_NAV,
-  user: USER,
   navSecondary: NAV_SECONDARY,
   documents: DOCUMENT_LINKS,
 };

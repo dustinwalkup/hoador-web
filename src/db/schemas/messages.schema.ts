@@ -8,7 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { messageStatusEnum } from "./_enums";
-import { users } from "./users";
+import { users } from "./users.schema";
 
 // Messages
 export const messages = pgTable(

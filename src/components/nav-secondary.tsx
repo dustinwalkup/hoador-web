@@ -7,19 +7,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { SecondaryNavItem } from "@/lib/constants/navbar";
+import { DASHBOARD } from "@/lib/constants/navbar";
+
+const { navSecondary } = DASHBOARD;
 
 export function NavSecondary({
-  items,
   ...props
-}: {
-  items: readonly SecondaryNavItem[];
-} & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+}: {} & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
+          {navSecondary.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild>
                 <a href={item.url}>

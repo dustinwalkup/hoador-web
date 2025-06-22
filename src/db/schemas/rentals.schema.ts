@@ -12,8 +12,8 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-import { users } from "./users";
-import { tools } from "./tools";
+import { users } from "./users.schema";
+import { tools } from "./tools.schema";
 import { rentalStatusEnum } from "./_enums";
 
 // Rental requests
