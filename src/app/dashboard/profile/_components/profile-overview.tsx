@@ -1,6 +1,6 @@
 import { Star, MapPin, Calendar } from "lucide-react";
 
-import { reviewDAL } from "@/lib/dal";
+import { rentalDAL, reviewDAL } from "@/lib/dal";
 import { UserProfile } from "@/lib/dal/types";
 import { PROFILE_OVERVIEW } from "@/lib/constants/profile";
 import { formatReviewSummary } from "@/lib/utils/reviews.utils";
@@ -26,9 +26,11 @@ import { Separator } from "@/components/ui/separator";
 import { ProfileForm } from "./profile-form";
 
 export async function ProfileOverview({ user }: { user: UserProfile }) {
-  const { averageRating, totalReviews } = await reviewDAL.getSummaryForUser(
-    user.id,
-  );
+  const [reviews, borrowedCount, sharedCount] = await Promise.all([
+    reviewDAL.getSummaryForUser(user.id),
+    rentalDAL.countBorrowedTools(user.id),
+    rentalDAL.countSharedTools(user.id),
+  ]);
 
   return (
     <div className="grid gap-6 md:grid-cols-3">
@@ -72,13 +74,13 @@ export async function ProfileOverview({ user }: { user: UserProfile }) {
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
-                  className={`h-4 w-4 ${star <= Math.round(averageRating) ? "fill-amber-400 text-amber-400" : "text-muted"}`}
+                  className={`h-4 w-4 ${star <= Math.round(reviews.averageRating) ? "fill-amber-400 text-amber-400" : "text-muted"}`}
                 />
               ))}
             </div>
             <span className="ml-2 text-sm">
               {" "}
-              {formatReviewSummary(averageRating, totalReviews)}
+              {formatReviewSummary(reviews.averageRating, reviews.totalReviews)}
             </span>
           </div>
 
@@ -93,13 +95,13 @@ export async function ProfileOverview({ user }: { user: UserProfile }) {
 
           <div className="grid w-full grid-cols-2 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold">32</div>
+              <div className="text-2xl font-bold">{borrowedCount}</div>
               <div className="text-muted-foreground text-xs">
                 {PROFILE_OVERVIEW.profileCard.stats.borrowed.label}
               </div>
             </div>
             <div>
-              <div className="text-2xl font-bold">18</div>
+              <div className="text-2xl font-bold">{sharedCount}</div>
               <div className="text-muted-foreground text-xs">
                 {PROFILE_OVERVIEW.profileCard.stats.shared.label}
               </div>
