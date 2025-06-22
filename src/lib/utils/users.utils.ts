@@ -45,3 +45,14 @@ export function getFullAddress(
   ];
   return parts.filter(Boolean).join(", ");
 }
+
+export function formatMemberSince(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+
+  if (isNaN(d.getTime())) return "Member since Unknown";
+
+  const month = d.toLocaleString("default", { month: "long" });
+  const year = d.getFullYear();
+
+  return `Member since ${month} ${year}`;
+}

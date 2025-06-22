@@ -7,13 +7,12 @@ import { tools } from "../schemas/tools.schema";
 import { users } from "../schemas/users.schema";
 
 // Infer types
-
 type NewRequest = InferInsertModel<typeof rentalRequests>;
 type NewRental = InferInsertModel<typeof rentals>;
 type NewReview = InferInsertModel<typeof reviews>;
 
 async function main() {
-  console.log("🌱 Seeding rentals...");
+  console.log("🌱 Seeding rentals and reviews...");
 
   await db.delete(reviews);
   await db.delete(rentals);
@@ -29,6 +28,8 @@ async function main() {
   const seedRequests: NewRequest[] = [];
   const seedRentals: NewRental[] = [];
   const seedReviews: NewReview[] = [];
+
+  const rentalMap = new Map<string, NewRental>();
 
   for (let i = 0; i < 30; i++) {
     const tool = faker.helpers.arrayElement(allTools);
@@ -58,7 +59,6 @@ async function main() {
     ]);
 
     const requestId = faker.string.uuid();
-
     const request: NewRequest = {
       id: requestId,
       toolId: tool.id,
@@ -84,7 +84,6 @@ async function main() {
 
     seedRequests.push(request);
 
-    // Add rental if approved
     if (status === "approved") {
       const rentalId = faker.string.uuid();
       const rental: NewRental = {
@@ -114,40 +113,28 @@ async function main() {
       };
 
       seedRentals.push(rental);
+      rentalMap.set(rentalId, rental);
+    }
+  }
 
-      // Add 1–2 reviews for this rental
-      const hasOwnerReview = faker.datatype.boolean();
-      const hasRenterReview = faker.datatype.boolean();
+  // Generate 20 reviews per user (10 from others, 10 to others)
+  for (const reviewee of allUsers) {
+    const possibleReviewers = allUsers.filter((u) => u.id !== reviewee.id);
+    for (let i = 0; i < 20; i++) {
+      const reviewer = faker.helpers.arrayElement(possibleReviewers);
+      const rental = faker.helpers.arrayElement(seedRentals);
 
-      if (hasOwnerReview) {
+      if (rental.id) {
         seedReviews.push({
           id: faker.string.uuid(),
-          rentalId: rental.id || rentalId,
-          reviewerId: owner.id,
-          revieweeId: renter.id,
-          toolId: tool.id,
+          rentalId: rental.id,
+          reviewerId: reviewer.id,
+          revieweeId: reviewee.id,
+          toolId: rental.toolId,
           rating: faker.number.int({ min: 3, max: 5 }),
           title: faker.word.adjective() + " experience",
           comment: faker.lorem.sentences(2),
-          isOwnerReview: true,
-          isPublic: true,
-          helpfulCount: faker.number.int({ min: 0, max: 10 }),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      }
-
-      if (hasRenterReview) {
-        seedReviews.push({
-          id: faker.string.uuid(),
-          rentalId: rental.id || rentalId,
-          reviewerId: renter.id,
-          revieweeId: owner.id,
-          toolId: tool.id,
-          rating: faker.number.int({ min: 3, max: 5 }),
-          title: faker.word.adjective() + " service",
-          comment: faker.lorem.sentences(2),
-          isOwnerReview: false,
+          isOwnerReview: faker.datatype.boolean(),
           isPublic: true,
           helpfulCount: faker.number.int({ min: 0, max: 10 }),
           createdAt: new Date(),
@@ -161,7 +148,7 @@ async function main() {
   await db.insert(rentals).values(seedRentals);
   await db.insert(reviews).values(seedReviews);
 
-  console.log("✅ Rentals and reviews seed complete");
+  console.log("✅ Rentals and 20x reviews per user seeded successfully");
 }
 
 main().catch((err) => {

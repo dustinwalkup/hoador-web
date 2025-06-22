@@ -2,8 +2,13 @@ import { db } from "../../db/db";
 import { DALError, ValidationError } from "./errors";
 import { type PaginatedResult } from "./types";
 
-export abstract class BaseDAL {
+export abstract class BaseDAL<TTable = undefined> {
   protected db = db;
+  protected table?: TTable;
+
+  constructor(table?: TTable) {
+    this.table = table;
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected handleError(error: any, operation: string): never {
