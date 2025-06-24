@@ -111,7 +111,7 @@ export default async function GaragePage() {
               </div>
             )}
 
-            <Card className="overflow-hidden border-dashed">
+            <Card className="items-center justify-center overflow-hidden border-dashed">
               <CardContent className="flex flex-col items-center justify-center p-6">
                 <div className="bg-primary/10 mb-4 rounded-full p-3">
                   <Plus className="text-primary h-6 w-6" />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 
 interface FadeInProps {
   children: ReactNode;

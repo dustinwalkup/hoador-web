@@ -1,5 +1,3 @@
-// lib/utils/geocodeAddress.ts
-
 export interface GeocodeResult {
   latitude: number;
   longitude: number;

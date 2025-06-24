@@ -1,12 +1,9 @@
-// app/actions/update-user-profile.ts
 "use server";
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { UserDAL } from "../dal/user.dal";
 import { getCurrentUser } from "../auth/auth-utils";
-
-const dal = new UserDAL();
+import { userDAL } from "../dal";
 
 const UpdateUserProfileSchema = z.object({
   firstName: z.string().min(1),
@@ -24,7 +21,7 @@ const UpdateUserProfileSchema = z.object({
 
 export async function updateUserProfileAndAddress(formData: unknown) {
   const user = await getCurrentUser();
-  console.log("user", user);
+
   const userId = user?.id;
   if (!userId) return { error: "Unauthorized" };
 
@@ -37,8 +34,8 @@ export async function updateUserProfileAndAddress(formData: unknown) {
 
   try {
     await Promise.all([
-      dal.updateUser(userId, userFields),
-      dal.updateUserPrimaryAddress(userId, address),
+      userDAL.updateUser(userId, userFields),
+      userDAL.updateUserPrimaryAddress(userId, address),
     ]);
 
     revalidatePath("/profile");
