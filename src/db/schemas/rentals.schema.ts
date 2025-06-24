@@ -15,6 +15,8 @@ import {
 import { users } from "./users.schema";
 import { tools } from "./tools.schema";
 import { rentalStatusEnum } from "./_enums";
+import { relations } from "drizzle-orm";
+import { payments } from "./payments.schema";
 
 // Rental requests
 export const rentalRequests = pgTable(
@@ -152,3 +154,63 @@ export const reviews = pgTable(
     ratingIdx: index("reviews_rating_idx").on(table.rating),
   }),
 );
+
+export const rentalRequestsRelations = relations(rentalRequests, ({ one }) => ({
+  tool: one(tools, {
+    fields: [rentalRequests.toolId],
+    references: [tools.id],
+  }),
+  renter: one(users, {
+    fields: [rentalRequests.renterId],
+    references: [users.id],
+  }),
+  owner: one(users, {
+    fields: [rentalRequests.ownerId],
+    references: [users.id],
+  }),
+  // Fix: Add proper field/reference mapping for rental relation
+  rental: one(rentals, {
+    fields: [rentalRequests.id],
+    references: [rentals.requestId],
+  }),
+}));
+
+export const rentalsRelations = relations(rentals, ({ one, many }) => ({
+  request: one(rentalRequests, {
+    fields: [rentals.requestId],
+    references: [rentalRequests.id],
+  }),
+  tool: one(tools, {
+    fields: [rentals.toolId],
+    references: [tools.id],
+  }),
+  renter: one(users, {
+    fields: [rentals.renterId],
+    references: [users.id],
+  }),
+  owner: one(users, {
+    fields: [rentals.ownerId],
+    references: [users.id],
+  }),
+  reviews: many(reviews),
+  payments: many(payments),
+}));
+
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  rental: one(rentals, {
+    fields: [reviews.rentalId],
+    references: [rentals.id],
+  }),
+  reviewer: one(users, {
+    fields: [reviews.reviewerId],
+    references: [users.id],
+  }),
+  reviewee: one(users, {
+    fields: [reviews.revieweeId],
+    references: [users.id],
+  }),
+  tool: one(tools, {
+    fields: [reviews.toolId],
+    references: [tools.id],
+  }),
+}));

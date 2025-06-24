@@ -15,6 +15,7 @@ export function BorrowingTab() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <RentalCard
             name="Pressure Washer"
+            id={"123"}
             owner="John D."
             imageUrl="/images/mock/pressure-washer.jpg"
             dueDate="May 25, 2023"
@@ -23,6 +24,7 @@ export function BorrowingTab() {
           />
           <RentalCard
             name="Circular Saw"
+            id={"123"}
             owner="Maria G."
             imageUrl="/images/mock/skill-saw.jpg"
             dueDate="May 28, 2023"
@@ -31,6 +33,7 @@ export function BorrowingTab() {
           />
           <RentalCard
             name="Ladder (8ft)"
+            id={"123"}
             owner="Robert T."
             imageUrl="/images/mock/ladder.jpg"
             dueDate="May 30, 2023"

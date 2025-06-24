@@ -7,6 +7,7 @@ import Link from "next/link";
 
 interface RentalCardProps {
   name: string;
+  id: string;
   imageUrl: string;
   price: string;
   status: "active" | "lent" | "listed";
@@ -18,6 +19,7 @@ interface RentalCardProps {
 
 export default function RentalCard({
   name,
+  id,
   imageUrl,
   price,
   status,
@@ -106,7 +108,7 @@ export default function RentalCard({
           {status === "listed" && (
             <>
               <Button asChild variant="outline" size="sm" className="flex-1">
-                <Link href="#">Edit</Link>
+                <Link href={`/dashboard/tools/edit/${id}`}>Edit</Link>
               </Button>
               <Button size="sm" className="flex-1">
                 Manage

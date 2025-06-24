@@ -8,6 +8,7 @@ import {
   uuid,
   index,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { users } from "./users.schema";
 import { notificationTypeEnum } from "./_enums";
 
@@ -35,3 +36,10 @@ export const notifications = pgTable(
     isReadIdx: index("notifications_is_read_idx").on(table.isRead),
   }),
 );
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));

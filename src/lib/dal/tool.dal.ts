@@ -11,16 +11,63 @@ import {
   // or,
   isNull,
 } from "drizzle-orm";
+import { sql } from "drizzle-orm";
+
 import { BaseDAL } from "./base";
 import {
   type CreateToolDTO,
-  // type UpdateToolDTO,
-  // type ToolDetails,
+  type ToolDetails,
+  type UpdateToolDTO,
   // type ToolSearchFilters,
 } from "./types";
 import { schema } from "../../db/schemas";
+import { NotFoundError, UnauthorizedError } from "./errors";
 
-const { tools, toolCategories, reviews } = schema;
+const { tools, toolCategories, reviews, toolAvailability, userFavorites } =
+  schema;
+
+type ToolDb = typeof tools.$inferSelect;
+type OwnerDb = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profileImageUrl: string | null;
+  createdAt: Date;
+};
+type CategoryDb = {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+};
+type ReviewerDb = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profileImageUrl: string | null;
+};
+type ReviewDb = {
+  id: string;
+  rating: number;
+  title: string | null;
+  comment: string | null;
+  createdAt: Date;
+  reviewer: ReviewerDb;
+};
+type AvailabilityDb = {
+  id: string;
+  startDate: Date;
+  endDate: Date;
+  isBlocked: boolean;
+  reason: string | null;
+};
+
+interface ToolWithRelations extends ToolDb {
+  owner: OwnerDb;
+  category: CategoryDb;
+  reviews: ReviewDb[];
+  availability: AvailabilityDb[];
+}
 
 // Type for the transformed tool data returned by getUserTools
 type UserTool = Omit<
@@ -75,227 +122,231 @@ export class ToolDAL extends BaseDAL {
     }
   }
 
-  // async getToolById(id: string, userId?: string): Promise<ToolDetails> {
-  //   try {
-  //     const tool = await this.db.query.tools.findFirst({
-  //       where: eq(tools.id, id),
-  //       with: {
-  //         owner: {
-  //           columns: {
-  //             id: true,
-  //             firstName: true,
-  //             lastName: true,
-  //             profileImageUrl: true,
-  //             createdAt: true,
-  //           },
-  //         },
-  //         category: {
-  //           columns: {
-  //             id: true,
-  //             name: true,
-  //             description: true,
-  //             icon: true,
-  //           },
-  //         },
-  //         reviews: {
-  //           columns: {
-  //             id: true,
-  //             rating: true,
-  //             title: true,
-  //             comment: true,
-  //             createdAt: true,
-  //           },
-  //           with: {
-  //             reviewer: {
-  //               columns: {
-  //                 id: true,
-  //                 firstName: true,
-  //                 lastName: true,
-  //                 profileImageUrl: true,
-  //               },
-  //             },
-  //           },
-  //           orderBy: [desc(reviews.createdAt)],
-  //           limit: 10,
-  //         },
-  //         availability: {
-  //           columns: {
-  //             id: true,
-  //             startDate: true,
-  //             endDate: true,
-  //             isBlocked: true,
-  //             reason: true,
-  //           },
-  //           orderBy: [asc(toolAvailability.startDate)],
-  //         },
-  //       },
-  //     });
+  async getToolById(id: string, userId?: string): Promise<ToolDetails> {
+    try {
+      const tool = (await this.db.query.tools.findFirst({
+        where: eq(tools.id, id),
+        with: {
+          owner: {
+            columns: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profileImageUrl: true,
+              createdAt: true,
+            },
+          },
+          category: {
+            columns: {
+              id: true,
+              name: true,
+              description: true,
+              icon: true,
+            },
+          },
+          reviews: {
+            columns: {
+              id: true,
+              rating: true,
+              title: true,
+              comment: true,
+              createdAt: true,
+            },
+            with: {
+              reviewer: {
+                columns: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  profileImageUrl: true,
+                },
+              },
+            },
+            orderBy: [desc(reviews.createdAt)],
+            limit: 10,
+          },
+          availability: {
+            columns: {
+              id: true,
+              startDate: true,
+              endDate: true,
+              isBlocked: true,
+              reason: true,
+            },
+            orderBy: [asc(toolAvailability.startDate)],
+          },
+        },
+      })) as ToolWithRelations | undefined;
 
-  //     if (!tool) {
-  //       throw new NotFoundError("Tool", id);
-  //     }
+      if (!tool) {
+        throw new NotFoundError("Tool", id);
+      }
 
-  //     // Get owner reviews separately to calculate rating
-  //     const ownerReviews = await this.db.query.reviews.findMany({
-  //       where: eq(reviews.revieweeId, tool.ownerId),
-  //       columns: {
-  //         rating: true,
-  //       },
-  //     });
+      // Get owner reviews separately to calculate rating
+      const ownerReviews: Array<{ rating: number }> =
+        await this.db.query.reviews.findMany({
+          where: eq(reviews.revieweeId, tool.ownerId),
+          columns: {
+            rating: true,
+          },
+        });
 
-  //     // Calculate average rating for tool
-  //     const toolRatings = tool.reviews.map((r: any) => r.rating);
-  //     const averageRating =
-  //       toolRatings.length > 0
-  //         ? toolRatings.reduce((a: number, b: number) => a + b, 0) /
-  //           toolRatings.length
-  //         : 0;
+      // Calculate average rating for tool
+      const toolRatings = tool.reviews.map((r: ReviewDb) => r.rating);
+      const averageRating =
+        toolRatings.length > 0
+          ? toolRatings.reduce((a: number, b: number) => a + b, 0) /
+            toolRatings.length
+          : 0;
 
-  //     // Calculate owner rating
-  //     const ownerRatings = ownerReviews.map((r: any) => r.rating);
-  //     const ownerAverageRating =
-  //       ownerRatings.length > 0
-  //         ? ownerRatings.reduce((a: number, b: number) => a + b, 0) /
-  //           ownerRatings.length
-  //         : 0;
+      // Calculate owner rating
+      const ownerRatings = ownerReviews.map((r) => r.rating);
+      const ownerAverageRating =
+        ownerRatings.length > 0
+          ? ownerRatings.reduce((a: number, b: number) => a + b, 0) /
+            ownerRatings.length
+          : 0;
 
-  //     // Check if user has favorited this tool
-  //     let isFavorited = false;
-  //     if (userId) {
-  //       const favorite = await this.db.query.userFavorites.findFirst({
-  //         where: and(
-  //           eq(userFavorites.userId, userId),
-  //           eq(userFavorites.toolId, id),
-  //         ),
-  //       });
-  //       isFavorited = !!favorite;
-  //     }
+      // Check if user has favorited this tool
+      let isFavorited = false;
+      if (userId) {
+        const favorite = await this.db.query.userFavorites.findFirst({
+          where: and(
+            eq(userFavorites.userId, userId),
+            eq(userFavorites.toolId, id),
+          ),
+        });
+        isFavorited = !!favorite;
+      }
 
-  //     // Increment view count (only if not the owner)
-  //     if (userId && userId !== tool.ownerId) {
-  //       await this.db
-  //         .update(tools)
-  //         .set({ viewCount: sql`${tools.viewCount} + 1` })
-  //         .where(eq(tools.id, id));
-  //     }
+      // Increment view count (only if not the owner)
+      if (userId && userId !== tool.ownerId) {
+        await this.db
+          .update(tools)
+          .set({ viewCount: sql`${tools.viewCount} + 1` })
+          .where(eq(tools.id, id));
+      }
 
-  //     return {
-  //       id: tool.id,
-  //       name: tool.name,
-  //       description: tool.description,
-  //       brand: tool.brand || undefined,
-  //       model: tool.model || undefined,
-  //       condition: tool.condition,
-  //       dailyRate: Number(tool.dailyRate),
-  //       weeklyRate: tool.weeklyRate ? Number(tool.weeklyRate) : undefined,
-  //       monthlyRate: tool.monthlyRate ? Number(tool.monthlyRate) : undefined,
-  //       securityDeposit: Number(tool.securityDeposit),
-  //       status: tool.status,
-  //       images: tool.images,
-  //       specifications: tool.specifications,
-  //       instructions: tool.instructions || undefined,
-  //       safetyNotes: tool.safetyNotes || undefined,
-  //       minimumRentalPeriod: tool.minimumRentalPeriod,
-  //       maximumRentalPeriod: tool.maximumRentalPeriod,
-  //       requiresPickup: tool.requiresPickup,
-  //       deliveryAvailable: tool.deliveryAvailable,
-  //       deliveryFee: Number(tool.deliveryFee),
-  //       deliveryRadius: tool.deliveryRadius,
-  //       viewCount: tool.viewCount,
-  //       favoriteCount: tool.favoriteCount,
-  //       averageRating: Math.round(averageRating * 10) / 10,
-  //       reviewCount: toolRatings.length,
-  //       isFavorited,
-  //       createdAt: tool.createdAt,
-  //       updatedAt: tool.updatedAt,
-  //       owner: {
-  //         id: tool.owner.id,
-  //         firstName: tool.owner.firstName,
-  //         lastName: tool.owner.lastName,
-  //         profileImageUrl: tool.owner.profileImageUrl || undefined,
-  //         averageRating: Math.round(ownerAverageRating * 10) / 10,
-  //         reviewCount: ownerRatings.length,
-  //         memberSince: tool.owner.createdAt,
-  //       },
-  //       category: {
-  //         id: tool.category.id,
-  //         name: tool.category.name,
-  //         icon: tool.category.icon || undefined,
-  //       },
-  //       reviews: tool.reviews.map((review: any) => ({
-  //         id: review.id,
-  //         rating: review.rating,
-  //         title: review.title || undefined,
-  //         comment: review.comment || undefined,
-  //         createdAt: review.createdAt,
-  //         reviewer: {
-  //           id: review.reviewer.id,
-  //           firstName: review.reviewer.firstName,
-  //           lastName: review.reviewer.lastName,
-  //           profileImageUrl: review.reviewer.profileImageUrl || undefined,
-  //         },
-  //       })),
-  //       availability: tool.availability.map((avail: any) => ({
-  //         id: avail.id,
-  //         startDate: avail.startDate,
-  //         endDate: avail.endDate,
-  //         isBlocked: avail.isBlocked,
-  //         reason: avail.reason || undefined,
-  //       })),
-  //     };
-  //   } catch (error) {
-  //     this.handleError(error, "getToolById");
-  //   }
-  // }
+      return {
+        id: tool.id,
+        name: tool.name,
+        description: tool.description,
+        brand: tool.brand || undefined,
+        model: tool.model || undefined,
+        condition: tool.condition,
+        dailyRate: Number(tool.dailyRate),
+        weeklyRate: tool.weeklyRate ? Number(tool.weeklyRate) : undefined,
+        monthlyRate: tool.monthlyRate ? Number(tool.monthlyRate) : undefined,
+        securityDeposit: Number(tool.securityDeposit),
+        status: tool.status,
+        images: tool.images,
+        specifications: tool.specifications,
+        instructions: tool.instructions || undefined,
+        safetyNotes: tool.safetyNotes || undefined,
+        minimumRentalPeriod: tool.minimumRentalPeriod,
+        maximumRentalPeriod: tool.maximumRentalPeriod,
+        requiresPickup: tool.requiresPickup,
+        deliveryAvailable: tool.deliveryAvailable,
+        deliveryFee: Number(tool.deliveryFee),
+        deliveryRadius: tool.deliveryRadius,
+        viewCount: tool.viewCount,
+        favoriteCount: tool.favoriteCount,
+        averageRating: Math.round(averageRating * 10) / 10,
+        reviewCount: toolRatings.length,
+        isFavorited,
+        createdAt: tool.createdAt,
+        updatedAt: tool.updatedAt,
+        owner: {
+          id: tool.owner.id,
+          firstName: tool.owner.firstName,
+          lastName: tool.owner.lastName,
+          profileImageUrl: tool.owner.profileImageUrl || undefined,
+          averageRating: Math.round(ownerAverageRating * 10) / 10,
+          reviewCount: ownerRatings.length,
+          memberSince: tool.owner.createdAt,
+        },
+        category: {
+          id: tool.category.id,
+          name: tool.category.name,
+          icon: tool.category.icon || undefined,
+        },
+        reviews: tool.reviews.map((review: ReviewDb) => ({
+          id: review.id,
+          rating: review.rating,
+          title: review.title || undefined,
+          comment: review.comment || undefined,
+          createdAt: review.createdAt,
+          reviewer: {
+            id: review.reviewer.id,
+            firstName: review.reviewer.firstName,
+            lastName: review.reviewer.lastName,
+            profileImageUrl: review.reviewer.profileImageUrl || undefined,
+          },
+        })),
+        availability: tool.availability.map((avail: AvailabilityDb) => ({
+          id: avail.id,
+          startDate: avail.startDate,
+          endDate: avail.endDate,
+          isBlocked: avail.isBlocked,
+          reason: avail.reason || undefined,
+        })),
+      };
+    } catch (error) {
+      this.handleError(error, "getToolById");
+    }
+  }
 
-  // async updateTool(
-  //   id: string,
-  //   ownerId: string,
-  //   updates: UpdateToolDTO,
-  // ): Promise<ToolDetails> {
-  //   try {
-  //     // Verify ownership
-  //     const tool = await this.db.query.tools.findFirst({
-  //       where: eq(tools.id, id),
-  //       columns: { ownerId: true },
-  //     });
+  async updateTool(
+    id: string,
+    ownerId: string,
+    updates: UpdateToolDTO,
+  ): Promise<ToolDetails> {
+    try {
+      // Verify ownership
+      const tool = await this.db.query.tools.findFirst({
+        where: eq(tools.id, id),
+        columns: { ownerId: true },
+      });
 
-  //     if (!tool) {
-  //       throw new NotFoundError("Tool", id);
-  //     }
+      if (!tool) {
+        throw new NotFoundError("Tool", id);
+      }
 
-  //     if (tool.ownerId !== ownerId) {
-  //       throw new UnauthorizedError("You can only update your own tools");
-  //     }
+      if (tool.ownerId !== ownerId) {
+        throw new UnauthorizedError("You can only update your own tools");
+      }
 
-  //     // Convert numeric fields to strings for database
-  //     const updateData: any = { ...updates, updatedAt: new Date() };
-  //     if (updates.dailyRate !== undefined)
-  //       updateData.dailyRate = updates.dailyRate.toString();
-  //     if (updates.weeklyRate !== undefined)
-  //       updateData.weeklyRate = updates.weeklyRate.toString();
-  //     if (updates.monthlyRate !== undefined)
-  //       updateData.monthlyRate = updates.monthlyRate.toString();
-  //     if (updates.securityDeposit !== undefined)
-  //       updateData.securityDeposit = updates.securityDeposit.toString();
-  //     if (updates.deliveryFee !== undefined)
-  //       updateData.deliveryFee = updates.deliveryFee.toString();
+      // Convert numeric fields to strings for database
+      const updateData: Record<string, unknown> = {
+        ...updates,
+        updatedAt: new Date(),
+      };
+      if (updates.dailyRate !== undefined)
+        updateData.dailyRate = updates.dailyRate.toString();
+      if (updates.weeklyRate !== undefined)
+        updateData.weeklyRate = updates.weeklyRate.toString();
+      if (updates.monthlyRate !== undefined)
+        updateData.monthlyRate = updates.monthlyRate.toString();
+      if (updates.securityDeposit !== undefined)
+        updateData.securityDeposit = updates.securityDeposit.toString();
+      if (updates.deliveryFee !== undefined)
+        updateData.deliveryFee = updates.deliveryFee.toString();
 
-  //     const [updatedTool] = await this.db
-  //       .update(tools)
-  //       .set(updateData)
-  //       .where(eq(tools.id, id))
-  //       .returning();
+      const [updatedTool] = await this.db
+        .update(tools)
+        .set(updateData)
+        .where(eq(tools.id, id))
+        .returning();
 
-  //     if (!updatedTool) {
-  //       throw new NotFoundError("Tool", id);
-  //     }
+      if (!updatedTool) {
+        throw new NotFoundError("Tool", id);
+      }
 
-  //     return this.getToolById(id, ownerId);
-  //   } catch (error) {
-  //     this.handleError(error, "updateTool");
-  //   }
-  // }
+      return this.getToolById(id, ownerId);
+    } catch (error) {
+      this.handleError(error, "updateTool");
+    }
+  }
 
   // async deleteTool(id: string, ownerId: string): Promise<void> {
   //   try {

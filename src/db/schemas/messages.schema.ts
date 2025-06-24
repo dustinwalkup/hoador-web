@@ -9,6 +9,7 @@ import {
 
 import { messageStatusEnum } from "./_enums";
 import { users } from "./users.schema";
+import { relations } from "drizzle-orm";
 
 // Messages
 export const messages = pgTable(
@@ -37,3 +38,14 @@ export const messages = pgTable(
     statusIdx: index("messages_status_idx").on(table.status),
   }),
 );
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  sender: one(users, {
+    fields: [messages.senderId],
+    references: [users.id],
+  }),
+  receiver: one(users, {
+    fields: [messages.receiverId],
+    references: [users.id],
+  }),
+}));

@@ -1,3 +1,6 @@
+// DO NOT import './_relations' here! Importing relations in the schema index causes circular imports and runtime errors in Drizzle ORM.
+// Only import and use './_relations' in your app entrypoint or DAL setup if needed for relation registration.
+
 import * as users from "./users.schema";
 import * as tools from "./tools.schema";
 import * as rentals from "./rentals.schema";

@@ -11,6 +11,7 @@ import {
 
 import { tools } from "./tools.schema";
 import { users } from "./users.schema";
+import { relations } from "drizzle-orm";
 
 // User favorites
 export const userFavorites = pgTable(
@@ -76,5 +77,41 @@ export const collectionItems = pgTable(
       table.collectionId,
     ),
     toolIdIdx: index("collection_items_tool_id_idx").on(table.toolId),
+  }),
+);
+
+export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
+  user: one(users, {
+    fields: [userFavorites.userId],
+    references: [users.id],
+  }),
+  tool: one(tools, {
+    fields: [userFavorites.toolId],
+    references: [tools.id],
+  }),
+}));
+
+export const userCollectionsRelations = relations(
+  userCollections,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [userCollections.userId],
+      references: [users.id],
+    }),
+    items: many(collectionItems),
+  }),
+);
+
+export const collectionItemsRelations = relations(
+  collectionItems,
+  ({ one }) => ({
+    collection: one(userCollections, {
+      fields: [collectionItems.collectionId],
+      references: [userCollections.id],
+    }),
+    tool: one(tools, {
+      fields: [collectionItems.toolId],
+      references: [tools.id],
+    }),
   }),
 );

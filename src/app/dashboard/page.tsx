@@ -585,6 +585,7 @@ export default async function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <RentalCard
               name="Pressure Washer"
+              id={"123"}
               owner="John D."
               imageUrl="/images/mock/pressure-washer.jpg"
               dueDate="May 25, 2023"
@@ -593,6 +594,7 @@ export default async function DashboardPage() {
             />
             <RentalCard
               name="Circular Saw"
+              id={"123"}
               owner="Maria G."
               imageUrl="/images/mock/skill-saw.jpg"
               dueDate="May 28, 2023"
@@ -601,6 +603,7 @@ export default async function DashboardPage() {
             />
             <RentalCard
               name="Ladder (8ft)"
+              id={"123"}
               owner="Robert T."
               imageUrl="/images/mock/ladder.jpg"
               dueDate="May 30, 2023"
@@ -619,6 +622,7 @@ export default async function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <RentalCard
               name="Drill Set"
+              id={"123"}
               borrower="Emily K."
               imageUrl="/images/mock/drill-set.jpg"
               dueDate="May 26, 2023"
@@ -627,6 +631,7 @@ export default async function DashboardPage() {
             />
             <RentalCard
               name="Lawn Mower"
+              id={"123"}
               borrower="David P."
               imageUrl="/images/mock/lawn-mower.jpg"
               dueDate="June 2, 2023"
@@ -644,6 +649,7 @@ export default async function DashboardPage() {
         <TabsContent value="listings" className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <RentalCard
+              id={"123"}
               name="Drill Set"
               imageUrl="/images/mock/drill-set.jpg"
               status="listed"
@@ -651,6 +657,7 @@ export default async function DashboardPage() {
               availability="Available"
             />
             <RentalCard
+              id={"123"}
               name="Lawn Mower"
               imageUrl="/images/mock/lawn-mower.jpg"
               status="listed"
@@ -658,6 +665,7 @@ export default async function DashboardPage() {
               availability="Currently Lent"
             />
             <RentalCard
+              id={"123"}
               name="Hedge Trimmer"
               imageUrl="/images/mock/hedge-trimmer.jpg"
               status="listed"

@@ -18,6 +18,7 @@ export async function ListingsTab() {
         userTools.map((tool) => (
           <RentalCard
             key={tool.id}
+            id={tool.id}
             name={tool.name}
             imageUrl={getMockToolImage()}
             status="listed"

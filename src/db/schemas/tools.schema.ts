@@ -14,6 +14,9 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { users } from "./users.schema";
+import { rentalRequests, rentals, reviews } from "./rentals.schema";
+import { collectionItems, userFavorites } from "./collections.schema";
+import { relations } from "drizzle-orm";
 
 export const toolConditionEnum = pgEnum("tool_condition", [
   "new",
@@ -124,5 +127,44 @@ export const toolAvailability = pgTable(
       table.startDate,
       table.endDate,
     ),
+  }),
+);
+
+export const toolCategoriesRelations = relations(
+  toolCategories,
+  ({ one, many }) => ({
+    parent: one(toolCategories, {
+      fields: [toolCategories.parentId],
+      references: [toolCategories.id],
+    }),
+    children: many(toolCategories),
+    tools: many(tools),
+  }),
+);
+
+export const toolsRelations = relations(tools, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [tools.ownerId],
+    references: [users.id],
+  }),
+  category: one(toolCategories, {
+    fields: [tools.categoryId],
+    references: [toolCategories.id],
+  }),
+  availability: many(toolAvailability),
+  rentalRequests: many(rentalRequests),
+  rentals: many(rentals),
+  reviews: many(reviews),
+  favorites: many(userFavorites),
+  collectionItems: many(collectionItems),
+}));
+
+export const toolAvailabilityRelations = relations(
+  toolAvailability,
+  ({ one }) => ({
+    tool: one(tools, {
+      fields: [toolAvailability.toolId],
+      references: [tools.id],
+    }),
   }),
 );

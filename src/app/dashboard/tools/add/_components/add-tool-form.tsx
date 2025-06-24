@@ -60,9 +60,19 @@ interface Category {
 
 interface AddToolFormProps {
   categories: Category[];
+  initialValues?: Partial<CreateToolFormData>;
+  onSubmit?: (
+    data: CreateToolFormData,
+  ) => Promise<void | { error?: string; details?: unknown }>;
+  isEdit?: boolean;
 }
 
-export function AddToolForm({ categories }: AddToolFormProps) {
+export function AddToolForm({
+  categories,
+  initialValues,
+  onSubmit,
+  isEdit,
+}: AddToolFormProps) {
   const router = useRouter();
   const [newSpecKey, setNewSpecKey] = useState("");
   const [newSpecValue, setNewSpecValue] = useState("");
@@ -79,9 +89,9 @@ export function AddToolForm({ categories }: AddToolFormProps) {
     reset,
     setError,
     handleDeliveryAvailableChange,
-  } = useToolForm();
+  } = useToolForm(initialValues);
 
-  const onSubmit = async (data: CreateToolFormData) => {
+  const defaultOnSubmit = async (data: CreateToolFormData) => {
     setIsSubmitting(true);
     const result = await createTool(data);
     setIsSubmitting(false);
@@ -103,9 +113,11 @@ export function AddToolForm({ categories }: AddToolFormProps) {
     router.push("/dashboard/garage");
   };
 
+  const handleFormSubmit = onSubmit ? onSubmit : defaultOnSubmit;
+
   return (
-    <Form {...useToolForm()}>
-      <form className="space-y-8" onSubmit={handleSubmit(onSubmit)}>
+    <Form {...useToolForm(initialValues)}>
+      <form className="space-y-8" onSubmit={handleSubmit(handleFormSubmit)}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Basic Information */}
           <Card>
@@ -743,7 +755,13 @@ export function AddToolForm({ categories }: AddToolFormProps) {
             size="lg"
             className="w-full sm:w-auto"
           >
-            {isSubmitting ? "Adding Tool..." : "Add Tool"}
+            {isSubmitting
+              ? isEdit
+                ? "Saving..."
+                : "Adding Tool..."
+              : isEdit
+                ? "Save Changes"
+                : "Add Tool"}
           </Button>
         </div>
       </form>

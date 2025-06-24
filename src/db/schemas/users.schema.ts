@@ -1,4 +1,3 @@
-import { relations } from "drizzle-orm";
 import {
   pgTable,
   varchar,
@@ -11,15 +10,13 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+
 import { userStatusEnum } from "./_enums";
 import { tools } from "./tools.schema";
 import { rentalRequests, rentals, reviews } from "./rentals.schema";
 import { payments } from "./payments.schema";
-import {
-  collectionItems,
-  userCollections,
-  userFavorites,
-} from "./collections.schema";
+import { userCollections, userFavorites } from "./collections.schema";
 import { messages } from "./messages.schema";
 import { notifications } from "./notifications.schema";
 import { userSessions } from "./sessions.schema";
@@ -172,52 +169,23 @@ export const userPaymentMethodsRelations = relations(
   }),
 );
 
-export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
-  user: one(users, {
-    fields: [userFavorites.userId],
-    references: [users.id],
-  }),
-  tool: one(tools, {
-    fields: [userFavorites.toolId],
-    references: [tools.id],
-  }),
-}));
-
-export const userCollectionsRelations = relations(
-  userCollections,
-  ({ one, many }) => ({
-    user: one(users, {
-      fields: [userCollections.userId],
-      references: [users.id],
-    }),
-    items: many(collectionItems),
-  }),
-);
-
-export const userSessionsRelations = relations(userSessions, ({ one }) => ({
-  user: one(users, {
-    fields: [userSessions.userId],
-    references: [users.id],
-  }),
-}));
-
 export const usersRelations = relations(users, ({ one, many }) => ({
   preferences: one(userPreferences),
   addresses: many(userAddresses),
-  ownedTools: many(tools, { relationName: "owner" }),
-  rentalRequests: many(rentalRequests, { relationName: "renter" }),
-  ownedRentalRequests: many(rentalRequests, { relationName: "owner" }),
-  rentals: many(rentals, { relationName: "renter" }),
-  ownedRentals: many(rentals, { relationName: "owner" }),
-  reviewsGiven: many(reviews, { relationName: "reviewer" }),
-  reviewsReceived: many(reviews, { relationName: "reviewee" }),
-  payments: many(payments, { relationName: "payer" }),
-  receivedPayments: many(payments, { relationName: "payee" }),
+  ownedTools: many(tools),
+  rentalRequests: many(rentalRequests),
+  ownedRentalRequests: many(rentalRequests),
+  rentals: many(rentals),
+  ownedRentals: many(rentals),
+  reviewsGiven: many(reviews),
+  reviewsReceived: many(reviews),
+  payments: many(payments),
+  receivedPayments: many(payments),
   paymentMethods: many(userPaymentMethods),
   favorites: many(userFavorites),
   collections: many(userCollections),
-  sentMessages: many(messages, { relationName: "sender" }),
-  receivedMessages: many(messages, { relationName: "receiver" }),
+  sentMessages: many(messages),
+  receivedMessages: many(messages),
   notifications: many(notifications),
   sessions: many(userSessions),
 }));

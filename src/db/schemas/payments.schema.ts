@@ -11,6 +11,7 @@ import {
 import { rentals } from "./rentals.schema";
 import { users } from "./users.schema";
 import { paymentStatusEnum } from "./_enums";
+import { relations } from "drizzle-orm";
 
 export const payments = pgTable(
   "payments",
@@ -49,3 +50,18 @@ export const payments = pgTable(
     ),
   }),
 );
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  rental: one(rentals, {
+    fields: [payments.rentalId],
+    references: [rentals.id],
+  }),
+  payer: one(users, {
+    fields: [payments.payerId],
+    references: [users.id],
+  }),
+  payee: one(users, {
+    fields: [payments.payeeId],
+    references: [users.id],
+  }),
+}));

@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { users } from "./users.schema";
 
 // User sessions (for login tracking)
@@ -40,3 +41,10 @@ export const userSessions = pgTable(
     isActiveIdx: index("user_sessions_is_active_idx").on(table.isActive),
   }),
 );
+
+export const userSessionsRelations = relations(userSessions, ({ one }) => ({
+  user: one(users, {
+    fields: [userSessions.userId],
+    references: [users.id],
+  }),
+}));

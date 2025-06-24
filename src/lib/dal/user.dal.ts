@@ -85,7 +85,7 @@ export class UserDAL extends BaseDAL {
         createdAt: user.createdAt,
         stats,
         preferences: user.preferences,
-        primaryAddress: user.addresses?.[0] ?? null,
+        primaryAddress: user.addresses?.[0] ?? undefined,
       };
     } catch (error) {
       this.handleError(error, "getUserById");
@@ -111,9 +111,9 @@ export class UserDAL extends BaseDAL {
 
       const user = await this.db.query.users.findFirst({
         where: eq(users.email, email),
-        with: {
-          preferences: true,
-        },
+        // with: {
+        //   preferences: true,
+        // },
       });
 
       if (!user) {
@@ -137,7 +137,8 @@ export class UserDAL extends BaseDAL {
         addressVerified: user.addressVerified,
         createdAt: user.createdAt,
         stats,
-        preferences: user.preferences,
+        preferences: null, // user.preferences,
+        primaryAddress: undefined, // user.addresses?.[0] ?? undefined,
       };
     } catch (error) {
       this.handleError(error, "getUserByEmail");
