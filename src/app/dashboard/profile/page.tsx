@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { ProfileTabs } from "./_components/profile-tabs";
 import { ProfileOverview } from "./_components/profile-overview";
 import { EditModeProvider } from "@/lib/contexts/edit-mode-context";

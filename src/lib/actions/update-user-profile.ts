@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { UserDAL } from "../dal/user.dal";
-import { getCurrentUser } from "../auth/get-current-user";
+import { getCurrentUser } from "../auth/auth-utils";
 
 const dal = new UserDAL();
 

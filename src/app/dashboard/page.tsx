@@ -27,10 +27,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RentalCard from "@/components/dashboard/rental-card";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser } from "@/lib/auth/auth-utils";
 
 const { header, alerts, quickActions, pendingRequests } = DASHBOARD_PAGE;
-// const { user } = DASHBOARD;
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();

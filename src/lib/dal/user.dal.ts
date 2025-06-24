@@ -11,6 +11,7 @@ import {
 } from "./types";
 import { ConflictError, NotFoundError } from "./errors";
 import { geocodeAddress } from "../utils/geocoding";
+import { requireAuth } from "../auth/auth-utils";
 
 const { users, userPreferences, userAddresses, reviews, rentals } = schema;
 
@@ -91,8 +92,23 @@ export class UserDAL extends BaseDAL {
     }
   }
 
+  async getCurrentUserProfile(): Promise<UserProfile> {
+    try {
+      const auth = await requireAuth();
+
+      if (!auth.id) {
+        throw new Error("Unauthorized: Cannot get current user profile");
+      }
+      return this.getUserById(auth.id);
+    } catch (error) {
+      this.handleError(error, "getCurrentUserProfile");
+    }
+  }
+
   async getUserByEmail(email: string): Promise<UserProfile | null> {
     try {
+      await requireAuth();
+
       const user = await this.db.query.users.findFirst({
         where: eq(users.email, email),
         with: {
@@ -130,6 +146,12 @@ export class UserDAL extends BaseDAL {
 
   async updateUser(id: string, updates: UpdateUserDTO): Promise<UserProfile> {
     try {
+      const auth = await requireAuth();
+
+      if (auth.id !== id) {
+        throw new Error("Unauthorized: Cannot update other user's profile");
+      }
+
       const [updatedUser] = await this.db
         .update(users)
         .set({ ...updates, updatedAt: new Date() })
@@ -146,8 +168,30 @@ export class UserDAL extends BaseDAL {
     }
   }
 
+  // Method to update current user (convenience method)
+  async updateCurrentUser(updates: UpdateUserDTO): Promise<UserProfile> {
+    try {
+      const auth = await requireAuth();
+
+      if (!auth.id) {
+        throw new Error("Unauthorized: Cannot update current user");
+      }
+
+      return this.updateUser(auth.id, updates);
+    } catch (error) {
+      this.handleError(error, "updateCurrentUser");
+    }
+  }
+
   async deleteUser(id: string): Promise<void> {
     try {
+      const auth = await requireAuth();
+
+      // Users can only delete their own account
+      if (auth.id !== id) {
+        throw new Error("Unauthorized: Cannot delete other user's account");
+      }
+
       const result = await this.db
         .delete(users)
         .where(eq(users.id, id))
@@ -163,6 +207,9 @@ export class UserDAL extends BaseDAL {
 
   async getUserStats(userId: string) {
     try {
+      // Remove requireAuth to break circular dependency
+      // Authentication should be handled at the service/controller level
+
       const [statsResult] = await this.db
         .select({
           toolsBorrowed: count(
@@ -197,6 +244,13 @@ export class UserDAL extends BaseDAL {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async updateUserPreferences(userId: string, preferences: any): Promise<void> {
     try {
+      const auth = await requireAuth();
+
+      // Users can only update their own preferences
+      if (auth.id !== userId) {
+        throw new Error("Unauthorized: Cannot update other user's preferences");
+      }
+
       await this.db
         .update(userPreferences)
         .set({ ...preferences, updatedAt: new Date() })
@@ -206,12 +260,31 @@ export class UserDAL extends BaseDAL {
     }
   }
 
+  // Convenience method for current user
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async updateCurrentUserPreferences(preferences: any): Promise<void> {
+    try {
+      const auth = await requireAuth();
+
+      if (!auth.id) {
+        throw new Error("Unauthorized: Cannot update preferences");
+      }
+
+      return this.updateUserPreferences(auth.id, preferences);
+    } catch (error) {
+      this.handleError(error, "updateCurrentUserPreferences");
+    }
+  }
+
   async getUserReviews(
     userId: string,
     options: PaginationOptions,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<PaginatedResult<any>> {
     try {
+      // Remove requireAuth to break circular dependency
+      // Authentication should be handled at the service/controller level
+
       this.validatePagination(options.page, options.limit);
 
       const offset = (options.page - 1) * options.limit;
@@ -259,6 +332,13 @@ export class UserDAL extends BaseDAL {
 
   async verifyUserEmail(userId: string): Promise<void> {
     try {
+      const auth = await requireAuth();
+
+      // Users can only verify their own email
+      if (auth.id !== userId) {
+        throw new Error("Unauthorized: Cannot verify other user's email");
+      }
+
       await this.db
         .update(users)
         .set({ emailVerified: true, updatedAt: new Date() })
@@ -270,6 +350,13 @@ export class UserDAL extends BaseDAL {
 
   async verifyUserPhone(userId: string): Promise<void> {
     try {
+      const auth = await requireAuth();
+
+      // Users can only verify their own phone
+      if (auth.id !== userId) {
+        throw new Error("Unauthorized: Cannot verify other user's phone");
+      }
+
       await this.db
         .update(users)
         .set({ phoneVerified: true, updatedAt: new Date() })
@@ -281,6 +368,13 @@ export class UserDAL extends BaseDAL {
 
   async updateUserStatus(userId: string, status: string): Promise<void> {
     try {
+      const auth = await requireAuth();
+
+      // Users can only update their own status
+      if (auth.id !== userId) {
+        throw new Error("Unauthorized: Cannot update other user's status");
+      }
+
       await this.db
         .update(users)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -301,6 +395,13 @@ export class UserDAL extends BaseDAL {
     },
   ): Promise<void> {
     try {
+      const auth = await requireAuth();
+
+      // Users can only update their own address
+      if (auth.id !== userId) {
+        throw new Error("Unauthorized: Cannot update other user's address");
+      }
+
       const geo = await geocodeAddress(input);
 
       if (!geo) {
@@ -345,6 +446,24 @@ export class UserDAL extends BaseDAL {
       }
     } catch (error) {
       this.handleError(error, "updateUserPrimaryAddress");
+    }
+  }
+
+  // Convenience method for current user
+  async updateCurrentUserPrimaryAddress(input: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  }): Promise<void> {
+    try {
+      const auth = await requireAuth();
+      if (!auth.id) {
+        throw new Error("Unauthorized: Cannot update current user's address");
+      }
+      return this.updateUserPrimaryAddress(auth.id, input);
+    } catch (error) {
+      this.handleError(error, "updateCurrentUserPrimaryAddress");
     }
   }
 }

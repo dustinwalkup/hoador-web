@@ -1,20 +1,11 @@
-"use client";
+import Link from "next/link";
+import { Calendar, Search, Filter, Plus, ArrowRight } from "lucide-react";
 
-import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Calendar,
-  Search,
-  Filter,
-  Grid3X3,
-  List,
-  Plus,
-  ArrowRight,
-} from "lucide-react";
 import RentalCard from "@/components/dashboard/rental-card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -25,8 +16,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export default function GaragePage() {
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { toolDAL } from "@/lib/dal";
+import { getMockToolImage } from "@/lib/constants/garage";
+
+export default async function GaragePage() {
+  const user = await getCurrentUser();
+  const userTools = await toolDAL.getUserTools(user.id);
 
   return (
     <div className="container py-6">
@@ -39,39 +35,20 @@ export default function GaragePage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm" className="h-9">
-            <Plus className="mr-2 h-4 w-4" />
-            Add New Tool
-          </Button>
-
-          <div className="flex items-center rounded-md border">
-            <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              size="icon"
-              className="h-9 w-9 rounded-none rounded-l-md"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid3X3 className="h-4 w-4" />
-              <span className="sr-only">Grid view</span>
+          <Link href="/dashboard/tools/add">
+            <Button size="sm" className="h-9">
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Tool
             </Button>
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="icon"
-              className="h-9 w-9 rounded-none rounded-r-md"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-4 w-4" />
-              <span className="sr-only">List view</span>
-            </Button>
-          </div>
+          </Link>
         </div>
       </div>
 
-      <Tabs defaultValue="borrowing" className="mb-6">
+      <Tabs defaultValue="listings" className="mb-6">
         <TabsList>
+          <TabsTrigger value="listings">My Listings</TabsTrigger>
           <TabsTrigger value="borrowing">Borrowing</TabsTrigger>
           <TabsTrigger value="lent-out">Lent Out</TabsTrigger>
-          <TabsTrigger value="listings">My Listings</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
@@ -88,10 +65,10 @@ export default function GaragePage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="upcoming">Upcoming</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="rented">Rented</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
 
@@ -106,6 +83,50 @@ export default function GaragePage() {
             </Button>
           </div>
         </div>
+
+        <TabsContent value="listings" className="mt-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {userTools && userTools.length > 0 ? (
+              userTools.map((tool) => (
+                <RentalCard
+                  key={tool.id}
+                  name={tool.name}
+                  imageUrl={getMockToolImage()}
+                  status="listed"
+                  price={`$${tool.dailyRate}/day`}
+                  availability={
+                    tool.status === "available"
+                      ? "Available"
+                      : tool.status === "rented"
+                        ? "Currently Lent"
+                        : tool.status
+                  }
+                />
+              ))
+            ) : (
+              <div className="col-span-full py-8 text-center">
+                <p className="text-muted-foreground mb-4">
+                  No tools listed yet
+                </p>
+              </div>
+            )}
+
+            <Card className="overflow-hidden border-dashed">
+              <CardContent className="flex flex-col items-center justify-center p-6">
+                <div className="bg-primary/10 mb-4 rounded-full p-3">
+                  <Plus className="text-primary h-6 w-6" />
+                </div>
+                <CardTitle className="mb-2 text-lg">List a New Tool</CardTitle>
+                <p className="text-muted-foreground mb-4 text-center text-sm">
+                  Share your tools with neighbors and earn extra income
+                </p>
+                <Button asChild>
+                  <Link href="/dashboard/tools/add">Add New Listing</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         <TabsContent value="borrowing" className="mt-6">
           <div className="mb-4">
@@ -185,45 +206,6 @@ export default function GaragePage() {
               status="lent"
               price="$20/day"
             />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="listings" className="mt-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <RentalCard
-              name="Drill Set"
-              imageUrl="/images/mock/drill-set.jpg"
-              status="listed"
-              price="$10/day"
-              availability="Available"
-            />
-            <RentalCard
-              name="Lawn Mower"
-              imageUrl="/images/mock/lawn-mower.jpg"
-              status="listed"
-              price="$20/day"
-              availability="Currently Lent"
-            />
-            <RentalCard
-              name="Hedge Trimmer"
-              imageUrl="/images/mock/hedge-trimmer.jpg"
-              status="listed"
-              price="$15/day"
-              availability="Available"
-            />
-
-            <Card className="overflow-hidden border-dashed">
-              <CardContent className="flex flex-col items-center justify-center p-6">
-                <div className="bg-primary/10 mb-4 rounded-full p-3">
-                  <Plus className="text-primary h-6 w-6" />
-                </div>
-                <CardTitle className="mb-2 text-lg">List a New Tool</CardTitle>
-                <p className="text-muted-foreground mb-4 text-center text-sm">
-                  Share your tools with neighbors and earn extra income
-                </p>
-                <Button>Add New Listing</Button>
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
 
