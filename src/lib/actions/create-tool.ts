@@ -55,5 +55,5 @@ export async function createTool(formData: CreateToolFormData) {
   revalidatePath("/dashboard/tools");
 
   // Redirect to the garage page (outside try-catch to avoid NEXT_REDIRECT error)
-  redirect("/dashboard/garage?tab=listings");
+  redirect("/dashboard/garage");
 }
