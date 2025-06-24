@@ -4,7 +4,7 @@ import { getMockToolImage } from "../constants/garage";
 import {
   createToolSchema,
   type CreateToolFormData,
-} from "../schemas/tool.schema";
+} from "../form-schemas/tool.schema";
 
 export function useToolForm(initialValues?: Partial<CreateToolFormData>) {
   const defaultValues = {

@@ -1,12 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { tryCatch } from "@walkup/walkup-utils";
 import {
   createToolSchema,
   type CreateToolFormData,
-} from "../schemas/tool.schema";
+} from "../form-schemas/tool.schema";
 import { ToolDAL } from "../dal/tool.dal";
 import { getCurrentUserId } from "../auth/auth-utils";
 
@@ -53,7 +52,4 @@ export async function createTool(formData: CreateToolFormData) {
   // Revalidate relevant paths
   revalidatePath("/dashboard/garage");
   revalidatePath("/dashboard/tools");
-
-  // Redirect to the garage page (outside try-catch to avoid NEXT_REDIRECT error)
-  redirect("/dashboard/garage");
 }

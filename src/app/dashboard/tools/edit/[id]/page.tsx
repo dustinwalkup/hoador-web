@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { toolDAL } from "@/lib/dal";
 import { updateTool } from "@/lib/actions/update-tool";
 import type { ToolDetails } from "@/lib/dal/types";
-import type { CreateToolFormData } from "@/lib/schemas/tool.schema";
+import type { CreateToolFormData } from "@/lib/form-schemas/tool.schema";
 
 import { BackButton } from "@/components/back-button";
 import { AddToolForm } from "../../add/_components/add-tool-form";
@@ -38,7 +38,7 @@ export default async function EditToolPage({
 }: {
   params: { id: string };
 }) {
-  const { id } = params;
+  const { id } = await params;
   const tool = await toolDAL.getToolById(id);
   if (!tool) return notFound();
   const categories = await toolDAL.getToolCategories();

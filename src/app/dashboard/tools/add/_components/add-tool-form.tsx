@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { toast } from "sonner";
 import {
   Calendar,
   Camera,
@@ -17,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 
-import type { CreateToolFormData } from "@/lib/schemas/tool.schema";
+import type { CreateToolFormData } from "@/lib/form-schemas/tool.schema";
 import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { createTool } from "@/lib/actions/create-tool";
 
@@ -93,27 +94,69 @@ export function AddToolForm({
 
   const defaultOnSubmit = async (data: CreateToolFormData) => {
     setIsSubmitting(true);
-    const result = await createTool(data);
-    setIsSubmitting(false);
-    if (result?.error) {
-      if (result.details) {
-        // Set field errors from zod
-        Object.entries(result.details.fieldErrors).forEach(
-          ([field, messages]) => {
-            setError(field as keyof CreateToolFormData, {
-              message: (messages as string[])[0],
-            });
-          },
-        );
+    try {
+      const result = await createTool(data);
+      setIsSubmitting(false);
+
+      if (result?.error) {
+        if (result.details) {
+          // Set field errors from zod
+          Object.entries(result.details.fieldErrors).forEach(
+            ([field, messages]) => {
+              setError(field as keyof CreateToolFormData, {
+                message: (messages as string[])[0],
+              });
+            },
+          );
+        }
+        // Show error toast
+        toast.error(result.error || "Failed to create tool. Please try again.");
+        return;
       }
-      // Optionally show a toast or error message
-      return;
+
+      // Show success toast
+      toast.success("Tool created successfully!");
+      reset();
+      router.push("/dashboard/garage");
+    } catch (error) {
+      setIsSubmitting(false);
+      console.log("ERROR", error);
+      toast.error("An unexpected error occurred. Please try again.");
+      console.error("Error creating tool:", error);
     }
-    reset();
-    router.push("/dashboard/garage");
   };
 
-  const handleFormSubmit = onSubmit ? onSubmit : defaultOnSubmit;
+  const handleFormSubmit = async (data: CreateToolFormData) => {
+    // Check for form validation errors
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fix the form errors before submitting.");
+      return;
+    }
+
+    if (onSubmit) {
+      setIsSubmitting(true);
+      try {
+        const result = await onSubmit(data);
+        setIsSubmitting(false);
+
+        if (result?.error) {
+          toast.error(result.error || "Failed to save tool. Please try again.");
+          return;
+        }
+
+        toast.success(
+          isEdit ? "Tool updated successfully!" : "Tool created successfully!",
+        );
+        router.push("/dashboard/garage");
+      } catch (error) {
+        setIsSubmitting(false);
+        toast.error("An unexpected error occurred. Please try again.");
+        console.error("Error saving tool:", error);
+      }
+    } else {
+      await defaultOnSubmit(data);
+    }
+  };
 
   return (
     <Form {...useToolForm(initialValues)}>
@@ -471,7 +514,7 @@ export function AddToolForm({
               {getValues("images").map((image, index) => (
                 <div key={index} className="relative">
                   <Image
-                    src={image || getMockToolImage()}
+                    src={getMockToolImage()}
                     alt={`Tool image ${index + 1}`}
                     height={270}
                     width={270}
