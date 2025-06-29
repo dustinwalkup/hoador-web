@@ -23,8 +23,14 @@ import {
 import { schema } from "../../db/schemas";
 import { NotFoundError, UnauthorizedError } from "./errors";
 
-const { tools, toolCategories, reviews, toolAvailability, userFavorites } =
-  schema;
+const {
+  tools,
+  toolCategories,
+  reviews,
+  toolAvailability,
+  userFavorites,
+  toolImages,
+} = schema;
 
 type ToolDb = typeof tools.$inferSelect;
 type OwnerDb = {
@@ -81,6 +87,7 @@ type UserTool = Omit<
   deliveryFee: number;
   averageRating: number;
   reviewCount: number;
+  firstImageUrl: string | null;
 };
 
 export class ToolDAL extends BaseDAL {
@@ -548,6 +555,15 @@ export class ToolDAL extends BaseDAL {
             },
           });
 
+          // Get the first image for this tool
+          const firstImage = await this.db
+            .select({ imageUrl: toolImages.imageUrl })
+            .from(toolImages)
+            .where(
+              and(eq(toolImages.toolId, tool.id), eq(toolImages.orderIndex, 0)),
+            )
+            .limit(1);
+
           const ratings = toolReviews.map((r) => r.rating);
           const averageRating =
             ratings.length > 0
@@ -566,6 +582,7 @@ export class ToolDAL extends BaseDAL {
             deliveryFee: Number(tool.deliveryFee),
             averageRating: Math.round(averageRating * 10) / 10,
             reviewCount: ratings.length,
+            firstImageUrl: firstImage[0]?.imageUrl || null,
           } as UserTool;
         }),
       );

@@ -8,7 +8,7 @@ import Link from "next/link";
 interface RentalCardProps {
   name: string;
   id: string;
-  imageUrl: string;
+  imageUrl: string | null;
   price: string;
   status: "active" | "lent" | "listed";
   dueDate?: string;
@@ -32,7 +32,7 @@ export default function RentalCard({
     <Card className="overflow-hidden pt-0 pb-2">
       <div className="bg-muted aspect-[4/3] overflow-hidden">
         <Image
-          src={imageUrl || "/placeholder.svg"}
+          src={imageUrl || "/images/placeholder.jpg"}
           alt={name}
           width={300}
           height={200}

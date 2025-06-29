@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
-import { getMockToolImage } from "@/lib/constants/garage";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { toolDAL } from "@/lib/dal";
 
@@ -20,7 +19,7 @@ export async function ListingsTab() {
             key={tool.id}
             id={tool.id}
             name={tool.name}
-            imageUrl={getMockToolImage()}
+            imageUrl={tool.firstImageUrl}
             status="listed"
             price={`$${tool.dailyRate}/day`}
             availability={
