@@ -29,8 +29,8 @@ export function useToolImages(toolId: string) {
         toast.error(result.error || "Failed to load images");
       }
     } catch (error) {
-      toast.error("Failed to load images");
       console.error("Load images failed", error);
+      toast.error("Failed to load images");
     } finally {
       setIsLoading(false);
     }

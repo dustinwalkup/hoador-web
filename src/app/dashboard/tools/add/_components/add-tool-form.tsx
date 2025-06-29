@@ -71,6 +71,21 @@ export function AddToolForm({
     handleDeliveryAvailableChange,
   } = form;
 
+  // Debug: Log form values when they change
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "images") {
+        console.log("Form images changed:", value.images);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // Debug: Log when existing images are loaded
+  useEffect(() => {
+    console.log("Existing images loaded:", existingImages);
+  }, [existingImages]);
+
   // Load existing images when editing
   useEffect(() => {
     if (isEdit && toolId) {
@@ -86,7 +101,10 @@ export function AddToolForm({
         url: img.imageUrl,
         orderIndex: img.orderIndex,
       }));
-      setValue("images", imageFiles);
+      setValue("images", imageFiles, {
+        shouldDirty: false,
+        shouldValidate: true,
+      });
     }
   }, [existingImages, isEdit, setValue]);
 

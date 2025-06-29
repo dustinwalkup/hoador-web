@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { Camera, GripVertical, Upload, X } from "lucide-react";
 import { Control, UseFormGetValues } from "react-hook-form";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   FormField,
   FormItem,
@@ -34,6 +35,63 @@ interface PhotosSectionProps {
   isLoadingImages?: boolean;
 }
 
+// Image component with smooth loading
+function ToolImage({
+  image,
+  index,
+  objectUrls,
+  onLoad,
+  onError,
+}: {
+  image: ImageFile;
+  index: number;
+  objectUrls: Record<number, string>;
+  onLoad: () => void;
+  onError: (index: number, e: React.SyntheticEvent<HTMLImageElement>) => void;
+}) {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  const handleLoad = () => {
+    setIsLoaded(true);
+    onLoad();
+  };
+
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    setHasError(true);
+    onError(index, e);
+  };
+
+  const imageSrc = image.file
+    ? objectUrls[index]
+    : image.url || getMockToolImage();
+
+  return (
+    <div className="relative aspect-square w-full overflow-hidden rounded-lg border">
+      {/* Skeleton placeholder */}
+      {!isLoaded && !hasError && (
+        <Skeleton className="absolute inset-0 rounded-lg" />
+      )}
+
+      <Image
+        src={imageSrc}
+        alt={`Tool image ${index + 1}`}
+        fill
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+        unoptimized={!!image.file}
+        className={`object-cover transition-all duration-500 ease-in-out ${
+          isLoaded ? "scale-100 opacity-100" : "scale-95 opacity-0"
+        }`}
+        onLoad={handleLoad}
+        onError={handleError}
+      />
+
+      {/* Hover overlay */}
+      <div className="bg-opacity-0 group-hover:bg-opacity-20 absolute inset-0 rounded-lg transition-all duration-200" />
+    </div>
+  );
+}
+
 export function PhotosSection({
   control,
   getValues,
@@ -43,8 +101,41 @@ export function PhotosSection({
 }: PhotosSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [objectUrls, setObjectUrls] = useState<Record<number, string>>({});
 
   const images = getValues("images");
+
+  // Clean up object URLs when component unmounts or images change
+  useEffect(() => {
+    const newObjectUrls: Record<number, string> = {};
+
+    images.forEach((image: ImageFile, index: number) => {
+      if (image.file) {
+        newObjectUrls[index] = URL.createObjectURL(image.file);
+      }
+    });
+
+    setObjectUrls(newObjectUrls);
+
+    return () => {
+      Object.values(newObjectUrls).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [images]);
+
+  const handleImageLoad = () => {
+    // Image loaded successfully
+  };
+
+  const handleImageError = (
+    index: number,
+    e: React.SyntheticEvent<HTMLImageElement>,
+  ) => {
+    console.error("Image failed to load:", e);
+    const target = e.target as HTMLImageElement;
+    if (target.src !== getMockToolImage()) {
+      target.src = getMockToolImage();
+    }
+  };
 
   // Handle file selection
   const handleFileSelect = useCallback(
@@ -110,33 +201,18 @@ export function PhotosSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoadingImages && (
-          <div className="py-8 text-center">
-            <div className="border-primary mx-auto h-8 w-8 animate-spin rounded-full border-b-2"></div>
-            <p className="text-muted-foreground mt-2">Loading images...</p>
-          </div>
-        )}
-
         {!isLoadingImages && (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {images.map((image: ImageFile, index: number) => (
                 <div key={index} className="group relative">
-                  <div className="relative">
-                    <Image
-                      src={
-                        image.file
-                          ? URL.createObjectURL(image.file)
-                          : image.url || getMockToolImage()
-                      }
-                      alt={`Tool image ${index + 1}`}
-                      height={270}
-                      width={270}
-                      unoptimized={!!image.file}
-                      className="aspect-square w-full rounded-lg border object-cover"
-                    />
-                    <div className="bg-opacity-0 group-hover:bg-opacity-20 absolute inset-0 rounded-lg bg-black transition-all duration-200" />
-                  </div>
+                  <ToolImage
+                    image={image}
+                    index={index}
+                    objectUrls={objectUrls}
+                    onLoad={handleImageLoad}
+                    onError={handleImageError}
+                  />
 
                   {/* Drag handle */}
                   <div className="absolute top-2 left-2 opacity-0 transition-opacity group-hover:opacity-100">
@@ -166,7 +242,7 @@ export function PhotosSection({
 
                   {/* Upload progress indicator */}
                   {image.file && (
-                    <div className="bg-opacity-50 absolute inset-0 flex items-center justify-center rounded-lg bg-black">
+                    <div className="absolute inset-0 flex items-center justify-center rounded-lg">
                       <div className="text-xs text-white">Ready to upload</div>
                     </div>
                   )}
@@ -208,17 +284,17 @@ export function PhotosSection({
                 onChange={handleFileInputChange}
                 className="hidden"
               />
-            </div>
 
-            {images.length === 0 && (
-              <div className="rounded-lg border border-dashed p-6 text-center">
-                <Camera className="text-muted-foreground mx-auto h-12 w-12" />
-                <h3 className="mt-2 text-sm font-semibold">No photos yet</h3>
-                <p className="text-muted-foreground text-sm">
-                  Add at least one photo *
-                </p>
-              </div>
-            )}
+              {images.length === 0 && (
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center">
+                  <Camera className="text-muted-foreground mx-auto h-12 w-12" />
+                  <h3 className="mt-2 text-sm font-semibold">No photos yet</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Add at least one photo *
+                  </p>
+                </div>
+              )}
+            </div>
           </>
         )}
 
