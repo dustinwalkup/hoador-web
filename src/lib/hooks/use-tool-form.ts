@@ -2,11 +2,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getMockToolImage } from "../constants/garage";
 import {
-  createToolSchema,
-  type CreateToolFormData,
+  createToolSchemaClient,
+  type CreateToolFormDataClientType,
+  type ImageFile,
 } from "../form-schemas/tool.schema";
 
-export function useToolForm(initialValues?: Partial<CreateToolFormData>) {
+export function useToolForm(
+  initialValues?: Partial<CreateToolFormDataClientType>,
+) {
   const defaultValues = {
     name: "",
     description: "",
@@ -18,7 +21,7 @@ export function useToolForm(initialValues?: Partial<CreateToolFormData>) {
     weeklyRate: undefined,
     monthlyRate: undefined,
     securityDeposit: 0,
-    images: [],
+    images: [] as ImageFile[],
     specifications: {},
     instructions: undefined,
     safetyNotes: undefined,
@@ -29,20 +32,22 @@ export function useToolForm(initialValues?: Partial<CreateToolFormData>) {
     deliveryFee: 0,
     deliveryRadius: 0,
     ...initialValues,
-  } as unknown as CreateToolFormData;
+  } as unknown as CreateToolFormDataClientType;
 
-  const form = useForm<CreateToolFormData>({
+  const form = useForm<CreateToolFormDataClientType>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(createToolSchema) as any,
+    resolver: zodResolver(createToolSchemaClient) as any,
     defaultValues,
     mode: "onTouched",
   });
 
   // Helpers for dynamic fields
-  const addImage = () => {
+  const addImage = (file?: File) => {
     const images = form.getValues("images");
-    const newImage = getMockToolImage();
-    console.log("newImage", newImage);
+    const newImage: ImageFile = file
+      ? { file, orderIndex: images.length }
+      : { url: getMockToolImage(), orderIndex: images.length };
+
     form.setValue("images", [...images, newImage], {
       shouldDirty: true,
       shouldValidate: true,
@@ -53,14 +58,36 @@ export function useToolForm(initialValues?: Partial<CreateToolFormData>) {
     const images = form.getValues("images");
     form.setValue(
       "images",
-      images.filter((_, i) => i !== index),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      images.filter((_: any, i: number) => i !== index),
       { shouldDirty: true, shouldValidate: true },
     );
   };
 
+  const updateImageOrder = (fromIndex: number, toIndex: number) => {
+    const images = form.getValues("images");
+    const newImages = [...images];
+    const [movedImage] = newImages.splice(fromIndex, 1);
+    newImages.splice(toIndex, 0, movedImage);
+
+    // Update orderIndex for all images
+    const updatedImages = newImages.map((image, index) => ({
+      ...image,
+      orderIndex: index,
+    }));
+
+    form.setValue("images", updatedImages, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
   // For specifications
-  const addSpecification = (key: string, value: string) => {
-    if (!key || !value) return;
+  const addSpecification = (
+    key: string,
+    value: string | number | boolean | string[],
+  ) => {
+    if (!key || value === undefined || value === null) return;
     const specs = form.getValues("specifications") || {};
     form.setValue(
       "specifications",
@@ -105,6 +132,7 @@ export function useToolForm(initialValues?: Partial<CreateToolFormData>) {
     ...form,
     addImage,
     removeImage,
+    updateImageOrder,
     addSpecification,
     removeSpecification,
     handleDeliveryAvailableChange,

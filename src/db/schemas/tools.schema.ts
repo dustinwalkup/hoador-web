@@ -64,7 +64,6 @@ export const tools = pgTable(
     categoryId: uuid("category_id")
       .references(() => _toolCategories.id)
       .notNull(),
-
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description").notNull(),
     brand: varchar("brand", { length: 100 }),
@@ -77,7 +76,6 @@ export const tools = pgTable(
       .default("0")
       .notNull(),
     status: toolStatusEnum("status").default("available").notNull(),
-    images: jsonb("images").$type<string[]>().default([]).notNull(),
     specifications: jsonb("specifications")
       .$type<Record<string, string | number | boolean | string[]>>()
       .default({})
@@ -106,6 +104,15 @@ export const tools = pgTable(
     nameSearchIdx: index("tools_name_search_idx").on(table.name),
   }),
 );
+
+export const toolImages = pgTable("tool_images", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  toolId: uuid("tool_id").references(() => tools.id, { onDelete: "cascade" }),
+  imageUrl: varchar("image_url", { length: 500 }).notNull(),
+  blobPathname: varchar("blob_pathname", { length: 255 }).notNull(), // For deletion
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 // Tool availability
 export const toolAvailability = pgTable(
@@ -136,8 +143,11 @@ export const toolCategoriesRelations = relations(
     parent: one(toolCategories, {
       fields: [toolCategories.parentId],
       references: [toolCategories.id],
+      relationName: "parentCategory", // Add explicit relation name
     }),
-    children: many(toolCategories),
+    children: many(toolCategories, {
+      relationName: "parentCategory", // Same relation name as the inverse
+    }),
     tools: many(tools),
   }),
 );

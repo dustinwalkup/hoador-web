@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import { toolDAL } from "@/lib/dal";
 import { updateTool } from "@/lib/actions/update-tool";
 import type { ToolDetails } from "@/lib/dal/types";
-import type { CreateToolFormData } from "@/lib/form-schemas/tool.schema";
+import type { CreateToolFormDataClientType } from "@/lib/form-schemas/tool.schema";
 
 import { BackButton } from "@/components/back-button";
 import { AddToolForm } from "../../add/_components/add-tool-form";
 
-function mapToolToFormData(tool: ToolDetails): CreateToolFormData {
+function mapToolToFormData(tool: ToolDetails): CreateToolFormDataClientType {
   return {
     name: tool.name,
     description: tool.description,
@@ -20,7 +20,7 @@ function mapToolToFormData(tool: ToolDetails): CreateToolFormData {
     weeklyRate: tool.weeklyRate,
     monthlyRate: tool.monthlyRate,
     securityDeposit: tool.securityDeposit,
-    images: tool.images,
+    images: [], // Images will be loaded by the useToolImages hook
     specifications: tool.specifications,
     instructions: tool.instructions,
     safetyNotes: tool.safetyNotes,
@@ -45,7 +45,7 @@ export default async function EditToolPage({
 
   const initialValues = mapToolToFormData(tool);
 
-  async function onSubmit(data: CreateToolFormData) {
+  async function onSubmit(data: Omit<CreateToolFormDataClientType, "images">) {
     "use server";
     // Call updateTool action
     return updateTool(id, data);
@@ -67,6 +67,7 @@ export default async function EditToolPage({
         initialValues={initialValues}
         onSubmit={onSubmit}
         isEdit
+        toolId={id}
       />
     </>
   );

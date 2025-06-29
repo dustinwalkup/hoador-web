@@ -163,10 +163,12 @@ export const rentalRequestsRelations = relations(rentalRequests, ({ one }) => ({
   renter: one(users, {
     fields: [rentalRequests.renterId],
     references: [users.id],
+    relationName: "renterRequests", // Add explicit relation name
   }),
   owner: one(users, {
     fields: [rentalRequests.ownerId],
     references: [users.id],
+    relationName: "ownerRequests", // Add explicit relation name
   }),
   // Fix: Add proper field/reference mapping for rental relation
   rental: one(rentals, {
@@ -187,10 +189,12 @@ export const rentalsRelations = relations(rentals, ({ one, many }) => ({
   renter: one(users, {
     fields: [rentals.renterId],
     references: [users.id],
+    relationName: "renterRentals", // Add explicit relation name
   }),
   owner: one(users, {
     fields: [rentals.ownerId],
     references: [users.id],
+    relationName: "ownerRentals", // Add explicit relation name
   }),
   reviews: many(reviews),
   payments: many(payments),
@@ -204,10 +208,12 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
   reviewer: one(users, {
     fields: [reviews.reviewerId],
     references: [users.id],
+    relationName: "reviewsGiven", // Add explicit relation name
   }),
   reviewee: one(users, {
     fields: [reviews.revieweeId],
     references: [users.id],
+    relationName: "reviewsReceived", // Add explicit relation name
   }),
   tool: one(tools, {
     fields: [reviews.toolId],

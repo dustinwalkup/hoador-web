@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -16,11 +16,17 @@ import {
   Truck,
   Upload,
   X,
+  GripVertical,
 } from "lucide-react";
 
-import type { CreateToolFormData } from "@/lib/form-schemas/tool.schema";
+import type {
+  CreateToolFormDataClientType,
+  ImageFile,
+} from "@/lib/form-schemas/tool.schema";
 import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { createTool } from "@/lib/actions/create-tool";
+import { validateImageFile } from "@/lib/utils/image-utils";
+import { useToolImages } from "@/hooks/use-tool-images";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { getMockToolImage } from "@/lib/constants/garage";
+import { emojiMap, getMockToolImage } from "@/lib/constants/garage";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -51,6 +57,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
+import { tryCatch } from "@walkup/walkup-utils";
 
 interface Category {
   id: string;
@@ -61,11 +68,12 @@ interface Category {
 
 interface AddToolFormProps {
   categories: Category[];
-  initialValues?: Partial<CreateToolFormData>;
+  initialValues?: Partial<CreateToolFormDataClientType>;
   onSubmit?: (
-    data: CreateToolFormData,
-  ) => Promise<void | { error?: string; details?: unknown }>;
+    data: Omit<CreateToolFormDataClientType, "images">,
+  ) => Promise<void | { error?: string; details?: unknown; toolId?: string }>;
   isEdit?: boolean;
+  toolId?: string;
 }
 
 export function AddToolForm({
@@ -73,60 +81,173 @@ export function AddToolForm({
   initialValues,
   onSubmit,
   isEdit,
+  toolId,
 }: AddToolFormProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [newSpecKey, setNewSpecKey] = useState("");
   const [newSpecValue, setNewSpecValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  // Use tool images hook for editing existing tools
+  const {
+    images: existingImages,
+    loadImages,
+    isLoading: isLoadingImages,
+  } = useToolImages(toolId || "");
+
+  const form = useToolForm(initialValues);
   const {
     handleSubmit,
     control,
     getValues,
+    setValue,
     formState: { errors },
     addImage,
     removeImage,
     addSpecification,
     removeSpecification,
     reset,
-    setError,
     handleDeliveryAvailableChange,
-  } = useToolForm(initialValues);
+  } = form;
 
-  const defaultOnSubmit = async (data: CreateToolFormData) => {
-    setIsSubmitting(true);
-    try {
-      const result = await createTool(data);
-      setIsSubmitting(false);
+  // Load existing images when editing
+  useEffect(() => {
+    if (isEdit && toolId) {
+      loadImages();
+    }
+  }, [isEdit, toolId, loadImages]);
 
-      if (result?.error) {
-        if (result.details) {
-          // Set field errors from zod
-          Object.entries(result.details.fieldErrors).forEach(
-            ([field, messages]) => {
-              setError(field as keyof CreateToolFormData, {
-                message: (messages as string[])[0],
-              });
-            },
-          );
+  // Update form images when existing images are loaded
+  useEffect(() => {
+    if (isEdit && existingImages.length > 0) {
+      const imageFiles = existingImages.map((img) => ({
+        id: img.id,
+        url: img.imageUrl,
+        orderIndex: img.orderIndex,
+      }));
+      setValue("images", imageFiles);
+    }
+  }, [existingImages, isEdit, setValue]);
+
+  // Handle file selection
+  const handleFileSelect = useCallback(
+    (files: FileList | null) => {
+      if (!files) return;
+
+      Array.from(files).forEach((file) => {
+        const error = validateImageFile(file);
+        if (error) {
+          toast.error(error);
+          return;
         }
-        // Show error toast
-        toast.error(result.error || "Failed to create tool. Please try again.");
-        return;
-      }
 
-      // Show success toast
-      toast.success("Tool created successfully!");
-      reset();
-      router.push("/dashboard/garage");
-    } catch (error) {
-      setIsSubmitting(false);
-      console.log("ERROR", error);
-      toast.error("An unexpected error occurred. Please try again.");
-      console.error("Error creating tool:", error);
+        addImage(file);
+      });
+    },
+    [addImage],
+  );
+
+  // Handle drag and drop
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFileSelect(e.dataTransfer.files);
+      }
+    },
+    [handleFileSelect],
+  );
+
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFileSelect(e.target.files);
+    // Reset input value to allow selecting the same file again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
-  const handleFormSubmit = async (data: CreateToolFormData) => {
+  // Upload images to blob storage
+  const uploadImages = async (images: ImageFile[], targetToolId: string) => {
+    const uploadPromises = images
+      .filter((img) => img.file)
+      .map(async (image) => {
+        if (!image.file) return;
+
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", image.file);
+
+        const res = await fetch(`/api/tools/${targetToolId}`, {
+          method: "POST",
+          body: uploadFormData,
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          console.error(`Failed to upload image ${image.file.name}`, err);
+          throw new Error(`Failed to upload image: ${image.file.name}`);
+        }
+
+        return res.json();
+      });
+
+    await Promise.all(uploadPromises);
+  };
+
+  const defaultOnSubmit = async (formData: CreateToolFormDataClientType) => {
+    setIsSubmitting(true);
+
+    const { images, ...toolDataWithoutImages } = formData;
+
+    if (!images || images.length === 0) {
+      toast.error("Please add at least one image.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Create tool without images
+    const { data, error } = await tryCatch(createTool(toolDataWithoutImages));
+
+    if (error || !data?.toolId) {
+      toast.error("An unexpected error occurred. Please try again.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const newToolId = data.toolId;
+
+    // Upload images to blob and save to db
+    try {
+      await uploadImages(images, newToolId);
+      toast.success("Tool and images uploaded successfully!");
+      reset();
+      router.push("/dashboard/garage");
+    } catch (uploadError) {
+      console.error("Error uploading images", uploadError);
+      toast.error("Error uploading one or more images.");
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleFormSubmit = async (data: CreateToolFormDataClientType) => {
+    console.log("DATA", data);
+    console.log("onSubmit", onSubmit);
+
     // Check for form validation errors
     if (Object.keys(errors).length > 0) {
       toast.error("Please fix the form errors before submitting.");
@@ -136,17 +257,53 @@ export function AddToolForm({
     if (onSubmit) {
       setIsSubmitting(true);
       try {
-        const result = await onSubmit(data);
-        setIsSubmitting(false);
+        const { images, ...toolDataWithoutImages } = data;
+
+        // For edit mode, check if we have any images (existing or new)
+        if (isEdit) {
+          const hasExistingImages = existingImages.length > 0;
+          const hasNewImages = images.some((img: ImageFile) => img.file);
+
+          if (!hasExistingImages && !hasNewImages) {
+            toast.error("Please add at least one image.");
+            setIsSubmitting(false);
+            return;
+          }
+        } else {
+          // For add mode, require at least one image
+          if (!images || images.length === 0) {
+            toast.error("Please add at least one image.");
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
+        const result = await onSubmit(toolDataWithoutImages);
 
         if (result?.error) {
           toast.error(result.error || "Failed to save tool. Please try again.");
+          setIsSubmitting(false);
           return;
         }
 
-        toast.success(
-          isEdit ? "Tool updated successfully!" : "Tool created successfully!",
-        );
+        // Upload new images if any (for edit mode, use the existing toolId)
+        const newImages = images.filter((img: ImageFile) => img.file);
+        if (newImages.length > 0) {
+          try {
+            await uploadImages(newImages, result?.toolId || toolId!);
+            toast.success("Tool and images uploaded successfully!");
+          } catch (uploadError) {
+            console.error("Error uploading images", uploadError);
+            toast.error("Error uploading one or more images.");
+          }
+        } else {
+          toast.success(
+            isEdit
+              ? "Tool updated successfully!"
+              : "Tool created successfully!",
+          );
+        }
+
         router.push("/dashboard/garage");
       } catch (error) {
         setIsSubmitting(false);
@@ -158,8 +315,11 @@ export function AddToolForm({
     }
   };
 
+  const images = getValues("images");
+  console.log("IMAGES", images);
+
   return (
-    <Form {...useToolForm(initialValues)}>
+    <Form {...form}>
       <form className="space-y-8" onSubmit={handleSubmit(handleFormSubmit)}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Basic Information */}
@@ -206,7 +366,9 @@ export function AddToolForm({
                           {categories.map((category) => (
                             <SelectItem key={category.id} value={category.id}>
                               <div className="flex items-center gap-2">
-                                <span>{category.icon}</span>
+                                {category.icon && (
+                                  <span>{emojiMap[category.icon]}</span>
+                                )}
                                 {category.name}
                               </div>
                             </SelectItem>
@@ -497,6 +659,7 @@ export function AddToolForm({
             </CardContent>
           </Card>
         </div>
+
         {/* Photos */}
         <Card>
           <CardHeader>
@@ -510,63 +673,130 @@ export function AddToolForm({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {getValues("images").map((image, index) => (
-                <div key={index} className="relative">
-                  <Image
-                    src={getMockToolImage()}
-                    alt={`Tool image ${index + 1}`}
-                    height={270}
-                    width={270}
-                    className="aspect-square w-full rounded-lg border object-cover"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute -top-2 -right-2 h-6 w-6"
-                    onClick={() => {
-                      removeImage(index);
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                  {index === 0 && (
-                    <Badge
-                      className="absolute bottom-2 left-2 text-xs"
-                      variant={"secondary"}
-                    >
-                      Main
-                    </Badge>
-                  )}
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                className="aspect-square min-h-[120px] w-full border-dashed"
-                onClick={addImage}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <Upload className="h-6 w-6" />
-                  <span className="text-xs sm:text-sm">Add Photo</span>
-                </div>
-              </Button>
-            </div>
-            {getValues("images").length === 0 && (
-              <div className="rounded-lg border border-dashed p-6 text-center">
-                <Camera className="text-muted-foreground mx-auto h-12 w-12" />
-                <h3 className="mt-2 text-sm font-semibold">No photos yet</h3>
-                <p className="text-muted-foreground text-sm">
-                  Add at least one photo *
-                </p>
+            {isLoadingImages && (
+              <div className="py-8 text-center">
+                <div className="border-primary mx-auto h-8 w-8 animate-spin rounded-full border-b-2"></div>
+                <p className="text-muted-foreground mt-2">Loading images...</p>
               </div>
             )}
+
+            {!isLoadingImages && (
+              <>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {images.map((image: ImageFile, index: number) => (
+                    <div key={index} className="group relative">
+                      <div className="relative">
+                        <Image
+                          src={
+                            image.file
+                              ? URL.createObjectURL(image.file)
+                              : image.url || getMockToolImage()
+                          }
+                          alt={`Tool image ${index + 1}`}
+                          height={270}
+                          width={270}
+                          unoptimized={!!image.file}
+                          className="aspect-square w-full rounded-lg border object-cover"
+                        />
+                        <div className="bg-opacity-0 group-hover:bg-opacity-20 absolute inset-0 rounded-lg bg-black transition-all duration-200" />
+                      </div>
+
+                      {/* Drag handle */}
+                      <div className="absolute top-2 left-2 opacity-0 transition-opacity group-hover:opacity-100">
+                        <GripVertical className="h-4 w-4 cursor-move text-white drop-shadow-md" />
+                      </div>
+
+                      {/* Remove button */}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+                        onClick={() => removeImage(index)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+
+                      {/* Main image badge */}
+                      {index === 0 && (
+                        <Badge
+                          className="absolute bottom-2 left-2 text-xs"
+                          variant={"secondary"}
+                        >
+                          Main
+                        </Badge>
+                      )}
+
+                      {/* Upload progress indicator */}
+                      {image.file && (
+                        <div className="bg-opacity-50 absolute inset-0 flex items-center justify-center rounded-lg bg-black">
+                          <div className="text-xs text-white">
+                            Ready to upload
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Upload button */}
+                  <div
+                    className={`flex aspect-square min-h-[120px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all duration-200 ${
+                      dragActive
+                        ? "border-primary bg-primary/5"
+                        : "border-muted-foreground/25 hover:border-primary hover:bg-primary/5"
+                    }`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload
+                      className={`mb-2 h-6 w-6 ${dragActive ? "text-primary" : "text-muted-foreground"}`}
+                    />
+                    <span
+                      className={`text-center text-xs sm:text-sm ${dragActive ? "text-primary" : "text-muted-foreground"}`}
+                    >
+                      {dragActive
+                        ? "Drop images here"
+                        : "Click or drag to upload"}
+                    </span>
+                    <span className="text-muted-foreground mt-1 text-xs">
+                      Max 5MB per image
+                    </span>
+                  </div>
+
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                  />
+                </div>
+
+                {images.length === 0 && (
+                  <div className="rounded-lg border border-dashed p-6 text-center">
+                    <Camera className="text-muted-foreground mx-auto h-12 w-12" />
+                    <h3 className="mt-2 text-sm font-semibold">
+                      No photos yet
+                    </h3>
+                    <p className="text-muted-foreground text-sm">
+                      Add at least one photo *
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
             {errors.images && (
               <FormMessage>{errors.images.message as string}</FormMessage>
             )}
           </CardContent>
         </Card>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Pickup & Delivery */}
           <Card>
@@ -735,7 +965,8 @@ export function AddToolForm({
                         className="flex items-center justify-between rounded-lg border p-3"
                       >
                         <div className="text-sm">
-                          <span className="font-medium">{key}:</span> {value}
+                          <span className="font-medium">{key}:</span>{" "}
+                          {String(value)}
                         </div>
                         <Button
                           type="button"
@@ -794,7 +1025,7 @@ export function AddToolForm({
         <div className="flex justify-end">
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLoadingImages}
             size="lg"
             className="w-full sm:w-auto"
           >

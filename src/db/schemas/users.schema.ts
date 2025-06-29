@@ -169,23 +169,75 @@ export const userPaymentMethodsRelations = relations(
   }),
 );
 
+// export const usersRelations = relations(users, ({ one, many }) => ({
+//   preferences: one(userPreferences),
+//   addresses: many(userAddresses),
+//   ownedTools: many(tools),
+//   rentalRequests: many(rentalRequests),
+//   ownedRentalRequests: many(rentalRequests),
+//   rentals: many(rentals),
+//   ownedRentals: many(rentals),
+//   reviewsGiven: many(reviews),
+//   reviewsReceived: many(reviews),
+//   payments: many(payments),
+//   receivedPayments: many(payments),
+//   paymentMethods: many(userPaymentMethods),
+//   favorites: many(userFavorites),
+//   collections: many(userCollections),
+//   sentMessages: many(messages),
+//   receivedMessages: many(messages),
+//   notifications: many(notifications),
+//   sessions: many(userSessions),
+// }));
 export const usersRelations = relations(users, ({ one, many }) => ({
   preferences: one(userPreferences),
   addresses: many(userAddresses),
   ownedTools: many(tools),
-  rentalRequests: many(rentalRequests),
-  ownedRentalRequests: many(rentalRequests),
-  rentals: many(rentals),
-  ownedRentals: many(rentals),
-  reviewsGiven: many(reviews),
-  reviewsReceived: many(reviews),
-  payments: many(payments),
-  receivedPayments: many(payments),
+
+  // Rental requests - need relation names to match what we defined earlier
+  rentalRequests: many(rentalRequests, {
+    relationName: "renterRequests", // This user as renter
+  }),
+  ownedRentalRequests: many(rentalRequests, {
+    relationName: "ownerRequests", // This user as owner
+  }),
+
+  // Rentals - need relation names to match what we defined earlier
+  rentals: many(rentals, {
+    relationName: "renterRentals", // This user as renter
+  }),
+  ownedRentals: many(rentals, {
+    relationName: "ownerRentals", // This user as owner
+  }),
+
+  // Reviews - need relation names to match what we defined earlier
+  reviewsGiven: many(reviews, {
+    relationName: "reviewsGiven", // Reviews this user gave
+  }),
+  reviewsReceived: many(reviews, {
+    relationName: "reviewsReceived", // Reviews this user received
+  }),
+
+  // Payments - likely also need relation names if you have multiple payment relations
+  payments: many(payments, {
+    relationName: "payerPayments", // This user as payer
+  }),
+  receivedPayments: many(payments, {
+    relationName: "payeePayments", // This user as payee
+  }),
+
   paymentMethods: many(userPaymentMethods),
   favorites: many(userFavorites),
   collections: many(userCollections),
-  sentMessages: many(messages),
-  receivedMessages: many(messages),
+
+  // Messages - likely also need relation names if you have sender/receiver
+  sentMessages: many(messages, {
+    relationName: "sentMessages", // This user as sender
+  }),
+  receivedMessages: many(messages, {
+    relationName: "receivedMessages", // This user as receiver
+  }),
+
   notifications: many(notifications),
   sessions: many(userSessions),
 }));

@@ -2,18 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { tryCatch } from "@walkup/walkup-utils";
+
 import {
-  createToolSchema,
-  type CreateToolFormData,
+  createToolSchemaServer,
+  type CreateToolFormDataServerType,
 } from "../form-schemas/tool.schema";
 import { ToolDAL } from "../dal/tool.dal";
 import { getCurrentUserId } from "../auth/auth-utils";
 
 const toolDAL = new ToolDAL();
 
-export async function updateTool(toolId: string, formData: CreateToolFormData) {
+export async function updateTool(
+  toolId: string,
+  formData: CreateToolFormDataServerType,
+) {
+  console.log("FORM DATA", formData);
   // Validate the form data
-  const validationResult = createToolSchema.safeParse(formData);
+  const validationResult = createToolSchemaServer.safeParse(formData);
 
   if (!validationResult.success) {
     return {
@@ -30,6 +35,7 @@ export async function updateTool(toolId: string, formData: CreateToolFormData) {
     return { error: "Unauthorized: User not authenticated" };
   }
 
+  // Update the tool
   const { data: tool, error } = await tryCatch(
     toolDAL.updateTool(toolId, userId, validatedData),
   );
@@ -49,4 +55,6 @@ export async function updateTool(toolId: string, formData: CreateToolFormData) {
   // Revalidate relevant paths
   revalidatePath("/dashboard/garage");
   revalidatePath("/dashboard/tools");
+
+  return { success: true, toolId };
 }

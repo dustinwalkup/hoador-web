@@ -12,3 +12,14 @@ const mockToolImages = [
 export function getMockToolImage() {
   return mockToolImages[Math.floor(Math.random() * mockToolImages.length)];
 }
+
+export const emojiMap: Record<string, string> = {
+  tent: "⛺",
+  drill: "⚡",
+  jack: "🚗",
+  ladder: "🪜",
+  wrench: "🔧",
+  shovel: "🪴",
+  vacuum: "🧹",
+  hammer: "🔨",
+};

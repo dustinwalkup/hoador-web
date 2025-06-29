@@ -2,18 +2,56 @@
 
 import { revalidatePath } from "next/cache";
 import { tryCatch } from "@walkup/walkup-utils";
+import { put } from "@vercel/blob";
+
 import {
-  createToolSchema,
-  type CreateToolFormData,
+  createToolSchemaServer,
+  type CreateToolFormDataServerType,
 } from "../form-schemas/tool.schema";
 import { ToolDAL } from "../dal/tool.dal";
 import { getCurrentUserId } from "../auth/auth-utils";
+import { db } from "@/db/db";
+import { toolImages } from "@/db/schemas/tools.schema";
 
 const toolDAL = new ToolDAL();
 
-export async function createTool(formData: CreateToolFormData) {
+// Separate action for uploading images
+export async function uploadToolImage(
+  file: File,
+  toolId: string,
+  orderIndex: number,
+) {
+  try {
+    const timestamp = Date.now();
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const filename = `tools/${toolId}/${timestamp}-${sanitizedName}`;
+
+    const blob = await put(filename, file, {
+      access: "public",
+    });
+
+    // Save to database
+    const [savedImage] = await db
+      .insert(toolImages)
+      .values({
+        toolId,
+        imageUrl: blob.url,
+        blobPathname: blob.pathname,
+        orderIndex,
+      })
+      .returning();
+
+    return { success: true, image: savedImage };
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    return { success: false, error: "Failed to upload image" };
+  }
+}
+
+export async function createTool(formData: CreateToolFormDataServerType) {
+  console.log("CREATE TOOL formData", formData);
   // Validate the form data
-  const validationResult = createToolSchema.safeParse(formData);
+  const validationResult = createToolSchemaServer.safeParse(formData);
 
   if (!validationResult.success) {
     return {
@@ -30,6 +68,7 @@ export async function createTool(formData: CreateToolFormData) {
     return { error: "Unauthorized: User not authenticated" };
   }
 
+  // Create the tool first
   const { data: tool, error } = await tryCatch(
     toolDAL.createTool(userId, validatedData),
   );
@@ -52,4 +91,6 @@ export async function createTool(formData: CreateToolFormData) {
   // Revalidate relevant paths
   revalidatePath("/dashboard/garage");
   revalidatePath("/dashboard/tools");
+
+  return { success: true, toolId: tool.id };
 }

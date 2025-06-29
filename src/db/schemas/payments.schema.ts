@@ -59,9 +59,11 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   payer: one(users, {
     fields: [payments.payerId],
     references: [users.id],
+    relationName: "payerPayments", // Add relation name to match users schema
   }),
   payee: one(users, {
     fields: [payments.payeeId],
     references: [users.id],
+    relationName: "payeePayments", // Add relation name to match users schema
   }),
 }));

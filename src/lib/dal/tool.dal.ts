@@ -103,7 +103,6 @@ export class ToolDAL extends BaseDAL {
           weeklyRate: toolData.weeklyRate?.toString(),
           monthlyRate: toolData.monthlyRate?.toString(),
           securityDeposit: (toolData.securityDeposit || 0).toString(),
-          images: toolData.images,
           specifications: toolData.specifications || {},
           instructions: toolData.instructions,
           safetyNotes: toolData.safetyNotes,
@@ -116,7 +115,6 @@ export class ToolDAL extends BaseDAL {
         })
         .returning();
       return tool;
-      // return this.getToolById(tool.id, ownerId);
     } catch (error) {
       this.handleError(error, "createTool");
     }
@@ -239,7 +237,6 @@ export class ToolDAL extends BaseDAL {
         monthlyRate: tool.monthlyRate ? Number(tool.monthlyRate) : undefined,
         securityDeposit: Number(tool.securityDeposit),
         status: tool.status,
-        images: tool.images,
         specifications: tool.specifications,
         instructions: tool.instructions || undefined,
         safetyNotes: tool.safetyNotes || undefined,

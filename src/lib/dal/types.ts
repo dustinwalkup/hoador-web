@@ -34,7 +34,6 @@ export interface CreateToolDTO {
   weeklyRate?: number;
   monthlyRate?: number;
   securityDeposit?: number;
-  images: string[];
   specifications?: Record<string, any>;
   instructions?: string;
   safetyNotes?: string;
@@ -57,7 +56,6 @@ export interface UpdateToolDTO {
   weeklyRate?: number;
   monthlyRate?: number;
   securityDeposit?: number;
-  images?: string[];
   specifications?: Record<string, any>;
   instructions?: string;
   safetyNotes?: string;
@@ -153,7 +151,6 @@ export interface ToolDetails {
   monthlyRate?: number;
   securityDeposit: number;
   status: string;
-  images: string[];
   specifications: Record<string, any>;
   instructions?: string;
   safetyNotes?: string;
