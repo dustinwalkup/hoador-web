@@ -29,6 +29,12 @@ export async function ListingsTab() {
                   ? "Currently Lent"
                   : tool.status
             }
+            toolData={{
+              id: tool.id,
+              name: tool.name,
+              status: tool.status,
+              isActive: tool.isActive,
+            }}
           />
         ))
       ) : (

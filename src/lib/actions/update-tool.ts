@@ -7,10 +7,8 @@ import {
   createToolSchemaServer,
   type CreateToolFormDataServerType,
 } from "../form-schemas/tool.schema";
-import { ToolDAL } from "../dal/tool.dal";
 import { getCurrentUserId } from "../auth/auth-utils";
-
-const toolDAL = new ToolDAL();
+import { toolDAL } from "../dal";
 
 export async function updateTool(
   toolId: string,

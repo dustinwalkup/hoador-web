@@ -21,6 +21,7 @@ import {
   // type ToolSearchFilters,
 } from "./types";
 import { schema } from "../../db/schemas";
+import { getCurrentUserId } from "../auth/auth-utils";
 import { NotFoundError, UnauthorizedError } from "./errors";
 
 const {
@@ -349,6 +350,50 @@ export class ToolDAL extends BaseDAL {
       return this.getToolById(id, ownerId);
     } catch (error) {
       this.handleError(error, "updateTool");
+    }
+  }
+
+  async updateToolStatus(
+    id: string,
+    status: "available" | "rented" | "maintenance" | "inactive",
+  ): Promise<typeof tools.$inferSelect> {
+    try {
+      // Get current user ID
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Verify ownership
+      const tool = await this.db.query.tools.findFirst({
+        where: eq(tools.id, id),
+        columns: { ownerId: true },
+      });
+
+      if (!tool) {
+        throw new NotFoundError("Tool", id);
+      }
+
+      if (tool.ownerId !== userId) {
+        throw new UnauthorizedError("You can only update your own tools");
+      }
+
+      const [updatedTool] = await this.db
+        .update(tools)
+        .set({
+          status,
+          updatedAt: new Date(),
+        })
+        .where(eq(tools.id, id))
+        .returning();
+
+      if (!updatedTool) {
+        throw new NotFoundError("Tool", id);
+      }
+
+      return updatedTool;
+    } catch (error) {
+      this.handleError(error, "updateToolStatus");
     }
   }
 

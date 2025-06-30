@@ -1,9 +1,17 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+"use client";
+
+import { toast } from "sonner";
 import { Calendar, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+import { updateToolStatus } from "@/lib/actions/update-tool-status";
+
+import ToolManagementModal from "./tool-management-modal";
 
 interface RentalCardProps {
   name: string;
@@ -15,6 +23,12 @@ interface RentalCardProps {
   owner?: string;
   borrower?: string;
   availability?: string;
+  toolData?: {
+    id: string;
+    name: string;
+    status: "available" | "rented" | "maintenance" | "inactive";
+    isActive: boolean;
+  };
 }
 
 export default function RentalCard({
@@ -27,7 +41,20 @@ export default function RentalCard({
   owner,
   borrower,
   availability,
+  toolData,
 }: RentalCardProps) {
+  const handleToolUpdate = async (data: {
+    status: "available" | "maintenance" | "inactive";
+  }) => {
+    const result = await updateToolStatus(id, data);
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Tool status updated successfully");
+    }
+  };
+
   return (
     <Card className="overflow-hidden pt-0 pb-2">
       <div className="bg-muted aspect-[4/3] overflow-hidden">
@@ -110,9 +137,21 @@ export default function RentalCard({
               <Button asChild variant="outline" size="sm" className="flex-1">
                 <Link href={`/dashboard/tools/edit/${id}`}>Edit</Link>
               </Button>
-              <Button size="sm" className="flex-1">
-                Manage
-              </Button>
+              {toolData ? (
+                <ToolManagementModal
+                  tool={toolData}
+                  onSave={handleToolUpdate}
+                  trigger={
+                    <Button size="sm" className="flex-1">
+                      Manage
+                    </Button>
+                  }
+                />
+              ) : (
+                <Button size="sm" className="flex-1">
+                  Manage
+                </Button>
+              )}
             </>
           )}
         </div>

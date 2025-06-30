@@ -8,12 +8,10 @@ import {
   createToolSchemaServer,
   type CreateToolFormDataServerType,
 } from "../form-schemas/tool.schema";
-import { ToolDAL } from "../dal/tool.dal";
 import { getCurrentUserId } from "../auth/auth-utils";
 import { db } from "@/db/db";
 import { toolImages } from "@/db/schemas/tools.schema";
-
-const toolDAL = new ToolDAL();
+import { toolDAL } from "../dal";
 
 // Separate action for uploading images
 export async function uploadToolImage(
