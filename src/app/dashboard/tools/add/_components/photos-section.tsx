@@ -7,7 +7,6 @@ import type {
   CreateToolFormDataClientType,
   ImageFile,
 } from "@/lib/form-schemas/tool.schema";
-import { getMockToolImage } from "@/lib/constants/garage";
 import { validateImageFile } from "@/lib/utils/image-utils";
 
 import {
@@ -62,9 +61,26 @@ function ToolImage({
     onError(index, e);
   };
 
-  const imageSrc = image.file
-    ? objectUrls[index]
-    : image.url || getMockToolImage();
+  // Determine image source
+  let imageSrc = "";
+  if (image.file && objectUrls[index]) {
+    imageSrc = objectUrls[index];
+  } else if (
+    image.url &&
+    typeof image.url === "string" &&
+    image.url.trim() !== ""
+  ) {
+    imageSrc = image.url;
+  }
+
+  // Don't render if no valid image source
+  if (!imageSrc || imageSrc.trim() === "") {
+    return (
+      <div className="relative aspect-square w-full overflow-hidden rounded-lg border">
+        <Skeleton className="absolute inset-0 rounded-lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative aspect-square w-full overflow-hidden rounded-lg border">
@@ -111,14 +127,24 @@ export function PhotosSection({
 
     images.forEach((image: ImageFile, index: number) => {
       if (image.file) {
-        newObjectUrls[index] = URL.createObjectURL(image.file);
+        try {
+          newObjectUrls[index] = URL.createObjectURL(image.file);
+        } catch (error) {
+          console.error("Failed to create object URL for image:", error);
+        }
       }
     });
 
     setObjectUrls(newObjectUrls);
 
     return () => {
-      Object.values(newObjectUrls).forEach((url) => URL.revokeObjectURL(url));
+      Object.values(newObjectUrls).forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error("Failed to revoke object URL:", error);
+        }
+      });
     };
   }, [images]);
 
@@ -131,10 +157,7 @@ export function PhotosSection({
     e: React.SyntheticEvent<HTMLImageElement>,
   ) => {
     console.error("Image failed to load:", e);
-    const target = e.target as HTMLImageElement;
-    if (target.src !== getMockToolImage()) {
-      target.src = getMockToolImage();
-    }
+    // Don't try to set a fallback src since we're not using mock images anymore
   };
 
   // Handle file selection

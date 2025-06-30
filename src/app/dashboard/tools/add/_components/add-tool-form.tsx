@@ -53,6 +53,7 @@ export function AddToolForm({
   const {
     images: existingImages,
     loadImages,
+    deleteImage,
     isLoading: isLoadingImages,
   } = useToolImages(toolId || "");
 
@@ -135,6 +136,27 @@ export function AddToolForm({
     await Promise.all(uploadPromises);
   };
 
+  // Delete removed existing images
+  const deleteRemovedImages = async (currentFormImages: ImageFile[]) => {
+    if (!isEdit || !toolId) return;
+
+    // Get IDs of existing images that are still in the form
+    const remainingImageIds = new Set(
+      currentFormImages
+        .filter((img) => img.id) // Only existing images have IDs
+        .map((img) => img.id),
+    );
+
+    // Find images that were removed (exist in existingImages but not in form)
+    const removedImages = existingImages.filter(
+      (img) => !remainingImageIds.has(img.id),
+    );
+
+    // Delete removed images
+    const deletePromises = removedImages.map((img) => deleteImage(img.id));
+    await Promise.all(deletePromises);
+  };
+
   const defaultOnSubmit = async (formData: CreateToolFormDataClientType) => {
     setIsSubmitting(true);
 
@@ -212,22 +234,33 @@ export function AddToolForm({
           return;
         }
 
-        // Upload new images if any (for edit mode, use the existing toolId)
-        const newImages = images.filter((img: ImageFile) => img.file);
-        if (newImages.length > 0) {
+        // Handle image operations for edit mode
+        if (isEdit && toolId) {
+          // Delete removed existing images
+          await deleteRemovedImages(images);
+
+          // Upload new images if any
+          const newImages = images.filter((img: ImageFile) => img.file);
+          if (newImages.length > 0) {
+            try {
+              await uploadImages(newImages, toolId);
+              toast.success("Tool and images updated successfully!");
+            } catch (uploadError) {
+              console.error("Error uploading images", uploadError);
+              toast.error("Error uploading one or more images.");
+            }
+          } else {
+            toast.success("Tool updated successfully!");
+          }
+        } else {
+          // For new tools, upload all images
           try {
-            await uploadImages(newImages, result?.toolId || toolId!);
+            await uploadImages(images, result?.toolId || toolId!);
             toast.success("Tool and images uploaded successfully!");
           } catch (uploadError) {
             console.error("Error uploading images", uploadError);
             toast.error("Error uploading one or more images.");
           }
-        } else {
-          toast.success(
-            isEdit
-              ? "Tool updated successfully!"
-              : "Tool created successfully!",
-          );
         }
 
         router.push("/dashboard/garage");
