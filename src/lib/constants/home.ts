@@ -1,6 +1,3 @@
-import { ReactNode } from "react";
-import { Coins, Home, Truck, PenToolIcon as Tool, Users } from "lucide-react";
-
 export interface HeaderConstants {
   readonly signUp: string;
   readonly logIn: string;
@@ -24,7 +21,7 @@ export interface CategoryCard {
   readonly title: string;
   readonly description: string;
   readonly imageUrl: string;
-  readonly icon: ReactNode;
+  readonly iconName: string;
 }
 
 export interface CommunityConstants {
@@ -35,7 +32,7 @@ export interface CommunityConstants {
 }
 
 export interface FeatureCard {
-  readonly icon: ReactNode;
+  readonly iconName: string;
   readonly title: string;
   readonly description: string;
   readonly benefits: string[];
@@ -92,20 +89,20 @@ export const HOME_PAGE: HomePageConstants = {
         description:
           "Drills, saws, sanders, and more available in your neighborhood.",
         imageUrl: "/images/mock/tool-bench.jpg",
-        icon: <Tool className="h-6 w-6" />,
+        iconName: "PenToolIcon",
       },
       {
         title: "Trucks & Trailers",
         description: "Moving? Need to haul something? Your neighbors can help.",
         imageUrl: "/images/mock/trailer-hitch.jpg",
-        icon: <Truck className="h-6 w-6" />,
+        iconName: "Truck",
       },
       {
         title: "Lawn & Garden",
         description:
           "Mowers, trimmers, pressure washers, and more for your yard.",
         imageUrl: "/images/mock/garden-tools.jpg",
-        icon: <Home className="h-6 w-6" />,
+        iconName: "Home",
       },
     ],
   },
@@ -115,7 +112,7 @@ export const HOME_PAGE: HomePageConstants = {
       "Trust in a community marketplace that is limited to households in your neighborhood. Build connections while sharing resources.",
     featuredCards: [
       {
-        icon: <Users className="text-primary h-12 w-12" />,
+        iconName: "Users",
         title: "Now that's a win-win",
         description:
           "The whole neighborhood wins. Improve property value and make money while helping neighbors.",
@@ -127,7 +124,7 @@ export const HOME_PAGE: HomePageConstants = {
         variant: "default",
       },
       {
-        icon: <Coins className="h-12 w-12" />,
+        iconName: "Coins",
         title: "Earn Hoador Points",
         description:
           "Use points to pay for rentals or get discounts on your next tool rental.",

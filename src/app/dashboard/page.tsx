@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RentalCard from "@/components/dashboard/rental-card";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { Icon } from "@/components/ui/icon";
 
 const { header, alerts, quickActions, pendingRequests } = DASHBOARD_PAGE;
 
@@ -59,7 +60,7 @@ export default async function DashboardPage() {
                     variant={button.buttonVariant as ButtonVariantsType}
                     className={`h-8 ${button.buttonVariant}`}
                   >
-                    {button.icon}
+                    <Icon name={button.iconName} className="mr-1 h-3.5 w-3.5" />
                     {button.label}
                   </Button>
                 );
@@ -589,7 +590,8 @@ export default async function DashboardPage() {
               owner="John D."
               imageUrl="/images/mock/pressure-washer.jpg"
               dueDate="May 25, 2023"
-              status="active"
+              status="rented"
+              cardType="borrowing"
               price="$15/day"
             />
             <RentalCard
@@ -598,7 +600,8 @@ export default async function DashboardPage() {
               owner="Maria G."
               imageUrl="/images/mock/skill-saw.jpg"
               dueDate="May 28, 2023"
-              status="active"
+              status="rented"
+              cardType="borrowing"
               price="$12/day"
             />
             <RentalCard
@@ -607,7 +610,8 @@ export default async function DashboardPage() {
               owner="Robert T."
               imageUrl="/images/mock/ladder.jpg"
               dueDate="May 30, 2023"
-              status="active"
+              status="rented"
+              cardType="borrowing"
               price="$6/day"
             />
           </div>
@@ -626,7 +630,8 @@ export default async function DashboardPage() {
               borrower="Emily K."
               imageUrl="/images/mock/drill-set.jpg"
               dueDate="May 26, 2023"
-              status="lent"
+              status="rented"
+              cardType="borrowing"
               price="$10/day"
             />
             <RentalCard
@@ -635,7 +640,8 @@ export default async function DashboardPage() {
               borrower="David P."
               imageUrl="/images/mock/lawn-mower.jpg"
               dueDate="June 2, 2023"
-              status="lent"
+              status="rented"
+              cardType="borrowing"
               price="$20/day"
             />
           </div>
@@ -652,7 +658,8 @@ export default async function DashboardPage() {
               id={"123"}
               name="Drill Set"
               imageUrl="/images/mock/drill-set.jpg"
-              status="listed"
+              status="rented"
+              cardType="borrowing"
               price="$10/day"
               availability="Available"
             />
@@ -660,7 +667,8 @@ export default async function DashboardPage() {
               id={"123"}
               name="Lawn Mower"
               imageUrl="/images/mock/lawn-mower.jpg"
-              status="listed"
+              status="rented"
+              cardType="borrowing"
               price="$20/day"
               availability="Currently Lent"
             />
@@ -668,7 +676,8 @@ export default async function DashboardPage() {
               id={"123"}
               name="Hedge Trimmer"
               imageUrl="/images/mock/hedge-trimmer.jpg"
-              status="listed"
+              status="rented"
+              cardType="borrowing"
               price="$15/day"
               availability="Available"
             />

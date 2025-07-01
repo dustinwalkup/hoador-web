@@ -1,12 +1,59 @@
-import { Bell, MessageSquare, PlusCircle } from "lucide-react";
-
 interface HeaderConstants {
   readonly titleFor: (userName: string) => string;
   readonly description: string;
 }
 
+interface QuickActionButton {
+  readonly id: number;
+  readonly label: string;
+  readonly iconName: string;
+  readonly buttonVariant: string;
+}
+
+interface QuickActionsConstants {
+  readonly title: string;
+  readonly buttons: readonly QuickActionButton[];
+}
+
+interface AlertItem {
+  readonly id: number;
+  readonly title: string;
+  readonly status: string;
+  readonly person: string;
+  readonly actionable: boolean;
+}
+
+interface AlertsConstants {
+  readonly title: string;
+  readonly itemsLabel: string;
+  readonly actionLabel: string;
+  readonly viewAllLabel: string;
+  readonly items: readonly AlertItem[];
+}
+
+interface PendingRequestItem {
+  readonly id: number;
+  readonly title: string;
+  readonly status: string;
+  readonly person: string;
+  readonly actionable: boolean;
+}
+
+interface PendingRequestsConstants {
+  readonly title: string;
+  readonly decline: string;
+  readonly accept: string;
+  readonly from: string;
+  readonly requests: string;
+  readonly viewAllLabel: string;
+  readonly items: readonly PendingRequestItem[];
+}
+
 export interface DashboardConstants {
   readonly header: HeaderConstants;
+  readonly quickActions: QuickActionsConstants;
+  readonly alerts: AlertsConstants;
+  readonly pendingRequests: PendingRequestsConstants;
 }
 
 export const DASHBOARD_PAGE = {
@@ -20,19 +67,19 @@ export const DASHBOARD_PAGE = {
       {
         id: 1,
         label: "Add New Listing",
-        icon: <PlusCircle className="mr-1 h-3.5 w-3.5" />,
+        iconName: "PlusCircle",
         buttonVariant: "default",
       },
       {
         id: 2,
         label: "Respond to Requests",
-        icon: <MessageSquare className="mr-1 h-3.5 w-3.5" />,
+        iconName: "MessageSquare",
         buttonVariant: "outline",
       },
       {
         id: 3,
         label: "Create Reminder",
-        icon: <Bell className="mr-1 h-3.5 w-3.5" />,
+        iconName: "Bell",
         buttonVariant: "outline",
       },
     ],

@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
 import { CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils/utils";
+import { Icon } from "@/components/ui/icon";
 
 interface FeatureCardProps {
-  icon: ReactNode;
+  iconName: string;
   title: string;
   description: string;
   benefits: string[];
@@ -11,7 +11,7 @@ interface FeatureCardProps {
 }
 
 export default function FeatureCard({
-  icon,
+  iconName,
   title,
   description,
   benefits,
@@ -26,7 +26,9 @@ export default function FeatureCard({
           : "bg-primary text-primary-foreground",
       )}
     >
-      <div className="mb-6 flex justify-center">{icon}</div>
+      <div className="mb-6 flex justify-center">
+        <Icon name={iconName} className="h-12 w-12" />
+      </div>
       <h3 className="mb-4 text-center text-2xl font-semibold">{title}</h3>
       <p
         className={cn(

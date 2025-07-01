@@ -12,7 +12,7 @@ import {
   SearchIcon,
   SettingsIcon,
 } from "lucide-react";
-import DoorIcon from "@/components/svg/door";
+import DoorIcon from "@/components/ui/door-icon";
 
 export type IconComponent = FunctionComponent<SVGProps<SVGSVGElement>>;
 

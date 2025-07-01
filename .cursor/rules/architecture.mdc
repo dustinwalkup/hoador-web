@@ -1,0 +1,29 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Architecture Guidelines
+
+## Data Access Layer
+
+- Implement class-based data access layer
+- Keep database logic isolated from UI components
+- Use Drizzle ORM for all database operations
+- Implement proper error handling and logging
+- Use connection pooling with Neon Database
+
+## Server/Client Boundaries
+
+- Prefer React Server Components where possible
+- Use "use client" directive only when necessary
+- Keep client-side JavaScript minimal
+- Use server actions for data mutations
+- Implement proper error handling for server actions
+
+## State Management
+
+- Use React's built-in state management when possible
+- Avoid unnecessary global state
+- Colocate state with the components that use it
+- Use React Context for theme and authentication state

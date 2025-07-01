@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { toolId: string } },
 ) {
   try {
-    const toolId = params.toolId;
+    const toolId = await params.toolId;
 
     // Validate toolId exists and is a valid UUID
     if (!toolId || toolId === "") {

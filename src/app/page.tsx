@@ -104,7 +104,7 @@ export default function HomePage() {
             {valueProp.categoryCards.map((categoryCard) => (
               <CategoryCard
                 key={categoryCard.title}
-                icon={categoryCard.icon}
+                iconName={categoryCard.iconName}
                 title={categoryCard.title}
                 description={categoryCard.description}
                 imageUrl={categoryCard.imageUrl}
@@ -142,7 +142,7 @@ export default function HomePage() {
             {community.featuredCards.map((featureCard) => (
               <FeatureCard
                 key={featureCard.title}
-                icon={featureCard.icon}
+                iconName={featureCard.iconName}
                 title={featureCard.title}
                 description={featureCard.description}
                 benefits={featureCard.benefits}

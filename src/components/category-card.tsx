@@ -1,15 +1,15 @@
-import type { ReactNode } from "react";
 import Image from "next/image";
+import { Icon } from "@/components/ui/icon";
 
 interface CategoryCardProps {
-  icon: ReactNode;
+  iconName: string;
   title: string;
   description: string;
   imageUrl: string;
 }
 
 export default function CategoryCard({
-  icon,
+  iconName,
   title,
   description,
   imageUrl,
@@ -17,7 +17,7 @@ export default function CategoryCard({
   return (
     <div className="group bg-card flex flex-grow flex-col rounded-xl border p-6 shadow-sm transition-all hover:shadow-md">
       <div className="bg-primary/10 text-primary mb-4 rounded-full p-3">
-        {icon}
+        <Icon name={iconName} className="h-6 w-6" />
       </div>
       <h3 className="mb-2 text-xl font-semibold">{title}</h3>
       <p className="text-muted-foreground mb-4">{description}</p>

@@ -1,0 +1,22 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# TypeScript Standards
+
+## Type Safety
+
+- Enable strict mode in tsconfig.json
+- Avoid using `any` type
+- Use Zod for runtime validation
+- Define explicit return types for functions
+- Use interface for public APIs and type for internal types
+
+## Type Definitions
+
+- Create dedicated type files for shared types
+- Use generics appropriately
+- Leverage TypeScript utility types
+- Keep types DRY (Don't Repeat Yourself)
+- Document complex types with comments

@@ -1,0 +1,22 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Next.js Best Practices
+
+## Routing and Layout
+
+- Use the App Router architecture
+- Implement nested layouts appropriately
+- Optimize loading states and error boundaries
+- Use dynamic imports for code splitting
+- Implement proper metadata for SEO
+
+## Performance
+
+- Optimize images with next/image
+- Implement proper caching strategies
+- Use React.memo for expensive components
+- Implement incremental static regeneration where appropriate
+- Optimize third-party script loading
