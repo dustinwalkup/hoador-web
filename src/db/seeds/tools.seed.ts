@@ -156,7 +156,6 @@ async function main() {
         .float({ min: 0, max: 200, multipleOf: 0.01 })
         .toString(),
       status: "available",
-      images: [faker.image.urlPicsumPhotos()],
       specifications: {
         weight: faker.number.float({ min: 1, max: 20 }),
         voltage: 120,
