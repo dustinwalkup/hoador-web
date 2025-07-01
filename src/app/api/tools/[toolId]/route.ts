@@ -7,10 +7,10 @@ import { toolImages } from "@/db/schemas/tools.schema";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { toolId: string } },
+  { params }: { params: Promise<{ toolId: string }> },
 ) {
   try {
-    const toolId = params.toolId;
+    const { toolId } = await params;
 
     // Validate toolId exists and is a valid UUID
     if (!toolId || toolId === "") {

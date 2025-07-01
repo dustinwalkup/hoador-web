@@ -6,10 +6,10 @@ import { toolImages } from "@/db/schemas/tools.schema";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { toolId: string } },
+  { params }: { params: Promise<{ toolId: string }> },
 ) {
   try {
-    const toolId = await params.toolId;
+    const { toolId } = await params;
 
     // Validate toolId exists and is a valid UUID
     if (!toolId || toolId === "") {
