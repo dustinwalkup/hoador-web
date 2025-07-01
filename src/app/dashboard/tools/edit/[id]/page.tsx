@@ -36,7 +36,7 @@ function mapToolToFormData(tool: ToolDetails): CreateToolFormDataClientType {
 export default async function EditToolPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
   const tool = await toolDAL.getToolById(id);
