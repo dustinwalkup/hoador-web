@@ -7,6 +7,13 @@ import { toolDAL } from "@/lib/dal";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import RentalCard from "@/components/dashboard/rental-card";
+import { capitalize } from "@/lib/utils/utils";
+
+function getStatus(status: string): "rented" | "listed" | "" {
+  if (status === "available") return "listed";
+  if (status === "rented") return "rented";
+  return "";
+}
 
 export async function ListingsTab() {
   const user = await getCurrentUser();
@@ -20,15 +27,10 @@ export async function ListingsTab() {
             id={tool.id}
             name={tool.name}
             imageUrl={tool.firstImageUrl}
-            status="listed"
+            status={getStatus(tool.status)}
             price={`$${tool.dailyRate}/day`}
-            availability={
-              tool.status === "available"
-                ? "Available"
-                : tool.status === "rented"
-                  ? "Currently Lent"
-                  : tool.status
-            }
+            availability={capitalize(tool.status)}
+            cardType="listings"
             toolData={{
               id: tool.id,
               name: tool.name,

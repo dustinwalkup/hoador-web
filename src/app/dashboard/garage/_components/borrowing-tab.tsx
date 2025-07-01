@@ -19,7 +19,8 @@ export function BorrowingTab() {
             owner="John D."
             imageUrl="/images/mock/pressure-washer.jpg"
             dueDate="May 25, 2023"
-            status="active"
+            status="renting"
+            cardType="borrowing"
             price="$15/day"
           />
           <RentalCard
@@ -28,7 +29,8 @@ export function BorrowingTab() {
             owner="Maria G."
             imageUrl="/images/mock/skill-saw.jpg"
             dueDate="May 28, 2023"
-            status="active"
+            status="renting"
+            cardType="borrowing"
             price="$12/day"
           />
           <RentalCard
@@ -37,7 +39,8 @@ export function BorrowingTab() {
             owner="Robert T."
             imageUrl="/images/mock/ladder.jpg"
             dueDate="May 30, 2023"
-            status="active"
+            status="renting"
+            cardType="borrowing"
             price="$6/day"
           />
         </div>

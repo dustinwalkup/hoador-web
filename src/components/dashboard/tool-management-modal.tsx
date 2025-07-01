@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  Trash2,
 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,6 +21,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Form,
   FormControl,
@@ -37,6 +48,8 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { deleteTool } from "@/lib/actions/delete-tool";
+import { toast } from "sonner";
 
 const toolManagementSchema = z.object({
   status: z.enum(["available", "maintenance", "inactive"]),
@@ -62,6 +75,8 @@ export default function ToolManagementModal({
 }: ToolManagementModalProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const form = useForm<ToolManagementFormData>({
     resolver: zodResolver(toolManagementSchema),
@@ -79,6 +94,26 @@ export default function ToolManagementModal({
       console.error("Failed to save tool:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const result = await deleteTool(tool.id);
+
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Tool deleted successfully");
+        setOpen(false);
+      }
+    } catch (error) {
+      console.error("Failed to delete tool:", error);
+      toast.error("Failed to delete tool");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -165,13 +200,56 @@ export default function ToolManagementModal({
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Close
-            </Button>
+            <div className="flex w-full flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
+                Close
+              </Button>
+
+              <div className="w-full border-t pt-4 sm:w-auto sm:border-t-0 sm:pt-0">
+                {showDeleteConfirm ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-destructive text-sm font-medium">
+                      Are you sure you want to delete this tool?
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={isDeleting}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? "Deleting..." : "Delete Tool"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full sm:w-auto"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Tool
+                  </Button>
+                )}
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -227,7 +305,7 @@ export default function ToolManagementModal({
                       defaultValue={field.value}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                       </FormControl>
@@ -258,19 +336,65 @@ export default function ToolManagementModal({
               />
             </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Changes"}
-              </Button>
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+              <div className="w-full border-t pt-4 sm:w-auto sm:border-t-0 sm:pt-0">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isLoading}
+                  className="w-full sm:w-auto"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {isDeleting ? "Deleting..." : "Delete Tool"}
+                </Button>
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
             </DialogFooter>
+            <AlertDialog
+              open={showDeleteConfirm}
+              onOpenChange={setShowDeleteConfirm}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <div className="rounded-full bg-red-100 p-2">
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </div>
+                    Delete Tool
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-base">
+                    Are you sure you want to delete this tool? This action
+                    cannot be undone and will permanently remove the tool from
+                    your inventory.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isLoading}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Deleting..." : "Delete Tool"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </form>
         </Form>
       </DialogContent>

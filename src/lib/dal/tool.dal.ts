@@ -397,34 +397,40 @@ export class ToolDAL extends BaseDAL {
     }
   }
 
-  // async deleteTool(id: string, ownerId: string): Promise<void> {
-  //   try {
-  //     // Verify ownership
-  //     const tool = await this.db.query.tools.findFirst({
-  //       where: eq(tools.id, id),
-  //       columns: { ownerId: true },
-  //     });
+  async deleteTool(id: string): Promise<void> {
+    try {
+      // Get current user ID
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
 
-  //     if (!tool) {
-  //       throw new NotFoundError("Tool", id);
-  //     }
+      // Verify ownership
+      const tool = await this.db.query.tools.findFirst({
+        where: eq(tools.id, id),
+        columns: { ownerId: true },
+      });
 
-  //     if (tool.ownerId !== ownerId) {
-  //       throw new UnauthorizedError("You can only delete your own tools");
-  //     }
+      if (!tool) {
+        throw new NotFoundError("Tool", id);
+      }
 
-  //     const result = await this.db
-  //       .delete(tools)
-  //       .where(eq(tools.id, id))
-  //       .returning();
+      if (tool.ownerId !== userId) {
+        throw new UnauthorizedError("You can only delete your own tools");
+      }
 
-  //     if (result.length === 0) {
-  //       throw new NotFoundError("Tool", id);
-  //     }
-  //   } catch (error) {
-  //     this.handleError(error, "deleteTool");
-  //   }
-  // }
+      const result = await this.db
+        .delete(tools)
+        .where(eq(tools.id, id))
+        .returning();
+
+      if (result.length === 0) {
+        throw new NotFoundError("Tool", id);
+      }
+    } catch (error) {
+      this.handleError(error, "deleteTool");
+    }
+  }
 
   // async searchTools(
   //   filters: ToolSearchFilters,

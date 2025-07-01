@@ -12,13 +12,15 @@ import { Button } from "@/components/ui/button";
 import { updateToolStatus } from "@/lib/actions/update-tool-status";
 
 import ToolManagementModal from "./tool-management-modal";
+import { capitalize } from "@/lib/utils/utils";
 
 interface RentalCardProps {
+  cardType: "listings" | "borrowing";
   name: string;
   id: string;
   imageUrl: string | null;
   price: string;
-  status: "active" | "lent" | "listed";
+  status: "rented" | "" | "listed" | "renting";
   dueDate?: string;
   owner?: string;
   borrower?: string;
@@ -32,6 +34,7 @@ interface RentalCardProps {
 }
 
 export default function RentalCard({
+  cardType,
   name,
   id,
   imageUrl,
@@ -69,22 +72,14 @@ export default function RentalCard({
       <CardContent className="p-4">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="font-medium">{name}</h3>
-          <Badge
-            variant={
-              status === "active"
-                ? "default"
-                : status === "lent"
-                  ? "secondary"
-                  : "outline"
-            }
-            className="text-xs"
-          >
-            {status === "active"
-              ? "Renting"
-              : status === "lent"
-                ? "Lent Out"
-                : "Listed"}
-          </Badge>
+          {status && (
+            <Badge
+              variant={status === "listed" ? "outline" : "default"}
+              className="text-xs"
+            >
+              {capitalize(status)}
+            </Badge>
+          )}
         </div>
 
         {(owner || borrower) && (
@@ -110,7 +105,7 @@ export default function RentalCard({
         <div className="text-primary mb-3 font-medium">{price}</div>
 
         <div className="flex items-center gap-2">
-          {status === "active" && (
+          {cardType === "borrowing" && (
             <>
               <Button asChild variant="outline" size="sm" className="flex-1">
                 <Link href="#">Extend</Link>
@@ -121,18 +116,7 @@ export default function RentalCard({
             </>
           )}
 
-          {status === "lent" && (
-            <>
-              <Button asChild variant="outline" size="sm" className="flex-1">
-                <Link href="#">Message</Link>
-              </Button>
-              <Button size="sm" className="flex-1">
-                Mark Returned
-              </Button>
-            </>
-          )}
-
-          {status === "listed" && (
+          {cardType === "listings" && (
             <>
               <Button asChild variant="outline" size="sm" className="flex-1">
                 <Link href={`/dashboard/tools/edit/${id}`}>Edit</Link>

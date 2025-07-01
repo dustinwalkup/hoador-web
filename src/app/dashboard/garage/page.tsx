@@ -14,7 +14,6 @@ import {
 
 import { ListingsTab } from "./_components/listings-tab";
 import { BorrowingTab } from "./_components/borrowing-tab";
-import { LentOutTab } from "./_components/lent-out-tab";
 import { HistoryTab } from "./_components/history-tab";
 
 export default async function GaragePage() {
@@ -42,7 +41,6 @@ export default async function GaragePage() {
         <TabsList>
           <TabsTrigger value="listings">My Listings</TabsTrigger>
           <TabsTrigger value="borrowing">Borrowing</TabsTrigger>
-          <TabsTrigger value="lent-out">Lent Out</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
@@ -84,10 +82,6 @@ export default async function GaragePage() {
 
         <TabsContent value="borrowing" className="mt-6">
           <BorrowingTab />
-        </TabsContent>
-
-        <TabsContent value="lent-out" className="mt-6">
-          <LentOutTab />
         </TabsContent>
 
         <TabsContent value="history" className="mt-6">
