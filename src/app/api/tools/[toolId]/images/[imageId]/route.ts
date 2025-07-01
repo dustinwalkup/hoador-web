@@ -7,11 +7,10 @@ import { toolImages } from "@/db/schemas/tools.schema";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { toolId: string; imageId: string } },
+  { params }: { params: Promise<{ toolId: string; imageId: string }> },
 ) {
   try {
-    const toolId = await params.toolId;
-    const imageId = await params.imageId;
+    const { toolId, imageId } = await params;
 
     // Get image from database
     const [image] = await db
