@@ -74,6 +74,11 @@ interface ToolWithRelations extends ToolDb {
   category: CategoryDb;
   reviews: ReviewDb[];
   availability: AvailabilityDb[];
+  images: Array<{
+    id: string;
+    imageUrl: string;
+    orderIndex: number;
+  }>;
 }
 
 // Type for the transformed tool data returned by getUserTools
@@ -184,6 +189,17 @@ export class ToolDAL extends BaseDAL {
         },
       })) as ToolWithRelations | undefined;
 
+      // Get images separately since they're not in the main query
+      const images = await this.db
+        .select({
+          id: toolImages.id,
+          imageUrl: toolImages.imageUrl,
+          orderIndex: toolImages.orderIndex,
+        })
+        .from(toolImages)
+        .where(eq(toolImages.toolId, id))
+        .orderBy(toolImages.orderIndex);
+
       if (!tool) {
         throw new NotFoundError("Tool", id);
       }
@@ -287,6 +303,11 @@ export class ToolDAL extends BaseDAL {
             lastName: review.reviewer.lastName,
             profileImageUrl: review.reviewer.profileImageUrl || undefined,
           },
+        })),
+        images: images.map((img) => ({
+          id: img.id,
+          imageUrl: img.imageUrl,
+          orderIndex: img.orderIndex || 0,
         })),
         availability: tool.availability.map((avail: AvailabilityDb) => ({
           id: avail.id,

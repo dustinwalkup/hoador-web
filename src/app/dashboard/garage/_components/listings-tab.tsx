@@ -19,7 +19,7 @@ export async function ListingsTab() {
   const user = await getCurrentUser();
   const userTools = await toolDAL.getUserTools(user.id);
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {userTools && userTools.length > 0 ? (
         userTools.map((tool) => (
           <RentalCard

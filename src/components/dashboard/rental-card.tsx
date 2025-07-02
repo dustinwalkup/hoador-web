@@ -1,9 +1,15 @@
 "use client";
 
 import { toast } from "sonner";
-import { Calendar, User } from "lucide-react";
+import { Calendar, Eye, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +66,7 @@ export default function RentalCard({
 
   return (
     <Card className="overflow-hidden pt-0 pb-2">
-      <div className="bg-muted aspect-[4/3] overflow-hidden">
+      <div className="bg-muted relative aspect-[4/3] overflow-hidden">
         <Image
           src={imageUrl || "/images/placeholder.jpg"}
           alt={name}
@@ -68,14 +74,27 @@ export default function RentalCard({
           height={200}
           className="h-full w-full object-cover"
         />
+        <Link
+          href={`/dashboard/tools/${id}`}
+          className="text-muted-foreground/40 hover:text-muted-foreground absolute top-0 right-0 p-2 text-xs underline decoration-dotted transition-colors"
+        >
+          <Tooltip delayDuration={600}>
+            <TooltipTrigger className="cursor-pointer">
+              <Eye className="size-5" />
+            </TooltipTrigger>
+            <TooltipContent className="text-xs">
+              <p className="text-muted-foreground text-xs">Preview</p>
+            </TooltipContent>
+          </Tooltip>
+        </Link>
       </div>
       <CardContent className="p-4">
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="font-medium">{name}</h3>
+          <h3 className="truncate font-medium">{name}</h3>
           {status && (
             <Badge
               variant={status === "listed" ? "outline" : "default"}
-              className="text-xs"
+              className="block text-xs"
             >
               {capitalize(status)}
             </Badge>

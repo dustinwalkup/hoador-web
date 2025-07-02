@@ -167,6 +167,11 @@ export interface ToolDetails {
   isFavorited?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  images: Array<{
+    id: string;
+    imageUrl: string;
+    orderIndex: number;
+  }>;
   owner: {
     id: string;
     firstName: string;

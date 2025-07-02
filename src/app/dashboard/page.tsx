@@ -11,6 +11,9 @@ import {
   TrendingUp,
   Wrench,
 } from "lucide-react";
+
+import { getCurrentUser } from "@/lib/auth/auth-utils";
+
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonVariantsType } from "@/components/ui/button";
 import {
@@ -27,7 +30,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RentalCard from "@/components/dashboard/rental-card";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { Icon } from "@/components/ui/icon";
 
 const { header, alerts, quickActions, pendingRequests } = DASHBOARD_PAGE;

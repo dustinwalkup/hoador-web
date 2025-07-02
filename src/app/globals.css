@@ -12,6 +12,7 @@
   --color-lightGrey: var(--lightGrey);
   --color-forestGreen: var(--forestGreen);
   --color-blue: var(--blue);
+  --color-tooltip-background: var(--tooltip-background);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -58,6 +59,8 @@
   --lightGrey: #ededed;
   --forestGreen: #072d03;
   --blue: #2485b0;
+
+  --tooltip-background: oklch(70.7% 0.022 261.325);
 
   --radius: 0.625rem;
   --background: oklch(1 0 0);

@@ -12,8 +12,8 @@ export default function DashboardLayout({
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="bg-muted/20 container mx-auto flex-1 p-4">
-          {children}
+        <div className="bg-muted/20">
+          <div className="container mx-auto flex-1 p-4">{children}</div>
         </div>
         {/* <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
