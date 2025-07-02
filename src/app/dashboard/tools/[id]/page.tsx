@@ -4,14 +4,13 @@ import { toolDAL } from "@/lib/dal";
 import { ToolDetailView } from "./_components/tool-detail-view";
 
 interface ToolDetailPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
 export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
   const currentUser = await getCurrentUser();
-  const tool = await toolDAL.getToolById(params.id, currentUser.id);
+  const { id } = await params;
+  const tool = await toolDAL.getToolById(id, currentUser.id);
 
   if (!tool) {
     notFound();
