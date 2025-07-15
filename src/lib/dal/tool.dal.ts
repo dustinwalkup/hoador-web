@@ -3,13 +3,13 @@ import {
   asc,
   and,
   desc,
-  // sql,
-  // gte,
-  // lte,
-  // inArray,
-  // ilike,
-  // or,
   isNull,
+  gte,
+  lte,
+  inArray,
+  ilike,
+  or,
+  count,
 } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
@@ -18,7 +18,9 @@ import {
   type CreateToolDTO,
   type ToolDetails,
   type UpdateToolDTO,
-  // type ToolSearchFilters,
+  type ToolSearchFilters,
+  type PaginationOptions,
+  type PaginatedResult,
 } from "./types";
 import { schema } from "../../db/schemas";
 import { getCurrentUserId } from "../auth/auth-utils";
@@ -31,6 +33,7 @@ const {
   toolAvailability,
   userFavorites,
   toolImages,
+  users,
 } = schema;
 
 type ToolDb = typeof tools.$inferSelect;
@@ -82,7 +85,7 @@ interface ToolWithRelations extends ToolDb {
 }
 
 // Type for the transformed tool data returned by getUserTools
-type UserTool = Omit<
+export type UserTool = Omit<
   typeof tools.$inferSelect,
   "dailyRate" | "weeklyRate" | "monthlyRate" | "securityDeposit" | "deliveryFee"
 > & {
@@ -453,143 +456,212 @@ export class ToolDAL extends BaseDAL {
     }
   }
 
-  // async searchTools(
-  //   filters: ToolSearchFilters,
-  //   options: PaginationOptions,
-  // ): Promise<PaginatedResult<any>> {
-  //   try {
-  //     this.validatePagination(options.page, options.limit);
+  async searchTools(
+    filters: ToolSearchFilters,
+    pagination: PaginationOptions,
+    currentUserId?: string,
+  ): Promise<PaginatedResult<UserTool>> {
+    try {
+      this.validatePagination(pagination.page, pagination.limit);
 
-  //     const {
-  //       query,
-  //       categoryId,
-  //       minPrice,
-  //       maxPrice,
-  //       condition,
-  //       deliveryAvailable,
-  //       sortBy = "newest",
-  //       sortOrder = "desc",
-  //     } = filters;
+      const offset = (pagination.page - 1) * pagination.limit;
 
-  //     const whereConditions = [
-  //       eq(tools.isActive, true),
-  //       eq(tools.status, "available"),
-  //     ];
+      // Build the where conditions
+      const whereConditions = [
+        eq(tools.status, "available"),
+        eq(tools.isActive, true),
+      ];
 
-  //     if (query) {
-  //       whereConditions.push(
-  //         or(
-  //           ilike(tools.name, `%${query}%`),
-  //           ilike(tools.description, `%${query}%`),
-  //         )!,
-  //       );
-  //     }
+      // Text search
+      if (filters.query) {
+        whereConditions.push(
+          or(
+            ilike(tools.name, `%${filters.query}%`),
+            ilike(tools.description, `%${filters.query}%`),
+            ilike(tools.brand, `%${filters.query}%`),
+            ilike(tools.model, `%${filters.query}%`),
+          )!,
+        );
+      }
 
-  //     if (categoryId) {
-  //       whereConditions.push(eq(tools.categoryId, categoryId));
-  //     }
+      // Category filter
+      if (filters.categoryId) {
+        whereConditions.push(eq(tools.categoryId, filters.categoryId));
+      }
 
-  //     if (minPrice !== undefined) {
-  //       whereConditions.push(gte(tools.dailyRate, minPrice.toString()));
-  //     }
+      // Price filters
+      if (filters.minPrice !== undefined) {
+        whereConditions.push(gte(tools.dailyRate, filters.minPrice.toString()));
+      }
+      if (filters.maxPrice !== undefined) {
+        whereConditions.push(lte(tools.dailyRate, filters.maxPrice.toString()));
+      }
 
-  //     if (maxPrice !== undefined) {
-  //       whereConditions.push(lte(tools.dailyRate, maxPrice.toString()));
-  //     }
+      // Condition filter
+      if (filters.condition && filters.condition.length > 0) {
+        whereConditions.push(inArray(tools.condition, filters.condition));
+      }
 
-  //     if (condition && condition.length > 0) {
-  //       whereConditions.push(inArray(tools.condition, condition));
-  //     }
+      // Delivery filter
+      if (filters.deliveryAvailable) {
+        whereConditions.push(eq(tools.deliveryAvailable, true));
+      }
 
-  //     if (deliveryAvailable) {
-  //       whereConditions.push(eq(tools.deliveryAvailable, true));
-  //     }
+      // Exclude current user's tools
+      if (currentUserId) {
+        whereConditions.push(sql`${tools.ownerId} != ${currentUserId}`);
+      }
 
-  //     const orderByClause = (() => {
-  //       switch (sortBy) {
-  //         case "price":
-  //           return sortOrder === "asc"
-  //             ? asc(tools.dailyRate)
-  //             : desc(tools.dailyRate);
-  //         case "newest":
-  //           return sortOrder === "asc"
-  //             ? asc(tools.createdAt)
-  //             : desc(tools.createdAt);
-  //         default:
-  //           return desc(tools.createdAt);
-  //       }
-  //     })();
+      // Get total count
+      const [{ total }] = await this.db
+        .select({ total: count() })
+        .from(tools)
+        .innerJoin(toolCategories, eq(tools.categoryId, toolCategories.id))
+        .innerJoin(users, eq(tools.ownerId, users.id))
+        .where(and(...whereConditions));
 
-  //     const offset = (options.page - 1) * options.limit;
+      // Build the order by clause
+      let orderByClause = [];
 
-  //     // Get total count
-  //     const [{ total }] = await this.db
-  //       .select({ total: count() })
-  //       .from(tools)
-  //       .where(and(...whereConditions));
+      if (filters.sortBy) {
+        switch (filters.sortBy) {
+          case "price":
+            orderByClause = [
+              filters.sortOrder === "desc"
+                ? desc(tools.dailyRate)
+                : asc(tools.dailyRate),
+            ];
+            break;
+          case "newest":
+            orderByClause = [desc(tools.createdAt)];
+            break;
+          case "rating":
+            // We'll handle rating sorting in the post-processing since it requires aggregation
+            orderByClause = [desc(tools.favoriteCount)];
+            break;
+          default:
+            orderByClause = [desc(tools.createdAt)];
+        }
+      } else {
+        orderByClause = [desc(tools.createdAt)];
+      }
 
-  //     // Get tools
-  //     const toolsResult = await this.db.query.tools.findMany({
-  //       where: and(...whereConditions),
-  //       with: {
-  //         owner: {
-  //           columns: {
-  //             id: true,
-  //             firstName: true,
-  //             lastName: true,
-  //             profileImageUrl: true,
-  //           },
-  //         },
-  //         category: {
-  //           columns: {
-  //             id: true,
-  //             name: true,
-  //             icon: true,
-  //           },
-  //         },
-  //         reviews: {
-  //           columns: {
-  //             rating: true,
-  //           },
-  //         },
-  //       },
-  //       orderBy: [orderByClause],
-  //       limit: options.limit,
-  //       offset,
-  //     });
+      // Get the tools with relations
+      const toolsWithRelations = await this.db
+        .select({
+          tool: tools,
+          category: {
+            id: toolCategories.id,
+            name: toolCategories.name,
+            icon: toolCategories.icon,
+          },
+          owner: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            profileImageUrl: users.profileImageUrl,
+          },
+        })
+        .from(tools)
+        .innerJoin(toolCategories, eq(tools.categoryId, toolCategories.id))
+        .innerJoin(users, eq(tools.ownerId, users.id))
+        .where(and(...whereConditions))
+        .orderBy(...orderByClause)
+        .limit(pagination.limit)
+        .offset(offset);
 
-  //     // Calculate average rating for each tool
-  //     const toolsWithRating = toolsResult.map((tool) => {
-  //       const ratings = tool.reviews.map((r: any) => r.rating);
-  //       const averageRating =
-  //         ratings.length > 0
-  //           ? ratings.reduce((a: number, b: number) => a + b, 0) /
-  //             ratings.length
-  //           : 0;
-  //       const reviewCount = ratings.length;
+      // Get first image for each tool (matching getUserTools pattern)
+      const toolIds = toolsWithRelations.map((t) => t.tool.id);
+      const toolImagesMap = new Map<string, string>();
 
-  //       return {
-  //         ...tool,
-  //         dailyRate: Number(tool.dailyRate),
-  //         weeklyRate: tool.weeklyRate ? Number(tool.weeklyRate) : undefined,
-  //         monthlyRate: tool.monthlyRate ? Number(tool.monthlyRate) : undefined,
-  //         securityDeposit: Number(tool.securityDeposit),
-  //         deliveryFee: Number(tool.deliveryFee),
-  //         averageRating: Math.round(averageRating * 10) / 10,
-  //         reviewCount,
-  //       };
-  //     });
+      if (toolIds.length > 0) {
+        // Get first image for each tool individually to match getUserTools behavior
+        for (const toolId of toolIds) {
+          const firstImage = await this.db
+            .select({ imageUrl: toolImages.imageUrl })
+            .from(toolImages)
+            .where(
+              and(eq(toolImages.toolId, toolId), eq(toolImages.orderIndex, 0)),
+            )
+            .limit(1);
 
-  //     return this.createPaginatedResult(
-  //       toolsWithRating,
-  //       total,
-  //       options.page,
-  //       options.limit,
-  //     );
-  //   } catch (error) {
-  //     this.handleError(error, "searchTools");
-  //   }
-  // }
+          if (firstImage[0]?.imageUrl) {
+            toolImagesMap.set(toolId, firstImage[0].imageUrl);
+          }
+        }
+      }
+
+      // Get reviews for rating calculation
+      const reviewsData = await this.db
+        .select({
+          toolId: reviews.toolId,
+          rating: reviews.rating,
+        })
+        .from(reviews)
+        .where(inArray(reviews.toolId, toolIds));
+
+      // Calculate ratings per tool
+      const ratingsMap = new Map<
+        string,
+        { averageRating: number; reviewCount: number }
+      >();
+
+      for (const review of reviewsData) {
+        if (!ratingsMap.has(review.toolId)) {
+          ratingsMap.set(review.toolId, { averageRating: 0, reviewCount: 0 });
+        }
+        const current = ratingsMap.get(review.toolId)!;
+        current.averageRating =
+          (current.averageRating * current.reviewCount + review.rating) /
+          (current.reviewCount + 1);
+        current.reviewCount++;
+      }
+
+      // Transform to UserTool format
+      const transformedTools: UserTool[] = toolsWithRelations.map((item) => {
+        const toolRating = ratingsMap.get(item.tool.id) || {
+          averageRating: 0,
+          reviewCount: 0,
+        };
+
+        return {
+          ...item.tool,
+          dailyRate: Number(item.tool.dailyRate),
+          weeklyRate: item.tool.weeklyRate
+            ? Number(item.tool.weeklyRate)
+            : undefined,
+          monthlyRate: item.tool.monthlyRate
+            ? Number(item.tool.monthlyRate)
+            : undefined,
+          securityDeposit: Number(item.tool.securityDeposit),
+          deliveryFee: Number(item.tool.deliveryFee),
+          averageRating: Math.round(toolRating.averageRating * 10) / 10,
+          reviewCount: toolRating.reviewCount,
+          firstImageUrl: toolImagesMap.get(item.tool.id) || null,
+        };
+      });
+
+      // Handle rating sorting post-processing
+      if (filters.sortBy === "rating") {
+        transformedTools.sort((a, b) => {
+          const aRating = a.averageRating;
+          const bRating = b.averageRating;
+          return filters.sortOrder === "desc"
+            ? bRating - aRating
+            : aRating - bRating;
+        });
+      }
+
+      return this.createPaginatedResult(
+        transformedTools,
+        total,
+        pagination.page,
+        pagination.limit,
+      );
+    } catch (error) {
+      this.handleError(error, "searchTools");
+    }
+  }
 
   /**
    * Get tools owned by a user

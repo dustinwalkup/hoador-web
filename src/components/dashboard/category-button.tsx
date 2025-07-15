@@ -4,15 +4,18 @@ interface CategoryButtonProps {
   icon: string;
   label: string;
   active?: boolean;
+  onClick?: () => void;
 }
 
 export default function CategoryButton({
   icon,
   label,
   active = false,
+  onClick,
 }: CategoryButtonProps) {
   return (
     <button
+      onClick={onClick}
       className={cn(
         "flex min-w-[100px] flex-col items-center rounded-lg border px-3 py-2 transition-colors",
         active

@@ -31,7 +31,7 @@ export default function ToolCard({
       <div className="relative">
         <div className="bg-muted aspect-[4/3] overflow-hidden">
           <Image
-            src={imageUrl || "/placeholder.svg"}
+            src={imageUrl || "/images/placeholder.jpg"}
             alt={name}
             width={300}
             height={200}
@@ -51,9 +51,9 @@ export default function ToolCard({
         {isNew && <Badge className="absolute top-2 left-2">New</Badge>}
       </div>
 
-      <CardContent className="p-4">
-        <div className="mb-1 flex items-center justify-between">
-          <h3 className="font-medium">{name}</h3>
+      <CardContent className="flex flex-1 flex-col p-4">
+        <div className="mb-1 flex grow items-start justify-between">
+          <h3 className="mr-2 leading-tight font-medium">{name}</h3>
           <span className="text-primary font-medium">{price}</span>
         </div>
 
@@ -74,7 +74,7 @@ export default function ToolCard({
 
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm" className="flex-1">
-            <Link href={`/dashboard/tool/${id}`}>View</Link>
+            <Link href={`/dashboard/tools/${id}`}>View</Link>
           </Button>
           <Button size="sm" className="flex-1">
             Rent
