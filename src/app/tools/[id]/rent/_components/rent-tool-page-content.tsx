@@ -131,8 +131,8 @@ export function RentToolPageContent({ tool }: RentToolPageContentProps) {
       });
 
       if (result.success) {
-        // Redirect to a confirmation page or back to the tool
-        router.push(`/tools/${tool.id}?success=rental-request-submitted`);
+        // Redirect to the confirmation page with the request ID
+        router.push(`/rentals/confirmation?requestId=${result.requestId}`);
       } else {
         // Handle error
         console.error("Rental request failed:", result.error);

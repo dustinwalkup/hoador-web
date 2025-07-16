@@ -226,4 +226,88 @@ export class RentalDAL extends BaseDAL {
       this.handleError(error, "createRentalRequest");
     }
   }
+
+  async getRentalRequestById(requestId: string): Promise<{
+    id: string;
+    toolId: string;
+    toolName: string;
+    toolImageUrl: string | null;
+    renterId: string;
+    ownerId: string;
+    ownerName: string;
+    startDate: Date;
+    endDate: Date;
+    totalDays: number;
+    dailyRate: string;
+    totalAmount: string;
+    securityDeposit: string;
+    deliveryRequested: boolean;
+    deliveryAddress: string | null;
+    deliveryFee: string;
+    message: string | null;
+    status: string;
+    createdAt: Date;
+  }> {
+    try {
+      // Get current user ID for security check
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Get rental request with related data
+      const rentalRequest = await this.db
+        .select({
+          id: rentalRequests.id,
+          toolId: rentalRequests.toolId,
+          toolName: tools.name,
+          renterId: rentalRequests.renterId,
+          ownerId: rentalRequests.ownerId,
+          ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+          startDate: rentalRequests.startDate,
+          endDate: rentalRequests.endDate,
+          totalDays: rentalRequests.totalDays,
+          dailyRate: rentalRequests.dailyRate,
+          totalAmount: rentalRequests.totalAmount,
+          securityDeposit: rentalRequests.securityDeposit,
+          deliveryRequested: rentalRequests.deliveryRequested,
+          deliveryAddress: rentalRequests.deliveryAddress,
+          deliveryFee: rentalRequests.deliveryFee,
+          message: rentalRequests.message,
+          status: rentalRequests.status,
+          createdAt: rentalRequests.createdAt,
+        })
+        .from(rentalRequests)
+        .innerJoin(tools, eq(rentalRequests.toolId, tools.id))
+        .innerJoin(users, eq(rentalRequests.ownerId, users.id))
+        .where(eq(rentalRequests.id, requestId))
+        .limit(1);
+
+      if (rentalRequest.length === 0) {
+        throw new NotFoundError("Rental request", requestId);
+      }
+
+      const request = rentalRequest[0];
+
+      // Security check: only the renter or owner can view the request
+      if (request.renterId !== userId && request.ownerId !== userId) {
+        throw new UnauthorizedError("Access denied to this rental request");
+      }
+
+      // Get tool image
+      const [firstImage] = await this.db
+        .select({ imageUrl: toolImages.imageUrl })
+        .from(toolImages)
+        .where(eq(toolImages.toolId, request.toolId))
+        .orderBy(toolImages.orderIndex)
+        .limit(1);
+
+      return {
+        ...request,
+        toolImageUrl: firstImage?.imageUrl || null,
+      };
+    } catch (error) {
+      this.handleError(error, "getRentalRequestById");
+    }
+  }
 }

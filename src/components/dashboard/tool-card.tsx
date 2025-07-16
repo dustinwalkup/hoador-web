@@ -76,8 +76,8 @@ export default function ToolCard({
           <Button asChild variant="outline" size="sm" className="flex-1">
             <Link href={`/tools/${id}`}>View</Link>
           </Button>
-          <Button size="sm" className="flex-1">
-            Rent
+          <Button asChild size="sm" className="flex-1">
+            <Link href={`/tools/${id}/rent`}>Rent</Link>
           </Button>
         </div>
       </CardContent>
