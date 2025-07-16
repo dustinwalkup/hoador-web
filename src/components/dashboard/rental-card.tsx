@@ -140,7 +140,7 @@ export default function RentalCard({
           {cardType === "listings" && (
             <>
               <Button asChild variant="outline" size="sm" className="flex-1">
-                <Link href={`/dashboard/tools/edit/${id}`}>Edit</Link>
+                <Link href={`/dashboard/tools/${id}/edit`}>Edit</Link>
               </Button>
               {toolData ? (
                 <ToolManagementModal

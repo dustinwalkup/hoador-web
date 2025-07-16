@@ -323,7 +323,7 @@ export function ToolDetailView({ tool, isOwner }: ToolDetailViewProps) {
           <div className="space-y-3">
             {isOwner ? (
               <Button asChild className="w-full" size="lg">
-                <Link href={`/dashboard/tools/edit/${tool.id}`}>Edit Tool</Link>
+                <Link href={`/dashboard/tools/${tool.id}/edit`}>Edit Tool</Link>
               </Button>
             ) : (
               <>
