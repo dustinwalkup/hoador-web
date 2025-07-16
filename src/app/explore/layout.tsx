@@ -1,21 +1,16 @@
-import { AuthenticatedSidebar } from "@/components/authenticated-sidebar";
+import { PublicSidebar } from "@/components/public-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
-import { redirect } from "next/navigation";
 
-export default async function DashboardLayout({
+export default function ExploreLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Dashboard always requires authentication
-  const user = await getCurrentUser();
-  if (!user) redirect("/");
-
+  // Only unauthenticated users reach this layout (authenticated users are redirected to /dashboard/explore)
   return (
     <SidebarProvider>
-      <AuthenticatedSidebar user={user} variant="inset" />
+      <PublicSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
         <div className="bg-muted/20">

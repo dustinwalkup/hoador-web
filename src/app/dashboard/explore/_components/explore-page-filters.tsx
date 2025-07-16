@@ -36,6 +36,7 @@ interface ExplorePageFiltersProps {
   }>;
   initialFilters: ToolSearchFilters;
   totalResults: number;
+  basePath?: string; // Default to /dashboard/explore for backward compatibility
 }
 
 // Map category names to emoji icons
@@ -75,6 +76,7 @@ export function ExplorePageFilters({
   categories,
   initialFilters,
   totalResults,
+  basePath = "/dashboard/explore", // Default to existing behavior
 }: ExplorePageFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -133,7 +135,7 @@ export function ExplorePageFilters({
       params.set("page", "1");
     }
 
-    router.push(`/dashboard/explore?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   };
 
   const handleSearch = (e: React.FormEvent) => {

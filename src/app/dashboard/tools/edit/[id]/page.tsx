@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { toolDAL } from "@/lib/dal";
 import { updateTool } from "@/lib/actions/update-tool";
+import { getCurrentUser } from "@/lib/auth/auth-utils";
 import type { ToolDetails } from "@/lib/dal/types";
 import type { CreateToolFormDataClientType } from "@/lib/form-schemas/tool.schema";
 
@@ -38,8 +39,9 @@ export default async function EditToolPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const currentUser = await getCurrentUser();
   const { id } = await params;
-  const tool = await toolDAL.getToolById(id);
+  const tool = await toolDAL.getToolById(id, currentUser.id);
   if (!tool) return notFound();
   const categories = await toolDAL.getToolCategories();
 

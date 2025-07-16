@@ -74,7 +74,7 @@ export default function ToolCard({
 
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm" className="flex-1">
-            <Link href={`/dashboard/tools/${id}`}>View</Link>
+            <Link href={`/tools/${id}`}>View</Link>
           </Button>
           <Button size="sm" className="flex-1">
             Rent

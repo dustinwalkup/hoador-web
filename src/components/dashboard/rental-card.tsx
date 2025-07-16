@@ -75,7 +75,9 @@ export default function RentalCard({
           className="h-full w-full object-cover"
         />
         <Link
-          href={`/dashboard/tools/${id}`}
+          href={
+            cardType === "listings" ? `/dashboard/tools/${id}` : `/tools/${id}`
+          }
           className="text-muted-foreground/40 hover:text-muted-foreground absolute top-0 right-0 p-2 text-xs underline decoration-dotted transition-colors"
         >
           <Tooltip delayDuration={600}>

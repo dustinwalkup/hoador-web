@@ -1,8 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
@@ -16,12 +14,17 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { NavMain } from "./nav-main";
+import { UserProfile } from "@/lib/dal/types";
 
-export async function AppSidebar({
+interface AuthenticatedSidebarProps
+  extends React.ComponentProps<typeof Sidebar> {
+  user: UserProfile;
+}
+
+export function AuthenticatedSidebar({
+  user,
   ...props
-}: React.ComponentProps<typeof Sidebar>) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/");
+}: AuthenticatedSidebarProps) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>

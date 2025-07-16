@@ -74,7 +74,7 @@ export const createToolSchemaServer = withDeliveryValidation(baseToolSchema);
 
 // Schema for image uploads
 export const imageFileSchema = z.object({
-  file: z.instanceof(File).optional(),
+  file: z.any().optional(), // Using z.any() to avoid File instanceof check during SSR
   url: z.string().optional(),
   id: z.string().optional(),
   orderIndex: z.number().optional(),

@@ -13,16 +13,20 @@ interface PaginationControlsProps {
     hasPrev: boolean;
     hasNext: boolean;
   };
+  basePath?: string; // Default to /dashboard/explore for backward compatibility
 }
 
-export function PaginationControls({ pagination }: PaginationControlsProps) {
+export function PaginationControls({
+  pagination,
+  basePath = "/dashboard/explore",
+}: PaginationControlsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set("page", page.toString());
-    router.push(`/dashboard/explore?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   };
 
   if (pagination.totalPages <= 1) return null;

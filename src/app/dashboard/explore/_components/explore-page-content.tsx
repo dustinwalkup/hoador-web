@@ -5,9 +5,13 @@ import type { UserTool } from "@/lib/dal/tool.dal";
 
 interface ExplorePageContentProps {
   tools: UserTool[];
+  basePath?: string; // Default to /dashboard/explore for backward compatibility
 }
 
-export function ExplorePageContent({ tools }: ExplorePageContentProps) {
+export function ExplorePageContent({
+  tools,
+  basePath = "/dashboard/explore",
+}: ExplorePageContentProps) {
   return (
     <>
       {tools.length > 0 ? (
@@ -38,7 +42,7 @@ export function ExplorePageContent({ tools }: ExplorePageContentProps) {
             adjusting your filters or search terms.
           </p>
           <Button variant="outline" asChild>
-            <Link href="/dashboard/explore">Clear all filters</Link>
+            <Link href={basePath}>Clear all filters</Link>
           </Button>
         </div>
       )}
