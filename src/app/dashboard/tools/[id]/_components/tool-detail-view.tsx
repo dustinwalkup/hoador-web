@@ -327,10 +327,15 @@ export function ToolDetailView({ tool, isOwner }: ToolDetailViewProps) {
               </Button>
             ) : (
               <>
-                <Button className="w-full" size="lg">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Rent Tool
-                </Button>
+                <Link
+                  className="flex items-center justify-center"
+                  href={`/tools/${tool.id}/rent`}
+                >
+                  <Button className="w-full" size="lg">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Rent Tool
+                  </Button>
+                </Link>
                 <Button
                   variant="outline"
                   className="w-full bg-transparent"

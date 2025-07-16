@@ -1,10 +1,13 @@
 import { eq, and, inArray, sql } from "drizzle-orm";
+import { differenceInDays } from "date-fns";
+
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { tools, toolImages } from "@/db/schemas/tools.schema";
 import { users } from "@/db/schemas/users.schema";
-import { BaseDAL } from "./base";
+import { type CreateRentalRequestFormData } from "../form-schemas/rental.schema";
 import { getCurrentUserId } from "../auth/auth-utils";
-import { UnauthorizedError } from "./errors";
+import { BaseDAL } from "./base";
+import { UnauthorizedError, NotFoundError } from "./errors";
 
 export interface BorrowedTool {
   id: string;
@@ -131,6 +134,96 @@ export class RentalDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "getBorrowedTools");
+    }
+  }
+
+  async createRentalRequest(
+    formData: CreateRentalRequestFormData,
+  ): Promise<{ id: string }> {
+    try {
+      // Get current user ID
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Get tool details to calculate pricing and validate ownership
+      const tool = await this.db.query.tools.findFirst({
+        where: eq(tools.id, formData.toolId),
+        with: {
+          owner: {
+            columns: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      if (!tool) {
+        throw new NotFoundError("Tool", formData.toolId);
+      }
+
+      // Prevent users from renting their own tools
+      if (tool.ownerId === userId) {
+        throw new Error("Cannot rent your own tool");
+      }
+
+      // Calculate rental period and pricing
+      const totalDays =
+        differenceInDays(formData.endDate, formData.startDate) + 1;
+
+      // Validate rental period
+      if (totalDays < tool.minimumRentalPeriod) {
+        throw new Error(
+          `Minimum rental period is ${tool.minimumRentalPeriod} day(s)`,
+        );
+      }
+
+      if (totalDays > tool.maximumRentalPeriod) {
+        throw new Error(
+          `Maximum rental period is ${tool.maximumRentalPeriod} days`,
+        );
+      }
+
+      // Calculate rate based on rental period (apply discounts for longer rentals)
+      let dailyRate = Number(tool.dailyRate);
+      if (totalDays >= 30 && tool.monthlyRate) {
+        dailyRate = Number(tool.monthlyRate) / 30;
+      } else if (totalDays >= 7 && tool.weeklyRate) {
+        dailyRate = Number(tool.weeklyRate) / 7;
+      }
+
+      const subtotal = Math.round(dailyRate * totalDays * 100) / 100;
+      const deliveryFee = formData.deliveryRequested
+        ? Number(tool.deliveryFee)
+        : 0;
+      const securityDeposit = Number(tool.securityDeposit);
+      const totalAmount = subtotal + deliveryFee;
+
+      // Create rental request
+      const [rentalRequest] = await this.db
+        .insert(rentalRequests)
+        .values({
+          toolId: formData.toolId,
+          renterId: userId,
+          ownerId: tool.ownerId,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          totalDays,
+          dailyRate: dailyRate.toString(),
+          totalAmount: totalAmount.toString(),
+          securityDeposit: securityDeposit.toString(),
+          deliveryRequested: formData.deliveryRequested,
+          deliveryAddress: formData.deliveryAddress || null,
+          deliveryFee: deliveryFee.toString(),
+          message: formData.message || null,
+          status: "pending",
+        })
+        .returning({ id: rentalRequests.id });
+
+      return { id: rentalRequest.id };
+    } catch (error) {
+      this.handleError(error, "createRentalRequest");
     }
   }
 }
