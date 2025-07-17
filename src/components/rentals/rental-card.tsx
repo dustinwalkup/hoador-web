@@ -86,7 +86,7 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
                         .join("")}
                     </AvatarFallback>
                   </Avatar>
-                  <span>by {rental.owner.name}</span>
+                  <span>{rental.owner.name}</span>
                 </div>
               </div>
               <div className="text-right">

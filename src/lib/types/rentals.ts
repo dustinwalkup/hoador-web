@@ -63,6 +63,26 @@ export interface LendingRental extends BaseRental {
 
 export type RentalItem = RentingRental | LendingRental;
 
+// Types that match the DAL output structure
+export interface BorrowedTool {
+  id: string;
+  toolId: string;
+  toolName: string;
+  toolImageUrl: string | null;
+  ownerId: string;
+  ownerName: string;
+  startDate: Date;
+  endDate: Date;
+  totalAmount: string;
+  status: string;
+  dailyRate: string;
+}
+
+export interface BorrowedToolsData {
+  currentRentals: BorrowedTool[];
+  upcomingRentals: BorrowedTool[];
+}
+
 export interface RentalsData {
   renting: {
     requests: RentingRental[];

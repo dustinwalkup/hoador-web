@@ -28,6 +28,27 @@ export interface BorrowedToolsData {
   upcomingRentals: BorrowedTool[];
 }
 
+export interface RentalRequestItem {
+  id: string;
+  toolId: string;
+  toolName: string;
+  toolImageUrl: string | null;
+  ownerId: string;
+  ownerName: string;
+  startDate: Date;
+  endDate: Date;
+  totalDays: number;
+  dailyRate: string;
+  totalAmount: string;
+  status: string;
+  createdAt: Date;
+  deliveryRequested: boolean;
+  message: string | null;
+  rejectedAt?: Date | null;
+  rejectionReason?: string | null;
+  approvedAt?: Date | null;
+}
+
 export class RentalDAL extends BaseDAL {
   async countBorrowedTools(userId: string): Promise<number> {
     const result = await this.db
@@ -308,6 +329,80 @@ export class RentalDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "getRentalRequestById");
+    }
+  }
+
+  async getRentalRequestsByStatus(
+    status:
+      | "pending"
+      | "approved"
+      | "active"
+      | "completed"
+      | "cancelled"
+      | "overdue"
+      | "rejected",
+  ): Promise<RentalRequestItem[]> {
+    try {
+      // Get current user ID
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Get rental requests with related data
+      const requests = await this.db
+        .select({
+          id: rentalRequests.id,
+          toolId: rentalRequests.toolId,
+          toolName: tools.name,
+          ownerId: rentalRequests.ownerId,
+          ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+          startDate: rentalRequests.startDate,
+          endDate: rentalRequests.endDate,
+          totalDays: rentalRequests.totalDays,
+          dailyRate: rentalRequests.dailyRate,
+          totalAmount: rentalRequests.totalAmount,
+          status: rentalRequests.status,
+          createdAt: rentalRequests.createdAt,
+          deliveryRequested: rentalRequests.deliveryRequested,
+          message: rentalRequests.message,
+          rejectedAt: rentalRequests.rejectedAt,
+          rejectionReason: rentalRequests.rejectionReason,
+          approvedAt: rentalRequests.approvedAt,
+        })
+        .from(rentalRequests)
+        .innerJoin(tools, eq(rentalRequests.toolId, tools.id))
+        .innerJoin(users, eq(rentalRequests.ownerId, users.id))
+        .where(
+          and(
+            eq(rentalRequests.renterId, userId),
+            eq(rentalRequests.status, status),
+          ),
+        )
+        .orderBy(rentalRequests.createdAt);
+
+      // Get images for all tools
+      const toolIds = [...new Set(requests.map((request) => request.toolId))];
+      const toolImagesMap = new Map<string, string | null>();
+
+      for (const toolId of toolIds) {
+        const [firstImage] = await this.db
+          .select({ imageUrl: toolImages.imageUrl })
+          .from(toolImages)
+          .where(eq(toolImages.toolId, toolId))
+          .orderBy(toolImages.orderIndex)
+          .limit(1);
+
+        toolImagesMap.set(toolId, firstImage?.imageUrl || null);
+      }
+
+      // Add tool images to requests
+      return requests.map((request) => ({
+        ...request,
+        toolImageUrl: toolImagesMap.get(request.toolId) || null,
+      }));
+    } catch (error) {
+      this.handleError(error, "getRentalRequestsByStatus");
     }
   }
 }
