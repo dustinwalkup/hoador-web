@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RentalsList } from "@/components/rentals/rentals-list";
-import { mockRentalsData } from "@/lib/data/mock-rentals";
 import { rentalDAL } from "@/lib/dal";
-import type { RentalType } from "@/lib/types/rentals";
-import type { RentalRequestItem } from "@/lib/dal/rentals.dal";
+import type {
+  RentalRequestItem,
+  LendingRequestItem,
+  BorrowedTool,
+} from "@/lib/dal/rentals.dal";
 import { RentingRequestsList } from "./_components/renting-requests-list";
+import { LendingRequestsList } from "./_components/lending-requests-list";
+import { BorrowedToolsList } from "./_components/borrowed-tools-list";
 
 interface RentalsPageProps {
   params: Promise<{
@@ -15,9 +18,6 @@ interface RentalsPageProps {
 }
 
 type StatusConfig = {
-  dataKey:
-    | keyof typeof mockRentalsData.renting
-    | keyof typeof mockRentalsData.lending;
   displayName: string;
   emptyMessage: string;
   emptyAction?: { label: string; href: string };
@@ -27,45 +27,37 @@ type StatusConfig = {
 const validRoutes: Record<string, Record<string, StatusConfig>> = {
   renting: {
     requests: {
-      dataKey: "requests",
       displayName: "My Requests",
       emptyMessage: "No pending requests.",
       emptyAction: { label: "Browse Tools", href: "/explore" },
     },
     active: {
-      dataKey: "active",
       displayName: "Active",
       emptyMessage: "No active rentals.",
     },
     completed: {
-      dataKey: "completed",
       displayName: "Completed",
       emptyMessage: "No completed rentals.",
     },
     rejected: {
-      dataKey: "rejected",
       displayName: "Rejected",
       emptyMessage: "No rejected requests.",
     },
   },
   lending: {
     incoming: {
-      dataKey: "incoming",
       displayName: "Incoming",
       emptyMessage: "No incoming requests.",
     },
     active: {
-      dataKey: "active",
       displayName: "Active",
       emptyMessage: "No active lending.",
     },
     completed: {
-      dataKey: "completed",
       displayName: "Completed",
       emptyMessage: "No completed lending.",
     },
     rejected: {
-      dataKey: "rejected",
       displayName: "Rejected",
       emptyMessage: "No rejected requests.",
     },
@@ -83,10 +75,10 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
   const typeConfig = validRoutes[type];
   const statusConfig = typeConfig[status];
 
-  // Get real data for renting requests, fallback to mock data for others
+  // Get real data for ALL tabs - no more mock data!
   let rentalRequestsData: RentalRequestItem[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let mockData: any[] = [];
+  let lendingRequestsData: LendingRequestItem[] = [];
+  let borrowedToolsData: BorrowedTool[] = [];
   let error: string | undefined;
 
   if (type === "renting" && status === "requests") {
@@ -96,34 +88,71 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
       error =
         err instanceof Error ? err.message : "Failed to fetch rental requests";
     }
-  } else if (
-    type === "renting" &&
-    (status === "active" || status === "completed")
-  ) {
+  } else if (type === "renting" && status === "rejected") {
     try {
-      const borrowedData = await rentalDAL.getBorrowedTools();
-      // Map borrowed tools data to match the expected format
-      mockData = status === "active" ? borrowedData.currentRentals : []; // We don't have completed rentals from getBorrowedTools yet
+      rentalRequestsData =
+        await rentalDAL.getRentalRequestsByStatus("rejected");
     } catch (err) {
       error =
-        err instanceof Error ? err.message : "Failed to fetch borrowed tools";
+        err instanceof Error ? err.message : "Failed to fetch rental requests";
     }
-  } else {
-    // Use mock data for other scenarios
-    const typeData =
-      type === "renting" ? mockRentalsData.renting : mockRentalsData.lending;
-    mockData = typeData[statusConfig.dataKey as keyof typeof typeData];
+  } else if (type === "renting" && status === "active") {
+    try {
+      const borrowedData = await rentalDAL.getBorrowedTools();
+      borrowedToolsData = borrowedData.currentRentals;
+    } catch (err) {
+      error =
+        err instanceof Error ? err.message : "Failed to fetch active rentals";
+    }
+  } else if (type === "renting" && status === "completed") {
+    try {
+      borrowedToolsData = await rentalDAL.getRentalsByStatus("completed");
+    } catch (err) {
+      error =
+        err instanceof Error
+          ? err.message
+          : "Failed to fetch completed rentals";
+    }
+  } else if (type === "lending" && status === "incoming") {
+    try {
+      lendingRequestsData =
+        await rentalDAL.getLendingRequestsByStatus("pending");
+    } catch (err) {
+      error =
+        err instanceof Error ? err.message : "Failed to fetch lending requests";
+    }
+  } else if (type === "lending" && status === "rejected") {
+    try {
+      lendingRequestsData =
+        await rentalDAL.getLendingRequestsByStatus("rejected");
+    } catch (err) {
+      error =
+        err instanceof Error ? err.message : "Failed to fetch lending requests";
+    }
+  } else if (type === "lending" && status === "active") {
+    try {
+      lendingRequestsData = await rentalDAL.getLendingRentalsByStatus("active");
+    } catch (err) {
+      error =
+        err instanceof Error ? err.message : "Failed to fetch active lending";
+    }
+  } else if (type === "lending" && status === "completed") {
+    try {
+      lendingRequestsData =
+        await rentalDAL.getLendingRentalsByStatus("completed");
+    } catch (err) {
+      error =
+        err instanceof Error
+          ? err.message
+          : "Failed to fetch completed lending";
+    }
   }
 
-  // Generate tab items with counts (using mock data for counts for now)
-  const typeData =
-    type === "renting" ? mockRentalsData.renting : mockRentalsData.lending;
+  // Generate tab items without counts for now (can add real counts later)
   const tabItems = Object.entries(typeConfig).map(([statusKey, config]) => {
-    const configData = typeData[config.dataKey as keyof typeof typeData];
-    const count = Array.isArray(configData) ? configData.length : 0;
     return {
       value: statusKey,
-      label: `${config.displayName} (${count})`,
+      label: config.displayName,
       href: `/dashboard/rentals/${type}/${statusKey}`,
     };
   });
@@ -146,21 +175,28 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
             </div>
           )}
 
-          {type === "renting" && status === "requests" ? (
+          {type === "renting" &&
+          (status === "requests" || status === "rejected") ? (
             <RentingRequestsList
               data={rentalRequestsData}
               emptyStateMessage={statusConfig.emptyMessage}
               emptyStateAction={statusConfig.emptyAction}
             />
-          ) : (
-            <RentalsList
-              data={mockData}
-              type={type as RentalType}
-              status={status}
+          ) : type === "renting" &&
+            (status === "active" || status === "completed") ? (
+            <BorrowedToolsList
+              data={borrowedToolsData}
+              currentTab={status}
               emptyStateMessage={statusConfig.emptyMessage}
               emptyStateAction={statusConfig.emptyAction}
             />
-          )}
+          ) : type === "lending" ? (
+            <LendingRequestsList
+              data={lendingRequestsData}
+              emptyStateMessage={statusConfig.emptyMessage}
+              emptyStateAction={statusConfig.emptyAction}
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>

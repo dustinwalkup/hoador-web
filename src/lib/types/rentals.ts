@@ -83,6 +83,9 @@ export interface BorrowedToolsData {
   upcomingRentals: BorrowedTool[];
 }
 
+// Re-export from DAL for convenience
+export type { RentalRequestItem, LendingRequestItem } from "../dal/rentals.dal";
+
 export interface RentalsData {
   renting: {
     requests: RentingRental[];
