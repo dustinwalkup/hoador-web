@@ -12,8 +12,8 @@ import {
   Wrench,
 } from "lucide-react";
 
+import { DASHBOARD_PAGE } from "@/lib/constants/dashboard";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
-
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonVariantsType } from "@/components/ui/button";
 import {
@@ -24,13 +24,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { DASHBOARD_PAGE } from "@/lib/constants/dashboard";
 import ActivityFeed from "@/components/dashboard/activity-feed";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RentalCard from "@/components/dashboard/rental-card";
 import { Icon } from "@/components/ui/icon";
+import { PageHeader } from "@/components/page-header";
 
 const { header, alerts, quickActions, pendingRequests } = DASHBOARD_PAGE;
 
@@ -38,12 +38,11 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="mb-2 text-2xl font-bold">
-          {header.titleFor(user.firstName)}
-        </h1>
-        <p className="text-muted-foreground">{header.description}</p>
-      </div>
+      <PageHeader
+        title={header.titleFor(user.firstName)}
+        description={header.description}
+        className="mb-2"
+      />
 
       {/* Quick Actions section */}
       <Card className="border-primary/50 bg-background top-0 z-10 border-dashed">

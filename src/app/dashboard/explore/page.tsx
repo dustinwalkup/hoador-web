@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageHeader } from "@/components/page-header";
 import { ExplorePageSkeleton } from "./_components/explore-page-skeleton";
 import { ExplorePageData } from "./_components/explore-page-data";
 
@@ -19,14 +20,10 @@ interface ExplorePageProps {
 export default function ExplorePage({ searchParams }: ExplorePageProps) {
   return (
     <div className="container py-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Explore Tools</h1>
-          <p className="text-muted-foreground">
-            Find tools available in your neighborhood
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Explore Tools"
+        description="Find tools available in your neighborhood"
+      />
 
       <Suspense fallback={<ExplorePageSkeleton />}>
         <ExplorePageData searchParams={searchParams} />

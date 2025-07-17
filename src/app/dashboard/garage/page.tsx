@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageHeader } from "@/components/page-header";
 
 import { ListingsTab } from "./_components/listings-tab";
 import { BorrowingTab } from "./_components/borrowing-tab";
@@ -19,23 +20,17 @@ import { HistoryTab } from "./_components/history-tab";
 export default async function GaragePage() {
   return (
     <div className="container py-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Garage</h1>
-          <p className="text-muted-foreground">
-            Manage your tools and rentals in one place
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Link href="/dashboard/tools/add">
-            <Button size="sm" className="h-9">
-              <Plus className="mr-2 h-4 w-4" />
-              Add New Tool
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Garage"
+        description="Manage your tools and rentals in one place"
+      >
+        <Link href="/dashboard/tools/add">
+          <Button size="sm" className="h-9">
+            <Plus className="mr-2 h-4 w-4" />
+            Add New Tool
+          </Button>
+        </Link>
+      </PageHeader>
 
       <Tabs defaultValue="listings" className="mb-6">
         <TabsList>

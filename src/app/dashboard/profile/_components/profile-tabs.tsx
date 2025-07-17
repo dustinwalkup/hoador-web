@@ -7,6 +7,7 @@ import { PROFILE_TABS } from "@/lib/constants/profile";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
 
 import { ReviewsTab } from "./reviews-tab";
 import { VerificationTab } from "./verification-tab";
@@ -26,25 +27,22 @@ export function ProfileTabs({
 
   return (
     <div className="container py-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{PROFILE_TABS.title}</h1>
-          <p className="text-muted-foreground">{PROFILE_TABS.description}</p>
-        </div>
+      <PageHeader
+        title={PROFILE_TABS.title}
+        description={PROFILE_TABS.description}
+      >
         {activeTab === "profile" && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9"
-              onClick={() => setEditMode(!editMode)}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              {PROFILE_TABS.editButton.label(editMode)}
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => setEditMode(!editMode)}
+          >
+            <Edit className="mr-2 h-4 w-4" />
+            {PROFILE_TABS.editButton.label(editMode)}
+          </Button>
         )}
-      </div>
+      </PageHeader>
 
       <Tabs
         defaultValue="profile"

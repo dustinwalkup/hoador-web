@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { toolDAL } from "@/lib/dal";
 import type { ToolSearchFilters } from "@/lib/dal/types";
+import { PageHeader } from "@/components/page-header";
 import { ExplorePageFilters } from "../dashboard/explore/_components/explore-page-filters";
 import { ExplorePageContent } from "../dashboard/explore/_components/explore-page-content";
 import { PaginationControls } from "../dashboard/explore/_components/pagination-controls";
@@ -89,14 +90,10 @@ export default async function PublicExplorePage({
 
   return (
     <div className="container py-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Explore Tools</h1>
-          <p className="text-muted-foreground">
-            Find tools available in your neighborhood
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Explore Tools"
+        description="Find tools available in your neighborhood"
+      />
 
       <Suspense fallback={<ExplorePageSkeleton />}>
         <PublicExploreData searchParams={searchParams} />

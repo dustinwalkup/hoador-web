@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/page-header";
 
 export default function MailboxPage() {
   const [selectedConversation, setSelectedConversation] = useState<
@@ -110,25 +111,19 @@ export default function MailboxPage() {
 
   return (
     <div className="container flex h-[calc(100vh-8rem)] flex-col py-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Mailbox</h1>
-          <p className="text-muted-foreground">
-            Communicate with tool owners and borrowers
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="h-9">
-            <Archive className="mr-2 h-4 w-4" />
-            Archive
-          </Button>
-          <Button size="sm" className="h-9">
-            <Send className="mr-2 h-4 w-4" />
-            New Message
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Mailbox"
+        description="Communicate with tool owners and borrowers"
+      >
+        <Button size="sm" variant="outline" className="h-9">
+          <Archive className="mr-2 h-4 w-4" />
+          Archive
+        </Button>
+        <Button size="sm" className="h-9">
+          <Send className="mr-2 h-4 w-4" />
+          New Message
+        </Button>
+      </PageHeader>
 
       <div className="flex flex-1 overflow-hidden rounded-lg border">
         {/* Conversation List */}
