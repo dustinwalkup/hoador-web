@@ -486,8 +486,42 @@ const toolTemplates = [
   },
 ];
 
+// Define status distribution for realistic garage representation
+const statusDistribution = [
+  // Active tools (75% of all tools)
+  { status: "available", isActive: true, weight: 50 }, // 50% available
+  { status: "rented", isActive: true, weight: 25 }, // 25% rented
+
+  // Inactive tools (15% of all tools)
+  { status: "maintenance", isActive: true, weight: 8 }, // 8% in maintenance
+  { status: "inactive", isActive: true, weight: 7 }, // 7% inactive
+
+  // Archived tools (10% of all tools)
+  { status: "available", isActive: false, weight: 5 }, // 5% archived but available status
+  { status: "inactive", isActive: false, weight: 5 }, // 5% archived and inactive status
+];
+
+function getRandomStatusAndActive() {
+  const totalWeight = statusDistribution.reduce(
+    (sum, item) => sum + item.weight,
+    0,
+  );
+  const randomNum = faker.number.int({ min: 1, max: totalWeight });
+
+  let currentWeight = 0;
+  for (const item of statusDistribution) {
+    currentWeight += item.weight;
+    if (randomNum <= currentWeight) {
+      return { status: item.status, isActive: item.isActive };
+    }
+  }
+
+  // Fallback
+  return { status: "available", isActive: true };
+}
+
 async function main() {
-  console.log("🌱 Seeding tools and availability...");
+  console.log("🌱 Seeding tools and availability with all statuses...");
 
   // Clear existing data
   await db.delete(toolImages);
@@ -603,8 +637,13 @@ async function main() {
   const findCategory = (name: string) =>
     categories.find((c) => c.name === name);
 
-  // Generate 200 tools with variety
-  for (let i = 0; i < 200; i++) {
+  // Generate 350 tools with variety across all statuses
+  const totalTools = 350;
+  console.log(
+    `📦 Generating ${totalTools} tools with realistic status distribution...`,
+  );
+
+  for (let i = 0; i < totalTools; i++) {
     const owner = faker.helpers.arrayElement(allUsers);
     const template = faker.helpers.arrayElement(toolTemplates);
     const category =
@@ -614,6 +653,9 @@ async function main() {
     if (!category || !category.id) {
       throw new Error("Failed to get a valid category");
     }
+
+    // Get random status and active state based on distribution
+    const { status, isActive } = getRandomStatusAndActive();
 
     // Create variations of the template
     const nameVariations = [
@@ -648,7 +690,7 @@ async function main() {
       securityDeposit: faker.number
         .float({ min: 25, max: 300, multipleOf: 25 })
         .toString(),
-      status: "available",
+      status: status as "available" | "rented" | "maintenance" | "inactive",
       specifications: {
         ...Object.fromEntries(
           Object.entries(template.specs).filter(
@@ -668,7 +710,7 @@ async function main() {
         .float({ min: 0, max: 35, multipleOf: 5 })
         .toString(),
       deliveryRadius: faker.number.int({ min: 0, max: 15 }),
-      isActive: true,
+      isActive: isActive,
       viewCount: faker.number.int({ min: 0, max: 250 }),
       favoriteCount: faker.number.int({ min: 0, max: 35 }),
       createdAt: faker.date.past({ years: 2 }),
@@ -701,34 +743,36 @@ async function main() {
       });
     }
 
-    // Create 1–4 availability entries per tool
-    const availabilityCount = faker.number.int({ min: 1, max: 4 });
-    for (let j = 0; j < availabilityCount; j++) {
-      const start = faker.date.soon({ days: 60 });
-      const end = faker.date.soon({
-        days: faker.number.int({ min: 1, max: 14 }),
-        refDate: start,
-      });
+    // Create availability entries only for active tools
+    if (isActive && (status === "available" || status === "rented")) {
+      const availabilityCount = faker.number.int({ min: 1, max: 4 });
+      for (let j = 0; j < availabilityCount; j++) {
+        const start = faker.date.soon({ days: 60 });
+        const end = faker.date.soon({
+          days: faker.number.int({ min: 1, max: 14 }),
+          refDate: start,
+        });
 
-      seedAvailability.push({
-        id: faker.string.uuid(),
-        toolId,
-        startDate: start,
-        endDate: end,
-        isBlocked: faker.helpers.weightedArrayElement([
-          { weight: 80, value: false },
-          { weight: 20, value: true },
-        ]),
-        reason: faker.datatype.boolean()
-          ? faker.helpers.arrayElement([
-              "maintenance",
-              "personal use",
-              "booked",
-              "inspection",
-            ])
-          : null,
-        createdAt: new Date(),
-      });
+        seedAvailability.push({
+          id: faker.string.uuid(),
+          toolId,
+          startDate: start,
+          endDate: end,
+          isBlocked: faker.helpers.weightedArrayElement([
+            { weight: 80, value: false },
+            { weight: 20, value: true },
+          ]),
+          reason: faker.datatype.boolean()
+            ? faker.helpers.arrayElement([
+                "maintenance",
+                "personal use",
+                "booked",
+                "inspection",
+              ])
+            : null,
+          createdAt: new Date(),
+        });
+      }
     }
 
     seedTools.push(tool);
@@ -745,6 +789,24 @@ async function main() {
   );
   await db.insert(toolAvailability).values(seedAvailability);
 
+  // Log status distribution for verification
+  const statusCounts = {
+    active: {
+      available: seedTools.filter((t) => t.status === "available" && t.isActive)
+        .length,
+      rented: seedTools.filter((t) => t.status === "rented" && t.isActive)
+        .length,
+    },
+    inactive: {
+      maintenance: seedTools.filter(
+        (t) => t.status === "maintenance" && t.isActive,
+      ).length,
+      inactive: seedTools.filter((t) => t.status === "inactive" && t.isActive)
+        .length,
+    },
+    archived: seedTools.filter((t) => !t.isActive).length,
+  };
+
   console.log("✅ Tool and availability seed complete");
   console.log(
     `📊 Generated ${seedTools.length} tools with ${seedImages.length} images across ${categories.length} categories`,
@@ -752,6 +814,18 @@ async function main() {
   console.log(
     `🎯 Using ${toolTemplates.length} different tool templates with actual mock images`,
   );
+  console.log("\n📈 Status Distribution:");
+  console.log(
+    `   Active Tools (${statusCounts.active.available + statusCounts.active.rented}):`,
+  );
+  console.log(`     - Available: ${statusCounts.active.available}`);
+  console.log(`     - Rented: ${statusCounts.active.rented}`);
+  console.log(
+    `   Inactive Tools (${statusCounts.inactive.maintenance + statusCounts.inactive.inactive}):`,
+  );
+  console.log(`     - Maintenance: ${statusCounts.inactive.maintenance}`);
+  console.log(`     - Inactive: ${statusCounts.inactive.inactive}`);
+  console.log(`   Archived Tools: ${statusCounts.archived}`);
 }
 
 main().catch((err) => {

@@ -39,6 +39,60 @@ interface RentalCardProps {
   };
 }
 
+function getStatusBadgeVariant(
+  status: string,
+  isActive: boolean,
+): {
+  variant: "default" | "secondary" | "destructive" | "outline";
+  className: string;
+} {
+  if (!isActive) {
+    return {
+      variant: "secondary",
+      className:
+        "bg-gray-100 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300",
+    };
+  }
+
+  switch (status.toLowerCase()) {
+    case "available":
+      return {
+        variant: "outline",
+        className:
+          "border-green-200 bg-green-50 text-green-700 hover:bg-green-50 dark:border-green-800 dark:bg-green-950 dark:text-green-300",
+      };
+    case "rented":
+      return {
+        variant: "default",
+        className:
+          "bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300",
+      };
+    case "maintenance":
+      return {
+        variant: "secondary",
+        className:
+          "bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-300",
+      };
+    case "inactive":
+      return {
+        variant: "secondary",
+        className:
+          "bg-gray-100 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400",
+      };
+    case "archived":
+      return {
+        variant: "secondary",
+        className:
+          "bg-gray-100 text-gray-500 hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-500",
+      };
+    default:
+      return {
+        variant: "outline",
+        className: "",
+      };
+  }
+}
+
 export default function RentalCard({
   cardType,
   name,
@@ -63,6 +117,12 @@ export default function RentalCard({
       toast.success("Tool status updated successfully");
     }
   };
+
+  // Get the appropriate badge styling
+  const badgeConfig = getStatusBadgeVariant(
+    availability || status || "unknown",
+    toolData?.isActive ?? true,
+  );
 
   return (
     <Card className="overflow-hidden pt-0 pb-2">
@@ -93,12 +153,12 @@ export default function RentalCard({
       <CardContent className="p-4">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="truncate font-medium">{name}</h3>
-          {status && (
+          {(status || availability) && (
             <Badge
-              variant={status === "listed" ? "outline" : "default"}
-              className="block text-xs"
+              variant={badgeConfig.variant}
+              className={`block text-xs ${badgeConfig.className}`}
             >
-              {capitalize(status)}
+              {capitalize(availability || status)}
             </Badge>
           )}
         </div>
@@ -114,12 +174,6 @@ export default function RentalCard({
           <div className="text-muted-foreground mb-2 flex items-center gap-1 text-sm">
             <Calendar className="h-3.5 w-3.5" />
             <span>Due {dueDate}</span>
-          </div>
-        )}
-
-        {availability && (
-          <div className="text-muted-foreground mb-2 text-sm">
-            <span>Status: {availability}</span>
           </div>
         )}
 

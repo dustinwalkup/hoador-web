@@ -737,6 +737,126 @@ export class ToolDAL extends BaseDAL {
     }
   }
 
+  /**
+   * Get active tools owned by a user (available or rented status, and isActive = true)
+   * @param userId - The user ID
+   * @returns Array of active tools with computed averageRating and reviewCount
+   */
+  async getUserActiveTools(userId: string): Promise<UserTool[]> {
+    try {
+      const whereConditions = [
+        eq(tools.ownerId, userId),
+        eq(tools.isActive, true),
+        or(eq(tools.status, "available"), eq(tools.status, "rented")),
+      ];
+
+      return this._getUserToolsWithConditions(whereConditions);
+    } catch (error) {
+      this.handleError(error, "getUserActiveTools");
+    }
+  }
+
+  /**
+   * Get inactive tools owned by a user (maintenance or inactive status, and isActive = true)
+   * @param userId - The user ID
+   * @returns Array of inactive tools with computed averageRating and reviewCount
+   */
+  async getUserInactiveTools(userId: string): Promise<UserTool[]> {
+    try {
+      const whereConditions = [
+        eq(tools.ownerId, userId),
+        eq(tools.isActive, true),
+        or(eq(tools.status, "maintenance"), eq(tools.status, "inactive")),
+      ];
+
+      return this._getUserToolsWithConditions(whereConditions);
+    } catch (error) {
+      this.handleError(error, "getUserInactiveTools");
+    }
+  }
+
+  /**
+   * Get archived tools owned by a user (isActive = false)
+   * @param userId - The user ID
+   * @returns Array of archived tools with computed averageRating and reviewCount
+   */
+  async getUserArchivedTools(userId: string): Promise<UserTool[]> {
+    try {
+      const whereConditions = [
+        eq(tools.ownerId, userId),
+        eq(tools.isActive, false),
+      ];
+
+      return this._getUserToolsWithConditions(whereConditions);
+    } catch (error) {
+      this.handleError(error, "getUserArchivedTools");
+    }
+  }
+
+  /**
+   * Private helper method to get user tools with specific conditions
+   * @param whereConditions - Array of where conditions
+   * @returns Array of tools with computed averageRating and reviewCount
+   */
+  private async _getUserToolsWithConditions(
+    whereConditions: Parameters<typeof and>,
+  ): Promise<UserTool[]> {
+    try {
+      // Get tools without any relations to avoid circular reference issues
+      const userTools = await this.db
+        .select()
+        .from(tools)
+        .where(and(...whereConditions))
+        .orderBy(desc(tools.createdAt));
+
+      // Get reviews separately to calculate ratings
+      const toolsWithRating = await Promise.all(
+        userTools.map(async (tool) => {
+          const toolReviews = await this.db.query.reviews.findMany({
+            where: eq(reviews.toolId, tool.id),
+            columns: {
+              rating: true,
+            },
+          });
+
+          // Get the first image for this tool
+          const firstImage = await this.db
+            .select({ imageUrl: toolImages.imageUrl })
+            .from(toolImages)
+            .where(
+              and(eq(toolImages.toolId, tool.id), eq(toolImages.orderIndex, 0)),
+            )
+            .limit(1);
+
+          const ratings = toolReviews.map((r) => r.rating);
+          const averageRating =
+            ratings.length > 0
+              ? ratings.reduce((a: number, b: number) => a + b, 0) /
+                ratings.length
+              : 0;
+
+          return {
+            ...tool,
+            dailyRate: Number(tool.dailyRate),
+            weeklyRate: tool.weeklyRate ? Number(tool.weeklyRate) : undefined,
+            monthlyRate: tool.monthlyRate
+              ? Number(tool.monthlyRate)
+              : undefined,
+            securityDeposit: Number(tool.securityDeposit),
+            deliveryFee: Number(tool.deliveryFee),
+            averageRating: Math.round(averageRating * 10) / 10,
+            reviewCount: ratings.length,
+            firstImageUrl: firstImage[0]?.imageUrl || null,
+          } as UserTool;
+        }),
+      );
+
+      return toolsWithRating;
+    } catch (error) {
+      this.handleError(error, "_getUserToolsWithConditions");
+    }
+  }
+
   async getToolCategories(): Promise<(typeof toolCategories.$inferSelect)[]> {
     try {
       const categories = await this.db.query.toolCategories.findMany({

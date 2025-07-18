@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
 
-import { ListingsTab } from "./_components/listings-tab";
-import { BorrowingTab } from "./_components/borrowing-tab";
-import { HistoryTab } from "./_components/history-tab";
+import { ActiveTab } from "./_components/active-tab";
+import { InactiveTab } from "./_components/inactive-tab";
+import { ArchivedTab } from "./_components/archived-tab";
 
 export default async function GaragePage() {
   return (
@@ -32,11 +32,11 @@ export default async function GaragePage() {
         </Link>
       </PageHeader>
 
-      <Tabs defaultValue="listings" className="mb-6">
+      <Tabs defaultValue="active" className="mb-6">
         <TabsList>
-          <TabsTrigger value="listings">My Listings</TabsTrigger>
-          <TabsTrigger value="borrowing">Borrowing</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
         </TabsList>
 
         <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -71,16 +71,16 @@ export default async function GaragePage() {
           </div>
         </div>
 
-        <TabsContent value="listings" className="mt-6">
-          <ListingsTab />
+        <TabsContent value="active" className="mt-6">
+          <ActiveTab />
         </TabsContent>
 
-        <TabsContent value="borrowing" className="mt-6">
-          <BorrowingTab />
+        <TabsContent value="inactive" className="mt-6">
+          <InactiveTab />
         </TabsContent>
 
-        <TabsContent value="history" className="mt-6">
-          <HistoryTab />
+        <TabsContent value="archived" className="mt-6">
+          <ArchivedTab />
         </TabsContent>
       </Tabs>
     </div>

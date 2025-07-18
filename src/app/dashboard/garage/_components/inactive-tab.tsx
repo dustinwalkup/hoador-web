@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Settings } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { toolDAL } from "@/lib/dal";
@@ -9,25 +9,25 @@ import { Button } from "@/components/ui/button";
 import RentalCard from "@/components/dashboard/rental-card";
 import { capitalize } from "@/lib/utils/utils";
 
-function getStatus(status: string): "rented" | "listed" | "" {
-  if (status === "available") return "listed";
-  if (status === "rented") return "rented";
+function getStatus(): "rented" | "listed" | "" {
+  // For inactive tools, we don't show the standard status
   return "";
 }
 
-export async function ListingsTab() {
+export async function InactiveTab() {
   const user = await getCurrentUser();
-  const userTools = await toolDAL.getUserTools(user.id);
+  const inactiveTools = await toolDAL.getUserInactiveTools(user.id);
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {userTools && userTools.length > 0 ? (
-        userTools.map((tool) => (
+      {inactiveTools && inactiveTools.length > 0 ? (
+        inactiveTools.map((tool) => (
           <RentalCard
             key={tool.id}
             id={tool.id}
             name={tool.name}
             imageUrl={tool.firstImageUrl}
-            status={getStatus(tool.status)}
+            status={getStatus()}
             price={`$${tool.dailyRate}/day`}
             availability={capitalize(tool.status)}
             cardType="listings"
@@ -41,7 +41,13 @@ export async function ListingsTab() {
         ))
       ) : (
         <div className="col-span-full py-8 text-center">
-          <p className="text-muted-foreground mb-4">No tools listed yet</p>
+          <div className="bg-muted mb-4 inline-flex rounded-full p-3">
+            <Settings className="text-muted-foreground h-6 w-6" />
+          </div>
+          <p className="text-muted-foreground mb-2">No inactive tools</p>
+          <p className="text-muted-foreground text-sm">
+            Tools in maintenance or marked as inactive will appear here
+          </p>
         </div>
       )}
       <Card className="items-center justify-center overflow-hidden border-dashed">
