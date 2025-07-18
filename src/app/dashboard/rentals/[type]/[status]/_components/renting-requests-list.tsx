@@ -95,7 +95,7 @@ export function RentingRequestsList({
             placeholder="Search by tool name or owner..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-10"
+            className="max-w-md pl-10"
           />
         </div>
         <Select value={sortBy} onValueChange={handleSortChange}>
