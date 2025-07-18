@@ -2,12 +2,13 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { capitalize } from "@/lib/utils/utils";
 import { toolDAL } from "@/lib/dal";
+import type { GarageToolFilters } from "@/lib/dal/tool.dal";
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import RentalCard from "@/components/dashboard/rental-card";
-import { capitalize } from "@/lib/utils/utils";
 
 function getStatus(status: string): "rented" | "listed" | "" {
   if (status === "available") return "listed";
@@ -15,9 +16,16 @@ function getStatus(status: string): "rented" | "listed" | "" {
   return "";
 }
 
-export async function ActiveTab() {
+interface ActiveTabProps {
+  filters: GarageToolFilters;
+}
+
+export async function ActiveTab({ filters }: ActiveTabProps) {
   const user = await getCurrentUser();
-  const activeTools = await toolDAL.getUserActiveTools(user.id);
+  const activeTools = await toolDAL.getUserActiveToolsWithFilters(
+    user.id,
+    filters,
+  );
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -42,7 +50,16 @@ export async function ActiveTab() {
         ))
       ) : (
         <div className="col-span-full py-8 text-center">
-          <p className="text-muted-foreground mb-4">No active tools listed</p>
+          <p className="text-muted-foreground mb-4">
+            {filters.query || filters.categoryId || filters.rentalStatus
+              ? "No tools found matching your search criteria"
+              : "No active tools listed"}
+          </p>
+          {filters.query || filters.categoryId || filters.rentalStatus ? (
+            <p className="text-muted-foreground text-sm">
+              Try adjusting your search or filters
+            </p>
+          ) : null}
         </div>
       )}
       <Card className="items-center justify-center overflow-hidden border-dashed">

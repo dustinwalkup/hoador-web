@@ -99,6 +99,14 @@ export type UserTool = Omit<
   firstImageUrl: string | null;
 };
 
+export interface GarageToolFilters {
+  query?: string;
+  categoryId?: string;
+  sortBy?: "newest" | "name" | "lastRented";
+  sortOrder?: "asc" | "desc";
+  rentalStatus?: "available" | "rented"; // Only for active tools
+}
+
 export class ToolDAL extends BaseDAL {
   async createTool(
     ownerId: string,
@@ -738,6 +746,29 @@ export class ToolDAL extends BaseDAL {
   }
 
   /**
+   * Get active tools owned by a user with search, sort, and filter options
+   * @param userId - The user ID
+   * @param filters - Optional filters for search, sort, and filtering
+   * @returns Array of active tools with computed averageRating and reviewCount
+   */
+  async getUserActiveToolsWithFilters(
+    userId: string,
+    filters: GarageToolFilters = {},
+  ): Promise<UserTool[]> {
+    try {
+      const baseConditions = [
+        eq(tools.ownerId, userId),
+        eq(tools.isActive, true),
+        or(eq(tools.status, "available"), eq(tools.status, "rented")),
+      ];
+
+      return this._getUserToolsWithFilters(baseConditions, filters);
+    } catch (error) {
+      this.handleError(error, "getUserActiveToolsWithFilters");
+    }
+  }
+
+  /**
    * Get active tools owned by a user (available or rented status, and isActive = true)
    * @param userId - The user ID
    * @returns Array of active tools with computed averageRating and reviewCount
@@ -753,6 +784,29 @@ export class ToolDAL extends BaseDAL {
       return this._getUserToolsWithConditions(whereConditions);
     } catch (error) {
       this.handleError(error, "getUserActiveTools");
+    }
+  }
+
+  /**
+   * Get inactive tools owned by a user with search, sort, and filter options
+   * @param userId - The user ID
+   * @param filters - Optional filters for search, sort, and filtering
+   * @returns Array of inactive tools with computed averageRating and reviewCount
+   */
+  async getUserInactiveToolsWithFilters(
+    userId: string,
+    filters: GarageToolFilters = {},
+  ): Promise<UserTool[]> {
+    try {
+      const baseConditions = [
+        eq(tools.ownerId, userId),
+        eq(tools.isActive, true),
+        or(eq(tools.status, "maintenance"), eq(tools.status, "inactive")),
+      ];
+
+      return this._getUserToolsWithFilters(baseConditions, filters);
+    } catch (error) {
+      this.handleError(error, "getUserInactiveToolsWithFilters");
     }
   }
 
@@ -776,20 +830,145 @@ export class ToolDAL extends BaseDAL {
   }
 
   /**
-   * Get archived tools owned by a user (isActive = false)
+   * Get archived tools owned by a user with search, sort, and filter options
    * @param userId - The user ID
+   * @param filters - Optional filters for search, sort, and filtering
    * @returns Array of archived tools with computed averageRating and reviewCount
    */
-  async getUserArchivedTools(userId: string): Promise<UserTool[]> {
+  async getUserArchivedToolsWithFilters(
+    userId: string,
+    filters: GarageToolFilters = {},
+  ): Promise<UserTool[]> {
     try {
-      const whereConditions = [
+      const baseConditions = [
         eq(tools.ownerId, userId),
         eq(tools.isActive, false),
       ];
 
-      return this._getUserToolsWithConditions(whereConditions);
+      return this._getUserToolsWithFilters(baseConditions, filters);
     } catch (error) {
-      this.handleError(error, "getUserArchivedTools");
+      this.handleError(error, "getUserArchivedToolsWithFilters");
+    }
+  }
+
+  /**
+   * Private helper method to get user tools with specific conditions and filters
+   * @param baseConditions - Base where conditions
+   * @param filters - Search, sort, and filter options
+   * @returns Array of tools with computed averageRating and reviewCount
+   */
+  private async _getUserToolsWithFilters(
+    baseConditions: Parameters<typeof and>,
+    filters: GarageToolFilters = {},
+  ): Promise<UserTool[]> {
+    try {
+      const whereConditions = [...baseConditions];
+
+      // Add search filter
+      if (filters.query) {
+        whereConditions.push(
+          or(
+            ilike(tools.name, `%${filters.query}%`),
+            ilike(tools.description, `%${filters.query}%`),
+            ilike(tools.brand, `%${filters.query}%`),
+            ilike(tools.model, `%${filters.query}%`),
+          )!,
+        );
+      }
+
+      // Add category filter
+      if (filters.categoryId) {
+        whereConditions.push(eq(tools.categoryId, filters.categoryId));
+      }
+
+      // Add rental status filter (only applicable for active tools)
+      if (filters.rentalStatus) {
+        if (filters.rentalStatus === "available") {
+          whereConditions.push(eq(tools.status, "available"));
+        } else if (filters.rentalStatus === "rented") {
+          whereConditions.push(eq(tools.status, "rented"));
+        }
+      }
+
+      // Build sort order
+      let orderByClause: (ReturnType<typeof asc> | ReturnType<typeof desc>)[] =
+        [];
+      const sortBy = filters.sortBy || "newest";
+      const sortOrder = filters.sortOrder || "desc";
+
+      switch (sortBy) {
+        case "name":
+          orderByClause = [
+            sortOrder === "asc" ? asc(tools.name) : desc(tools.name),
+          ];
+          break;
+        case "lastRented":
+          // For now, sort by updatedAt as a proxy for last rental activity
+          // TODO: Add actual lastRentedAt field to schema
+          orderByClause = [
+            sortOrder === "asc" ? asc(tools.updatedAt) : desc(tools.updatedAt),
+          ];
+          break;
+        case "newest":
+        default:
+          orderByClause = [
+            sortOrder === "asc" ? asc(tools.createdAt) : desc(tools.createdAt),
+          ];
+          break;
+      }
+
+      // Get tools without any relations to avoid circular reference issues
+      const userTools = await this.db
+        .select()
+        .from(tools)
+        .where(and(...whereConditions))
+        .orderBy(...orderByClause);
+
+      // Get reviews separately to calculate ratings
+      const toolsWithRating = await Promise.all(
+        userTools.map(async (tool) => {
+          const toolReviews = await this.db.query.reviews.findMany({
+            where: eq(reviews.toolId, tool.id),
+            columns: {
+              rating: true,
+            },
+          });
+
+          // Get the first image for this tool
+          const firstImage = await this.db
+            .select({ imageUrl: toolImages.imageUrl })
+            .from(toolImages)
+            .where(
+              and(eq(toolImages.toolId, tool.id), eq(toolImages.orderIndex, 0)),
+            )
+            .limit(1);
+
+          const ratings = toolReviews.map((r) => r.rating);
+          const averageRating =
+            ratings.length > 0
+              ? ratings.reduce((a: number, b: number) => a + b, 0) /
+                ratings.length
+              : 0;
+
+          return {
+            ...tool,
+            dailyRate: Number(tool.dailyRate),
+            weeklyRate: tool.weeklyRate ? Number(tool.weeklyRate) : undefined,
+            monthlyRate: tool.monthlyRate
+              ? Number(tool.monthlyRate)
+              : undefined,
+            securityDeposit: Number(tool.securityDeposit),
+            deliveryFee: Number(tool.deliveryFee),
+            averageRating: Math.round(averageRating * 10) / 10,
+            reviewCount: ratings.length,
+            firstImageUrl: firstImage[0]?.imageUrl || null,
+          } as UserTool;
+        }),
+      );
+
+      return toolsWithRating;
+    } catch (error) {
+      this.handleError(error, "_getUserToolsWithFilters");
     }
   }
 
@@ -854,6 +1033,24 @@ export class ToolDAL extends BaseDAL {
       return toolsWithRating;
     } catch (error) {
       this.handleError(error, "_getUserToolsWithConditions");
+    }
+  }
+
+  /**
+   * Get archived tools owned by a user (isActive = false)
+   * @param userId - The user ID
+   * @returns Array of archived tools with computed averageRating and reviewCount
+   */
+  async getUserArchivedTools(userId: string): Promise<UserTool[]> {
+    try {
+      const whereConditions = [
+        eq(tools.ownerId, userId),
+        eq(tools.isActive, false),
+      ];
+
+      return this._getUserToolsWithConditions(whereConditions);
+    } catch (error) {
+      this.handleError(error, "getUserArchivedTools");
     }
   }
 

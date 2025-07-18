@@ -2,21 +2,29 @@ import Link from "next/link";
 import { Plus, Settings } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { capitalize } from "@/lib/utils/utils";
 import { toolDAL } from "@/lib/dal";
+import type { GarageToolFilters } from "@/lib/dal/tool.dal";
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import RentalCard from "@/components/dashboard/rental-card";
-import { capitalize } from "@/lib/utils/utils";
 
 function getStatus(): "rented" | "listed" | "" {
   // For inactive tools, we don't show the standard status
   return "";
 }
 
-export async function InactiveTab() {
+interface InactiveTabProps {
+  filters: GarageToolFilters;
+}
+
+export async function InactiveTab({ filters }: InactiveTabProps) {
   const user = await getCurrentUser();
-  const inactiveTools = await toolDAL.getUserInactiveTools(user.id);
+  const inactiveTools = await toolDAL.getUserInactiveToolsWithFilters(
+    user.id,
+    filters,
+  );
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -44,9 +52,15 @@ export async function InactiveTab() {
           <div className="bg-muted mb-4 inline-flex rounded-full p-3">
             <Settings className="text-muted-foreground h-6 w-6" />
           </div>
-          <p className="text-muted-foreground mb-2">No inactive tools</p>
+          <p className="text-muted-foreground mb-2">
+            {filters.query || filters.categoryId
+              ? "No inactive tools found matching your search criteria"
+              : "No inactive tools"}
+          </p>
           <p className="text-muted-foreground text-sm">
-            Tools in maintenance or marked as inactive will appear here
+            {filters.query || filters.categoryId
+              ? "Try adjusting your search or filters"
+              : "Tools in maintenance or marked as inactive will appear here"}
           </p>
         </div>
       )}

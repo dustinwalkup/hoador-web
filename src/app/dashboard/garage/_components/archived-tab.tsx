@@ -3,6 +3,7 @@ import { Plus, Archive } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { toolDAL } from "@/lib/dal";
+import type { GarageToolFilters } from "@/lib/dal/tool.dal";
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,16 @@ function getStatus(): "rented" | "listed" | "" {
   return "";
 }
 
-export async function ArchivedTab() {
+interface ArchivedTabProps {
+  filters: GarageToolFilters;
+}
+
+export async function ArchivedTab({ filters }: ArchivedTabProps) {
   const user = await getCurrentUser();
-  const archivedTools = await toolDAL.getUserArchivedTools(user.id);
+  const archivedTools = await toolDAL.getUserArchivedToolsWithFilters(
+    user.id,
+    filters,
+  );
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -43,9 +51,15 @@ export async function ArchivedTab() {
           <div className="bg-muted mb-4 inline-flex rounded-full p-3">
             <Archive className="text-muted-foreground h-6 w-6" />
           </div>
-          <p className="text-muted-foreground mb-2">No archived tools</p>
+          <p className="text-muted-foreground mb-2">
+            {filters.query || filters.categoryId
+              ? "No archived tools found matching your search criteria"
+              : "No archived tools"}
+          </p>
           <p className="text-muted-foreground text-sm">
-            Tools you&apos;ve archived will appear here
+            {filters.query || filters.categoryId
+              ? "Try adjusting your search or filters"
+              : "Tools you&apos;ve archived will appear here"}
           </p>
         </div>
       )}

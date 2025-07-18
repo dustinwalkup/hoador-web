@@ -1,23 +1,47 @@
 import Link from "next/link";
-import { Calendar, Search, Filter, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import { Suspense } from "react";
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
 
 import { ActiveTab } from "./_components/active-tab";
 import { InactiveTab } from "./_components/inactive-tab";
 import { ArchivedTab } from "./_components/archived-tab";
+import { GarageFilters } from "./_components/garage-filters";
+import { GarageTabs } from "./_components/garage-tabs";
+import type { GarageToolFilters } from "@/lib/dal/tool.dal";
+import { toolDAL } from "@/lib/dal";
 
-export default async function GaragePage() {
+interface GaragePageProps {
+  searchParams: Promise<{
+    tab?: string;
+    q?: string;
+    category?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    rentalStatus?: string;
+  }>;
+}
+
+export default async function GaragePage({ searchParams }: GaragePageProps) {
+  const params = await searchParams;
+
+  // Parse search parameters into filters
+  const filters: GarageToolFilters = {
+    query: params.q,
+    categoryId: params.category,
+    sortBy: params.sortBy as "newest" | "name" | "lastRented" | undefined,
+    sortOrder: params.sortOrder as "asc" | "desc" | undefined,
+    rentalStatus: params.rentalStatus as "available" | "rented" | undefined,
+  };
+
+  const currentTab = params.tab || "active";
+
+  // Fetch categories for the filters
+  const categories = await toolDAL.getToolCategories();
+
   return (
     <div className="container py-6">
       <PageHeader
@@ -32,57 +56,41 @@ export default async function GaragePage() {
         </Link>
       </PageHeader>
 
-      <Tabs defaultValue="active" className="mb-6">
-        <TabsList>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="inactive">Inactive</TabsTrigger>
-          <TabsTrigger value="archived">Archived</TabsTrigger>
-        </TabsList>
+      <GarageTabs currentTab={currentTab}>
+        <Suspense
+          fallback={
+            <div className="bg-muted mt-6 h-24 animate-pulse rounded" />
+          }
+        >
+          <GarageFilters
+            currentTab={currentTab}
+            filters={filters}
+            categories={categories}
+          />
+        </Suspense>
 
-        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex w-full max-w-sm items-center">
-            <Search className="text-muted-foreground absolute left-3 h-4 w-4" />
-            <Input placeholder="Search tools..." className="pl-9" />
-          </div>
+        <Suspense
+          fallback={
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="bg-muted h-96 animate-pulse rounded" />
+              ))}
+            </div>
+          }
+        >
+          <TabsContent value="active" className="mt-6">
+            <ActiveTab filters={filters} />
+          </TabsContent>
 
-          <div className="flex items-center gap-2">
-            <Select defaultValue="all">
-              <SelectTrigger className="h-9 w-[180px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="rented">Rented</SelectItem>
-                <SelectItem value="maintenance">Maintenance</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
+          <TabsContent value="inactive" className="mt-6">
+            <InactiveTab filters={filters} />
+          </TabsContent>
 
-            <Button variant="outline" size="sm" className="h-9">
-              <Filter className="mr-2 h-4 w-4" />
-              More Filters
-            </Button>
-
-            <Button variant="outline" size="icon" className="h-9 w-9">
-              <Calendar className="h-4 w-4" />
-              <span className="sr-only">Calendar view</span>
-            </Button>
-          </div>
-        </div>
-
-        <TabsContent value="active" className="mt-6">
-          <ActiveTab />
-        </TabsContent>
-
-        <TabsContent value="inactive" className="mt-6">
-          <InactiveTab />
-        </TabsContent>
-
-        <TabsContent value="archived" className="mt-6">
-          <ArchivedTab />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="archived" className="mt-6">
+            <ArchivedTab filters={filters} />
+          </TabsContent>
+        </Suspense>
+      </GarageTabs>
     </div>
   );
 }
