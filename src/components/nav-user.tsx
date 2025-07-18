@@ -41,7 +41,7 @@ export function NavUser({ user }: { user: UserProfile }) {
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 <AvatarImage
-                  src="/images/mock/testUser.jpg"
+                  src="/images/mock/users/testUser.jpg"
                   alt={getUserFullName(user)}
                 />
                 <AvatarFallback className="rounded-lg">CN</AvatarFallback>
@@ -67,7 +67,7 @@ export function NavUser({ user }: { user: UserProfile }) {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage
-                    src="/images/mock/testUser.jpg"
+                    src="/images/mock/users/testUser.jpg"
                     alt={getUserFullName(user)}
                   />
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>

@@ -45,7 +45,7 @@ export async function ProfileOverview({ user }: { user: UserProfile }) {
           <div className="relative mb-4">
             <Avatar className="h-32 w-32">
               <AvatarImage
-                src={"/images/mock/testUser.jpg"}
+                src={"/images/mock/users/testUser.jpg"}
                 alt={`Avatar for ${getUserFullName(user)}`}
               />
               <AvatarFallback className="text-2xl">
