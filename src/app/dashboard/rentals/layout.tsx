@@ -14,6 +14,7 @@ export default function RentalsLayout({
 
   // Extract the current type from the path (renting or lending)
   const currentType = pathname.includes("/lending") ? "lending" : "renting";
+  const isConfirmationPage = pathname.includes("/confirmation");
 
   const handleTabChange = (value: string) => {
     // Default to the first sub-tab when switching main tabs
@@ -26,17 +27,20 @@ export default function RentalsLayout({
 
   return (
     <div className="container mx-auto py-6">
-      <PageHeader
-        title="Rentals"
-        description="Manage your rentals"
-        className="mb-8"
-      />
-
+      {!isConfirmationPage && (
+        <PageHeader
+          title="Rentals"
+          description="Manage your rentals"
+          className="mb-8"
+        />
+      )}
       <Tabs value={currentType} onValueChange={handleTabChange}>
-        <TabsList className="mb-6 grid w-full grid-cols-2">
-          <TabsTrigger value="renting">Renting</TabsTrigger>
-          <TabsTrigger value="lending">Lending</TabsTrigger>
-        </TabsList>
+        {!isConfirmationPage && (
+          <TabsList className="mb-6 grid w-full grid-cols-2">
+            <TabsTrigger value="renting">Renting</TabsTrigger>
+            <TabsTrigger value="lending">Lending</TabsTrigger>
+          </TabsList>
+        )}
 
         {children}
       </Tabs>
