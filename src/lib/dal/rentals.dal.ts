@@ -659,4 +659,49 @@ export class RentalDAL extends BaseDAL {
       this.handleError(error, "getLendingRentalsByStatus");
     }
   }
+
+  /**
+   * Cancel a rental request
+   * Only the renter can cancel their own pending requests
+   */
+  async cancelRentalRequest(requestId: string, userId: string): Promise<void> {
+    try {
+      // First, verify the request exists and belongs to the user
+      const request = await this.db
+        .select({
+          id: rentalRequests.id,
+          status: rentalRequests.status,
+          renterId: rentalRequests.renterId,
+        })
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, requestId))
+        .limit(1);
+
+      if (!request.length) {
+        throw new NotFoundError("Rental request not found");
+      }
+
+      if (request[0].renterId !== userId) {
+        throw new UnauthorizedError(
+          "You can only cancel your own rental requests",
+        );
+      }
+
+      if (request[0].status !== "pending") {
+        throw new Error("Only pending requests can be cancelled");
+      }
+
+      // Update the request status to cancelled
+      await this.db
+        .update(rentalRequests)
+        .set({
+          status: "cancelled",
+          rejectedAt: new Date(),
+          rejectionReason: "Cancelled by renter",
+        })
+        .where(eq(rentalRequests.id, requestId));
+    } catch (error) {
+      this.handleError(error, "cancelRentalRequest");
+    }
+  }
 }
