@@ -14,9 +14,9 @@ export default async function RentalsTypePage({
 
   // Validate type and redirect to default status
   if (type === "renting") {
-    redirect("/dashboard/rentals/renting/requests");
+    redirect("/dashboard/renting/requests");
   } else if (type === "lending") {
-    redirect("/dashboard/rentals/lending/incoming");
+    redirect("/dashboard/lending/incoming");
   } else {
     notFound();
   }

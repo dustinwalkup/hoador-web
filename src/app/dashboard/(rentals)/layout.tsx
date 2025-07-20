@@ -19,9 +19,9 @@ export default function RentalsLayout({
   const handleTabChange = (value: string) => {
     // Default to the first sub-tab when switching main tabs
     if (value === "renting") {
-      router.push("/dashboard/rentals/renting/requests");
+      router.push("/dashboard/renting/requests");
     } else {
-      router.push("/dashboard/rentals/lending/incoming");
+      router.push("/dashboard/lending/incoming");
     }
   };
 

@@ -153,7 +153,7 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
     return {
       value: statusKey,
       label: config.displayName,
-      href: `/dashboard/rentals/${type}/${statusKey}`,
+      href: `/dashboard/${type}/${statusKey}`,
     };
   });
 

@@ -38,8 +38,8 @@ export async function cancelRentalRequestAction(requestId: string) {
   }
 
   // Revalidate the rentals pages to show updated status
-  revalidatePath("/dashboard/rentals/renting/requests");
-  revalidatePath("/dashboard/rentals");
+  revalidatePath("/dashboard/renting/requests");
+  revalidatePath("/dashboard/renting/");
 
   return { success: true };
 }

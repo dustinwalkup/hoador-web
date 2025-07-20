@@ -4,28 +4,28 @@ import type { RentalType } from "@/lib/types/rentals";
  * Rental route configuration
  *
  * Available URLs:
- * - /dashboard/rentals/renting/requests
- * - /dashboard/rentals/renting/active
- * - /dashboard/rentals/renting/completed
- * - /dashboard/rentals/renting/rejected
- * - /dashboard/rentals/lending/incoming
- * - /dashboard/rentals/lending/active
- * - /dashboard/rentals/lending/completed
- * - /dashboard/rentals/lending/rejected
+ * - /dashboard/renting/requests
+ * - /dashboard/renting/active
+ * - /dashboard/renting/completed
+ * - /dashboard/renting/rejected
+ * - /dashboard/lending/incoming
+ * - /dashboard/lending/active
+ * - /dashboard/lending/completed
+ * - /dashboard/lending/rejected
  */
 
 export const RENTAL_ROUTES = {
   RENTING: {
-    REQUESTS: "/dashboard/rentals/renting/requests",
-    ACTIVE: "/dashboard/rentals/renting/active",
-    COMPLETED: "/dashboard/rentals/renting/completed",
-    REJECTED: "/dashboard/rentals/renting/rejected",
+    REQUESTS: "/dashboard/renting/requests",
+    ACTIVE: "/dashboard/renting/active",
+    COMPLETED: "/dashboard/renting/completed",
+    REJECTED: "/dashboard/renting/rejected",
   },
   LENDING: {
-    INCOMING: "/dashboard/rentals/lending/incoming",
-    ACTIVE: "/dashboard/rentals/lending/active",
-    COMPLETED: "/dashboard/rentals/lending/completed",
-    REJECTED: "/dashboard/rentals/lending/rejected",
+    INCOMING: "/dashboard/lending/incoming",
+    ACTIVE: "/dashboard/lending/active",
+    COMPLETED: "/dashboard/lending/completed",
+    REJECTED: "/dashboard/lending/rejected",
   },
 } as const;
 
@@ -38,7 +38,7 @@ export const DEFAULT_RENTAL_ROUTES = {
  * Helper function to build rental route URLs
  */
 export function buildRentalRoute(type: RentalType, status: string): string {
-  return `/dashboard/rentals/${type}/${status}`;
+  return `/dashboard/${type}/${status}`;
 }
 
 /**

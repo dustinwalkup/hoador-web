@@ -27,7 +27,7 @@ export const MAIN_NAV: MainNavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: HomeIcon },
   { title: "Explore", url: "/dashboard/explore", icon: DoorIcon },
   { title: "Favorites", url: "/dashboard/favorites", icon: HeartIcon },
-  { title: "Rentals", url: "/dashboard/rentals", icon: CalendarIcon },
+  { title: "Rentals", url: "/dashboard/renting/requests", icon: CalendarIcon },
   { title: "Garage", url: "/dashboard/garage", icon: WarehouseIcon },
   { title: "Mailbox", url: "/dashboard/mailbox", icon: MailIcon },
   { title: "Profile", url: "/dashboard/profile", icon: UserIcon },
