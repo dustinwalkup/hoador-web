@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 interface RentalsTypePageProps {
   params: Promise<{
-    type: string;
+    type: "renting" | "lending";
   }>;
 }
 

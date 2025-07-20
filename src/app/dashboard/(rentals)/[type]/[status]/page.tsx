@@ -12,8 +12,8 @@ import { BorrowedToolsList } from "./_components/borrowed-tools-list";
 
 interface RentalsPageProps {
   params: Promise<{
-    type: string;
-    status: string;
+    type: "renting" | "lending";
+    status: "requests" | "active" | "completed" | "rejected" | "incoming";
   }>;
 }
 
