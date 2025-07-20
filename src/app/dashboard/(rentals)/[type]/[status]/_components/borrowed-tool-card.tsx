@@ -136,9 +136,11 @@ export function BorrowedToolCard({
                     <Star className="mr-1 h-4 w-4" />
                     Leave Review
                   </Button>
-                  <Button variant="outline" size="sm">
-                    Rent Again
-                  </Button>
+                  <Link href={`/tools/${rental.toolId}/rent`}>
+                    <Button variant="outline" size="sm">
+                      Rent Again
+                    </Button>
+                  </Link>
                 </>
               )}
             </div>
