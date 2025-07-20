@@ -704,4 +704,123 @@ export class RentalDAL extends BaseDAL {
       this.handleError(error, "cancelRentalRequest");
     }
   }
+
+  /**
+   * Approve a rental request
+   * Only the owner can approve their own pending requests
+   */
+  async approveRentalRequest(
+    requestId: string,
+    options?: {
+      pickupInstructions?: string;
+      returnInstructions?: string;
+    },
+  ): Promise<void> {
+    try {
+      // Get current user ID and verify authentication
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Get the rental request and verify ownership
+      const [request] = await this.db
+        .select()
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, requestId))
+        .limit(1);
+
+      if (!request) {
+        throw new NotFoundError("Rental request not found");
+      }
+
+      // Verify that the current user is the owner of the tool
+      if (request.ownerId !== userId) {
+        throw new UnauthorizedError(
+          "Only the tool owner can approve rental requests",
+        );
+      }
+
+      if (request.status !== "pending") {
+        throw new Error("Only pending requests can be approved");
+      }
+
+      // Update the rental request status
+      await this.db
+        .update(rentalRequests)
+        .set({
+          status: "approved",
+          approvedAt: new Date(),
+        })
+        .where(eq(rentalRequests.id, requestId));
+
+      // Create a rental entry
+      await this.db.insert(rentals).values({
+        requestId: requestId,
+        toolId: request.toolId,
+        renterId: request.renterId,
+        ownerId: request.ownerId,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        totalAmount: request.totalAmount,
+        securityDeposit: request.securityDeposit,
+        status: "approved",
+        pickupInstructions: options?.pickupInstructions || null,
+        returnInstructions: options?.returnInstructions || null,
+      });
+    } catch (error) {
+      this.handleError(error, "approveRentalRequest");
+    }
+  }
+
+  /**
+   * Decline a rental request
+   * Only the owner can decline their own pending requests
+   */
+  async declineRentalRequest(
+    requestId: string,
+    rejectionReason: string,
+  ): Promise<void> {
+    try {
+      // Get current user ID and verify authentication
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Get the rental request and verify ownership
+      const [request] = await this.db
+        .select()
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, requestId))
+        .limit(1);
+
+      if (!request) {
+        throw new NotFoundError("Rental request not found");
+      }
+
+      // Verify that the current user is the owner of the tool
+      if (request.ownerId !== userId) {
+        throw new UnauthorizedError(
+          "Only the tool owner can decline rental requests",
+        );
+      }
+
+      if (request.status !== "pending") {
+        throw new Error("Only pending requests can be declined");
+      }
+
+      // Update the rental request status
+      await this.db
+        .update(rentalRequests)
+        .set({
+          status: "rejected",
+          rejectedAt: new Date(),
+          rejectionReason: rejectionReason,
+        })
+        .where(eq(rentalRequests.id, requestId));
+    } catch (error) {
+      this.handleError(error, "declineRentalRequest");
+    }
+  }
 }

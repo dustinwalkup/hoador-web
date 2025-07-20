@@ -571,3 +571,88 @@ Each phase builds on the previous one, so we'll tackle them in order for maximum
 
 _Last Updated: [Current Date]_
 _Status: Planning Phase_
+
+## Architecture Guidelines
+
+### Data Access Layer (DAL)
+
+- **ALWAYS use DAL methods for database operations** - Never access the database directly in server actions or components
+- Server actions should call methods from the appropriate DAL class (e.g., `rentalDAL`, `toolDAL`, `userDAL`)
+- Keep database logic isolated in DAL classes
+- Use proper error handling with `tryCatch` utility in both server actions and DAL methods
+- Server actions handle validation and business logic, DAL methods handle database operations
+
+### Server/Client Boundaries
+
+- Prefer React Server Components where possible
+- Use "use client" directive only when necessary
+- Keep client-side JavaScript minimal
+- Use server actions for data mutations
+- Implement proper error handling for server actions
+
+### State Management
+
+- Use React's built-in state management when possible
+- Avoid unnecessary global state
+- Colocate state with the components that use it
+- Use React Context for theme and authentication state
+
+## Code Quality Standards
+
+### Formatting
+
+- Use Prettier for consistent code formatting
+- Maintain 2-space indentation
+- Enforce 100-character line length maximum
+- Use single quotes for strings
+- Add semicolons at the end of statements
+
+### Naming Conventions
+
+- Use PascalCase for React components
+- Use camelCase for variables, functions, and methods
+- Use kebab-case for file names (except React components)
+- Use UPPER_SNAKE_CASE for constants
+
+### Comments and Documentation
+
+- Add JSDoc comments for all exported functions and classes
+- Include purpose, parameters, and return values
+- Document complex logic with inline comments
+- Keep comments up-to-date with code changes
+
+## Next.js Best Practices
+
+### Routing and Layout
+
+- Use the App Router architecture
+- Implement nested layouts appropriately
+- Optimize loading states and error boundaries
+- Use dynamic imports for code splitting
+- Implement proper metadata for SEO
+
+### Performance
+
+- Optimize images with next/image
+- Implement proper caching strategies
+- Use React.memo for expensive components
+- Implement incremental static regeneration where appropriate
+- Optimize third-party script loading
+
+## TypeScript Standards
+
+### Type Safety
+
+- Enable strict mode in tsconfig.json
+- Avoid using `any` type
+- Use Zod for runtime validation
+- Define explicit return types for functions
+- Use interface for public APIs and type for internal types
+
+### Type Definitions
+
+- Create dedicated type files for shared types
+- Use generics appropriately
+- Leverage TypeScript utility types
+- Keep types DRY (Don't Repeat Yourself)
+- Document complex types with comments

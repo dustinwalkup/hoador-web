@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import {
   Calendar,
@@ -16,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { LendingRequestItem } from "@/lib/dal/rentals.dal";
+import { ApproveRequestDialog } from "./approve-request-dialog";
+import { DeclineRequestDialog } from "./decline-request-dialog";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -56,6 +61,19 @@ interface LendingRequestCardProps {
 }
 
 export function LendingRequestCard({ request }: LendingRequestCardProps) {
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showDeclineDialog, setShowDeclineDialog] = useState(false);
+
+  const handleApproveSuccess = () => {
+    // The page will refresh automatically due to revalidatePath in the server action
+    window.location.reload();
+  };
+
+  const handleDeclineSuccess = () => {
+    // The page will refresh automatically due to revalidatePath in the server action
+    window.location.reload();
+  };
+
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
@@ -180,6 +198,7 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
                   <Button
                     className="w-full bg-green-600 hover:bg-green-700"
                     size="sm"
+                    onClick={() => setShowApproveDialog(true)}
                   >
                     <CheckCircle className="mr-2 h-4 w-4" />
                     Approve Request
@@ -188,6 +207,7 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
                     variant="outline"
                     className="w-full bg-transparent"
                     size="sm"
+                    onClick={() => setShowDeclineDialog(true)}
                   >
                     <XCircle className="mr-2 h-4 w-4" />
                     Decline Request
@@ -217,6 +237,24 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
           </div>
         </div>
       </CardContent>
+
+      <ApproveRequestDialog
+        open={showApproveDialog}
+        onOpenChange={setShowApproveDialog}
+        requestId={request.id}
+        toolName={request.toolName}
+        renterName={request.renterName}
+        onSuccess={handleApproveSuccess}
+      />
+
+      <DeclineRequestDialog
+        open={showDeclineDialog}
+        onOpenChange={setShowDeclineDialog}
+        requestId={request.id}
+        toolName={request.toolName}
+        renterName={request.renterName}
+        onSuccess={handleDeclineSuccess}
+      />
     </Card>
   );
 }
