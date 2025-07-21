@@ -26,10 +26,10 @@ export const rentalRequests = pgTable(
     toolId: uuid("tool_id")
       .references(() => tools.id, { onDelete: "cascade" })
       .notNull(),
-    renterId: uuid("renter_id")
+    renterId: text("renter_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    ownerId: uuid("owner_id")
+    ownerId: text("owner_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     startDate: timestamp("start_date").notNull(),
@@ -77,10 +77,10 @@ export const rentals = pgTable(
     toolId: uuid("tool_id")
       .references(() => tools.id, { onDelete: "cascade" })
       .notNull(),
-    renterId: uuid("renter_id")
+    renterId: text("renter_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    ownerId: uuid("owner_id")
+    ownerId: text("owner_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     startDate: timestamp("start_date").notNull(),
@@ -128,10 +128,10 @@ export const reviews = pgTable(
     rentalId: uuid("rental_id")
       .references(() => rentals.id, { onDelete: "cascade" })
       .notNull(),
-    reviewerId: uuid("reviewer_id")
+    reviewerId: text("reviewer_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    revieweeId: uuid("reviewee_id")
+    revieweeId: text("reviewee_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     toolId: uuid("tool_id")

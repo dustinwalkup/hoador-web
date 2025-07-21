@@ -3,13 +3,17 @@ import type { UserProfile } from "@/lib/dal/types";
 export function getUserFullName(
   user: Pick<UserProfile, "firstName" | "lastName">,
 ) {
-  return `${user.firstName} ${user.lastName}`;
+  const firstName = user.firstName || "";
+  const lastName = user.lastName || "";
+  return `${firstName} ${lastName}`.trim();
 }
 
 export function getUserInitials(
   user: Pick<UserProfile, "firstName" | "lastName">,
 ) {
-  return `${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase();
+  const firstInitial = user.firstName ? user.firstName[0] : "";
+  const lastInitial = user.lastName ? user.lastName[0] : "";
+  return `${firstInitial}${lastInitial}`.toUpperCase();
 }
 
 export function isVerified(

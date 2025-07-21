@@ -17,7 +17,7 @@ export const userSessions = pgTable(
   "user_sessions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     sessionToken: varchar("session_token", { length: 255 }).notNull().unique(),

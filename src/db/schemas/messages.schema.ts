@@ -17,10 +17,10 @@ export const messages = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     conversationId: uuid("conversation_id").notNull(),
-    senderId: uuid("sender_id")
+    senderId: text("sender_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    receiverId: uuid("receiver_id")
+    receiverId: text("receiver_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     content: text("content").notNull(),

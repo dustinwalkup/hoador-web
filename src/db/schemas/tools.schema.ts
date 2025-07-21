@@ -58,7 +58,7 @@ export const tools = pgTable(
   "tools",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    ownerId: uuid("owner_id")
+    ownerId: text("owner_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     categoryId: uuid("category_id")

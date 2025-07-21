@@ -462,7 +462,7 @@ export class RentalDAL extends BaseDAL {
           toolName: tools.name,
           renterId: rentalRequests.renterId,
           renterName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
-          renterProfileImage: users.profileImageUrl,
+          renterProfileImage: users.image, // Updated to use 'image' field from better-auth schema
           startDate: rentalRequests.startDate,
           endDate: rentalRequests.endDate,
           totalDays: rentalRequests.totalDays,
@@ -607,7 +607,7 @@ export class RentalDAL extends BaseDAL {
           toolName: tools.name,
           renterId: rentals.renterId,
           renterName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
-          renterProfileImage: users.profileImageUrl,
+          renterProfileImage: users.image, // Updated to use 'image' field from better-auth schema
           startDate: rentals.startDate,
           endDate: rentals.endDate,
           totalDays: rentalRequests.totalDays,

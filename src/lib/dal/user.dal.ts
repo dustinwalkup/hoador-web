@@ -31,8 +31,9 @@ export class UserDAL extends BaseDAL {
       const [user] = await this.db
         .insert(users)
         .values({
+          id: userData.email, // Use email as ID for better-auth compatibility
           email: userData.email,
-          passwordHash: "123",
+          name: `${userData.firstName} ${userData.lastName}`, // better-auth expects 'name' field
           firstName: userData.firstName,
           lastName: userData.lastName,
           phone: userData.phone,
@@ -129,7 +130,7 @@ export class UserDAL extends BaseDAL {
         lastName: user.lastName,
         phone: user.phone ?? null,
         bio: user.bio ?? null,
-        profileImageUrl: user.profileImageUrl ?? null,
+        profileImageUrl: user.image ?? null, // Map 'image' field to 'profileImageUrl' for API compatibility
         status: user.status,
         emailVerified: user.emailVerified,
         phoneVerified: user.phoneVerified,

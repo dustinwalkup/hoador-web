@@ -41,7 +41,8 @@ type OwnerDb = {
   id: string;
   firstName: string;
   lastName: string;
-  profileImageUrl: string | null;
+  image: string | null; // Updated to use 'image' field from better-auth schema
+  profileImageUrl: string | null; // Keep for backward compatibility in API responses
   createdAt: Date;
 };
 type CategoryDb = {
@@ -54,7 +55,8 @@ type ReviewerDb = {
   id: string;
   firstName: string;
   lastName: string;
-  profileImageUrl: string | null;
+  image: string | null; // Updated to use 'image' field from better-auth schema
+  profileImageUrl: string | null; // Keep for backward compatibility in API responses
 };
 type ReviewDb = {
   id: string;
@@ -154,7 +156,7 @@ export class ToolDAL extends BaseDAL {
               id: true,
               firstName: true,
               lastName: true,
-              profileImageUrl: true,
+              image: true, // Updated to use 'image' field from better-auth schema
               createdAt: true,
             },
           },
@@ -180,7 +182,7 @@ export class ToolDAL extends BaseDAL {
                   id: true,
                   firstName: true,
                   lastName: true,
-                  profileImageUrl: true,
+                  image: true, // Updated to use 'image' field from better-auth schema
                 },
               },
             },
@@ -292,7 +294,7 @@ export class ToolDAL extends BaseDAL {
           id: tool.owner.id,
           firstName: tool.owner.firstName,
           lastName: tool.owner.lastName,
-          profileImageUrl: tool.owner.profileImageUrl || undefined,
+          profileImageUrl: tool.owner.image || undefined, // Updated to use 'image' field from better-auth schema
           averageRating: Math.round(ownerAverageRating * 10) / 10,
           reviewCount: ownerRatings.length,
           memberSince: tool.owner.createdAt,
@@ -312,7 +314,7 @@ export class ToolDAL extends BaseDAL {
             id: review.reviewer.id,
             firstName: review.reviewer.firstName,
             lastName: review.reviewer.lastName,
-            profileImageUrl: review.reviewer.profileImageUrl || undefined,
+            profileImageUrl: review.reviewer.image || undefined, // Updated to use 'image' field from better-auth schema
           },
         })),
         images: images.map((img) => ({
@@ -567,7 +569,7 @@ export class ToolDAL extends BaseDAL {
             id: users.id,
             firstName: users.firstName,
             lastName: users.lastName,
-            profileImageUrl: users.profileImageUrl,
+            profileImageUrl: users.image, // Updated to use 'image' field from better-auth schema
           },
         })
         .from(tools)

@@ -36,10 +36,18 @@ const { header, alerts, quickActions, pendingRequests } = DASHBOARD_PAGE;
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
+
+  // Handle nullable firstName for Google OAuth users (user is guaranteed to exist due to layout auth check)
+  const displayName =
+    user!.firstName ||
+    user!.name?.split(" ")[0] ||
+    user!.email.split("@")[0] ||
+    "User";
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title={header.titleFor(user.firstName)}
+        title={header.titleFor(displayName)}
         description={header.description}
         className="mb-2"
       />

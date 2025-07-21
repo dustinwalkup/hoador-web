@@ -10,7 +10,6 @@ import {
 } from "../schemas/users.schema";
 
 // Infer types
-
 type NewUser = typeof users.$inferInsert;
 type NewAddress = InferInsertModel<typeof userAddresses>;
 type NewPreference = InferInsertModel<typeof userPreferences>;
@@ -31,19 +30,22 @@ async function main() {
   const seedPaymentMethods: NewPaymentMethod[] = [];
 
   for (let i = 0; i < 20; i++) {
-    const id = faker.string.uuid();
+    // Use text ID instead of UUID for better-auth compatibility
+    const id = `user_${faker.string.alphanumeric(12)}_${i}`;
+    const firstName = faker.person.firstName();
+    const lastName = faker.person.lastName();
 
     const user: NewUser = {
       id,
       email: faker.internet.email(),
-      passwordHash: faker.internet.password(),
-      firstName: faker.person.firstName(),
-      lastName: faker.person.lastName(),
+      name: `${firstName} ${lastName}`, // Better-auth expects 'name' field
+      firstName,
+      lastName,
+      emailVerified: faker.datatype.boolean(),
+      image: faker.image.avatar(), // Better-auth expects 'image' instead of 'profileImageUrl'
       phone: faker.phone.number({ style: "national" }),
       bio: faker.lorem.sentences(2),
-      profileImageUrl: faker.image.avatar(),
       status: "active",
-      emailVerified: faker.datatype.boolean(),
       phoneVerified: faker.datatype.boolean(),
       idVerified: faker.datatype.boolean(),
       addressVerified: faker.datatype.boolean(),
@@ -56,7 +58,7 @@ async function main() {
 
     const address: NewAddress = {
       id: faker.string.uuid(),
-      userId: id,
+      userId: id, // Text ID reference
       street: faker.location.streetAddress(),
       city: faker.location.city(),
       state: faker.location.state({ abbreviated: true }),
@@ -71,7 +73,7 @@ async function main() {
 
     const preferences: NewPreference = {
       id: faker.string.uuid(),
-      userId: id,
+      userId: id, // Text ID reference
       emailNotifications: true,
       smsNotifications: true,
       pushNotifications: true,
@@ -93,7 +95,7 @@ async function main() {
 
     const paymentMethod: NewPaymentMethod = {
       id: faker.string.uuid(),
-      userId: id,
+      userId: id, // Text ID reference
       stripePaymentMethodId: `pm_${faker.string.alphanumeric(14)}`,
       type: "card",
       last4: faker.finance.creditCardNumber().slice(-4),

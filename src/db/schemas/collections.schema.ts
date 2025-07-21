@@ -18,7 +18,7 @@ export const userFavorites = pgTable(
   "user_favorites",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     toolId: uuid("tool_id")
@@ -41,7 +41,7 @@ export const userCollections = pgTable(
   "user_collections",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     name: varchar("name", { length: 255 }).notNull(),

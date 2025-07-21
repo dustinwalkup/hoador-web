@@ -42,7 +42,12 @@ export async function ExplorePageData({ searchParams }: ExplorePageDataProps) {
     limit: 12,
   };
 
-  const searchResults = await toolDAL.searchTools(filters, pagination, user.id);
+  // Pass user.id only if user exists, otherwise pass undefined to show all tools
+  const searchResults = await toolDAL.searchTools(
+    filters,
+    pagination,
+    user?.id,
+  );
 
   return (
     <>

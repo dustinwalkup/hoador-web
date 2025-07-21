@@ -20,7 +20,7 @@ export interface UpdateUserDTO {
   lastName?: string;
   phone?: string;
   bio?: string;
-  profileImageUrl?: string;
+  image?: string; // Updated to use 'image' field from better-auth schema
 }
 
 export interface CreateToolDTO {
@@ -137,6 +137,7 @@ export interface UserProfile
   stats: UserStats;
   preferences: PreferencesDB | null;
   primaryAddress?: AddressDB;
+  profileImageUrl?: string; // Keep for backward compatibility in API responses
 }
 
 export interface ToolDetails {

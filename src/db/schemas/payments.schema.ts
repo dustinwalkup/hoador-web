@@ -20,10 +20,10 @@ export const payments = pgTable(
     rentalId: uuid("rental_id")
       .references(() => rentals.id, { onDelete: "cascade" })
       .notNull(),
-    payerId: uuid("payer_id")
+    payerId: text("payer_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    payeeId: uuid("payee_id")
+    payeeId: text("payee_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),

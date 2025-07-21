@@ -25,26 +25,32 @@ export type UserDB = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UpdateUser = Partial<NewUser>;
 
-// Users table
+// Users table - Updated for better-auth compatibility
 export const users = pgTable(
   "users",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    // Changed to text to match better-auth schema
+    id: text("id").primaryKey(),
     email: varchar("email", { length: 255 }).notNull().unique(),
-    passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-    firstName: varchar("first_name", { length: 100 }).notNull(),
-    lastName: varchar("last_name", { length: 100 }).notNull(),
+    // Better-auth expects 'name' field for the full name
+    name: text("name").notNull(),
+    // Keep individual name fields for your app's needs - now nullable for Google OAuth compatibility
+    firstName: varchar("first_name", { length: 100 }),
+    lastName: varchar("last_name", { length: 100 }),
+    // Better-auth expects 'emailVerified' boolean and 'image' text
+    emailVerified: boolean("email_verified").default(false).notNull(),
+    image: text("image"), // This replaces profileImageUrl for better-auth compatibility
+    // Keep your existing fields
     phone: varchar("phone", { length: 20 }),
     bio: text("bio"),
-    profileImageUrl: varchar("profile_image_url", { length: 500 }),
     status: userStatusEnum("status").default("pending_verification").notNull(),
-    emailVerified: boolean("email_verified").default(false).notNull(),
     phoneVerified: boolean("phone_verified").default(false).notNull(),
     idVerified: boolean("id_verified").default(false).notNull(),
     addressVerified: boolean("address_verified").default(false).notNull(),
     twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
     twoFactorSecret: varchar("two_factor_secret", { length: 32 }),
     lastLoginAt: timestamp("last_login_at"),
+    // Better-auth expects createdAt and updatedAt
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -55,12 +61,54 @@ export const users = pgTable(
   }),
 );
 
+// Better-auth required tables
+export const session = pgTable("session", {
+  id: text("id").primaryKey(),
+  expiresAt: timestamp("expires_at").notNull(),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+});
+
+export const account = pgTable("account", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  idToken: text("id_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  scope: text("scope"),
+  password: text("password"),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
+});
+
+export const verification = pgTable("verification", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // User addresses
 export const userAddresses = pgTable(
   "user_addresses",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
+    // Updated to reference text id
+    userId: text("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     street: varchar("street", { length: 255 }).notNull(),
@@ -86,7 +134,8 @@ export const userAddresses = pgTable(
 // User preferences
 export const userPreferences = pgTable("user_preferences", {
   id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
+  // Updated to reference text id
+  userId: text("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull()
     .unique(),
@@ -118,7 +167,8 @@ export const userPaymentMethods = pgTable(
   "user_payment_methods",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
+    // Updated to reference text id
+    userId: text("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     stripePaymentMethodId: varchar("stripe_payment_method_id", {
@@ -141,6 +191,21 @@ export const userPaymentMethods = pgTable(
     ),
   }),
 );
+
+// Relations for better-auth tables
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(users, {
+    fields: [session.userId],
+    references: [users.id],
+  }),
+}));
+
+export const accountRelations = relations(account, ({ one }) => ({
+  user: one(users, {
+    fields: [account.userId],
+    references: [users.id],
+  }),
+}));
 
 export const userPreferencesRelations = relations(
   userPreferences,
@@ -169,30 +234,14 @@ export const userPaymentMethodsRelations = relations(
   }),
 );
 
-// export const usersRelations = relations(users, ({ one, many }) => ({
-//   preferences: one(userPreferences),
-//   addresses: many(userAddresses),
-//   ownedTools: many(tools),
-//   rentalRequests: many(rentalRequests),
-//   ownedRentalRequests: many(rentalRequests),
-//   rentals: many(rentals),
-//   ownedRentals: many(rentals),
-//   reviewsGiven: many(reviews),
-//   reviewsReceived: many(reviews),
-//   payments: many(payments),
-//   receivedPayments: many(payments),
-//   paymentMethods: many(userPaymentMethods),
-//   favorites: many(userFavorites),
-//   collections: many(userCollections),
-//   sentMessages: many(messages),
-//   receivedMessages: many(messages),
-//   notifications: many(notifications),
-//   sessions: many(userSessions),
-// }));
+// Updated users relations to include better-auth tables
 export const usersRelations = relations(users, ({ one, many }) => ({
   preferences: one(userPreferences),
   addresses: many(userAddresses),
   ownedTools: many(tools),
+  // Better-auth relations
+  sessions: many(session),
+  accounts: many(account),
 
   // Rental requests - need relation names to match what we defined earlier
   rentalRequests: many(rentalRequests, {
@@ -239,5 +288,6 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
 
   notifications: many(notifications),
-  sessions: many(userSessions),
+  // Keep the original userSessions for now, but you might want to migrate to better-auth sessions
+  userSessions: many(userSessions),
 }));
