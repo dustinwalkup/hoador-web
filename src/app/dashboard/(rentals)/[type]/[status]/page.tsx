@@ -6,9 +6,9 @@ import type {
   LendingRequestItem,
   BorrowedTool,
 } from "@/lib/dal/rentals.dal";
-import { RentingRequestsList } from "./_components/renting-requests-list";
-import { LendingRequestsList } from "./_components/lending-requests-list";
-import { BorrowedToolsList } from "./_components/borrowed-tools-list";
+import { RentingRequestsListWrapper } from "./_components/renting-requests-list-wrapper";
+import { LendingRequestsListWrapper } from "./_components/lending-requests-list-wrapper";
+import { BorrowedToolsListWrapper } from "./_components/borrowed-tools-list-wrapper";
 
 interface RentalsPageProps {
   params: Promise<{
@@ -177,21 +177,21 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
 
           {type === "renting" &&
           (status === "requests" || status === "rejected") ? (
-            <RentingRequestsList
+            <RentingRequestsListWrapper
               data={rentalRequestsData}
               emptyStateMessage={statusConfig.emptyMessage}
               emptyStateAction={statusConfig.emptyAction}
             />
           ) : type === "renting" &&
             (status === "active" || status === "completed") ? (
-            <BorrowedToolsList
+            <BorrowedToolsListWrapper
               data={borrowedToolsData}
               currentTab={status}
               emptyStateMessage={statusConfig.emptyMessage}
               emptyStateAction={statusConfig.emptyAction}
             />
           ) : type === "lending" ? (
-            <LendingRequestsList
+            <LendingRequestsListWrapper
               data={lendingRequestsData}
               emptyStateMessage={statusConfig.emptyMessage}
               emptyStateAction={statusConfig.emptyAction}
