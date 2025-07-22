@@ -319,17 +319,15 @@ export function LendingCard({ request, currentTab }: LendingCardProps) {
                   </Link>
                 </>
               )}
-              {(currentTab === "active" || currentTab === "completed") && (
-                <Link href={`/dashboard/rental/${request.id}?view=lending`}>
-                  <Button
-                    variant="outline"
-                    className="w-full bg-transparent"
-                    size="sm"
-                  >
-                    View Details
-                  </Button>
-                </Link>
-              )}
+              <Link href={`/dashboard/rental/${request.id}?view=lending`}>
+                <Button
+                  variant="outline"
+                  className="w-full bg-transparent"
+                  size="sm"
+                >
+                  View Details
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 className="w-full bg-transparent"

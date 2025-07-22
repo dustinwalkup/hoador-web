@@ -215,19 +215,15 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
                   </Button>
                 </>
               )}
-              {(request.status === "approved" ||
-                request.status === "active" ||
-                request.status === "completed") && (
-                <Link href={`/dashboard/rental/${request.id}?view=lending`}>
-                  <Button
-                    variant="outline"
-                    className="w-full bg-transparent"
-                    size="sm"
-                  >
-                    View Details
-                  </Button>
-                </Link>
-              )}
+              <Link href={`/dashboard/rental/${request.id}?view=lending`}>
+                <Button
+                  variant="outline"
+                  className="w-full bg-transparent"
+                  size="sm"
+                >
+                  View Details
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 className="w-full bg-transparent"

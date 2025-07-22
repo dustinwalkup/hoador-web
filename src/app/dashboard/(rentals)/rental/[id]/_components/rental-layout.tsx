@@ -17,7 +17,7 @@ export function RentalLayout({
   children,
 }: RentalLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="container mx-auto">
         <RentalHeader
           rentalDetails={rentalDetails}
