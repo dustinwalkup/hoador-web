@@ -1,0 +1,83 @@
+import { Card, CardContent } from "@/components/ui/card";
+import type { RentalStatusInfo } from "@/lib/dal/rentals.dal";
+
+interface RentalStatusCardProps {
+  rentalDetails: RentalStatusInfo;
+}
+
+const getStatusDescription = (status: string) => {
+  switch (status) {
+    case "pending":
+      return "Waiting for owner approval";
+    case "approved":
+      return "Approved - Ready for pickup/delivery";
+    case "active":
+      return "Currently in progress";
+    case "completed":
+      return "Rental completed successfully";
+    case "rejected":
+      return "Request was declined";
+    case "cancelled":
+      return "Rental was cancelled";
+    default:
+      return "Status unknown";
+  }
+};
+
+export function RentalStatusCard({ rentalDetails }: RentalStatusCardProps) {
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="mb-1 text-xl font-semibold">Rental Status</h2>
+            <p className="text-gray-600">
+              {getStatusDescription(rentalDetails.status)}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-green-600">
+              ${parseFloat(rentalDetails.totalAmount).toFixed(2)}
+            </div>
+            <p className="text-sm text-gray-600">Total amount</p>
+          </div>
+        </div>
+
+        {/* Timeline */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-2 w-2 rounded-full bg-green-600"></div>
+            <span className="text-sm">
+              Request created:{" "}
+              {new Date(rentalDetails.createdAt).toLocaleString()}
+            </span>
+          </div>
+          {rentalDetails.approvedAt && (
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-green-600"></div>
+              <span className="text-sm">
+                Approved: {new Date(rentalDetails.approvedAt).toLocaleString()}
+              </span>
+            </div>
+          )}
+          {rentalDetails.rejectedAt && (
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-red-600"></div>
+              <span className="text-sm">
+                Rejected: {new Date(rentalDetails.rejectedAt).toLocaleString()}
+              </span>
+            </div>
+          )}
+          {rentalDetails.status === "pending" && (
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-gray-300"></div>
+              <span className="text-sm text-gray-500">
+                Waiting for approval...
+              </span>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

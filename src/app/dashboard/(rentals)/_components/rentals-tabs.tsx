@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { hideRentalHeader } from "@/lib/utils/rentals.utils";
 
 interface RentalsTabsProps {
   children: React.ReactNode;
@@ -13,7 +14,7 @@ export function RentalsTabs({ children }: RentalsTabsProps) {
 
   // Extract the current type from the path (renting or lending)
   const currentType = pathname.includes("/lending") ? "lending" : "renting";
-  const isConfirmationPage = pathname.includes("/confirmation");
+  const hideTabs = hideRentalHeader(pathname);
 
   const handleTabChange = (value: string) => {
     // Default to the first sub-tab when switching main tabs
@@ -26,7 +27,7 @@ export function RentalsTabs({ children }: RentalsTabsProps) {
 
   return (
     <Tabs value={currentType} onValueChange={handleTabChange}>
-      {!isConfirmationPage && (
+      {!hideTabs && (
         <TabsList className="mb-6 grid w-full grid-cols-2">
           <TabsTrigger value="renting">Renting</TabsTrigger>
           <TabsTrigger value="lending">Lending</TabsTrigger>

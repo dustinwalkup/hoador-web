@@ -167,6 +167,11 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
             )}
 
             <div className="flex gap-2">
+              <Link href={`/dashboard/rental/${request.id}?view=renting`}>
+                <Button variant="outline" size="sm">
+                  View Details
+                </Button>
+              </Link>
               <Link href={`/tools/${request.toolId}`}>
                 <Button variant="outline" size="sm">
                   View Tool

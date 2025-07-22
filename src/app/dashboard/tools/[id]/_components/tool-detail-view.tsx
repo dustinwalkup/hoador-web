@@ -2,8 +2,6 @@ import Link from "next/link";
 import {
   Calendar,
   Clock,
-  Star,
-  User,
   Wrench,
   Truck,
   MessageCircle,
@@ -19,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserCard } from "@/components/user-card";
 
 import type { ToolDetails } from "@/lib/dal/types";
 
@@ -73,7 +71,7 @@ export function ToolDetailView({ tool, isOwner }: ToolDetailViewProps) {
 
   return (
     <>
-      <BackButton />
+      <BackButton href="/dashboard/garage" />
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
         {/* Main Content */}
         <div className="space-y-6 lg:col-span-3">
@@ -284,40 +282,19 @@ export function ToolDetailView({ tool, isOwner }: ToolDetailViewProps) {
           </Card>
 
           {/* Owner Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="mr-2 h-5 w-5" />
-                Tool Owner
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={tool.owner.profileImageUrl} />
-                  <AvatarFallback>
-                    {tool.owner.firstName[0]}
-                    {tool.owner.lastName[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h4 className="font-medium">
-                    {tool.owner.firstName} {tool.owner.lastName}
-                  </h4>
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-sm text-gray-600">
-                      {tool.owner.averageRating} ({tool.owner.reviewCount}{" "}
-                      reviews)
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Member since {formatDate(tool.owner.memberSince)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <UserCard
+            user={{
+              id: tool.owner.id,
+              name: `${tool.owner.firstName} ${tool.owner.lastName}`,
+              profileImage: tool.owner.profileImageUrl,
+              rating: tool.owner.averageRating,
+              reviewCount: tool.owner.reviewCount,
+              verified: false, // Not available in ToolDetails
+              memberSince: tool.owner.memberSince.toISOString(),
+            }}
+            title="Tool Owner"
+            showActions={false}
+          />
 
           {/* Action Buttons */}
           <div className="space-y-3">

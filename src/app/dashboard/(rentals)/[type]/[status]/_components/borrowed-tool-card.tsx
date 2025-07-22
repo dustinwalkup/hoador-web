@@ -113,6 +113,11 @@ export function BorrowedToolCard({
             </div>
 
             <div className="flex gap-2">
+              <Link href={`/dashboard/rental/${rental.id}?view=renting`}>
+                <Button variant="outline" size="sm">
+                  View Details
+                </Button>
+              </Link>
               <Link href={`/tools/${rental.toolId}`}>
                 <Button variant="outline" size="sm">
                   View Tool

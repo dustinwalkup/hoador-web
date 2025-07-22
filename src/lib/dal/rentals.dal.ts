@@ -79,6 +79,128 @@ export interface LendingRequestItem {
   approvedAt?: Date | null;
 }
 
+export interface RentalDetails {
+  id: string;
+  type: "request" | "rental";
+  toolId: string;
+  toolName: string;
+  toolImageUrl: string | null;
+  toolBrand?: string;
+  toolModel?: string;
+  toolCondition?: string;
+  toolDescription?: string;
+  toolSpecifications?: Record<string, string>;
+  renterId: string;
+  renterName: string;
+  renterEmail: string;
+  renterPhone?: string;
+  renterProfileImage?: string;
+  renterRating?: number;
+  renterReviewCount?: number;
+  renterVerified?: boolean;
+  renterMemberSince?: string;
+  renterCompletedRentals?: number;
+  renterResponseRate?: string;
+  ownerId: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPhone?: string;
+  ownerProfileImage?: string;
+  ownerRating?: number;
+  ownerReviewCount?: number;
+  ownerVerified?: boolean;
+  ownerMemberSince?: string;
+  ownerToolsListed?: number;
+  ownerResponseRate?: string;
+  startDate: Date;
+  endDate: Date;
+  actualStartDate?: Date;
+  actualEndDate?: Date;
+  totalDays: number;
+  dailyRate: string;
+  totalAmount: string;
+  securityDeposit: string;
+  deliveryRequested: boolean;
+  deliveryAddress?: string;
+  deliveryFee: string;
+  selectedWindow?: string;
+  message?: string;
+  pickupInstructions?: string;
+  returnInstructions?: string;
+  conditionAtPickup?: string;
+  conditionAtReturn?: string;
+  damageReported?: boolean;
+  damageDescription?: string;
+  damagePhotos?: string[];
+  extensionRequested?: boolean;
+  extensionApproved?: boolean;
+  status: string;
+  createdAt: Date;
+  approvedAt?: Date;
+  rejectedAt?: Date;
+  rejectionReason?: string;
+  currentUserId: string;
+}
+
+// Utility types for specific components
+export type RentalStatusInfo = Pick<
+  RentalDetails,
+  "status" | "totalAmount" | "createdAt" | "approvedAt" | "rejectedAt"
+>;
+export type RentalToolInfo = Pick<
+  RentalDetails,
+  | "toolId"
+  | "toolName"
+  | "toolImageUrl"
+  | "toolBrand"
+  | "toolModel"
+  | "toolCondition"
+  | "toolSpecifications"
+>;
+export type RentalDetailsInfo = Pick<
+  RentalDetails,
+  | "startDate"
+  | "endDate"
+  | "totalDays"
+  | "dailyRate"
+  | "totalAmount"
+  | "securityDeposit"
+  | "deliveryRequested"
+  | "deliveryAddress"
+  | "deliveryFee"
+  | "selectedWindow"
+>;
+export type RentalUserInfo = Pick<
+  RentalDetails,
+  | "renterId"
+  | "renterName"
+  | "renterEmail"
+  | "renterPhone"
+  | "renterProfileImage"
+  | "renterRating"
+  | "renterReviewCount"
+  | "renterVerified"
+  | "renterMemberSince"
+  | "renterCompletedRentals"
+  | "renterResponseRate"
+  | "ownerId"
+  | "ownerName"
+  | "ownerEmail"
+  | "ownerPhone"
+  | "ownerProfileImage"
+  | "ownerRating"
+  | "ownerReviewCount"
+  | "ownerVerified"
+  | "ownerMemberSince"
+  | "ownerToolsListed"
+  | "ownerResponseRate"
+>;
+export type RentalActionsInfo = Pick<RentalDetails, "id" | "toolId" | "status">;
+export type RentalMessagesInfo = Pick<
+  RentalDetails,
+  "message" | "pickupInstructions" | "returnInstructions"
+>;
+
 export class RentalDAL extends BaseDAL {
   async countBorrowedTools(userId: string): Promise<number> {
     const result = await this.db
@@ -821,6 +943,251 @@ export class RentalDAL extends BaseDAL {
         .where(eq(rentalRequests.id, requestId));
     } catch (error) {
       this.handleError(error, "declineRentalRequest");
+    }
+  }
+
+  /**
+   * Get rental details by ID
+   * This method handles both rental requests and actual rentals
+   */
+  async getRentalDetailsById(rentalId: string): Promise<RentalDetails> {
+    try {
+      // Get current user ID for security check
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // First try to find as a rental request
+      const rentalRequest = await this.db
+        .select({
+          id: rentalRequests.id,
+          toolId: rentalRequests.toolId,
+          renterId: rentalRequests.renterId,
+          ownerId: rentalRequests.ownerId,
+          startDate: rentalRequests.startDate,
+          endDate: rentalRequests.endDate,
+          totalDays: rentalRequests.totalDays,
+          dailyRate: rentalRequests.dailyRate,
+          totalAmount: rentalRequests.totalAmount,
+          securityDeposit: rentalRequests.securityDeposit,
+          deliveryRequested: rentalRequests.deliveryRequested,
+          deliveryAddress: rentalRequests.deliveryAddress,
+          deliveryFee: rentalRequests.deliveryFee,
+          message: rentalRequests.message,
+          status: rentalRequests.status,
+          createdAt: rentalRequests.createdAt,
+          approvedAt: rentalRequests.approvedAt,
+          rejectedAt: rentalRequests.rejectedAt,
+          rejectionReason: rentalRequests.rejectionReason,
+        })
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, rentalId))
+        .limit(1);
+
+      if (rentalRequest.length > 0) {
+        const request = rentalRequest[0];
+
+        // Security check: only the renter or owner can view the request
+        if (request.renterId !== userId && request.ownerId !== userId) {
+          throw new UnauthorizedError("Access denied to this rental request");
+        }
+
+        // Get tool details
+        const tool = await this.db.query.tools.findFirst({
+          where: eq(tools.id, request.toolId),
+        });
+
+        // Get tool image
+        const [firstImage] = await this.db
+          .select({ imageUrl: toolImages.imageUrl })
+          .from(toolImages)
+          .where(eq(toolImages.toolId, request.toolId))
+          .orderBy(toolImages.orderIndex)
+          .limit(1);
+
+        // Get renter details
+        const renter = await this.db.query.users.findFirst({
+          where: eq(users.id, request.renterId),
+        });
+
+        // Get owner details
+        const owner = await this.db.query.users.findFirst({
+          where: eq(users.id, request.ownerId),
+        });
+
+        return {
+          id: request.id,
+          type: "request",
+          toolId: request.toolId,
+          toolName: tool?.name || "Unknown Tool",
+          toolImageUrl: firstImage?.imageUrl || null,
+          toolBrand: tool?.brand || undefined,
+          toolModel: tool?.model || undefined,
+          toolCondition: tool?.condition || undefined,
+          toolDescription: tool?.description || undefined,
+          renterId: request.renterId,
+          renterName: renter
+            ? `${renter.firstName} ${renter.lastName}`
+            : "Unknown User",
+          renterEmail: renter?.email || "",
+          renterPhone: renter?.phone || undefined,
+          renterProfileImage: renter?.profileImageUrl || undefined,
+          ownerId: request.ownerId,
+          ownerName: owner
+            ? `${owner.firstName} ${owner.lastName}`
+            : "Unknown User",
+          ownerEmail: owner?.email || "",
+          ownerPhone: owner?.phone || undefined,
+          ownerProfileImage: owner?.profileImageUrl || undefined,
+          startDate: request.startDate,
+          endDate: request.endDate,
+          totalDays: request.totalDays,
+          dailyRate: request.dailyRate,
+          totalAmount: request.totalAmount,
+          securityDeposit: request.securityDeposit,
+          deliveryRequested: request.deliveryRequested,
+          deliveryAddress: request.deliveryAddress || undefined,
+          deliveryFee: request.deliveryFee,
+          message: request.message || undefined,
+          status: request.status,
+          createdAt: request.createdAt,
+          approvedAt: request.approvedAt || undefined,
+          rejectedAt: request.rejectedAt || undefined,
+          rejectionReason: request.rejectionReason || undefined,
+          currentUserId: userId,
+        };
+      }
+
+      // If not found as request, try as rental
+      const rental = await this.db
+        .select({
+          id: rentals.id,
+          requestId: rentals.requestId,
+          toolId: rentals.toolId,
+          renterId: rentals.renterId,
+          ownerId: rentals.ownerId,
+          startDate: rentals.startDate,
+          endDate: rentals.endDate,
+          actualStartDate: rentals.actualStartDate,
+          actualEndDate: rentals.actualEndDate,
+          totalAmount: rentals.totalAmount,
+          securityDeposit: rentals.securityDeposit,
+          status: rentals.status,
+          pickupInstructions: rentals.pickupInstructions,
+          returnInstructions: rentals.returnInstructions,
+          conditionAtPickup: rentals.conditionAtPickup,
+          conditionAtReturn: rentals.conditionAtReturn,
+          damageReported: rentals.damageReported,
+          damageDescription: rentals.damageDescription,
+          damagePhotos: rentals.damagePhotos,
+          extensionRequested: rentals.extensionRequested,
+          extensionApproved: rentals.extensionApproved,
+          createdAt: rentals.createdAt,
+        })
+        .from(rentals)
+        .where(eq(rentals.id, rentalId))
+        .limit(1);
+
+      if (rental.length === 0) {
+        throw new NotFoundError("Rental", rentalId);
+      }
+
+      const rentalData = rental[0];
+
+      // Security check: only the renter or owner can view the rental
+      if (rentalData.renterId !== userId && rentalData.ownerId !== userId) {
+        throw new UnauthorizedError("Access denied to this rental");
+      }
+
+      // Get the associated request for additional details
+      const request = await this.db
+        .select({
+          totalDays: rentalRequests.totalDays,
+          dailyRate: rentalRequests.dailyRate,
+          deliveryRequested: rentalRequests.deliveryRequested,
+          deliveryAddress: rentalRequests.deliveryAddress,
+          deliveryFee: rentalRequests.deliveryFee,
+          message: rentalRequests.message,
+        })
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, rentalData.requestId))
+        .limit(1);
+
+      // Get tool details
+      const tool = await this.db.query.tools.findFirst({
+        where: eq(tools.id, rentalData.toolId),
+      });
+
+      // Get tool image
+      const [firstImage] = await this.db
+        .select({ imageUrl: toolImages.imageUrl })
+        .from(toolImages)
+        .where(eq(toolImages.toolId, rentalData.toolId))
+        .orderBy(toolImages.orderIndex)
+        .limit(1);
+
+      // Get renter details
+      const renter = await this.db.query.users.findFirst({
+        where: eq(users.id, rentalData.renterId),
+      });
+
+      // Get owner details
+      const owner = await this.db.query.users.findFirst({
+        where: eq(users.id, rentalData.ownerId),
+      });
+
+      return {
+        id: rentalData.id,
+        type: "rental",
+        toolId: rentalData.toolId,
+        toolName: tool?.name || "Unknown Tool",
+        toolImageUrl: firstImage?.imageUrl || null,
+        toolBrand: tool?.brand || undefined,
+        toolModel: tool?.model || undefined,
+        toolCondition: tool?.condition || undefined,
+        toolDescription: tool?.description || undefined,
+        renterId: rentalData.renterId,
+        renterName: renter
+          ? `${renter.firstName} ${renter.lastName}`
+          : "Unknown User",
+        renterEmail: renter?.email || "",
+        renterPhone: renter?.phone || undefined,
+        renterProfileImage: renter?.profileImageUrl || undefined,
+        ownerId: rentalData.ownerId,
+        ownerName: owner
+          ? `${owner.firstName} ${owner.lastName}`
+          : "Unknown User",
+        ownerEmail: owner?.email || "",
+        ownerPhone: owner?.phone || undefined,
+        ownerProfileImage: owner?.profileImageUrl || undefined,
+        startDate: rentalData.startDate,
+        endDate: rentalData.endDate,
+        actualStartDate: rentalData.actualStartDate || undefined,
+        actualEndDate: rentalData.actualEndDate || undefined,
+        totalDays: request[0]?.totalDays || 0,
+        dailyRate: request[0]?.dailyRate || "0",
+        totalAmount: rentalData.totalAmount,
+        securityDeposit: rentalData.securityDeposit,
+        deliveryRequested: request[0]?.deliveryRequested || false,
+        deliveryAddress: request[0]?.deliveryAddress || undefined,
+        deliveryFee: request[0]?.deliveryFee || "0",
+        message: request[0]?.message || undefined,
+        pickupInstructions: rentalData.pickupInstructions || undefined,
+        returnInstructions: rentalData.returnInstructions || undefined,
+        conditionAtPickup: rentalData.conditionAtPickup || undefined,
+        conditionAtReturn: rentalData.conditionAtReturn || undefined,
+        damageReported: rentalData.damageReported || false,
+        damageDescription: rentalData.damageDescription || undefined,
+        damagePhotos: rentalData.damagePhotos || [],
+        extensionRequested: rentalData.extensionRequested || false,
+        extensionApproved: rentalData.extensionApproved || false,
+        status: rentalData.status,
+        createdAt: rentalData.createdAt,
+        currentUserId: userId,
+      };
+    } catch (error) {
+      this.handleError(error, "getRentalDetailsById");
     }
   }
 }

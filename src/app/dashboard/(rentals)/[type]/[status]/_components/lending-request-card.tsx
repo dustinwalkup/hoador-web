@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Calendar,
   MapPin,
@@ -217,13 +218,15 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
               {(request.status === "approved" ||
                 request.status === "active" ||
                 request.status === "completed") && (
-                <Button
-                  variant="outline"
-                  className="w-full bg-transparent"
-                  size="sm"
-                >
-                  View Details
-                </Button>
+                <Link href={`/dashboard/rental/${request.id}?view=lending`}>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent"
+                    size="sm"
+                  >
+                    View Details
+                  </Button>
+                </Link>
               )}
               <Button
                 variant="outline"

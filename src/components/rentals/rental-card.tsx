@@ -135,6 +135,11 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
             )}
 
             <div className="flex gap-2">
+              <Link href={`/dashboard/rental/${rental.id}?view=renting`}>
+                <Button variant="outline" size="sm">
+                  View Details
+                </Button>
+              </Link>
               <Link href={`/tools/${rental.tool.id}`}>
                 <Button variant="outline" size="sm">
                   View Tool
@@ -315,13 +320,15 @@ export function LendingCard({ request, currentTab }: LendingCardProps) {
                 </>
               )}
               {(currentTab === "active" || currentTab === "completed") && (
-                <Button
-                  variant="outline"
-                  className="w-full bg-transparent"
-                  size="sm"
-                >
-                  View Details
-                </Button>
+                <Link href={`/dashboard/rental/${request.id}?view=lending`}>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent"
+                    size="sm"
+                  >
+                    View Details
+                  </Button>
+                </Link>
               )}
               <Button
                 variant="outline"

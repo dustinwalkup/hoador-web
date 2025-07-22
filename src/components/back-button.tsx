@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 
-export const BackButton = () => {
+export const BackButton = ({ href }: { href?: string }) => {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
 
@@ -12,9 +12,16 @@ export const BackButton = () => {
     setIsMounted(true);
   }, []);
 
+  const handleClick = () => {
+    if (href) {
+      router.push(href);
+    } else {
+      router.back();
+    }
+  };
   if (!isMounted) {
     return (
-      <Button variant="ghost" className="mb-4 -ml-2" disabled>
+      <Button variant="ghost" className="-ml-2" disabled>
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back
       </Button>
@@ -22,11 +29,7 @@ export const BackButton = () => {
   }
 
   return (
-    <Button
-      variant="ghost"
-      onClick={() => router.back()}
-      className="mb-4 -ml-2"
-    >
+    <Button variant="ghost" onClick={handleClick} className="mb-4 -ml-2">
       <ArrowLeft className="mr-2 h-4 w-4" />
       Back
     </Button>
