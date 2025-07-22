@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { XCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   Dialog,
@@ -33,111 +34,98 @@ export function DeclineRequestDialog({
   renterName,
   onSuccess,
 }: DeclineRequestDialogProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [isPending, startTransition] = useTransition();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!rejectionReason.trim()) {
-      setError("Please provide a reason for declining this request");
+  const handleDecline = async () => {
+    if (!reason.trim()) {
+      toast.error("Please provide a reason for declining");
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
+    // Show optimistic toast immediately
+    toast.success("Request declined successfully!", {
+      description: "The renter has been notified.",
+    });
 
-    try {
-      const result = await declineRentalRequest({
-        requestId,
-        rejectionReason: rejectionReason.trim(),
-      });
+    startTransition(async () => {
+      try {
+        const result = await declineRentalRequest({
+          requestId,
+          rejectionReason: reason,
+        });
 
-      if (result.success) {
-        onOpenChange(false);
-        setRejectionReason("");
-        onSuccess?.();
-      } else {
-        setError(result.error || "Something went wrong");
+        if (result.success) {
+          // Close dialog and trigger success callback
+          onOpenChange(false);
+          setReason("");
+          onSuccess?.();
+        } else {
+          // Show error toast if the action fails
+          toast.error("Failed to decline request", {
+            description: result.error || "Please try again.",
+          });
+        }
+      } catch {
+        // Show error toast if the action fails
+        toast.error("Failed to decline request", {
+          description: "Please try again.",
+        });
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCancel = () => {
-    onOpenChange(false);
-    setRejectionReason("");
-    setError(null);
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <XCircle className="h-5 w-5 text-red-600" />
-            Decline Rental Request
+            Decline Request
           </DialogTitle>
           <DialogDescription>
-            You&apos;re about to decline {renterName}&apos;s request to rent
-            your <strong>{toolName}</strong>. Please provide a reason to help
-            them understand why their request was declined.
+            Decline the rental request for {toolName} from {renterName}. The
+            renter will be notified of your decision.
           </DialogDescription>
         </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="rejection-reason">
-              Reason for Declining <span className="text-red-500">*</span>
-            </Label>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="reason">Reason for declining (required)</Label>
             <Textarea
-              id="rejection-reason"
-              placeholder="Please explain why you cannot approve this rental request..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              className="min-h-24"
+              id="reason"
+              placeholder="Please provide a reason for declining this request..."
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="min-h-[100px]"
               required
             />
-            <p className="text-xs text-gray-500">
-              This will be shared with the renter to help them understand your
-              decision.
-            </p>
           </div>
-
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-3">
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading} variant="destructive">
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Declining...
-                </>
-              ) : (
-                <>
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Decline Request
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleDecline}
+            disabled={isPending || !reason.trim()}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Declining...
+              </>
+            ) : (
+              "Decline Request"
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

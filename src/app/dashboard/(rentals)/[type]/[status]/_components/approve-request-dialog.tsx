@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   Dialog,
@@ -33,62 +34,60 @@ export function ApproveRequestDialog({
   renterName,
   onSuccess,
 }: ApproveRequestDialogProps) {
-  const [isLoading, setIsLoading] = useState(false);
   const [pickupInstructions, setPickupInstructions] = useState("");
   const [returnInstructions, setReturnInstructions] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+  const handleApprove = async () => {
+    // Show optimistic toast immediately
+    toast.success("Request approved successfully!", {
+      description: "The renter has been notified.",
+    });
 
-    try {
-      const result = await approveRentalRequest({
-        requestId,
-        pickupInstructions: pickupInstructions || undefined,
-        returnInstructions: returnInstructions || undefined,
-      });
+    startTransition(async () => {
+      try {
+        const result = await approveRentalRequest({
+          requestId,
+          pickupInstructions: pickupInstructions || undefined,
+          returnInstructions: returnInstructions || undefined,
+        });
 
-      if (result.success) {
-        onOpenChange(false);
-        setPickupInstructions("");
-        setReturnInstructions("");
-        onSuccess?.();
-      } else {
-        setError(result.error || "Something went wrong");
+        if (result.success) {
+          // Close dialog and trigger success callback
+          onOpenChange(false);
+          setPickupInstructions("");
+          setReturnInstructions("");
+          onSuccess?.();
+        } else {
+          // Show error toast if the action fails
+          toast.error("Failed to approve request", {
+            description: result.error || "Please try again.",
+          });
+        }
+      } catch {
+        // Show error toast if the action fails
+        toast.error("Failed to approve request", {
+          description: "Please try again.",
+        });
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCancel = () => {
-    onOpenChange(false);
-    setPickupInstructions("");
-    setReturnInstructions("");
-    setError(null);
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
-            Approve Rental Request
+            Approve Request
           </DialogTitle>
           <DialogDescription>
-            You&apos;re about to approve {renterName}&apos;s request to rent
-            your <strong>{toolName}</strong>. You can provide pickup and return
-            instructions to help coordinate the rental.
+            Approve the rental request for {toolName} from {renterName}. The
+            renter will be notified of your approval.
           </DialogDescription>
         </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
             <Label htmlFor="pickup-instructions">
               Pickup Instructions (Optional)
             </Label>
@@ -97,57 +96,47 @@ export function ApproveRequestDialog({
               placeholder="Provide details about when and where the renter can pick up the tool..."
               value={pickupInstructions}
               onChange={(e) => setPickupInstructions(e.target.value)}
-              className="min-h-20"
+              className="min-h-[100px]"
             />
           </div>
-
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="return-instructions">
               Return Instructions (Optional)
             </Label>
             <Textarea
               id="return-instructions"
-              placeholder="Provide details about when and where the tool should be returned..."
+              placeholder="Provide details about when and where the renter should return the tool..."
               value={returnInstructions}
               onChange={(e) => setReturnInstructions(e.target.value)}
-              className="min-h-20"
+              className="min-h-[100px]"
             />
           </div>
-
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-3">
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Approving...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Approve Request
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleApprove}
+            disabled={isPending}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Approving...
+              </>
+            ) : (
+              "Approve Request"
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
