@@ -1,13 +1,12 @@
 "use client";
 
-import { JSX, useTransition } from "react";
+import { JSX, useTransition, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { updateUserProfileAndAddress } from "@/lib/actions/update-user-profile";
-import { useEditMode } from "@/lib/contexts/edit-mode-context";
 import { PROFILE_OVERVIEW } from "@/lib/constants/profile";
 
 import { Button } from "@/components/ui/button";
@@ -33,7 +32,7 @@ const ProfileFormSchema = z.object({
 export type FormData = z.infer<typeof ProfileFormSchema>;
 
 export function ProfileForm({ user }: { user: UserProfile }) {
-  const { editMode, setEditMode } = useEditMode();
+  const [editMode, setEditMode] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<FormData>({
@@ -101,7 +100,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
         <Label htmlFor="email">{PROFILE_OVERVIEW.formCard.fields.email}</Label>
         {renderField(
           "email",
-          <Input type="email" {...form.register("email")} />,
+          <Input {...form.register("email")} type="email" />,
           user.email,
         )}
       </div>
@@ -110,69 +109,88 @@ export function ProfileForm({ user }: { user: UserProfile }) {
         <Label htmlFor="phone">{PROFILE_OVERVIEW.formCard.fields.phone}</Label>
         {renderField(
           "phone",
-          <Input type="tel" {...form.register("phone")} />,
-          user.phone || "",
+          <Input {...form.register("phone")} type="tel" />,
+          user.phone || "Not provided",
         )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="street">
-          {PROFILE_OVERVIEW.formCard.fields.street}
-        </Label>
-        {renderField(
-          "address.street",
-          <Input {...form.register("address.street")} />,
-          user.primaryAddress?.street || "",
-        )}
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor="city">{PROFILE_OVERVIEW.formCard.fields.city}</Label>
-          {renderField(
-            "address.city",
-            <Input {...form.register("address.city")} />,
-            user.primaryAddress?.city || "",
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="state">
-            {PROFILE_OVERVIEW.formCard.fields.state}
-          </Label>
-          {renderField(
-            "address.state",
-            <Input {...form.register("address.state")} />,
-            user.primaryAddress?.state || "",
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="zipCode">
-            {PROFILE_OVERVIEW.formCard.fields.zipCode}
-          </Label>
-          {renderField(
-            "address.zipCode",
-            <Input {...form.register("address.zipCode")} />,
-            user.primaryAddress?.zipCode || "",
-          )}
-        </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="bio">{PROFILE_OVERVIEW.formCard.fields.bio}</Label>
-        {editMode ? (
-          <Textarea rows={4} {...form.register("bio")} />
-        ) : (
-          <div className="rounded-md border px-3 py-2 whitespace-pre-line">
-            {user.bio || ""}
-          </div>
+        {renderField(
+          "bio",
+          <Textarea {...form.register("bio")} rows={3} />,
+          user.bio || "No bio provided",
         )}
       </div>
 
-      {editMode && (
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Saving..." : "Save Changes"}
-        </Button>
-      )}
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Address Information</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="street">
+              {PROFILE_OVERVIEW.formCard.fields.street}
+            </Label>
+            {renderField(
+              "street",
+              <Input {...form.register("address.street")} />,
+              user.primaryAddress?.street || "Not provided",
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="city">
+              {PROFILE_OVERVIEW.formCard.fields.city}
+            </Label>
+            {renderField(
+              "city",
+              <Input {...form.register("address.city")} />,
+              user.primaryAddress?.city || "Not provided",
+            )}
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="state">
+              {PROFILE_OVERVIEW.formCard.fields.state}
+            </Label>
+            {renderField(
+              "state",
+              <Input {...form.register("address.state")} />,
+              user.primaryAddress?.state || "Not provided",
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="zipCode">
+              {PROFILE_OVERVIEW.formCard.fields.zipCode}
+            </Label>
+            {renderField(
+              "zipCode",
+              <Input {...form.register("address.zipCode")} />,
+              user.primaryAddress?.zipCode || "Not provided",
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        {editMode ? (
+          <>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Saving..." : "Save Changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditMode(false)}
+            >
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <Button type="button" onClick={() => setEditMode(true)}>
+            Edit Profile
+          </Button>
+        )}
+      </div>
     </form>
   );
 }
