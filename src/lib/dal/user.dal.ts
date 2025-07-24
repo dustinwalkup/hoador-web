@@ -56,9 +56,7 @@ export class UserDAL extends BaseDAL {
         where: eq(users.id, id),
         with: {
           preferences: true,
-          addresses: {
-            where: eq(userAddresses.isPrimary, true),
-          },
+          addresses: true, // fetch all addresses, no filter
         },
       });
 
