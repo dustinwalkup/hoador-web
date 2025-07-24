@@ -21,12 +21,12 @@ import { ProfileTabs } from "../_components/profile-tabs";
 import { ReviewsSortingControls } from "../_components/reviews-sorting-controls";
 
 interface ReviewsPageProps {
-  searchParams?: {
+  searchParams: Promise<{
     page?: string;
     limit?: string;
     sortBy?: string;
     sortOrder?: string;
-  };
+  }>;
 }
 
 export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
@@ -53,12 +53,15 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
     );
   }
 
+  // Await searchParams to get the actual values
+  const params = await searchParams;
+
   // Convert searchParams to plain object to avoid symbol properties
   const queryParams = {
-    page: searchParams?.page || "1",
-    limit: searchParams?.limit || "5",
-    sortBy: searchParams?.sortBy || "createdAt",
-    sortOrder: searchParams?.sortOrder || "desc",
+    page: params?.page || "1",
+    limit: params?.limit || "5",
+    sortBy: params?.sortBy || "createdAt",
+    sortOrder: params?.sortOrder || "desc",
   };
 
   // Parse query parameters
