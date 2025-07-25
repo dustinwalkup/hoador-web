@@ -25,8 +25,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import ActivityFeed from "@/components/dashboard/activity-feed";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import RentalCard from "@/components/dashboard/rental-card";
 import { Icon } from "@/components/ui/icon";
 import { PageHeader } from "@/components/page-header";
 
@@ -573,122 +571,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Active tools */}
-      <Tabs defaultValue="rentals" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="rentals">Your Rentals</TabsTrigger>
-          <TabsTrigger value="lent">Tools Lent Out</TabsTrigger>
-          <TabsTrigger value="listings">Your Listings</TabsTrigger>
-        </TabsList>
-        <TabsContent value="rentals" className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <RentalCard
-              name="Pressure Washer"
-              id={"123"}
-              owner="John D."
-              imageUrl="/images/mock/pressure-washer.jpg"
-              dueDate="May 25, 2023"
-              status="rented"
-              cardType="borrowing"
-              price="$15/day"
-            />
-            <RentalCard
-              name="Circular Saw"
-              id={"123"}
-              owner="Maria G."
-              imageUrl="/images/mock/skill-saw.jpg"
-              dueDate="May 28, 2023"
-              status="rented"
-              cardType="borrowing"
-              price="$12/day"
-            />
-            <RentalCard
-              name="Ladder (8ft)"
-              id={"123"}
-              owner="Robert T."
-              imageUrl="/images/mock/ladder.jpg"
-              dueDate="May 30, 2023"
-              status="rented"
-              cardType="borrowing"
-              price="$6/day"
-            />
-          </div>
-          <div className="text-center">
-            <Button variant="outline" size="sm">
-              View All Rentals
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </TabsContent>
-        <TabsContent value="lent" className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <RentalCard
-              name="Drill Set"
-              id={"123"}
-              borrower="Emily K."
-              imageUrl="/images/mock/drill-set.jpg"
-              dueDate="May 26, 2023"
-              status="rented"
-              cardType="borrowing"
-              price="$10/day"
-            />
-            <RentalCard
-              name="Lawn Mower"
-              id={"123"}
-              borrower="David P."
-              imageUrl="/images/mock/lawn-mower.jpg"
-              dueDate="June 2, 2023"
-              status="rented"
-              cardType="borrowing"
-              price="$20/day"
-            />
-          </div>
-          <div className="text-center">
-            <Button variant="outline" size="sm">
-              View All Lent Tools
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </TabsContent>
-        <TabsContent value="listings" className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <RentalCard
-              id={"123"}
-              name="Drill Set"
-              imageUrl="/images/mock/drill-set.jpg"
-              status="rented"
-              cardType="borrowing"
-              price="$10/day"
-              availability="Available"
-            />
-            <RentalCard
-              id={"123"}
-              name="Lawn Mower"
-              imageUrl="/images/mock/lawn-mower.jpg"
-              status="rented"
-              cardType="borrowing"
-              price="$20/day"
-              availability="Currently Lent"
-            />
-            <RentalCard
-              id={"123"}
-              name="Hedge Trimmer"
-              imageUrl="/images/mock/hedge-trimmer.jpg"
-              status="rented"
-              cardType="borrowing"
-              price="$15/day"
-              availability="Available"
-            />
-          </div>
-          <div className="text-center">
-            <Button variant="outline" size="sm">
-              View All Listings
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
