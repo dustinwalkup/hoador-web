@@ -88,20 +88,20 @@ export const HOME_PAGE: HomePageConstants = {
         title: "Power & Hand Tools",
         description:
           "Drills, saws, sanders, and more available in your neighborhood.",
-        imageUrl: "/images/mock/tool-bench.jpg",
+        imageUrl: "/images/mock/tools/tool-bench.jpg",
         iconName: "PenToolIcon",
       },
       {
         title: "Trucks & Trailers",
         description: "Moving? Need to haul something? Your neighbors can help.",
-        imageUrl: "/images/mock/trailer-hitch.jpg",
+        imageUrl: "/images/mock/tools/trailer-hitch.jpg",
         iconName: "Truck",
       },
       {
         title: "Lawn & Garden",
         description:
           "Mowers, trimmers, pressure washers, and more for your yard.",
-        imageUrl: "/images/mock/garden-tools.jpg",
+        imageUrl: "/images/mock/tools/garden-tools.jpg",
         iconName: "Home",
       },
     ],
