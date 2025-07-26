@@ -215,23 +215,26 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
                   </Button>
                 </>
               )}
-              <Link href={`/dashboard/rental/${request.id}?view=lending`}>
+
+              <div className="flex flex-col gap-2">
+                <Link href={`/dashboard/rental/${request.id}?view=lending`}>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent"
+                    size="sm"
+                  >
+                    View Details
+                  </Button>
+                </Link>
                 <Button
                   variant="outline"
                   className="w-full bg-transparent"
                   size="sm"
                 >
-                  View Details
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Message Renter
                 </Button>
-              </Link>
-              <Button
-                variant="outline"
-                className="w-full bg-transparent"
-                size="sm"
-              >
-                <MessageCircle className="mr-2 h-4 w-4" />
-                Message Renter
-              </Button>
+              </div>
             </div>
           </div>
         </div>
