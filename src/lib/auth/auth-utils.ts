@@ -2,7 +2,7 @@ import { userDAL } from "../dal";
 
 export async function getCurrentUser() {
   // 🔧 Replace this with Clerk auth later
-  const USER_ID = "b43d887d-7bfe-46f6-9b1b-6a4b975d9831";
+  const USER_ID = "1141452f-8616-4675-ba1a-d868b997e08a";
 
   // You could hardcode or use cookies/session logic for local dev
   return userDAL.getUserById(USER_ID);
