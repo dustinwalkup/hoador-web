@@ -79,13 +79,15 @@ const conversations = [
 ];
 
 interface ConversationPageProps {
-  params: {
+  params: Promise<{
     conversationId: string;
-  };
+  }>;
 }
 
-export default function ConversationPage({ params }: ConversationPageProps) {
-  const { conversationId } = params;
+export default async function ConversationPage({
+  params,
+}: ConversationPageProps) {
+  const { conversationId } = await params;
 
   const selectedThread = conversations.find((c) => c.id === conversationId);
 
