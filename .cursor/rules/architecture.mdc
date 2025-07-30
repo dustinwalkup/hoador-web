@@ -1,8 +1,9 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: true
 ---
+
 # Architecture Guidelines
 
 ## Data Access Layer
@@ -22,6 +23,601 @@ alwaysApply: true
 - Implement proper error handling for server actions
 
 ## State Management
+
+- Use React's built-in state management when possible
+- Avoid unnecessary global state
+- Colocate state with the components that use it
+- Use React Context for theme and authentication state
+
+## Event Handlers
+
+- Always use `onKeyDown` instead of the deprecated `onKeyPress` for keyboard event handling
+- Use `onKeyDown` for Enter key detection and form submissions
+- Replace any existing `onKeyPress` handlers with `onKeyDown` equivalents
+
+```tsx
+// ❌ Avoid deprecated onKeyPress
+onKeyPress={(e) => e.key === "Enter" && handleSubmit()}
+
+// ✅ Use onKeyDown instead
+onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSubmit()}
+```
+
+## Optimistic Updates
+
+- Use React's `useOptimistic` hook instead of `router.refresh()` for immediate UI feedback
+- Implement optimistic updates for all user interactions that modify data
+- Always provide fallback states when optimistic updates fail
+- Pass optimistic state down from parent components managing the data
+
+```tsx
+// ✅ Implement optimistic updates
+const [optimisticMessages, addOptimisticMessage] = useOptimistic(
+  messages,
+  (state, newMessage) => [...state, newMessage],
+);
+
+// Add optimistic message immediately
+addOptimisticMessage({ id: tempId, content: message, status: "sending" });
+```
+
+## Form Handling with useActionState
+
+- Use Next.js 15's `useActionState` hook for form submissions with server actions
+- Wrap form inputs in proper `<form>` elements with action attributes
+- Handle form state, pending states, and errors through the hook
+- Use FormData for form submissions instead of controlled inputs when possible
+
+```tsx
+// ✅ Use useActionState for form handling
+import { useActionState } from "react";
+
+const [state, formAction, isPending] = useActionState(sendMessageAction, {
+  message: "",
+  error: null,
+});
+
+// Wrap in form element
+<form action={formAction}>
+  <input name="message" required />
+  <button type="submit" disabled={isPending}>
+    {isPending ? "Sending..." : "Send"}
+  </button>
+</form>;
+```
+
+## Error Handling with shadcn Toast
+
+- Replace all `console.error` statements with proper user-facing error messages
+- Use shadcn's toast component for error notifications
+- Import toast from `@/components/ui/use-toast` or your configured toast hook
+- Provide meaningful error messages to users
+- Always handle both network and application errors
+
+```tsx
+// ✅ Proper error handling with toast
+import { useToast } from "@/components/ui/use-toast";
+import { tryCatch } from "@walkup/walkup-utils";
+
+const { toast } = useToast();
+
+const result = await tryCatch(
+  () => sendMessageAction(conversationId, message),
+  (error) => {
+    toast({
+      title: "Error",
+      description: "Something went wrong. Please try again.",
+      variant: "destructive",
+    });
+    return { success: false, error: error.message };
+  },
+);
+
+if (!result.success) {
+  toast({
+    title: "Error",
+    description: result.error || "Failed to send message",
+    variant: "destructive",
+  });
+}
+```
+
+## Loading States with useTransition
+
+- Use React's `useTransition` for non-blocking state transitions
+- Implement `isPending` states for better user feedback
+- Use `startTransition` to wrap state updates that might cause UI lag
+- Combine with optimistic updates for the smoothest user experience
+- Show loading indicators on buttons and forms during transitions
+
+```tsx
+// ✅ Use useTransition for loading states
+import { useTransition } from "react";
+
+const [isPending, startTransition] = useTransition();
+
+const handleSubmit = () => {
+  startTransition(async () => {
+    // Non-blocking state update
+    await sendMessage();
+  });
+};
+
+// Show loading state in UI
+<Button disabled={isPending}>{isPending ? "Sending..." : "Send"}</Button>;
+```
+
+## Combined Implementation Pattern
+
+When implementing all these patterns together:
+
+```tsx
+"use client";
+
+import { useOptimistic, useTransition } from "react";
+import { useActionState } from "react";
+import { useToast } from "@/components/ui/use-toast";
+import { tryCatch } from "@walkup/walkup-utils";
+
+export function MessageInput({ conversationId, messages }) {
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+
+  const [optimisticMessages, addOptimisticMessage] = useOptimistic(
+    messages,
+    (state, newMessage) => [...state, newMessage],
+  );
+
+  const [state, formAction] = useActionState(
+    async (prevState, formData) => {
+      const message = formData.get("message") as string;
+
+      // Add optimistic update
+      addOptimisticMessage({
+        id: Date.now(),
+        content: message,
+        status: "sending",
+      });
+
+      const result = await tryCatch(
+        () => sendMessageAction(conversationId, message),
+        (error) => {
+          toast({
+            title: "Error",
+            description: "Something went wrong",
+            variant: "destructive",
+          });
+          return { success: false, error: error.message };
+        },
+      );
+
+      if (!result.success) {
+        toast({
+          title: "Error",
+          description: "Failed to send message",
+          variant: "destructive",
+        });
+      }
+      return { success: result.success };
+    },
+    { success: true },
+  );
+
+  return (
+    <form action={formAction}>
+      <input
+        name="message"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            startTransition(() => {
+              formAction(new FormData(e.currentTarget.form));
+            });
+          }
+        }}
+      />
+      <button type="submit" disabled={isPending}>
+        {isPending ? "Sending..." : "Send"}
+      </button>
+    </form>
+  );
+}
+```
+
+## Data Fetching in React Server Components
+
+- Always prefer server-side data fetching over client-side fetching
+- Fetch data directly in React Server Components (RSC) using DAL methods
+- Never use server actions for data fetching - only for mutations
+- Use DAL methods directly in RSC components for optimal performance
+- Leverage Next.js automatic caching and revalidation for data
+- Keep data fetching logic in the component that needs the data
+- Use `unstable_noStore()` only when data must be fresh on every request
+
+```tsx
+// ✅ Server-side data fetching in RSC
+import { ToolDAL } from "@/lib/dal/tool.dal";
+
+export default async function ToolPage({ params }: { params: { id: string } }) {
+  const tool = await ToolDAL.getById(params.id);
+
+  if (!tool) {
+    notFound();
+  }
+
+  return (
+    <div>
+      <h1>{tool.name}</h1>
+      <p>{tool.description}</p>
+      {/* Render tool details */}
+    </div>
+  );
+}
+```
+
+```tsx
+// ✅ List data with server-side pagination
+import { ToolDAL } from "@/lib/dal/tool.dal";
+
+export default async function ToolsPage({
+  searchParams,
+}: {
+  searchParams: { page?: string; category?: string };
+}) {
+  const page = Number(searchParams.page) || 1;
+  const category = searchParams.category;
+
+  const { tools, totalPages } = await ToolDAL.getPaginated({
+    page,
+    limit: 12,
+    category,
+  });
+
+  return (
+    <div>
+      <ToolsList tools={tools} />
+      <Pagination currentPage={page} totalPages={totalPages} />
+    </div>
+  );
+}
+```
+
+```tsx
+// ✅ Parallel data fetching in RSC
+import { ToolDAL } from "@/lib/dal/tool.dal";
+import { UserDAL } from "@/lib/dal/user.dal";
+
+export default async function DashboardPage() {
+  // Fetch data in parallel for better performance
+  const [recentTools, userStats] = await Promise.all([
+    ToolDAL.getRecent(5),
+    UserDAL.getStats(),
+  ]);
+
+  return (
+    <div>
+      <RecentTools tools={recentTools} />
+      <UserStats stats={userStats} />
+    </div>
+  );
+}
+```
+
+```tsx
+// ❌ Avoid client-side data fetching for initial load
+"use client";
+
+import { useEffect, useState } from "react";
+
+export function ToolList() {
+  const [tools, setTools] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/tools")
+      .then((res) => res.json())
+      .then((data) => setTools(data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+  return <div>{/* render tools */}</div>;
+}
+
+// ✅ Instead, fetch in RSC and pass as props
+export default async function ToolsPage() {
+  const tools = await ToolDAL.getAll();
+  return <ToolList tools={tools} />;
+}
+```
+
+```tsx
+// ✅ Handle loading and error states in RSC
+import { ToolDAL } from "@/lib/dal/tool.dal";
+import { notFound } from "next/navigation";
+
+export default async function ToolPage({ params }: { params: { id: string } }) {
+  const tool = await ToolDAL.getById(params.id);
+
+  if (!tool) {
+    notFound(); // Triggers not-found.tsx
+  }
+
+  return (
+    <div>
+      <h1>{tool.name}</h1>
+      <p>{tool.description}</p>
+    </div>
+  );
+}
+```
+
+```tsx
+// ✅ Use server actions only for mutations, not fetching
+import { createRentalRequest } from "@/lib/actions/create-rental-request";
+
+export default async function RentToolPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const tool = await ToolDAL.getById(params.id); // ✅ Fetch in RSC
+
+  return (
+    <div>
+      <ToolDetails tool={tool} />
+      <RentForm
+        toolId={params.id}
+        action={createRentalRequest} // ✅ Server action for mutation
+      />
+    </div>
+  );
+}
+```
+
+## Data Mutation with Server Actions
+
+- Use server actions for all data mutations (create, update, delete)
+- Server actions should call DAL methods without authentication logic
+- DAL methods handle authentication internally using `getCurrentUserId()` or `requireAuth()`
+- Use `tryCatch` from `@walkup/walkup-utils` for consistent error handling
+- Return structured results with success/error information
+- Handle optimistic updates in client components
+- Use `useActionState` for form submissions with server actions
+
+```tsx
+// ✅ Server action for data mutation
+import { tryCatch } from "@walkup/walkup-utils";
+import { ToolDAL } from "@/lib/dal/tool.dal";
+import { revalidatePath } from "next/cache";
+
+export async function createToolAction(prevState: any, formData: FormData) {
+  const name = formData.get("name") as string;
+  const description = formData.get("description") as string;
+  const price = Number(formData.get("price"));
+
+  const result = await tryCatch(
+    () => ToolDAL.create({ name, description, price }),
+    (error) => {
+      console.error("Tool creation failed:", error);
+      return { success: false, error: error.message };
+    },
+  );
+
+  if (result.success) {
+    revalidatePath("/dashboard/garage");
+    return { success: true, toolId: result.data.id };
+  }
+
+  return { success: false, error: result.error };
+}
+```
+
+```tsx
+// ✅ DAL method with internal authentication
+export class ToolDAL extends BaseDAL {
+  static async create(data: CreateToolData) {
+    const userId = await this.requireAuth();
+
+    const result = await tryCatch(
+      async () => {
+        const tool = await db
+          .insert(tools)
+          .values({
+            ...data,
+            ownerId: userId,
+            status: "active",
+          })
+          .returning();
+
+        return tool[0];
+      },
+      (error) => {
+        console.error("Database error:", error);
+        throw new DatabaseError("Failed to create tool");
+      },
+    );
+
+    return result;
+  }
+
+  static async update(id: string, data: UpdateToolData) {
+    const userId = await this.requireAuth();
+
+    const result = await tryCatch(
+      async () => {
+        const tool = await db
+          .update(tools)
+          .set(data)
+          .where(and(eq(tools.id, id), eq(tools.ownerId, userId)))
+          .returning();
+
+        if (!tool[0]) {
+          throw new UnauthorizedError("Tool not found or access denied");
+        }
+
+        return tool[0];
+      },
+      (error) => {
+        console.error("Database error:", error);
+        throw error;
+      },
+    );
+
+    return result;
+  }
+}
+```
+
+```tsx
+// ✅ Client component with optimistic updates
+"use client";
+
+import { useOptimistic, useTransition } from "react";
+import { useActionState } from "react";
+import { useToast } from "@/components/ui/use-toast";
+import { createToolAction } from "@/lib/actions/create-tool";
+
+export function CreateToolForm({ tools }: { tools: Tool[] }) {
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+
+  const [optimisticTools, addOptimisticTool] = useOptimistic(
+    tools,
+    (state, newTool) => [...state, newTool],
+  );
+
+  const [state, formAction] = useActionState(
+    async (prevState, formData) => {
+      const name = formData.get("name") as string;
+
+      // Add optimistic update
+      addOptimisticTool({
+        id: `temp-${Date.now()}`,
+        name,
+        status: "creating",
+        createdAt: new Date(),
+      });
+
+      const result = await createToolAction(prevState, formData);
+
+      if (!result.success) {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create tool",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Tool created successfully",
+        });
+      }
+
+      return result;
+    },
+    { success: true },
+  );
+
+  return (
+    <form action={formAction}>
+      <input name="name" required />
+      <button type="submit" disabled={isPending}>
+        {isPending ? "Creating..." : "Create Tool"}
+      </button>
+    </form>
+  );
+}
+```
+
+```tsx
+// ✅ Complex mutation with multiple DAL calls
+export async function createRentalRequestAction(
+  prevState: any,
+  formData: FormData,
+) {
+  const toolId = formData.get("toolId") as string;
+  const startDate = formData.get("startDate") as string;
+  const endDate = formData.get("endDate") as string;
+
+  const result = await tryCatch(
+    async () => {
+      // Check tool availability
+      const tool = await ToolDAL.getById(toolId);
+      if (!tool || tool.status !== "active") {
+        throw new Error("Tool not available");
+      }
+
+      // Create rental request
+      const rental = await RentalDAL.create({
+        toolId,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+      });
+
+      // Send notification to tool owner
+      await NotificationDAL.create({
+        userId: tool.ownerId,
+        type: "rental_request",
+        data: { rentalId: rental.id, toolId },
+      });
+
+      return rental;
+    },
+    (error) => {
+      console.error("Rental request failed:", error);
+      return { success: false, error: error.message };
+    },
+  );
+
+  if (result.success) {
+    revalidatePath("/dashboard/rentals");
+    return { success: true, rentalId: result.data.id };
+  }
+
+  return { success: false, error: result.error };
+}
+```
+
+```tsx
+// ✅ Error handling patterns
+export async function updateToolAction(prevState: any, formData: FormData) {
+  const toolId = formData.get("toolId") as string;
+  const updates = Object.fromEntries(formData.entries());
+
+  const result = await tryCatch(
+    () => ToolDAL.update(toolId, updates),
+    (error) => {
+      if (error instanceof UnauthorizedError) {
+        return {
+          success: false,
+          error: "You don't have permission to edit this tool",
+        };
+      }
+      if (error instanceof DatabaseError) {
+        return { success: false, error: "Database error occurred" };
+      }
+      return { success: false, error: "An unexpected error occurred" };
+    },
+  );
+
+  if (result.success) {
+    revalidatePath(`/dashboard/tools/${toolId}`);
+    return { success: true };
+  }
+
+  return { success: false, error: result.error };
+}
+```
+
+## General Rules
+
+- Always prefer modern React patterns over legacy approaches
+- Prioritize user experience with immediate feedback and proper loading states
+- Handle errors gracefully with user-friendly messages
+- Use TypeScript for better development experience and error catching
+- Keep components focused and single-responsibility
+- Test optimistic updates with network failures to ensure proper fallbacks
 
 - Use React's built-in state management when possible
 - Avoid unnecessary global state
