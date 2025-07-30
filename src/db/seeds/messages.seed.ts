@@ -22,84 +22,97 @@ async function main() {
   const seedMessages: NewMessage[] = [];
   const usedUserPairs = new Set<string>();
 
-  // Generate fake conversations
-  for (let i = 0; i < 50; i++) {
-    // Find a unique user pair
-    let user1: (typeof allUsers)[0] | undefined;
-    let user2: (typeof allUsers)[0] | undefined;
-    let attempts = 0;
-    const maxAttempts = 100;
+  // Generate conversations for each user
+  for (const user of allUsers) {
+    // Each user should have 3-8 conversations
+    const conversationCount = faker.number.int({ min: 3, max: 8 });
 
-    do {
-      user1 = faker.helpers.arrayElement(allUsers);
-      user2 = faker.helpers.arrayElement(
-        allUsers.filter((u) => u.id !== user1?.id),
-      );
+    // Get other users to create conversations with
+    const otherUsers = allUsers.filter((u) => u.id !== user.id);
+
+    // Shuffle other users to get random selection
+    const shuffledUsers = faker.helpers.shuffle(otherUsers);
+
+    for (let i = 0; i < conversationCount && i < shuffledUsers.length; i++) {
+      const otherUser = shuffledUsers[i];
 
       // Create a unique key for this pair (sort to ensure consistency)
-      const pairKey = [user1?.id, user2?.id].sort().join("-");
-      attempts++;
+      const pairKey = [user.id, otherUser.id].sort().join("-");
 
-      if (!usedUserPairs.has(pairKey)) {
-        usedUserPairs.add(pairKey);
-        break;
+      // Skip if this pair already has a conversation
+      if (usedUserPairs.has(pairKey)) {
+        continue;
       }
-    } while (attempts < maxAttempts);
 
-    // If we can't find a unique pair, skip this iteration
-    if (attempts >= maxAttempts || !user1 || !user2) {
-      console.log(
-        `⚠️ Skipping conversation ${i + 1} - no unique user pairs available`,
-      );
-      continue;
-    }
+      usedUserPairs.add(pairKey);
 
-    const conversation: NewConversation = {
-      id: faker.string.uuid(),
-      user1Id: user1.id,
-      user2Id: user2.id,
-      lastMessageAt: faker.date.recent({ days: 30 }),
-      user1LastReadAt: faker.date.recent({ days: 7 }),
-      user2LastReadAt: faker.date.recent({ days: 7 }),
-      user1Archived: faker.datatype.boolean(),
-      user2Archived: faker.datatype.boolean(),
-      createdAt: faker.date.recent({ days: 60 }),
-    };
-
-    seedConversations.push(conversation);
-
-    // Generate 2-10 messages per conversation
-    const messageCount = faker.number.int({ min: 2, max: 10 });
-    const conversationCreatedAt = conversation.createdAt;
-
-    for (let j = 0; j < messageCount; j++) {
-      const isUser1 = j % 2 === 0; // Alternate between users
-      const senderId = isUser1 ? user1.id : user2.id;
-
-      const messageCreatedAt = faker.date.between({
-        from: conversationCreatedAt || new Date(),
-        to: new Date(),
-      });
-
-      const status = faker.helpers.arrayElement([
-        "sent",
-        "delivered",
-        "read",
-      ]) as "sent" | "delivered" | "read";
-
-      const message: NewMessage = {
+      const conversation: NewConversation = {
         id: faker.string.uuid(),
-        conversationId: conversation.id!,
-        senderId,
-        content: faker.lorem.sentences({ min: 1, max: 3 }) || "Hello!",
-        attachments: [],
-        status,
-        rentalId: null, // Optional: can be linked to rentals later
-        editedAt: null,
-        createdAt: messageCreatedAt!,
+        user1Id: user.id,
+        user2Id: otherUser.id,
+        lastMessageAt: faker.date.recent({ days: 30 }),
+        user1LastReadAt: faker.date.recent({ days: 7 }),
+        user2LastReadAt: faker.date.recent({ days: 7 }),
+        user1Archived: faker.datatype.boolean({ probability: 0.1 }), // 10% chance of being archived
+        user2Archived: faker.datatype.boolean({ probability: 0.1 }),
+        createdAt: faker.date.recent({ days: 60 }),
       };
 
-      seedMessages.push(message);
+      seedConversations.push(conversation);
+
+      // Generate 2-15 messages per conversation (more varied)
+      const messageCount = faker.number.int({ min: 2, max: 15 });
+      const conversationCreatedAt = conversation.createdAt;
+
+      for (let j = 0; j < messageCount; j++) {
+        const isUser1 = j % 2 === 0; // Alternate between users
+        const senderId = isUser1 ? user.id : otherUser.id;
+
+        const messageCreatedAt = faker.date.between({
+          from: conversationCreatedAt || new Date(),
+          to: new Date(),
+        });
+
+        const status = faker.helpers.arrayElement([
+          "sent",
+          "delivered",
+          "read",
+        ]) as "sent" | "delivered" | "read";
+
+        // Generate more varied message content
+        const messageContent =
+          faker.helpers.arrayElement([
+            faker.lorem.sentences({ min: 1, max: 3 }),
+            faker.lorem.paragraph({ min: 1, max: 2 }),
+            faker.lorem.sentence({ min: 5, max: 15 }),
+            "Hey! How's it going?",
+            "Thanks for the tool!",
+            "When can I pick it up?",
+            "Perfect, see you then!",
+            "Is it still available?",
+            "Can you deliver it?",
+            "What's the condition like?",
+            "Great, I'll be there at 3pm",
+            "Do you have any other tools?",
+            "Thanks for the quick response!",
+            "I'll bring it back tomorrow",
+            "Works perfectly, thanks!",
+          ]) || "Hello!";
+
+        const message: NewMessage = {
+          id: faker.string.uuid(),
+          conversationId: conversation.id!,
+          senderId,
+          content: messageContent,
+          attachments: [],
+          status,
+          rentalId: null, // Optional: can be linked to rentals later
+          editedAt: null,
+          createdAt: messageCreatedAt!,
+        };
+
+        seedMessages.push(message);
+      }
     }
   }
 
@@ -107,7 +120,9 @@ async function main() {
   await db.insert(conversations).values(seedConversations);
   await db.insert(messages).values(seedMessages);
 
-  console.log("✅ Messages seed complete");
+  console.log(
+    `✅ Messages seed complete - Created ${seedConversations.length} conversations with ${seedMessages.length} messages`,
+  );
 }
 
 main().catch((err) => {
