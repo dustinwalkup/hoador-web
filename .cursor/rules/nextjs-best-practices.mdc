@@ -1,9 +1,27 @@
----
-description: 
-globs: 
-alwaysApply: true
----
 # Next.js Best Practices
+
+## Server-First Architecture
+
+- Prefer React Server Components (RSC) over client components whenever possible
+- Use "use client" directive only when absolutely necessary (interactivity, browser APIs, event handlers)
+- Keep client-side JavaScript minimal and focused on user interactions
+- Fetch data directly in server components using the Data Access Layer (DAL)
+- Use server actions for all data mutations, never client-side API calls
+
+## State Management
+
+- Store application state in the URL when possible (search params, route params)
+- Use React's built-in state management for component-specific state
+- Avoid unnecessary global state - prefer URL state and server state
+- Use React Context sparingly, only for theme and authentication state
+
+## Data Access Patterns
+
+- All DAL functions should handle user authentication internally
+- Server components should call DAL methods directly for data fetching
+- Server actions should call DAL methods for data mutations
+- DAL methods should throw UnauthorizedError if user lacks permissions
+- Use tryCatch from @walkup/walkup-utils for consistent error handling
 
 ## Routing and Layout
 
@@ -18,5 +36,7 @@ alwaysApply: true
 - Optimize images with next/image
 - Implement proper caching strategies
 - Use React.memo for expensive components
+- Implement incremental static regeneration where appropriate
+- Optimize third-party script loading
 - Implement incremental static regeneration where appropriate
 - Optimize third-party script loading
