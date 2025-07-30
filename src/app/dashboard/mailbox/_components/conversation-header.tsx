@@ -14,7 +14,7 @@ import {
 interface ConversationHeaderProps {
   user: {
     name: string;
-    avatar?: string;
+    avatar?: string | null;
     initials: string;
   };
 }
