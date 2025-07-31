@@ -1,6 +1,4 @@
-"use client";
-
-export default function MailboxPage() {
+export default async function MailboxPage() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center">
       <div className="text-center">
