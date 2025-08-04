@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { uploadToBlob } from "@/services/vercel-blob";
 import {
   processImageForUpload,
   validateImageForProcessing,
@@ -54,9 +54,7 @@ export async function POST(request: NextRequest) {
     const filename = `test-uploads/${timestamp}-${sanitizedName.replace(/\.[^/.]+$/, ".jpg")}`;
 
     // Upload processed image to Vercel Blob
-    const blob = await put(filename, processedBuffer, {
-      access: "public",
-    });
+    const blob = await uploadToBlob(filename, processedBuffer);
 
     return NextResponse.json({
       success: true,

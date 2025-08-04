@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { uploadToBlob } from "@/services/vercel-blob";
 import { eq, max } from "drizzle-orm";
 
 import { db } from "@/db/db";
@@ -79,9 +79,7 @@ export async function POST(
     const filename = `tools/${toolId}/${timestamp}-${sanitizedName.replace(/\.[^/.]+$/, ".jpg")}`;
 
     // Upload processed image to Vercel Blob
-    const blob = await put(filename, processedBuffer, {
-      access: "public",
-    });
+    const blob = await uploadToBlob(filename, processedBuffer);
 
     // Save to database
     const [savedImage] = await db

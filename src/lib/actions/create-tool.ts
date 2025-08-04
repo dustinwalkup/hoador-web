@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { tryCatch } from "@walkup/walkup-utils";
-import { put } from "@vercel/blob";
+import { uploadToBlob } from "@/services/vercel-blob";
 
 import {
   createToolSchemaServer,
@@ -24,9 +24,7 @@ export async function uploadToolImage(
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const filename = `tools/${toolId}/${timestamp}-${sanitizedName}`;
 
-    const blob = await put(filename, file, {
-      access: "public",
-    });
+    const blob = await uploadToBlob(filename, file);
 
     // Save to database
     const [savedImage] = await db

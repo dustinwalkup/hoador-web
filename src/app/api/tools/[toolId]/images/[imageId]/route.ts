@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { del } from "@vercel/blob";
+import { deleteFromBlob } from "@/services/vercel-blob";
 import { eq, and } from "drizzle-orm";
 
 import { db } from "@/db/db";
@@ -23,7 +23,7 @@ export async function DELETE(
     }
 
     // Delete from Vercel Blob
-    await del(image.blobPathname);
+    await deleteFromBlob(image.blobPathname);
 
     // Delete from database
     await db.delete(toolImages).where(eq(toolImages.id, imageId));

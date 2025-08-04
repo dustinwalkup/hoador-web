@@ -7,7 +7,7 @@ import type {
   CreateToolFormDataClientType,
   ImageFile,
 } from "@/lib/form-schemas/tool.schema";
-import { validateImageFile } from "@/lib/utils/image-utils";
+import { validateImageFile } from "@/lib/image/image.utils";
 
 import {
   Card,

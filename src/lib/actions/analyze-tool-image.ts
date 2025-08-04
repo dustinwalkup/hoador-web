@@ -1,6 +1,6 @@
 "use server";
 
-import { analyzeToolImage } from "@/lib/ai/analyze-tool-image";
+import { analyzeToolImage } from "@/services/openai/analyze-tool-image";
 
 export async function analyzeToolImageAction(imageUrls: string | string[]) {
   try {

@@ -1,6 +1,8 @@
 import { eq, count, sql } from "drizzle-orm";
 
+import { geocodeAddress } from "@/services/geocoding";
 import { schema } from "../../db/schemas";
+import { requireAuth } from "../auth/auth.utils";
 import { BaseDAL } from "./base";
 import {
   type CreateUserDTO,
@@ -10,8 +12,6 @@ import {
   UserProfile,
 } from "./types";
 import { ConflictError, NotFoundError } from "./errors";
-import { geocodeAddress } from "../utils/geocoding";
-import { requireAuth } from "../auth/auth.utils";
 
 const { users, userPreferences, userAddresses, reviews, rentals } = schema;
 

@@ -261,15 +261,15 @@ src/
 - [x] Move global types to `lib/types/`
 - [x] Test that there are no errors
 
-### Phase 2.5: Services Setup
+### Phase 2.5: Services Setup ✅
 
-- [ ] Create `services/` directory structure
-- [ ] Move OpenAI-related code to `services/openai/`
-- [ ] Move Vercel blob-related code to `services/vercel-blob/`
-- [ ] Move geocoding utilities to `services/geocoding/`
-- [ ] Create service-specific components, hooks, and types for each service
-- [ ] Update all imports to use new service paths
-- [ ] Test all external API integrations
+- [x] Create `services/` directory structure
+- [x] Move OpenAI-related code to `services/openai/`
+- [x] Move Vercel blob-related code to `services/vercel-blob/`
+- [x] Move geocoding utilities to `services/geocoding/`
+- [x] Create service-specific components, hooks, and types for each service
+- [x] Update all imports to use new service paths
+- [x] Test all external API integrations
 
 ### Phase 3: Authentication Feature
 
@@ -398,9 +398,9 @@ src/
 
 ## Progress Tracking
 
-- **Current Phase**: Phase 2 - Shared Infrastructure Setup
-- **Status**: Not started
-- **Next Action**: Begin moving shared infrastructure files
+- **Current Phase**: Phase 2.5 - Services Setup
+- **Status**: ✅ Complete
+- **Next Action**: Begin Phase 3 - Authentication Feature
 
 ## Notes
 

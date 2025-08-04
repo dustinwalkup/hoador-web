@@ -3,6 +3,8 @@ export interface GeocodeResult {
   longitude: number;
 }
 
+const API_KEY = process.env.OPENCAGE_API_KEY;
+
 export async function geocodeAddress({
   street,
   city,
@@ -19,9 +21,8 @@ export async function geocodeAddress({
   const address = encodeURIComponent(
     `${street}, ${city}, ${state} ${zipCode}, ${country}`,
   );
-  const apiKey = process.env.OPENCAGE_API_KEY;
 
-  const url = `https://api.opencagedata.com/geocode/v1/json?q=${address}&key=${apiKey}`;
+  const url = `https://api.opencagedata.com/geocode/v1/json?q=${address}&key=${API_KEY}`;
 
   const res = await fetch(url);
 
