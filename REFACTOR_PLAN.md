@@ -264,14 +264,9 @@ src/
 ### Phase 2.5: Services Setup
 
 - [ ] Create `services/` directory structure
-- [ ] Move Clerk-related code to `services/clerk/`
-- [ ] Move Stripe-related code to `services/stripe/`
 - [ ] Move OpenAI-related code to `services/openai/`
-- [ ] Move Resend-related code to `services/resend/`
-- [ ] Move UploadThing-related code to `services/uploadthing/`
-- [ ] Move Inngest-related code to `services/inngest/`
+- [ ] Move Vercel blob-related code to `services/vercel-blob/`
 - [ ] Move geocoding utilities to `services/geocoding/`
-- [ ] Move image processing utilities to `services/image-processing/`
 - [ ] Create service-specific components, hooks, and types for each service
 - [ ] Update all imports to use new service paths
 - [ ] Test all external API integrations

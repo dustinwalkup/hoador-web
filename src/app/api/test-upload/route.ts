@@ -4,7 +4,7 @@ import {
   processImageForUpload,
   validateImageForProcessing,
   getImageMetadata,
-} from "@/lib/utils/server-image-processing";
+} from "@/lib/image/server";
 
 export async function POST(request: NextRequest) {
   try {
