@@ -23,7 +23,7 @@ import {
   type PaginatedResult,
 } from "./types";
 import { schema } from "../../db/schemas";
-import { getCurrentUserId } from "../auth/auth-utils";
+import { getCurrentUserId } from "../auth/auth.utils";
 import { NotFoundError, UnauthorizedError } from "./errors";
 
 const {

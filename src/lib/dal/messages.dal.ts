@@ -2,7 +2,7 @@ import { and, eq, desc, asc, or } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import { conversations, messages } from "@/db/schemas/messages.schema";
-import { getCurrentUserId } from "@/lib/auth/auth-utils";
+import { getCurrentUserId } from "@/lib/auth/auth.utils";
 import { BaseDAL } from "./base";
 import { UnauthorizedError } from "./errors";
 

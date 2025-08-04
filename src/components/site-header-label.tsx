@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { BellIcon } from "lucide-react";
 import { Button } from "./ui/button";
-import { DASHBOARD } from "@/lib/constants/navbar";
+import { DASHBOARD } from "@/lib/data/navbar";
 
 const { mainNav } = DASHBOARD;
 const NUMBER_OF_NOTIFICATIONS = 3;

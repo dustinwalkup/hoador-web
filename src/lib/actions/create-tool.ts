@@ -8,7 +8,7 @@ import {
   createToolSchemaServer,
   type CreateToolFormDataServerType,
 } from "../form-schemas/tool.schema";
-import { getCurrentUserId } from "../auth/auth-utils";
+import { getCurrentUserId } from "../auth/auth.utils";
 import { db } from "@/db/db";
 import { toolImages } from "@/db/schemas/tools.schema";
 import { toolDAL } from "../dal";

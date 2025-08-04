@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { toolDAL } from "@/lib/dal";
 import { ToolDetailView } from "./_components/tool-detail-view";
 

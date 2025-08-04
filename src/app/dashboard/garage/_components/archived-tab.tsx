@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus, Archive } from "lucide-react";
 
-import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { toolDAL } from "@/lib/dal";
 import type { GarageToolFilters } from "@/lib/dal/tool.dal";
 

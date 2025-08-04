@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { toolDAL } from "@/lib/dal";
 import { updateTool } from "@/lib/actions/update-tool";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { getCurrentUser } from "@/lib/auth/auth.utils";
 import type { ToolDetails } from "@/lib/dal/types";
 import type { CreateToolFormDataClientType } from "@/lib/form-schemas/tool.schema";
 

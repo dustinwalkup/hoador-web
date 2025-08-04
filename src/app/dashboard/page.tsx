@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { DASHBOARD_PAGE } from "@/lib/constants/dashboard";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonVariantsType } from "@/components/ui/button";
 import {

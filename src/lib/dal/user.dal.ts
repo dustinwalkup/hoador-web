@@ -11,7 +11,7 @@ import {
 } from "./types";
 import { ConflictError, NotFoundError } from "./errors";
 import { geocodeAddress } from "../utils/geocoding";
-import { requireAuth } from "../auth/auth-utils";
+import { requireAuth } from "../auth/auth.utils";
 
 const { users, userPreferences, userAddresses, reviews, rentals } = schema;
 

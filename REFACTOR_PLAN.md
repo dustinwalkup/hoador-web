@@ -208,7 +208,7 @@ src/
 ├── lib/
 │   ├── auth/
 │   ├── utils/
-│   ├── constants/
+│   ├── data/
 │   └── types/
 ├── hooks/
 └── app/
@@ -252,14 +252,14 @@ src/
 - [x] Create refactor plan
 - [x] Document current structure
 
-### Phase 2: Shared Infrastructure Setup
+### Phase 2: Shared Infrastructure Setup ✅
 
-- [ ] Move authentication utilities to `lib/auth/`
-- [ ] Move global utilities to `lib/utils/`
-- [ ] Move global constants to `lib/constants/`
-- [ ] Move global hooks to `hooks/`
-- [ ] Move global types to `lib/types/`
-- [ ] Test that there are no errors
+- [x] Move authentication utilities to `lib/auth/`
+- [x] Move global utilities to `lib/utils/`
+- [x] Move global constants to `lib/data/`
+- [x] Move global hooks to `hooks/`
+- [x] Move global types to `lib/types/`
+- [x] Test that there are no errors
 
 ### Phase 2.5: Services Setup
 

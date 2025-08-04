@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "../auth/auth-utils";
+import { getCurrentUser } from "../auth/auth.utils";
 import { userDAL } from "../dal";
 
 const UpdateUserProfileSchema = z.object({

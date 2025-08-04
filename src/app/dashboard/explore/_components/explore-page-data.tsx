@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { toolDAL } from "@/lib/dal";
 import type { ToolSearchFilters } from "@/lib/dal/types";
 import { ExplorePageFilters } from "./explore-page-filters";

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { toolDAL } from "@/lib/dal";
 import type { ToolSearchFilters } from "@/lib/dal/types";
 import { PageHeader } from "@/components/page-header";

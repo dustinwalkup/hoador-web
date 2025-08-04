@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { toolDAL } from "@/lib/dal";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { RentToolPageContent } from "./_components/rent-tool-page-content";
 
 interface RentToolPageProps {

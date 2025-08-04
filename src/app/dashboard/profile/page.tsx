@@ -1,6 +1,6 @@
 import { Star, MapPin, Calendar } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { rentalDAL, reviewDAL } from "@/lib/dal";
 import { PROFILE_TABS, PROFILE_OVERVIEW } from "@/lib/constants/profile";
 import { formatReviewSummary } from "@/lib/utils/reviews.utils";

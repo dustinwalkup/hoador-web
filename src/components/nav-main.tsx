@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { DASHBOARD } from "@/lib/constants/navbar";
+import { DASHBOARD } from "@/lib/data/navbar";
 
 const { mainNav } = DASHBOARD;
 

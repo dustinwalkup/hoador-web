@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL } from "@/lib/dal";
-import { requireAuth } from "@/lib/auth/auth-utils";
+import { requireAuth } from "@/lib/auth/auth.utils";
 
 /**
  * Cancel a rental request
