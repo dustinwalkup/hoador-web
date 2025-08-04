@@ -25,6 +25,7 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import { toast } from "sonner";
 
 interface PhotosSectionProps {
   control: Control<CreateToolFormDataClientType>;
@@ -168,8 +169,7 @@ export function PhotosSection({
       Array.from(files).forEach((file) => {
         const error = validateImageFile(file);
         if (error) {
-          // You might want to add toast here
-          console.error(error);
+          toast.error(error);
           return;
         }
 
@@ -294,7 +294,7 @@ export function PhotosSection({
                   {dragActive ? "Drop images here" : "Click or drag to upload"}
                 </span>
                 <span className="text-muted-foreground mt-1 text-xs">
-                  Max 5MB per image
+                  Max 4MB per image for reliable upload
                 </span>
               </div>
 

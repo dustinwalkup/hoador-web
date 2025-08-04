@@ -43,5 +43,15 @@ export function validateImageFile(file: File): string | null {
     return "File too large (max 5MB)";
   }
 
+  // Warn about large files that might cause upload issues
+  if (file.size > 4 * 1024 * 1024) {
+    return "File is very large (over 4MB). Consider compressing the image for better upload reliability.";
+  }
+
+  // Check for very large files that are likely to fail
+  if (file.size > 4.5 * 1024 * 1024) {
+    return "File is too large and may fail to upload. Please compress the image to under 4MB.";
+  }
+
   return null;
 }
