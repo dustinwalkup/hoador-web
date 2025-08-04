@@ -1,0 +1,170 @@
+# Feature-Based Folder Structure Rules
+
+## Overview
+
+This project follows a feature-based folder structure where code is organized by business features rather than technical concerns. Each feature is self-contained with its own components, server logic, schemas, and utilities.
+
+## Folder Structure
+
+### Features Directory (`src/features/`)
+
+Each feature should have its own folder under `src/features/` with the following structure:
+
+```
+src/features/[feature-name]/
+├── components/          # Feature-specific React components
+├── server/             # Server-side logic
+│   ├── actions/        # Server actions for the feature
+│   └── api/           # API routes for the feature
+├── schemas/            # Database schemas for the feature
+├── types/              # TypeScript types for the feature
+├── [feature].dal.ts    # Data Access Layer for the feature
+├── [feature].constants.ts  # Feature-specific constants
+├── [feature].utils.ts  # Feature-specific utilities
+└── [feature].seed.ts   # Seed data for the feature
+```
+
+### Services Directory (`src/services/`)
+
+External API interactions should be centralized in the `src/services/` directory:
+
+```
+src/services/[service-name]/
+├── components/         # Service-specific UI components
+├── hooks/             # Service-specific React hooks
+├── types/             # Service-specific TypeScript types
+└── [service].service.ts  # Main service implementation
+```
+
+### Shared Directories
+
+Shared/global code should remain in top-level directories:
+
+```
+src/
+├── components/         # Shared UI components
+│   ├── ui/           # Reusable UI components
+│   └── layout/       # Layout components
+├── lib/              # Shared utilities and configurations
+│   ├── db/          # Database setup and configuration
+│   ├── auth/        # Authentication utilities
+│   ├── utils/       # Global utility functions
+│   ├── constants/   # Global constants
+│   └── types/       # Shared TypeScript types
+├── hooks/           # Shared React hooks
+└── app/             # Next.js app router (routing only)
+```
+
+## Rules
+
+### 1. Feature Organization
+
+- **Group by feature, not by technology**: All code related to a feature should be in the same folder
+- **Self-contained features**: Each feature should have its own DAL, constants, utils, and seed files
+- **No cross-feature imports**: Features should only import from shared/global code or within themselves
+- **Feature-specific naming**: Use `[feature].dal.ts`, `[feature].constants.ts`, etc.
+
+### 2. Services Organization
+
+- **Centralize external APIs**: All external API interactions go in `src/services/`
+- **Service-specific structure**: Each service can have its own components, hooks, and types
+- **Avoid API code in features**: Don't litter API interaction code throughout features
+
+### 3. Shared Code
+
+- **Top-level shared directories**: Keep shared code in `src/components/`, `src/lib/`, `src/hooks/`
+- **No shared directory**: Don't create a `shared/` directory, use top-level directories instead
+- **Global utilities**: Put utilities used across multiple features in `src/lib/utils/`
+- **Global types**: Put types used across multiple features in `src/lib/types/`
+
+### 4. App Directory
+
+- **Routing only**: The `src/app/` directory should only contain routing and minimal rendering logic
+- **No business logic**: Don't put feature-specific logic or components in the app directory
+- **Import from features**: App pages should import and render feature components
+
+### 5. Import Paths
+
+- **Feature imports**: Import from `@/features/[feature-name]/`
+- **Service imports**: Import from `@/services/[service-name]/`
+- **Shared imports**: Import from `@/components/`, `@/lib/`, `@/hooks/`
+- **Avoid relative imports**: Use absolute imports with `@/` prefix
+
+### 6. File Naming
+
+- **Feature files**: Use `[feature].dal.ts`, `[feature].constants.ts`, `[feature].utils.ts`, `[feature].seed.ts`
+- **Service files**: Use `[service].service.ts`
+- **Component files**: Use PascalCase (e.g., `UserCard.tsx`)
+- **Utility files**: Use camelCase (e.g., `authUtils.ts`)
+
+### 7. Code Organization
+
+- **Business logic in features**: All business logic should be in feature folders
+- **External APIs in services**: All external API interactions should be in service folders
+- **UI components in features**: Feature-specific UI components go in `features/[feature]/components/`
+- **Shared UI in components**: Reusable UI components go in `src/components/ui/`
+
+## Examples
+
+### ✅ Correct Structure
+
+```
+src/features/auth/
+├── components/
+│   ├── LoginForm.tsx
+│   └── UserProfile.tsx
+├── server/
+│   └── actions/
+│       └── update-user-profile.ts
+├── schemas/
+│   └── users.schema.ts
+├── auth.dal.ts
+├── auth.constants.ts
+└── auth.utils.ts
+
+src/services/ai/
+├── components/
+│   └── AIImageAnalyzer.tsx
+├── hooks/
+│   └── useAIAnalysis.ts
+├── types/
+│   └── ai.types.ts
+└── ai.service.ts
+```
+
+### ❌ Incorrect Structure
+
+```
+src/
+├── components/          # Don't mix feature components here
+│   ├── auth/
+│   ├── tools/
+│   └── rentals/
+├── lib/
+│   ├── auth/           # Don't put feature logic in lib
+│   ├── tools/
+│   └── rentals/
+└── shared/             # Don't create shared directory
+```
+
+## Migration Guidelines
+
+When refactoring existing code:
+
+1. **Identify the feature** the code belongs to
+2. **Move to appropriate feature folder** with correct structure
+3. **Update all import paths** to use new structure
+4. **Test functionality** after each move
+5. **Remove empty directories** after migration
+
+## Enforcement
+
+- **Follow the structure**: Always organize new code according to this pattern
+- **Update imports**: When moving files, update all import paths
+- **Test after changes**: Verify functionality after structural changes
+- **Document decisions**: Add comments for any deviations from this structure
+  description:
+  globs:
+  alwaysApply: false
+
+---
