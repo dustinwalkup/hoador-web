@@ -294,7 +294,7 @@ export function PhotosSection({
                   {dragActive ? "Drop images here" : "Click or drag to upload"}
                 </span>
                 <span className="text-muted-foreground mt-1 text-xs">
-                  Max 4MB per image for reliable upload
+                  Max 10MB - images will be automatically optimized
                 </span>
               </div>
 

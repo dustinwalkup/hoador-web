@@ -150,7 +150,7 @@ export default function TestImageUploadPage() {
               <Label htmlFor="images">Select images of the same tool</Label>
               <p className="mt-1 text-sm text-gray-600">
                 Choose different angles and include make/model in clear print if
-                possible
+                possible. Images will be automatically optimized for web.
               </p>
               <Input
                 id="images"

@@ -4,6 +4,11 @@ import { eq, max } from "drizzle-orm";
 
 import { db } from "@/db/db";
 import { toolImages } from "@/db/schemas/tools.schema";
+import {
+  processImageForUpload,
+  validateImageForProcessing,
+  getImageMetadata,
+} from "@/lib/utils/server-image-processing";
 
 export async function POST(
   request: NextRequest,
@@ -27,21 +32,22 @@ export async function POST(
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json(
-        { error: "File must be an image" },
-        { status: 400 },
-      );
+    // Validate file
+    const validationError = validateImageForProcessing(file, 10); // 10MB max
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    // Validate file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "File too large (max 5MB)" },
-        { status: 400 },
-      );
-    }
+    // Convert file to buffer
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Get original metadata for logging
+    const originalMetadata = await getImageMetadata(buffer);
+    console.log(`Processing tool image: ${file.name}`, {
+      originalSize: `${(originalMetadata.size / (1024 * 1024)).toFixed(2)}MB`,
+      originalDimensions: `${originalMetadata.width}x${originalMetadata.height}`,
+      originalFormat: originalMetadata.format,
+    });
 
     // Get next order index
     const [maxOrder] = await db
@@ -51,13 +57,29 @@ export async function POST(
 
     const nextOrder = (maxOrder?.max || -1) + 1;
 
-    // Generate unique filename
+    // Process image (Airbnb-style: JPEG, 85% quality, max 2048px)
+    const processedBuffer = await processImageForUpload(buffer, {
+      maxWidth: 2048,
+      maxHeight: 2048,
+      quality: 85,
+      format: "jpeg",
+    });
+
+    // Get processed metadata
+    const processedMetadata = await getImageMetadata(processedBuffer);
+    console.log(`Processed tool image: ${file.name}`, {
+      processedSize: `${(processedMetadata.size / (1024 * 1024)).toFixed(2)}MB`,
+      processedDimensions: `${processedMetadata.width}x${processedMetadata.height}`,
+      compressionRatio: `${((1 - processedMetadata.size / originalMetadata.size) * 100).toFixed(1)}%`,
+    });
+
+    // Generate unique filename with .jpg extension
     const timestamp = Date.now();
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const filename = `tools/${toolId}/${timestamp}-${sanitizedName}`;
+    const filename = `tools/${toolId}/${timestamp}-${sanitizedName.replace(/\.[^/.]+$/, ".jpg")}`;
 
-    // Upload to Vercel Blob
-    const blob = await put(filename, file, {
+    // Upload processed image to Vercel Blob
+    const blob = await put(filename, processedBuffer, {
       access: "public",
     });
 
