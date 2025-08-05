@@ -4,7 +4,7 @@ import { unstable_noStore } from "next/cache";
 import { messagesDAL } from "@/lib/dal";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { ConversationList } from "./_components/conversation-list";
+import { MailboxContent } from "./_components/mailbox-content";
 
 export default async function MailboxLayout({
   children,
@@ -14,7 +14,11 @@ export default async function MailboxLayout({
   // Prevent caching to ensure fresh data
   unstable_noStore();
 
-  const conversations = await messagesDAL.getUserConversations();
+  // Fetch both regular and archived conversations
+  const [regularConversations, archivedConversations] = await Promise.all([
+    messagesDAL.getUserConversations(false),
+    messagesDAL.getUserConversations(true),
+  ]);
 
   return (
     <div className="container flex h-[calc(100vh-8rem)] flex-col py-6">
@@ -33,8 +37,11 @@ export default async function MailboxLayout({
       </PageHeader>
 
       <div className="flex flex-1 overflow-hidden rounded-lg border">
-        {/* Conversation List */}
-        <ConversationList conversations={conversations} />
+        {/* Mailbox Content with Conversation List */}
+        <MailboxContent
+          regularConversations={regularConversations}
+          archivedConversations={archivedConversations}
+        />
 
         {/* Message Thread Content */}
         {children}

@@ -6,7 +6,6 @@ import {
   Calendar,
   Clock,
   Coins,
-  PlusCircle,
   Star,
   TrendingUp,
   Wrench,
@@ -15,7 +14,7 @@ import {
 import { DASHBOARD_PAGE } from "@/lib/constants/dashboard";
 import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { Badge } from "@/components/ui/badge";
-import { Button, ButtonVariantsType } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -25,10 +24,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import ActivityFeed from "@/components/dashboard/activity-feed";
-import { Icon } from "@/components/ui/icon";
 import { PageHeader } from "@/components/page-header";
 
-const { header, alerts, quickActions, pendingRequests } = DASHBOARD_PAGE;
+const { header, alerts, pendingRequests } = DASHBOARD_PAGE;
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -39,33 +37,6 @@ export default async function DashboardPage() {
         description={header.description}
         className="mb-2"
       />
-
-      {/* Quick Actions section */}
-      <Card className="border-primary/50 bg-background top-0 z-10 border-dashed">
-        <CardContent className="px-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-              <PlusCircle className="text-primary h-4 w-4" />
-              <span>{quickActions.title}</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {quickActions.buttons.map((button) => {
-                return (
-                  <Button
-                    size="sm"
-                    key={button.id}
-                    variant={button.buttonVariant as ButtonVariantsType}
-                    className={`h-8 ${button.buttonVariant}`}
-                  >
-                    <Icon name={button.iconName} className="mr-1 h-3.5 w-3.5" />
-                    {button.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Alerts section */}
       <div className="grid gap-4 lg:grid-cols-2">

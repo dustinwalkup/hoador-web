@@ -3,18 +3,6 @@ interface HeaderConstants {
   readonly description: string;
 }
 
-interface QuickActionButton {
-  readonly id: number;
-  readonly label: string;
-  readonly iconName: string;
-  readonly buttonVariant: string;
-}
-
-interface QuickActionsConstants {
-  readonly title: string;
-  readonly buttons: readonly QuickActionButton[];
-}
-
 interface AlertItem {
   readonly id: number;
   readonly title: string;
@@ -51,7 +39,6 @@ interface PendingRequestsConstants {
 
 export interface DashboardConstants {
   readonly header: HeaderConstants;
-  readonly quickActions: QuickActionsConstants;
   readonly alerts: AlertsConstants;
   readonly pendingRequests: PendingRequestsConstants;
 }
@@ -60,29 +47,6 @@ export const DASHBOARD_PAGE = {
   header: {
     titleFor: (name: string) => `Welcome back, ${name}!`,
     description: "Here's what's happening with your tools and rentals.",
-  },
-  quickActions: {
-    title: "Quick Actions:",
-    buttons: [
-      {
-        id: 1,
-        label: "Add New Listing",
-        iconName: "PlusCircle",
-        buttonVariant: "default",
-      },
-      {
-        id: 2,
-        label: "Respond to Requests",
-        iconName: "MessageSquare",
-        buttonVariant: "outline",
-      },
-      {
-        id: 3,
-        label: "Create Reminder",
-        iconName: "Bell",
-        buttonVariant: "outline",
-      },
-    ],
   },
   alerts: {
     title: "Overdue Alerts",

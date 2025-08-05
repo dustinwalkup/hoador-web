@@ -114,7 +114,7 @@ export class MessagesDAL extends BaseDAL {
     return data;
   }
 
-  async getUserConversations(): Promise<ConversationSummary[]> {
+  async getUserConversations(archived?: boolean): Promise<ConversationSummary[]> {
     const { data, error } = await tryCatch(
       (async () => {
         const currentUserId = await getCurrentUserId();
@@ -123,9 +123,18 @@ export class MessagesDAL extends BaseDAL {
         }
 
         const userConversations = await this.db.query.conversations.findMany({
-          where: or(
-            eq(conversations.user1Id, currentUserId),
-            eq(conversations.user2Id, currentUserId),
+          where: and(
+            or(
+              eq(conversations.user1Id, currentUserId),
+              eq(conversations.user2Id, currentUserId),
+            ),
+            // Filter by archived status if specified
+            archived !== undefined
+              ? or(
+                  and(eq(conversations.user1Id, currentUserId), eq(conversations.user1Archived, archived)),
+                  and(eq(conversations.user2Id, currentUserId), eq(conversations.user2Archived, archived))
+                )
+              : undefined,
           ),
           with: {
             user1: {

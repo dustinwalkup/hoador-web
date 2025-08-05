@@ -7,11 +7,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ConversationSummary } from "@/lib/dal/messages.dal";
 import { MailboxTabs } from "./mailbox-tabs";
 
-interface ConversationListProps {
+interface ArchivedConversationListProps {
   conversations: ConversationSummary[];
 }
 
-export function ConversationList({ conversations }: ConversationListProps) {
+export function ArchivedConversationList({
+  conversations,
+}: ArchivedConversationListProps) {
   const formatTime = (date: Date | null) => {
     if (!date) return "";
 
@@ -44,14 +46,14 @@ export function ConversationList({ conversations }: ConversationListProps) {
       <div className="h-[calc(100%-6rem)] overflow-y-auto">
         {conversations.length === 0 ? (
           <div className="text-muted-foreground p-4 text-center text-sm">
-            No conversations yet
+            No archived conversations
           </div>
         ) : (
           conversations.map((conversation) => {
             return (
               <Link
                 key={conversation.id}
-                href={`/dashboard/mailbox/${conversation.id}`}
+                href={`/dashboard/mailbox/archived/${conversation.id}`}
                 className="hover:bg-muted/50 flex cursor-pointer gap-3 border-b p-3"
               >
                 <Avatar className="h-10 w-10">

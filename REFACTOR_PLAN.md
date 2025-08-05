@@ -277,7 +277,6 @@ src/
 - [ ] Extract auth DAL methods from `user.dal.ts` → `features/auth/dal/auth.dal.ts`
 - [ ] Move auth-related actions (`update-user-profile.ts`)
 - [ ] Move auth-related components (`nav-user.tsx`, `user-card.tsx`)
-- [ ] Create `features/auth/data/auth.constants.ts`
 - [ ] Create `features/auth/lib/utils.ts`
 - [ ] Update all imports
 - [ ] Test auth functionality
@@ -288,9 +287,8 @@ src/
 - [ ] Move tool DAL methods from `tool.dal.ts` → `features/tools/dal/tools.dal.ts`
 - [ ] Move tool actions (`create-tool.ts`, `update-tool.ts`, `delete-tool.ts`, `update-tool-status.ts`, `analyze-tool-image.ts`)
 - [ ] Move tool-related components from `dashboard/` and `tools/` pages
-- [ ] Move tool form schemas
-- [ ] Create `features/tools/data/tools.constants.ts`
-- [ ] Create `features/tools/lib/utils.ts`
+- [ ] Move `lib/hooks/use-tool-form.ts` -> `features/tools/hooks/use-tool-form.ts`
+- [ ] Move tool form schemas `lib/form-schemas/tool.schema.ts` -> `features/tools/form-schema/tool.schea.ts`
 - [ ] Update all imports
 - [ ] Test tool functionality
 
