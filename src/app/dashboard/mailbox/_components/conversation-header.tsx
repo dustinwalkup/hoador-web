@@ -57,8 +57,8 @@ export function ConversationHeader({ user }: ConversationHeaderProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem>Mark as unread</DropdownMenuItem>
-            <DropdownMenuItem>Block user</DropdownMenuItem>
-            <DropdownMenuItem>Report conversation</DropdownMenuItem>
+            <DropdownMenuItem>Archive</DropdownMenuItem>
+            <DropdownMenuItem>Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
