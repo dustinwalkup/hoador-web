@@ -21,6 +21,11 @@ async function main() {
   const seedConversations: NewConversation[] = [];
   const seedMessages: NewMessage[] = [];
   const usedUserPairs = new Set<string>();
+  let archivedConversationCount = 0;
+  const targetArchivedConversations = Math.min(
+    3,
+    Math.floor(allUsers.length / 2),
+  ); // Ensure at least 3 archived conversations
 
   // Generate conversations for each user
   for (const user of allUsers) {
@@ -46,6 +51,19 @@ async function main() {
 
       usedUserPairs.add(pairKey);
 
+      // Ensure we have some archived conversations
+      const shouldArchive =
+        archivedConversationCount < targetArchivedConversations
+          ? faker.datatype.boolean({ probability: 0.8 }) // Higher probability if we need more archived
+          : faker.datatype.boolean({ probability: 0.3 }); // Normal probability otherwise
+
+      const user1Archived = shouldArchive;
+      const user2Archived = shouldArchive;
+
+      if (user1Archived || user2Archived) {
+        archivedConversationCount++;
+      }
+
       const conversation: NewConversation = {
         id: faker.string.uuid(),
         user1Id: user.id,
@@ -53,8 +71,8 @@ async function main() {
         lastMessageAt: faker.date.recent({ days: 30 }),
         user1LastReadAt: faker.date.recent({ days: 7 }),
         user2LastReadAt: faker.date.recent({ days: 7 }),
-        user1Archived: faker.datatype.boolean({ probability: 0.1 }), // 10% chance of being archived
-        user2Archived: faker.datatype.boolean({ probability: 0.1 }),
+        user1Archived,
+        user2Archived,
         createdAt: faker.date.recent({ days: 60 }),
       };
 
@@ -121,7 +139,7 @@ async function main() {
   await db.insert(messages).values(seedMessages);
 
   console.log(
-    `✅ Messages seed complete - Created ${seedConversations.length} conversations with ${seedMessages.length} messages`,
+    `✅ Messages seed complete - Created ${seedConversations.length} conversations with ${seedMessages.length} messages (${archivedConversationCount} archived)`,
   );
 }
 
