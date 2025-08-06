@@ -32,22 +32,23 @@ export function PaginationControls({
   if (pagination.totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="text-muted-foreground text-sm">
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+      <div className="text-muted-foreground text-center text-sm sm:text-left">
         Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
         {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
         {pagination.total} tools
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         <Button
           variant="outline"
           size="sm"
           onClick={() => handlePageChange(pagination.page - 1)}
           disabled={!pagination.hasPrev}
+          className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:px-3"
         >
           <ChevronLeft className="h-4 w-4" />
-          Previous
+          <span className="hidden sm:inline">Previous</span>
         </Button>
 
         {/* Page numbers */}
@@ -74,7 +75,7 @@ export function PaginationControls({
                   variant={pagination.page === pageNum ? "default" : "outline"}
                   size="sm"
                   onClick={() => handlePageChange(pageNum)}
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 text-sm sm:h-9 sm:w-9"
                 >
                   {pageNum}
                 </Button>
@@ -88,8 +89,9 @@ export function PaginationControls({
           size="sm"
           onClick={() => handlePageChange(pagination.page + 1)}
           disabled={!pagination.hasNext}
+          className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:px-3"
         >
-          Next
+          <span className="hidden sm:inline">Next</span>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
