@@ -41,7 +41,7 @@ export function ConversationList({ conversations }: ConversationListProps) {
 
       <MailboxTabs />
 
-      <div className="h-[calc(100%-6rem)] overflow-y-auto">
+      <div className="h-[calc(100%-7rem)] overflow-y-auto">
         {conversations.length === 0 ? (
           <div className="text-muted-foreground p-4 text-center text-sm">
             No conversations yet
@@ -54,17 +54,24 @@ export function ConversationList({ conversations }: ConversationListProps) {
                 href={`/dashboard/mailbox/${conversation.id}`}
                 className="hover:bg-muted/50 flex cursor-pointer gap-3 border-b p-3"
               >
-                <Avatar className="h-10 w-10">
-                  {conversation.otherUser.avatar ? (
-                    <AvatarImage
-                      src={conversation.otherUser.avatar}
-                      alt={conversation.otherUser.name}
-                    />
-                  ) : null}
-                  <AvatarFallback>
-                    {conversation.otherUser.initials}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative flex items-center">
+                  <div className="w-3 flex-shrink-0">
+                    {conversation.unread && (
+                      <Badge className="h-2 w-2 rounded-full p-0" />
+                    )}
+                  </div>
+                  <Avatar className="h-10 w-10">
+                    {conversation.otherUser.avatar ? (
+                      <AvatarImage
+                        src={conversation.otherUser.avatar}
+                        alt={conversation.otherUser.name}
+                      />
+                    ) : null}
+                    <AvatarFallback>
+                      {conversation.otherUser.initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
                 <div className="flex-1 overflow-hidden">
                   <div className="flex items-center justify-between">
                     <span
@@ -86,9 +93,6 @@ export function ConversationList({ conversations }: ConversationListProps) {
                     {conversation.lastMessage?.content || "No messages yet"}
                   </p>
                 </div>
-                {conversation.unread && (
-                  <Badge className="ml-2 h-2 w-2 rounded-full p-0" />
-                )}
               </Link>
             );
           })

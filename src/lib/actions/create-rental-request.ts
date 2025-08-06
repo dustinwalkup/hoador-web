@@ -47,6 +47,7 @@ export async function createRentalRequest(
   // Revalidate relevant paths
   revalidatePath("/dashboard/garage");
   revalidatePath("/dashboard/mailbox");
+  revalidatePath("/dashboard/mailbox/archived");
 
   return {
     success: true,

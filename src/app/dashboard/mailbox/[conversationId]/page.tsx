@@ -4,6 +4,7 @@ import { unstable_noStore } from "next/cache";
 import { messagesDAL } from "@/lib/dal";
 import { MessageInput } from "../_components/message-input";
 import { ConversationHeader } from "../_components/conversation-header";
+import { AutoMarkAsRead } from "../_components/auto-mark-as-read";
 
 interface ConversationPageProps {
   params: Promise<{
@@ -14,17 +15,13 @@ interface ConversationPageProps {
 export default async function ConversationPage({
   params,
 }: ConversationPageProps) {
-  // Prevent caching to ensure fresh data
   unstable_noStore();
 
   const { conversationId } = await params;
 
   try {
-    // Fetch conversation details and mark as read in parallel
-    const [conversation] = await Promise.all([
-      messagesDAL.getConversationDetails(conversationId),
-      messagesDAL.markConversationAsRead(conversationId),
-    ]);
+    const conversation =
+      await messagesDAL.getConversationDetails(conversationId);
 
     const formatTime = (date: Date) => {
       const now = new Date();
@@ -44,6 +41,12 @@ export default async function ConversationPage({
 
     return (
       <div className="flex flex-1 flex-col">
+        {/* Simple auto-mark component */}
+        <AutoMarkAsRead
+          conversationId={conversationId}
+          isUnread={conversation.unread}
+        />
+
         <ConversationHeader user={conversation.otherUser} />
 
         <div className="flex-1 overflow-y-auto p-4">
@@ -90,8 +93,8 @@ export default async function ConversationPage({
         <MessageInput />
       </div>
     );
-  } catch {
-    // If conversation is not found or user doesn't have access, show not found
+  } catch (error) {
+    console.error("Error loading conversation:", error);
     notFound();
   }
 }

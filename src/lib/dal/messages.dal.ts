@@ -43,6 +43,7 @@ export interface ConversationDetails {
     sender: "me" | "them";
     senderName: string;
   }>;
+  unread: boolean;
 }
 
 export class MessagesDAL extends BaseDAL {
@@ -230,7 +231,9 @@ export class MessagesDAL extends BaseDAL {
   ): Promise<ConversationDetails> {
     const { data, error } = await tryCatch(
       (async () => {
+        console.log("Getting conversation details for:", conversationId);
         const currentUserId = await getCurrentUserId();
+        console.log("Current user ID:", currentUserId);
         if (!currentUserId) {
           throw new UnauthorizedError("User not authenticated");
         }
@@ -273,7 +276,9 @@ export class MessagesDAL extends BaseDAL {
           },
         });
 
+        console.log("Found conversation:", conversation);
         if (!conversation) {
+          console.log("Conversation not found for ID:", conversationId);
           throw new Error("Conversation not found");
         }
 
@@ -281,6 +286,17 @@ export class MessagesDAL extends BaseDAL {
           conversation.user1.id === currentUserId
             ? conversation.user2
             : conversation.user1;
+
+        const lastMessage =
+          conversation.messages[conversation.messages.length - 1];
+        const isUnread =
+          conversation.user1.id === currentUserId
+            ? conversation.user1LastReadAt === null ||
+              (lastMessage &&
+                conversation.user1LastReadAt < lastMessage.createdAt)
+            : conversation.user2LastReadAt === null ||
+              (lastMessage &&
+                conversation.user2LastReadAt < lastMessage.createdAt);
 
         return {
           id: conversation.id,
@@ -299,11 +315,13 @@ export class MessagesDAL extends BaseDAL {
               | "them",
             senderName: `${message.sender.firstName} ${message.sender.lastName}`,
           })),
+          unread: isUnread,
         };
       })(),
     );
 
     if (error) {
+      console.error("Error in getConversationDetails:", error);
       this.handleError(error, "getConversationDetails");
     }
 

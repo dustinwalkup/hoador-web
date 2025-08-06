@@ -27,7 +27,7 @@ type StatusConfig = {
 const validRoutes: Record<string, Record<string, StatusConfig>> = {
   renting: {
     requests: {
-      displayName: "My Requests",
+      displayName: "Requests",
       emptyMessage: "No pending requests.",
       emptyAction: { label: "Browse Tools", href: "/explore" },
     },
