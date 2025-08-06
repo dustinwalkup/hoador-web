@@ -62,7 +62,110 @@ export function BorrowedToolCard({
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="flex items-start gap-4">
+        {/* Mobile Layout (Vertical) */}
+        <div className="md:hidden">
+          {/* Image Section */}
+          <div className="relative mb-4 w-full">
+            <Image
+              src={rental.toolImageUrl || "/images/placeholder.jpg"}
+              alt={rental.toolName}
+              width={400}
+              height={300}
+              className="h-48 w-full rounded-lg object-cover"
+            />
+          </div>
+
+          {/* Content Section */}
+          <div>
+            {/* Tool Information */}
+            <div className="mb-4">
+              <h3 className="mb-1 text-xl font-bold text-gray-900">
+                {rental.toolName}
+              </h3>
+              <p className="mb-3 text-sm text-gray-600">
+                by {rental.ownerName}
+              </p>
+
+              {/* Status and Price Row */}
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(rental.status)}
+                  <Badge className={getStatusColor(rental.status)}>
+                    {rental.status}
+                  </Badge>
+                </div>
+                <div className="text-xl font-bold text-green-600">
+                  ${parseFloat(rental.totalAmount).toFixed(2)}
+                </div>
+              </div>
+
+              {/* Date Range and Daily Rate */}
+              <div className="mb-4 flex items-center gap-4 text-sm text-gray-700">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    {new Date(rental.startDate).toLocaleDateString()} to{" "}
+                    {new Date(rental.endDate).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>${parseFloat(rental.dailyRate).toFixed(2)}/day</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons - Vertical Stack */}
+            <div className="space-y-3">
+              <Link
+                href={`/dashboard/rental/${rental.id}?view=renting`}
+                className="block"
+              >
+                <Button variant="outline" className="w-full justify-center">
+                  View Details
+                </Button>
+              </Link>
+
+              <Link href={`/tools/${rental.toolId}`} className="block">
+                <Button variant="outline" className="w-full justify-center">
+                  View Tool
+                </Button>
+              </Link>
+
+              <Button variant="outline" className="w-full justify-center">
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Message Owner
+              </Button>
+
+              {currentTab === "active" && (
+                <>
+                  <Button className="w-full justify-center">
+                    Report Issue
+                  </Button>
+                  <Button variant="outline" className="w-full justify-center">
+                    Request Extension
+                  </Button>
+                </>
+              )}
+
+              {currentTab === "completed" && (
+                <>
+                  <Button className="w-full justify-center">
+                    <Star className="mr-2 h-4 w-4" />
+                    Leave Review
+                  </Button>
+                  <Link href={`/tools/${rental.toolId}/rent`} className="block">
+                    <Button variant="outline" className="w-full justify-center">
+                      Rent Again
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Layout (Horizontal) */}
+        <div className="hidden items-start gap-4 md:flex">
           <Image
             src={rental.toolImageUrl || "/images/placeholder.jpg"}
             alt={rental.toolName}

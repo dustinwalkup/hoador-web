@@ -93,10 +93,153 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
       setIsLoading(false);
     }
   };
+
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="flex items-start gap-4">
+        {/* Mobile Layout (Vertical) */}
+        <div className="md:hidden">
+          {/* Image Section */}
+          <div className="relative mb-4 w-full">
+            <Image
+              src={request.toolImageUrl || "/images/placeholder.jpg"}
+              alt={request.toolName}
+              width={400}
+              height={300}
+              className="h-48 w-full rounded-lg object-cover"
+            />
+          </div>
+
+          {/* Content Section */}
+          <div>
+            {/* Tool Information */}
+            <div className="mb-4">
+              <h3 className="mb-1 text-xl font-bold text-gray-900">
+                {request.toolName}
+              </h3>
+              <p className="mb-3 text-sm text-gray-600">{request.ownerName}</p>
+
+              {/* Status and Price Row */}
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(request.status)}
+                  <Badge className={getStatusColor(request.status)}>
+                    {request.status}
+                  </Badge>
+                </div>
+                <div className="text-xl font-bold text-green-600">
+                  ${parseFloat(request.totalAmount).toFixed(2)}
+                </div>
+              </div>
+
+              {/* Date Range */}
+              <div className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+                <Calendar className="h-4 w-4" />
+                <span>
+                  {new Date(request.startDate).toLocaleDateString()} to{" "}
+                  {new Date(request.endDate).toLocaleDateString()} (
+                  {request.totalDays} days)
+                </span>
+              </div>
+
+              {/* Delivery Info */}
+              {request.deliveryRequested && (
+                <div className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+                  <MapPin className="h-4 w-4" />
+                  <span>Delivery requested</span>
+                </div>
+              )}
+            </div>
+
+            {/* Rejection Reason */}
+            {request.status === "rejected" && request.rejectionReason && (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3">
+                <p className="text-sm text-red-800">
+                  <strong>Rejection reason:</strong> {request.rejectionReason}
+                </p>
+              </div>
+            )}
+
+            {/* Message Section */}
+            {request.message && (
+              <div className="mb-6 rounded-md border border-blue-200 bg-blue-50 p-4">
+                <p className="mb-2 text-sm font-semibold text-blue-800">
+                  Your message:
+                </p>
+                <p className="text-sm text-blue-700">{request.message}</p>
+              </div>
+            )}
+
+            {/* Action Buttons - Vertical Stack */}
+            <div className="space-y-3">
+              <Link
+                href={`/dashboard/rental/${request.id}?view=renting`}
+                className="block"
+              >
+                <Button variant="outline" className="w-full justify-center">
+                  View Details
+                </Button>
+              </Link>
+
+              <Link href={`/tools/${request.toolId}`} className="block">
+                <Button variant="outline" className="w-full justify-center">
+                  View Tool
+                </Button>
+              </Link>
+
+              <Button variant="outline" className="w-full justify-center">
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Message Owner
+              </Button>
+
+              {request.status === "pending" && (
+                <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      className="w-full justify-center"
+                    >
+                      Cancel Request
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancel Rental Request</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to cancel your request for &ldquo;
+                        {request.toolName}&rdquo;? This action cannot be undone
+                        and you&apos;ll need to submit a new request if you
+                        change your mind.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isLoading}>
+                        Keep Request
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleCancelRequest}
+                        disabled={isLoading}
+                        className="bg-destructive hover:bg-destructive/90 text-white"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                            Cancelling...
+                          </>
+                        ) : (
+                          "Yes, Cancel Request"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Layout (Horizontal) */}
+        <div className="hidden items-start gap-4 md:flex">
           <Image
             src={request.toolImageUrl || "/images/placeholder.jpg"}
             alt={request.toolName}
