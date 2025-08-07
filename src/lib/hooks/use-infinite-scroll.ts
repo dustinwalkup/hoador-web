@@ -1,21 +1,42 @@
-import { useInView } from "react-intersection-observer";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-export function useInfiniteScroll(
-  fetchNextPage: () => void,
-  hasNextPage: boolean,
-  isFetchingNextPage: boolean,
-) {
-  const { ref, inView } = useInView({
-    threshold: 0,
-    rootMargin: "100px",
-  });
+interface UseInfiniteScrollOptions {
+  onLoadMore: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  threshold?: number;
+}
+
+export function useInfiniteScroll({
+  onLoadMore,
+  hasNextPage = false,
+  isFetchingNextPage = false,
+  threshold = 100,
+}: UseInfiniteScrollOptions) {
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (inView && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+    const element = loadMoreRef.current;
+    if (!element) return;
 
-  return ref;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          onLoadMore();
+        }
+      },
+      {
+        rootMargin: `${threshold}px`,
+      },
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [onLoadMore, hasNextPage, isFetchingNextPage, threshold]);
+
+  return loadMoreRef;
 }

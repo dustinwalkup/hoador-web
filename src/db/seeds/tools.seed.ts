@@ -677,7 +677,7 @@ async function main() {
       model: faker.string
         .alphanumeric({ length: { min: 6, max: 10 } })
         .toUpperCase(),
-      condition: faker.helpers.arrayElement(["new", "good", "fair"]),
+      condition: faker.helpers.arrayElement(["excellent", "good", "fair", "poor"]),
       dailyRate: faker.number
         .float({ min: 15, max: 150, multipleOf: 5 })
         .toString(),

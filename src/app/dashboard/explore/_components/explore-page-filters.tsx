@@ -1,12 +1,10 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Filter, ChevronDown, Search, X } from "lucide-react";
@@ -25,18 +23,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import CategoryButton from "@/components/dashboard/category-button";
-import type { ToolSearchFilters } from "@/lib/dal/types";
+import { useToolFilters } from "@/lib/hooks/use-url-state";
+import { useToolCategories } from "@/lib/hooks/use-tools";
+import { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
 import { emojiMap } from "@/lib/constants/garage";
 
 interface ExplorePageFiltersProps {
-  categories: Array<{
-    id: string;
-    name: string;
-    icon: string | null;
-  }>;
-  initialFilters: ToolSearchFilters;
-  totalResults: number;
-  basePath?: string; // Default to /dashboard/explore for backward compatibility
+  basePath?: string;
 }
 
 // Map category names to emoji icons
@@ -73,34 +66,37 @@ const getCategoryIcon = (name: string, iconFromDb: string | null) => {
 };
 
 export function ExplorePageFilters({
-  categories,
-  initialFilters,
-  totalResults,
-  basePath = "/dashboard/explore", // Default to existing behavior
+  basePath: _basePath = "/dashboard/explore", // eslint-disable-line @typescript-eslint/no-unused-vars
 }: ExplorePageFiltersProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  // URL state management
+  const { state: filters, updateState: updateFilters } = useToolFilters();
 
-  const [searchQuery, setSearchQuery] = useState(initialFilters.query || "");
-  const [minPrice, setMinPrice] = useState(
-    initialFilters.minPrice?.toString() || "",
-  );
-  const [maxPrice, setMaxPrice] = useState(
-    initialFilters.maxPrice?.toString() || "",
-  );
+  // React Query for categories
+  const { data: categories = [] } = useToolCategories();
+
+  // Local state for filter form
+  const [minPrice, setMinPrice] = useState(filters.minPrice?.toString() || "");
+  const [maxPrice, setMaxPrice] = useState(filters.maxPrice?.toString() || "");
   const [selectedConditions, setSelectedConditions] = useState<string[]>(
-    initialFilters.condition || [],
+    filters.condition || [],
   );
   const [deliveryAvailable, setDeliveryAvailable] = useState(
-    initialFilters.deliveryAvailable || false,
+    filters.deliveryAvailable || false,
   );
   const [sortOpen, setSortOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // Debounced search
+  const { localQuery, handleSearchChange } = useDebouncedSearch(
+    (query: string) => updateFilters({ query }),
+    300,
+    filters.query || "",
+  );
+
   // Get current sort option label
   const getCurrentSortLabel = () => {
-    const sortBy = initialFilters.sortBy || "newest";
-    const sortOrder = initialFilters.sortOrder || "desc";
+    const sortBy = filters.sortBy || "newest";
+    const sortOrder = filters.sortOrder || "desc";
 
     if (sortBy === "newest") return "Recently added";
     if (sortBy === "price" && sortOrder === "asc") return "Price: Low to high";
@@ -119,45 +115,42 @@ export function ExplorePageFilters({
     return count;
   };
 
-  const updateURL = (updates: Record<string, string | undefined>) => {
-    const params = new URLSearchParams(searchParams);
-
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === undefined || value === "") {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    });
-
-    // Reset to page 1 when filters change
-    if (Object.keys(updates).some((key) => key !== "page")) {
-      params.set("page", "1");
-    }
-
-    router.push(`${basePath}?${params.toString()}`);
-  };
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    updateURL({ q: searchQuery });
+    updateFilters({ query: localQuery });
   };
 
   const handleCategorySelect = (categoryId: string) => {
-    const currentCategory = searchParams.get("category");
-    updateURL({
-      category: currentCategory === categoryId ? undefined : categoryId,
+    // If categoryId is empty string, clear the category filter
+    // Otherwise, toggle the category (set to undefined if already selected, otherwise set to new category)
+    const newCategoryId =
+      categoryId === ""
+        ? undefined
+        : filters.categoryId === categoryId
+          ? undefined
+          : categoryId;
+
+    console.log(
+      "handleCategorySelect called with:",
+      categoryId,
+      "newCategoryId:",
+      newCategoryId,
+    );
+    updateFilters({
+      categoryId: newCategoryId,
     });
   };
 
-  const handleSortSelect = (sortBy: string, sortOrder?: string) => {
-    updateURL({ sortBy, sortOrder });
+  const handleSortSelect = (
+    sortBy: "price" | "rating" | "distance" | "newest",
+    sortOrder?: "asc" | "desc",
+  ) => {
+    updateFilters({ sortBy, sortOrder });
     setSortOpen(false);
   };
 
   const handleClearSearch = () => {
-    setSearchQuery("");
-    updateURL({ q: undefined });
+    updateFilters({ query: undefined });
   };
 
   const handleConditionToggle = (condition: string) => {
@@ -166,20 +159,17 @@ export function ExplorePageFilters({
       : [...selectedConditions, condition];
 
     setSelectedConditions(newConditions);
-    updateURL({
-      condition: newConditions.length > 0 ? newConditions.join(",") : undefined,
+    updateFilters({
+      condition: newConditions.length > 0 ? newConditions : undefined,
     });
   };
 
   const handleFiltersApply = () => {
-    updateURL({
-      minPrice: minPrice || undefined,
-      maxPrice: maxPrice || undefined,
-      condition:
-        selectedConditions.length > 0
-          ? selectedConditions.join(",")
-          : undefined,
-      delivery: deliveryAvailable ? "true" : undefined,
+    updateFilters({
+      minPrice: minPrice ? parseFloat(minPrice) : undefined,
+      maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+      condition: selectedConditions.length > 0 ? selectedConditions : undefined,
+      deliveryAvailable: deliveryAvailable || undefined,
     });
     setFiltersOpen(false);
   };
@@ -189,11 +179,11 @@ export function ExplorePageFilters({
     setMaxPrice("");
     setSelectedConditions([]);
     setDeliveryAvailable(false);
-    updateURL({
+    updateFilters({
       minPrice: undefined,
       maxPrice: undefined,
       condition: undefined,
-      delivery: undefined,
+      deliveryAvailable: undefined,
     });
   };
 
@@ -204,18 +194,20 @@ export function ExplorePageFilters({
         <CategoryButton
           icon="🔨"
           label="All Tools"
-          active={!initialFilters.categoryId}
+          active={!filters.categoryId}
           onClick={() => handleCategorySelect("")}
         />
-        {categories.map((category) => (
-          <CategoryButton
-            key={category.id}
-            icon={getCategoryIcon(category.name, category.icon)}
-            label={category.name}
-            active={initialFilters.categoryId === category.id}
-            onClick={() => handleCategorySelect(category.id)}
-          />
-        ))}
+        {categories.map(
+          (category: { id: string; name: string; icon: string | null }) => (
+            <CategoryButton
+              key={category.id}
+              icon={getCategoryIcon(category.name, category.icon)}
+              label={category.name}
+              active={filters.categoryId === category.id}
+              onClick={() => handleCategorySelect(category.id)}
+            />
+          ),
+        )}
       </div>
 
       {/* Search and filters row */}
@@ -226,12 +218,12 @@ export function ExplorePageFilters({
         >
           <Search className="text-muted-foreground absolute left-3 h-4 w-4" />
           <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={localQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search tools..."
             className="pr-8 pl-9"
           />
-          {searchQuery && (
+          {localQuery && (
             <button
               type="button"
               onClick={handleClearSearch}
@@ -397,11 +389,6 @@ export function ExplorePageFilters({
               </div>
             </PopoverContent>
           </Popover>
-
-          {/* Results count */}
-          <div className="text-muted-foreground text-sm">
-            {totalResults} tools found
-          </div>
         </div>
       </div>
     </div>

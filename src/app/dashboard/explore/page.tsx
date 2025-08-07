@@ -1,23 +1,12 @@
 import { Suspense } from "react";
+import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { PageHeader } from "@/components/page-header";
 import { ExplorePageSkeleton } from "./_components/explore-page-skeleton";
-import { ExplorePageData } from "./_components/explore-page-data";
+import { ExplorePageClient } from "./_components/explore-page-client";
 
-interface ExplorePageProps {
-  searchParams: Promise<{
-    q?: string;
-    category?: string;
-    minPrice?: string;
-    maxPrice?: string;
-    condition?: string;
-    delivery?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    page?: string;
-  }>;
-}
+export default async function ExplorePage() {
+  const user = await getCurrentUser();
 
-export default function ExplorePage({ searchParams }: ExplorePageProps) {
   return (
     <div className="container py-6">
       <PageHeader
@@ -26,7 +15,7 @@ export default function ExplorePage({ searchParams }: ExplorePageProps) {
       />
 
       <Suspense fallback={<ExplorePageSkeleton />}>
-        <ExplorePageData searchParams={searchParams} />
+        <ExplorePageClient userId={user?.id} />
       </Suspense>
     </div>
   );

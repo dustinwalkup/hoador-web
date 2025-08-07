@@ -5,14 +5,14 @@ export function ExplorePageSkeleton() {
   return (
     <div>
       {/* Category buttons skeleton */}
-      <div className="mb-10 flex items-center gap-2">
-        <Skeleton className="h-16 w-25" />
-        <Skeleton className="h-16 w-25" />
-        <Skeleton className="h-16 w-25" />
-        <Skeleton className="h-16 w-25" />
-        <Skeleton className="h-16 w-[129px]" />
-        <Skeleton className="h-16 w-25" />
-        <Skeleton className="h-16 w-25" />
+      <div className="mb-8 flex flex-nowrap gap-2 overflow-x-auto pb-2">
+        <Skeleton className="h-16 w-100" />
+        <Skeleton className="h-16 w-100" />
+        <Skeleton className="h-16 w-100" />
+        <Skeleton className="h-16 w-100" />
+        <Skeleton className="h-16 w-100" />
+        <Skeleton className="h-16 w-100" />
+        <Skeleton className="h-16 w-100" />
         <Skeleton className="h-16 w-25" />
         <Skeleton className="h-16 w-[121px]" />
       </div>
