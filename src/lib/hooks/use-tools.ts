@@ -70,10 +70,10 @@ export function useSearchTools(filters: ToolSearchFilters, userId?: string) {
       return data;
     },
     getNextPageParam: (lastPage, allPages) => {
-      return lastPage.pagination.hasNextPage ? allPages.length + 1 : undefined;
+      return lastPage.pagination.hasNext ? allPages.length + 1 : undefined;
     },
     initialPageParam: 1,
-    staleTime: 0, // Always consider data stale to force refetch
+    staleTime: 2 * 60 * 1000, // 2 minutes
     enabled: true, // Always enable the query
     refetchOnWindowFocus: false,
     refetchOnMount: true,

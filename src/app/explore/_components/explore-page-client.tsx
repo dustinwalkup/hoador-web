@@ -6,8 +6,8 @@ import { useSearchTools } from "@/lib/hooks/use-tools";
 import { useInfiniteScroll } from "@/lib/hooks/use-infinite-scroll";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { ExplorePageFilters } from "./explore-page-filters";
-import { ExplorePageContent } from "./explore-page-content";
+import { ExplorePageFilters } from "../../dashboard/explore/_components/explore-page-filters";
+import { ExplorePageContent } from "../../dashboard/explore/_components/explore-page-content";
 import { ToolCardSkeleton } from "@/components/dashboard/tool-card-skeleton";
 
 interface ExplorePageClientProps {
@@ -33,7 +33,6 @@ export function ExplorePageClient({ userId }: ExplorePageClientProps) {
     onLoadMore: fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    threshold: 500, // Increase threshold for better detection
   });
 
   // Flatten data from all pages
@@ -70,18 +69,13 @@ export function ExplorePageClient({ userId }: ExplorePageClientProps) {
   return (
     <div className="space-y-6">
       <ExplorePageFilters />
-      <ExplorePageContent tools={allTools} />
+      <ExplorePageContent tools={allTools} basePath="/explore" />
 
       {/* Infinite scroll trigger */}
       {hasNextPage && (
-        <div
-          ref={loadMoreRef}
-          className="border-primary bg-primary/10 flex h-32 justify-center border-2 border-dashed py-8"
-        >
-          {isFetchingNextPage ? (
-            <Loader2 className="text-primary h-6 w-6 animate-spin" />
-          ) : (
-            <div className="text-primary text-sm">Scroll to load more...</div>
+        <div ref={loadMoreRef} className="flex justify-center py-4">
+          {isFetchingNextPage && (
+            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           )}
         </div>
       )}
