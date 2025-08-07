@@ -1,12 +1,21 @@
+import { Suspense } from "react";
+import { messagesDAL } from "@/lib/dal";
+import { MailboxClient } from "./_components/mailbox-client";
+import { MailboxSkeleton } from "./_components/mailbox-skeleton";
+
 export default async function MailboxPage() {
+  // Fetch both inbox and archived conversations server-side
+  const [inboxConversations, archivedConversations] = await Promise.all([
+    messagesDAL.getUserConversations(false), // false = not archived
+    messagesDAL.getUserConversations(true), // true = archived
+  ]);
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center">
-      <div className="text-center">
-        <h3 className="mb-2 text-lg font-medium">Select a conversation</h3>
-        <p className="text-muted-foreground text-sm">
-          Choose a conversation from the list to start messaging
-        </p>
-      </div>
-    </div>
+    <Suspense fallback={<MailboxSkeleton />}>
+      <MailboxClient
+        initialInboxConversations={inboxConversations}
+        initialArchivedConversations={archivedConversations}
+      />
+    </Suspense>
   );
 }
