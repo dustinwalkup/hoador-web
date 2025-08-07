@@ -54,11 +54,11 @@ export function MailboxClient() {
   const prefetchConversation = usePrefetchConversation();
 
   // Infinite scroll
-  const loadMoreRef = useInfiniteScroll(
-    fetchNextPage,
+  const loadMoreRef = useInfiniteScroll({
+    onLoadMore: fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  );
+  });
 
   // Flatten conversations from all pages
   const allConversations = useMemo(() => {
