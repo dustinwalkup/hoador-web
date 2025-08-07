@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     const searchResults = await toolDAL.searchTools(
       filters,
       pagination,
-      userId,
+      userId || undefined,
     );
 
     console.log("Search results:", searchResults);
