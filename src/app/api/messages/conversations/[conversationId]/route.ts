@@ -3,12 +3,12 @@ import { messagesDAL } from "@/lib/dal";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { conversationId: string } },
+  { params }: { params: Promise<{ conversationId: string }> },
 ) {
   try {
-    const conversation = await messagesDAL.getConversationDetails(
-      params.conversationId,
-    );
+    const { conversationId } = await params;
+    const conversation =
+      await messagesDAL.getConversationDetails(conversationId);
     return Response.json(conversation);
   } catch (error) {
     console.error("Error fetching conversation details:", error);

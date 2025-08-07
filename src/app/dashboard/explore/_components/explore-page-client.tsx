@@ -74,10 +74,7 @@ export function ExplorePageClient({ userId }: ExplorePageClientProps) {
 
       {/* Infinite scroll trigger */}
       {hasNextPage && (
-        <div
-          ref={loadMoreRef}
-          className="border-primary bg-primary/10 flex h-32 justify-center border-2 border-dashed py-8"
-        >
+        <div ref={loadMoreRef} className="flex h-32 justify-center py-8">
           {isFetchingNextPage ? (
             <Loader2 className="text-primary h-6 w-6 animate-spin" />
           ) : (
