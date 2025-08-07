@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Search, LogIn, UserPlus, Home } from "lucide-react";
@@ -14,10 +16,14 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
+import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
 
 export function PublicSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
+  // Auto-close mobile sidebar on navigation
+  useMobileSidebarClose();
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>

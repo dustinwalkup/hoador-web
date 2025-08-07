@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 
@@ -13,8 +15,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { NavMain } from "./nav-main";
 import { UserProfile } from "@/lib/dal/types";
+import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
+import { NavMain } from "./nav-main";
 
 interface AuthenticatedSidebarProps
   extends React.ComponentProps<typeof Sidebar> {
@@ -25,6 +28,9 @@ export function AuthenticatedSidebar({
   user,
   ...props
 }: AuthenticatedSidebarProps) {
+  // Auto-close mobile sidebar on navigation
+  useMobileSidebarClose();
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
