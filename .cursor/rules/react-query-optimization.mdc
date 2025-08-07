@@ -1,0 +1,960 @@
+---
+description: React Query performance optimization strategies for native app-like navigation
+globs: ["src/**/*.tsx", "src/**/*.ts"]
+alwaysApply: true
+---
+
+# React Query Performance Optimization Rules
+
+## Overview
+
+This document outlines the React Query optimization strategy for making the entire app navigate as fast as the mailbox component. The goal is to achieve native app-like performance with instant navigation, smart caching, and smooth user interactions.
+
+## Core Principles
+
+### 1. Client-Side Data Management
+
+- Use React Query for all client-side data fetching
+- Implement smart caching with appropriate stale times
+- Prefer optimistic updates for immediate user feedback
+- Use infinite scroll for discovery pages, pagination for management pages
+
+### 2. URL State Management
+
+- Store filter state in URL search parameters
+- Enable shareable URLs with specific filter combinations
+- Support browser back/forward navigation
+- Maintain bookmarkable pages with filter state
+- Progressive enhancement - works without JavaScript
+
+### 3. Performance Targets
+
+- **First Load**: Same speed (initial data fetch)
+- **Subsequent Navigation**: 90% faster - instant cached responses
+- **Filter Changes**: 95% faster - immediate cached results
+- **Tab Switching**: 90% faster - instant cached data
+- **Network Efficiency**: 80% fewer API calls due to smart caching
+- **URL State**: Instant URL updates with cached data loading
+
+## React Query Configuration
+
+### Global Query Client Setup
+
+```tsx
+// src/app/providers.tsx
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+            refetchOnWindowFocus: false,
+          },
+        },
+      }),
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
+}
+```
+
+### Stale Time Strategy
+
+- **User's own data**: 1 minute (garage, rentals, profile)
+- **Discovery data**: 2 minutes (explore, search results)
+- **Static data**: 10 minutes (categories, constants)
+- **Real-time data**: 30 seconds (favorites, messages)
+
+## Infinite Scroll vs Pagination Strategy
+
+### Use Infinite Scroll For:
+
+- **Explore page** - Tool discovery and browsing
+- **Favorites page** - Browsing saved items
+- **Mailbox** - Conversation browsing
+- **Search results** - Content discovery
+- **Mobile-first experiences** - Natural scrolling interaction
+
+### Use Pagination For:
+
+- **Garage page** - Tool management and control
+- **Rentals dashboard** - Status management
+- **Admin areas** - Data management
+- **Specific item search** - When users know what they want
+- **Print-friendly content** - Each page is a logical unit
+
+### Hybrid Approach
+
+```tsx
+// Let users choose their preference
+export function ExplorePage() {
+  const [viewMode, setViewMode] = useState<"infinite" | "pagination">(
+    "infinite",
+  );
+
+  return (
+    <div>
+      <div className="mb-4 flex gap-2">
+        <Button
+          variant={viewMode === "infinite" ? "default" : "outline"}
+          onClick={() => setViewMode("infinite")}
+        >
+          Continuous Scroll
+        </Button>
+        <Button
+          variant={viewMode === "pagination" ? "default" : "outline"}
+          onClick={() => setViewMode("pagination")}
+        >
+          Pages
+        </Button>
+      </div>
+
+      {viewMode === "infinite" ? <InfiniteScrollTools /> : <PaginatedTools />}
+    </div>
+  );
+}
+```
+
+## Hook Implementation Patterns
+
+### 1. URL State Management Hooks
+
+```tsx
+// src/lib/hooks/use-url-state.ts
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useCallback, useMemo } from "react";
+
+export function useURLState<T extends Record<string, any>>(
+  parser: (searchParams: URLSearchParams) => T,
+  serializer: (state: Partial<T>) => Record<string, string>,
+) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Parse current URL state
+  const state = useMemo(() => parser(searchParams), [searchParams, parser]);
+
+  // Update URL state
+  const updateState = useCallback(
+    (updates: Partial<T>) => {
+      const params = new URLSearchParams(searchParams);
+      const serialized = serializer(updates);
+
+      Object.entries(serialized).forEach(([key, value]) => {
+        if (value === undefined || value === "") {
+          params.delete(key);
+        } else {
+          params.set(key, value);
+        }
+      });
+
+      // Reset pagination when filters change
+      if (Object.keys(updates).some((key) => key !== "page")) {
+        params.delete("page");
+      }
+
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [router, pathname, searchParams, serializer],
+  );
+
+  return { state, updateState };
+}
+
+// Example usage for tool filters
+export function useToolFilters() {
+  const parser = useCallback(
+    (searchParams: URLSearchParams) => ({
+      query: searchParams.get("q") || "",
+      categoryId: searchParams.get("category") || undefined,
+      minPrice: searchParams.get("minPrice")
+        ? parseFloat(searchParams.get("minPrice")!)
+        : undefined,
+      maxPrice: searchParams.get("maxPrice")
+        ? parseFloat(searchParams.get("maxPrice")!)
+        : undefined,
+      condition: searchParams.get("condition")?.split(",") || undefined,
+      deliveryAvailable: searchParams.get("delivery") === "true",
+      sortBy:
+        (searchParams.get("sortBy") as
+          | "price"
+          | "rating"
+          | "distance"
+          | "newest") || "newest",
+      sortOrder: (searchParams.get("sortOrder") as "asc" | "desc") || "desc",
+      page: parseInt(searchParams.get("page") || "1"),
+    }),
+    [],
+  );
+
+  const serializer = useCallback((filters: Partial<ToolSearchFilters>) => {
+    const result: Record<string, string> = {};
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") {
+        if (Array.isArray(value)) {
+          result[key] = value.join(",");
+        } else {
+          result[key] = String(value);
+        }
+      }
+    });
+
+    return result;
+  }, []);
+
+  return useURLState(parser, serializer);
+}
+```
+
+### 2. Infinite Scroll Hooks with URL State
+
+```tsx
+// src/lib/hooks/use-tools.ts
+export function useSearchTools(filters: ToolSearchFilters, userId?: string) {
+  return useInfiniteQuery({
+    queryKey: ["search-tools", filters, userId],
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await fetch(
+        `/api/tools/search?${new URLSearchParams({
+          ...filters,
+          page: pageParam.toString(),
+          limit: "12",
+          userId: userId || "",
+        })}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch tools");
+      const data = await response.json();
+      return data;
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.pagination.hasNextPage ? allPages.length + 1 : undefined;
+    },
+    initialPageParam: 1,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+}
+```
+
+### 2. Pagination Hooks
+
+```tsx
+// src/lib/hooks/use-garage.ts
+export function useUserTools(
+  filters: GarageToolFilters,
+  status: "active" | "inactive" | "archived",
+  page: number = 1,
+) {
+  return useQuery({
+    queryKey: ["user-tools", filters, status, page],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/tools/user?${new URLSearchParams({
+          ...filters,
+          status,
+          page: page.toString(),
+          limit: "12",
+        })}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch user tools");
+      const data = await response.json();
+      return data;
+    },
+    staleTime: 1 * 60 * 1000, // 1 minute
+  });
+}
+```
+
+### 3. Individual Item Hooks
+
+```tsx
+// src/lib/hooks/use-tools.ts
+export function useToolDetails(toolId: string | null) {
+  return useQuery({
+    queryKey: ["tool-details", toolId],
+    queryFn: async () => {
+      if (!toolId) return null;
+      const response = await fetch(`/api/tools/${toolId}`);
+      if (!response.ok) throw new Error("Failed to fetch tool details");
+      const data = await response.json();
+      return data;
+    },
+    enabled: !!toolId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+```
+
+### 4. Prefetching Hooks
+
+```tsx
+// src/lib/hooks/use-tools.ts
+export function usePrefetchTool() {
+  const queryClient = useQueryClient();
+
+  return (toolId: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ["tool-details", toolId],
+      queryFn: async () => {
+        const response = await fetch(`/api/tools/${toolId}`);
+        if (!response.ok) throw new Error("Failed to fetch tool details");
+        const data = await response.json();
+        return data;
+      },
+      staleTime: 5 * 60 * 1000,
+    });
+  };
+}
+```
+
+## Component Implementation Patterns
+
+### 1. URL State + React Query Component
+
+```tsx
+// src/app/dashboard/explore/_components/explore-page-content.tsx
+"use client";
+
+import { useToolFilters } from "@/lib/hooks/use-url-state";
+import { useSearchTools } from "@/lib/hooks/use-tools";
+
+export function ExplorePageContent() {
+  // URL state management
+  const { state: filters, updateState: updateFilters } = useToolFilters();
+
+  // React Query with URL-based filters
+  const { data, fetchNextPage, hasNextPage, isLoading } = useSearchTools(
+    filters,
+    userId,
+  );
+
+  // Infinite scroll trigger
+  const loadMoreRef = useInfiniteScroll(
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  );
+
+  // Flatten data from all pages
+  const allTools = useMemo(() => {
+    return data?.pages?.flatMap((page) => page.data) || [];
+  }, [data]);
+
+  // Instant filter changes - URL updates trigger React Query refetch
+  const handleFilterChange = (newFilters: Partial<ToolSearchFilters>) => {
+    updateFilters(newFilters); // URL updates, React Query refetches with cache
+  };
+
+  return (
+    <div>
+      <ExplorePageFilters
+        filters={filters}
+        onFiltersChange={handleFilterChange}
+      />
+      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {allTools.map((tool) => (
+          <ToolCard
+            key={tool.id}
+            {...tool}
+            onMouseEnter={() => prefetchTool(tool.id)} // Prefetch on hover
+          />
+        ))}
+      </div>
+
+      {/* Infinite scroll trigger */}
+      {hasNextPage && (
+        <div ref={loadMoreRef} className="flex justify-center py-4">
+          {isFetchingNextPage && (
+            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### 2. Filter Component with URL Sync
+
+```tsx
+// src/app/dashboard/explore/_components/explore-page-filters.tsx
+"use client";
+
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useCallback, useMemo } from "react";
+import { debounce } from "lodash";
+
+interface ExplorePageFiltersProps {
+  filters: ToolSearchFilters;
+  onFiltersChange: (filters: Partial<ToolSearchFilters>) => void;
+}
+
+export function ExplorePageFilters({
+  filters,
+  onFiltersChange,
+}: ExplorePageFiltersProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Debounced search to avoid API spam
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((query: string) => {
+        onFiltersChange({ query });
+      }, 300),
+    [onFiltersChange],
+  );
+
+  const handleSearchChange = (query: string) => {
+    // Update local state immediately for instant feedback
+    setLocalQuery(query);
+    // Debounce URL update to avoid API spam
+    debouncedSearch(query);
+  };
+
+  const handleCategoryChange = (categoryId: string) => {
+    onFiltersChange({ categoryId });
+  };
+
+  const handlePriceRangeChange = (minPrice: number, maxPrice: number) => {
+    onFiltersChange({ minPrice, maxPrice });
+  };
+
+  const handleSortChange = (sortBy: string, sortOrder: "asc" | "desc") => {
+    onFiltersChange({ sortBy, sortOrder });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Search input with debouncing */}
+      <Input
+        placeholder="Search tools..."
+        value={filters.query}
+        onChange={(e) => handleSearchChange(e.target.value)}
+      />
+
+      {/* Category filter */}
+      <Select value={filters.categoryId} onValueChange={handleCategoryChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="All Categories" />
+        </SelectTrigger>
+        <SelectContent>
+          {categories.map((category) => (
+            <SelectItem key={category.id} value={category.id}>
+              {category.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Price range slider */}
+      <div>
+        <Label>Price Range</Label>
+        <Slider
+          value={[filters.minPrice || 0, filters.maxPrice || 100]}
+          onValueChange={([min, max]) => handlePriceRangeChange(min, max)}
+          max={100}
+          step={5}
+        />
+      </div>
+
+      {/* Sort options */}
+      <div className="flex gap-2">
+        <Select
+          value={filters.sortBy}
+          onValueChange={(value) => handleSortChange(value, filters.sortOrder)}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Newest</SelectItem>
+            <SelectItem value="price">Price</SelectItem>
+            <SelectItem value="rating">Rating</SelectItem>
+            <SelectItem value="distance">Distance</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() =>
+            handleSortChange(
+              filters.sortBy,
+              filters.sortOrder === "asc" ? "desc" : "asc",
+            )
+          }
+        >
+          {filters.sortOrder === "asc" ? (
+            <ArrowUp className="h-4 w-4" />
+          ) : (
+            <ArrowDown className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+```
+
+### 3. Pagination Component with URL State
+
+```tsx
+// src/app/dashboard/garage/_components/garage-tabs.tsx
+"use client";
+
+export function GarageTabs() {
+  const { state: filters, updateState: updateFilters } = useToolFilters();
+  const [activeTab, setActiveTab] = useState("active");
+
+  const { data, isLoading } = useUserTools(
+    filters,
+    activeTab as any,
+    filters.page,
+  );
+
+  // Instant tab switching - cached data loads immediately
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    updateFilters({ page: 1 }); // Reset to first page
+  };
+
+  const handlePageChange = (page: number) => {
+    updateFilters({ page });
+  };
+
+  return (
+    <div>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList>
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <TabsContent value={activeTab}>
+        {data?.data?.map((tool) => <RentalCard key={tool.id} {...tool} />)}
+
+        {/* Pagination controls */}
+        <PaginationControls
+          currentPage={filters.page}
+          totalPages={data?.pagination?.totalPages}
+          onPageChange={handlePageChange}
+        />
+      </TabsContent>
+    </div>
+  );
+}
+```
+
+### 2. Pagination Component
+
+```tsx
+// src/app/dashboard/garage/_components/garage-tabs.tsx
+"use client";
+
+export function GarageTabs() {
+  const [activeTab, setActiveTab] = useState("active");
+  const [filters, setFilters] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const { data, isLoading } = useUserTools(
+    filters,
+    activeTab as any,
+    currentPage,
+  );
+
+  // Instant tab switching - cached data loads immediately
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setCurrentPage(1); // Reset to first page
+  };
+
+  return (
+    <div>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList>
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <TabsContent value={activeTab}>
+        {data?.data?.map((tool) => <RentalCard key={tool.id} {...tool} />)}
+
+        {/* Pagination controls */}
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={data?.pagination?.totalPages}
+          onPageChange={setCurrentPage}
+        />
+      </TabsContent>
+    </div>
+  );
+}
+```
+
+## Advanced URL State Patterns
+
+### 1. Debounced Search with URL State
+
+```tsx
+// src/lib/hooks/use-debounced-search.ts
+import { useCallback, useMemo } from "react";
+import { debounce } from "lodash";
+
+export function useDebouncedSearch(
+  onSearch: (query: string) => void,
+  delay: number = 300,
+) {
+  const debouncedSearch = useMemo(
+    () => debounce(onSearch, delay),
+    [onSearch, delay],
+  );
+
+  const handleSearchChange = useCallback(
+    (query: string) => {
+      // Update local state immediately for instant feedback
+      setLocalQuery(query);
+      // Debounce URL update to avoid API spam
+      debouncedSearch(query);
+    },
+    [debouncedSearch],
+  );
+
+  return { handleSearchChange, debouncedSearch };
+}
+```
+
+### 2. URL State with Optimistic Updates
+
+```tsx
+// Optimistic URL updates for instant feedback
+const handleFilterChange = (newFilters: Partial<ToolSearchFilters>) => {
+  // Update URL immediately for instant feedback
+  updateFilters(newFilters);
+
+  // React Query will refetch with new filters
+  // If it fails, you can revert the URL
+  try {
+    // URL update triggers React Query refetch
+  } catch (error) {
+    // Revert URL on error
+    updateFilters(previousFilters);
+  }
+};
+```
+
+### 3. URL State with Browser History
+
+```tsx
+// Support browser back/forward with URL state
+export function useURLStateWithHistory<T>() {
+  const { state, updateState } = useURLState<T>();
+
+  // Listen for browser back/forward
+  useEffect(() => {
+    const handlePopState = () => {
+      // URL changed via browser navigation
+      // React Query will automatically refetch with new URL
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  return { state, updateState };
+}
+```
+
+## API Route Patterns
+
+### 1. Search API with URL Parameters
+
+```tsx
+// src/app/api/tools/search/route.ts
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const filters = Object.fromEntries(searchParams.entries());
+
+  const results = await toolDAL.searchTools(
+    filters,
+    {
+      page: parseInt(searchParams.get("page") || "1"),
+      limit: parseInt(searchParams.get("limit") || "12"),
+    },
+    searchParams.get("userId") || undefined,
+  );
+
+  return Response.json(results);
+}
+```
+
+### 2. User Tools API
+
+```tsx
+// src/app/api/tools/user/route.ts
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const status = searchParams.get("status") as
+    | "active"
+    | "inactive"
+    | "archived";
+
+  const tools = await toolDAL.getUserToolsWithFilters(
+    await getCurrentUserId(),
+    { status, ...Object.fromEntries(searchParams.entries()) },
+    {
+      page: parseInt(searchParams.get("page") || "1"),
+      limit: parseInt(searchParams.get("limit") || "12"),
+    },
+  );
+
+  return Response.json(tools);
+}
+```
+
+## Performance Optimization Checklist
+
+### ✅ High-Impact Pages (Implement First)
+
+- [ ] **Explore page** - Infinite scroll with instant filtering
+- [ ] **Favorites page** - Real-time updates with infinite scroll
+- [ ] **Mailbox** - Already implemented ✅
+
+### ✅ Management Pages (Implement Second)
+
+- [ ] **Garage page** - Pagination with instant tab switching
+- [ ] **Rentals dashboard** - Pagination with status management
+- [ ] **Profile page** - Cached user data
+
+### ✅ Advanced Features (Implement Third)
+
+- [ ] **Optimistic updates** - Instant UI feedback
+- [ ] **Background sync** - Offline support
+- [ ] **Prefetching** - Hover to preload data
+- [ ] **Error boundaries** - Graceful error handling
+
+## Error Handling Patterns
+
+### 1. Query Error Handling
+
+```tsx
+export function useSearchTools(filters: ToolSearchFilters) {
+  return useInfiniteQuery({
+    queryKey: ["search-tools", filters],
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await fetch(
+        `/api/tools/search?${new URLSearchParams({
+          ...filters,
+          page: pageParam.toString(),
+          limit: "12",
+        })}`,
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to fetch tools");
+      }
+
+      const data = await response.json();
+      return data;
+    },
+    retry: (failureCount, error) => {
+      // Don't retry on 4xx errors
+      if (error.message.includes("400") || error.message.includes("401")) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+  });
+}
+```
+
+### 2. Component Error Handling
+
+```tsx
+export function ExplorePageContent() {
+  const { data, error, isLoading } = useSearchTools(filters);
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <AlertCircle className="mb-4 h-8 w-8 text-red-500" />
+        <h3 className="mb-2 text-lg font-medium text-gray-900">
+          Failed to load tools
+        </h3>
+        <p className="mb-4 text-sm text-gray-600">{error.message}</p>
+        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      </div>
+    );
+  }
+
+  // Rest of component...
+}
+```
+
+## Implementation Timeline
+
+### Week 1: Core Infrastructure
+
+- [x] React Query Provider (already done)
+- [ ] Create API routes for tools, favorites, rentals
+- [ ] Create React Query hooks for each data type
+
+### Week 2: High-Impact Pages
+
+- [ ] Transform Explore page to use React Query
+- [ ] Transform Garage page to use React Query
+- [ ] Add infinite scroll to Explore page
+
+### Week 3: Advanced Features
+
+- [ ] Add optimistic updates for tool status changes
+- [ ] Implement real-time favorites with infinite scroll
+- [ ] Add prefetching for tool details
+
+### Week 4: Polish & Performance
+
+- [ ] Add loading states and error boundaries
+- [ ] Implement background sync for offline support
+- [ ] Add analytics for performance monitoring
+
+## URL State + React Query Benefits
+
+### 1. Instant Navigation
+
+- ✅ **Cached data loads immediately** when URL changes
+- ✅ **No loading states** for cached filters
+- ✅ **Background refetching** for fresh data
+- ✅ **Optimistic updates** for instant feedback
+
+### 2. URL State Management
+
+- ✅ **Shareable URLs** - `/explore?category=drills&minPrice=10&maxPrice=50`
+- ✅ **Browser back/forward** works perfectly
+- ✅ **Bookmarkable pages** with specific filters
+- ✅ **SEO friendly** - search engines can crawl filtered pages
+
+### 3. User Experience
+
+- ✅ **Instant feedback** - URL updates immediately
+- ✅ **Progressive enhancement** - works without JavaScript
+- ✅ **Accessibility** - screen readers understand URL state
+- ✅ **Mobile friendly** - native browser navigation
+
+## Expected Performance Gains
+
+### Before Optimization:
+
+- ❌ **Explore page**: 2-3 second loading on every filter change
+- ❌ **Garage page**: 1-2 second loading when switching tabs
+- ❌ **Favorites**: Static mock data, no real-time updates
+- ❌ **Rentals**: Server-side rendering on every status change
+- ❌ **URL state**: No shareable URLs or browser navigation
+
+### After Optimization:
+
+- ✅ **Explore page**: **Instant filter changes** - cached results show immediately
+- ✅ **Garage page**: **Instant tab switching** - cached data loads instantly
+- ✅ **Favorites**: **Real-time updates** with infinite scroll
+- ✅ **Rentals**: **Instant status changes** with optimistic updates
+- ✅ **URL state**: **Shareable URLs** with browser navigation support
+
+## Best Practices
+
+### 1. Query Key Strategy
+
+- Use descriptive, hierarchical query keys
+- Include all dependencies in query keys
+- Use stable references for objects in query keys
+- Include URL parameters in query keys for proper cache invalidation
+
+### 2. URL State Strategy
+
+- **Debounce search inputs** to avoid API spam
+- **Reset pagination** when filters change
+- **Use URL-friendly values** (avoid special characters)
+- **Handle empty/undefined values** properly in URL parsing
+- **Support browser navigation** with popstate events
+
+### 3. Stale Time Strategy
+
+- Short stale times for frequently changing data
+- Longer stale times for static data
+- Consider user behavior patterns
+- Adjust stale times based on URL state changes
+
+### 4. Prefetching Strategy
+
+- Prefetch on hover for likely user actions
+- Prefetch on route change for next page
+- Don't over-prefetch - balance performance and bandwidth
+- Prefetch based on URL state patterns
+
+### 5. Error Handling Strategy
+
+- Provide meaningful error messages
+- Implement retry logic for transient failures
+- Graceful degradation for non-critical features
+- Revert URL state on API failures
+
+### 6. URL State Best Practices
+
+```tsx
+// ✅ Good: Proper URL parsing
+const parser = (searchParams: URLSearchParams) => ({
+  query: searchParams.get("q") || "",
+  categoryId: searchParams.get("category") || undefined,
+  minPrice: searchParams.get("minPrice")
+    ? parseFloat(searchParams.get("minPrice")!)
+    : undefined,
+  // Handle arrays properly
+  condition:
+    searchParams.get("condition")?.split(",").filter(Boolean) || undefined,
+});
+
+// ❌ Bad: Inconsistent URL parsing
+const parser = (searchParams: URLSearchParams) => ({
+  query: searchParams.get("q"), // Could be null
+  categoryId: searchParams.get("category"), // Could be null
+  // No array handling
+  condition: searchParams.get("condition")?.split(","),
+});
+```
+
+### 7. Performance Optimization
+
+```tsx
+// ✅ Good: Debounced search with local state
+const [localQuery, setLocalQuery] = useState(filters.query);
+const debouncedSearch = useMemo(() => debounce(updateFilters, 300), []);
+
+const handleSearchChange = (query: string) => {
+  setLocalQuery(query); // Instant local feedback
+  debouncedSearch({ query }); // Debounced URL update
+};
+
+// ❌ Bad: No debouncing
+const handleSearchChange = (query: string) => {
+  updateFilters({ query }); // API call on every keystroke
+};
+```
+
+This optimization strategy will transform your app from a server-rendered experience to a native app-like experience with instant navigation, smart caching, and smooth interactions.
+description:
+globs:
+alwaysApply: false
+
+---

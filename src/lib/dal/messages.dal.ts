@@ -118,6 +118,14 @@ export class MessagesDAL extends BaseDAL {
   async getUserConversations(
     archived?: boolean,
   ): Promise<ConversationSummary[]> {
+    return this.getUserConversationsPaginated(archived, 0, 1000); // Default to get all for backward compatibility
+  }
+
+  async getUserConversationsPaginated(
+    archived?: boolean,
+    offset: number = 0,
+    limit: number = 20,
+  ): Promise<ConversationSummary[]> {
     const { data, error } = await tryCatch(
       (async () => {
         const currentUserId = await getCurrentUserId();
@@ -175,6 +183,8 @@ export class MessagesDAL extends BaseDAL {
             },
           },
           orderBy: [desc(conversations.lastMessageAt)],
+          offset,
+          limit,
         });
 
         return userConversations.map((conversation) => {

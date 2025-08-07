@@ -20,7 +20,10 @@ export function MailboxSkeleton() {
           {/* Conversations List */}
           <div className="flex-1 overflow-y-auto">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center border-l-4 border-transparent p-4">
+              <div
+                key={i}
+                className="flex items-center border-l-4 border-transparent p-4"
+              >
                 <Skeleton className="mr-3 h-10 w-10 rounded-full" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
@@ -61,7 +64,7 @@ export function MailboxSkeleton() {
               >
                 <div className="max-w-xs lg:max-w-md">
                   <Skeleton className="h-12 w-48 rounded-2xl" />
-                  <Skeleton className="mt-1 h-3 w-16 ml-auto" />
+                  <Skeleton className="mt-1 ml-auto h-3 w-16" />
                 </div>
               </div>
             ))}
@@ -71,7 +74,7 @@ export function MailboxSkeleton() {
           <div className="border-t border-gray-200 p-4">
             <div className="flex items-center space-x-2">
               <Skeleton className="h-8 w-8 rounded" />
-              <Skeleton className="flex-1 h-10" />
+              <Skeleton className="h-10 flex-1" />
               <Skeleton className="h-10 w-10 rounded" />
             </div>
           </div>
@@ -100,7 +103,10 @@ export function MailboxSkeleton() {
           {/* Conversations List */}
           <div className="flex-1 overflow-y-auto">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center border-b border-gray-100 p-4">
+              <div
+                key={i}
+                className="flex items-center border-b border-gray-100 p-4"
+              >
                 <Skeleton className="mr-3 h-12 w-12 rounded-full" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
@@ -116,4 +122,4 @@ export function MailboxSkeleton() {
       </div>
     </div>
   );
-} 
+}
