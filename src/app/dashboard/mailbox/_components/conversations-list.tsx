@@ -1,13 +1,15 @@
 "use client";
 
+import { useTransition } from "react";
 import { useMemo, useCallback } from "react";
 import { Loader2 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useInfiniteScroll } from "@/lib/hooks/use-infinite-scroll";
 import { usePrefetchConversation } from "@/lib/hooks/use-conversations";
 import { markConversationAsReadAction } from "@/lib/actions/mark-conversation-read";
-import { useTransition } from "react";
 import { ConversationSummary } from "@/lib/dal/messages.dal";
 
 interface ConversationsListProps {
@@ -36,6 +38,7 @@ export function ConversationsList({
 }: ConversationsListProps) {
   const [, startTransition] = useTransition();
   const prefetchConversation = usePrefetchConversation();
+  const queryClient = useQueryClient();
 
   // Flatten conversations from all pages
   const allConversations = useMemo(() => {
@@ -69,21 +72,78 @@ export function ConversationsList({
     return formatDistanceToNow(date, { addSuffix: true });
   }, []);
 
+  // Helper function to update conversation cache
+  const updateConversationCache = useCallback(
+    (conversationId: string, unread: boolean) => {
+      // Update both archived and non-archived conversation caches
+      [false, true].forEach((archived) => {
+        queryClient.setQueryData(
+          ["conversations", archived],
+          (oldData: { pages: ConversationSummary[][] } | undefined) => {
+            if (!oldData?.pages) return oldData;
+
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page: ConversationSummary[]) =>
+                page.map((conv: ConversationSummary) =>
+                  conv.id === conversationId ? { ...conv, unread } : conv,
+                ),
+              ),
+            };
+          },
+        );
+      });
+    },
+    [queryClient],
+  );
+
   const handleConversationClick = useCallback(
     async (conversationId: string) => {
+      // Find the conversation to check if it's unread
+      const conversation = allConversations.find(
+        (conv) => conv.id === conversationId,
+      );
+      const wasUnread = conversation?.unread;
+
       // Immediate optimistic update
       onConversationClick(conversationId);
+
+      // If the conversation was unread, update the cache optimistically
+      if (wasUnread) {
+        updateConversationCache(conversationId, false);
+      }
 
       // Mark as read in background
       startTransition(async () => {
         try {
-          await markConversationAsReadAction(conversationId);
+          const result = await markConversationAsReadAction(conversationId);
+
+          if (!result.success) {
+            // If the server action failed, revert the optimistic update
+            if (wasUnread) {
+              updateConversationCache(conversationId, true);
+            }
+
+            console.error("Failed to mark conversation as read:", result.error);
+            toast.error("Failed to mark conversation as read");
+          }
         } catch (error) {
-          console.error("Failed to mark as read:", error);
+          // If there's an error, revert the optimistic update
+          if (wasUnread) {
+            updateConversationCache(conversationId, true);
+          }
+
+          console.error("Failed to mark conversation as read:", error);
+          toast.error("Failed to mark conversation as read");
         }
       });
     },
-    [onConversationClick, startTransition],
+    [
+      onConversationClick,
+      startTransition,
+      allConversations,
+      updateConversationCache,
+    ],
   );
 
   const handleConversationHover = useCallback(
@@ -101,12 +161,16 @@ export function ConversationsList({
         key={conversation.id}
         onClick={() => handleConversationClick(conversation.id)}
         onMouseEnter={() => handleConversationHover(conversation.id)}
-        className={`flex cursor-pointer items-center border-l-4 p-4 transition-colors hover:bg-gray-50 ${
+        className={`relative flex cursor-pointer items-center border-l-4 p-4 transition-colors hover:bg-gray-50 ${
           selectedConversationId === conversation.id
             ? "border-blue-500 bg-blue-50"
             : "border-transparent"
         } ${conversation.unread ? "bg-blue-50" : ""}`}
       >
+        {/* Unread indicator dot */}
+        {conversation.unread && (
+          <div className="bg-primary absolute top-1/2 left-0.5 h-2 w-2 -translate-y-1/2 rounded-full" />
+        )}
         <Avatar className="mr-3 h-10 w-10">
           <AvatarFallback className="bg-gray-200 text-sm font-medium text-gray-700">
             {conversation.otherUser.initials}

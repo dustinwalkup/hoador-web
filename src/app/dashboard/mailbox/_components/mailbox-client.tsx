@@ -53,7 +53,6 @@ export function MailboxClient() {
             conversationsData={conversationsData}
             searchQuery={searchQuery}
             selectedConversationId={selectedConversationId}
-            activeTab={activeTab}
             isLoading={isLoadingConversations}
             hasNextPage={hasNextPage}
             isFetchingNextPage={isFetchingNextPage}
@@ -91,7 +90,6 @@ export function MailboxClient() {
               conversationsData={conversationsData}
               searchQuery={searchQuery}
               selectedConversationId={selectedConversationId}
-              activeTab={activeTab}
               isLoading={isLoadingConversations}
               hasNextPage={hasNextPage}
               isFetchingNextPage={isFetchingNextPage}
