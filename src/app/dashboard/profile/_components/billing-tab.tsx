@@ -25,7 +25,7 @@ import {
 
 export function BillingTab() {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Payment Methods</CardTitle>
@@ -34,7 +34,7 @@ export function BillingTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
                 <CreditCard className="h-5 w-5 text-blue-600" />
@@ -51,7 +51,7 @@ export function BillingTab() {
             </Button>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
                 <DollarSign className="h-5 w-5 text-green-600" />
@@ -145,7 +145,7 @@ export function BillingTab() {
             ].map((transaction, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between rounded-lg border p-3"
+                className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-center gap-3">
                   <div

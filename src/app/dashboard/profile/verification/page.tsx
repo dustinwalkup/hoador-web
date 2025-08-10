@@ -55,7 +55,7 @@ export default async function VerificationPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full ${
@@ -91,7 +91,7 @@ export default async function VerificationPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full ${
@@ -127,7 +127,7 @@ export default async function VerificationPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full ${
@@ -147,7 +147,7 @@ export default async function VerificationPage() {
                     <p className="text-muted-foreground text-sm">
                       {user.idVerified
                         ? "Your identity has been verified"
-                        : "Upload a government-issued ID to verify your identity"}
+                        : "Verify your identity with a government-issued ID"}
                     </p>
                   </div>
                 </div>

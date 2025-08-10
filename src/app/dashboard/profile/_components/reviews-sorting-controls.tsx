@@ -33,7 +33,7 @@ export function ReviewsSortingControls({
 
   return (
     <Select value={`${sortBy}-${sortOrder}`} onValueChange={handleSortChange}>
-      <SelectTrigger className="w-40">
+      <SelectTrigger className="w-full min-w-[140px] sm:w-40">
         <ArrowUpDown className="mr-2 h-4 w-4" />
         <SelectValue />
       </SelectTrigger>

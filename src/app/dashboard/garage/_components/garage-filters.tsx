@@ -134,7 +134,7 @@ function GarageFiltersContent({
         <Search className="text-muted-foreground absolute left-3 h-4 w-4" />
         <Input
           placeholder="Search tools..."
-          className="pr-8 pl-9"
+          className="pl-9 pr-8"
           value={searchQuery}
           onChange={handleSearchChange}
         />
@@ -210,7 +210,6 @@ function GarageFiltersContent({
     </div>
   );
 }
-
 interface GarageFiltersWrapperProps {
   currentTab: string;
   filters: GarageToolFilters;

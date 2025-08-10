@@ -17,7 +17,7 @@ import {
 
 export function PreferencesTab() {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Notification Preferences</CardTitle>
@@ -26,7 +26,7 @@ export function PreferencesTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Email Notifications</h3>
               <p className="text-muted-foreground text-sm">
@@ -36,7 +36,7 @@ export function PreferencesTab() {
             <Switch defaultChecked />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">SMS Notifications</h3>
               <p className="text-muted-foreground text-sm">
@@ -46,7 +46,7 @@ export function PreferencesTab() {
             <Switch defaultChecked />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Push Notifications</h3>
               <p className="text-muted-foreground text-sm">
@@ -56,7 +56,7 @@ export function PreferencesTab() {
             <Switch defaultChecked />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Marketing Communications</h3>
               <p className="text-muted-foreground text-sm">
@@ -92,7 +92,7 @@ export function PreferencesTab() {
             </Select>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Auto-approve Requests</h3>
               <p className="text-muted-foreground text-sm">
@@ -102,7 +102,7 @@ export function PreferencesTab() {
             <Switch />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Weekend Availability</h3>
               <p className="text-muted-foreground text-sm">
@@ -137,7 +137,7 @@ export function PreferencesTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Public Profile</h3>
               <p className="text-muted-foreground text-sm">
@@ -147,7 +147,7 @@ export function PreferencesTab() {
             <Switch defaultChecked />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Show Location</h3>
               <p className="text-muted-foreground text-sm">
@@ -157,7 +157,7 @@ export function PreferencesTab() {
             <Switch defaultChecked />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Show Activity Status</h3>
               <p className="text-muted-foreground text-sm">
@@ -167,7 +167,7 @@ export function PreferencesTab() {
             <Switch />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Analytics Tracking</h3>
               <p className="text-muted-foreground text-sm">

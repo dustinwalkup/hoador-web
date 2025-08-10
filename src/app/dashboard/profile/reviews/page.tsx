@@ -39,8 +39,8 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
           description={PROFILE_TABS.description}
         />
         <ProfileTabs>
-          <div className="grid gap-6 md:grid-cols-3">
-            <Card className="md:col-span-3">
+          <div className="grid gap-6">
+            <Card>
               <CardContent className="pt-6">
                 <div className="text-muted-foreground text-center">
                   <p>Please log in to view your reviews</p>
@@ -94,8 +94,8 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
       />
 
       <ProfileTabs>
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card className="md:col-span-1">
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle>Rating Summary</CardTitle>
               <CardDescription>
@@ -154,9 +154,9 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
             </CardContent>
           </Card>
 
-          <Card className="md:col-span-2">
+          <Card className="lg:col-span-2">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle>Reviews</CardTitle>
                   <CardDescription>
@@ -180,7 +180,7 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
                 ) : (
                   reviews.map((review) => (
                     <div key={review.id} className="rounded-lg border p-4">
-                      <div className="mb-2 flex items-center justify-between">
+                      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
                             <AvatarFallback>
@@ -232,27 +232,15 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-muted-foreground text-sm">
+                <div className="mt-6 space-y-4">
+                  <div className="text-muted-foreground text-center text-sm sm:text-left">
                     Showing {offset + 1} to{" "}
                     {Math.min(offset + limit, totalCount)} of {totalCount}{" "}
                     reviews
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={{
-                        pathname: "/dashboard/profile/reviews",
-                        query: {
-                          ...queryParams,
-                          page: Math.max(1, page - 1).toString(),
-                        },
-                      }}
-                    >
-                      <Button variant="outline" size="sm" disabled={page <= 1}>
-                        <ChevronLeft className="h-4 w-4" />
-                        Previous
-                      </Button>
-                    </Link>
+
+                  <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+                    {/* Page Numbers */}
                     <div className="flex items-center gap-1">
                       {Array.from(
                         { length: Math.min(5, totalPages) },
@@ -274,6 +262,7 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
                                   pageNum === page ? "default" : "outline"
                                 }
                                 size="sm"
+                                className="min-w-[40px]"
                               >
                                 {pageNum}
                               </Button>
@@ -282,24 +271,49 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
                         },
                       )}
                     </div>
-                    <Link
-                      href={{
-                        pathname: "/dashboard/profile/reviews",
-                        query: {
-                          ...queryParams,
-                          page: Math.min(totalPages, page + 1).toString(),
-                        },
-                      }}
-                    >
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= totalPages}
+
+                    {/* Navigation Buttons */}
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={{
+                          pathname: "/dashboard/profile/reviews",
+                          query: {
+                            ...queryParams,
+                            page: Math.max(1, page - 1).toString(),
+                          },
+                        }}
                       >
-                        Next
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={page <= 1}
+                          className="flex items-center gap-2"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          <span className="hidden sm:inline">Previous</span>
+                        </Button>
+                      </Link>
+
+                      <Link
+                        href={{
+                          pathname: "/dashboard/profile/reviews",
+                          query: {
+                            ...queryParams,
+                            page: Math.min(totalPages, page + 1).toString(),
+                          },
+                        }}
+                      >
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={page >= totalPages}
+                          className="flex items-center gap-2"
+                        >
+                          <span className="hidden sm:inline">Next</span>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               )}

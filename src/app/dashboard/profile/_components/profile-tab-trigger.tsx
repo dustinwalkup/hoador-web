@@ -27,7 +27,9 @@ export function ProfileTabTrigger({ tab }: ProfileTabTriggerProps) {
     <TabsTrigger
       value={tab.value}
       onClick={handleClick}
-      className={isActive ? "bg-background" : ""}
+      className={`${
+        isActive ? "bg-background" : ""
+      } px-2 py-2 text-xs whitespace-nowrap sm:text-sm`}
     >
       {tab.label}
     </TabsTrigger>

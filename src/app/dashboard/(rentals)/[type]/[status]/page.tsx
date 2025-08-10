@@ -160,13 +160,15 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
   return (
     <div className="space-y-6">
       <Tabs value={status}>
-        <TabsList className="mb-6 grid w-full grid-cols-4">
-          {tabItems.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} asChild>
-              <a href={tab.href}>{tab.label}</a>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <TabsList className="mb-6 grid w-full min-w-max grid-cols-2 gap-1 sm:grid-cols-4">
+            {tabItems.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} asChild>
+                <a href={tab.href}>{tab.label}</a>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         <TabsContent value={status}>
           {error && (

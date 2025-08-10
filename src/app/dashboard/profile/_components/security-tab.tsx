@@ -37,7 +37,7 @@ export function SecurityTab() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Password & Authentication</CardTitle>
@@ -92,7 +92,7 @@ export function SecurityTab() {
 
           <Separator />
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-medium">Two-Factor Authentication</h3>
               <p className="text-muted-foreground text-sm">
@@ -114,7 +114,7 @@ export function SecurityTab() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
                   <Globe className="h-4 w-4 text-green-600" />
@@ -131,7 +131,7 @@ export function SecurityTab() {
               </Badge>
             </div>
 
-            <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full">
                   <Smartphone className="h-4 w-4" />
@@ -148,7 +148,7 @@ export function SecurityTab() {
               </Button>
             </div>
 
-            <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full">
                   <Globe className="h-4 w-4" />
@@ -175,7 +175,7 @@ export function SecurityTab() {
         </CardContent>
       </Card>
 
-      <Card className="md:col-span-2">
+      <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle>Account Actions</CardTitle>
           <CardDescription>
@@ -183,7 +183,7 @@ export function SecurityTab() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Button variant="outline" className="h-auto flex-col gap-2 p-4">
               <Download className="h-6 w-6" />
               <div className="text-center">
