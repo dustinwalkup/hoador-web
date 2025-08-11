@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MoreHorizontal,
@@ -34,12 +34,21 @@ export function ChatArea({
   const [newMessage, setNewMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: selectedConversation, isLoading: isLoadingConversation } =
     useConversationDetails(conversationId);
 
   // Get messages from the conversation data, including any optimistic ones
   const messages = selectedConversation?.messages || [];
+
+  // Scroll to bottom only when the last message renders
+  const handleLastMessageRender = useCallback(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
+  }, []);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
@@ -245,9 +254,12 @@ export function ChatArea({
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="scrollbar-hide flex-1 overflow-y-auto"
+        ref={messagesContainerRef}
+      >
         <div className="space-y-4 p-4">
-          {messages.map((message) => (
+          {messages.map((message, index) => (
             <div
               key={message.id}
               className={`flex ${message.sender === "me" ? "justify-end" : "justify-start"}`}
@@ -266,6 +278,10 @@ export function ChatArea({
                   {formatDate(message.time)}
                 </p>
               </div>
+              {/* Only call scroll function on the last message */}
+              {index === messages.length - 1 && (
+                <div ref={() => handleLastMessageRender()} />
+              )}
             </div>
           ))}
         </div>
