@@ -8,12 +8,37 @@ import {
   Paperclip,
   Send,
   Loader2,
+  Archive,
+  Trash2,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { sendMessageAction } from "@/lib/actions/send-message";
+import { markConversationUnreadAction } from "@/lib/actions/mark-conversation-unread";
+import { archiveConversationAction } from "@/lib/actions/archive-conversation";
+import { unarchiveConversationAction } from "@/lib/actions/unarchive-conversation";
+import { deleteConversationAction } from "@/lib/actions/delete-conversation";
 import { useConversationDetails } from "@/lib/hooks/use-conversations";
 import type {
   ConversationDetails,
@@ -33,6 +58,8 @@ export function ChatArea({
 }: ChatAreaProps) {
   const [newMessage, setNewMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -145,6 +172,552 @@ export function ChatArea({
     });
   };
 
+  const handleMarkUnread = async () => {
+    if (!selectedConversation) return;
+
+    startTransition(async () => {
+      try {
+        const result = await markConversationUnreadAction(
+          selectedConversation.id,
+        );
+
+        if (result.success) {
+          toast.success("Marked as unread");
+
+          // Update the conversation cache to mark as unread
+          queryClient.setQueryData(
+            ["conversation-details", conversationId],
+            (oldData: ConversationDetails | undefined) => {
+              if (!oldData) return oldData;
+              return {
+                ...oldData,
+                unread: true,
+              };
+            },
+          );
+
+          // Also update the conversations list
+          queryClient.setQueryData(
+            ["conversations", false],
+            (oldData: { pages: ConversationSummary[][] } | undefined) => {
+              if (!oldData?.pages) return oldData;
+
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page) =>
+                  page.map((conv) =>
+                    conv.id === conversationId
+                      ? { ...conv, unread: true }
+                      : conv,
+                  ),
+                ),
+              };
+            },
+          );
+        } else {
+          toast.error(String(result.error) || "Failed to mark as unread");
+        }
+      } catch {
+        toast.error("Failed to mark as unread");
+      }
+    });
+  };
+
+  const handleArchive = async () => {
+    if (!selectedConversation) return;
+
+    // Optimistically update the UI immediately
+    const optimisticConversation: ConversationSummary = {
+      id: selectedConversation.id,
+      otherUser: selectedConversation.otherUser,
+      lastMessage:
+        selectedConversation.messages.length > 0
+          ? {
+              content:
+                selectedConversation.messages[
+                  selectedConversation.messages.length - 1
+                ].content,
+              time: selectedConversation.messages[
+                selectedConversation.messages.length - 1
+              ].time,
+              senderId: "temp", // Will be replaced by server data
+            }
+          : null,
+      unread: selectedConversation.unread,
+      lastMessageAt:
+        selectedConversation.messages.length > 0
+          ? selectedConversation.messages[
+              selectedConversation.messages.length - 1
+            ].time
+          : null,
+      archived: true,
+    };
+
+    // Optimistically remove from active conversations
+    queryClient.setQueryData(
+      ["conversations", false],
+      (oldData: { pages: ConversationSummary[][] } | undefined) => {
+        if (!oldData?.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) =>
+            page.filter((conv) => conv.id !== conversationId),
+          ),
+        };
+      },
+    );
+
+    // Optimistically add to archived conversations
+    queryClient.setQueryData(
+      ["conversations", true],
+      (oldData: { pages: ConversationSummary[][] } | undefined) => {
+        if (!oldData?.pages) return oldData;
+        return {
+          ...oldData,
+          pages: [
+            [optimisticConversation, ...(oldData.pages[0] || [])],
+            ...oldData.pages.slice(1),
+          ],
+        };
+      },
+    );
+
+    // Update current conversation's archived status
+    queryClient.setQueryData(
+      ["conversation-details", conversationId],
+      (oldData: ConversationDetails | undefined) => {
+        if (!oldData) return oldData;
+        return { ...oldData, archived: true };
+      },
+    );
+
+    // Also update the local state to ensure dropdown shows correct options
+    if (selectedConversation) {
+      selectedConversation.archived = true;
+    }
+
+    startTransition(async () => {
+      try {
+        const result = await archiveConversationAction(selectedConversation.id);
+
+        if (result.success) {
+          toast.success("Conversation archived");
+          setIsArchiveDialogOpen(false);
+
+          // Don't invalidate queries - keep the optimistic updates
+          // The optimistic updates already show the correct state
+        } else {
+          // Revert optimistic updates on failure
+          toast.error(String(result.error) || "Failed to archive conversation");
+
+          // Revert the optimistic changes
+          queryClient.setQueryData(
+            ["conversations", false],
+            (oldData: { pages: ConversationSummary[][] } | undefined) => {
+              if (!oldData?.pages) return oldData;
+              return {
+                ...oldData,
+                pages: [
+                  [
+                    {
+                      id: selectedConversation.id,
+                      otherUser: selectedConversation.otherUser,
+                      lastMessage:
+                        selectedConversation.messages.length > 0
+                          ? {
+                              content:
+                                selectedConversation.messages[
+                                  selectedConversation.messages.length - 1
+                                ].content,
+                              time: selectedConversation.messages[
+                                selectedConversation.messages.length - 1
+                              ].time,
+                              senderId: "temp",
+                            }
+                          : null,
+                      unread: selectedConversation.unread,
+                      lastMessageAt:
+                        selectedConversation.messages.length > 0
+                          ? selectedConversation.messages[
+                              selectedConversation.messages.length - 1
+                            ].time
+                          : null,
+                      archived: false,
+                    },
+                    ...(oldData.pages[0] || []),
+                  ],
+                  ...oldData.pages.slice(1),
+                ],
+              };
+            },
+          );
+
+          queryClient.setQueryData(
+            ["conversations", true],
+            (oldData: { pages: ConversationSummary[][] } | undefined) => {
+              if (!oldData?.pages) return oldData;
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page) =>
+                  page.filter((conv) => conv.id !== conversationId),
+                ),
+              };
+            },
+          );
+
+          queryClient.setQueryData(
+            ["conversation-details", conversationId],
+            (oldData: ConversationDetails | undefined) => {
+              if (!oldData) return oldData;
+              return { ...oldData, archived: false };
+            },
+          );
+
+          // Also revert the local state
+          if (selectedConversation) {
+            selectedConversation.archived = false;
+          }
+        }
+      } catch {
+        toast.error("Failed to archive conversation");
+
+        // Revert optimistic changes on error
+        queryClient.setQueryData(
+          ["conversations", false],
+          (oldData: { pages: ConversationSummary[][] } | undefined) => {
+            if (!oldData?.pages) return oldData;
+            return {
+              ...oldData,
+              pages: [
+                [
+                  {
+                    id: selectedConversation.id,
+                    otherUser: selectedConversation.otherUser,
+                    lastMessage:
+                      selectedConversation.messages.length > 0
+                        ? {
+                            content:
+                              selectedConversation.messages[
+                                selectedConversation.messages.length - 1
+                              ].content,
+                            time: selectedConversation.messages[
+                              selectedConversation.messages.length - 1
+                            ].time,
+                            senderId: "temp",
+                          }
+                        : null,
+                    unread: selectedConversation.unread,
+                    lastMessageAt:
+                      selectedConversation.messages.length > 0
+                        ? selectedConversation.messages[
+                            selectedConversation.messages.length - 1
+                          ].time
+                        : null,
+                    archived: false,
+                  },
+                  ...(oldData.pages[0] || []),
+                ],
+                ...oldData.pages.slice(1),
+              ],
+            };
+          },
+        );
+
+        queryClient.setQueryData(
+          ["conversations", false],
+          (oldData: { pages: ConversationSummary[][] } | undefined) => {
+            if (!oldData?.pages) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) =>
+                page.filter((conv) => conv.id !== conversationId),
+              ),
+            };
+          },
+        );
+
+        queryClient.setQueryData(
+          ["conversation-details", conversationId],
+          (oldData: ConversationDetails | undefined) => {
+            if (!oldData) return oldData;
+            return { ...oldData, archived: false };
+          },
+        );
+      }
+    });
+  };
+
+  const handleUnarchive = async () => {
+    if (!selectedConversation) return;
+
+    // Optimistically update the UI immediately
+    const optimisticConversation: ConversationDetails = {
+      id: selectedConversation.id,
+      otherUser: selectedConversation.otherUser,
+      messages: selectedConversation.messages,
+      unread: selectedConversation.unread,
+      archived: false,
+    };
+
+    // Optimistically remove from archived conversations
+    queryClient.setQueryData(
+      ["conversations", true],
+      (oldData: { pages: ConversationSummary[][] } | undefined) => {
+        if (!oldData?.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) =>
+            page.filter((conv) => conv.id !== conversationId),
+          ),
+        };
+      },
+    );
+
+    // Optimistically add to active conversations
+    queryClient.setQueryData(
+      ["conversations", false],
+      (oldData: { pages: ConversationSummary[][] } | undefined) => {
+        if (!oldData?.pages) return oldData;
+
+        // Convert ConversationDetails to ConversationSummary
+        const optimisticConversationSummary: ConversationSummary = {
+          id: optimisticConversation.id,
+          otherUser: optimisticConversation.otherUser,
+          lastMessage:
+            optimisticConversation.messages.length > 0
+              ? {
+                  content:
+                    optimisticConversation.messages[
+                      optimisticConversation.messages.length - 1
+                    ].content,
+                  time: optimisticConversation.messages[
+                    optimisticConversation.messages.length - 1
+                  ].time,
+                  senderId: "temp", // Will be replaced by server data
+                }
+              : null,
+          unread: optimisticConversation.unread,
+          lastMessageAt:
+            optimisticConversation.messages.length > 0
+              ? optimisticConversation.messages[
+                  optimisticConversation.messages.length - 1
+                ].time
+              : null,
+          archived: false,
+        };
+
+        return {
+          ...oldData,
+          pages: [
+            [optimisticConversationSummary, ...(oldData.pages[0] || [])],
+            ...oldData.pages.slice(1),
+          ],
+        };
+      },
+    );
+
+    // Update current conversation's archived status
+    queryClient.setQueryData(
+      ["conversation-details", conversationId],
+      (oldData: ConversationDetails | undefined) => {
+        if (!oldData) return oldData;
+        return { ...oldData, archived: false };
+      },
+    );
+
+    // Also update the local state to ensure dropdown shows correct options
+    if (selectedConversation) {
+      selectedConversation.archived = false;
+    }
+
+    startTransition(async () => {
+      try {
+        const result = await unarchiveConversationAction(
+          selectedConversation.id,
+        );
+
+        if (result.success) {
+          toast.success("Conversation unarchived");
+          setIsArchiveDialogOpen(false);
+
+          // Don't invalidate queries - keep the optimistic updates
+          // The optimistic updates already show the correct state
+        } else {
+          // Revert optimistic updates on failure
+          toast.error(
+            String(result.error) || "Failed to unarchive conversation",
+          );
+
+          // Revert the optimistic changes
+          queryClient.setQueryData(
+            ["conversations", true],
+            (oldData: { pages: ConversationSummary[][] } | undefined) => {
+              if (!oldData?.pages) return oldData;
+              return {
+                ...oldData,
+                pages: [
+                  [
+                    {
+                      id: selectedConversation.id,
+                      otherUser: selectedConversation.otherUser,
+                      lastMessage:
+                        selectedConversation.messages.length > 0
+                          ? {
+                              content:
+                                selectedConversation.messages[
+                                  selectedConversation.messages.length - 1
+                                ].content,
+                              time: selectedConversation.messages[
+                                selectedConversation.messages.length - 1
+                              ].time,
+                              senderId: "temp",
+                            }
+                          : null,
+                      unread: selectedConversation.unread,
+                      lastMessageAt:
+                        selectedConversation.messages.length > 0
+                          ? selectedConversation.messages[
+                              selectedConversation.messages.length - 1
+                            ].time
+                          : null,
+                      archived: true,
+                    },
+                    ...(oldData.pages[0] || []),
+                  ],
+                  ...oldData.pages.slice(1),
+                ],
+              };
+            },
+          );
+
+          queryClient.setQueryData(
+            ["conversations", false],
+            (oldData: { pages: ConversationSummary[][] } | undefined) => {
+              if (!oldData?.pages) return oldData;
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page) =>
+                  page.filter((conv) => conv.id !== conversationId),
+                ),
+              };
+            },
+          );
+
+          queryClient.setQueryData(
+            ["conversation-details", conversationId],
+            (oldData: ConversationDetails | undefined) => {
+              if (!oldData) return oldData;
+              return { ...oldData, archived: true };
+            },
+          );
+
+          // Also revert the local state
+          if (selectedConversation) {
+            selectedConversation.archived = true;
+          }
+        }
+      } catch {
+        toast.error("Failed to unarchive conversation");
+
+        // Revert optimistic changes on error
+        queryClient.setQueryData(
+          ["conversations", false],
+          (oldData: { pages: ConversationSummary[][] } | undefined) => {
+            if (!oldData?.pages) return oldData;
+            return {
+              ...oldData,
+              pages: [
+                [
+                  {
+                    id: selectedConversation.id,
+                    otherUser: selectedConversation.otherUser,
+                    lastMessage:
+                      selectedConversation.messages.length > 0
+                        ? {
+                            content:
+                              selectedConversation.messages[
+                                selectedConversation.messages.length - 1
+                              ].content,
+                            time: selectedConversation.messages[
+                              selectedConversation.messages.length - 1
+                            ].time,
+                            senderId: "temp",
+                          }
+                        : null,
+                    unread: selectedConversation.unread,
+                    lastMessageAt:
+                      selectedConversation.messages.length > 0
+                        ? selectedConversation.messages[
+                            selectedConversation.messages.length - 1
+                          ].time
+                        : null,
+                    archived: true,
+                  },
+                  ...(oldData.pages[0] || []),
+                ],
+                ...oldData.pages.slice(1),
+              ],
+            };
+          },
+        );
+
+        queryClient.setQueryData(
+          ["conversations", false],
+          (oldData: { pages: ConversationSummary[][] } | undefined) => {
+            if (!oldData?.pages) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) =>
+                page.filter((conv) => conv.id !== conversationId),
+              ),
+            };
+          },
+        );
+
+        queryClient.setQueryData(
+          ["conversation-details", conversationId],
+          (oldData: ConversationDetails | undefined) => {
+            if (!oldData) return oldData;
+            return { ...oldData, archived: true };
+          },
+        );
+      }
+    });
+  };
+
+  const handleDelete = async () => {
+    if (!selectedConversation) return;
+
+    startTransition(async () => {
+      try {
+        const result = await deleteConversationAction(selectedConversation.id);
+
+        if (result.success) {
+          toast.success("Conversation deleted");
+
+          // Close the delete dialog
+          setIsDeleteDialogOpen(false);
+
+          // Invalidate the conversations queries to refetch fresh data
+          queryClient.invalidateQueries({ queryKey: ["conversations", false] });
+          queryClient.invalidateQueries({ queryKey: ["conversations", true] });
+
+          // Remove conversation details
+          queryClient.removeQueries({
+            queryKey: ["conversation-details", conversationId],
+          });
+
+          // Go back to conversations list
+          onBackToConversations();
+        } else {
+          toast.error(String(result.error) || "Failed to delete conversation");
+        }
+      } catch {
+        toast.error("Failed to delete conversation");
+      }
+    });
+  };
+
   const formatDate = useCallback((date: Date | null) => {
     if (!date) return "";
 
@@ -247,9 +820,125 @@ export function ChatArea({
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {/* Show different options based on conversation status */}
+              {!selectedConversation.archived ? (
+                <>
+                  <DropdownMenuItem onClick={() => handleMarkUnread()}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Mark Unread
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+
+                  {/* Archive Action with Confirmation */}
+                  <AlertDialog
+                    open={isArchiveDialogOpen}
+                    onOpenChange={setIsArchiveDialogOpen}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Archive className="mr-2 h-4 w-4" />
+                        Archive
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          Archive Conversation
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to archive this conversation? It
+                          will be moved to your archived conversations and can
+                          be restored later.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleArchive}>
+                          Archive
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              ) : (
+                <>
+                  {/* Unarchive Action with Confirmation */}
+                  <AlertDialog
+                    open={isArchiveDialogOpen}
+                    onOpenChange={setIsArchiveDialogOpen}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Archive className="mr-2 h-4 w-4" />
+                        Unarchive
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          Unarchive Conversation
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to unarchive this conversation?
+                          It will be moved back to your conversations list.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleUnarchive}>
+                          Unarchive
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
+
+              <DropdownMenuSeparator />
+
+              {/* Delete Action with Confirmation */}
+              <AlertDialog
+                open={isDeleteDialogOpen}
+                onOpenChange={setIsDeleteDialogOpen}
+              >
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem
+                    onSelect={(e) => e.preventDefault()}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this conversation? This
+                      action cannot be undone and all messages will be
+                      permanently removed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { and, eq, desc, asc, or } from "drizzle-orm";
+import { and, eq, desc, asc, or, sql } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import { conversations, messages } from "@/db/schemas/messages.schema";
@@ -44,6 +44,7 @@ export interface ConversationDetails {
     senderName: string;
   }>;
   unread: boolean;
+  archived: boolean;
 }
 
 export class MessagesDAL extends BaseDAL {
@@ -330,6 +331,10 @@ export class MessagesDAL extends BaseDAL {
             senderName: `${message.sender.firstName} ${message.sender.lastName}`,
           })),
           unread: isUnread,
+          archived:
+            conversation.user1.id === currentUserId
+              ? conversation.user1Archived
+              : conversation.user2Archived,
         };
       })(),
     );
@@ -449,5 +454,196 @@ export class MessagesDAL extends BaseDAL {
     }
 
     return data;
+  }
+
+  async markConversationAsUnread(
+    conversationId: string,
+  ): Promise<ConversationDb[]> {
+    const { data, error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        // Verify user is part of conversation
+        const conversation = await this.db.query.conversations.findFirst({
+          where: and(
+            eq(conversations.id, conversationId),
+            or(
+              eq(conversations.user1Id, currentUserId),
+              eq(conversations.user2Id, currentUserId),
+            ),
+          ),
+        });
+
+        if (!conversation) {
+          throw new Error("Conversation not found or access denied");
+        }
+
+        // Use sql function to explicitly set NULL values
+        const updateData: {
+          user1LastReadAt?: ReturnType<typeof sql>;
+          user2LastReadAt?: ReturnType<typeof sql>;
+        } = {};
+
+        if (conversation.user1Id === currentUserId) {
+          updateData.user1LastReadAt = sql`NULL`;
+        } else if (conversation.user2Id === currentUserId) {
+          updateData.user2LastReadAt = sql`NULL`;
+        }
+
+        // Ensure we have fields to update
+        if (Object.keys(updateData).length === 0) {
+          throw new Error("No fields to update");
+        }
+
+        return await this.db
+          .update(conversations)
+          .set(updateData)
+          .where(eq(conversations.id, conversationId))
+          .returning();
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "markConversationAsUnread");
+    }
+
+    return data;
+  }
+
+  async archiveConversation(conversationId: string): Promise<ConversationDb[]> {
+    const { data, error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        // Verify user is part of conversation
+        const conversation = await this.db.query.conversations.findFirst({
+          where: and(
+            eq(conversations.id, conversationId),
+            or(
+              eq(conversations.user1Id, currentUserId),
+              eq(conversations.user2Id, currentUserId),
+            ),
+          ),
+        });
+
+        if (!conversation) {
+          throw new Error("Conversation not found or access denied");
+        }
+
+        const updateData: { user1Archived?: boolean; user2Archived?: boolean } =
+          {};
+        if (conversation.user1Id === currentUserId) {
+          updateData.user1Archived = true;
+        } else if (conversation.user2Id === currentUserId) {
+          updateData.user2Archived = true;
+        }
+
+        return await this.db
+          .update(conversations)
+          .set(updateData)
+          .where(eq(conversations.id, conversationId))
+          .returning();
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "archiveConversation");
+    }
+
+    return data;
+  }
+
+  async unarchiveConversation(
+    conversationId: string,
+  ): Promise<ConversationDb[]> {
+    const { data, error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        // Verify user is part of conversation
+        const conversation = await this.db.query.conversations.findFirst({
+          where: and(
+            eq(conversations.id, conversationId),
+            or(
+              eq(conversations.user1Id, currentUserId),
+              eq(conversations.user2Id, currentUserId),
+            ),
+          ),
+        });
+
+        if (!conversation) {
+          throw new Error("Conversation not found or access denied");
+        }
+
+        // Determine which user's archived field to update
+        const updateData: { user1Archived?: boolean; user2Archived?: boolean } =
+          {};
+
+        if (conversation.user1Id === currentUserId) {
+          updateData.user1Archived = false;
+        } else if (conversation.user2Id === currentUserId) {
+          updateData.user2Archived = false;
+        }
+
+        // Update the conversation to unarchive it
+        const updatedConversation = await this.db
+          .update(conversations)
+          .set(updateData)
+          .where(eq(conversations.id, conversationId))
+          .returning();
+
+        return updatedConversation;
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "unarchiveConversation");
+    }
+
+    return data;
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    const { error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        // Verify user is part of conversation
+        const conversation = await this.db.query.conversations.findFirst({
+          where: and(
+            eq(conversations.id, conversationId),
+            or(
+              eq(conversations.user1Id, currentUserId),
+              eq(conversations.user2Id, currentUserId),
+            ),
+          ),
+        });
+
+        if (!conversation) {
+          throw new Error("Conversation not found or access denied");
+        }
+
+        // Delete the conversation (this will cascade to messages due to foreign key constraints)
+        await this.db
+          .delete(conversations)
+          .where(eq(conversations.id, conversationId));
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "deleteConversation");
+    }
   }
 }
