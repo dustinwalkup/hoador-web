@@ -198,10 +198,12 @@ export class MessagesDAL extends BaseDAL {
             conversation.user1.id === currentUserId
               ? conversation.user1LastReadAt === null ||
                 (lastMessage &&
-                  conversation.user1LastReadAt < lastMessage.createdAt)
+                  conversation.user1LastReadAt < lastMessage.createdAt &&
+                  lastMessage.senderId !== currentUserId) // Don't mark as unread if we sent the last message
               : conversation.user2LastReadAt === null ||
                 (lastMessage &&
-                  conversation.user2LastReadAt < lastMessage.createdAt);
+                  conversation.user2LastReadAt < lastMessage.createdAt &&
+                  lastMessage.senderId !== currentUserId); // Don't mark as unread if we sent the last message
 
           return {
             id: conversation.id,
@@ -303,10 +305,12 @@ export class MessagesDAL extends BaseDAL {
           conversation.user1.id === currentUserId
             ? conversation.user1LastReadAt === null ||
               (lastMessage &&
-                conversation.user1LastReadAt < lastMessage.createdAt)
+                conversation.user1LastReadAt < lastMessage.createdAt &&
+                lastMessage.senderId !== currentUserId) // Don't mark as unread if we sent the last message
             : conversation.user2LastReadAt === null ||
               (lastMessage &&
-                conversation.user2LastReadAt < lastMessage.createdAt);
+                conversation.user2LastReadAt < lastMessage.createdAt &&
+                lastMessage.senderId !== currentUserId); // Don't mark as unread if we sent the last message
 
         return {
           id: conversation.id,
@@ -416,10 +420,24 @@ export class MessagesDAL extends BaseDAL {
           })
           .returning();
 
-        // Update conversation's lastMessageAt
+        // Update conversation's lastMessageAt and mark as read for the sender
+        const updateData: {
+          lastMessageAt: Date;
+          user1LastReadAt?: Date;
+          user2LastReadAt?: Date;
+        } = {
+          lastMessageAt: new Date(),
+        };
+
+        if (conversation.user1Id === currentUserId) {
+          updateData.user1LastReadAt = new Date();
+        } else if (conversation.user2Id === currentUserId) {
+          updateData.user2LastReadAt = new Date();
+        }
+
         await this.db
           .update(conversations)
-          .set({ lastMessageAt: new Date() })
+          .set(updateData)
           .where(eq(conversations.id, conversationId));
 
         return message;

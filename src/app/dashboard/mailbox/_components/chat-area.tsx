@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useOptimistic, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   MoreHorizontal,
   ArrowLeft,
@@ -8,13 +9,16 @@ import {
   Send,
   Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { toast } from "sonner";
 import { sendMessageAction } from "@/lib/actions/send-message";
-import { formatDistanceToNow } from "date-fns";
 import { useConversationDetails } from "@/lib/hooks/use-conversations";
+import type {
+  ConversationDetails,
+  ConversationSummary,
+} from "@/lib/dal/messages.dal";
 
 interface ChatAreaProps {
   conversationId: string | null;
@@ -29,23 +33,13 @@ export function ChatArea({
 }: ChatAreaProps) {
   const [newMessage, setNewMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient();
 
   const { data: selectedConversation, isLoading: isLoadingConversation } =
     useConversationDetails(conversationId);
 
-  const [optimisticMessages, addOptimisticMessage] = useOptimistic(
-    selectedConversation?.messages || [],
-    (
-      state,
-      newMessage: {
-        id: string;
-        content: string;
-        time: Date;
-        sender: "me" | "them";
-        senderName: string;
-      },
-    ) => [...state, newMessage],
-  );
+  // Get messages from the conversation data, including any optimistic ones
+  const messages = selectedConversation?.messages || [];
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
@@ -53,22 +47,90 @@ export function ChatArea({
     const messageContent = newMessage.trim();
     setNewMessage("");
 
-    // Add optimistic message
-    addOptimisticMessage({
-      id: `temp-${Date.now()}`,
-      content: messageContent,
-      time: new Date(),
-      sender: "me",
-      senderName: "You",
-    });
-
     startTransition(async () => {
+      // Add optimistic message directly to the cache
+      const optimisticMessage = {
+        id: `temp-${Date.now()}`,
+        content: messageContent,
+        time: new Date(),
+        sender: "me" as const,
+        senderName: "You",
+      };
+
+      queryClient.setQueryData(
+        ["conversation-details", conversationId],
+        (oldData: ConversationDetails | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            messages: [...oldData.messages, optimisticMessage],
+          };
+        },
+      );
+
       const result = await sendMessageAction(
         selectedConversation.id,
         messageContent,
       );
 
-      if (!result.success) {
+      if (result.success && result.data) {
+        // Transform the raw message to match ConversationDetails format
+        const realMessage = {
+          id: result.data.id,
+          content: result.data.content,
+          time: result.data.createdAt,
+          sender: "me" as const,
+          senderName: "You",
+        };
+
+        // Update the conversation cache by replacing the optimistic message with the real one
+        // This prevents flickering by maintaining the same position
+        queryClient.setQueryData(
+          ["conversation-details", conversationId],
+          (oldData: ConversationDetails | undefined) => {
+            if (!oldData) return oldData;
+
+            // Find and replace the optimistic message instead of removing and re-adding
+            const updatedMessages = oldData.messages.map((msg) =>
+              msg.id.startsWith("temp-") ? realMessage : msg,
+            );
+
+            return {
+              ...oldData,
+              messages: updatedMessages,
+              unread: false, // Mark as read since we just sent a message
+            };
+          },
+        );
+
+        // Also update the conversations list to show the latest message
+        queryClient.setQueryData(
+          ["conversations", false], // false for non-archived conversations
+          (oldData: { pages: ConversationSummary[][] } | undefined) => {
+            if (!oldData?.pages) return oldData;
+
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) =>
+                page.map((conv) =>
+                  conv.id === conversationId
+                    ? {
+                        ...conv,
+                        lastMessage: {
+                          content: realMessage.content,
+                          time: realMessage.time,
+                          senderId: result.data!.senderId,
+                        },
+                        lastMessageAt: realMessage.time,
+                        unread: false, // Mark as read since we just sent a message
+                      }
+                    : conv,
+                ),
+              ),
+            };
+          },
+        );
+      } else {
         toast.error(result.error || "Failed to send message");
       }
     });
@@ -76,7 +138,31 @@ export function ChatArea({
 
   const formatDate = useCallback((date: Date | null) => {
     if (!date) return "";
-    return formatDistanceToNow(date, { addSuffix: true });
+
+    // Ensure we have a valid Date object
+    let dateObj: Date;
+    if (date instanceof Date) {
+      dateObj = date;
+    } else if (typeof date === "string") {
+      dateObj = new Date(date);
+    } else {
+      return ""; // Return empty for invalid dates
+    }
+
+    // Check if the date is valid
+    if (isNaN(dateObj.getTime())) {
+      return "";
+    }
+
+    const now = new Date();
+    const diffInMinutes = Math.floor(
+      (now.getTime() - dateObj.getTime()) / (1000 * 60),
+    );
+
+    if (diffInMinutes < 1) return "now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
+    return `${Math.floor(diffInMinutes / 1440)}d`;
   }, []);
 
   if (!conversationId) {
@@ -161,7 +247,7 @@ export function ChatArea({
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-4 p-4">
-          {optimisticMessages.map((message) => (
+          {messages.map((message) => (
             <div
               key={message.id}
               className={`flex ${message.sender === "me" ? "justify-end" : "justify-start"}`}

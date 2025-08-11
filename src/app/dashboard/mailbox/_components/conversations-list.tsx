@@ -5,7 +5,7 @@ import { useMemo, useCallback } from "react";
 import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useInfiniteScroll } from "@/lib/hooks/use-infinite-scroll";
 import { usePrefetchConversation } from "@/lib/hooks/use-conversations";
@@ -69,7 +69,31 @@ export function ConversationsList({
 
   const formatDate = useCallback((date: Date | null) => {
     if (!date) return "";
-    return formatDistanceToNow(date, { addSuffix: true });
+
+    // Ensure we have a valid Date object
+    let dateObj: Date;
+    if (date instanceof Date) {
+      dateObj = date;
+    } else if (typeof date === "string") {
+      dateObj = new Date(date);
+    } else {
+      return ""; // Return empty for invalid dates
+    }
+
+    // Check if the date is valid
+    if (isNaN(dateObj.getTime())) {
+      return "";
+    }
+
+    const now = new Date();
+    const diffInMinutes = Math.floor(
+      (now.getTime() - dateObj.getTime()) / (1000 * 60),
+    );
+
+    if (diffInMinutes < 1) return "now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
+    return `${Math.floor(diffInMinutes / 1440)}d`;
   }, []);
 
   // Helper function to update conversation cache
