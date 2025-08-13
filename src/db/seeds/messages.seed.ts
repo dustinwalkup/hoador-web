@@ -122,7 +122,6 @@ async function main() {
           conversationId: conversation.id!,
           senderId,
           content: messageContent,
-          attachments: [],
           status,
           rentalId: null, // Optional: can be linked to rentals later
           editedAt: null,

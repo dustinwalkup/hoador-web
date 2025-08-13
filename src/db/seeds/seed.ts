@@ -13,6 +13,7 @@ async function main() {
     "payments.seed.ts",
     "notifications.seed.ts",
     "messages.seed.ts",
+    "message-attachments.seed.ts",
     "collections.seed.ts",
   ];
 
