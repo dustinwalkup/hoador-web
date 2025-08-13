@@ -1,20 +1,123 @@
+import { config } from "dotenv";
 import { InferInsertModel } from "drizzle-orm";
 import { db } from "../db";
 import { faker } from "@faker-js/faker";
 import { messageAttachments } from "../schemas/messages.schema";
 import { messages } from "../schemas/messages.schema";
+import { uploadToBlob } from "@/services/vercel-blob";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+// Load environment variables from .env.local
+config({ path: ".env.local" });
 
 // Types
 type NewMessageAttachment = InferInsertModel<typeof messageAttachments>;
 
-async function main() {
-  console.log("🌱 Seeding message attachments...");
+// Sample file data for seeding with real blob storage
+const sampleFiles = {
+  image: [
+    {
+      path: "public/images/mock/tools/automotive-stool.webp",
+      mimeType: "image/webp",
+    },
+    { path: "public/images/mock/tools/car-wrench.jpg", mimeType: "image/jpeg" },
+    {
+      path: "public/images/mock/tools/cleaning-brush.jpg",
+      mimeType: "image/jpeg",
+    },
+    { path: "public/images/mock/tools/hand-saw.jpeg", mimeType: "image/jpeg" },
+    { path: "public/images/mock/tools/shovel.jpg", mimeType: "image/jpeg" },
+    { path: "public/images/mock/tools/rake.webp", mimeType: "image/webp" },
+    {
+      path: "public/images/mock/tools/tape-measure.jpg",
+      mimeType: "image/jpeg",
+    },
+    {
+      path: "public/images/mock/tools/level-tool.webp",
+      mimeType: "image/webp",
+    },
+  ],
+  pdf: [
+    {
+      path: "public/images/mock/tools/garage-stock.png",
+      mimeType: "image/png",
+    }, // Using image as PDF placeholder
+  ],
+  document: [
+    {
+      path: "public/images/mock/tools/automotive-wrenches.jpg",
+      mimeType: "image/jpeg",
+    }, // Using image as document placeholder
+  ],
+  spreadsheet: [
+    {
+      path: "public/images/mock/tools/tire-lug-gun.webp",
+      mimeType: "image/webp",
+    }, // Using image as spreadsheet placeholder
+  ],
+  text: [
+    {
+      path: "public/images/mock/tools/cleaning-brush.jpg",
+      mimeType: "image/jpeg",
+    }, // Using image as text placeholder
+  ],
+};
 
-  // Clear existing data
-  await db.delete(messageAttachments);
+async function uploadSampleFile(
+  filePath: string,
+): Promise<{ url: string; blobPathname: string; size: number }> {
+  try {
+    // Read the file from the public directory
+    const fullPath = join(process.cwd(), filePath);
+    const fileBuffer = readFileSync(fullPath);
+
+    // Generate a unique filename for blob storage
+    const filename = `message-attachments/${Date.now()}-${faker.string.uuid()}-${filePath.split("/").pop()}`;
+
+    // Upload to blob storage
+    const blobResult = await uploadToBlob(filename, fileBuffer);
+
+    return {
+      url: blobResult.url,
+      blobPathname: blobResult.pathname,
+      size: fileBuffer.length,
+    };
+  } catch (error) {
+    console.error(`Failed to upload sample file ${filePath}:`, error);
+    // Fallback to placeholder data
+    return {
+      url: `https://example.com/attachments/${filePath.split("/").pop()}`,
+      blobPathname: `message-attachments/placeholder-${filePath.split("/").pop()}`,
+      size: 1024 * 1024, // 1MB placeholder
+    };
+  }
+}
+
+async function main() {
+  console.log("🌱 Seeding message attachments with real blob storage...");
+
+  try {
+    // Clear existing data
+    console.log("🗑️ Clearing existing message attachments...");
+    await db.delete(messageAttachments);
+    console.log("✅ Existing attachments cleared");
+  } catch (error) {
+    console.error("❌ Failed to clear existing attachments:", error);
+    throw error;
+  }
 
   // Get all messages to attach files to
-  const allMessages = await db.select().from(messages);
+  let allMessages;
+  try {
+    console.log("📨 Fetching existing messages...");
+    allMessages = await db.select().from(messages);
+    console.log(`📊 Found ${allMessages.length} messages`);
+  } catch (error) {
+    console.error("❌ Failed to fetch messages:", error);
+    throw error;
+  }
+
   if (allMessages.length === 0) {
     console.log("⚠️ No messages found. Run messages seed first.");
     return;
@@ -23,44 +126,13 @@ async function main() {
   const seedAttachments: NewMessageAttachment[] = [];
   let attachmentCount = 0;
 
-  // Sample file types and their properties
+  // File types for categorization
   const fileTypes = [
-    {
-      type: "image" as const,
-      mimeTypes: ["image/jpeg", "image/png", "image/webp"],
-      extensions: [".jpg", ".png", ".webp"],
-      sizes: [1024 * 1024, 2 * 1024 * 1024, 3 * 1024 * 1024], // 1-3MB
-    },
-    {
-      type: "pdf" as const,
-      mimeTypes: ["application/pdf"],
-      extensions: [".pdf"],
-      sizes: [500 * 1024, 1024 * 1024, 2 * 1024 * 1024], // 500KB-2MB
-    },
-    {
-      type: "document" as const,
-      mimeTypes: [
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ],
-      extensions: [".doc", ".docx"],
-      sizes: [100 * 1024, 500 * 1024, 1024 * 1024], // 100KB-1MB
-    },
-    {
-      type: "spreadsheet" as const,
-      mimeTypes: [
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      ],
-      extensions: [".xls", ".xlsx"],
-      sizes: [200 * 1024, 800 * 1024, 1.5 * 1024 * 1024], // 200KB-1.5MB
-    },
-    {
-      type: "text" as const,
-      mimeTypes: ["text/plain"],
-      extensions: [".txt"],
-      sizes: [1 * 1024, 5 * 1024, 10 * 1024], // 1-10KB
-    },
+    { type: "image" as const },
+    { type: "pdf" as const },
+    { type: "document" as const },
+    { type: "spreadsheet" as const },
+    { type: "text" as const },
   ];
 
   // Sample filenames for each type
@@ -111,29 +183,26 @@ async function main() {
 
       for (let i = 0; i < attachmentCountForMessage; i++) {
         const fileType = faker.helpers.arrayElement(fileTypes);
-        const mimeType = faker.helpers.arrayElement(fileType.mimeTypes);
-        const extension = faker.helpers.arrayElement(fileType.extensions);
-        const size = faker.helpers.arrayElement(fileType.sizes);
+        const sampleFile = faker.helpers.arrayElement(
+          sampleFiles[fileType.type],
+        );
         const filename = faker.helpers.arrayElement(
           sampleFilenames[fileType.type],
         );
 
-        // Generate a unique blob pathname for storage
-        const blobPathname = `message-attachments/${message.id}/${faker.string.uuid()}${extension}`;
-
-        // Generate a placeholder URL (in production this would be the actual blob URL)
-        const url = `https://example.com/attachments/${blobPathname}`;
+        // Upload the sample file to blob storage
+        const blobData = await uploadSampleFile(sampleFile.path);
 
         const attachment: NewMessageAttachment = {
           id: faker.string.uuid(),
           messageId: message.id,
-          filename: faker.string.uuid() + extension, // Unique filename for storage
+          filename: faker.string.uuid() + sampleFile.path.split(".").pop(),
           originalFilename: filename,
-          mimeType,
+          mimeType: sampleFile.mimeType,
           type: fileType.type,
-          size,
-          url,
-          blobPathname,
+          size: blobData.size,
+          url: blobData.url,
+          blobPathname: blobData.blobPathname,
           width:
             fileType.type === "image"
               ? faker.number.int({ min: 800, max: 1920 })
@@ -163,7 +232,13 @@ async function main() {
   console.log(
     `✅ Message attachments seed complete - Created ${attachmentCount} attachments across ${seedAttachments.length > 0 ? seedAttachments.length : 0} messages`,
   );
+  console.log(
+    "📁 Attachments uploaded to blob storage and ready for download!",
+  );
 }
+
+// Export the main function for testing
+export { main };
 
 main().catch((err) => {
   console.error("❌ Error seeding message attachments:", err);

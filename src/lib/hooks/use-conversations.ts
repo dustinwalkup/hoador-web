@@ -6,7 +6,8 @@ import {
 import {
   ConversationSummary,
   ConversationDetails,
-} from "@/lib/dal/messages.dal";
+  ConversationDetailsWithAttachments,
+} from "@/lib/dal/types";
 
 const CONVERSATIONS_PER_PAGE = 20;
 
@@ -30,16 +31,25 @@ export function useConversations(archived: boolean = false) {
   });
 }
 
-export function useConversationDetails(conversationId: string | null) {
+export function useConversationDetails(
+  conversationId: string | null,
+  includeAttachments: boolean = false,
+) {
   return useQuery({
-    queryKey: ["conversation-details", conversationId],
+    queryKey: ["conversation-details", conversationId, includeAttachments],
     queryFn: async () => {
       if (!conversationId) return null;
-      const response = await fetch(
-        `/api/messages/conversations/${conversationId}`,
-      );
+      const url = includeAttachments
+        ? `/api/messages/conversations/${conversationId}?attachments=true`
+        : `/api/messages/conversations/${conversationId}`;
+
+      const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch conversation details");
       const data = await response.json();
+
+      if (includeAttachments) {
+        return data as ConversationDetailsWithAttachments;
+      }
       return data as ConversationDetails;
     },
     enabled: !!conversationId,

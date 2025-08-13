@@ -1,51 +1,25 @@
 import { and, eq, desc, asc, or, sql } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
-import { conversations, messages } from "@/db/schemas/messages.schema";
+import {
+  conversations,
+  messages,
+  messageAttachments,
+} from "@/db/schemas/messages.schema";
 import { getCurrentUserId } from "@/lib/auth/auth.utils";
 import { BaseDAL } from "./base";
 import { UnauthorizedError } from "./errors";
+import {
+  ConversationSummary,
+  ConversationDetails,
+  ConversationSummaryWithAttachments,
+  ConversationDetailsWithAttachments,
+} from "./types";
 
 // Types
 type ConversationDb = typeof conversations.$inferSelect;
 type MessageDb = typeof messages.$inferSelect;
-
-export interface ConversationSummary {
-  id: string;
-  otherUser: {
-    id: string;
-    name: string;
-    avatar: string | null;
-    initials: string;
-  };
-  lastMessage: {
-    content: string;
-    time: Date;
-    senderId: string;
-  } | null;
-  unread: boolean;
-  lastMessageAt: Date | null;
-  archived: boolean;
-}
-
-export interface ConversationDetails {
-  id: string;
-  otherUser: {
-    id: string;
-    name: string;
-    avatar: string | null;
-    initials: string;
-  };
-  messages: Array<{
-    id: string;
-    content: string;
-    time: Date;
-    sender: "me" | "them";
-    senderName: string;
-  }>;
-  unread: boolean;
-  archived: boolean;
-}
+type MessageAttachmentDb = typeof messageAttachments.$inferSelect;
 
 export class MessagesDAL extends BaseDAL {
   async findOrCreateConversation(
@@ -122,11 +96,11 @@ export class MessagesDAL extends BaseDAL {
     return this.getUserConversationsPaginated(archived, 0, 1000); // Default to get all for backward compatibility
   }
 
-  async getUserConversationsPaginated(
+  async getUserConversationsWithAttachments(
     archived?: boolean,
     offset: number = 0,
     limit: number = 20,
-  ): Promise<ConversationSummary[]> {
+  ): Promise<ConversationSummaryWithAttachments[]> {
     const { data, error } = await tryCatch(
       (async () => {
         const currentUserId = await getCurrentUserId();
@@ -178,6 +152,137 @@ export class MessagesDAL extends BaseDAL {
                     id: true,
                     firstName: true,
                     lastName: true,
+                  },
+                },
+                attachments: {
+                  columns: {
+                    id: true,
+                    filename: true,
+                    type: true,
+                    size: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [desc(conversations.lastMessageAt)],
+          offset,
+          limit,
+        });
+
+        return userConversations.map((conversation) => {
+          const otherUser =
+            conversation.user1.id === currentUserId
+              ? conversation.user2
+              : conversation.user1;
+
+          const lastMessage = conversation.messages[0];
+          const isUnread =
+            conversation.user1.id === currentUserId
+              ? conversation.user1LastReadAt === null ||
+                (lastMessage &&
+                  conversation.user1LastReadAt < lastMessage.createdAt &&
+                  lastMessage.senderId !== currentUserId)
+              : conversation.user2LastReadAt === null ||
+                (lastMessage &&
+                  conversation.user2LastReadAt < lastMessage.createdAt &&
+                  lastMessage.senderId !== currentUserId);
+
+          return {
+            id: conversation.id,
+            otherUser: {
+              id: otherUser.id,
+              name: `${otherUser.firstName} ${otherUser.lastName}`,
+              avatar: null,
+              initials: `${otherUser.firstName?.[0] || ""}${otherUser.lastName?.[0] || ""}`,
+            },
+            lastMessage: lastMessage
+              ? {
+                  content: lastMessage.content,
+                  time: lastMessage.createdAt,
+                  senderId: lastMessage.senderId,
+                  hasAttachments: lastMessage.attachments.length > 0,
+                }
+              : null,
+            unread: isUnread,
+            lastMessageAt: conversation.lastMessageAt,
+            archived:
+              conversation.user1.id === currentUserId
+                ? conversation.user1Archived
+                : conversation.user2Archived,
+          };
+        });
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "getUserConversationsWithAttachments");
+    }
+
+    return data;
+  }
+
+  async getUserConversationsPaginated(
+    archived?: boolean,
+    offset: number = 0,
+    limit: number = 20,
+  ): Promise<ConversationSummary[]> {
+    const { data, error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        const userConversations = await this.db.query.conversations.findMany({
+          where: and(
+            or(
+              eq(conversations.user1Id, currentUserId),
+              eq(conversations.user2Id, currentUserId),
+            ),
+            // Filter by archived status if specified
+            archived !== undefined
+              ? or(
+                  and(
+                    eq(conversations.user1Id, currentUserId),
+                    eq(conversations.user1Archived, archived),
+                  ),
+                  and(
+                    eq(conversations.user2Id, currentUserId),
+                    eq(conversations.user2Archived, archived),
+                  ),
+                )
+              : undefined,
+          ),
+          with: {
+            user1: {
+              columns: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+            user2: {
+              columns: {
+                id: true,
+                lastName: true,
+                firstName: true,
+              },
+            },
+            messages: {
+              orderBy: [desc(messages.createdAt)],
+              limit: 1,
+              with: {
+                sender: {
+                  columns: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+                attachments: {
+                  columns: {
+                    id: true,
                   },
                 },
               },
@@ -284,6 +389,23 @@ export class MessagesDAL extends BaseDAL {
                     lastName: true,
                   },
                 },
+                attachments: {
+                  columns: {
+                    id: true,
+                    filename: true,
+                    originalFilename: true,
+                    mimeType: true,
+                    type: true,
+                    size: true,
+                    url: true,
+                    blobPathname: true,
+                    width: true,
+                    height: true,
+                    orderIndex: true,
+                    createdAt: true,
+                  },
+                  orderBy: [asc(messageAttachments.orderIndex)],
+                },
               },
             },
           },
@@ -329,6 +451,7 @@ export class MessagesDAL extends BaseDAL {
               | "me"
               | "them",
             senderName: `${message.sender.firstName} ${message.sender.lastName}`,
+            hasAttachments: message.attachments.length > 0,
           })),
           unread: isUnread,
           archived:
@@ -342,6 +465,140 @@ export class MessagesDAL extends BaseDAL {
     if (error) {
       console.error("Error in getConversationDetails:", error);
       this.handleError(error, "getConversationDetails");
+    }
+
+    return data;
+  }
+
+  async getConversationDetailsWithAttachments(
+    conversationId: string,
+  ): Promise<ConversationDetailsWithAttachments> {
+    const { data, error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        const conversation = await this.db.query.conversations.findFirst({
+          where: and(
+            eq(conversations.id, conversationId),
+            or(
+              eq(conversations.user1Id, currentUserId),
+              eq(conversations.user2Id, currentUserId),
+            ),
+          ),
+          with: {
+            user1: {
+              columns: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+            user2: {
+              columns: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+            messages: {
+              orderBy: [asc(messages.createdAt)],
+              with: {
+                sender: {
+                  columns: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+                attachments: {
+                  columns: {
+                    id: true,
+                    filename: true,
+                    originalFilename: true,
+                    mimeType: true,
+                    type: true,
+                    size: true,
+                    url: true,
+                    blobPathname: true,
+                    width: true,
+                    height: true,
+                    orderIndex: true,
+                    createdAt: true,
+                  },
+                  orderBy: [asc(messageAttachments.orderIndex)],
+                },
+              },
+            },
+          },
+        });
+
+        if (!conversation) {
+          throw new Error("Conversation not found");
+        }
+
+        const otherUser =
+          conversation.user1.id === currentUserId
+            ? conversation.user2
+            : conversation.user1;
+
+        const lastMessage =
+          conversation.messages[conversation.messages.length - 1];
+        const isUnread =
+          conversation.user1.id === currentUserId
+            ? conversation.user1LastReadAt === null ||
+              (lastMessage &&
+                conversation.user1LastReadAt < lastMessage.createdAt &&
+                lastMessage.senderId !== currentUserId)
+            : conversation.user2LastReadAt === null ||
+              (lastMessage &&
+                conversation.user2LastReadAt < lastMessage.createdAt &&
+                lastMessage.senderId !== currentUserId);
+
+        return {
+          id: conversation.id,
+          otherUser: {
+            id: otherUser.id,
+            name: `${otherUser.firstName} ${otherUser.lastName}`,
+            avatar: null,
+            initials: `${otherUser.firstName?.[0] || ""}${otherUser.lastName?.[0] || ""}`,
+          },
+          messages: conversation.messages.map((message) => ({
+            id: message.id,
+            content: message.content,
+            time: message.createdAt,
+            sender: (message.senderId === currentUserId ? "me" : "them") as
+              | "me"
+              | "them",
+            senderName: `${message.sender.firstName} ${message.sender.lastName}`,
+            attachments: message.attachments.map((attachment) => ({
+              id: attachment.id,
+              filename: attachment.filename,
+              originalFilename: attachment.originalFilename,
+              mimeType: attachment.mimeType,
+              type: attachment.type,
+              size: attachment.size,
+              url: attachment.url,
+              blobPathname: attachment.blobPathname,
+              width: attachment.width ?? undefined,
+              height: attachment.height ?? undefined,
+              orderIndex: attachment.orderIndex,
+              createdAt: attachment.createdAt,
+            })),
+          })),
+          unread: isUnread,
+          archived:
+            conversation.user1.id === currentUserId
+              ? conversation.user1Archived
+              : conversation.user2Archived,
+        };
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "getConversationDetailsWithAttachments");
     }
 
     return data;
@@ -645,5 +902,196 @@ export class MessagesDAL extends BaseDAL {
     if (error) {
       this.handleError(error, "deleteConversation");
     }
+  }
+
+  // Attachment management methods
+  async createMessageAttachment(
+    messageId: string,
+    attachmentData: {
+      filename: string;
+      originalFilename: string;
+      mimeType: string;
+      type: "image" | "pdf" | "document" | "spreadsheet" | "text" | "other";
+      size: number;
+      url: string;
+      blobPathname: string;
+      width?: number;
+      height?: number;
+      orderIndex?: number;
+    },
+  ): Promise<MessageAttachmentDb> {
+    const { data, error } = await tryCatch(
+      (async () => {
+        // Verify the message exists and user has access
+        const message = await this.db.query.messages.findFirst({
+          where: eq(messages.id, messageId),
+          with: {
+            conversation: {
+              with: {
+                user1: { columns: { id: true } },
+                user2: { columns: { id: true } },
+              },
+            },
+          },
+        });
+
+        if (!message) {
+          throw new Error("Message not found");
+        }
+
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        // Verify user is part of conversation
+        const conversation = message.conversation;
+        if (
+          conversation.user1.id !== currentUserId &&
+          conversation.user2.id !== currentUserId
+        ) {
+          throw new UnauthorizedError("Access denied to this message");
+        }
+
+        // Verify user is the sender of the message
+        if (message.senderId !== currentUserId) {
+          throw new UnauthorizedError(
+            "Can only add attachments to your own messages",
+          );
+        }
+
+        const [attachment] = await this.db
+          .insert(messageAttachments)
+          .values({
+            messageId,
+            filename: attachmentData.filename,
+            originalFilename: attachmentData.originalFilename,
+            mimeType: attachmentData.mimeType,
+            type: attachmentData.type,
+            size: attachmentData.size,
+            url: attachmentData.url,
+            blobPathname: attachmentData.blobPathname,
+            width: attachmentData.width,
+            height: attachmentData.height,
+            orderIndex: attachmentData.orderIndex || 0,
+          })
+          .returning();
+
+        return attachment;
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "createMessageAttachment");
+    }
+
+    return data;
+  }
+
+  async deleteMessageAttachment(attachmentId: string): Promise<void> {
+    const { error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        // Get attachment with message and conversation info
+        const attachment = await this.db.query.messageAttachments.findFirst({
+          where: eq(messageAttachments.id, attachmentId),
+          with: {
+            message: {
+              with: {
+                conversation: {
+                  with: {
+                    user1: { columns: { id: true } },
+                    user2: { columns: { id: true } },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!attachment) {
+          throw new Error("Attachment not found");
+        }
+
+        // Verify user is part of conversation
+        const conversation = attachment.message.conversation;
+        if (
+          conversation.user1.id !== currentUserId &&
+          conversation.user2.id !== currentUserId
+        ) {
+          throw new UnauthorizedError("Access denied to this attachment");
+        }
+
+        // Verify user is the sender of the message
+        if (attachment.message.senderId !== currentUserId) {
+          throw new UnauthorizedError(
+            "Can only delete attachments from your own messages",
+          );
+        }
+
+        await this.db
+          .delete(messageAttachments)
+          .where(eq(messageAttachments.id, attachmentId));
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "deleteMessageAttachment");
+    }
+  }
+
+  async getMessageAttachment(
+    attachmentId: string,
+  ): Promise<MessageAttachmentDb | null> {
+    const { data, error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        // Get attachment with message and conversation info
+        const attachment = await this.db.query.messageAttachments.findFirst({
+          where: eq(messageAttachments.id, attachmentId),
+          with: {
+            message: {
+              with: {
+                conversation: {
+                  with: {
+                    user1: { columns: { id: true } },
+                    user2: { columns: { id: true } },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!attachment) {
+          return null;
+        }
+
+        // Verify user is part of conversation
+        const conversation = attachment.message.conversation;
+        if (
+          conversation.user1.id !== currentUserId &&
+          conversation.user2.id !== currentUserId
+        ) {
+          throw new UnauthorizedError("Access denied to this attachment");
+        }
+
+        return attachment;
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "getMessageAttachment");
+    }
+
+    return data;
   }
 }

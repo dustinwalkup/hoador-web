@@ -241,3 +241,98 @@ export interface RentalDetails {
   reviews: any[];
   request?: any;
 }
+
+// Message types
+export interface ConversationSummary {
+  id: string;
+  otherUser: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    initials: string;
+  };
+  lastMessage: {
+    content: string;
+    time: Date;
+    senderId: string;
+  } | null;
+  unread: boolean;
+  lastMessageAt: Date | null;
+  archived: boolean;
+}
+
+export interface ConversationDetails {
+  id: string;
+  otherUser: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    initials: string;
+  };
+  messages: Array<{
+    id: string;
+    content: string;
+    time: Date;
+    sender: "me" | "them";
+    senderName: string;
+  }>;
+  unread: boolean;
+  archived: boolean;
+}
+
+// Message attachment types
+export interface MessageAttachment {
+  id: string;
+  filename: string;
+  originalFilename: string;
+  mimeType: string;
+  type: "image" | "pdf" | "document" | "spreadsheet" | "text" | "other";
+  size: number;
+  url: string;
+  blobPathname: string;
+  width?: number;
+  height?: number;
+  orderIndex: number;
+  createdAt: Date;
+}
+
+export interface MessageWithAttachments {
+  id: string;
+  content: string;
+  time: Date;
+  sender: "me" | "them";
+  senderName: string;
+  attachments: MessageAttachment[];
+}
+
+export interface ConversationDetailsWithAttachments {
+  id: string;
+  otherUser: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    initials: string;
+  };
+  messages: MessageWithAttachments[];
+  unread: boolean;
+  archived: boolean;
+}
+
+export interface ConversationSummaryWithAttachments {
+  id: string;
+  otherUser: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    initials: string;
+  };
+  lastMessage: {
+    content: string;
+    time: Date;
+    senderId: string;
+    hasAttachments: boolean;
+  } | null;
+  unread: boolean;
+  lastMessageAt: Date | null;
+  archived: boolean;
+}

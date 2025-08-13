@@ -1,20 +1,34 @@
 import { NextRequest } from "next/server";
 import { messagesDAL } from "@/lib/dal";
+import { tryCatch } from "@walkup/walkup-utils";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
-  try {
-    const { conversationId } = await params;
-    const conversation =
-      await messagesDAL.getConversationDetails(conversationId);
-    return Response.json(conversation);
-  } catch (error) {
+  const { conversationId } = await params;
+  const searchParams = request.nextUrl.searchParams;
+  const includeAttachments = searchParams.get("attachments") === "true";
+
+  const { data, error } = await tryCatch(
+    (async () => {
+      if (includeAttachments) {
+        return await messagesDAL.getConversationDetailsWithAttachments(
+          conversationId,
+        );
+      } else {
+        return await messagesDAL.getConversationDetails(conversationId);
+      }
+    })(),
+  );
+
+  if (error) {
     console.error("Error fetching conversation details:", error);
     return Response.json(
-      { error: "Failed to fetch conversation details" },
+      { error: error.message || "Failed to fetch conversation details" },
       { status: 500 },
     );
   }
+
+  return Response.json(data);
 }
