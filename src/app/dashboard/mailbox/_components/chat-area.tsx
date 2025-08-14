@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback, useRef } from "react";
+import { useState, useTransition, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MoreHorizontal,
@@ -59,6 +59,10 @@ export function ChatArea({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [previousConversationId, setPreviousConversationId] = useState<
+    string | null
+  >(null);
 
   const { data: selectedConversation, isLoading: isLoadingConversation } =
     useConversationDetails(conversationId);
@@ -66,13 +70,50 @@ export function ChatArea({
   // Get messages from the conversation data, including any optimistic ones
   const messages = selectedConversation?.messages || [];
 
-  // Scroll to bottom only when the last message renders
-  const handleLastMessageRender = useCallback(() => {
+  // Track conversation changes to detect initial loads
+  useEffect(() => {
+    if (conversationId !== previousConversationId) {
+      setIsInitialLoad(true);
+      setPreviousConversationId(conversationId);
+    }
+  }, [conversationId, previousConversationId]);
+
+  // Smooth scroll to bottom function
+  const scrollToBottom = useCallback((smooth = true) => {
     if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop =
-        messagesContainerRef.current.scrollHeight;
+      const container = messagesContainerRef.current;
+      if (smooth) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "smooth",
+        });
+      } else {
+        // Instant scroll for initial load
+        container.scrollTop = container.scrollHeight;
+      }
     }
   }, []);
+
+  // Handle scrolling for initial conversation load
+  useEffect(() => {
+    if (selectedConversation && messages.length > 0 && isInitialLoad) {
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        scrollToBottom(false); // Instant scroll for initial load
+        setIsInitialLoad(false);
+      });
+    }
+  }, [selectedConversation, messages.length, isInitialLoad, scrollToBottom]);
+
+  // Handle scrolling when new messages are added (not initial load)
+  useEffect(() => {
+    if (!isInitialLoad && messages.length > 0) {
+      // Small delay to ensure DOM is updated with new message
+      requestAnimationFrame(() => {
+        scrollToBottom(true); // Smooth scroll for new messages
+      });
+    }
+  }, [messages.length, isInitialLoad, scrollToBottom]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
@@ -946,16 +987,13 @@ export function ChatArea({
       >
         <div className="space-y-4 p-4">
           {messages.map(
-            (
-              message: {
-                id: string;
-                content: string;
-                time: Date;
-                sender: "me" | "them";
-                senderName: string;
-              },
-              index: number,
-            ) => (
+            (message: {
+              id: string;
+              content: string;
+              time: Date;
+              sender: "me" | "them";
+              senderName: string;
+            }) => (
               <div
                 key={message.id}
                 className={`flex ${message.sender === "me" ? "justify-end" : "justify-start"}`}
@@ -974,10 +1012,6 @@ export function ChatArea({
                     {formatDate(message.time)}
                   </p>
                 </div>
-                {/* Only call scroll function on the last message */}
-                {index === messages.length - 1 && (
-                  <div ref={() => handleLastMessageRender()} />
-                )}
               </div>
             ),
           )}
