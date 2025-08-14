@@ -6,12 +6,10 @@ import {
   index,
   boolean,
   unique,
-  varchar,
-  integer,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-import { messageStatusEnum, attachmentTypeEnum } from "./_enums";
+import { messageStatusEnum } from "./_enums";
 import { users } from "./users.schema";
 import { rentals } from "./rentals.schema";
 
@@ -77,37 +75,6 @@ export const messages = pgTable(
   }),
 );
 
-// Message attachments table
-export const messageAttachments = pgTable(
-  "message_attachments",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    messageId: uuid("message_id")
-      .references(() => messages.id, { onDelete: "cascade" })
-      .notNull(),
-    filename: varchar("filename", { length: 255 }).notNull(),
-    originalFilename: varchar("original_filename", { length: 255 }).notNull(),
-    mimeType: varchar("mime_type", { length: 100 }).notNull(),
-    type: attachmentTypeEnum("type").notNull(),
-    size: integer("size").notNull(), // in bytes
-    url: varchar("url", { length: 500 }).notNull(),
-    blobPathname: varchar("blob_pathname", { length: 255 }).notNull(),
-    width: integer("width"), // for images
-    height: integer("height"), // for images
-    orderIndex: integer("order_index").default(0).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => ({
-    messageIdIdx: index("message_attachments_message_id_idx").on(
-      table.messageId,
-    ),
-    typeIdx: index("message_attachments_type_idx").on(table.type),
-    createdAtIdx: index("message_attachments_created_at_idx").on(
-      table.createdAt,
-    ),
-  }),
-);
-
 // Relations
 export const conversationsRelations = relations(
   conversations,
@@ -126,7 +93,7 @@ export const conversationsRelations = relations(
   }),
 );
 
-export const messagesRelations = relations(messages, ({ one, many }) => ({
+export const messagesRelations = relations(messages, ({ one }) => ({
   conversation: one(conversations, {
     fields: [messages.conversationId],
     references: [conversations.id],
@@ -139,15 +106,4 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
     fields: [messages.rentalId],
     references: [rentals.id],
   }),
-  attachments: many(messageAttachments), // Add this
 }));
-
-export const messageAttachmentsRelations = relations(
-  messageAttachments,
-  ({ one }) => ({
-    message: one(messages, {
-      fields: [messageAttachments.messageId],
-      references: [messages.id],
-    }),
-  }),
-);

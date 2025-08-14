@@ -10,9 +10,10 @@ async function runSeed(file: string) {
       await seedModule.main();
     }
     console.log(`✅ ${file} completed successfully`);
+    return true;
   } catch (error) {
     console.error(`❌ Error in ${file}:`, error);
-    throw error; // Re-throw to stop the seeding process
+    return false;
   }
 }
 
@@ -34,20 +35,40 @@ async function main() {
     "payments.seed.ts",
     "notifications.seed.ts",
     "messages.seed.ts",
-    "message-attachments.seed.ts",
     "collections.seed.ts",
   ];
 
+  let successCount = 0;
+  let failureCount = 0;
+
   for (const file of seedFiles) {
-    await runSeed(file);
+    const success = await runSeed(file);
+    if (success) {
+      successCount++;
+    } else {
+      failureCount++;
+      console.log(`⚠️ Continuing with next seed file...`);
+    }
+
     // Reset database connection to prevent deadlocks
     await resetDatabaseConnection();
+
     // Give database time to settle between seeds
-    console.log(`⏳ Waiting 2 seconds before next seed...`);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (file !== seedFiles[seedFiles.length - 1]) {
+      // Don't wait after the last seed
+      console.log(`⏳ Waiting 2 seconds before next seed...`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
   }
 
-  console.log("\n✅ All seed scripts completed");
+  console.log("\n📊 Seeding Summary:");
+  console.log(`✅ Successful: ${successCount}/${seedFiles.length}`);
+  if (failureCount > 0) {
+    console.log(`❌ Failed: ${failureCount}/${seedFiles.length}`);
+    console.log(`⚠️ Some seeds failed, but the process continued`);
+  } else {
+    console.log(`🎉 All seed scripts completed successfully!`);
+  }
 }
 
 main().catch((err) => {

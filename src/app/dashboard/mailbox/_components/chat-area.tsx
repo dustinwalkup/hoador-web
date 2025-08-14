@@ -11,11 +11,6 @@ import {
   Archive,
   Trash2,
   Eye,
-  Download,
-  Image,
-  FileText,
-  FileSpreadsheet,
-  File,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -45,12 +40,7 @@ import { archiveConversationAction } from "@/lib/actions/archive-conversation";
 import { unarchiveConversationAction } from "@/lib/actions/unarchive-conversation";
 import { deleteConversationAction } from "@/lib/actions/delete-conversation";
 import { useConversationDetails } from "@/lib/hooks/use-conversations";
-import {
-  ConversationDetails,
-  ConversationSummary,
-  MessageWithAttachments,
-  MessageAttachment,
-} from "@/lib/dal/types";
+import { ConversationDetails, ConversationSummary } from "@/lib/dal/types";
 
 interface ChatAreaProps {
   conversationId: string | null;
@@ -71,7 +61,7 @@ export function ChatArea({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: selectedConversation, isLoading: isLoadingConversation } =
-    useConversationDetails(conversationId, true); // true to include attachments
+    useConversationDetails(conversationId);
 
   // Get messages from the conversation data, including any optimistic ones
   const messages = selectedConversation?.messages || [];
@@ -957,15 +947,13 @@ export function ChatArea({
         <div className="space-y-4 p-4">
           {messages.map(
             (
-              message:
-                | MessageWithAttachments
-                | {
-                    id: string;
-                    content: string;
-                    time: Date;
-                    sender: "me" | "them";
-                    senderName: string;
-                  },
+              message: {
+                id: string;
+                content: string;
+                time: Date;
+                sender: "me" | "them";
+                senderName: string;
+              },
               index: number,
             ) => (
               <div
@@ -981,89 +969,6 @@ export function ChatArea({
                     }`}
                   >
                     <p className="text-sm">{message.content}</p>
-
-                    {/* Display attachments if any */}
-                    {"attachments" in message &&
-                      message.attachments &&
-                      message.attachments.length > 0 && (
-                        <div className="mt-2 space-y-2">
-                          {message.attachments.map(
-                            (attachment: MessageAttachment) => {
-                              return (
-                                <div
-                                  key={attachment.id}
-                                  className={`flex items-center space-x-2 rounded-lg p-2 ${
-                                    message.sender === "me"
-                                      ? "bg-primary/20 text-white"
-                                      : "bg-gray-200 text-gray-700"
-                                  }`}
-                                >
-                                  {/* File type icon */}
-                                  <div className="flex-shrink-0">
-                                    {attachment.type === "image" && (
-                                      <Image className="h-4 w-4" />
-                                    )}
-                                    {attachment.type === "pdf" && (
-                                      <FileText className="h-4 w-4" />
-                                    )}
-                                    {attachment.type === "document" && (
-                                      <FileText className="h-4 w-4" />
-                                    )}
-                                    {attachment.type === "spreadsheet" && (
-                                      <FileSpreadsheet className="h-4 w-4" />
-                                    )}
-                                    {attachment.type === "text" && (
-                                      <FileText className="h-4 w-4" />
-                                    )}
-                                    {attachment.type === "other" && (
-                                      <File className="h-4 w-4" />
-                                    )}
-                                  </div>
-
-                                  {/* File info */}
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-xs font-medium">
-                                      {attachment.originalFilename}
-                                    </p>
-                                    <p className="text-xs opacity-75">
-                                      {(attachment.size / 1024).toFixed(1)} KB
-                                    </p>
-                                  </div>
-
-                                  {/* Download button */}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 flex-shrink-0 p-0"
-                                    onClick={() => {
-                                      // Create download link for real files
-                                      const link = document.createElement("a");
-                                      link.href = `/api/messages/attachments/${attachment.id}/download`;
-                                      link.download =
-                                        attachment.originalFilename;
-
-                                      // Add loading state
-                                      toast.loading("Downloading file...");
-
-                                      // Handle download completion
-                                      link.onclick = () => {
-                                        setTimeout(() => {
-                                          toast.dismiss();
-                                          toast.success("Download started!");
-                                        }, 1000);
-                                      };
-
-                                      link.click();
-                                    }}
-                                  >
-                                    <Download className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              );
-                            },
-                          )}
-                        </div>
-                      )}
                   </div>
                   <p className="mt-1 text-right text-xs text-gray-500">
                     {formatDate(message.time)}

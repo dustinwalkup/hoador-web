@@ -3,11 +3,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  ConversationSummary,
-  ConversationDetails,
-  ConversationDetailsWithAttachments,
-} from "@/lib/dal/types";
+import { ConversationSummary, ConversationDetails } from "@/lib/dal/types";
 
 const CONVERSATIONS_PER_PAGE = 20;
 
@@ -31,25 +27,16 @@ export function useConversations(archived: boolean = false) {
   });
 }
 
-export function useConversationDetails(
-  conversationId: string | null,
-  includeAttachments: boolean = false,
-) {
+export function useConversationDetails(conversationId: string | null) {
   return useQuery({
-    queryKey: ["conversation-details", conversationId, includeAttachments],
+    queryKey: ["conversation-details", conversationId],
     queryFn: async () => {
       if (!conversationId) return null;
-      const url = includeAttachments
-        ? `/api/messages/conversations/${conversationId}?attachments=true`
-        : `/api/messages/conversations/${conversationId}`;
-
-      const response = await fetch(url);
+      const response = await fetch(
+        `/api/messages/conversations/${conversationId}`,
+      );
       if (!response.ok) throw new Error("Failed to fetch conversation details");
       const data = await response.json();
-
-      if (includeAttachments) {
-        return data as ConversationDetailsWithAttachments;
-      }
       return data as ConversationDetails;
     },
     enabled: !!conversationId,

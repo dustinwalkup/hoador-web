@@ -7,18 +7,10 @@ export async function GET(
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
   const { conversationId } = await params;
-  const searchParams = request.nextUrl.searchParams;
-  const includeAttachments = searchParams.get("attachments") === "true";
 
   const { data, error } = await tryCatch(
     (async () => {
-      if (includeAttachments) {
-        return await messagesDAL.getConversationDetailsWithAttachments(
-          conversationId,
-        );
-      } else {
-        return await messagesDAL.getConversationDetails(conversationId);
-      }
+      return await messagesDAL.getConversationDetails(conversationId);
     })(),
   );
 

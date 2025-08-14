@@ -51,12 +51,3 @@ export const messageStatusEnum = pgEnum("message_status", [
   "delivered",
   "read",
 ]);
-
-export const attachmentTypeEnum = pgEnum("attachment_type", [
-  "image",
-  "pdf",
-  "document",
-  "spreadsheet",
-  "text",
-  "other",
-]);

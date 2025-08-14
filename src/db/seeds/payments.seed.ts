@@ -7,7 +7,6 @@ import { rentals } from "../schemas/rentals.schema";
 import { users } from "../schemas/users.schema";
 
 // Infer type
-
 type NewPayment = InferInsertModel<typeof payments>;
 
 async function main() {
@@ -18,17 +17,34 @@ async function main() {
   const allUsers = await db.select().from(users);
   const allRentals = await db.select().from(rentals);
 
-  if (allUsers.length < 2 || allRentals.length === 0) {
+  console.log(
+    `📊 Found ${allUsers.length} users and ${allRentals.length} rentals`,
+  );
+
+  if (allUsers.length < 2) {
     throw new Error(
-      "Not enough users or rentals. Seed users and rentals first.",
+      "Not enough users. Need at least 2 users to create payments.",
     );
+  }
+
+  if (allRentals.length === 0) {
+    console.log("⚠️ No rentals found. Skipping payments seed.");
+    return;
   }
 
   const seedPayments: NewPayment[] = [];
 
   for (const rental of allRentals) {
-    const payer = allUsers.find((u) => u.id === rental.renterId)!;
-    const payee = allUsers.find((u) => u.id === rental.ownerId)!;
+    const payer = allUsers.find((u) => u.id === rental.renterId);
+    const payee = allUsers.find((u) => u.id === rental.ownerId);
+
+    // Skip if we can't find the users (shouldn't happen with proper foreign keys)
+    if (!payer || !payee) {
+      console.warn(
+        `⚠️ Skipping payment for rental ${rental.id} - user not found`,
+      );
+      continue;
+    }
 
     const amount = parseFloat(rental.totalAmount);
     const platformFee = parseFloat((amount * 0.1).toFixed(2));
@@ -61,9 +77,16 @@ async function main() {
     seedPayments.push(payment);
   }
 
+  if (seedPayments.length === 0) {
+    console.log("⚠️ No payments to create. Skipping payments seed.");
+    return;
+  }
+
   await db.insert(payments).values(seedPayments);
 
-  console.log("✅ Payments seed complete");
+  console.log(
+    `✅ Payments seed complete - created ${seedPayments.length} payments`,
+  );
 }
 
 main().catch((err) => {
