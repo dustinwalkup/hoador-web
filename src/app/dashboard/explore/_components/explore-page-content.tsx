@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ToolCard from "@/components/dashboard/tool-card";
-import type { UserTool } from "@/lib/dal/tool.dal";
+import type { UserTool } from "@/dal/tool.dal";
 
 interface ExplorePageContentProps {
   tools: UserTool[];

@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/auth.utils";
-import { rentalDAL } from "@/lib/dal";
+import { rentalDAL } from "@/dal";
 
 interface RentalConfirmationPageProps {
   searchParams: Promise<{ requestId?: string }>;

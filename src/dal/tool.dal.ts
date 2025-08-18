@@ -22,8 +22,8 @@ import {
   type PaginationOptions,
   type PaginatedResult,
 } from "./types";
-import { schema } from "../../db/schemas";
-import { getCurrentUserId } from "../auth/auth.utils";
+import { schema } from "@/db/schemas";
+import { getCurrentUserId } from "@/lib/auth/auth.utils";
 import { NotFoundError, UnauthorizedError } from "./errors";
 
 const {

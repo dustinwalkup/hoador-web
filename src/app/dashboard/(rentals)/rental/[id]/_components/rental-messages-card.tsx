@@ -1,6 +1,6 @@
 import { MessageCircle, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { RentalMessagesInfo } from "@/lib/dal/rentals.dal";
+import type { RentalMessagesInfo } from "@/dal/rentals.dal";
 
 interface RentalMessagesCardProps {
   rentalDetails: RentalMessagesInfo;

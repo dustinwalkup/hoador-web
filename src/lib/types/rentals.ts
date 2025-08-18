@@ -84,7 +84,10 @@ export interface BorrowedToolsData {
 }
 
 // Re-export from DAL for convenience
-export type { RentalRequestItem, LendingRequestItem } from "../dal/rentals.dal";
+export type {
+  RentalRequestItem,
+  LendingRequestItem,
+} from "../../dal/rentals.dal";
 
 export interface RentalsData {
   renting: {

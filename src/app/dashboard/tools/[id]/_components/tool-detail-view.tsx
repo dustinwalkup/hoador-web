@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { UserCard } from "@/components/user-card";
 
-import type { ToolDetails } from "@/lib/dal/types";
+import type { ToolDetails } from "@/dal/types";
 
 import { ImageCarousel } from "./image-carousel";
 import { FavoritesButton } from "./favorites-button";

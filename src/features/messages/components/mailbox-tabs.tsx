@@ -5,6 +5,9 @@ interface MailboxTabsProps {
   onTabChange: (tab: "inbox" | "archived") => void;
 }
 
+const INBOX_TAB = "Inbox";
+const ARCHIVED_TAB = "Archived";
+
 export function MailboxTabs({ activeTab, onTabChange }: MailboxTabsProps) {
   return (
     <div className="mb-4 px-4">
@@ -17,7 +20,7 @@ export function MailboxTabs({ activeTab, onTabChange }: MailboxTabsProps) {
               : "text-gray-600 hover:text-gray-900"
           }`}
         >
-          Inbox
+          {INBOX_TAB}
         </button>
         <button
           onClick={() => onTabChange("archived")}
@@ -27,7 +30,7 @@ export function MailboxTabs({ activeTab, onTabChange }: MailboxTabsProps) {
               : "text-gray-600 hover:text-gray-900"
           }`}
         >
-          Archived
+          {ARCHIVED_TAB}
         </button>
       </div>
     </div>

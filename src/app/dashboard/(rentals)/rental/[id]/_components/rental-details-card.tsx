@@ -1,7 +1,7 @@
 import { Calendar, MapPin, Truck, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import type { RentalDetailsInfo } from "@/lib/dal/rentals.dal";
+import type { RentalDetailsInfo } from "@/dal/rentals.dal";
 
 interface RentalDetailsCardProps {
   rentalDetails: RentalDetailsInfo;

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { tryCatch } from "@walkup/walkup-utils";
 
-import { toolDAL } from "../dal";
+import { toolDAL } from "../../dal";
 
 export async function deleteTool(toolId: string) {
   // Delete the tool

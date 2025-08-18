@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { messagesDAL } from "@/lib/dal";
+import { messagesDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 
 export async function GET(

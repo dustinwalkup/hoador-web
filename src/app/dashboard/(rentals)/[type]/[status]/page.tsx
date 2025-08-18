@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { rentalDAL } from "@/lib/dal";
+import { rentalDAL } from "@/dal";
 import type {
   RentalRequestItem,
   LendingRequestItem,
   BorrowedTool,
-} from "@/lib/dal/rentals.dal";
+} from "@/dal/rentals.dal";
 import { RentingRequestsListWrapper } from "./_components/renting-requests-list-wrapper";
 import { LendingRequestsListWrapper } from "./_components/lending-requests-list-wrapper";
 import { BorrowedToolsListWrapper } from "./_components/borrowed-tools-list-wrapper";

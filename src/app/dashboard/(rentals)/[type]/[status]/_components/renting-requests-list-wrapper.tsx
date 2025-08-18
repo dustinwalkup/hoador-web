@@ -1,4 +1,4 @@
-import type { RentalRequestItem } from "@/lib/dal/rentals.dal";
+import type { RentalRequestItem } from "@/dal/rentals.dal";
 import { RentingRequestsList } from "./renting-requests-list";
 
 interface RentingRequestsListWrapperProps {

@@ -13,6 +13,7 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -34,13 +35,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { sendMessageAction } from "@/lib/actions/send-message";
-import { markConversationUnreadAction } from "@/lib/actions/mark-conversation-unread";
-import { archiveConversationAction } from "@/lib/actions/archive-conversation";
-import { unarchiveConversationAction } from "@/lib/actions/unarchive-conversation";
-import { deleteConversationAction } from "@/lib/actions/delete-conversation";
-import { useConversationDetails } from "@/lib/hooks/use-conversations";
-import { ConversationDetails, ConversationSummary } from "@/lib/dal/types";
+
+import { sendMessageAction } from "@/features/messages/actions/send-message";
+import { markConversationUnreadAction } from "@/features/messages/actions/mark-conversation-unread";
+import { archiveConversationAction } from "@/features/messages/actions/archive-conversation";
+import { unarchiveConversationAction } from "@/features/messages/actions/unarchive-conversation";
+import { deleteConversationAction } from "@/features/messages/actions/delete-conversation";
+import { useConversationDetails } from "@/features/messages/hooks/use-conversations";
+import { ConversationDetails, ConversationSummary } from "@/dal/types";
 
 interface ChatAreaProps {
   conversationId: string | null;
@@ -152,7 +154,7 @@ export function ChatArea({
         const realMessage = {
           id: result.data.id,
           content: result.data.content,
-          time: result.data.createdAt,
+          time: result.data.createdAt || new Date(),
           sender: "me" as const,
           senderName: "You",
         };
@@ -329,10 +331,7 @@ export function ChatArea({
       },
     );
 
-    // Also update the local state to ensure dropdown shows correct options
-    if (selectedConversation) {
-      selectedConversation.archived = true;
-    }
+    // Note: We don't need to update local state since we're using optimistic cache updates
 
     startTransition(async () => {
       try {
@@ -411,10 +410,7 @@ export function ChatArea({
             },
           );
 
-          // Also revert the local state
-          if (selectedConversation) {
-            selectedConversation.archived = false;
-          }
+          // Note: Cache updates handle the state, no need for local mutations
         }
       } catch {
         toast.error("Failed to archive conversation");
@@ -489,7 +485,7 @@ export function ChatArea({
     if (!selectedConversation) return;
 
     // Optimistically update the UI immediately
-    const optimisticConversation: ConversationDetails = {
+    const optimisticConversationDetails: ConversationDetails = {
       id: selectedConversation.id,
       otherUser: selectedConversation.otherUser,
       messages: selectedConversation.messages,
@@ -519,26 +515,26 @@ export function ChatArea({
 
         // Convert ConversationDetails to ConversationSummary
         const optimisticConversationSummary: ConversationSummary = {
-          id: optimisticConversation.id,
-          otherUser: optimisticConversation.otherUser,
+          id: optimisticConversationDetails.id,
+          otherUser: optimisticConversationDetails.otherUser,
           lastMessage:
-            optimisticConversation.messages.length > 0
+            optimisticConversationDetails.messages.length > 0
               ? {
                   content:
-                    optimisticConversation.messages[
-                      optimisticConversation.messages.length - 1
+                    optimisticConversationDetails.messages[
+                      optimisticConversationDetails.messages.length - 1
                     ].content,
-                  time: optimisticConversation.messages[
-                    optimisticConversation.messages.length - 1
+                  time: optimisticConversationDetails.messages[
+                    optimisticConversationDetails.messages.length - 1
                   ].time,
                   senderId: "temp", // Will be replaced by server data
                 }
               : null,
-          unread: optimisticConversation.unread,
+          unread: optimisticConversationDetails.unread,
           lastMessageAt:
-            optimisticConversation.messages.length > 0
-              ? optimisticConversation.messages[
-                  optimisticConversation.messages.length - 1
+            optimisticConversationDetails.messages.length > 0
+              ? optimisticConversationDetails.messages[
+                  optimisticConversationDetails.messages.length - 1
                 ].time
               : null,
           archived: false,
@@ -563,10 +559,7 @@ export function ChatArea({
       },
     );
 
-    // Also update the local state to ensure dropdown shows correct options
-    if (selectedConversation) {
-      selectedConversation.archived = false;
-    }
+    // Note: We don't need to update local state since we're using optimistic cache updates
 
     startTransition(async () => {
       try {
@@ -649,10 +642,7 @@ export function ChatArea({
             },
           );
 
-          // Also revert the local state
-          if (selectedConversation) {
-            selectedConversation.archived = true;
-          }
+          // Note: Cache updates handle the state, no need for local mutations
         }
       } catch {
         toast.error("Failed to unarchive conversation");

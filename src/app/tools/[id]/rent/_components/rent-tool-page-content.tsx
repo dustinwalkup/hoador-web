@@ -8,7 +8,7 @@ import { differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BackButton } from "@/components/back-button";
-import { type ToolDetails } from "@/lib/dal/types";
+import { type ToolDetails } from "@/dal/types";
 import { createRentalRequest } from "@/lib/actions/create-rental-request";
 import { DateSelectionStep } from "./date-selection-step";
 import { DeliveryMethodStep } from "./delivery-method-step";

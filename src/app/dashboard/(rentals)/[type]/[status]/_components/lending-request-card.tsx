@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { LendingRequestItem } from "@/lib/dal/rentals.dal";
+import type { LendingRequestItem } from "@/dal/rentals.dal";
 import { ApproveRequestDialog } from "./approve-request-dialog";
 import { DeclineRequestDialog } from "./decline-request-dialog";
 

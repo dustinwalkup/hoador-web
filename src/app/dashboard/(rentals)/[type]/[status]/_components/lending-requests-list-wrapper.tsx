@@ -1,4 +1,4 @@
-import type { LendingRequestItem } from "@/lib/dal/rentals.dal";
+import type { LendingRequestItem } from "@/dal/rentals.dal";
 import { LendingRequestsList } from "./lending-requests-list";
 
 interface LendingRequestsListWrapperProps {

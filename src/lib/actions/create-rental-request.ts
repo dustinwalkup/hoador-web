@@ -6,7 +6,7 @@ import {
   createRentalRequestSchema,
   type CreateRentalRequestFormData,
 } from "../form-schemas/rental.schema";
-import { rentalDAL } from "../dal";
+import { rentalDAL } from "../../dal";
 
 export async function createRentalRequest(
   formData: CreateRentalRequestFormData,

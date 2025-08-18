@@ -1,4 +1,4 @@
-import { toolDAL } from "@/lib/dal";
+import { toolDAL } from "@/dal";
 import { AddToolForm } from "./_components/add-tool-form";
 import { BackButton } from "../../../../components/back-button";
 

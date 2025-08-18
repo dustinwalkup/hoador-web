@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { RentalRequestItem } from "@/lib/dal/rentals.dal";
+import type { RentalRequestItem } from "@/dal/rentals.dal";
 import { RentingRequestCard } from "./renting-request-card";
 
 interface RentingRequestsListProps {

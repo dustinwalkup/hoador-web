@@ -1,4 +1,4 @@
-import type { BorrowedTool } from "@/lib/dal/rentals.dal";
+import type { BorrowedTool } from "@/dal/rentals.dal";
 import { BorrowedToolsList } from "./borrowed-tools-list";
 
 interface BorrowedToolsListWrapperProps {

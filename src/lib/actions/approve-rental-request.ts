@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { rentalDAL } from "@/lib/dal";
+import { rentalDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 
 const approveRequestSchema = z.object({

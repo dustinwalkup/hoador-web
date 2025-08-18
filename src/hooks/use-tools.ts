@@ -4,7 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useMemo } from "react";
-import type { ToolSearchFilters } from "@/lib/dal/types";
+import type { ToolSearchFilters } from "@/dal/types";
 
 // Infinite scroll hook for tool search
 export function useSearchTools(filters: ToolSearchFilters, userId?: string) {

@@ -9,7 +9,7 @@ import type {
   CreateToolFormDataClientType,
   ImageFile,
 } from "@/lib/form-schemas/tool.schema";
-import { useToolForm } from "@/lib/hooks/use-tool-form";
+import { useToolForm } from "@/hooks/use-tool-form";
 import { createTool } from "@/lib/actions/create-tool";
 import { useToolImages } from "@/hooks/use-tool-images";
 

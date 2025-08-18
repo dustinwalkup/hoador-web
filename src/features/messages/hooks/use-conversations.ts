@@ -3,7 +3,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { ConversationSummary, ConversationDetails } from "@/lib/dal/types";
+import { ConversationSummary, ConversationDetails } from "@/dal/types";
 
 const CONVERSATIONS_PER_PAGE = 20;
 

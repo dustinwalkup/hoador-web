@@ -1,6 +1,6 @@
 import { Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { RentalDetails } from "@/lib/dal/rentals.dal";
+import type { RentalDetails } from "@/dal/rentals.dal";
 import { BackButton } from "@/components/back-button";
 
 interface RentalHeaderProps {

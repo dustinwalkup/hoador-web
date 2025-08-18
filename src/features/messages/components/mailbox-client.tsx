@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useConversations } from "@/lib/hooks/use-conversations";
+import { useConversations } from "@/features/messages/hooks/use-conversations";
 
 import { MobileHeader } from "./mobile-header";
 import { MailboxSearch } from "./mailbox-search";

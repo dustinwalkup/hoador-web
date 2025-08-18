@@ -1,4 +1,4 @@
-import { userDAL } from "../dal";
+import { userDAL } from "@/dal";
 
 export async function getCurrentUser() {
   // 🔧 Replace this with Clerk auth later

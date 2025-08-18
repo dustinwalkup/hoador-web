@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { tryCatch } from "@walkup/walkup-utils";
 import { z } from "zod";
-import { toolDAL } from "../dal";
+import { toolDAL } from "../../dal";
 
 const updateToolStatusSchema = z.object({
   status: z.enum(["available", "maintenance", "inactive"]),

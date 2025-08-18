@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { RentalActionsInfo } from "@/lib/dal/rentals.dal";
+import type { RentalActionsInfo } from "@/dal/rentals.dal";
 
 interface RentalActionsProps {
   rentalDetails: RentalActionsInfo;

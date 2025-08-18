@@ -1,4 +1,4 @@
-import { db } from "../../db/db";
+import { db } from "@/db/db";
 import { DALError, ValidationError } from "./errors";
 import { type PaginatedResult } from "./types";
 

@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/page-header";
 import { PROFILE_TABS } from "@/lib/constants/profile";
-import { reviewDAL } from "@/lib/dal";
+import { reviewDAL } from "@/dal";
 import { getCurrentUserId } from "@/lib/auth/auth.utils";
 
 import { ProfileTabs } from "../_components/profile-tabs";

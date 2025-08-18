@@ -15,7 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { UserProfile } from "@/lib/dal/types";
+import { UserProfile } from "@/dal/types";
 import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
 import { NavMain } from "./nav-main";
 

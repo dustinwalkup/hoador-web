@@ -4,8 +4,8 @@ import { differenceInDays } from "date-fns";
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { tools, toolImages } from "@/db/schemas/tools.schema";
 import { users } from "@/db/schemas/users.schema";
-import { type CreateRentalRequestFormData } from "../form-schemas/rental.schema";
-import { getCurrentUserId } from "../auth/auth.utils";
+import { type CreateRentalRequestFormData } from "@/lib/form-schemas/rental.schema";
+import { getCurrentUserId } from "@/lib/auth/auth.utils";
 import { BaseDAL } from "./base";
 import { UnauthorizedError, NotFoundError } from "./errors";
 

@@ -11,7 +11,7 @@ import {
 import { getCurrentUserId } from "../auth/auth.utils";
 import { db } from "@/db/db";
 import { toolImages } from "@/db/schemas/tools.schema";
-import { toolDAL } from "../dal";
+import { toolDAL } from "../../dal";
 
 // Separate action for uploading images
 export async function uploadToolImage(

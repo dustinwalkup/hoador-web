@@ -1,5 +1,5 @@
 import { UserCard } from "@/components/user-card";
-import type { RentalUserInfo } from "@/lib/dal/rentals.dal";
+import type { RentalUserInfo } from "@/dal/rentals.dal";
 
 interface RentalUserInfoProps {
   rentalDetails: RentalUserInfo & { currentUserId: string };

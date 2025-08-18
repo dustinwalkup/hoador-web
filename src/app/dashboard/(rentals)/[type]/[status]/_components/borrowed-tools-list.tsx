@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { BorrowedTool } from "@/lib/dal/rentals.dal";
+import type { BorrowedTool } from "@/dal/rentals.dal";
 import { BorrowedToolCard } from "./borrowed-tool-card";
 
 interface BorrowedToolsListProps {

@@ -3,8 +3,8 @@ import { Plus, Settings } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { capitalize } from "@/lib/utils/utils";
-import { toolDAL } from "@/lib/dal";
-import type { GarageToolFilters } from "@/lib/dal/tool.dal";
+import { toolDAL } from "@/dal";
+import type { GarageToolFilters } from "@/dal/tool.dal";
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useToolFilters } from "@/lib/hooks/use-url-state";
-import { useSearchTools } from "@/lib/hooks/use-tools";
-import { useInfiniteScroll } from "@/lib/hooks/use-infinite-scroll";
+import { useToolFilters } from "@/hooks/use-url-state";
+import { useSearchTools } from "@/hooks/use-tools";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { ExplorePageFilters } from "../../dashboard/explore/_components/explore-page-filters";

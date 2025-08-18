@@ -25,7 +25,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { getUserFullName } from "@/lib/utils/users.utils";
-import { UserProfile } from "@/lib/dal/types";
+import { UserProfile } from "@/dal/types";
 
 export function NavUser({ user }: { user: UserProfile }) {
   const { isMobile } = useSidebar();

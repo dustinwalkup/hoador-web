@@ -1,4 +1,4 @@
-import { toolDAL } from "@/lib/dal";
+import { toolDAL } from "@/dal";
 
 export async function GET() {
   try {

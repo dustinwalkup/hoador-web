@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import type { RentalStatusInfo } from "@/lib/dal/rentals.dal";
+import type { RentalStatusInfo } from "@/dal/rentals.dal";
 
 interface RentalStatusCardProps {
   rentalDetails: RentalStatusInfo;

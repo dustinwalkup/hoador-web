@@ -1,7 +1,7 @@
 "use server";
 
 import { tryCatch } from "@walkup/walkup-utils";
-import { messagesDAL } from "@/lib/dal";
+import { messagesDAL } from "@/dal";
 
 export async function sendMessageAction(
   conversationId: string,

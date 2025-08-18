@@ -1,4 +1,4 @@
-import type { RentalDetails } from "@/lib/dal/rentals.dal";
+import type { RentalDetails } from "@/dal/rentals.dal";
 import { RentalHeader } from "./rental-header";
 
 interface RentalLayoutProps {

@@ -1,4 +1,4 @@
-import type { UserProfile } from "@/lib/dal/types";
+import type { UserProfile } from "@/dal/types";
 
 export function getUserFullName(
   user: Pick<UserProfile, "firstName" | "lastName">,

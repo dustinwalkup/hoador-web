@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/auth.utils";
-import { toolDAL } from "@/lib/dal";
-import type { ToolSearchFilters } from "@/lib/dal/types";
+import { toolDAL } from "@/dal";
+import type { ToolSearchFilters } from "@/dal/types";
 
 export async function GET(request: NextRequest) {
   try {

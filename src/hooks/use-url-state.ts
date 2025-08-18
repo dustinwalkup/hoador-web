@@ -1,6 +1,6 @@
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useCallback, useMemo } from "react";
-import type { ToolSearchFilters } from "@/lib/dal/types";
+import type { ToolSearchFilters } from "@/dal/types";
 
 export function useURLState<T extends Record<string, unknown>>(
   parser: (searchParams: URLSearchParams) => T,

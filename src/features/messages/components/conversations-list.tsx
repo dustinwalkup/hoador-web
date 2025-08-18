@@ -7,10 +7,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useInfiniteScroll } from "@/lib/hooks/use-infinite-scroll";
-import { usePrefetchConversation } from "@/lib/hooks/use-conversations";
-import { markConversationAsReadAction } from "@/lib/actions/mark-conversation-read";
-import { ConversationSummary } from "@/lib/dal/types";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import { usePrefetchConversation } from "@/features/messages/hooks/use-conversations";
+import { markConversationAsReadAction } from "@/features/messages/actions/mark-conversation-read";
+import { ConversationSummary } from "@/dal/types";
 
 interface ConversationsListProps {
   conversationsData?: {

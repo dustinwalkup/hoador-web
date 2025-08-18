@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { rentalDAL } from "@/lib/dal";
+import { rentalDAL } from "@/dal";
 import { RentalLayout } from "./_components/rental-layout";
 import { RentalContent } from "./_components/rental-content";
 

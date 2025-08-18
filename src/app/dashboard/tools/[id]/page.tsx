@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/auth.utils";
-import { toolDAL } from "@/lib/dal";
+import { toolDAL } from "@/dal";
 import { ToolDetailView } from "./_components/tool-detail-view";
 
 interface ToolDetailPageProps {

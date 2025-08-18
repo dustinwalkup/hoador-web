@@ -1,6 +1,6 @@
 import { Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { RentalDetails } from "@/lib/dal/rentals.dal";
+import type { RentalDetails } from "@/dal/rentals.dal";
 
 interface RentalReviewsCardProps {
   rentalDetails: Pick<RentalDetails, "id">;

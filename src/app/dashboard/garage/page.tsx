@@ -11,8 +11,8 @@ import { InactiveTab } from "./_components/inactive-tab";
 import { ArchivedTab } from "./_components/archived-tab";
 import { GarageFilters } from "./_components/garage-filters";
 import { GarageTabs } from "./_components/garage-tabs";
-import type { GarageToolFilters } from "@/lib/dal/tool.dal";
-import { toolDAL } from "@/lib/dal";
+import type { GarageToolFilters } from "@/dal/tool.dal";
+import { toolDAL } from "@/dal";
 
 interface GaragePageProps {
   searchParams: Promise<{

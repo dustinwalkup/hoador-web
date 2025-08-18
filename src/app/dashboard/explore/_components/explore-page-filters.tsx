@@ -23,9 +23,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import CategoryButton from "@/components/dashboard/category-button";
-import { useToolFilters } from "@/lib/hooks/use-url-state";
-import { useToolCategories } from "@/lib/hooks/use-tools";
-import { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
+import { useToolFilters } from "@/hooks/use-url-state";
+import { useToolCategories } from "@/hooks/use-tools";
+import { useDebouncedSearch } from "@/hooks/use-debounced-search";
 import { emojiMap } from "@/lib/constants/garage";
 
 interface ExplorePageFiltersProps {

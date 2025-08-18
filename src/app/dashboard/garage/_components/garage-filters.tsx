@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import type { GarageToolFilters } from "@/lib/dal/tool.dal";
+import type { GarageToolFilters } from "@/dal/tool.dal";
 import { emojiMap } from "@/lib/constants/garage";
 
 interface Category {
@@ -134,7 +134,7 @@ function GarageFiltersContent({
         <Search className="text-muted-foreground absolute left-3 h-4 w-4" />
         <Input
           placeholder="Search tools..."
-          className="pl-9 pr-8"
+          className="pr-8 pl-9"
           value={searchQuery}
           onChange={handleSearchChange}
         />
