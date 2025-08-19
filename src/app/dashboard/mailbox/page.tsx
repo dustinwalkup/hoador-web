@@ -1,5 +1,15 @@
 import { MailboxClient } from "@/features/messages/components/mailbox-client";
+import { messagesDAL } from "@/dal";
 
-export default function MailboxPage() {
-  return <MailboxClient />;
+export default async function MailboxPage() {
+  // Fetch both inbox and archived conversations in parallel
+  const [inboxConversations, archivedConversations] = await Promise.all([
+    messagesDAL.getUserConversationsPaginated(false), // inbox
+    messagesDAL.getUserConversationsPaginated(true), // archived
+  ]);
+
+  // Combine conversations with their archived status
+  const allConversations = [...inboxConversations, ...archivedConversations];
+
+  return <MailboxClient conversations={allConversations} />;
 }
