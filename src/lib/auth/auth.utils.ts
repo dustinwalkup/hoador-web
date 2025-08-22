@@ -1,29 +1,28 @@
 import { userDAL } from "@/dal";
+import { cache } from "react";
 
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   // 🔧 Replace this with Clerk auth later
   const USER_ID = "05636d42-419b-41da-8f69-3b3d40fd2dde";
 
   // You could hardcode or use cookies/session logic for local dev
   return userDAL.getUserById(USER_ID);
-}
+});
 
 // Helper function to require authentication (mimics Clerk pattern)
-export async function requireAuth() {
+export const requireAuth = cache(async () => {
   const auth = await getCurrentUser();
-
   if (!auth.id) {
     throw new Error("Authentication required");
   }
-
   return auth;
-}
+});
 
 // Helper to get just the user ID (most common use case)
-export async function getCurrentUserId(): Promise<string | null> {
+export const getCurrentUserId = cache(async (): Promise<string | null> => {
   const auth = await getCurrentUser();
   return auth.id;
-}
+});
 
 // Helper to check if user has specific permission
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
