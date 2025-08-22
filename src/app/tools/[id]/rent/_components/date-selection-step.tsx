@@ -1,10 +1,10 @@
 "use client";
 
-import { format, differenceInDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
+import { formatDate, differenceInDays } from "@/lib/utils/date.utils";
 
 interface DateSelectionStepProps {
   dateRange: DateRange | undefined;
@@ -50,8 +50,8 @@ export function DateSelectionStep({
         {dateRange?.from && dateRange?.to && (
           <div className="mt-4 rounded-lg bg-green-50 p-4">
             <p className="text-sm text-green-800">
-              <strong>Selected:</strong> {format(dateRange.from, "PPP")} to{" "}
-              {format(dateRange.to, "PPP")} ({days} day
+              <strong>Selected:</strong> {formatDate(dateRange.from, "PPP")} to{" "}
+              {formatDate(dateRange.to, "PPP")} ({days} day
               {days !== 1 ? "s" : ""})
             </p>
           </div>

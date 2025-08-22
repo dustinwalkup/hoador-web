@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DateRange } from "react-day-picker";
-import { differenceInDays } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +15,7 @@ import { TimeWindowStep } from "./time-window-step";
 import { SummaryStep } from "./summary-step";
 import { StepIndicator } from "./step-indicator";
 import { ToolSummaryCard } from "./tool-summary-card";
+import { differenceInDays } from "@/lib/utils/date.utils";
 
 interface RentToolPageContentProps {
   tool: ToolDetails;

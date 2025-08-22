@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { format } from "date-fns";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -13,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/utils/date.utils";
 import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { rentalDAL } from "@/dal";
 
@@ -121,8 +121,8 @@ export default async function RentalConfirmationPage({
               <span>
                 {rentalRequest.totalDays} day
                 {rentalRequest.totalDays !== 1 ? "s" : ""} (
-                {format(rentalRequest.startDate, "MMM d")} -{" "}
-                {format(rentalRequest.endDate, "MMM d")})
+                {formatDate(rentalRequest.startDate, "MMM d")} -{" "}
+                {formatDate(rentalRequest.endDate, "MMM d")})
               </span>
             </div>
             {rentalRequest.deliveryRequested && (

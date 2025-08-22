@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +18,7 @@ import { getCurrentUserId } from "@/lib/auth/auth.utils";
 
 import { ProfileTabs } from "../_components/profile-tabs";
 import { ReviewsSortingControls } from "../_components/reviews-sorting-controls";
+import { formatDistanceToNow } from "@/lib/utils/date.utils";
 
 interface ReviewsPageProps {
   searchParams: Promise<{

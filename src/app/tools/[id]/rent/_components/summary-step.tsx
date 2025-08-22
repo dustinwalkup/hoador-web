@@ -1,11 +1,11 @@
 "use client";
 
-import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { formatDate } from "@/lib/utils/date.utils";
 
 interface TimeWindow {
   id: string;
@@ -54,7 +54,7 @@ export function SummaryStep({
             <span className="font-medium">
               {dateRange?.from &&
                 dateRange?.to &&
-                `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")} (${pricing.days} days)`}
+                `${formatDate(dateRange.from, "MMM d")} - ${formatDate(dateRange.to, "MMM d")} (${pricing.days} days)`}
             </span>
           </div>
 
