@@ -1,7 +1,5 @@
-import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth/auth.utils";
 import { PageHeader } from "@/components/page-header";
-import { ExplorePageSkeleton } from "./_components/explore-page-skeleton";
 import { ExplorePageClient } from "./_components/explore-page-client";
 
 export default async function ExplorePage() {
@@ -14,9 +12,7 @@ export default async function ExplorePage() {
         description="Find tools available in your neighborhood"
       />
 
-      <Suspense fallback={<ExplorePageSkeleton />}>
-        <ExplorePageClient userId={user?.id} />
-      </Suspense>
+      <ExplorePageClient userId={user?.id} />
     </div>
   );
 }

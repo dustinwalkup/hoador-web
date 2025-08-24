@@ -1,14 +1,12 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rentalDAL } from "@/dal";
-import type {
-  RentalRequestItem,
-  LendingRequestItem,
-  BorrowedTool,
-} from "@/dal/rentals.dal";
+import type { LendingRequestItem, BorrowedTool } from "@/dal/rentals.dal";
 import { RentingRequestsListWrapper } from "./_components/renting-requests-list-wrapper";
 import { LendingRequestsListWrapper } from "./_components/lending-requests-list-wrapper";
 import { BorrowedToolsListWrapper } from "./_components/borrowed-tools-list-wrapper";
+import Link from "next/link";
 
 interface RentalsPageProps {
   params: Promise<{
@@ -64,6 +62,130 @@ const validRoutes: Record<string, Record<string, StatusConfig>> = {
   },
 };
 
+// Data fetching components
+async function RentingRequestsData({
+  status,
+  statusConfig,
+}: {
+  status: "requests" | "rejected";
+  statusConfig: StatusConfig;
+}) {
+  try {
+    const rentalRequestsData = await rentalDAL.getRentalRequestsByStatus(
+      status === "requests" ? "pending" : "rejected",
+    );
+    return (
+      <RentingRequestsListWrapper
+        data={rentalRequestsData}
+        emptyStateMessage={statusConfig.emptyMessage}
+        emptyStateAction={statusConfig.emptyAction}
+      />
+    );
+  } catch (err) {
+    const error =
+      err instanceof Error ? err.message : "Failed to fetch rental requests";
+    return (
+      <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
+        <p className="text-sm text-red-800">Error: {error}</p>
+      </div>
+    );
+  }
+}
+
+async function BorrowedToolsData({
+  status,
+  statusConfig,
+}: {
+  status: "active" | "completed";
+  statusConfig: StatusConfig;
+}) {
+  try {
+    let borrowedToolsData: BorrowedTool[] = [];
+
+    if (status === "active") {
+      const borrowedData = await rentalDAL.getBorrowedTools();
+      borrowedToolsData = borrowedData.currentRentals;
+    } else {
+      borrowedToolsData = await rentalDAL.getRentalsByStatus("completed");
+    }
+
+    return (
+      <BorrowedToolsListWrapper
+        data={borrowedToolsData}
+        currentTab={status}
+        emptyStateMessage={statusConfig.emptyMessage}
+        emptyStateAction={statusConfig.emptyAction}
+      />
+    );
+  } catch (err) {
+    const error =
+      err instanceof Error ? err.message : `Failed to fetch ${status} rentals`;
+    return (
+      <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
+        <p className="text-sm text-red-800">Error: {error}</p>
+      </div>
+    );
+  }
+}
+
+async function LendingRequestsData({
+  status,
+  statusConfig,
+}: {
+  status: "incoming" | "rejected" | "active" | "completed";
+  statusConfig: StatusConfig;
+}) {
+  try {
+    let lendingRequestsData: LendingRequestItem[] = [];
+
+    if (status === "incoming") {
+      lendingRequestsData =
+        await rentalDAL.getLendingRequestsByStatus("pending");
+    } else if (status === "rejected") {
+      lendingRequestsData =
+        await rentalDAL.getLendingRequestsByStatus("rejected");
+    } else if (status === "active") {
+      lendingRequestsData = await rentalDAL.getLendingRentalsByStatus("active");
+    } else if (status === "completed") {
+      lendingRequestsData =
+        await rentalDAL.getLendingRentalsByStatus("completed");
+    }
+
+    return (
+      <LendingRequestsListWrapper
+        data={lendingRequestsData}
+        emptyStateMessage={statusConfig.emptyMessage}
+        emptyStateAction={statusConfig.emptyAction}
+      />
+    );
+  } catch (err) {
+    const error =
+      err instanceof Error ? err.message : `Failed to fetch ${status} lending`;
+    return (
+      <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
+        <p className="text-sm text-red-800">Error: {error}</p>
+      </div>
+    );
+  }
+}
+
+// Loading fallback component
+function DataLoadingFallback() {
+  return (
+    <div>
+      <div className="mb-6 flex justify-between">
+        <div className="bg-muted h-10 w-[448px] animate-pulse rounded-lg" />
+        <div className="bg-muted h-10 w-[192px] animate-pulse rounded-lg" />
+      </div>
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bg-muted h-48 animate-pulse rounded-lg" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default async function RentalsStatusPage({ params }: RentalsPageProps) {
   const { type, status } = await params;
 
@@ -75,80 +197,7 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
   const typeConfig = validRoutes[type];
   const statusConfig = typeConfig[status];
 
-  // Get real data for ALL tabs - no more mock data!
-  let rentalRequestsData: RentalRequestItem[] = [];
-  let lendingRequestsData: LendingRequestItem[] = [];
-  let borrowedToolsData: BorrowedTool[] = [];
-  let error: string | undefined;
-
-  if (type === "renting" && status === "requests") {
-    try {
-      rentalRequestsData = await rentalDAL.getRentalRequestsByStatus("pending");
-    } catch (err) {
-      error =
-        err instanceof Error ? err.message : "Failed to fetch rental requests";
-    }
-  } else if (type === "renting" && status === "rejected") {
-    try {
-      rentalRequestsData =
-        await rentalDAL.getRentalRequestsByStatus("rejected");
-    } catch (err) {
-      error =
-        err instanceof Error ? err.message : "Failed to fetch rental requests";
-    }
-  } else if (type === "renting" && status === "active") {
-    try {
-      const borrowedData = await rentalDAL.getBorrowedTools();
-      borrowedToolsData = borrowedData.currentRentals;
-    } catch (err) {
-      error =
-        err instanceof Error ? err.message : "Failed to fetch active rentals";
-    }
-  } else if (type === "renting" && status === "completed") {
-    try {
-      borrowedToolsData = await rentalDAL.getRentalsByStatus("completed");
-    } catch (err) {
-      error =
-        err instanceof Error
-          ? err.message
-          : "Failed to fetch completed rentals";
-    }
-  } else if (type === "lending" && status === "incoming") {
-    try {
-      lendingRequestsData =
-        await rentalDAL.getLendingRequestsByStatus("pending");
-    } catch (err) {
-      error =
-        err instanceof Error ? err.message : "Failed to fetch lending requests";
-    }
-  } else if (type === "lending" && status === "rejected") {
-    try {
-      lendingRequestsData =
-        await rentalDAL.getLendingRequestsByStatus("rejected");
-    } catch (err) {
-      error =
-        err instanceof Error ? err.message : "Failed to fetch lending requests";
-    }
-  } else if (type === "lending" && status === "active") {
-    try {
-      lendingRequestsData = await rentalDAL.getLendingRentalsByStatus("active");
-    } catch (err) {
-      error =
-        err instanceof Error ? err.message : "Failed to fetch active lending";
-    }
-  } else if (type === "lending" && status === "completed") {
-    try {
-      lendingRequestsData =
-        await rentalDAL.getLendingRentalsByStatus("completed");
-    } catch (err) {
-      error =
-        err instanceof Error
-          ? err.message
-          : "Failed to fetch completed lending";
-    }
-  }
-
-  // Generate tab items without counts for now (can add real counts later)
+  // Generate tab items
   const tabItems = Object.entries(typeConfig).map(([statusKey, config]) => {
     return {
       value: statusKey,
@@ -164,41 +213,39 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
           <TabsList className="mb-6 grid w-full min-w-max grid-cols-2 gap-1 sm:grid-cols-4">
             {tabItems.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value} asChild>
-                <a href={tab.href}>{tab.label}</a>
+                <Link href={tab.href}>{tab.label}</Link>
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
 
         <TabsContent value={status}>
-          {error && (
-            <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-800">Error: {error}</p>
-            </div>
-          )}
+          <Suspense fallback={<DataLoadingFallback />}>
+            {type === "renting" &&
+              (status === "requests" || status === "rejected") && (
+                <RentingRequestsData
+                  status={status}
+                  statusConfig={statusConfig}
+                />
+              )}
 
-          {type === "renting" &&
-          (status === "requests" || status === "rejected") ? (
-            <RentingRequestsListWrapper
-              data={rentalRequestsData}
-              emptyStateMessage={statusConfig.emptyMessage}
-              emptyStateAction={statusConfig.emptyAction}
-            />
-          ) : type === "renting" &&
-            (status === "active" || status === "completed") ? (
-            <BorrowedToolsListWrapper
-              data={borrowedToolsData}
-              currentTab={status}
-              emptyStateMessage={statusConfig.emptyMessage}
-              emptyStateAction={statusConfig.emptyAction}
-            />
-          ) : type === "lending" ? (
-            <LendingRequestsListWrapper
-              data={lendingRequestsData}
-              emptyStateMessage={statusConfig.emptyMessage}
-              emptyStateAction={statusConfig.emptyAction}
-            />
-          ) : null}
+            {type === "renting" &&
+              (status === "active" || status === "completed") && (
+                <BorrowedToolsData
+                  status={status}
+                  statusConfig={statusConfig}
+                />
+              )}
+
+            {type === "lending" && (
+              <LendingRequestsData
+                status={
+                  status as "incoming" | "rejected" | "active" | "completed"
+                }
+                statusConfig={statusConfig}
+              />
+            )}
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>

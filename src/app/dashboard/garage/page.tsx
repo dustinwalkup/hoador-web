@@ -25,6 +25,24 @@ interface GaragePageProps {
   }>;
 }
 
+async function GarageFiltersWithCategories({
+  currentTab,
+  filters,
+}: {
+  currentTab: string;
+  filters: GarageToolFilters;
+}) {
+  const categories = await toolDAL.getToolCategories();
+
+  return (
+    <GarageFilters
+      currentTab={currentTab}
+      filters={filters}
+      categories={categories}
+    />
+  );
+}
+
 export default async function GaragePage({ searchParams }: GaragePageProps) {
   const params = await searchParams;
 
@@ -38,9 +56,6 @@ export default async function GaragePage({ searchParams }: GaragePageProps) {
   };
 
   const currentTab = params.tab || "active";
-
-  // Fetch categories for the filters
-  const categories = await toolDAL.getToolCategories();
 
   return (
     <div className="container py-6">
@@ -59,13 +74,15 @@ export default async function GaragePage({ searchParams }: GaragePageProps) {
       <GarageTabs currentTab={currentTab}>
         <Suspense
           fallback={
-            <div className="bg-muted mt-6 h-24 animate-pulse rounded" />
+            <div className="flex justify-between">
+              <div className="bg-muted mt-6 h-10 w-1/3 animate-pulse rounded" />
+              <div className="bg-muted mt-6 h-10 w-1/3 animate-pulse rounded" />
+            </div>
           }
         >
-          <GarageFilters
+          <GarageFiltersWithCategories
             currentTab={currentTab}
             filters={filters}
-            categories={categories}
           />
         </Suspense>
 
