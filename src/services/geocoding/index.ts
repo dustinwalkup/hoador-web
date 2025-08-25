@@ -5,6 +5,10 @@ export interface GeocodeResult {
 
 const API_KEY = process.env.OPENCAGE_API_KEY;
 
+if (!API_KEY) {
+  throw new Error("OPENCAGE_API_KEY is not set");
+}
+
 export async function geocodeAddress({
   street,
   city,
