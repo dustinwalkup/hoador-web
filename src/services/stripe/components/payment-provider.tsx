@@ -11,19 +11,12 @@ if (!STRIPE_PUBLISHABLE_KEY) {
 
 const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
-export function PaymentProvider({
-  amount,
-  children,
-}: {
-  amount: number;
-  children: React.ReactNode;
-}) {
+export function PaymentProvider({ children }: { children: React.ReactNode }) {
   return (
     <Elements
       stripe={stripePromise}
       options={{
-        mode: "payment",
-        amount: Math.round(amount * 100),
+        mode: "setup",
         currency: "usd",
       }}
     >

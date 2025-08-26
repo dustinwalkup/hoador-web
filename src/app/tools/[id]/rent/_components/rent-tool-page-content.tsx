@@ -254,15 +254,12 @@ export function RentToolPageContent({ tool }: RentToolPageContentProps) {
                           Confirm Payment Method
                         </h3>
                         <p className="text-gray-600">
-                          Your payment method will be securely stored in Stripe.
+                          Your payment method is stored securely by Stripe.
                           Payment will only be processed after{" "}
                           {tool.owner.firstName} approves your rental request.
                         </p>
                       </div>
-                      <PaymentForm
-                        amount={pricing.total}
-                        onSuccess={handlePaymentSuccess}
-                      />
+                      <PaymentForm onSuccess={handlePaymentSuccess} />
                     </div>
                   )}
 

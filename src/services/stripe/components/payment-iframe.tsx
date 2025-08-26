@@ -1,7 +1,13 @@
 "use client";
 
-import { CardElement } from "@stripe/react-stripe-js";
+import { PaymentElement } from "@stripe/react-stripe-js";
 
 export function PaymentIframe() {
-  return <CardElement />;
+  return (
+    <PaymentElement
+      options={{
+        layout: "tabs",
+      }}
+    />
+  );
 }
