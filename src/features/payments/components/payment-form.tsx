@@ -4,84 +4,76 @@ import { useEffect, useState } from "react";
 import { usePayment, PaymentIframe, PaymentProvider } from "@/services/stripe";
 import { Button } from "@/components/ui/button";
 
-const RETURN_URL = process.env.NEXT_PUBLIC_PAYMENT_CONFIRMATION_URL;
-const CREATE_PAYMENT_INTENT_URL = "/api/create-payment-intent";
+const CREATE_SETUP_INTENT_URL = "/api/create-setup-intent";
 
-export function PaymentForm({ amount }: { amount: number }) {
+export function PaymentForm({
+  amount,
+  onSuccess,
+}: {
+  amount: number;
+  onSuccess: (methodId: string) => void;
+}) {
   return (
     <div>
       <PaymentProvider amount={amount}>
-        <CCForm amount={amount} />
+        <CCForm onSuccess={onSuccess} />
       </PaymentProvider>
     </div>
   );
 }
 
-function CCForm({ amount }: { amount: number }) {
-  const { stripe, elements } = usePayment();
+function CCForm({ onSuccess }: { onSuccess: (methodId: string) => void }) {
+  const { stripe, elements, CardElement } = usePayment();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   useEffect(() => {
-    const createPaymentIntent = async () => {
-      const response = await fetch(CREATE_PAYMENT_INTENT_URL, {
+    // Load the client secret for the setup intent
+    const createSetupIntent = async () => {
+      const response = await fetch(CREATE_SETUP_INTENT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ amount: Math.round(amount * 100) }),
       });
       const data = await response.json();
       setClientSecret(data.clientSecret);
     };
-    createPaymentIntent();
-  }, [amount]);
-
-  if (!RETURN_URL) {
-    throw new Error("NEXT_PUBLIC_PAYMENT_CONFIRMATION_URL is not set");
-  }
+    createSetupIntent();
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setErrorMessage("");
 
+    // If the stripe instance is not found, return
     if (!stripe || !elements || !clientSecret) {
       setIsLoading(false);
       return;
     }
 
-    const { error: submitError } = await elements.submit();
+    // Get the card element
+    const cardElement = elements.getElement(CardElement);
 
-    if (submitError) {
-      console.error(submitError);
-      setErrorMessage(submitError.message);
-    }
-
-    const { error: confirmError } = await stripe.confirmPayment({
-      elements,
-      clientSecret,
-      confirmParams: {
-        return_url: RETURN_URL,
-        payment_method_data: {
-          billing_details: {
-            address: {
-              country: "US",
-            },
-          },
-        },
+    // Confirm the card setup
+    const result = await stripe.confirmCardSetup(clientSecret, {
+      payment_method: {
+        card: cardElement!,
       },
     });
 
-    if (confirmError) {
-      console.error(confirmError);
-      setErrorMessage(confirmError.message);
+    if (result.error) {
+      console.error("ERROR", result.error);
+      setErrorMessage(result.error.message);
+    } else {
+      setIsLoading(false);
+      onSuccess(result.setupIntent.payment_method as string);
     }
-
-    setIsLoading(false);
   };
 
+  // If the client secret, stripe instance, or card elements are not found, show a loading spinner
   if (!clientSecret || !stripe || !elements) {
     return (
       <div className="mx-auto max-w-md py-10">
@@ -91,6 +83,7 @@ function CCForm({ amount }: { amount: number }) {
       </div>
     );
   }
+
   return (
     <div className="mx-auto max-w-md py-10">
       <form onSubmit={handleSubmit}>
@@ -102,7 +95,7 @@ function CCForm({ amount }: { amount: number }) {
               type="submit"
               disabled={isLoading || !stripe}
             >
-              {isLoading ? "Processing..." : "Pay"}
+              {isLoading ? "Processing..." : "Store Payment Method"}
             </Button>
           </>
         )}

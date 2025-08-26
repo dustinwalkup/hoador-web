@@ -1,6 +1,6 @@
 "use client";
 
-import { useStripe, useElements } from "@stripe/react-stripe-js";
+import { useStripe, useElements, CardElement } from "@stripe/react-stripe-js";
 
 /**
  * Hook for interacting with Stripe.
@@ -10,5 +10,5 @@ export function usePayment() {
   const stripe = useStripe();
   const elements = useElements();
 
-  return { stripe, elements };
+  return { stripe, elements, CardElement };
 }

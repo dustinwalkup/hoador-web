@@ -373,7 +373,7 @@ export class RentalDAL extends BaseDAL {
       const securityDeposit = Number(tool.securityDeposit);
       const totalAmount = subtotal + deliveryFee;
 
-      // Create rental request
+      // Create rental request with payment information
       const [rentalRequest] = await this.db
         .insert(rentalRequests)
         .values({
@@ -390,6 +390,8 @@ export class RentalDAL extends BaseDAL {
           deliveryAddress: formData.deliveryAddress || null,
           deliveryFee: deliveryFee.toString(),
           message: formData.message || null,
+          paymentIntentId: formData.paymentIntentId || null,
+          paymentMethodId: formData.paymentMethodId || null,
           status: "pending",
         })
         .returning({ id: rentalRequests.id });
@@ -418,6 +420,8 @@ export class RentalDAL extends BaseDAL {
     deliveryAddress: string | null;
     deliveryFee: string;
     message: string | null;
+    paymentIntentId: string | null;
+    paymentMethodId: string | null;
     status: string;
     createdAt: Date;
   }> {
@@ -447,6 +451,8 @@ export class RentalDAL extends BaseDAL {
           deliveryAddress: rentalRequests.deliveryAddress,
           deliveryFee: rentalRequests.deliveryFee,
           message: rentalRequests.message,
+          paymentIntentId: rentalRequests.paymentIntentId,
+          paymentMethodId: rentalRequests.paymentMethodId,
           status: rentalRequests.status,
           createdAt: rentalRequests.createdAt,
         })

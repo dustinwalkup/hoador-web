@@ -46,6 +46,8 @@ export const rentalRequests = pgTable(
       .default("0")
       .notNull(),
     message: text("message"),
+    paymentIntentId: varchar("payment_intent_id", { length: 255 }), // Stripe payment intent ID
+    paymentMethodId: varchar("payment_method_id", { length: 255 }), // Stripe payment method ID
     status: rentalStatusEnum("status").default("pending").notNull(),
     approvedAt: timestamp("approved_at"),
     rejectedAt: timestamp("rejected_at"),

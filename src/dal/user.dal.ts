@@ -84,6 +84,7 @@ export class UserDAL extends BaseDAL {
         stats,
         preferences: user.preferences,
         primaryAddress: user.addresses?.[0] ?? undefined,
+        stripeCustomerId: user.stripeCustomerId ?? null,
       };
     } catch (error) {
       this.handleError(error, "getUserById");
@@ -137,6 +138,7 @@ export class UserDAL extends BaseDAL {
         stats,
         preferences: null, // user.preferences,
         primaryAddress: undefined, // user.addresses?.[0] ?? undefined,
+        stripeCustomerId: user.stripeCustomerId ?? null,
       };
     } catch (error) {
       this.handleError(error, "getUserByEmail");

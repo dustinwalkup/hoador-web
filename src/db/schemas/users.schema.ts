@@ -34,6 +34,7 @@ export const users = pgTable(
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     firstName: varchar("first_name", { length: 100 }).notNull(),
     lastName: varchar("last_name", { length: 100 }).notNull(),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
     phone: varchar("phone", { length: 20 }),
     bio: text("bio"),
     profileImageUrl: varchar("profile_image_url", { length: 500 }),

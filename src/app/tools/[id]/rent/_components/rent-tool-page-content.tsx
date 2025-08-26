@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DateRange } from "react-day-picker";
 
+import { PaymentForm } from "@/features/payments/components/payment-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BackButton } from "@/components/back-button";
@@ -21,7 +22,7 @@ interface RentToolPageContentProps {
   tool: ToolDetails;
 }
 
-type BookingStep = "dates" | "delivery" | "windows" | "summary";
+type BookingStep = "dates" | "delivery" | "windows" | "payment" | "summary";
 
 // Mock time windows (in a real app, these could come from the tool owner's availability)
 const timeWindows = {
@@ -56,6 +57,7 @@ export function RentToolPageContent({ tool }: RentToolPageContentProps) {
   const [selectedWindow, setSelectedWindow] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMethodId, setPaymentMethodId] = useState<string>("");
 
   const calculateTotal = () => {
     if (!dateRange?.from || !dateRange?.to)
@@ -104,16 +106,23 @@ export function RentToolPageContent({ tool }: RentToolPageContentProps) {
         break;
       case "windows":
         if (selectedWindow) {
-          setCurrentStep("summary");
+          setCurrentStep("payment");
         }
         break;
+      case "payment":
+        setCurrentStep("summary");
+        break;
       case "summary":
-        handleSubmit();
         break;
     }
   };
 
-  const handleSubmit = async () => {
+  const handlePaymentSuccess = async (methodId: string) => {
+    setPaymentMethodId(methodId);
+    setCurrentStep("summary");
+  };
+
+  const handleCreateRentalRequest = async () => {
     if (!dateRange?.from || !dateRange?.to) return;
 
     setIsSubmitting(true);
@@ -128,11 +137,12 @@ export function RentToolPageContent({ tool }: RentToolPageContentProps) {
           deliveryMethod === "delivery" ? deliveryAddress : undefined,
         selectedWindow,
         message: message || undefined,
+        paymentMethodId,
       });
 
       if (result.success) {
         // Redirect to the confirmation page with the request ID
-        router.push(`/dashboard/confirmation?requestId=${result.requestId}`);
+        router.push(`/dashboard/rental/${result.requestId}?view=renting`);
       } else {
         // Handle error
         console.error("Rental request failed:", result.error);
@@ -160,6 +170,8 @@ export function RentToolPageContent({ tool }: RentToolPageContentProps) {
         return selectedWindow;
       case "summary":
         return true;
+      case "payment":
+        return false; // Payment is handled by PaymentForm component
       default:
         return false;
     }
@@ -175,6 +187,8 @@ export function RentToolPageContent({ tool }: RentToolPageContentProps) {
         return `Select ${deliveryMethod === "pickup" ? "Pickup" : "Delivery"} Window`;
       case "summary":
         return "Confirm Booking";
+      case "payment":
+        return "Payment Details";
       default:
         return "Book Rental";
     }
@@ -232,7 +246,27 @@ export function RentToolPageContent({ tool }: RentToolPageContentProps) {
                     />
                   )}
 
-                  {/* Step 4: Summary */}
+                  {/* Step 4: Payment */}
+                  {currentStep === "payment" && (
+                    <div className="space-y-6">
+                      <div className="mb-4">
+                        <h3 className="mb-2 text-lg font-medium">
+                          Confirm Payment Method
+                        </h3>
+                        <p className="text-gray-600">
+                          Your payment method will be securely stored in Stripe.
+                          Payment will only be processed after{" "}
+                          {tool.owner.firstName} approves your rental request.
+                        </p>
+                      </div>
+                      <PaymentForm
+                        amount={pricing.total}
+                        onSuccess={handlePaymentSuccess}
+                      />
+                    </div>
+                  )}
+
+                  {/* Step 5: Summary */}
                   {currentStep === "summary" && (
                     <SummaryStep
                       dateRange={dateRange}
@@ -253,20 +287,26 @@ export function RentToolPageContent({ tool }: RentToolPageContentProps) {
             <div className="space-y-6">
               <ToolSummaryCard tool={tool} pricing={pricing} />
 
-              <Button
-                onClick={handleNext}
-                className="w-full bg-green-600 hover:bg-green-700"
-                size="lg"
-                disabled={!canProceed() || isSubmitting}
-              >
-                {isSubmitting
-                  ? "Submitting..."
-                  : currentStep === "summary"
-                    ? "Send Request"
-                    : "Continue"}
-              </Button>
+              {currentStep !== "payment" && (
+                <Button
+                  onClick={
+                    currentStep === "summary"
+                      ? handleCreateRentalRequest
+                      : handleNext
+                  }
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  size="lg"
+                  disabled={!canProceed() || isSubmitting}
+                >
+                  {isSubmitting
+                    ? "Submitting..."
+                    : currentStep === "summary"
+                      ? "Send Request"
+                      : "Continue"}
+                </Button>
+              )}
 
-              {currentStep !== "summary" && (
+              {currentStep !== "summary" && currentStep !== "payment" && (
                 <p className="text-center text-xs text-gray-600">
                   Payment will be processed after the owner approves your
                   request

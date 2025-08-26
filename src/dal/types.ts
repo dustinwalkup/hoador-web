@@ -21,6 +21,7 @@ export interface UpdateUserDTO {
   phone?: string;
   bio?: string;
   profileImageUrl?: string;
+  stripeCustomerId?: string;
 }
 
 export interface CreateToolDTO {

@@ -13,6 +13,8 @@ export const createRentalRequestSchema = z
     deliveryAddress: z.string().optional(),
     selectedWindow: z.string().min(1, "Time window is required"),
     message: z.string().optional(),
+    paymentIntentId: z.string().optional(), // Stripe payment intent ID
+    paymentMethodId: z.string().optional(), // Stripe payment method ID
   })
   .refine((data) => data.endDate > data.startDate, {
     message: "End date must be after start date",
