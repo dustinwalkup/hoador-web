@@ -15,7 +15,6 @@ import {
   Loader2,
 } from "lucide-react";
 
-import type { RentalRequestItem } from "@/dal/rentals.dal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +30,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { cancelRentalRequestAction } from "@/lib/actions/cancel-rental-request";
+
+import type { RentalRequestItem } from "@/dal/rentals.dal";
+import { cancelRentalRequestAction } from "@/features/rentals/actions";
 
 const getStatusIcon = (status: string) => {
   switch (status) {

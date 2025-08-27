@@ -20,8 +20,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { LendingRequestItem } from "@/dal/rentals.dal";
-import { ApproveRequestDialog } from "./approve-request-dialog";
-import { DeclineRequestDialog } from "./decline-request-dialog";
+import {
+  ApproveRequestDialog,
+  DeclineRequestDialog,
+} from "@/features/rentals/components/renting-lending";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -64,16 +66,6 @@ interface LendingRequestCardProps {
 export function LendingRequestCard({ request }: LendingRequestCardProps) {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
-
-  const handleApproveSuccess = () => {
-    // The page will refresh automatically due to revalidatePath in the server action
-    window.location.reload();
-  };
-
-  const handleDeclineSuccess = () => {
-    // The page will refresh automatically due to revalidatePath in the server action
-    window.location.reload();
-  };
 
   return (
     <Card>
@@ -411,7 +403,6 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
         requestId={request.id}
         toolName={request.toolName}
         renterName={request.renterName}
-        onSuccess={handleApproveSuccess}
       />
 
       <DeclineRequestDialog
@@ -420,7 +411,6 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
         requestId={request.id}
         toolName={request.toolName}
         renterName={request.renterName}
-        onSuccess={handleDeclineSuccess}
       />
     </Card>
   );

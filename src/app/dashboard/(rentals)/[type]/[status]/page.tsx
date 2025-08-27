@@ -1,12 +1,13 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rentalDAL } from "@/dal";
 import type { LendingRequestItem, BorrowedTool } from "@/dal/rentals.dal";
-import { RentingRequestsListWrapper } from "./_components/renting-requests-list-wrapper";
-import { LendingRequestsListWrapper } from "./_components/lending-requests-list-wrapper";
-import { BorrowedToolsListWrapper } from "./_components/borrowed-tools-list-wrapper";
-import Link from "next/link";
+import { RentingRequestsListWrapper } from "@/features/rentals/components/renting-lending/renting-requests-list-wrapper";
+import { LendingRequestsListWrapper } from "@/features/rentals/components/renting-lending/lending-requests-list-wrapper";
+import { BorrowedToolsListWrapper } from "@/features/rentals/components/renting-lending/borrowed-tools-list-wrapper";
 
 interface RentalsPageProps {
   params: Promise<{

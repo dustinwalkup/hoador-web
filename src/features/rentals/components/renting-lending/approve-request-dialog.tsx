@@ -15,8 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { approveRentalRequest } from "@/lib/actions/approve-rental-request";
 
+import { approveRentalRequest } from "@/features/rentals/actions/approve-rental-request";
 interface ApproveRequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,9 +40,6 @@ export function ApproveRequestDialog({
 
   const handleApprove = async () => {
     // Show optimistic toast immediately
-    toast.success("Request approved successfully!", {
-      description: "The renter has been notified.",
-    });
 
     startTransition(async () => {
       try {
@@ -58,6 +55,9 @@ export function ApproveRequestDialog({
           setPickupInstructions("");
           setReturnInstructions("");
           onSuccess?.();
+          toast.success("Request approved successfully!", {
+            description: "The renter has been notified.",
+          });
         } else {
           // Show error toast if the action fails
           toast.error("Failed to approve request", {

@@ -14,8 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import type { LendingRequestItem } from "@/dal/rentals.dal";
-import { LendingRequestCard } from "./lending-request-card";
+import { LendingRequestCard } from "@/features/rentals/components/renting-lending";
 
 interface LendingRequestsListProps {
   data: LendingRequestItem[];

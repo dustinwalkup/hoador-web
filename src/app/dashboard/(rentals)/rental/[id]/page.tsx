@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { rentalDAL } from "@/dal";
-import { RentalLayout } from "./_components/rental-layout";
-import { RentalContent } from "./_components/rental-content";
+import { RentalLayout } from "../../../../../features/rentals/components/detail-page/rental-layout";
+import { RentalContent } from "../../../../../features/rentals/components/detail-page/rental-content";
 
 interface RentalDetailPageProps {
   params: Promise<{ id: string }>;

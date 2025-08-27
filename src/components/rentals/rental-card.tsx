@@ -19,7 +19,7 @@ import type {
   RentingRental,
   LendingRental,
   RentalStatus,
-} from "@/lib/types/rentals";
+} from "@/features/rentals/lib/types";
 
 const getStatusIcon = (status: RentalStatus) => {
   switch (status) {

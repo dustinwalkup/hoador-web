@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { hideRentalHeader } from "@/lib/utils/rentals.utils";
+import { hideRentalHeader } from "@/features/rentals/lib/utils";
 
 interface RentalsTabsProps {
   children: React.ReactNode;

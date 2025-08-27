@@ -1,4 +1,4 @@
-import type { RentalsData } from "@/lib/types/rentals";
+import type { RentalsData } from "@/features/rentals/lib/types";
 
 export const mockRentalsData: RentalsData = {
   renting: {

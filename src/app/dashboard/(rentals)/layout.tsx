@@ -1,9 +1,9 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { hideRentalHeader } from "@/lib/utils/rentals.utils";
+import { hideRentalHeader } from "@/features/rentals/lib/utils";
 import { cn } from "@/lib/utils/utils";
 import { PageHeader } from "@/components/page-header";
-import { RentalsTabs } from "./_components/rentals-tabs";
+import { RentalsTabs } from "@/features/rentals/components/renting-lending/rentals-tabs";
 
 export default function RentalsLayout({
   children,

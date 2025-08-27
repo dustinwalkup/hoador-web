@@ -5,8 +5,8 @@ import { tryCatch } from "@walkup/walkup-utils";
 import {
   createRentalRequestSchema,
   type CreateRentalRequestFormData,
-} from "../form-schemas/rental.schema";
-import { rentalDAL } from "../../dal";
+} from "../lib/form-schema";
+import { rentalDAL } from "../../../dal";
 
 export async function createRentalRequest(
   formData: CreateRentalRequestFormData,

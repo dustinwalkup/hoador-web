@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { RentalRequestItem } from "@/dal/rentals.dal";
-import { RentingRequestCard } from "./renting-request-card";
+import { RentingRequestCard } from "@/features/rentals/components/renting-lending";
 
 interface RentingRequestsListProps {
   data: RentalRequestItem[];

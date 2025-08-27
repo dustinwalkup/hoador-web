@@ -1,5 +1,5 @@
 import type { RentalRequestItem } from "@/dal/rentals.dal";
-import { RentingRequestsList } from "./renting-requests-list";
+import { RentingRequestsList } from "@/features/rentals/components/renting-lending";
 
 interface RentingRequestsListWrapperProps {
   data: RentalRequestItem[];

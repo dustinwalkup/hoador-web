@@ -1,12 +1,14 @@
 import type { RentalDetails } from "@/dal/rentals.dal";
-import { RentalStatusCard } from "./rental-status-card";
-import { RentalToolInfo } from "./rental-tool-info";
-import { RentalDetailsCard } from "./rental-details-card";
-import { RentalMessagesCard } from "./rental-messages-card";
-import { RentalReviewsCard } from "./rental-reviews-card";
-import { RentalUserInfo } from "./rental-user-info";
-import { RentalActions } from "./rental-actions";
-import { RentalProtection } from "./rental-protection";
+import {
+  RentalStatusCard,
+  RentalToolInfo,
+  RentalDetailsCard,
+  RentalMessagesCard,
+  RentalReviewsCard,
+  RentalUserInfo,
+  RentalActions,
+  RentalProtection,
+} from "@/features/rentals/components/detail-page";
 
 interface RentalContentProps {
   rentalDetails: RentalDetails;

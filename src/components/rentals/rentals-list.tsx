@@ -18,7 +18,7 @@ import type {
   RentingRental,
   LendingRental,
   RentalType,
-} from "@/lib/types/rentals";
+} from "@/features/rentals/lib/types";
 
 interface RentalsListProps {
   data: RentingRental[] | LendingRental[];

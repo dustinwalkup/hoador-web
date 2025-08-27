@@ -1,4 +1,4 @@
-import type { RentalType } from "@/lib/types/rentals";
+import type { RentalType } from "@/features/rentals/lib/types";
 
 /**
  * Rental route configuration
