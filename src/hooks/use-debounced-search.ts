@@ -6,7 +6,7 @@ export function useDebouncedSearch(
   delay: number = 300,
   initialQuery: string = "",
 ) {
-  const [localQuery, setLocalQuery] = useState(initialQuery);
+  const [localQuery, setLocalQuery] = useState(initialQuery || "");
   const debouncedSearch = useMemo(
     () => debounce((...args: unknown[]) => onSearch(args[0] as string), delay),
     [onSearch, delay],

@@ -6,16 +6,11 @@ import type { ToolSearchFilters } from "@/dal/types";
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    console.log(
-      "API search params:",
-      Object.fromEntries(searchParams.entries()),
-    );
     const userId = await getCurrentUserId();
-    console.log("User ID:", userId);
 
     // Parse search parameters
     const filters: ToolSearchFilters = {
-      query: searchParams.get("q") || "",
+      query: searchParams.get("q") || undefined,
       categoryId: searchParams.get("category") || undefined,
       minPrice: searchParams.get("minPrice")
         ? parseFloat(searchParams.get("minPrice")!)
@@ -41,16 +36,12 @@ export async function GET(request: NextRequest) {
       limit: parseInt(searchParams.get("limit") || "12"),
     };
 
-    console.log("Search filters:", filters);
-    console.log("Pagination:", pagination);
-
     const searchResults = await toolDAL.searchTools(
       filters,
       pagination,
       userId || undefined,
     );
 
-    console.log("Search results:", searchResults);
     return Response.json(searchResults);
   } catch (error) {
     console.error("Tool search error:", error);

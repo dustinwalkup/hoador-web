@@ -8,26 +8,18 @@ import type { ToolSearchFilters } from "@/dal/types";
 
 // Infinite scroll hook for tool search
 export function useSearchTools(filters: ToolSearchFilters, userId?: string) {
-  console.log(
-    "useSearchTools called with filters:",
-    filters,
-    "userId:",
-    userId,
-  );
-
   // Create a stable cache key by serializing the filters
   const cacheKey = useMemo(() => {
     const serializedFilters = {
-      query: filters.query || "",
-      category: filters.categoryId || "", // Use 'category' for consistency with API
-      minPrice: filters.minPrice || 0,
-      maxPrice: filters.maxPrice || 0,
-      condition: filters.condition?.join(",") || "",
+      query: filters.query || undefined,
+      category: filters.categoryId || undefined, // Use 'category' for consistency with API
+      minPrice: filters.minPrice || undefined,
+      maxPrice: filters.maxPrice || undefined,
+      condition: filters.condition?.join(",") || undefined,
       deliveryAvailable: filters.deliveryAvailable || false,
       sortBy: filters.sortBy || "newest",
       sortOrder: filters.sortOrder || "desc",
     };
-    console.log("Cache key changed:", serializedFilters);
     return ["search-tools", serializedFilters, userId];
   }, [filters, userId]);
 
@@ -37,7 +29,8 @@ export function useSearchTools(filters: ToolSearchFilters, userId?: string) {
       const searchParams = new URLSearchParams();
 
       // Serialize filters properly for URLSearchParams
-      if (filters.query) searchParams.set("q", filters.query);
+      if (filters.query && filters.query.trim())
+        searchParams.set("q", filters.query);
       if (filters.categoryId) searchParams.set("category", filters.categoryId);
       if (filters.minPrice)
         searchParams.set("minPrice", filters.minPrice.toString());
@@ -55,18 +48,15 @@ export function useSearchTools(filters: ToolSearchFilters, userId?: string) {
       if (userId) searchParams.set("userId", userId);
 
       const url = `/api/tools/search?${searchParams.toString()}`;
-      console.log("Fetching tools from:", url);
 
       const response = await fetch(url);
 
       if (!response.ok) {
         const error = await response.json();
-        console.error("API error:", error);
         throw new Error(error.message || "Failed to fetch tools");
       }
 
       const data = await response.json();
-      console.log("API response:", data);
       return data;
     },
     getNextPageParam: (lastPage, allPages) => {

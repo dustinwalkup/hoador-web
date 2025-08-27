@@ -12,15 +12,12 @@ export function useURLState<T extends Record<string, unknown>>(
 
   // Parse current URL state
   const state = useMemo(() => {
-    const parsed = parser(searchParams);
-    console.log("URL state parsed:", parsed);
-    return parsed;
+    return parser(searchParams);
   }, [searchParams, parser]);
 
   // Update URL state
   const updateState = useCallback(
     (updates: Partial<T>) => {
-      console.log("URL state updating with:", updates);
       const params = new URLSearchParams(searchParams);
       const serialized = serializer(updates);
 
@@ -32,12 +29,21 @@ export function useURLState<T extends Record<string, unknown>>(
         }
       });
 
-      // Clean up any old categoryId parameter
+      // Clean up any old parameter names
       params.delete("categoryId");
+      params.delete("query");
 
       // If categoryId is explicitly undefined in updates, remove the category parameter
       if (updates.categoryId === undefined) {
         params.delete("category");
+      }
+
+      // If query is explicitly undefined in updates, remove the q parameter
+      if (
+        "query" in updates &&
+        (updates as { query?: unknown }).query === undefined
+      ) {
+        params.delete("q");
       }
 
       // Reset pagination when filters change
@@ -46,7 +52,6 @@ export function useURLState<T extends Record<string, unknown>>(
       }
 
       const newUrl = `${pathname}?${params.toString()}`;
-      console.log("Navigating to:", newUrl);
       router.push(newUrl);
     },
     [router, pathname, searchParams, serializer],
@@ -59,7 +64,7 @@ export function useURLState<T extends Record<string, unknown>>(
 export function useToolFilters() {
   const parser = useCallback(
     (searchParams: URLSearchParams) => ({
-      query: searchParams.get("q") || "",
+      query: searchParams.get("q") || undefined,
       categoryId: searchParams.get("category") || undefined,
       minPrice: searchParams.get("minPrice")
         ? parseFloat(searchParams.get("minPrice")!)
@@ -96,13 +101,18 @@ export function useToolFilters() {
       }
     });
 
-    // Map categoryId to category for URL compatibility
+    // Map field names for URL compatibility
     if (result.categoryId) {
       result.category = result.categoryId;
       delete result.categoryId;
     }
 
-    console.log("Serializer input:", filters, "output:", result);
+    // Map query to q for URL compatibility
+    if (result.query) {
+      result.q = result.query;
+      delete result.query;
+    }
+
     return result;
   }, []);
 

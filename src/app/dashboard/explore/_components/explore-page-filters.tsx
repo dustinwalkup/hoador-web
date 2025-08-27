@@ -88,7 +88,7 @@ export function ExplorePageFilters({
 
   // Debounced search
   const { localQuery, handleSearchChange } = useDebouncedSearch(
-    (query: string) => updateFilters({ query }),
+    (query: string) => updateFilters({ query: query || undefined }),
     300,
     filters.query || "",
   );
@@ -117,7 +117,7 @@ export function ExplorePageFilters({
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    updateFilters({ query: localQuery });
+    updateFilters({ query: localQuery || undefined });
   };
 
   const handleCategorySelect = (categoryId: string) => {
@@ -130,12 +130,6 @@ export function ExplorePageFilters({
           ? undefined
           : categoryId;
 
-    console.log(
-      "handleCategorySelect called with:",
-      categoryId,
-      "newCategoryId:",
-      newCategoryId,
-    );
     updateFilters({
       categoryId: newCategoryId,
     });
