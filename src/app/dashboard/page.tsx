@@ -11,7 +11,7 @@ import {
   Wrench,
 } from "lucide-react";
 
-import { DASHBOARD_PAGE } from "@/app/dashboard/dashboard.constants";
+import { DASHBOARD_PAGE } from "@/constants/dashboard";
 import { getCurrentUser } from "@/features/authentication/auth.utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
