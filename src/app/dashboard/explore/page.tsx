@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getCurrentUser } from "@/lib/auth/auth.utils";
+import { getCurrentUser } from "@/features/authentication/auth.utils";
 import { PageHeader } from "@/components/page-header";
 import { ExplorePageSkeleton } from "./_components/explore-page-skeleton";
 import { ExplorePageClient } from "./_components/explore-page-client";

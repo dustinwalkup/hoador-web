@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "../auth/auth.utils";
-import { userDAL } from "../../dal";
+import { getCurrentUser } from "../../authentication/auth.utils";
+import { userDAL } from "../../../dal";
 
 const UpdateUserProfileSchema = z.object({
   firstName: z.string().min(1),

@@ -8,7 +8,7 @@ import CategoryCard from "@/components/category-card";
 import FeatureCard from "@/components/feature-card";
 import FadeIn from "@/components/fade-in";
 import AnimatedSection from "@/components/animated-section";
-import { HOME_PAGE } from "@/lib/data/home";
+import { HOME_PAGE } from "@/constants/home";
 
 const { header, hero, valueProp, community, howItWorks, cta } = HOME_PAGE;
 

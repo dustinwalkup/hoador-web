@@ -23,10 +23,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import CategoryButton from "@/components/dashboard/category-button";
-import { useToolFilters } from "@/hooks/use-url-state";
-import { useToolCategories } from "@/hooks/use-tools";
+import { useToolFilters } from "@/features/tools/hooks/use-url-state";
+import { useToolCategories } from "@/features/tools/hooks/use-tools";
 import { useDebouncedSearch } from "@/hooks/use-debounced-search";
-import { emojiMap } from "@/lib/constants/garage";
+import { emojiMap } from "@/constants/garage";
 
 interface ExplorePageFiltersProps {
   basePath?: string;

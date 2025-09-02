@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus, Settings } from "lucide-react";
 
-import { getCurrentUser } from "@/lib/auth/auth.utils";
+import { getCurrentUser } from "@/features/authentication/auth.utils";
 import { capitalize } from "@/lib/utils/utils";
 import { toolDAL } from "@/dal";
 import type { GarageToolFilters } from "@/dal/tool.dal";

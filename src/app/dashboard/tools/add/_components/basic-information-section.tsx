@@ -1,8 +1,8 @@
 import { Package } from "lucide-react";
 import { Control } from "react-hook-form";
 
-import type { CreateToolFormDataClientType } from "@/lib/form-schemas/tool.schema";
-import { emojiMap } from "@/lib/constants/garage";
+import type { CreateToolFormDataClientType } from "@/features/tools/form-schema/tool.schema";
+import { emojiMap } from "@/constants/garage";
 
 import {
   Card,

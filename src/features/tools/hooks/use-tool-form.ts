@@ -1,11 +1,11 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { getMockToolImage } from "../lib/constants/garage";
+import { getMockToolImage } from "../../../constants/garage";
 import {
   createToolSchemaClient,
   type CreateToolFormDataClientType,
   type ImageFile,
-} from "../lib/form-schemas/tool.schema";
+} from "../form-schema/tool.schema";
 
 export function useToolForm(
   initialValues?: Partial<CreateToolFormDataClientType>,

@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { PROFILE_TABS } from "@/lib/constants/profile";
+import { PROFILE_TABS } from "@/constants/profile";
 import { Tabs, TabsList, TabsContent } from "@/components/ui/tabs";
 import { ProfileTabTrigger } from "./profile-tab-trigger";
 

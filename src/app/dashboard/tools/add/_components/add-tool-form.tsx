@@ -8,10 +8,10 @@ import { tryCatch } from "@walkup/walkup-utils";
 import type {
   CreateToolFormDataClientType,
   ImageFile,
-} from "@/lib/form-schemas/tool.schema";
-import { useToolForm } from "@/hooks/use-tool-form";
-import { createTool } from "@/lib/actions/create-tool";
-import { useToolImages } from "@/hooks/use-tool-images";
+} from "@/features/tools/form-schema/tool.schema";
+import { useToolForm } from "@/features/tools/hooks/use-tool-form";
+import { createTool } from "@/features/tools/actions/create-tool";
+import { useToolImages } from "@/features/tools/hooks/use-tool-images";
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";

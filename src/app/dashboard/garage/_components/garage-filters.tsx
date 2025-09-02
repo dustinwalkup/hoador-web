@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 
 import type { GarageToolFilters } from "@/dal/tool.dal";
-import { emojiMap } from "@/lib/constants/garage";
+import { emojiMap } from "@/constants/garage";
 
 interface Category {
   id: string;

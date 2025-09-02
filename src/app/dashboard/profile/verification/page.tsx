@@ -8,11 +8,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PROFILE_TABS } from "@/lib/constants/profile";
+import { PROFILE_TABS } from "@/constants/profile";
 import { PageHeader } from "@/components/page-header";
 import { ProfileTabs } from "../_components/profile-tabs";
 import { userDAL } from "@/dal";
-import { getCurrentUserId } from "@/lib/auth/auth.utils";
+import { getCurrentUserId } from "@/features/authentication/auth.utils";
 
 export default async function VerificationPage() {
   const userId = await getCurrentUserId();

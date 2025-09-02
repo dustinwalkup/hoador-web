@@ -1,7 +1,7 @@
 import { DollarSign, MapPin, Truck } from "lucide-react";
 import { Control, UseFormGetValues } from "react-hook-form";
 
-import type { CreateToolFormDataClientType } from "@/lib/form-schemas/tool.schema";
+import type { CreateToolFormDataClientType } from "@/features/tools/form-schema/tool.schema";
 
 import {
   Card,

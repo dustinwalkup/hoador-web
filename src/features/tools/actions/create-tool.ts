@@ -7,11 +7,11 @@ import { uploadToBlob } from "@/services/vercel-blob";
 import {
   createToolSchemaServer,
   type CreateToolFormDataServerType,
-} from "../form-schemas/tool.schema";
-import { getCurrentUserId } from "../auth/auth.utils";
+} from "../form-schema/tool.schema";
+import { getCurrentUserId } from "../../authentication/auth.utils";
 import { db } from "@/db/db";
 import { toolImages } from "@/db/schemas/tools.schema";
-import { toolDAL } from "../../dal";
+import { toolDAL } from "../../../dal";
 
 // Separate action for uploading images
 export async function uploadToolImage(

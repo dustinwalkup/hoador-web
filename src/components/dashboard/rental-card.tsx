@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { updateToolStatus } from "@/lib/actions/update-tool-status";
+import { updateToolStatus } from "@/features/tools/actions/update-tool-status";
 
 import ToolManagementModal from "./tool-management-modal";
 import { capitalize } from "@/lib/utils/utils";

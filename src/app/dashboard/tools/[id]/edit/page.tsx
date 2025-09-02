@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 
 import { toolDAL } from "@/dal";
-import { updateTool } from "@/lib/actions/update-tool";
-import { getCurrentUser } from "@/lib/auth/auth.utils";
+import { updateTool } from "@/features/tools/actions/update-tool";
+import { getCurrentUser } from "@/features/authentication/auth.utils";
 import type { ToolDetails } from "@/dal/types";
-import type { CreateToolFormDataClientType } from "@/lib/form-schemas/tool.schema";
+import type { CreateToolFormDataClientType } from "@/features/tools/form-schema/tool.schema";
 
 import { BackButton } from "@/components/back-button";
 import { AddToolForm } from "../../add/_components/add-tool-form";

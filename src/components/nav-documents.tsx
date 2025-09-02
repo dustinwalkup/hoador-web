@@ -17,7 +17,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { DASHBOARD } from "@/lib/data/navbar";
+import { DASHBOARD } from "@/constants/navbar";
 
 const { documents } = DASHBOARD;
 

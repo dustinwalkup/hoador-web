@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { useToolFilters } from "@/hooks/use-url-state";
-import { useSearchTools } from "@/hooks/use-tools";
+import { useToolFilters } from "@/features/tools/hooks/use-url-state";
+import { useSearchTools } from "@/features/tools/hooks/use-tools";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";

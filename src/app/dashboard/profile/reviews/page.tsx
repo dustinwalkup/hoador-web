@@ -12,9 +12,9 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/page-header";
-import { PROFILE_TABS } from "@/lib/constants/profile";
+import { PROFILE_TABS } from "@/constants/profile";
 import { reviewDAL } from "@/dal";
-import { getCurrentUserId } from "@/lib/auth/auth.utils";
+import { getCurrentUserId } from "@/features/authentication/auth.utils";
 
 import { ProfileTabs } from "../_components/profile-tabs";
 import { ReviewsSortingControls } from "../_components/reviews-sorting-controls";

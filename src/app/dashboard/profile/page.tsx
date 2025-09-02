@@ -1,8 +1,8 @@
 import { Star, MapPin, Calendar } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/auth.utils";
+import { getCurrentUser } from "@/features/authentication/auth.utils";
 import { rentalDAL, reviewDAL } from "@/dal";
-import { PROFILE_TABS, PROFILE_OVERVIEW } from "@/lib/constants/profile";
+import { PROFILE_TABS, PROFILE_OVERVIEW } from "@/constants/profile";
 import { formatReviewSummary } from "@/lib/utils/reviews.utils";
 import {
   formatMemberSince,
@@ -10,7 +10,7 @@ import {
   getUserFullName,
   getUserInitials,
   getUserState,
-} from "@/lib/utils/users.utils";
+} from "@/features/users/users.utils";
 import { PageHeader } from "@/components/page-header";
 import {
   Card,

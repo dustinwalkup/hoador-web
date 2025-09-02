@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { updateUserProfileAndAddress } from "@/lib/actions/update-user-profile";
-import { PROFILE_OVERVIEW } from "@/lib/constants/profile";
+import { PROFILE_OVERVIEW } from "@/constants/profile";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

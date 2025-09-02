@@ -24,7 +24,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getUserFullName } from "@/lib/utils/users.utils";
+import { getUserFullName } from "@/features/users/users.utils";
 import { UserProfile } from "@/dal/types";
 
 export function NavUser({ user }: { user: UserProfile }) {

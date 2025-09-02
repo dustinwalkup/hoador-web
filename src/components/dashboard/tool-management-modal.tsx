@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { deleteTool } from "@/lib/actions/delete-tool";
+import { deleteTool } from "@/features/tools/actions/delete-tool";
 import { toast } from "sonner";
 
 const toolManagementSchema = z.object({

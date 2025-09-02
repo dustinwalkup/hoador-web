@@ -2,7 +2,7 @@ import { eq, desc, count, inArray } from "drizzle-orm";
 import { reviews } from "@/db/schemas/rentals.schema";
 import { users } from "@/db/schemas/users.schema";
 import { tools } from "@/db/schemas/tools.schema";
-import { getCurrentUserId } from "@/lib/auth/auth.utils";
+import { getCurrentUserId } from "@/features/authentication/auth.utils";
 import { BaseDAL } from "./base";
 
 export class ReviewDAL extends BaseDAL {

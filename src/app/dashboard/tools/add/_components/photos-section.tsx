@@ -6,7 +6,7 @@ import { Control, UseFormGetValues } from "react-hook-form";
 import type {
   CreateToolFormDataClientType,
   ImageFile,
-} from "@/lib/form-schemas/tool.schema";
+} from "@/features/tools/form-schema/tool.schema";
 import { validateImageFile } from "@/lib/image/image.utils";
 
 import {

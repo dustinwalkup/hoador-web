@@ -6,9 +6,9 @@ import { tryCatch } from "@walkup/walkup-utils";
 import {
   createToolSchemaServer,
   type CreateToolFormDataServerType,
-} from "../form-schemas/tool.schema";
-import { getCurrentUserId } from "../auth/auth.utils";
-import { toolDAL } from "../../dal";
+} from "../form-schema/tool.schema";
+import { getCurrentUserId } from "../../authentication/auth.utils";
+import { toolDAL } from "../../../dal";
 
 export async function updateTool(
   toolId: string,

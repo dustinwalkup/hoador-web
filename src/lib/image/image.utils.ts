@@ -1,5 +1,5 @@
-import type { ImageFile } from "@/lib/form-schemas/tool.schema";
-import type { ToolImage } from "@/hooks/use-tool-images";
+import type { ImageFile } from "@/features/tools/form-schema/tool.schema";
+import type { ToolImage } from "@/features/tools/hooks/use-tool-images";
 
 /**
  * Convert ToolImage objects to ImageFile objects for form usage
