@@ -18,10 +18,10 @@ async function clearDatabaseComplete() {
       "user_payment_methods",
       "user_preferences",
       "user_addresses",
-      "tool_availability",
-      "tool_images",
-      "tools",
-      "tool_categories",
+      "listing_availability",
+      "listing_images",
+      "listings",
+      "listing_categories",
       "user_sessions",
       // Better-auth tables
       "session",
@@ -42,7 +42,7 @@ async function clearDatabaseComplete() {
     // Drop all possible enums
     const enumsToDrop = [
       "user_status",
-      "tool_status",
+      "listing_status",
       "rental_status",
       "payment_status",
       "message_status",

@@ -27,7 +27,7 @@ export function ExplorePageSkeleton() {
         </div>
       </div>
 
-      {/* Tools grid skeleton */}
+      {/* Listings grid skeleton */}
       <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <Card key={i} className="overflow-hidden pt-0">

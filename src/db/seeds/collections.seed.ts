@@ -8,7 +8,7 @@ import {
   collectionItems,
 } from "../schemas/collections.schema";
 import { users } from "../schemas/users.schema";
-import { tools } from "../schemas/tools.schema";
+import { listings } from "../schemas/listings.schema";
 
 // Infer types
 
@@ -24,10 +24,10 @@ async function main() {
   await db.delete(userCollections);
 
   const allUsers = await db.select().from(users);
-  const allTools = await db.select().from(tools);
+  const allListings = await db.select().from(listings);
 
-  if (allUsers.length === 0 || allTools.length === 0) {
-    throw new Error("Not enough users or tools to seed collections.");
+  if (allUsers.length === 0 || allListings.length === 0) {
+    throw new Error("Not enough users or listings to seed collections.");
   }
 
   const favorites: NewFavorite[] = [];
@@ -36,15 +36,15 @@ async function main() {
 
   for (const user of allUsers) {
     // Add some favorites
-    const favoriteTools = faker.helpers.arrayElements(
-      allTools,
+    const favoriteListings = faker.helpers.arrayElements(
+      allListings,
       faker.number.int({ min: 3, max: 8 }),
     );
-    for (const tool of favoriteTools) {
+    for (const listing of favoriteListings) {
       favorites.push({
         id: faker.string.uuid(),
         userId: user.id,
-        toolId: tool.id,
+        listingId: listing.id,
         createdAt: new Date(),
       });
     }
@@ -63,15 +63,15 @@ async function main() {
         updatedAt: new Date(),
       });
 
-      const toolsForCollection = faker.helpers.arrayElements(
-        allTools,
+      const listingsForCollection = faker.helpers.arrayElements(
+        allListings,
         faker.number.int({ min: 2, max: 5 }),
       );
-      for (const tool of toolsForCollection) {
+      for (const listing of listingsForCollection) {
         collectionItemsSeed.push({
           id: faker.string.uuid(),
           collectionId,
-          toolId: tool.id,
+          listingId: listing.id,
           addedAt: new Date(),
         });
       }

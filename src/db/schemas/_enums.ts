@@ -13,7 +13,7 @@ export const verificationStatusEnum = pgEnum("verification_status", [
   "rejected",
 ]);
 
-export const toolStatusEnum = pgEnum("tool_status", [
+export const listingStatusEnum = pgEnum("listing_status", [
   "available",
   "rented",
   "maintenance",

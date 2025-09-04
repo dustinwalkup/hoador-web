@@ -39,10 +39,10 @@ export function LendingRequestsList({
 
   const filteredData = useMemo(() => {
     return data.filter((item) => {
-      const toolName = item.toolName?.toLowerCase() || "";
+      const listingName = item.listingName?.toLowerCase() || "";
       const renterName = item.renterName?.toLowerCase() || "";
       const query = searchQuery.toLowerCase();
-      return toolName.includes(query) || renterName.includes(query);
+      return listingName.includes(query) || renterName.includes(query);
     });
   }, [data, searchQuery]);
 
@@ -93,7 +93,7 @@ export function LendingRequestsList({
         <div className="relative flex-1">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <Input
-            placeholder="Search by tool name or renter..."
+            placeholder="Search by listing name or renter..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="max-w-md pl-10"

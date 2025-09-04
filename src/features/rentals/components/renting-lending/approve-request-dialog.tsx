@@ -21,7 +21,7 @@ interface ApproveRequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requestId: string;
-  toolName: string;
+  listingName: string;
   renterName: string;
   onSuccess?: () => void;
 }
@@ -30,7 +30,7 @@ export function ApproveRequestDialog({
   open,
   onOpenChange,
   requestId,
-  toolName,
+  listingName,
   renterName,
   onSuccess,
 }: ApproveRequestDialogProps) {
@@ -82,7 +82,7 @@ export function ApproveRequestDialog({
             Approve Request
           </DialogTitle>
           <DialogDescription>
-            Approve the rental request for {toolName} from {renterName}. The
+            Approve the rental request for {listingName} from {renterName}. The
             renter will be notified of your approval.
           </DialogDescription>
         </DialogHeader>
@@ -93,7 +93,7 @@ export function ApproveRequestDialog({
             </Label>
             <Textarea
               id="pickup-instructions"
-              placeholder="Provide details about when and where the renter can pick up the tool..."
+              placeholder="Provide details about when and where the renter can pick up the listing..."
               value={pickupInstructions}
               onChange={(e) => setPickupInstructions(e.target.value)}
               className="min-h-[100px]"
@@ -105,7 +105,7 @@ export function ApproveRequestDialog({
             </Label>
             <Textarea
               id="return-instructions"
-              placeholder="Provide details about when and where the renter should return the tool..."
+              placeholder="Provide details about when and where the renter should return the listing..."
               value={returnInstructions}
               onChange={(e) => setReturnInstructions(e.target.value)}
               className="min-h-[100px]"

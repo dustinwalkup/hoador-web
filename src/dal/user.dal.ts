@@ -213,10 +213,10 @@ export class UserDAL extends BaseDAL {
 
       const [statsResult] = await this.db
         .select({
-          toolsBorrowed: count(
+          listingsBorrowed: count(
             sql`CASE WHEN ${rentals.renterId} = ${userId} THEN 1 END`,
           ),
-          toolsShared: count(
+          listingsShared: count(
             sql`CASE WHEN ${rentals.ownerId} = ${userId} THEN 1 END`,
           ),
           averageRating: sql<number>`COALESCE(AVG(CASE WHEN ${reviews.revieweeId} = ${userId} THEN ${reviews.rating} END), 0)`,
@@ -231,8 +231,8 @@ export class UserDAL extends BaseDAL {
         );
 
       return {
-        toolsBorrowed: Number(statsResult.toolsBorrowed) || 0,
-        toolsShared: Number(statsResult.toolsShared) || 0,
+        listingsBorrowed: Number(statsResult.listingsBorrowed) || 0,
+        listingsShared: Number(statsResult.listingsShared) || 0,
         averageRating:
           Math.round((Number(statsResult.averageRating) || 0) * 10) / 10,
         totalReviews: Number(statsResult.totalReviews) || 0,
@@ -308,7 +308,7 @@ export class UserDAL extends BaseDAL {
               profileImageUrl: true,
             },
           },
-          tool: {
+          listing: {
             columns: {
               id: true,
               name: true,

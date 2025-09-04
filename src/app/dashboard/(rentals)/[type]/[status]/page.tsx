@@ -4,10 +4,10 @@ import { Suspense } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rentalDAL } from "@/dal";
-import type { LendingRequestItem, BorrowedTool } from "@/dal/rentals.dal";
+import type { LendingRequestItem, BorrowedListing } from "@/dal/rentals.dal";
 import { RentingRequestsListWrapper } from "@/features/rentals/components/renting-lending/renting-requests-list-wrapper";
 import { LendingRequestsListWrapper } from "@/features/rentals/components/renting-lending/lending-requests-list-wrapper";
-import { BorrowedToolsListWrapper } from "@/features/rentals/components/renting-lending/borrowed-tools-list-wrapper";
+import { BorrowedListingsListWrapper } from "@/features/rentals/components/renting-lending/borrowed-listings-list-wrapper";
 
 interface RentalsPageProps {
   params: Promise<{
@@ -28,7 +28,7 @@ const validRoutes: Record<string, Record<string, StatusConfig>> = {
     requests: {
       displayName: "Requests",
       emptyMessage: "No pending requests.",
-      emptyAction: { label: "Browse Tools", href: "/explore" },
+      emptyAction: { label: "Browse Listings", href: "/explore" },
     },
     active: {
       displayName: "Active",
@@ -93,7 +93,7 @@ async function RentingRequestsData({
   }
 }
 
-async function BorrowedToolsData({
+async function BorrowedListingsData({
   status,
   statusConfig,
 }: {
@@ -101,18 +101,18 @@ async function BorrowedToolsData({
   statusConfig: StatusConfig;
 }) {
   try {
-    let borrowedToolsData: BorrowedTool[] = [];
+    let borrowedListingsData: BorrowedListing[] = [];
 
     if (status === "active") {
-      const borrowedData = await rentalDAL.getBorrowedTools();
-      borrowedToolsData = borrowedData.currentRentals;
+      const borrowedData = await rentalDAL.getBorrowedListings();
+      borrowedListingsData = borrowedData.currentRentals;
     } else {
-      borrowedToolsData = await rentalDAL.getRentalsByStatus("completed");
+      borrowedListingsData = await rentalDAL.getRentalsByStatus("completed");
     }
 
     return (
-      <BorrowedToolsListWrapper
-        data={borrowedToolsData}
+      <BorrowedListingsListWrapper
+        data={borrowedListingsData}
         currentTab={status}
         emptyStateMessage={statusConfig.emptyMessage}
         emptyStateAction={statusConfig.emptyAction}
@@ -232,7 +232,7 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
 
             {type === "renting" &&
               (status === "active" || status === "completed") && (
-                <BorrowedToolsData
+                <BorrowedListingsData
                   status={status}
                   statusConfig={statusConfig}
                 />

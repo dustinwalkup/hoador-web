@@ -75,8 +75,8 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
           {/* Image Section */}
           <div className="relative mb-4 w-full">
             <Image
-              src={request.toolImageUrl || "/images/placeholder.jpg"}
-              alt={request.toolName}
+              src={request.listingImageUrl || "/images/placeholder.jpg"}
+              alt={request.listingName}
               width={400}
               height={300}
               className="h-48 w-full rounded-lg object-cover"
@@ -85,11 +85,11 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
 
           {/* Content Section */}
           <div>
-            {/* Tool Information */}
+            {/* listing Information */}
             <div className="mb-4">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-xl font-bold text-gray-900">
-                  {request.toolName}
+                  {request.listingName}
                 </h3>
                 <div className="flex items-center gap-2">
                   {getStatusIcon(request.status)}
@@ -236,8 +236,8 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
             <div className="space-y-4 lg:col-span-2">
               <div className="flex items-start gap-4">
                 <Image
-                  src={request.toolImageUrl || "/images/placeholder.jpg"}
-                  alt={request.toolName}
+                  src={request.listingImageUrl || "/images/placeholder.jpg"}
+                  alt={request.listingName}
                   width={100}
                   height={100}
                   className="rounded-lg object-cover"
@@ -246,7 +246,7 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
                   <div className="mb-2 flex items-start justify-between">
                     <div>
                       <h3 className="text-lg font-semibold">
-                        {request.toolName}
+                        {request.listingName}
                       </h3>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar className="h-4 w-4" />
@@ -401,7 +401,7 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
         open={showApproveDialog}
         onOpenChange={setShowApproveDialog}
         requestId={request.id}
-        toolName={request.toolName}
+        listingName={request.listingName}
         renterName={request.renterName}
       />
 
@@ -409,7 +409,7 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
         open={showDeclineDialog}
         onOpenChange={setShowDeclineDialog}
         requestId={request.id}
-        toolName={request.toolName}
+        listingName={request.listingName}
         renterName={request.renterName}
       />
     </Card>

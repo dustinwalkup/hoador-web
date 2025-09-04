@@ -1,11 +1,13 @@
-import type { ImageFile } from "@/features/tools/form-schema/tool.schema";
-import type { ToolImage } from "@/features/tools/hooks/use-tool-images";
+import type { ImageFile } from "@/features/listings/form-schema/listing.schema";
+import type { ListingImage } from "@/features/listings/hooks/use-listing-images";
 
 /**
- * Convert ToolImage objects to ImageFile objects for form usage
+ * Convert listingImage objects to ImageFile objects for form usage
  */
-export function toolImagesToImageFiles(toolImages: ToolImage[]): ImageFile[] {
-  return toolImages.map((img) => ({
+export function listingImagesToImageFiles(
+  listingImages: ListingImage[],
+): ImageFile[] {
+  return listingImages.map((img) => ({
     id: img.id,
     url: img.imageUrl,
     orderIndex: img.orderIndex,

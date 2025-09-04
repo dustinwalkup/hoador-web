@@ -98,18 +98,18 @@ export default async function RentalConfirmationPage({
               {getStatusBadge(rentalRequest.status)}
             </div>
             <div className="flex items-start justify-between">
-              <span>Tool:</span>
+              <span>Listing:</span>
               <div className="flex items-center gap-2 text-right">
-                {rentalRequest.toolImageUrl && (
+                {rentalRequest.listingImageUrl && (
                   <Image
-                    src={rentalRequest.toolImageUrl}
-                    alt={rentalRequest.toolName}
+                    src={rentalRequest.listingImageUrl}
+                    alt={rentalRequest.listingName}
                     width={40}
                     height={40}
                     className="rounded object-cover"
                   />
                 )}
-                <span className="font-medium">{rentalRequest.toolName}</span>
+                <span className="font-medium">{rentalRequest.listingName}</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
@@ -214,7 +214,8 @@ export default async function RentalConfirmationPage({
               </div>
               <div>
                 <p className="font-medium">
-                  Tool {rentalRequest.deliveryRequested ? "Delivery" : "Pickup"}
+                  Listing{" "}
+                  {rentalRequest.deliveryRequested ? "Delivery" : "Pickup"}
                 </p>
                 <p className="text-sm text-gray-600">
                   {rentalRequest.deliveryRequested
@@ -242,7 +243,7 @@ export default async function RentalConfirmationPage({
           <Link href="/dashboard/explore">
             <Button variant="outline" className="w-full bg-transparent">
               <Home className="mr-2 h-4 w-4" />
-              Browse Tools
+              Browse Listings
             </Button>
           </Link>
         </div>

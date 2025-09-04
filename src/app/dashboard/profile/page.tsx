@@ -31,8 +31,8 @@ export default async function ProfilePage() {
 
   const [reviews, borrowedCount, sharedCount] = await Promise.all([
     reviewDAL.getSummaryForUser(user.id),
-    rentalDAL.countBorrowedTools(user.id),
-    rentalDAL.countSharedTools(user.id),
+    rentalDAL.countBorrowedListings(user.id),
+    rentalDAL.countSharedListings(user.id),
   ]);
 
   return (

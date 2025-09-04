@@ -3,8 +3,8 @@ import { Plus } from "lucide-react";
 
 import { getCurrentUser } from "@/features/authentication/auth.utils";
 import { capitalize } from "@/lib/utils/utils";
-import { toolDAL } from "@/dal";
-import type { GarageToolFilters } from "@/dal/tool.dal";
+import { listingDAL } from "@/dal";
+import type { GarageListingFilters } from "@/dal/listing.dal";
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,34 +17,34 @@ function getStatus(status: string): "rented" | "listed" | "" {
 }
 
 interface ActiveTabProps {
-  filters: GarageToolFilters;
+  filters: GarageListingFilters;
 }
 
 export async function ActiveTab({ filters }: ActiveTabProps) {
   const user = await getCurrentUser();
-  const activeTools = await toolDAL.getUserActiveToolsWithFilters(
+  const activeListings = await listingDAL.getUserActiveListingsWithFilters(
     user.id,
     filters,
   );
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {activeTools && activeTools.length > 0 ? (
-        activeTools.map((tool) => (
+      {activeListings && activeListings.length > 0 ? (
+        activeListings.map((listing) => (
           <RentalCard
-            key={tool.id}
-            id={tool.id}
-            name={tool.name}
-            imageUrl={tool.firstImageUrl}
-            status={getStatus(tool.status)}
-            price={`$${tool.dailyRate}/day`}
-            availability={capitalize(tool.status)}
+            key={listing.id}
+            id={listing.id}
+            name={listing.name}
+            imageUrl={listing.firstImageUrl}
+            status={getStatus(listing.status)}
+            price={`$${listing.dailyRate}/day`}
+            availability={capitalize(listing.status)}
             cardType="listings"
-            toolData={{
-              id: tool.id,
-              name: tool.name,
-              status: tool.status,
-              isActive: tool.isActive,
+            listingData={{
+              id: listing.id,
+              name: listing.name,
+              status: listing.status,
+              isActive: listing.isActive,
             }}
           />
         ))
@@ -52,8 +52,8 @@ export async function ActiveTab({ filters }: ActiveTabProps) {
         <div className="col-span-full py-8 text-center">
           <p className="text-muted-foreground mb-4">
             {filters.query || filters.categoryId || filters.rentalStatus
-              ? "No tools found matching your search criteria"
-              : "No active tools listed"}
+              ? "No listings found matching your search criteria"
+              : "No active listings listed"}
           </p>
           {filters.query || filters.categoryId || filters.rentalStatus ? (
             <p className="text-muted-foreground text-sm">
@@ -67,12 +67,12 @@ export async function ActiveTab({ filters }: ActiveTabProps) {
           <div className="bg-primary/10 mb-4 rounded-full p-3">
             <Plus className="text-primary h-6 w-6" />
           </div>
-          <CardTitle className="mb-2 text-lg">List a New Tool</CardTitle>
+          <CardTitle className="mb-2 text-lg">List a New Listing</CardTitle>
           <p className="text-muted-foreground mb-4 text-center text-sm">
             Share your tools with neighbors and earn extra income
           </p>
           <Button asChild>
-            <Link href="/dashboard/tools/add">Add New Listing</Link>
+            <Link href="/dashboard/listings/add">Add New Listing</Link>
           </Button>
         </CardContent>
       </Card>

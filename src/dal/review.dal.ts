@@ -1,7 +1,7 @@
 import { eq, desc, count, inArray } from "drizzle-orm";
 import { reviews } from "@/db/schemas/rentals.schema";
 import { users } from "@/db/schemas/users.schema";
-import { tools } from "@/db/schemas/tools.schema";
+import { listings } from "@/db/schemas/listings.schema";
 import { getCurrentUserId } from "@/features/authentication/auth.utils";
 import { BaseDAL } from "./base";
 
@@ -91,7 +91,7 @@ export class ReviewDAL extends BaseDAL {
         title: reviews.title,
         createdAt: reviews.createdAt,
         reviewerId: reviews.reviewerId,
-        toolId: reviews.toolId,
+        listingId: reviews.listingId,
       })
       .from(reviews)
       .where(eq(reviews.revieweeId, userId))
@@ -99,12 +99,12 @@ export class ReviewDAL extends BaseDAL {
       .limit(limit)
       .offset(offset);
 
-    // Get reviewer and tool details separately
+    // Get reviewer and listing details separately
     const reviewerIds = [...new Set(userReviews.map((r) => r.reviewerId))];
-    const toolIds = [...new Set(userReviews.map((r) => r.toolId))];
+    const listingIds = [...new Set(userReviews.map((r) => r.listingId))];
 
     // Handle empty arrays to avoid SQL errors
-    const [reviewers, toolDetails] = await Promise.all([
+    const [reviewers, listingDetails] = await Promise.all([
       reviewerIds.length > 0
         ? this.db
             .select({
@@ -116,20 +116,20 @@ export class ReviewDAL extends BaseDAL {
             .from(users)
             .where(inArray(users.id, reviewerIds))
         : [],
-      toolIds.length > 0
+      listingIds.length > 0
         ? this.db
             .select({
-              id: tools.id,
-              name: tools.name,
+              id: listings.id,
+              name: listings.name,
             })
-            .from(tools)
-            .where(inArray(tools.id, toolIds))
+            .from(listings)
+            .where(inArray(listings.id, listingIds))
         : [],
     ]);
 
     return userReviews.map((review) => {
       const reviewer = reviewers.find((r) => r.id === review.reviewerId);
-      const tool = toolDetails.find((t) => t.id === review.toolId);
+      const listing = listingDetails.find((t) => t.id === review.listingId);
 
       return {
         id: review.id,
@@ -144,10 +144,10 @@ export class ReviewDAL extends BaseDAL {
               avatarUrl: reviewer.profileImageUrl,
             }
           : null,
-        tool: tool
+        listing: listing
           ? {
-              id: tool.id,
-              name: tool.name,
+              id: listing.id,
+              name: listing.name,
             }
           : null,
       };

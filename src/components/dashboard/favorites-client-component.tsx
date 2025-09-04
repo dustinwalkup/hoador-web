@@ -23,20 +23,20 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
-import ToolCard from "@/components/dashboard/tool-card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import ListingCard from "./listing-card";
 
 export default function FavoritesClientComponent() {
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const collections = [
     { id: "1", name: "Home Improvement", count: 5 },
-    { id: "2", name: "Garden Tools", count: 3 },
+    { id: "2", name: "Garden Listings", count: 3 },
     { id: "3", name: "Workshop", count: 7 },
   ];
 
@@ -46,7 +46,7 @@ export default function FavoritesClientComponent() {
         <div>
           <h1 className="text-2xl font-bold">Favorites</h1>
           <p className="text-muted-foreground">
-            Tools and equipment you&apos;ve saved for later
+            Listings and equipment you&apos;ve saved for later
           </p>
         </div>
 
@@ -76,7 +76,7 @@ export default function FavoritesClientComponent() {
                   </Label>
                   <Input
                     id="collection-description"
-                    placeholder="What kind of tools go in this collection?"
+                    placeholder="What kind of listings go in this collection?"
                   />
                 </div>
               </div>
@@ -124,7 +124,7 @@ export default function FavoritesClientComponent() {
 
         <TabsContent value="all" className="mt-6">
           <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            <ToolCard
+            <ListingCard
               id="1"
               name="Power Drill"
               price="$8/day"
@@ -134,7 +134,7 @@ export default function FavoritesClientComponent() {
               imageUrl="/images/mock/cordless-drill.jpg"
             />
 
-            <ToolCard
+            <ListingCard
               id="2"
               name="Circular Saw"
               price="$12/day"
@@ -144,7 +144,7 @@ export default function FavoritesClientComponent() {
               imageUrl="/images/mock/skill-saw.jpg"
             />
 
-            <ToolCard
+            <ListingCard
               id="3"
               name="Pressure Washer"
               price="$15/day"
@@ -154,7 +154,7 @@ export default function FavoritesClientComponent() {
               imageUrl="/images/mock/pressure-washer.jpg"
             />
 
-            <ToolCard
+            <ListingCard
               id="4"
               name="Ladder (8ft)"
               price="$6/day"
@@ -164,7 +164,7 @@ export default function FavoritesClientComponent() {
               imageUrl="/images/mock/ladder.jpg"
             />
 
-            <ToolCard
+            <ListingCard
               id="5"
               name="Lawn Mower"
               price="$10/day"
@@ -174,7 +174,7 @@ export default function FavoritesClientComponent() {
               imageUrl="/images/mock/lawn-mower.jpg"
             />
 
-            <ToolCard
+            <ListingCard
               id="6"
               name="Miter Saw"
               price="$20/day"
@@ -237,7 +237,7 @@ export default function FavoritesClientComponent() {
               </div>
               <h3 className="mb-2 text-lg font-medium">Create Collection</h3>
               <p className="text-muted-foreground mb-4 text-center text-sm">
-                Organize your favorite tools into custom collections
+                Organize your favorite listings into custom collections
               </p>
               <Dialog>
                 <DialogTrigger asChild>
@@ -263,7 +263,7 @@ export default function FavoritesClientComponent() {
                       </Label>
                       <Input
                         id="collection-description-modal"
-                        placeholder="What kind of tools go in this collection?"
+                        placeholder="What kind of listings go in this collection?"
                       />
                     </div>
                   </div>
@@ -278,7 +278,7 @@ export default function FavoritesClientComponent() {
 
         <TabsContent value="recent" className="mt-6">
           <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            <ToolCard
+            <ListingCard
               id="7"
               name="Hedge Trimmer"
               price="$9/day"
@@ -289,7 +289,7 @@ export default function FavoritesClientComponent() {
               isNew
             />
 
-            <ToolCard
+            <ListingCard
               id="8"
               name="Trailer Hitch"
               price="$18/day"

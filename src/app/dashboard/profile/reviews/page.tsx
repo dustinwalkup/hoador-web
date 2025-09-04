@@ -220,9 +220,9 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
                       {review.comment && (
                         <p className="text-sm">{review.comment}</p>
                       )}
-                      {review.tool && (
+                      {review.listing && (
                         <p className="text-muted-foreground mt-2 text-xs">
-                          Tool: {review.tool.name}
+                          Listing: {review.listing.name}
                         </p>
                       )}
                     </div>

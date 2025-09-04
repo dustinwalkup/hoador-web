@@ -11,8 +11,8 @@ import { InactiveTab } from "./_components/inactive-tab";
 import { ArchivedTab } from "./_components/archived-tab";
 import { GarageFilters } from "./_components/garage-filters";
 import { GarageTabs } from "./_components/garage-tabs";
-import type { GarageToolFilters } from "@/dal/tool.dal";
-import { toolDAL } from "@/dal";
+import type { GarageListingFilters } from "@/dal/listing.dal";
+import { listingDAL } from "@/dal";
 
 interface GaragePageProps {
   searchParams: Promise<{
@@ -30,9 +30,9 @@ async function GarageFiltersWithCategories({
   filters,
 }: {
   currentTab: string;
-  filters: GarageToolFilters;
+  filters: GarageListingFilters;
 }) {
-  const categories = await toolDAL.getToolCategories();
+  const categories = await listingDAL.getListingCategories();
 
   return (
     <GarageFilters
@@ -47,7 +47,7 @@ export default async function GaragePage({ searchParams }: GaragePageProps) {
   const params = await searchParams;
 
   // Parse search parameters into filters
-  const filters: GarageToolFilters = {
+  const filters: GarageListingFilters = {
     query: params.q,
     categoryId: params.category,
     sortBy: params.sortBy as "newest" | "name" | "lastRented" | undefined,
@@ -61,12 +61,12 @@ export default async function GaragePage({ searchParams }: GaragePageProps) {
     <div className="container py-6">
       <PageHeader
         title="Garage"
-        description="Manage your tools and rentals in one place"
+        description="Manage your listings and rentals in one place"
       >
-        <Link href="/dashboard/tools/add">
+        <Link href="/dashboard/listings/add">
           <Button size="sm" className="h-9">
             <Plus className="mr-2 h-4 w-4" />
-            Add New Tool
+            Add New Listing
           </Button>
         </Link>
       </PageHeader>

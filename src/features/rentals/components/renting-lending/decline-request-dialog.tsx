@@ -22,7 +22,7 @@ interface DeclineRequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requestId: string;
-  toolName: string;
+  listingName: string;
   renterName: string;
   onSuccess?: () => void;
 }
@@ -31,7 +31,7 @@ export function DeclineRequestDialog({
   open,
   onOpenChange,
   requestId,
-  toolName,
+  listingName,
   renterName,
   onSuccess,
 }: DeclineRequestDialogProps) {
@@ -85,7 +85,7 @@ export function DeclineRequestDialog({
             Decline Request
           </DialogTitle>
           <DialogDescription>
-            Decline the rental request for {toolName} from {renterName}. The
+            Decline the rental request for {listingName} from {renterName}. The
             renter will be notified of your decision.
           </DialogDescription>
         </DialogHeader>

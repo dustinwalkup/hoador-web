@@ -15,9 +15,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { updateToolStatus } from "@/features/tools/actions/update-tool-status";
+import { updateListingStatus } from "@/features/listings/actions/update-listing-status";
 
-import ToolManagementModal from "./tool-management-modal";
+import ListingManagementModal from "./listing-management-modal";
 import { capitalize } from "@/lib/utils/utils";
 
 interface RentalCardProps {
@@ -31,7 +31,7 @@ interface RentalCardProps {
   owner?: string;
   borrower?: string;
   availability?: string;
-  toolData?: {
+  listingData?: {
     id: string;
     name: string;
     status: "available" | "rented" | "maintenance" | "inactive";
@@ -104,24 +104,24 @@ export default function RentalCard({
   owner,
   borrower,
   availability,
-  toolData,
+  listingData,
 }: RentalCardProps) {
-  const handleToolUpdate = async (data: {
+  const handleListingUpdate = async (data: {
     status: "available" | "maintenance" | "inactive";
   }) => {
-    const result = await updateToolStatus(id, data);
+    const result = await updateListingStatus(id, data);
 
     if (result.error) {
       toast.error(result.error);
     } else {
-      toast.success("Tool status updated successfully");
+      toast.success("Listing status updated successfully");
     }
   };
 
   // Get the appropriate badge styling
   const badgeConfig = getStatusBadgeVariant(
     availability || status || "unknown",
-    toolData?.isActive ?? true,
+    listingData?.isActive ?? true,
   );
 
   return (
@@ -136,7 +136,9 @@ export default function RentalCard({
         />
         <Link
           href={
-            cardType === "listings" ? `/dashboard/tools/${id}` : `/tools/${id}`
+            cardType === "listings"
+              ? `/dashboard/listings/${id}`
+              : `/listings/${id}`
           }
           className="text-muted-foreground/40 hover:text-muted-foreground absolute top-0 right-0 p-2 text-xs underline decoration-dotted transition-colors"
         >
@@ -194,12 +196,12 @@ export default function RentalCard({
           {cardType === "listings" && (
             <>
               <Button asChild variant="outline" size="sm" className="flex-1">
-                <Link href={`/dashboard/tools/${id}/edit`}>Edit</Link>
+                <Link href={`/dashboard/listings/${id}/edit`}>Edit</Link>
               </Button>
-              {toolData ? (
-                <ToolManagementModal
-                  tool={toolData}
-                  onSave={handleToolUpdate}
+              {listingData ? (
+                <ListingManagementModal
+                  listing={listingData}
+                  onSave={handleListingUpdate}
                   trigger={
                     <Button size="sm" className="flex-1">
                       Manage

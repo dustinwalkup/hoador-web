@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const createRentalRequestSchema = z
   .object({
-    toolId: z.string().uuid("Invalid tool ID"),
+    listingId: z.string().uuid("Invalid listing ID"),
     startDate: z.date({
       required_error: "Start date is required",
     }),

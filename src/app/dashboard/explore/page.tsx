@@ -10,8 +10,8 @@ export default async function ExplorePage() {
   return (
     <div className="container py-6">
       <PageHeader
-        title="Explore Tools"
-        description="Find tools available in your neighborhood"
+        title="Explore Listings"
+        description="Find listings available in your neighborhood"
       />
 
       <Suspense fallback={<ExplorePageSkeleton />}>

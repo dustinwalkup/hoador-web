@@ -38,10 +38,10 @@ export function RentingRequestsList({
 
   const filteredData = useMemo(() => {
     return data.filter((item) => {
-      const toolName = item.toolName?.toLowerCase() || "";
+      const listingName = item.listingName?.toLowerCase() || "";
       const ownerName = item.ownerName?.toLowerCase() || "";
       const query = searchQuery.toLowerCase();
-      return toolName.includes(query) || ownerName.includes(query);
+      return listingName.includes(query) || ownerName.includes(query);
     });
   }, [data, searchQuery]);
 
@@ -92,7 +92,7 @@ export function RentingRequestsList({
         <div className="relative flex-1">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <Input
-            placeholder="Search by tool name or owner..."
+            placeholder="Search by listing name or owner..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="max-w-md pl-10"

@@ -66,8 +66,8 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
           <Image
-            src={rental.tool.imageUrl}
-            alt={rental.tool.name}
+            src={rental.listing.imageUrl}
+            alt={rental.listing.name}
             width={100}
             height={100}
             className="rounded-lg object-cover"
@@ -75,7 +75,7 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
           <div className="flex-1">
             <div className="mb-2 flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-semibold">{rental.tool.name}</h3>
+                <h3 className="text-lg font-semibold">{rental.listing.name}</h3>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={rental.owner.profileImage} />
@@ -140,9 +140,9 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
                   View Details
                 </Button>
               </Link>
-              <Link href={`/tools/${rental.tool.id}`}>
+              <Link href={`/listings/${rental.listing.id}`}>
                 <Button variant="outline" size="sm">
-                  View Tool
+                  View Listing
                 </Button>
               </Link>
               <Button variant="outline" size="sm">
@@ -169,7 +169,7 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
                 </Button>
               )}
               {currentTab === "completed" && (
-                <Link href={`/tools/${rental.tool.id}/rent`}>
+                <Link href={`/listings/${rental.listing.id}/rent`}>
                   <Button variant="outline" size="sm">
                     Rent Again
                   </Button>
@@ -196,8 +196,8 @@ export function LendingCard({ request, currentTab }: LendingCardProps) {
           <div className="space-y-4 lg:col-span-2">
             <div className="flex items-start gap-4">
               <Image
-                src={request.tool.imageUrl}
-                alt={request.tool.name}
+                src={request.listing.imageUrl}
+                alt={request.listing.name}
                 width={100}
                 height={100}
                 className="rounded-lg object-cover"
@@ -206,7 +206,7 @@ export function LendingCard({ request, currentTab }: LendingCardProps) {
                 <div className="mb-2 flex items-start justify-between">
                   <div>
                     <h3 className="text-lg font-semibold">
-                      {request.tool.name}
+                      {request.listing.name}
                     </h3>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Calendar className="h-4 w-4" />

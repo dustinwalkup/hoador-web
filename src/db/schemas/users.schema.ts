@@ -13,7 +13,7 @@ import {
 import { relations } from "drizzle-orm";
 
 import { userStatusEnum } from "./_enums";
-import { tools } from "./tools.schema";
+import { listings } from "./listings.schema";
 import { rentalRequests, rentals, reviews } from "./rentals.schema";
 import { payments } from "./payments.schema";
 import { userCollections, userFavorites } from "./collections.schema";
@@ -173,7 +173,7 @@ export const userPaymentMethodsRelations = relations(
 // export const usersRelations = relations(users, ({ one, many }) => ({
 //   preferences: one(userPreferences),
 //   addresses: many(userAddresses),
-//   ownedTools: many(tools),
+//   ownedlistings: many(listings),
 //   rentalRequests: many(rentalRequests),
 //   ownedRentalRequests: many(rentalRequests),
 //   rentals: many(rentals),
@@ -193,7 +193,7 @@ export const userPaymentMethodsRelations = relations(
 export const usersRelations = relations(users, ({ one, many }) => ({
   preferences: one(userPreferences),
   addresses: many(userAddresses),
-  ownedTools: many(tools),
+  ownedlistings: many(listings),
 
   // Rental requests - need relation names to match what we defined earlier
   rentalRequests: many(rentalRequests, {

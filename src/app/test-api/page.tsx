@@ -9,7 +9,7 @@ export default function TestAPIPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await fetch("/api/tools/search?limit=12&page=1");
+        const response = await fetch("/api/listings/search?limit=12&page=1");
         const result = await response.json();
         setData(result);
       } catch (error) {

@@ -1,7 +1,7 @@
 import type { RentalDetails } from "@/dal/rentals.dal";
 import {
   RentalStatusCard,
-  RentalToolInfo,
+  RentalListingInfo,
   RentalDetailsCard,
   RentalMessagesCard,
   RentalReviewsCard,
@@ -28,7 +28,7 @@ export function RentalContent({
       {/* Main Content */}
       <div className="space-y-6 lg:col-span-2">
         <RentalStatusCard rentalDetails={rentalDetails} />
-        <RentalToolInfo rentalDetails={rentalDetails} />
+        <RentalListingInfo rentalDetails={rentalDetails} />
         <RentalDetailsCard rentalDetails={rentalDetails} />
         <RentalMessagesCard
           rentalDetails={rentalDetails}

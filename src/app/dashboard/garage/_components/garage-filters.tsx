@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import type { GarageToolFilters } from "@/dal/tool.dal";
+import type { GarageListingFilters } from "@/dal/listing.dal";
 import { emojiMap } from "@/constants/garage";
 
 interface Category {
@@ -26,7 +26,7 @@ interface Category {
 
 interface GarageFiltersProps {
   currentTab: string;
-  filters: GarageToolFilters;
+  filters: GarageListingFilters;
   categories: Category[];
 }
 
@@ -41,7 +41,7 @@ function getCategoryDisplayName(category: Category): string {
 function getRentalStatusDisplayName(status: string): string {
   switch (status) {
     case "all":
-      return "All Tools";
+      return "All Listings";
     case "available":
       return "✅ Available";
     case "rented":
@@ -133,7 +133,7 @@ function GarageFiltersContent({
       <div className="relative flex w-full max-w-sm items-center">
         <Search className="text-muted-foreground absolute left-3 h-4 w-4" />
         <Input
-          placeholder="Search tools..."
+          placeholder="Search Listings..."
           className="pr-8 pl-9"
           value={searchQuery}
           onChange={handleSearchChange}
@@ -212,7 +212,7 @@ function GarageFiltersContent({
 }
 interface GarageFiltersWrapperProps {
   currentTab: string;
-  filters: GarageToolFilters;
+  filters: GarageListingFilters;
   categories: Array<{
     id: string;
     name: string;

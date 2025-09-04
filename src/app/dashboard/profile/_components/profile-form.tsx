@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { updateUserProfileAndAddress } from "@/lib/actions/update-user-profile";
+import { updateUserProfileAndAddress } from "@/features/users/actions/update-user-profile";
 import { PROFILE_OVERVIEW } from "@/constants/profile";
 
 import { Button } from "@/components/ui/button";

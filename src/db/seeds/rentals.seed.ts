@@ -3,7 +3,7 @@ import { InferInsertModel } from "drizzle-orm";
 import "dotenv/config";
 import { db } from "../db";
 import { rentalRequests, rentals, reviews } from "../schemas/rentals.schema";
-import { tools } from "../schemas/tools.schema";
+import { listings } from "../schemas/listings.schema";
 import { users } from "../schemas/users.schema";
 
 // Infer types
@@ -156,10 +156,12 @@ async function main() {
   await db.delete(rentalRequests);
 
   const allUsers = await db.select().from(users);
-  const allTools = await db.select().from(tools);
+  const allListings = await db.select().from(listings);
 
-  if (allUsers.length < 2 || allTools.length === 0) {
-    throw new Error("Not enough users or tools. Seed users and tools first.");
+  if (allUsers.length < 2 || allListings.length === 0) {
+    throw new Error(
+      "Not enough users or listings. Seed users and listings first.",
+    );
   }
 
   const seedRequests: NewRequest[] = [];
@@ -170,8 +172,8 @@ async function main() {
 
   // Generate 750 rental requests with realistic distribution
   for (let i = 0; i < 750; i++) {
-    const tool = faker.helpers.arrayElement(allTools);
-    const owner = allUsers.find((u) => u.id === tool.ownerId)!;
+    const listing = faker.helpers.arrayElement(allListings);
+    const owner = allUsers.find((u) => u.id === listing.ownerId)!;
     const renter = faker.helpers.arrayElement(
       allUsers.filter((u) => u.id !== owner.id),
     );
@@ -183,7 +185,7 @@ async function main() {
       (dates.endDate.getTime() - dates.startDate.getTime()) /
         (1000 * 60 * 60 * 24),
     );
-    const dailyRate = parseFloat(tool.dailyRate);
+    const dailyRate = parseFloat(listing.dailyRate);
     const deliveryRequested = faker.datatype.boolean({ probability: 0.3 });
     const deliveryFee = deliveryRequested
       ? faker.number.float({ min: 10, max: 50, multipleOf: 5 })
@@ -193,7 +195,7 @@ async function main() {
     const requestId = faker.string.uuid();
     const request: NewRequest = {
       id: requestId,
-      toolId: tool.id,
+      listingId: listing.id,
       renterId: renter.id,
       ownerId: owner.id,
       startDate: dates.startDate,
@@ -201,7 +203,7 @@ async function main() {
       totalDays,
       dailyRate: dailyRate.toString(),
       totalAmount,
-      securityDeposit: tool.securityDeposit,
+      securityDeposit: listing.securityDeposit,
       deliveryRequested,
       deliveryAddress: deliveryRequested
         ? faker.location.streetAddress()
@@ -235,7 +237,7 @@ async function main() {
       const rental: NewRental = {
         id: rentalId,
         requestId: requestId,
-        toolId: tool.id,
+        listingId: listing.id,
         renterId: renter.id,
         ownerId: owner.id,
         startDate: dates.startDate,
@@ -243,7 +245,7 @@ async function main() {
         actualStartDate: dates.actualStartDate,
         actualEndDate: dates.actualEndDate,
         totalAmount,
-        securityDeposit: tool.securityDeposit,
+        securityDeposit: listing.securityDeposit,
         status,
         pickupInstructions: faker.helpers.maybe(
           () => faker.lorem.sentences(2),
@@ -297,7 +299,7 @@ async function main() {
         rentalId: rental.id!,
         reviewerId: rental.renterId,
         revieweeId: rental.ownerId,
-        toolId: rental.toolId,
+        listingId: rental.listingId,
         rating: faker.number.int({ min: 3, max: 5 }),
         title: faker.helpers.arrayElement([
           "Great tool, worked perfectly!",
@@ -327,7 +329,7 @@ async function main() {
         rentalId: rental.id!,
         reviewerId: rental.ownerId,
         revieweeId: rental.renterId,
-        toolId: rental.toolId,
+        listingId: rental.listingId,
         rating: faker.number.int({ min: 4, max: 5 }),
         title: faker.helpers.arrayElement([
           "Responsible renter",

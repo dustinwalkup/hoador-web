@@ -103,8 +103,8 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
           {/* Image Section */}
           <div className="relative mb-4 w-full">
             <Image
-              src={request.toolImageUrl || "/images/placeholder.jpg"}
-              alt={request.toolName}
+              src={request.listingImageUrl || "/images/placeholder.jpg"}
+              alt={request.listingName}
               width={400}
               height={300}
               className="h-48 w-full rounded-lg object-cover"
@@ -113,10 +113,10 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
 
           {/* Content Section */}
           <div>
-            {/* Tool Information */}
+            {/* listing Information */}
             <div className="mb-4">
               <h3 className="mb-1 text-xl font-bold text-gray-900">
-                {request.toolName}
+                {request.listingName}
               </h3>
               <p className="mb-3 text-sm text-gray-600">{request.ownerName}</p>
 
@@ -182,9 +182,9 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
                 </Button>
               </Link>
 
-              <Link href={`/tools/${request.toolId}`} className="block">
+              <Link href={`/listings/${request.listingId}`} className="block">
                 <Button variant="outline" className="w-full justify-center">
-                  View Tool
+                  View Listing
                 </Button>
               </Link>
 
@@ -208,9 +208,9 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
                       <AlertDialogTitle>Cancel Rental Request</AlertDialogTitle>
                       <AlertDialogDescription>
                         Are you sure you want to cancel your request for &ldquo;
-                        {request.toolName}&rdquo;? This action cannot be undone
-                        and you&apos;ll need to submit a new request if you
-                        change your mind.
+                        {request.listingName}&rdquo;? This action cannot be
+                        undone and you&apos;ll need to submit a new request if
+                        you change your mind.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -242,8 +242,8 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
         {/* Desktop Layout (Horizontal) */}
         <div className="hidden items-start gap-4 md:flex">
           <Image
-            src={request.toolImageUrl || "/images/placeholder.jpg"}
-            alt={request.toolName}
+            src={request.listingImageUrl || "/images/placeholder.jpg"}
+            alt={request.listingName}
             width={100}
             height={100}
             className="rounded-lg object-cover"
@@ -251,7 +251,7 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
           <div className="flex-1">
             <div className="mb-2 flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-semibold">{request.toolName}</h3>
+                <h3 className="text-lg font-semibold">{request.listingName}</h3>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Avatar className="h-6 w-6">
                     <AvatarFallback>
@@ -316,9 +316,9 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
                   View Details
                 </Button>
               </Link>
-              <Link href={`/tools/${request.toolId}`}>
+              <Link href={`/listings/${request.listingId}`}>
                 <Button variant="outline" size="sm">
-                  View Tool
+                  View Listing
                 </Button>
               </Link>
               <Button variant="outline" size="sm">
@@ -337,9 +337,9 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
                       <AlertDialogTitle>Cancel Rental Request</AlertDialogTitle>
                       <AlertDialogDescription>
                         Are you sure you want to cancel your request for &ldquo;
-                        {request.toolName}&rdquo;? This action cannot be undone
-                        and you&apos;ll need to submit a new request if you
-                        change your mind.
+                        {request.listingName}&rdquo;? This action cannot be
+                        undone and you&apos;ll need to submit a new request if
+                        you change your mind.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

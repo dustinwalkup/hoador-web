@@ -54,7 +54,7 @@ export function RentalActions({
             )}
 
             {rentalDetails.status === "completed" && (
-              <Link href={`/tools/${rentalDetails.toolId}/rent`}>
+              <Link href={`/listings/${rentalDetails.listingId}/rent`}>
                 <Button className="w-full bg-green-600 hover:bg-green-700">
                   <Plus className="mr-2 h-4 w-4" />
                   Rent Again

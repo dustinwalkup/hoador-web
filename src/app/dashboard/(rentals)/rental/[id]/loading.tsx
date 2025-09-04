@@ -40,7 +40,7 @@ export default function RentalDetailLoading() {
               </CardContent>
             </Card>
 
-            {/* Tool Info Card */}
+            {/* Listing Info Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

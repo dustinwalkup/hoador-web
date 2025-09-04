@@ -23,11 +23,11 @@ export const PROFILE_OVERVIEW = {
     memberSince: "Member since May 2022",
     stats: {
       borrowed: {
-        label: "Tools Borrowed",
+        label: "Listings Borrowed",
         count: 32,
       },
       shared: {
-        label: "Tools Shared",
+        label: "Listings Shared",
         count: 18,
       },
     },

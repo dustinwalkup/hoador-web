@@ -9,7 +9,7 @@ export type RentalStatus =
 
 export type RentalType = "renting" | "lending";
 
-export interface Tool {
+export interface Listing {
   id: string;
   name: string;
   imageUrl: string;
@@ -26,7 +26,7 @@ export interface User {
 
 export interface BaseRental {
   id: string;
-  tool: Tool;
+  listing: Listing;
   startDate: string;
   endDate: string;
   totalAmount: number;
@@ -64,11 +64,11 @@ export interface LendingRental extends BaseRental {
 export type RentalItem = RentingRental | LendingRental;
 
 // Types that match the DAL output structure
-export interface BorrowedTool {
+export interface BorrowedListing {
   id: string;
-  toolId: string;
-  toolName: string;
-  toolImageUrl: string | null;
+  listingId: string;
+  listingName: string;
+  listingImageUrl: string | null;
   ownerId: string;
   ownerName: string;
   startDate: Date;
@@ -78,9 +78,9 @@ export interface BorrowedTool {
   dailyRate: string;
 }
 
-export interface BorrowedToolsData {
-  currentRentals: BorrowedTool[];
-  upcomingRentals: BorrowedTool[];
+export interface BorrowedListingsData {
+  currentRentals: BorrowedListing[];
+  upcomingRentals: BorrowedListing[];
 }
 
 // Re-export from DAL for convenience

@@ -3,7 +3,7 @@ import { cache } from "react";
 
 export const getCurrentUser = cache(async () => {
   // 🔧 Replace this with Clerk auth later
-  const USER_ID = "05636d42-419b-41da-8f69-3b3d40fd2dde";
+  const USER_ID = "0b38f47b-c51c-4c3f-a583-a1dee5d43163";
 
   // You could hardcode or use cookies/session logic for local dev
   return userDAL.getUserById(USER_ID);

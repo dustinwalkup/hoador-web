@@ -45,13 +45,13 @@ export function RentalsList({
 
   const filteredData = useMemo(() => {
     return data.filter((item) => {
-      const toolName = item.tool?.name?.toLowerCase() || "";
+      const listingName = item.listing?.name?.toLowerCase() || "";
       const personName =
         type === "renting"
           ? (item as RentingRental).owner?.name?.toLowerCase() || ""
           : (item as LendingRental).renter?.name?.toLowerCase() || "";
       const query = searchQuery.toLowerCase();
-      return toolName.includes(query) || personName.includes(query);
+      return listingName.includes(query) || personName.includes(query);
     });
   }, [data, searchQuery, type]);
 
@@ -95,8 +95,8 @@ export function RentalsList({
 
   const searchPlaceholder =
     type === "renting"
-      ? "Search by tool name or owner..."
-      : "Search by tool name or renter...";
+      ? "Search by listing name or owner..."
+      : "Search by listing name or renter...";
 
   return (
     <div className="space-y-6">

@@ -30,7 +30,7 @@ async function resetDatabaseConnection() {
 async function main() {
   const seedFiles = [
     "users.seed.ts",
-    "tools.seed.ts",
+    "listings.seed.ts",
     "rentals.seed.ts",
     "payments.seed.ts",
     "notifications.seed.ts",

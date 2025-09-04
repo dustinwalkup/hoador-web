@@ -1,33 +1,33 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import ToolCard from "@/components/dashboard/tool-card";
-import type { UserTool } from "@/dal/tool.dal";
+import ListingCard from "@/components/dashboard/listing-card";
+import type { UserListing } from "@/dal/listing.dal";
 
 interface ExplorePageContentProps {
-  tools: UserTool[];
+  listings: UserListing[];
   basePath?: string; // Default to /dashboard/explore for backward compatibility
 }
 
 export function ExplorePageContent({
-  tools,
+  listings,
   basePath = "/dashboard/explore",
 }: ExplorePageContentProps) {
   return (
     <>
-      {tools.length > 0 ? (
+      {listings.length > 0 ? (
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {tools.map((tool) => (
-            <ToolCard
-              key={tool.id}
-              id={tool.id}
-              name={tool.name}
-              price={`$${tool.dailyRate}/day`}
+          {listings.map((listing) => (
+            <ListingCard
+              key={listing.id}
+              id={listing.id}
+              name={listing.name}
+              price={`$${listing.dailyRate}/day`}
               distance="0.5 miles" // TODO: Calculate actual distance
-              rating={tool.averageRating}
-              reviews={tool.reviewCount}
-              imageUrl={tool.firstImageUrl || "/images/placeholder.jpg"}
+              rating={listing.averageRating}
+              reviews={listing.reviewCount}
+              imageUrl={listing.firstImageUrl || "/images/placeholder.jpg"}
               isNew={
-                new Date(tool.createdAt).getTime() >
+                new Date(listing.createdAt).getTime() >
                 Date.now() - 7 * 24 * 60 * 60 * 1000
               }
             />
@@ -36,10 +36,10 @@ export function ExplorePageContent({
       ) : (
         <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
           <div className="mb-4 text-6xl">🔍</div>
-          <h3 className="mb-2 text-lg font-semibold">No tools found</h3>
+          <h3 className="mb-2 text-lg font-semibold">No listings found</h3>
           <p className="text-muted-foreground mb-4 max-w-md">
-            We couldn&apos;t find any tools matching your search criteria. Try
-            adjusting your filters or search terms.
+            We couldn&apos;t find any listings matching your search criteria.
+            Try adjusting your filters or search terms.
           </p>
           <Button variant="outline" asChild>
             <Link href={basePath}>Clear all filters</Link>

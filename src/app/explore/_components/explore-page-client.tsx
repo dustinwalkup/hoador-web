@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { useToolFilters } from "@/features/tools/hooks/use-url-state";
-import { useSearchTools } from "@/features/tools/hooks/use-tools";
+import { useToolFilters } from "@/features/listings/hooks/use-url-state";
+import { useSearchTools } from "@/features/listings/hooks/use-listings";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { ExplorePageFilters } from "../../dashboard/explore/_components/explore-page-filters";
 import { ExplorePageContent } from "../../dashboard/explore/_components/explore-page-content";
-import { ToolCardSkeleton } from "@/components/dashboard/tool-card-skeleton";
+import { ToolCardSkeleton } from "@/components/dashboard/listing-card-skeleton";
 
 interface ExplorePageClientProps {
   userId?: string;

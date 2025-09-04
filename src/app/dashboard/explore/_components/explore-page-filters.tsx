@@ -23,8 +23,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import CategoryButton from "@/components/dashboard/category-button";
-import { useToolFilters } from "@/features/tools/hooks/use-url-state";
-import { useToolCategories } from "@/features/tools/hooks/use-tools";
+import { useListingFilters } from "@/features/listings/hooks/use-url-state";
+import { useListingCategories } from "@/features/listings/hooks/use-listings";
 import { useDebouncedSearch } from "@/hooks/use-debounced-search";
 import { emojiMap } from "@/constants/garage";
 
@@ -69,10 +69,10 @@ export function ExplorePageFilters({
   basePath: _basePath = "/dashboard/explore", // eslint-disable-line @typescript-eslint/no-unused-vars
 }: ExplorePageFiltersProps) {
   // URL state management
-  const { state: filters, updateState: updateFilters } = useToolFilters();
+  const { state: filters, updateState: updateFilters } = useListingFilters();
 
   // React Query for categories
-  const { data: categories = [] } = useToolCategories();
+  const { data: categories = [] } = useListingCategories();
 
   // Local state for filter form
   const [minPrice, setMinPrice] = useState(filters.minPrice?.toString() || "");
@@ -241,7 +241,7 @@ export function ExplorePageFilters({
             </SheetTrigger>
             <SheetContent side="right">
               <SheetHeader>
-                <SheetTitle>Filter Tools</SheetTitle>
+                <SheetTitle>Filter Listings</SheetTitle>
                 <SheetDescription>
                   Narrow down your search with these filters
                 </SheetDescription>

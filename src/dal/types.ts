@@ -24,7 +24,7 @@ export interface UpdateUserDTO {
   stripeCustomerId?: string;
 }
 
-export interface CreateToolDTO {
+export interface CreateListingDTO {
   name: string;
   description: string;
   categoryId: string;
@@ -46,7 +46,7 @@ export interface CreateToolDTO {
   deliveryRadius?: number;
 }
 
-export interface UpdateToolDTO {
+export interface UpdateListingDTO {
   name?: string;
   description?: string;
   categoryId?: string;
@@ -70,7 +70,7 @@ export interface UpdateToolDTO {
 }
 
 export interface CreateRentalRequestDTO {
-  toolId: string;
+  listingId: string;
   startDate: Date;
   endDate: Date;
   deliveryRequested?: boolean;
@@ -78,7 +78,7 @@ export interface CreateRentalRequestDTO {
   message?: string;
 }
 
-export interface ToolSearchFilters {
+export interface ListingSearchFilters {
   query?: string;
   categoryId?: string;
   minPrice?: number;
@@ -120,8 +120,8 @@ type PreferencesDB = typeof userPreferences.$inferSelect;
 type AddressDB = typeof userAddresses.$inferSelect;
 
 export interface UserStats {
-  toolsBorrowed: number;
-  toolsShared: number;
+  listingsBorrowed: number;
+  listingsShared: number;
   averageRating: number;
   totalReviews: number;
 }
@@ -140,7 +140,7 @@ export interface UserProfile
   primaryAddress?: AddressDB;
 }
 
-export interface ToolDetails {
+export interface ListingDetails {
   id: string;
   name: string;
   description: string;
@@ -218,7 +218,7 @@ export interface RentalDetails {
   actualEndDate?: Date;
   totalAmount: number;
   securityDeposit: number;
-  tool: {
+  listing: {
     id: string;
     name: string;
     images: string[];

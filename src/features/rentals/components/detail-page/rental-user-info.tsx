@@ -39,7 +39,7 @@ export function RentalUserInfo({
   return (
     <UserCard
       user={otherUser}
-      title={isRenter ? "Tool Owner" : "Renter"}
+      title={isRenter ? "Listing Owner" : "Renter"}
       showActions={true}
       showContactInfo={true}
     />

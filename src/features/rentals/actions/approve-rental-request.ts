@@ -82,7 +82,7 @@ export async function approveRentalRequest(
   //       confirm: true, // try to confirm immediately
   //       metadata: {
   //         rentalRequestId: rentalRequest.id,
-  //         toolId: rentalRequest.toolId,
+  //         listingId: rentalRequest.listingId,
   //         ownerId: rentalRequest.ownerId,
   //         renterId: rentalRequest.renterId,
   //       },

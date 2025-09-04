@@ -9,7 +9,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { tools } from "./tools.schema";
+import { listings } from "./listings.schema";
 import { users } from "./users.schema";
 import { relations } from "drizzle-orm";
 
@@ -21,18 +21,18 @@ export const userFavorites = pgTable(
     userId: uuid("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    toolId: uuid("tool_id")
-      .references(() => tools.id, { onDelete: "cascade" })
+    listingId: uuid("listing_id")
+      .references(() => listings.id, { onDelete: "cascade" })
       .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    userToolIdx: uniqueIndex("user_favorites_user_tool_idx").on(
+    userlistingIdx: uniqueIndex("user_favorites_user_listing_idx").on(
       table.userId,
-      table.toolId,
+      table.listingId,
     ),
     userIdIdx: index("user_favorites_user_id_idx").on(table.userId),
-    toolIdIdx: index("user_favorites_tool_id_idx").on(table.toolId),
+    listingIdIdx: index("user_favorites_listing_id_idx").on(table.listingId),
   }),
 );
 
@@ -63,20 +63,19 @@ export const collectionItems = pgTable(
     collectionId: uuid("collection_id")
       .references(() => userCollections.id, { onDelete: "cascade" })
       .notNull(),
-    toolId: uuid("tool_id")
-      .references(() => tools.id, { onDelete: "cascade" })
+    listingId: uuid("listing_id")
+      .references(() => listings.id, { onDelete: "cascade" })
       .notNull(),
     addedAt: timestamp("added_at").defaultNow().notNull(),
   },
   (table) => ({
-    collectionToolIdx: uniqueIndex("collection_items_collection_tool_idx").on(
-      table.collectionId,
-      table.toolId,
-    ),
+    collectionlistingIdx: uniqueIndex(
+      "collection_items_collection_listing_idx",
+    ).on(table.collectionId, table.listingId),
     collectionIdIdx: index("collection_items_collection_id_idx").on(
       table.collectionId,
     ),
-    toolIdIdx: index("collection_items_tool_id_idx").on(table.toolId),
+    listingIdIdx: index("collection_items_listing_id_idx").on(table.listingId),
   }),
 );
 
@@ -85,9 +84,9 @@ export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
     fields: [userFavorites.userId],
     references: [users.id],
   }),
-  tool: one(tools, {
-    fields: [userFavorites.toolId],
-    references: [tools.id],
+  listing: one(listings, {
+    fields: [userFavorites.listingId],
+    references: [listings.id],
   }),
 }));
 
@@ -109,9 +108,9 @@ export const collectionItemsRelations = relations(
       fields: [collectionItems.collectionId],
       references: [userCollections.id],
     }),
-    tool: one(tools, {
-      fields: [collectionItems.toolId],
-      references: [tools.id],
+    listing: one(listings, {
+      fields: [collectionItems.listingId],
+      references: [listings.id],
     }),
   }),
 );

@@ -1,7 +1,7 @@
 import { eq, and, inArray, sql } from "drizzle-orm";
 
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
-import { tools, toolImages } from "@/db/schemas/tools.schema";
+import { listings, listingImages } from "@/db/schemas/listings.schema";
 import { users } from "@/db/schemas/users.schema";
 import { type CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { getCurrentUserId } from "@/features/authentication/auth.utils";
@@ -9,11 +9,11 @@ import { differenceInDays } from "@/lib/utils/date.utils";
 import { BaseDAL } from "./base";
 import { UnauthorizedError, NotFoundError } from "./errors";
 
-export interface BorrowedTool {
+export interface BorrowedListing {
   id: string;
-  toolId: string;
-  toolName: string;
-  toolImageUrl: string | null;
+  listingId: string;
+  listingName: string;
+  listingImageUrl: string | null;
   ownerId: string;
   ownerName: string;
   startDate: Date;
@@ -23,16 +23,16 @@ export interface BorrowedTool {
   dailyRate: string;
 }
 
-export interface BorrowedToolsData {
-  currentRentals: BorrowedTool[];
-  upcomingRentals: BorrowedTool[];
+export interface BorrowedListingsData {
+  currentRentals: BorrowedListing[];
+  upcomingRentals: BorrowedListing[];
 }
 
 export interface RentalRequestItem {
   id: string;
-  toolId: string;
-  toolName: string;
-  toolImageUrl: string | null;
+  listingId: string;
+  listingName: string;
+  listingImageUrl: string | null;
   renterId: string;
   ownerId: string;
   ownerName: string;
@@ -52,9 +52,9 @@ export interface RentalRequestItem {
 
 export interface LendingRequestItem {
   id: string;
-  toolId: string;
-  toolName: string;
-  toolImageUrl: string | null;
+  listingId: string;
+  listingName: string;
+  listingImageUrl: string | null;
   renterId: string;
   renterName: string;
   renterProfileImage?: string | null;
@@ -82,14 +82,14 @@ export interface LendingRequestItem {
 export interface RentalDetails {
   id: string;
   type: "request" | "rental";
-  toolId: string;
-  toolName: string;
-  toolImageUrl: string | null;
-  toolBrand?: string;
-  toolModel?: string;
-  toolCondition?: string;
-  toolDescription?: string;
-  toolSpecifications?: Record<string, string>;
+  listingId: string;
+  listingName: string;
+  listingImageUrl: string | null;
+  listingBrand?: string;
+  listingModel?: string;
+  listingCondition?: string;
+  listingDescription?: string;
+  listingSpecifications?: Record<string, string>;
   renterId: string;
   renterName: string;
   renterEmail: string;
@@ -110,7 +110,7 @@ export interface RentalDetails {
   ownerReviewCount?: number;
   ownerVerified?: boolean;
   ownerMemberSince?: string;
-  ownerToolsListed?: number;
+  ownerListingsListed?: number;
   ownerResponseRate?: string;
   startDate: Date;
   endDate: Date;
@@ -147,15 +147,15 @@ export type RentalStatusInfo = Pick<
   RentalDetails,
   "status" | "totalAmount" | "createdAt" | "approvedAt" | "rejectedAt"
 >;
-export type RentalToolInfo = Pick<
+export type RentalListingInfo = Pick<
   RentalDetails,
-  | "toolId"
-  | "toolName"
-  | "toolImageUrl"
-  | "toolBrand"
-  | "toolModel"
-  | "toolCondition"
-  | "toolSpecifications"
+  | "listingId"
+  | "listingName"
+  | "listingImageUrl"
+  | "listingBrand"
+  | "listingModel"
+  | "listingCondition"
+  | "listingSpecifications"
 >;
 export type RentalDetailsInfo = Pick<
   RentalDetails,
@@ -192,17 +192,20 @@ export type RentalUserInfo = Pick<
   | "ownerReviewCount"
   | "ownerVerified"
   | "ownerMemberSince"
-  | "ownerToolsListed"
+  | "ownerListingsListed"
   | "ownerResponseRate"
 >;
-export type RentalActionsInfo = Pick<RentalDetails, "id" | "toolId" | "status">;
+export type RentalActionsInfo = Pick<
+  RentalDetails,
+  "id" | "listingId" | "status"
+>;
 export type RentalMessagesInfo = Pick<
   RentalDetails,
   "message" | "pickupInstructions" | "returnInstructions"
 >;
 
 export class RentalDAL extends BaseDAL {
-  async countBorrowedTools(userId: string): Promise<number> {
+  async countBorrowedListings(userId: string): Promise<number> {
     const result = await this.db
       .select()
       .from(rentals)
@@ -216,7 +219,7 @@ export class RentalDAL extends BaseDAL {
     return result.length;
   }
 
-  async countSharedTools(userId: string): Promise<number> {
+  async countSharedListings(userId: string): Promise<number> {
     const result = await this.db
       .select()
       .from(rentals)
@@ -230,7 +233,7 @@ export class RentalDAL extends BaseDAL {
     return result.length;
   }
 
-  async getBorrowedTools(): Promise<BorrowedToolsData> {
+  async getBorrowedListings(): Promise<BorrowedListingsData> {
     try {
       // Get current user ID
       const userId = await getCurrentUserId();
@@ -244,8 +247,8 @@ export class RentalDAL extends BaseDAL {
       const allRentals = await this.db
         .select({
           id: rentals.id,
-          toolId: rentals.toolId,
-          toolName: tools.name,
+          listingId: rentals.listingId,
+          listingName: listings.name,
           ownerId: rentals.ownerId,
           ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
           startDate: rentals.startDate,
@@ -255,7 +258,7 @@ export class RentalDAL extends BaseDAL {
           dailyRate: rentalRequests.dailyRate,
         })
         .from(rentals)
-        .innerJoin(tools, eq(rentals.toolId, tools.id))
+        .innerJoin(listings, eq(rentals.listingId, listings.id))
         .innerJoin(users, eq(rentals.ownerId, users.id))
         .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
         .where(
@@ -266,38 +269,40 @@ export class RentalDAL extends BaseDAL {
         )
         .orderBy(rentals.startDate);
 
-      // Get images for all tools
-      const toolIds = [...new Set(allRentals.map((rental) => rental.toolId))];
-      const toolImagesMap = new Map<string, string | null>();
+      // Get images for all listings
+      const listingIds = [
+        ...new Set(allRentals.map((rental) => rental.listingId)),
+      ];
+      const listingImagesMap = new Map<string, string | null>();
 
-      for (const toolId of toolIds) {
+      for (const listingId of listingIds) {
         const [firstImage] = await this.db
-          .select({ imageUrl: toolImages.imageUrl })
-          .from(toolImages)
-          .where(eq(toolImages.toolId, toolId))
-          .orderBy(toolImages.orderIndex)
+          .select({ imageUrl: listingImages.imageUrl })
+          .from(listingImages)
+          .where(eq(listingImages.listingId, listingId))
+          .orderBy(listingImages.orderIndex)
           .limit(1);
 
-        toolImagesMap.set(toolId, firstImage?.imageUrl || null);
+        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
       }
 
       // Separate current and upcoming rentals
-      const currentRentals: BorrowedTool[] = [];
-      const upcomingRentals: BorrowedTool[] = [];
+      const currentRentals: BorrowedListing[] = [];
+      const upcomingRentals: BorrowedListing[] = [];
 
       for (const rental of allRentals) {
-        const toolWithImage: BorrowedTool = {
+        const listingWithImage: BorrowedListing = {
           ...rental,
-          toolImageUrl: toolImagesMap.get(rental.toolId) || null,
+          listingImageUrl: listingImagesMap.get(rental.listingId) || null,
         };
 
         // Current rentals: started and not yet ended
         if (rental.startDate <= now && rental.endDate >= now) {
-          currentRentals.push(toolWithImage);
+          currentRentals.push(listingWithImage);
         }
         // Upcoming rentals: haven't started yet
         else if (rental.startDate > now) {
-          upcomingRentals.push(toolWithImage);
+          upcomingRentals.push(listingWithImage);
         }
       }
 
@@ -306,7 +311,7 @@ export class RentalDAL extends BaseDAL {
         upcomingRentals,
       };
     } catch (error) {
-      this.handleError(error, "getBorrowedTools");
+      this.handleError(error, "getBorrowedListings");
     }
   }
 
@@ -320,9 +325,9 @@ export class RentalDAL extends BaseDAL {
         throw new UnauthorizedError("Authentication required");
       }
 
-      // Get tool details to calculate pricing and validate ownership
-      const tool = await this.db.query.tools.findFirst({
-        where: eq(tools.id, formData.toolId),
+      // Get listing details to calculate pricing and validate ownership
+      const listing = await this.db.query.listings.findFirst({
+        where: eq(listings.id, formData.listingId),
         with: {
           owner: {
             columns: {
@@ -332,13 +337,13 @@ export class RentalDAL extends BaseDAL {
         },
       });
 
-      if (!tool) {
-        throw new NotFoundError("Tool", formData.toolId);
+      if (!listing) {
+        throw new NotFoundError("Listing", formData.listingId);
       }
 
-      // Prevent users from renting their own tools
-      if (tool.ownerId === userId) {
-        throw new Error("Cannot rent your own tool");
+      // Prevent users from renting their own listings
+      if (listing.ownerId === userId) {
+        throw new Error("Cannot rent your own listing");
       }
 
       // Calculate rental period and pricing
@@ -346,40 +351,40 @@ export class RentalDAL extends BaseDAL {
         differenceInDays(formData.endDate, formData.startDate) + 1;
 
       // Validate rental period
-      if (totalDays < tool.minimumRentalPeriod) {
+      if (totalDays < listing.minimumRentalPeriod) {
         throw new Error(
-          `Minimum rental period is ${tool.minimumRentalPeriod} day(s)`,
+          `Minimum rental period is ${listing.minimumRentalPeriod} day(s)`,
         );
       }
 
-      if (totalDays > tool.maximumRentalPeriod) {
+      if (totalDays > listing.maximumRentalPeriod) {
         throw new Error(
-          `Maximum rental period is ${tool.maximumRentalPeriod} days`,
+          `Maximum rental period is ${listing.maximumRentalPeriod} days`,
         );
       }
 
       // Calculate rate based on rental period (apply discounts for longer rentals)
-      let dailyRate = Number(tool.dailyRate);
-      if (totalDays >= 30 && tool.monthlyRate) {
-        dailyRate = Number(tool.monthlyRate) / 30;
-      } else if (totalDays >= 7 && tool.weeklyRate) {
-        dailyRate = Number(tool.weeklyRate) / 7;
+      let dailyRate = Number(listing.dailyRate);
+      if (totalDays >= 30 && listing.monthlyRate) {
+        dailyRate = Number(listing.monthlyRate) / 30;
+      } else if (totalDays >= 7 && listing.weeklyRate) {
+        dailyRate = Number(listing.weeklyRate) / 7;
       }
 
       const subtotal = Math.round(dailyRate * totalDays * 100) / 100;
       const deliveryFee = formData.deliveryRequested
-        ? Number(tool.deliveryFee)
+        ? Number(listing.deliveryFee)
         : 0;
-      const securityDeposit = Number(tool.securityDeposit);
+      const securityDeposit = Number(listing.securityDeposit);
       const totalAmount = subtotal + deliveryFee;
 
       // Create rental request with payment information
       const [rentalRequest] = await this.db
         .insert(rentalRequests)
         .values({
-          toolId: formData.toolId,
+          listingId: formData.listingId,
           renterId: userId,
-          ownerId: tool.ownerId,
+          ownerId: listing.ownerId,
           startDate: formData.startDate,
           endDate: formData.endDate,
           totalDays,
@@ -404,9 +409,9 @@ export class RentalDAL extends BaseDAL {
 
   async getRentalRequestById(requestId: string): Promise<{
     id: string;
-    toolId: string;
-    toolName: string;
-    toolImageUrl: string | null;
+    listingId: string;
+    listingName: string;
+    listingImageUrl: string | null;
     renterId: string;
     ownerId: string;
     ownerName: string;
@@ -436,8 +441,8 @@ export class RentalDAL extends BaseDAL {
       const rentalRequest = await this.db
         .select({
           id: rentalRequests.id,
-          toolId: rentalRequests.toolId,
-          toolName: tools.name,
+          listingId: rentalRequests.listingId,
+          listingName: listings.name,
           renterId: rentalRequests.renterId,
           ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
@@ -457,7 +462,7 @@ export class RentalDAL extends BaseDAL {
           createdAt: rentalRequests.createdAt,
         })
         .from(rentalRequests)
-        .innerJoin(tools, eq(rentalRequests.toolId, tools.id))
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
         .innerJoin(users, eq(rentalRequests.ownerId, users.id))
         .where(eq(rentalRequests.id, requestId))
         .limit(1);
@@ -473,17 +478,17 @@ export class RentalDAL extends BaseDAL {
         throw new UnauthorizedError("Access denied to this rental request");
       }
 
-      // Get tool image
+      // Get listing image
       const [firstImage] = await this.db
-        .select({ imageUrl: toolImages.imageUrl })
-        .from(toolImages)
-        .where(eq(toolImages.toolId, request.toolId))
-        .orderBy(toolImages.orderIndex)
+        .select({ imageUrl: listingImages.imageUrl })
+        .from(listingImages)
+        .where(eq(listingImages.listingId, request.listingId))
+        .orderBy(listingImages.orderIndex)
         .limit(1);
 
       return {
         ...request,
-        toolImageUrl: firstImage?.imageUrl || null,
+        listingImageUrl: firstImage?.imageUrl || null,
       };
     } catch (error) {
       this.handleError(error, "getRentalRequestById");
@@ -511,8 +516,8 @@ export class RentalDAL extends BaseDAL {
       const requests = await this.db
         .select({
           id: rentalRequests.id,
-          toolId: rentalRequests.toolId,
-          toolName: tools.name,
+          listingId: rentalRequests.listingId,
+          listingName: listings.name,
           renterId: rentalRequests.renterId,
           ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
@@ -530,7 +535,7 @@ export class RentalDAL extends BaseDAL {
           approvedAt: rentalRequests.approvedAt,
         })
         .from(rentalRequests)
-        .innerJoin(tools, eq(rentalRequests.toolId, tools.id))
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
         .innerJoin(users, eq(rentalRequests.ownerId, users.id))
         .where(
           and(
@@ -540,25 +545,27 @@ export class RentalDAL extends BaseDAL {
         )
         .orderBy(rentalRequests.createdAt);
 
-      // Get images for all tools
-      const toolIds = [...new Set(requests.map((request) => request.toolId))];
-      const toolImagesMap = new Map<string, string | null>();
+      // Get images for all listings
+      const listingIds = [
+        ...new Set(requests.map((request) => request.listingId)),
+      ];
+      const listingImagesMap = new Map<string, string | null>();
 
-      for (const toolId of toolIds) {
+      for (const listingId of listingIds) {
         const [firstImage] = await this.db
-          .select({ imageUrl: toolImages.imageUrl })
-          .from(toolImages)
-          .where(eq(toolImages.toolId, toolId))
-          .orderBy(toolImages.orderIndex)
+          .select({ imageUrl: listingImages.imageUrl })
+          .from(listingImages)
+          .where(eq(listingImages.listingId, listingId))
+          .orderBy(listingImages.orderIndex)
           .limit(1);
 
-        toolImagesMap.set(toolId, firstImage?.imageUrl || null);
+        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
       }
 
-      // Add tool images to requests
+      // Add listing images to requests
       return requests.map((request) => ({
         ...request,
-        toolImageUrl: toolImagesMap.get(request.toolId) || null,
+        listingImageUrl: listingImagesMap.get(request.listingId) || null,
       }));
     } catch (error) {
       this.handleError(error, "getRentalRequestsByStatus");
@@ -586,8 +593,8 @@ export class RentalDAL extends BaseDAL {
       const requests = await this.db
         .select({
           id: rentalRequests.id,
-          toolId: rentalRequests.toolId,
-          toolName: tools.name,
+          listingId: rentalRequests.listingId,
+          listingName: listings.name,
           renterId: rentalRequests.renterId,
           renterName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
           renterProfileImage: users.profileImageUrl,
@@ -608,7 +615,7 @@ export class RentalDAL extends BaseDAL {
           approvedAt: rentalRequests.approvedAt,
         })
         .from(rentalRequests)
-        .innerJoin(tools, eq(rentalRequests.toolId, tools.id))
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
         .innerJoin(users, eq(rentalRequests.renterId, users.id))
         .where(
           and(
@@ -618,25 +625,27 @@ export class RentalDAL extends BaseDAL {
         )
         .orderBy(rentalRequests.createdAt);
 
-      // Get images for all tools
-      const toolIds = [...new Set(requests.map((request) => request.toolId))];
-      const toolImagesMap = new Map<string, string | null>();
+      // Get images for all listings
+      const listingIds = [
+        ...new Set(requests.map((request) => request.listingId)),
+      ];
+      const listingImagesMap = new Map<string, string | null>();
 
-      for (const toolId of toolIds) {
+      for (const listingId of listingIds) {
         const [firstImage] = await this.db
-          .select({ imageUrl: toolImages.imageUrl })
-          .from(toolImages)
-          .where(eq(toolImages.toolId, toolId))
-          .orderBy(toolImages.orderIndex)
+          .select({ imageUrl: listingImages.imageUrl })
+          .from(listingImages)
+          .where(eq(listingImages.listingId, listingId))
+          .orderBy(listingImages.orderIndex)
           .limit(1);
 
-        toolImagesMap.set(toolId, firstImage?.imageUrl || null);
+        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
       }
 
-      // Add tool images to requests
+      // Add listing images to requests
       return requests.map((request) => ({
         ...request,
-        toolImageUrl: toolImagesMap.get(request.toolId) || null,
+        listingImageUrl: listingImagesMap.get(request.listingId) || null,
         renterRating: undefined, // TODO: Calculate from reviews
         renterReviewCount: undefined, // TODO: Calculate from reviews
         renterVerified: undefined, // TODO: Get from user verification status
@@ -656,7 +665,7 @@ export class RentalDAL extends BaseDAL {
       | "cancelled"
       | "overdue"
       | "rejected",
-  ): Promise<BorrowedTool[]> {
+  ): Promise<BorrowedListing[]> {
     try {
       // Get current user ID
       const userId = await getCurrentUserId();
@@ -668,8 +677,8 @@ export class RentalDAL extends BaseDAL {
       const rentalsList = await this.db
         .select({
           id: rentals.id,
-          toolId: rentals.toolId,
-          toolName: tools.name,
+          listingId: rentals.listingId,
+          listingName: listings.name,
           ownerId: rentals.ownerId,
           ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
           startDate: rentals.startDate,
@@ -679,31 +688,33 @@ export class RentalDAL extends BaseDAL {
           dailyRate: rentalRequests.dailyRate,
         })
         .from(rentals)
-        .innerJoin(tools, eq(rentals.toolId, tools.id))
+        .innerJoin(listings, eq(rentals.listingId, listings.id))
         .innerJoin(users, eq(rentals.ownerId, users.id))
         .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
         .where(and(eq(rentals.renterId, userId), eq(rentals.status, status)))
         .orderBy(rentals.startDate);
 
-      // Get images for all tools
-      const toolIds = [...new Set(rentalsList.map((rental) => rental.toolId))];
-      const toolImagesMap = new Map<string, string | null>();
+      // Get images for all listings
+      const listingIds = [
+        ...new Set(rentalsList.map((rental) => rental.listingId)),
+      ];
+      const listingImagesMap = new Map<string, string | null>();
 
-      for (const toolId of toolIds) {
+      for (const listingId of listingIds) {
         const [firstImage] = await this.db
-          .select({ imageUrl: toolImages.imageUrl })
-          .from(toolImages)
-          .where(eq(toolImages.toolId, toolId))
-          .orderBy(toolImages.orderIndex)
+          .select({ imageUrl: listingImages.imageUrl })
+          .from(listingImages)
+          .where(eq(listingImages.listingId, listingId))
+          .orderBy(listingImages.orderIndex)
           .limit(1);
 
-        toolImagesMap.set(toolId, firstImage?.imageUrl || null);
+        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
       }
 
-      // Add tool images to rentals
+      // Add listing images to rentals
       return rentalsList.map((rental) => ({
         ...rental,
-        toolImageUrl: toolImagesMap.get(rental.toolId) || null,
+        listingImageUrl: listingImagesMap.get(rental.listingId) || null,
       }));
     } catch (error) {
       this.handleError(error, "getRentalsByStatus");
@@ -731,8 +742,8 @@ export class RentalDAL extends BaseDAL {
       const rentalsList = await this.db
         .select({
           id: rentals.id,
-          toolId: rentals.toolId,
-          toolName: tools.name,
+          listingId: rentals.listingId,
+          listingName: listings.name,
           renterId: rentals.renterId,
           renterName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
           renterProfileImage: users.profileImageUrl,
@@ -753,31 +764,33 @@ export class RentalDAL extends BaseDAL {
           approvedAt: rentalRequests.approvedAt,
         })
         .from(rentals)
-        .innerJoin(tools, eq(rentals.toolId, tools.id))
+        .innerJoin(listings, eq(rentals.listingId, listings.id))
         .innerJoin(users, eq(rentals.renterId, users.id))
         .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
         .where(and(eq(rentals.ownerId, userId), eq(rentals.status, status)))
         .orderBy(rentals.createdAt);
 
-      // Get images for all tools
-      const toolIds = [...new Set(rentalsList.map((rental) => rental.toolId))];
-      const toolImagesMap = new Map<string, string | null>();
+      // Get images for all listings
+      const listingIds = [
+        ...new Set(rentalsList.map((rental) => rental.listingId)),
+      ];
+      const listingImagesMap = new Map<string, string | null>();
 
-      for (const toolId of toolIds) {
+      for (const listingId of listingIds) {
         const [firstImage] = await this.db
-          .select({ imageUrl: toolImages.imageUrl })
-          .from(toolImages)
-          .where(eq(toolImages.toolId, toolId))
-          .orderBy(toolImages.orderIndex)
+          .select({ imageUrl: listingImages.imageUrl })
+          .from(listingImages)
+          .where(eq(listingImages.listingId, listingId))
+          .orderBy(listingImages.orderIndex)
           .limit(1);
 
-        toolImagesMap.set(toolId, firstImage?.imageUrl || null);
+        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
       }
 
-      // Add tool images to rentals
+      // Add listing images to rentals
       return rentalsList.map((rental) => ({
         ...rental,
-        toolImageUrl: toolImagesMap.get(rental.toolId) || null,
+        listingImageUrl: listingImagesMap.get(rental.listingId) || null,
         renterRating: undefined, // TODO: Calculate from reviews
         renterReviewCount: undefined, // TODO: Calculate from reviews
         renterVerified: undefined, // TODO: Get from user verification status
@@ -862,10 +875,10 @@ export class RentalDAL extends BaseDAL {
         throw new NotFoundError("Rental request not found");
       }
 
-      // Verify that the current user is the owner of the tool
+      // Verify that the current user is the owner of the listing
       if (request.ownerId !== userId) {
         throw new UnauthorizedError(
-          "Only the tool owner can approve rental requests",
+          "Only the listing owner can approve rental requests",
         );
       }
 
@@ -885,7 +898,7 @@ export class RentalDAL extends BaseDAL {
       // Create a rental entry
       await this.db.insert(rentals).values({
         requestId: requestId,
-        toolId: request.toolId,
+        listingId: request.listingId,
         renterId: request.renterId,
         ownerId: request.ownerId,
         startDate: request.startDate,
@@ -927,10 +940,10 @@ export class RentalDAL extends BaseDAL {
         throw new NotFoundError("Rental request not found");
       }
 
-      // Verify that the current user is the owner of the tool
+      // Verify that the current user is the owner of the listing
       if (request.ownerId !== userId) {
         throw new UnauthorizedError(
-          "Only the tool owner can decline rental requests",
+          "Only the listing owner can decline rental requests",
         );
       }
 
@@ -968,7 +981,7 @@ export class RentalDAL extends BaseDAL {
       const rentalRequest = await this.db
         .select({
           id: rentalRequests.id,
-          toolId: rentalRequests.toolId,
+          listingId: rentalRequests.listingId,
           renterId: rentalRequests.renterId,
           ownerId: rentalRequests.ownerId,
           startDate: rentalRequests.startDate,
@@ -999,17 +1012,17 @@ export class RentalDAL extends BaseDAL {
           throw new UnauthorizedError("Access denied to this rental request");
         }
 
-        // Get tool details
-        const tool = await this.db.query.tools.findFirst({
-          where: eq(tools.id, request.toolId),
+        // Get listing details
+        const listing = await this.db.query.listings.findFirst({
+          where: eq(listings.id, request.listingId),
         });
 
-        // Get tool image
+        // Get listing image
         const [firstImage] = await this.db
-          .select({ imageUrl: toolImages.imageUrl })
-          .from(toolImages)
-          .where(eq(toolImages.toolId, request.toolId))
-          .orderBy(toolImages.orderIndex)
+          .select({ imageUrl: listingImages.imageUrl })
+          .from(listingImages)
+          .where(eq(listingImages.listingId, request.listingId))
+          .orderBy(listingImages.orderIndex)
           .limit(1);
 
         // Get renter details
@@ -1025,13 +1038,13 @@ export class RentalDAL extends BaseDAL {
         return {
           id: request.id,
           type: "request",
-          toolId: request.toolId,
-          toolName: tool?.name || "Unknown Tool",
-          toolImageUrl: firstImage?.imageUrl || null,
-          toolBrand: tool?.brand || undefined,
-          toolModel: tool?.model || undefined,
-          toolCondition: tool?.condition || undefined,
-          toolDescription: tool?.description || undefined,
+          listingId: request.listingId,
+          listingName: listing?.name || "Unknown listing",
+          listingImageUrl: firstImage?.imageUrl || null,
+          listingBrand: listing?.brand || undefined,
+          listingModel: listing?.model || undefined,
+          listingCondition: listing?.condition || undefined,
+          listingDescription: listing?.description || undefined,
           renterId: request.renterId,
           renterName: renter
             ? `${renter.firstName} ${renter.lastName}`
@@ -1070,7 +1083,7 @@ export class RentalDAL extends BaseDAL {
         .select({
           id: rentals.id,
           requestId: rentals.requestId,
-          toolId: rentals.toolId,
+          listingId: rentals.listingId,
           renterId: rentals.renterId,
           ownerId: rentals.ownerId,
           startDate: rentals.startDate,
@@ -1120,17 +1133,17 @@ export class RentalDAL extends BaseDAL {
         .where(eq(rentalRequests.id, rentalData.requestId))
         .limit(1);
 
-      // Get tool details
-      const tool = await this.db.query.tools.findFirst({
-        where: eq(tools.id, rentalData.toolId),
+      // Get listing details
+      const listing = await this.db.query.listings.findFirst({
+        where: eq(listings.id, rentalData.listingId),
       });
 
-      // Get tool image
+      // Get listing image
       const [firstImage] = await this.db
-        .select({ imageUrl: toolImages.imageUrl })
-        .from(toolImages)
-        .where(eq(toolImages.toolId, rentalData.toolId))
-        .orderBy(toolImages.orderIndex)
+        .select({ imageUrl: listingImages.imageUrl })
+        .from(listingImages)
+        .where(eq(listingImages.listingId, rentalData.listingId))
+        .orderBy(listingImages.orderIndex)
         .limit(1);
 
       // Get renter details
@@ -1146,13 +1159,13 @@ export class RentalDAL extends BaseDAL {
       return {
         id: rentalData.id,
         type: "rental",
-        toolId: rentalData.toolId,
-        toolName: tool?.name || "Unknown Tool",
-        toolImageUrl: firstImage?.imageUrl || null,
-        toolBrand: tool?.brand || undefined,
-        toolModel: tool?.model || undefined,
-        toolCondition: tool?.condition || undefined,
-        toolDescription: tool?.description || undefined,
+        listingId: rentalData.listingId,
+        listingName: listing?.name || "Unknown listing",
+        listingImageUrl: firstImage?.imageUrl || null,
+        listingBrand: listing?.brand || undefined,
+        listingModel: listing?.model || undefined,
+        listingCondition: listing?.condition || undefined,
+        listingDescription: listing?.description || undefined,
         renterId: rentalData.renterId,
         renterName: renter
           ? `${renter.firstName} ${renter.lastName}`

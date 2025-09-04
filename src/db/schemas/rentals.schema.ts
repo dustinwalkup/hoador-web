@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { users } from "./users.schema";
-import { tools } from "./tools.schema";
+import { listings } from "./listings.schema";
 import { rentalStatusEnum } from "./_enums";
 import { relations } from "drizzle-orm";
 import { payments } from "./payments.schema";
@@ -23,8 +23,8 @@ export const rentalRequests = pgTable(
   "rental_requests",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    toolId: uuid("tool_id")
-      .references(() => tools.id, { onDelete: "cascade" })
+    listingId: uuid("listing_id")
+      .references(() => listings.id, { onDelete: "cascade" })
       .notNull(),
     renterId: uuid("renter_id")
       .references(() => users.id, { onDelete: "cascade" })
@@ -56,7 +56,7 @@ export const rentalRequests = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    toolIdIdx: index("rental_requests_tool_id_idx").on(table.toolId),
+    listingIdIdx: index("rental_requests_listing_id_idx").on(table.listingId),
     renterIdIdx: index("rental_requests_renter_id_idx").on(table.renterId),
     ownerIdIdx: index("rental_requests_owner_id_idx").on(table.ownerId),
     statusIdx: index("rental_requests_status_idx").on(table.status),
@@ -76,8 +76,8 @@ export const rentals = pgTable(
       .references(() => rentalRequests.id, { onDelete: "cascade" })
       .notNull()
       .unique(),
-    toolId: uuid("tool_id")
-      .references(() => tools.id, { onDelete: "cascade" })
+    listingId: uuid("listing_id")
+      .references(() => listings.id, { onDelete: "cascade" })
       .notNull(),
     renterId: uuid("renter_id")
       .references(() => users.id, { onDelete: "cascade" })
@@ -111,7 +111,7 @@ export const rentals = pgTable(
   },
   (table) => ({
     requestIdIdx: uniqueIndex("rentals_request_id_idx").on(table.requestId),
-    toolIdIdx: index("rentals_tool_id_idx").on(table.toolId),
+    listingIdIdx: index("rentals_listing_id_idx").on(table.listingId),
     renterIdIdx: index("rentals_renter_id_idx").on(table.renterId),
     ownerIdIdx: index("rentals_owner_id_idx").on(table.ownerId),
     statusIdx: index("rentals_status_idx").on(table.status),
@@ -136,8 +136,8 @@ export const reviews = pgTable(
     revieweeId: uuid("reviewee_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    toolId: uuid("tool_id")
-      .references(() => tools.id, { onDelete: "cascade" })
+    listingId: uuid("listing_id")
+      .references(() => listings.id, { onDelete: "cascade" })
       .notNull(),
     rating: integer("rating").notNull(), // 1-5
     title: varchar("title", { length: 255 }),
@@ -152,15 +152,15 @@ export const reviews = pgTable(
     rentalIdIdx: index("reviews_rental_id_idx").on(table.rentalId),
     reviewerIdIdx: index("reviews_reviewer_id_idx").on(table.reviewerId),
     revieweeIdIdx: index("reviews_reviewee_id_idx").on(table.revieweeId),
-    toolIdIdx: index("reviews_tool_id_idx").on(table.toolId),
+    listingIdIdx: index("reviews_listing_id_idx").on(table.listingId),
     ratingIdx: index("reviews_rating_idx").on(table.rating),
   }),
 );
 
 export const rentalRequestsRelations = relations(rentalRequests, ({ one }) => ({
-  tool: one(tools, {
-    fields: [rentalRequests.toolId],
-    references: [tools.id],
+  listing: one(listings, {
+    fields: [rentalRequests.listingId],
+    references: [listings.id],
   }),
   renter: one(users, {
     fields: [rentalRequests.renterId],
@@ -184,9 +184,9 @@ export const rentalsRelations = relations(rentals, ({ one, many }) => ({
     fields: [rentals.requestId],
     references: [rentalRequests.id],
   }),
-  tool: one(tools, {
-    fields: [rentals.toolId],
-    references: [tools.id],
+  listing: one(listings, {
+    fields: [rentals.listingId],
+    references: [listings.id],
   }),
   renter: one(users, {
     fields: [rentals.renterId],
@@ -217,8 +217,8 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
     references: [users.id],
     relationName: "reviewsReceived", // Add explicit relation name
   }),
-  tool: one(tools, {
-    fields: [reviews.toolId],
-    references: [tools.id],
+  listing: one(listings, {
+    fields: [reviews.listingId],
+    references: [listings.id],
   }),
 }));
