@@ -3,7 +3,7 @@ import { uploadToBlob } from "@/services/vercel-blob";
 import { eq, max } from "drizzle-orm";
 
 import { db } from "@/db/db";
-import { toolImages } from "@/db/schemas/listings.schema";
+import { listingImages } from "@/db/schemas/listings.schema";
 import {
   processImageForUpload,
   validateImageForProcessing,
@@ -12,15 +12,15 @@ import {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ toolId: string }> },
+  { params }: { params: Promise<{ listingId: string }> },
 ) {
   try {
-    const { toolId } = await params;
+    const { listingId } = await params;
 
-    // Validate toolId exists and is a valid UUID
-    if (!toolId || toolId === "") {
+    // Validate listingId exists and is a valid UUID
+    if (!listingId || listingId === "") {
       return NextResponse.json(
-        { error: "Tool ID is required" },
+        { error: "listing ID is required" },
         { status: 400 },
       );
     }
@@ -43,7 +43,7 @@ export async function POST(
 
     // Get original metadata for logging
     const originalMetadata = await getImageMetadata(buffer);
-    console.log(`Processing tool image: ${file.name}`, {
+    console.log(`Processing listing image: ${file.name}`, {
       originalSize: `${(originalMetadata.size / (1024 * 1024)).toFixed(2)}MB`,
       originalDimensions: `${originalMetadata.width}x${originalMetadata.height}`,
       originalFormat: originalMetadata.format,
@@ -51,9 +51,9 @@ export async function POST(
 
     // Get next order index
     const [maxOrder] = await db
-      .select({ max: max(toolImages.orderIndex) })
-      .from(toolImages)
-      .where(eq(toolImages.toolId, toolId));
+      .select({ max: max(listingImages.orderIndex) })
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId));
 
     const nextOrder = (maxOrder?.max || -1) + 1;
 
@@ -67,7 +67,7 @@ export async function POST(
 
     // Get processed metadata
     const processedMetadata = await getImageMetadata(processedBuffer);
-    console.log(`Processed tool image: ${file.name}`, {
+    console.log(`Processed listing image: ${file.name}`, {
       processedSize: `${(processedMetadata.size / (1024 * 1024)).toFixed(2)}MB`,
       processedDimensions: `${processedMetadata.width}x${processedMetadata.height}`,
       compressionRatio: `${((1 - processedMetadata.size / originalMetadata.size) * 100).toFixed(1)}%`,
@@ -76,16 +76,16 @@ export async function POST(
     // Generate unique filename with .jpg extension
     const timestamp = Date.now();
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const filename = `tools/${toolId}/${timestamp}-${sanitizedName.replace(/\.[^/.]+$/, ".jpg")}`;
+    const filename = `listings/${listingId}/${timestamp}-${sanitizedName.replace(/\.[^/.]+$/, ".jpg")}`;
 
     // Upload processed image to Vercel Blob
     const blob = await uploadToBlob(filename, processedBuffer);
 
     // Save to database
     const [savedImage] = await db
-      .insert(toolImages)
+      .insert(listingImages)
       .values({
-        toolId,
+        listingId,
         imageUrl: blob.url,
         blobPathname: blob.pathname,
         orderIndex: nextOrder,

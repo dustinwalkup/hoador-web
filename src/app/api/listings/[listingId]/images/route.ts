@@ -2,29 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db/db";
-import { toolImages } from "@/db/schemas/listings.schema";
+import { listingImages } from "@/db/schemas/listings.schema";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ toolId: string }> },
+  { params }: { params: Promise<{ listingId: string }> },
 ) {
   try {
-    const { toolId } = await params;
+    const { listingId } = await params;
 
-    // Validate toolId exists and is a valid UUID
-    if (!toolId || toolId === "") {
+    // Validate listingId exists and is a valid UUID
+    if (!listingId || listingId === "") {
       return NextResponse.json(
-        { error: "Tool ID is required" },
+        { error: "listing ID is required" },
         { status: 400 },
       );
     }
 
-    // Get all images for this tool, ordered by orderIndex
+    // Get all images for this listing, ordered by orderIndex
     const images = await db
       .select()
-      .from(toolImages)
-      .where(eq(toolImages.toolId, toolId))
-      .orderBy(toolImages.orderIndex);
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId))
+      .orderBy(listingImages.orderIndex);
 
     return NextResponse.json({
       success: true,

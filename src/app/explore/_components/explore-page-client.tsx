@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { useToolFilters } from "@/features/listings/hooks/use-url-state";
-import { useSearchTools } from "@/features/listings/hooks/use-listings";
+import { useListingFilters } from "@/features/listings/hooks/use-url-state";
+import { useSearchListings } from "@/features/listings/hooks/use-listings";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { ExplorePageFilters } from "../../dashboard/explore/_components/explore-page-filters";
 import { ExplorePageContent } from "../../dashboard/explore/_components/explore-page-content";
-import { ToolCardSkeleton } from "@/components/dashboard/listing-card-skeleton";
+import { ListingCardSkeleton } from "@/components/dashboard/listing-card-skeleton";
 
 interface ExplorePageClientProps {
   userId?: string;
@@ -16,7 +16,7 @@ interface ExplorePageClientProps {
 
 export function ExplorePageClient({ userId }: ExplorePageClientProps) {
   // URL state management
-  const { state: filters } = useToolFilters();
+  const { state: filters } = useListingFilters();
 
   // React Query with URL-based filters
   const {
@@ -26,7 +26,7 @@ export function ExplorePageClient({ userId }: ExplorePageClientProps) {
     isLoading,
     isFetchingNextPage,
     error,
-  } = useSearchTools(filters, userId);
+  } = useSearchListings(filters, userId);
 
   // Infinite scroll trigger
   const loadMoreRef = useInfiniteScroll({
@@ -36,7 +36,7 @@ export function ExplorePageClient({ userId }: ExplorePageClientProps) {
   });
 
   // Flatten data from all pages
-  const allTools = useMemo(() => {
+  const allListings = useMemo(() => {
     return data?.pages?.flatMap((page) => page.data) || [];
   }, [data]);
 
@@ -59,7 +59,7 @@ export function ExplorePageClient({ userId }: ExplorePageClientProps) {
         <ExplorePageFilters />
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <ToolCardSkeleton key={i} />
+            <ListingCardSkeleton key={i} />
           ))}
         </div>
       </div>
@@ -69,7 +69,7 @@ export function ExplorePageClient({ userId }: ExplorePageClientProps) {
   return (
     <div className="space-y-6">
       <ExplorePageFilters />
-      <ExplorePageContent tools={allTools} basePath="/explore" />
+      <ExplorePageContent listings={allListings} basePath="/explore" />
 
       {/* Infinite scroll trigger */}
       {hasNextPage && (
