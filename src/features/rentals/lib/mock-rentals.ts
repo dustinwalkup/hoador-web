@@ -5,7 +5,7 @@ export const mockRentalsData: RentalsData = {
     requests: [
       {
         id: "req-1",
-        tool: {
+        listing: {
           id: "1",
           name: "Professional Chop Saw",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -23,7 +23,7 @@ export const mockRentalsData: RentalsData = {
       },
       {
         id: "req-2",
-        tool: {
+        listing: {
           id: "2",
           name: "Cordless Drill",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -43,7 +43,7 @@ export const mockRentalsData: RentalsData = {
     active: [
       {
         id: "rental-1",
-        tool: {
+        listing: {
           id: "3",
           name: "Angle Grinder",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -58,11 +58,11 @@ export const mockRentalsData: RentalsData = {
         status: "approved",
         actualStartDate: "2024-01-08",
         pickupInstructions:
-          "Tool is in the garage. Please text when you arrive.",
+          "listing is in the garage. Please text when you arrive.",
       },
       {
         id: "rental-2",
-        tool: {
+        listing: {
           id: "4",
           name: "Impact Driver",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -81,7 +81,7 @@ export const mockRentalsData: RentalsData = {
     completed: [
       {
         id: "rental-3",
-        tool: {
+        listing: {
           id: "5",
           name: "Circular Saw",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -100,7 +100,7 @@ export const mockRentalsData: RentalsData = {
       },
       {
         id: "rental-4",
-        tool: {
+        listing: {
           id: "6",
           name: "Miter Saw",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -119,7 +119,7 @@ export const mockRentalsData: RentalsData = {
       },
       {
         id: "rental-5",
-        tool: {
+        listing: {
           id: "7",
           name: "Table Saw",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -138,7 +138,7 @@ export const mockRentalsData: RentalsData = {
       },
       {
         id: "rental-6",
-        tool: {
+        listing: {
           id: "8",
           name: "Router",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -157,7 +157,7 @@ export const mockRentalsData: RentalsData = {
       },
       {
         id: "rental-7",
-        tool: {
+        listing: {
           id: "9",
           name: "Jigsaw",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -176,7 +176,7 @@ export const mockRentalsData: RentalsData = {
       },
       {
         id: "rental-8",
-        tool: {
+        listing: {
           id: "10",
           name: "Belt Sander",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -195,7 +195,7 @@ export const mockRentalsData: RentalsData = {
       },
       {
         id: "rental-9",
-        tool: {
+        listing: {
           id: "11",
           name: "Orbital Sander",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -214,7 +214,7 @@ export const mockRentalsData: RentalsData = {
       },
       {
         id: "rental-10",
-        tool: {
+        listing: {
           id: "12",
           name: "Reciprocating Saw",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -235,7 +235,7 @@ export const mockRentalsData: RentalsData = {
     rejected: [
       {
         id: "req-3",
-        tool: {
+        listing: {
           id: "13",
           name: "Pressure Washer",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -251,7 +251,7 @@ export const mockRentalsData: RentalsData = {
         createdAt: "2024-01-02",
         rejectedAt: "2024-01-03",
         rejectionReason:
-          "Tool not available for those dates due to maintenance.",
+          "listing not available for those dates due to maintenance.",
       },
     ],
   },
@@ -259,7 +259,7 @@ export const mockRentalsData: RentalsData = {
     incoming: [
       {
         id: "lend-req-1",
-        tool: {
+        listing: {
           id: "14",
           name: "Cordless drill",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -289,7 +289,7 @@ export const mockRentalsData: RentalsData = {
       },
       {
         id: "lend-req-2",
-        tool: {
+        listing: {
           id: "15",
           name: "Circular Saw",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -315,7 +315,7 @@ export const mockRentalsData: RentalsData = {
     active: [
       {
         id: "lend-active-1",
-        tool: {
+        listing: {
           id: "16",
           name: "Angle Grinder",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -340,7 +340,7 @@ export const mockRentalsData: RentalsData = {
     completed: [
       {
         id: "lend-completed-1",
-        tool: {
+        listing: {
           id: "17",
           name: "Miter Saw",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -364,7 +364,7 @@ export const mockRentalsData: RentalsData = {
     rejected: [
       {
         id: "lend-rejected-1",
-        tool: {
+        listing: {
           id: "18",
           name: "Pressure Washer",
           imageUrl: "/placeholder.svg?height=100&width=100",
@@ -383,7 +383,7 @@ export const mockRentalsData: RentalsData = {
         deliveryRequested: true,
         rejectedAt: "2024-01-10T16:45:00Z",
         rejectionReason:
-          "Tool is not available for those dates due to maintenance.",
+          "listing is not available for those dates due to maintenance.",
         status: "rejected",
       },
     ],
