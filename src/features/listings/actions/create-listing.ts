@@ -66,7 +66,7 @@ export async function createListing(formData: CreateListingFormDataServerType) {
 
   // Create the listing first
   const { data: listing, error } = await tryCatch(
-    listingDAL.createListing(userId, validatedData),
+    listingDAL.createListing(validatedData),
   );
 
   if (error) {

@@ -35,7 +35,7 @@ export async function updateListing(
 
   // Update the listing
   const { data: listing, error } = await tryCatch(
-    listingDAL.updateListing(listingId, userId, validatedData),
+    listingDAL.updateListing(listingId, validatedData),
   );
 
   if (error) {

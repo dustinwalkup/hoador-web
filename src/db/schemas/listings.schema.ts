@@ -16,6 +16,7 @@ import {
 import { users } from "./users.schema";
 import { rentalRequests, rentals, reviews } from "./rentals.schema";
 import { collectionItems, userFavorites } from "./collections.schema";
+import { communities } from "./communities.schema";
 import { relations } from "drizzle-orm";
 
 export const listingConditionEnum = pgEnum("listing_condition", [
@@ -61,6 +62,9 @@ export const listings = pgTable(
     ownerId: uuid("owner_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
+    communityId: uuid("community_id")
+      .references(() => communities.id, { onDelete: "cascade" })
+      .notNull(),
     categoryId: uuid("category_id")
       .references(() => _listingCategories.id)
       .notNull(),
@@ -98,10 +102,15 @@ export const listings = pgTable(
   },
   (table) => ({
     ownerIdIdx: index("listings_owner_id_idx").on(table.ownerId),
+    communityIdIdx: index("listings_community_id_idx").on(table.communityId),
     categoryIdIdx: index("listings_category_id_idx").on(table.categoryId),
     statusIdx: index("listings_status_idx").on(table.status),
     dailyRateIdx: index("listings_daily_rate_idx").on(table.dailyRate),
     nameSearchIdx: index("listings_name_search_idx").on(table.name),
+    communityStatusIdx: index("listings_community_status_idx").on(
+      table.communityId,
+      table.status,
+    ),
   }),
 );
 
@@ -160,6 +169,10 @@ export const listingsRelations = relations(listings, ({ one, many }) => ({
   owner: one(users, {
     fields: [listings.ownerId],
     references: [users.id],
+  }),
+  community: one(communities, {
+    fields: [listings.communityId],
+    references: [communities.id],
   }),
   category: one(listingCategories, {
     fields: [listings.categoryId],

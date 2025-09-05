@@ -2,6 +2,7 @@
 // Only import and use './_relations' in your app entrypoint or DAL setup if needed for relation registration.
 
 import * as users from "./users.schema";
+import * as communities from "./communities.schema";
 import * as listings from "./listings.schema";
 import * as rentals from "./rentals.schema";
 import * as payments from "./payments.schema";
@@ -12,6 +13,7 @@ import * as sessions from "./sessions.schema";
 
 export const schema = {
   ...users,
+  ...communities,
   ...listings,
   ...rentals,
   ...payments,

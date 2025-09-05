@@ -9,6 +9,7 @@ import {
   listingImages,
 } from "../schemas/listings.schema";
 import { users } from "../schemas/users.schema";
+import { communityMemberships } from "../schemas/communities.schema";
 
 // Infer types
 type NewListing = InferInsertModel<typeof listings>;
@@ -535,6 +536,26 @@ async function main() {
     throw new Error("No users found. Run user seed first.");
   }
 
+  // Get all community memberships to assign listings to the correct communities
+  const allMemberships = await db
+    .select({
+      userId: communityMemberships.userId,
+      communityId: communityMemberships.communityId,
+    })
+    .from(communityMemberships);
+
+  if (allMemberships.length === 0) {
+    throw new Error(
+      "No community memberships found. Run communities seed first.",
+    );
+  }
+
+  // Create a map of userId to communityId for quick lookup
+  const userCommunityMap = new Map<string, string>();
+  allMemberships.forEach((membership) => {
+    userCommunityMap.set(membership.userId, membership.communityId);
+  });
+
   const categories: NewCategory[] = [
     {
       id: faker.string.uuid(),
@@ -645,6 +666,11 @@ async function main() {
 
   for (let i = 0; i < totalListings; i++) {
     const owner = faker.helpers.arrayElement(allUsers);
+    const ownerCommunityId = userCommunityMap.get(owner.id);
+
+    if (!ownerCommunityId) {
+      throw new Error(`Owner ${owner.id} is not a member of any community`);
+    }
     const template = faker.helpers.arrayElement(listingTemplates);
     const category =
       findCategory(template.category) || faker.helpers.arrayElement(categories);
@@ -670,6 +696,7 @@ async function main() {
     const listing: NewListing = {
       id: listingId,
       ownerId: owner.id,
+      communityId: ownerCommunityId,
       categoryId: category.id,
       name: faker.helpers.arrayElement(nameVariations),
       description: template.description + ". " + faker.lorem.sentence(),

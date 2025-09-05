@@ -23,7 +23,11 @@ import {
   type PaginatedResult,
 } from "./types";
 import { schema } from "@/db/schemas";
-import { getCurrentUserId } from "@/features/authentication/auth.utils";
+import {
+  getCurrentUserId,
+  getCurrentUserCommunityId,
+  requireCommunityMembership,
+} from "@/features/authentication/auth.utils";
 import { NotFoundError, UnauthorizedError } from "./errors";
 
 const {
@@ -109,14 +113,22 @@ export interface GarageListingFilters {
 
 export class ListingDAL extends BaseDAL {
   async createListing(
-    ownerId: string,
     listingData: CreateListingDTO,
   ): Promise<typeof listings.$inferSelect> {
     try {
+      // Get current user and their community membership
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      const userCommunityInfo = await requireCommunityMembership();
+
       const [listing] = await this.db
         .insert(listings)
         .values({
-          ownerId,
+          ownerId: userId,
+          communityId: userCommunityInfo.community.id,
           categoryId: listingData.categoryId,
           name: listingData.name,
           description: listingData.description,
@@ -337,22 +349,23 @@ export class ListingDAL extends BaseDAL {
 
   async updateListing(
     id: string,
-    ownerId: string,
     updates: UpdateListingDTO,
   ): Promise<ListingDetails> {
     try {
-      // Verify ownership
+      // Get current user and their community
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Verify ownership and community membership
       const listing = await this.db.query.listings.findFirst({
-        where: eq(listings.id, id),
-        columns: { ownerId: true },
+        where: and(eq(listings.id, id), eq(listings.ownerId, userId)),
+        columns: { ownerId: true, communityId: true },
       });
 
       if (!listing) {
-        throw new NotFoundError("Listing", id);
-      }
-
-      if (listing.ownerId !== ownerId) {
-        throw new UnauthorizedError("You can only update your own listings");
+        throw new NotFoundError("Listing not found or access denied");
       }
 
       // Convert numeric fields to strings for database
@@ -381,7 +394,7 @@ export class ListingDAL extends BaseDAL {
         throw new NotFoundError("Listing", id);
       }
 
-      return this.getListingById(id, ownerId);
+      return this.getListingById(id, userId);
     } catch (error) {
       this.handleError(error, "updateListing");
     }
@@ -446,11 +459,7 @@ export class ListingDAL extends BaseDAL {
       });
 
       if (!listing) {
-        throw new NotFoundError("Listing", id);
-      }
-
-      if (listing.ownerId !== userId) {
-        throw new UnauthorizedError("You can only delete your own listings");
+        throw new NotFoundError("Listing not found or access denied");
       }
 
       const result = await this.db
@@ -476,10 +485,22 @@ export class ListingDAL extends BaseDAL {
 
       const offset = (pagination.page - 1) * pagination.limit;
 
+      // Get current user's community - required for community scoping
+      const userId = currentUserId || (await getCurrentUserId());
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      const userCommunityId = await getCurrentUserCommunityId();
+      if (!userCommunityId) {
+        throw new UnauthorizedError("User must be a member of a community");
+      }
+
       // Build the where conditions
       const whereConditions = [
         eq(listings.status, "available"),
         eq(listings.isActive, true),
+        eq(listings.communityId, userCommunityId), // Only show listings from user's community
       ];
 
       // Text search
@@ -522,9 +543,7 @@ export class ListingDAL extends BaseDAL {
       }
 
       // Exclude current user's listings
-      if (currentUserId) {
-        whereConditions.push(sql`${listings.ownerId} != ${currentUserId}`);
-      }
+      whereConditions.push(sql`${listings.ownerId} != ${userId}`);
 
       // Get total count
       const [{ total }] = await this.db
