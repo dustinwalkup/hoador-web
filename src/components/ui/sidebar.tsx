@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { VariantProps, cva } from "class-variance-authority";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, MenuIcon } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils/utils";
@@ -273,7 +273,12 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      {open ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+      <div className="hidden md:block">
+        {open ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+      </div>
+      <div className="block md:hidden">
+        <MenuIcon />
+      </div>
       <span className="sr-only">{open ? "Close Sidebar" : "Open Sidebar"}</span>
     </Button>
   );
@@ -485,7 +490,7 @@ const sidebarMenuButtonVariants = cva(
       size: {
         default: "h-8 text-sm",
         sm: "h-7 text-xs",
-        lg: "h-12 text-sm group-data-[collapsible=icon]:p-0!",
+        lg: "h-12 text-base group-data-[collapsible=icon]:p-0!",
       },
     },
     defaultVariants: {

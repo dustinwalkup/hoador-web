@@ -62,7 +62,7 @@ export function NavMain() {
                     tooltip={item.title}
                     isActive={isActive}
                   >
-                    {item.icon && <item.icon />}
+                    {item.icon && <item.icon className="!size-5" />}
                     <span>{item.title}</span>
                   </SidebarMenuButton>
                 </Link>
