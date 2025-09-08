@@ -40,11 +40,28 @@ export function NavMain() {
         </SidebarMenu> */}
         <SidebarMenu>
           {mainNav.map((item) => {
-            const isActive = item.url === pathname;
+            let isActive = pathname === item.url;
+
+            // Handle nested URLs for non-dashboard root items
+            if (!isActive && item.url !== "/dashboard") {
+              isActive = pathname.startsWith(item.url + "/");
+            }
+
+            // Special case for Rentals navigation item - should be active for all renting/lending routes
+            if (!isActive && item.url === "/dashboard/renting/requests") {
+              isActive =
+                pathname.startsWith("/dashboard/renting/") ||
+                pathname.startsWith("/dashboard/lending/");
+            }
+
             return (
               <SidebarMenuItem key={item.title} className="!cursor-pointer">
                 <Link href={item.url} passHref>
-                  <SidebarMenuButton tooltip={item.title} isActive={isActive}>
+                  <SidebarMenuButton
+                    size="lg"
+                    tooltip={item.title}
+                    isActive={isActive}
+                  >
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </SidebarMenuButton>

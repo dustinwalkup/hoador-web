@@ -4,7 +4,7 @@ import type { UserCommunityInfo } from "@/db/schemas/communities.schema";
 
 export const getCurrentUser = cache(async () => {
   // 🔧 Replace this with Clerk auth later
-  const USER_ID = "0b38f47b-c51c-4c3f-a583-a1dee5d43163";
+  const USER_ID = "0c3267b7-6943-407e-8b03-61ee6176f256";
 
   // You could hardcode or use cookies/session logic for local dev
   return userDAL.getUserById(USER_ID);

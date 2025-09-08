@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { NavDocuments } from "@/components/nav-documents";
-import { NavSecondary } from "@/components/nav-secondary";
+// import { NavDocuments } from "@/components/nav-documents";
+// import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
@@ -54,8 +54,9 @@ export function AuthenticatedSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain />
-        <NavDocuments />
-        <NavSecondary className="mt-auto" />
+        {/* TODO: Add documents */}
+        {/* <NavDocuments /> */}
+        {/* <NavSecondary className="mt-auto" /> */}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

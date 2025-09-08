@@ -4,9 +4,10 @@ export const PROFILE_TABS = {
   tabValues: [
     { value: "profile", label: "Profile" },
     { value: "reviews", label: "Reviews" },
-    { value: "verification", label: "Verification" },
-    { value: "preferences", label: "Preferences" },
-    { value: "security", label: "Security" },
+    // TODO: Add Verification, Preferences, Security
+    // { value: "verification", label: "Verification" },
+    // { value: "preferences", label: "Preferences" },
+    // { value: "security", label: "Security" },
     { value: "billing", label: "Billing" },
   ],
   editButton: {

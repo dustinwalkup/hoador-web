@@ -1,6 +1,6 @@
 "use client";
 import {
-  AlertCircle,
+  // AlertCircle,
   CreditCard,
   Download,
   DollarSign,
@@ -26,7 +26,8 @@ import {
 export function BillingTab() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Card>
+      {/* TODO: Add payment method */}
+      {/* <Card>
         <CardHeader>
           <CardTitle>Payment Methods</CardTitle>
           <CardDescription>
@@ -71,8 +72,7 @@ export function BillingTab() {
             Add Payment Method
           </Button>
         </CardContent>
-      </Card>
-
+      </Card> */}
       <Card>
         <CardHeader>
           <CardTitle>Earnings & Payouts</CardTitle>
@@ -109,7 +109,6 @@ export function BillingTab() {
           <Button className="w-full">Request Payout</Button>
         </CardContent>
       </Card>
-
       <Card>
         <CardHeader>
           <CardTitle>Transaction History</CardTitle>
@@ -195,8 +194,8 @@ export function BillingTab() {
           </div>
         </CardContent>
       </Card>
-
-      <Card>
+      {/* TODO: Add tax information */}
+      {/* <Card>
         <CardHeader>
           <CardTitle>Tax Information</CardTitle>
           <CardDescription>Manage tax documents and settings</CardDescription>
@@ -238,7 +237,7 @@ export function BillingTab() {
             </p>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import {
   BellIcon,
   CreditCardIcon,
   LogOutIcon,
-  MoreVerticalIcon,
+  // MoreVerticalIcon,
   UserCircleIcon,
 } from "lucide-react";
 
@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  // DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
@@ -34,29 +34,30 @@ export function NavUser({ user }: { user: UserProfile }) {
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage
-                  src="/images/mock/users/testUser.jpg"
-                  alt={getUserFullName(user)}
-                />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">
-                  {getUserFullName(user)}
-                </span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {user.email}
-                </span>
-              </div>
-              <MoreVerticalIcon className="ml-auto size-4" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
+          {/* TODO: Add Dropmenu and DropmenuTrigger */}
+          {/* <DropdownMenuTrigger asChild> */}
+          <SidebarMenuButton
+            size="lg"
+            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+          >
+            <Avatar className="h-8 w-8 rounded-lg grayscale">
+              <AvatarImage
+                src="/images/mock/users/testUser.jpg"
+                alt={getUserFullName(user)}
+              />
+              <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+            </Avatar>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">
+                {getUserFullName(user)}
+              </span>
+              <span className="text-muted-foreground truncate text-xs">
+                {user.email}
+              </span>
+            </div>
+            {/* <MoreVerticalIcon className="ml-auto size-4" /> */}
+          </SidebarMenuButton>
+          {/* </DropdownMenuTrigger> */}
           <DropdownMenuContent
             className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}

@@ -1,7 +1,7 @@
 import type { FunctionComponent, SVGProps } from "react";
 import {
   WarehouseIcon,
-  HeartIcon,
+  // HeartIcon,
   UserIcon,
   MailIcon,
   HomeIcon,
@@ -26,7 +26,8 @@ export interface MainNavItem {
 export const MAIN_NAV: MainNavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: HomeIcon },
   { title: "Explore", url: "/dashboard/explore", icon: DoorIcon },
-  { title: "Favorites", url: "/dashboard/favorites", icon: HeartIcon },
+  // TODO: Add Favorites
+  // { title: "Favorites", url: "/dashboard/favorites", icon: HeartIcon },
   { title: "Rentals", url: "/dashboard/renting/requests", icon: CalendarIcon },
   { title: "Garage", url: "/dashboard/garage", icon: WarehouseIcon },
   { title: "Mailbox", url: "/dashboard/mailbox", icon: MailIcon },
