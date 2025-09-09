@@ -2,9 +2,6 @@ import { PublicSidebar } from "@/components/public-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
 export default function ExploreLayout({
   children,
 }: {

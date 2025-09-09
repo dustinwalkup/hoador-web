@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { Suspense } from "react";
 import { RentalDetailsClient } from "../../_components/rental-details-client";
 

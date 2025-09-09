@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { listingDAL } from "@/dal";
 import { AddListingForm } from "./_components/add-listing-form";
 import { BackButton } from "../../../../components/back-button";

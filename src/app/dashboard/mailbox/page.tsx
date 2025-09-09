@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { MailboxClient } from "@/features/messages/components/mailbox-client";
 import { messagesDAL } from "@/dal";
 

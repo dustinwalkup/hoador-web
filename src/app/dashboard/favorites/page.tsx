@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import FavoritesClientComponent from "@/components/dashboard/favorites-client-component";
 
 export default async function FavoritesPage() {
