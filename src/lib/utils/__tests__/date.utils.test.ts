@@ -5,7 +5,7 @@ import {
   formatPPP,
   formatDistanceToNow,
   formatDate,
-} from "./date.utils";
+} from "../date.utils";
 
 describe("date.utils", () => {
   // Mock Date.now() to have consistent test results
