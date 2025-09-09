@@ -48,10 +48,16 @@ const baseListingSchema = z.object({
 });
 
 // Helper function to add delivery validation to the schema
+type DeliveryData = {
+  deliveryAvailable: boolean;
+  deliveryFee: number;
+  deliveryRadius: number;
+};
+
 const withDeliveryValidation = <T extends z.ZodTypeAny>(schema: T) =>
   schema
     .refine(
-      (data) =>
+      (data: DeliveryData) =>
         !data.deliveryAvailable ||
         (data.deliveryAvailable && data.deliveryFee > 0),
       {
@@ -60,7 +66,7 @@ const withDeliveryValidation = <T extends z.ZodTypeAny>(schema: T) =>
       },
     )
     .refine(
-      (data) =>
+      (data: DeliveryData) =>
         !data.deliveryAvailable ||
         (data.deliveryAvailable && data.deliveryRadius > 0),
       {

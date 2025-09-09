@@ -4,10 +4,10 @@ export const createRentalRequestSchema = z
   .object({
     listingId: z.string().uuid("Invalid listing ID"),
     startDate: z.date({
-      required_error: "Start date is required",
+      message: "Start date is required",
     }),
     endDate: z.date({
-      required_error: "End date is required",
+      message: "End date is required",
     }),
     deliveryRequested: z.boolean().default(false),
     deliveryAddress: z.string().optional(),
