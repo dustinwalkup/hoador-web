@@ -33,8 +33,8 @@ export const user = pgTable("user", {
   image: text("image"),
 
   // ---- Custom profile fields ----
-  firstName: varchar("first_name", { length: 100 }),
-  lastName: varchar("last_name", { length: 100 }),
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
   status: userStatusEnum("status").default("pending_verification").notNull(),
   phone: varchar("phone", { length: 20 }),
   bio: text("bio"),
