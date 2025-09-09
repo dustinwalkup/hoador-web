@@ -34,15 +34,15 @@ Transform garage routes from server-side rendering to client-side caching using 
 
 ### Phase 2: TanStack Query Hooks
 
-- [ ] Create `/src/features/listings/hooks/use-garage.ts`
-- [ ] Implement `useActiveListings(filters)` hook
-- [ ] Implement `useInactiveListings(filters)` hook
-- [ ] Implement `useArchivedListings(filters)` hook
-- [ ] Implement `useGarageCategories()` hook
-- [ ] Define consistent query keys structure
-- [ ] Set appropriate stale times for different data types
-- [ ] Add URL state management hook (`useGarageFilters`)
-- [ ] Test hooks in isolation
+- [x] Create `/src/features/listings/hooks/use-garage.ts`
+- [x] Implement `useActiveListings(filters)` hook
+- [x] Implement `useInactiveListings(filters)` hook
+- [x] Implement `useArchivedListings(filters)` hook
+- [x] Implement `useGarageCategories()` hook
+- [x] Define consistent query keys structure
+- [x] Set appropriate stale times for different data types
+- [x] Add URL state management hook (`useGarageFilters`)
+- [x] Test hooks in isolation
 
 ### Phase 3: Convert Pages to Client Components
 
@@ -207,7 +207,7 @@ src/app/dashboard/garage/
 ## Current Status
 
 - **Phase 1**: ✅ Completed
-- **Phase 2**: Not Started
+- **Phase 2**: ✅ Completed
 - **Phase 3**: Not Started
 - **Phase 4**: Not Started
 - **Phase 5**: Not Started
