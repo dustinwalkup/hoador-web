@@ -1,9 +1,12 @@
 # .github/workflows/deploy.yml
 name: Deploy to Production
 
-# Only run on pushes to main branch
+# Only run on pushes to main branch after CI passes
 on:
-  push:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types:
+      - completed
     branches: [main]
   workflow_dispatch: # Allow manual triggering
 
@@ -17,7 +20,7 @@ jobs:
   deploy-vercel:
     name: Deploy to Vercel
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
     environment: production
     steps:
       - name: Checkout code

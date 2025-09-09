@@ -83,8 +83,12 @@ describe("reviews.utils", () => {
 
     it("should handle floating point precision issues", () => {
       // Test cases that might cause floating point precision issues
-      expect(formatReviewSummary(1.1 + 2.2, 3)).toBe("3.3000000000000003 (3 reviews)");
-      expect(formatReviewSummary(0.1 + 0.2, 2)).toBe("0.30000000000000004 (2 reviews)");
+      expect(formatReviewSummary(1.1 + 2.2, 3)).toBe(
+        "3.3000000000000003 (3 reviews)",
+      );
+      expect(formatReviewSummary(0.1 + 0.2, 2)).toBe(
+        "0.30000000000000004 (2 reviews)",
+      );
     });
   });
 });

@@ -88,4 +88,4 @@ export async function analyzeToolImage(imageUrls: string | string[]) {
       `Failed to parse OpenAI response: ${err instanceof Error ? err.message : "Unknown error"}`,
     );
   }
-} 
+}

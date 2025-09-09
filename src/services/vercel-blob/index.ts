@@ -27,4 +27,4 @@ export async function uploadToBlob(
  */
 export async function deleteFromBlob(pathname: string): Promise<void> {
   await del(pathname);
-} 
+}
