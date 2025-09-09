@@ -5,5 +5,8 @@ import { schema } from "./schemas";
 
 config({ path: ".env.local" });
 
-const sql = neon(process.env.DATABASE_URL!);
+const DATABASE_URL =
+  process.env.DATABASE_URL || "postgresql://mock:mock@localhost:5432/mock";
+
+const sql = neon(DATABASE_URL);
 export const db = drizzle(sql, { schema, logger: true });
