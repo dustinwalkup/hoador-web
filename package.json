@@ -28,7 +28,7 @@
     "ci": "bun run type-check && bun run lint && bun run test:run && bun run build"
   },
   "dependencies": {
-    "@faker-js/faker": "^9.8.0",
+    "@faker-js/faker": "^10.0.0",
     "@hookform/resolvers": "^5.1.1",
     "@neondatabase/serverless": "^1.0.0",
     "@radix-ui/react-alert-dialog": "^1.1.14",
