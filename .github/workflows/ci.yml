@@ -92,6 +92,11 @@ jobs:
           # Mock Stripe key for build (not used in production)
           STRIPE_SECRET_KEY: sk_test_mock_key_for_build_only
 
+          DATABASE_URL: postgresql://mock:mock@localhost:5432/mock_db
+          OPENCAGE_API_KEY: mock_opencage_key_for_build
+          OPENAI_API_KEY: sk-mock_openai_key_for_build
+          SERP_API_KEY: mock_serp_key_for_build
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
