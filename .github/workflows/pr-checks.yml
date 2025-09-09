@@ -49,17 +49,16 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Run tests with coverage
         run: bun run test:coverage
 
-      - name: Comment coverage on PR
-        uses: romeovs/lcov-action@v0.3.1
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          lcov-file: ./coverage/lcov.info
-          delete-old-comments: true
+          file: ./coverage/lcov.info
+          fail_ci_if_error: false
 
   # Check for breaking changes
   breaking-changes:
@@ -91,7 +90,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build and measure
         run: |
