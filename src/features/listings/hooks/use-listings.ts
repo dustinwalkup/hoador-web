@@ -15,7 +15,7 @@ export function useSearchListings(
   const cacheKey = useMemo(() => {
     const serializedFilters = {
       query: filters.query || undefined,
-      category: filters.categoryId || undefined, // Use 'category' for consistency with API
+      category: filters.categoryId || undefined,
       minPrice: filters.minPrice || undefined,
       maxPrice: filters.maxPrice || undefined,
       condition: filters.condition?.join(",") || undefined,
