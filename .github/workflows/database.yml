@@ -24,7 +24,7 @@ jobs:
     if: github.event.inputs.operation == 'generate'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
       - name: Install dependencies
@@ -42,7 +42,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
       - name: Install dependencies
@@ -60,7 +60,7 @@ jobs:
     environment: development
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
       - name: Install dependencies
@@ -78,7 +78,7 @@ jobs:
     environment: development
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
       - name: Install dependencies
