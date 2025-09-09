@@ -48,27 +48,29 @@ const baseListingSchema = z.object({
 });
 
 // Helper function to add delivery validation to the schema
-type DeliveryData = {
-  deliveryAvailable: boolean;
-  deliveryFee: number;
-  deliveryRadius: number;
-};
-
 const withDeliveryValidation = <T extends z.ZodTypeAny>(schema: T) =>
   schema
     .refine(
-      (data: DeliveryData) =>
-        !data.deliveryAvailable ||
-        (data.deliveryAvailable && data.deliveryFee > 0),
+      (data) => {
+        const d = data as Record<string, unknown>;
+        return (
+          !d.deliveryAvailable ||
+          (d.deliveryAvailable && (d.deliveryFee as number) > 0)
+        );
+      },
       {
         message: "Delivery fee is required when delivery is available",
         path: ["deliveryFee"],
       },
     )
     .refine(
-      (data: DeliveryData) =>
-        !data.deliveryAvailable ||
-        (data.deliveryAvailable && data.deliveryRadius > 0),
+      (data) => {
+        const d = data as Record<string, unknown>;
+        return (
+          !d.deliveryAvailable ||
+          (d.deliveryAvailable && (d.deliveryRadius as number) > 0)
+        );
+      },
       {
         message: "Delivery radius is required when delivery is available",
         path: ["deliveryRadius"],
