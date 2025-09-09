@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/authentication/auth.utils";
 import { listingDAL } from "@/dal";

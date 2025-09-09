@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/features/authentication/auth.utils";
 import { PageHeader } from "@/components/page-header";

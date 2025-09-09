@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

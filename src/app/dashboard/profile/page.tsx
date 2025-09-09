@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { Star, MapPin, Calendar } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/authentication/auth.utils";
