@@ -3,14 +3,14 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/authentication/auth.utils";
 import { rentalDAL, reviewDAL } from "@/dal";
 import { PROFILE_TABS, PROFILE_OVERVIEW } from "@/constants/profile";
-import { formatReviewSummary } from "@/lib/utils/reviews.utils";
+import { formatReviewSummary } from "@/features/users/utils/reviews.utils";
 import {
   formatMemberSince,
   getUserCity,
   getUserFullName,
   getUserInitials,
   getUserState,
-} from "@/features/users/users.utils";
+} from "@/features/users/utils/users.utils";
 import { PageHeader } from "@/components/page-header";
 import {
   Card,
