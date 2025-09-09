@@ -36,6 +36,7 @@ jobs:
         run: bun run build
         env:
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           # Add other production environment variables here
 
       - name: Deploy to Vercel
