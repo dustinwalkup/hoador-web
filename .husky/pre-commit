@@ -1,1 +1,7 @@
 bun lint-staged
+
+# Run type checking if there are any TypeScript files staged
+if git diff --cached --name-only | grep -E '\.(ts|tsx)$' > /dev/null; then
+  echo "Running TypeScript type check..."
+  bun run type-check
+fi

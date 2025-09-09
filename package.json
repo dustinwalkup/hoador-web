@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "type-check": "tsc --noEmit --skipLibCheck",
     "prepare": "husky",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
@@ -82,8 +83,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
-      "eslint --fix",
-      "tsc --noEmit --skipLibCheck"
+      "eslint --fix"
     ],
     "*.{json,css,scss,md}": [
       "prettier --write"

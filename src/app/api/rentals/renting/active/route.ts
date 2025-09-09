@@ -1,8 +1,7 @@
-import { NextRequest } from "next/server";
 import { rentalDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const { data, error } = await tryCatch(
     (async () => {
       const borrowedData = await rentalDAL.getBorrowedListings();
