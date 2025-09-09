@@ -150,12 +150,22 @@ export function useGarageFilters() {
     (updates: Partial<GarageListingFilters>) => {
       const params = new URLSearchParams(searchParams);
 
+      // Map filter properties to URL parameter names
+      const urlParamMap: Record<keyof GarageListingFilters, string> = {
+        query: "q",
+        categoryId: "category",
+        sortBy: "sortBy",
+        sortOrder: "sortOrder",
+        rentalStatus: "rentalStatus",
+      };
+
       // Update parameters
       Object.entries(updates).forEach(([key, value]) => {
+        const urlParam = urlParamMap[key as keyof GarageListingFilters];
         if (value === undefined || value === "") {
-          params.delete(key);
+          params.delete(urlParam);
         } else {
-          params.set(key, String(value));
+          params.set(urlParam, String(value));
         }
       });
 
@@ -164,7 +174,7 @@ export function useGarageFilters() {
         params.delete("page");
       }
 
-      router.push(`${pathname}?${params.toString()}`);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [router, pathname, searchParams],
   );

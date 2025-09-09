@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useState } from "react";
 import { Search, X } from "lucide-react";
 import { debounce } from "@walkup/walkup-utils";
 
@@ -15,23 +14,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import type { GarageListingFilters } from "@/dal/listing.dal";
+import {
+  useGarageFilters,
+  useGarageCategories,
+} from "@/features/listings/hooks/use-garage";
 import { emojiMap } from "@/constants/garage";
-
-interface Category {
-  id: string;
-  name: string;
-  icon: string | null;
-}
-
-interface GarageFiltersProps {
-  currentTab: string;
-  filters: GarageListingFilters;
-  categories: Category[];
-}
+import { GarageFiltersLoadingSkeleton } from "./garage-loading-skeleton";
+import { GarageFiltersError } from "./garage-error";
 
 // Get category display name with emoji
-function getCategoryDisplayName(category: Category): string {
+function getCategoryDisplayName(category: {
+  name: string;
+  icon: string | null;
+}): string {
   const emoji =
     category.icon && emojiMap[category.icon] ? emojiMap[category.icon] : "";
   return emoji ? `${emoji} ${category.name}` : category.name;
@@ -51,36 +46,19 @@ function getRentalStatusDisplayName(status: string): string {
   }
 }
 
-function GarageFiltersContent({
-  currentTab,
-  filters,
-  categories,
-}: GarageFiltersProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+interface GarageFiltersClientProps {
+  currentTab: string;
+}
+
+export function GarageFiltersClient({ currentTab }: GarageFiltersClientProps) {
+  const { filters, updateFilters } = useGarageFilters();
+  const {
+    data: categories,
+    isLoading: categoriesLoading,
+    error: categoriesError,
+    refetch,
+  } = useGarageCategories();
   const [searchQuery, setSearchQuery] = useState(filters.query || "");
-
-  // Update URL with new parameters
-  const updateURL = (updates: Record<string, string | undefined>) => {
-    const params = new URLSearchParams(searchParams);
-
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === undefined || value === "") {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    });
-
-    // Preserve current tab
-    if (currentTab !== "active") {
-      params.set("tab", currentTab);
-    } else {
-      params.delete("tab");
-    }
-
-    router.push(`/dashboard/garage?${params.toString()}`);
-  };
 
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,32 +70,36 @@ function GarageFiltersContent({
   // Debounced search function using walkup-utils
   const debouncedUpdateSearch = debounce((...args: unknown[]) => {
     const query = args[0] as string;
-    updateURL({ q: query || undefined });
+    updateFilters({ query: query || undefined });
   }, 300);
 
   // Handle clear search
   const handleClearSearch = () => {
     setSearchQuery("");
-    updateURL({ q: undefined });
+    updateFilters({ query: undefined });
   };
 
   // Handle sort change
   const handleSortChange = (value: string) => {
     const [sortBy, sortOrder] = value.split("-");
-    updateURL({ sortBy, sortOrder });
+    updateFilters({
+      sortBy: sortBy as "newest" | "name" | "lastRented",
+      sortOrder: sortOrder as "asc" | "desc",
+    });
   };
 
   // Handle category change
   const handleCategoryChange = (categoryId: string) => {
-    updateURL({
-      category: categoryId === "all" ? undefined : categoryId,
+    updateFilters({
+      categoryId: categoryId === "all" ? undefined : categoryId,
     });
   };
 
   // Handle rental status change (only for active tab)
   const handleRentalStatusChange = (status: string) => {
-    updateURL({
-      rentalStatus: status === "all" ? undefined : status,
+    updateFilters({
+      rentalStatus:
+        status === "all" ? undefined : (status as "available" | "rented"),
     });
   };
 
@@ -126,6 +108,16 @@ function GarageFiltersContent({
     if (!filters.sortBy) return "newest-desc";
     return `${filters.sortBy}-${filters.sortOrder || "desc"}`;
   };
+
+  if (categoriesLoading) {
+    return <GarageFiltersLoadingSkeleton />;
+  }
+
+  if (categoriesError) {
+    return (
+      <GarageFiltersError error={categoriesError} onRetry={() => refetch()} />
+    );
+  }
 
   return (
     <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -176,11 +168,13 @@ function GarageFiltersContent({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
-                {getCategoryDisplayName(category)}
-              </SelectItem>
-            ))}
+            {categories?.map(
+              (category: { id: string; name: string; icon: string | null }) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {getCategoryDisplayName(category)}
+                </SelectItem>
+              ),
+            )}
           </SelectContent>
         </Select>
 
@@ -208,32 +202,5 @@ function GarageFiltersContent({
         )}
       </div>
     </div>
-  );
-}
-interface GarageFiltersWrapperProps {
-  currentTab: string;
-  filters: GarageListingFilters;
-  categories: Array<{
-    id: string;
-    name: string;
-    icon: string | null;
-  }>;
-}
-
-export function GarageFilters({
-  currentTab,
-  filters,
-  categories,
-}: GarageFiltersWrapperProps) {
-  return (
-    <Suspense
-      fallback={<div className="bg-muted mt-6 h-20 animate-pulse rounded" />}
-    >
-      <GarageFiltersContent
-        currentTab={currentTab}
-        filters={filters}
-        categories={categories}
-      />
-    </Suspense>
   );
 }

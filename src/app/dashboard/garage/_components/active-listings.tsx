@@ -1,14 +1,17 @@
+"use client";
+
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
-import { getCurrentUser } from "@/features/authentication/auth.utils";
 import { capitalize } from "@/lib/utils/utils";
-import { listingDAL } from "@/dal";
-import type { GarageListingFilters } from "@/dal/listing.dal";
+import { useActiveListings } from "@/features/listings/hooks/use-garage";
+import type { GarageListingFilters } from "@/features/listings/hooks/use-garage";
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import RentalCard from "@/components/dashboard/rental-card";
+import { GarageLoadingSkeleton } from "./garage-loading-skeleton";
+import { GarageError } from "./garage-error";
 
 function getStatus(status: string): "rented" | "listed" | "" {
   if (status === "available") return "listed";
@@ -16,16 +19,25 @@ function getStatus(status: string): "rented" | "listed" | "" {
   return "";
 }
 
-interface ActiveTabProps {
+interface ActiveListingsProps {
   filters: GarageListingFilters;
 }
 
-export async function ActiveTab({ filters }: ActiveTabProps) {
-  const user = await getCurrentUser();
-  const activeListings = await listingDAL.getUserActiveListingsWithFilters(
-    user.id,
-    filters,
-  );
+export function ActiveListings({ filters }: ActiveListingsProps) {
+  const {
+    data: activeListings,
+    isLoading,
+    error,
+    refetch,
+  } = useActiveListings(filters);
+
+  if (isLoading) {
+    return <GarageLoadingSkeleton />;
+  }
+
+  if (error) {
+    return <GarageError error={error} onRetry={() => refetch()} />;
+  }
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
