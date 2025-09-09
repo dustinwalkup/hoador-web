@@ -33,7 +33,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={header.titleFor(user.firstName)}
+        title={header.titleFor(user?.firstName ?? "User")}
         description={header.description}
         className="mb-2"
       />
