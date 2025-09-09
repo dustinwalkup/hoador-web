@@ -92,39 +92,7 @@ export default async function VerificationPage() {
               </div>
 
               <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                      user.phoneVerified
-                        ? "bg-green-100 text-green-600"
-                        : "bg-amber-100 text-amber-600"
-                    }`}
-                  >
-                    {user.phoneVerified ? (
-                      <CheckCircle className="h-5 w-5" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-medium">Phone Verification</h3>
-                    <p className="text-muted-foreground text-sm">
-                      {user.phoneVerified
-                        ? "Your phone number has been verified"
-                        : "Verify your phone number for SMS notifications"}
-                    </p>
-                  </div>
-                </div>
-                {user.phoneVerified ? (
-                  <Badge
-                    variant="outline"
-                    className="bg-green-50 text-green-600"
-                  >
-                    Verified
-                  </Badge>
-                ) : (
-                  <Button size="sm">Verify Now</Button>
-                )}
+                <div className="flex items-center gap-3"></div>
               </div>
 
               <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
