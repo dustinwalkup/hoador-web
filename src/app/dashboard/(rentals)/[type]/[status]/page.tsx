@@ -1,13 +1,6 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { rentalDAL } from "@/dal";
-import type { LendingRequestItem, BorrowedListing } from "@/dal/rentals.dal";
-import { RentingRequestsListWrapper } from "@/features/rentals/components/renting-lending/renting-requests-list-wrapper";
-import { LendingRequestsListWrapper } from "@/features/rentals/components/renting-lending/lending-requests-list-wrapper";
-import { BorrowedListingsListWrapper } from "@/features/rentals/components/renting-lending/borrowed-listings-list-wrapper";
+import { notFound } from "next/navigation";
+import { RentalsClient } from "../../_components/rentals-client";
 
 interface RentalsPageProps {
   params: Promise<{
@@ -16,171 +9,34 @@ interface RentalsPageProps {
   }>;
 }
 
-type StatusConfig = {
-  displayName: string;
-  emptyMessage: string;
-  emptyAction?: { label: string; href: string };
-};
-
 // Valid routes configuration
-const validRoutes: Record<string, Record<string, StatusConfig>> = {
-  renting: {
-    requests: {
-      displayName: "Requests",
-      emptyMessage: "No pending requests.",
-      emptyAction: { label: "Browse Listings", href: "/explore" },
-    },
-    active: {
-      displayName: "Active",
-      emptyMessage: "No active rentals.",
-    },
-    completed: {
-      displayName: "Completed",
-      emptyMessage: "No completed rentals.",
-    },
-    rejected: {
-      displayName: "Rejected",
-      emptyMessage: "No rejected requests.",
-    },
-  },
-  lending: {
-    incoming: {
-      displayName: "Incoming",
-      emptyMessage: "No incoming requests.",
-    },
-    active: {
-      displayName: "Active",
-      emptyMessage: "No active lending.",
-    },
-    completed: {
-      displayName: "Completed",
-      emptyMessage: "No completed lending.",
-    },
-    rejected: {
-      displayName: "Rejected",
-      emptyMessage: "No rejected requests.",
-    },
-  },
+const validRoutes: Record<string, string[]> = {
+  renting: ["requests", "active", "completed", "rejected"],
+  lending: ["incoming", "active", "completed", "rejected"],
 };
 
-// Data fetching components
-async function RentingRequestsData({
-  status,
-  statusConfig,
-}: {
-  status: "requests" | "rejected";
-  statusConfig: StatusConfig;
-}) {
-  try {
-    const rentalRequestsData = await rentalDAL.getRentalRequestsByStatus(
-      status === "requests" ? "pending" : "rejected",
-    );
-    return (
-      <RentingRequestsListWrapper
-        data={rentalRequestsData}
-        emptyStateMessage={statusConfig.emptyMessage}
-        emptyStateAction={statusConfig.emptyAction}
-      />
-    );
-  } catch (err) {
-    const error =
-      err instanceof Error ? err.message : "Failed to fetch rental requests";
-    return (
-      <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
-        <p className="text-sm text-red-800">Error: {error}</p>
-      </div>
-    );
-  }
-}
-
-async function BorrowedListingsData({
-  status,
-  statusConfig,
-}: {
-  status: "active" | "completed";
-  statusConfig: StatusConfig;
-}) {
-  try {
-    let borrowedListingsData: BorrowedListing[] = [];
-
-    if (status === "active") {
-      const borrowedData = await rentalDAL.getBorrowedListings();
-      borrowedListingsData = borrowedData.currentRentals;
-    } else {
-      borrowedListingsData = await rentalDAL.getRentalsByStatus("completed");
-    }
-
-    return (
-      <BorrowedListingsListWrapper
-        data={borrowedListingsData}
-        currentTab={status}
-        emptyStateMessage={statusConfig.emptyMessage}
-        emptyStateAction={statusConfig.emptyAction}
-      />
-    );
-  } catch (err) {
-    const error =
-      err instanceof Error ? err.message : `Failed to fetch ${status} rentals`;
-    return (
-      <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
-        <p className="text-sm text-red-800">Error: {error}</p>
-      </div>
-    );
-  }
-}
-
-async function LendingRequestsData({
-  status,
-  statusConfig,
-}: {
-  status: "incoming" | "rejected" | "active" | "completed";
-  statusConfig: StatusConfig;
-}) {
-  try {
-    let lendingRequestsData: LendingRequestItem[] = [];
-
-    if (status === "incoming") {
-      lendingRequestsData =
-        await rentalDAL.getLendingRequestsByStatus("pending");
-    } else if (status === "rejected") {
-      lendingRequestsData =
-        await rentalDAL.getLendingRequestsByStatus("rejected");
-    } else if (status === "active") {
-      lendingRequestsData = await rentalDAL.getLendingRentalsByStatus("active");
-    } else if (status === "completed") {
-      lendingRequestsData =
-        await rentalDAL.getLendingRentalsByStatus("completed");
-    }
-
-    return (
-      <LendingRequestsListWrapper
-        data={lendingRequestsData}
-        emptyStateMessage={statusConfig.emptyMessage}
-        emptyStateAction={statusConfig.emptyAction}
-      />
-    );
-  } catch (err) {
-    const error =
-      err instanceof Error ? err.message : `Failed to fetch ${status} lending`;
-    return (
-      <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
-        <p className="text-sm text-red-800">Error: {error}</p>
-      </div>
-    );
-  }
-}
-
-// Loading fallback component
-function DataLoadingFallback() {
+function RentalsPageSkeleton() {
   return (
-    <div>
-      <div className="mb-6 flex justify-between">
-        <div className="bg-muted h-10 w-[448px] animate-pulse rounded-lg" />
-        <div className="bg-muted h-10 w-[192px] animate-pulse rounded-lg" />
+    <div className="space-y-6">
+      <div className="mb-6">
+        <div className="bg-muted h-10 w-full max-w-2xl animate-pulse rounded-lg" />
       </div>
       <div className="space-y-4">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-muted h-48 animate-pulse rounded-lg" />
+          <div key={i} className="rounded-lg border p-4">
+            <div className="flex items-center space-x-4">
+              <div className="bg-muted h-16 w-16 animate-pulse rounded-lg" />
+              <div className="flex-1 space-y-2">
+                <div className="bg-muted h-4 w-3/4 animate-pulse rounded" />
+                <div className="bg-muted h-3 w-1/2 animate-pulse rounded" />
+                <div className="bg-muted h-3 w-1/4 animate-pulse rounded" />
+              </div>
+              <div className="space-y-2">
+                <div className="bg-muted h-8 w-20 animate-pulse rounded" />
+                <div className="bg-muted h-6 w-16 animate-pulse rounded" />
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -191,64 +47,18 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
   const { type, status } = await params;
 
   // Validate route parameters
-  if (!validRoutes[type] || !validRoutes[type][status]) {
+  if (!validRoutes[type] || !validRoutes[type].includes(status)) {
     notFound();
   }
 
-  const typeConfig = validRoutes[type];
-  const statusConfig = typeConfig[status];
-
-  // Generate tab items
-  const tabItems = Object.entries(typeConfig).map(([statusKey, config]) => {
-    return {
-      value: statusKey,
-      label: config.displayName,
-      href: `/dashboard/${type}/${statusKey}`,
-    };
-  });
-
   return (
     <div className="space-y-6">
-      <Tabs value={status}>
-        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <TabsList className="mb-6 grid w-full min-w-max grid-cols-2 gap-1 sm:grid-cols-4">
-            {tabItems.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value} asChild>
-                <Link href={tab.href}>{tab.label}</Link>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-
-        <TabsContent value={status}>
-          <Suspense fallback={<DataLoadingFallback />}>
-            {type === "renting" &&
-              (status === "requests" || status === "rejected") && (
-                <RentingRequestsData
-                  status={status}
-                  statusConfig={statusConfig}
-                />
-              )}
-
-            {type === "renting" &&
-              (status === "active" || status === "completed") && (
-                <BorrowedListingsData
-                  status={status}
-                  statusConfig={statusConfig}
-                />
-              )}
-
-            {type === "lending" && (
-              <LendingRequestsData
-                status={
-                  status as "incoming" | "rejected" | "active" | "completed"
-                }
-                statusConfig={statusConfig}
-              />
-            )}
-          </Suspense>
-        </TabsContent>
-      </Tabs>
+      <Suspense fallback={<RentalsPageSkeleton />}>
+        <RentalsClient
+          initialType={type as "renting" | "lending"}
+          initialStatus={status}
+        />
+      </Suspense>
     </div>
   );
 }
