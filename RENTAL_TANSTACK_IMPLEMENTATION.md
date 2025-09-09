@@ -18,17 +18,19 @@ Transform rental routes from server-side rendering to client-side caching using 
 - [ ] Test all API endpoints manually
 - [ ] Verify API responses match DAL return types
 
-### Phase 2: TanStack Query Hooks
+### Phase 2: TanStack Query Hooks ✅
 
-- [ ] Create `/src/features/rentals/hooks/use-rentals.ts`
-- [ ] Implement `useRentingRequests()` hook
-- [ ] Implement `useRentingActive()` hook
-- [ ] Implement `useRentingCompleted()` hook
-- [ ] Implement `useLendingRequests()` hook
-- [ ] Implement `useRentalDetails()` hook
-- [ ] Implement `usePrefetchRental()` hook
-- [ ] Define consistent query keys structure
-- [ ] Set appropriate stale times for different data types
+- [x] Create `/src/features/rentals/hooks/use-rentals.ts`
+- [x] Implement `useRentingRequests()` hook
+- [x] Implement `useRentingActive()` hook
+- [x] Implement `useRentingCompleted()` hook
+- [x] Implement `useLendingRequests()` hook
+- [x] Implement `useRentalDetails()` hook
+- [x] Implement `usePrefetchRental()` hook
+- [x] Define consistent query keys structure
+- [x] Set appropriate stale times for different data types
+- [x] Added convenience hooks for specific lending statuses
+- [x] Added utility hooks for bulk data fetching
 - [ ] Test hooks in isolation
 
 ### Phase 3: Convert Pages to Client Components
@@ -69,7 +71,7 @@ Transform rental routes from server-side rendering to client-side caching using 
 ## Current Status
 
 - **Phase 1**: ✅ Complete
-- **Phase 2**: Not Started
+- **Phase 2**: ✅ Complete
 - **Phase 3**: Not Started
 - **Phase 4**: Not Started
 - **Phase 5**: Not Started
