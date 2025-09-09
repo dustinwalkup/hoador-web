@@ -1,0 +1,40 @@
+import { NextRequest } from "next/server";
+import { getCurrentUserId } from "@/features/authentication/auth.utils";
+import { listingDAL } from "@/dal";
+import type { GarageListingFilters } from "@/dal/listing.dal";
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const userId = await getCurrentUserId();
+
+    if (!userId) {
+      return Response.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
+    // Parse search parameters into GarageListingFilters
+    const filters: GarageListingFilters = {
+      query: searchParams.get("q") || undefined,
+      categoryId: searchParams.get("category") || undefined,
+      sortBy:
+        (searchParams.get("sortBy") as "newest" | "name" | "lastRented") ||
+        undefined,
+      sortOrder: (searchParams.get("sortOrder") as "asc" | "desc") || undefined,
+      // Note: rentalStatus is not applicable for archived listings
+    };
+
+    const archivedListings =
+      await listingDAL.getUserArchivedListingsWithFilters(userId, filters);
+
+    return Response.json(archivedListings);
+  } catch (error) {
+    console.error("Archived listings API error:", error);
+    return Response.json(
+      { error: "Failed to fetch archived listings" },
+      { status: 500 },
+    );
+  }
+}
