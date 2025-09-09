@@ -9,7 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { rentals } from "./rentals.schema";
-import { users } from "./users.schema";
+import { user } from "./user.schema";
 import { paymentStatusEnum } from "./_enums";
 import { relations } from "drizzle-orm";
 
@@ -20,11 +20,11 @@ export const payments = pgTable(
     rentalId: uuid("rental_id")
       .references(() => rentals.id, { onDelete: "cascade" })
       .notNull(),
-    payerId: uuid("payer_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    payerId: text("payer_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
-    payeeId: uuid("payee_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    payeeId: text("payee_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
     platformFee: decimal("platform_fee", { precision: 10, scale: 2 })
@@ -56,14 +56,14 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
     fields: [payments.rentalId],
     references: [rentals.id],
   }),
-  payer: one(users, {
+  payer: one(user, {
     fields: [payments.payerId],
-    references: [users.id],
-    relationName: "payerPayments", // Add relation name to match users schema
+    references: [user.id],
+    relationName: "payerPayments", // Add relation name to match user schema
   }),
-  payee: one(users, {
+  payee: one(user, {
     fields: [payments.payeeId],
-    references: [users.id],
+    references: [user.id],
     relationName: "payeePayments", // Add relation name to match users schema
   }),
 }));

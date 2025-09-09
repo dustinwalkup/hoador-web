@@ -24,6 +24,7 @@ async function clearDatabaseComplete() {
       "listing_categories",
       "user_sessions",
       // Better-auth tables
+      "user",
       "session",
       "account",
       "verification",

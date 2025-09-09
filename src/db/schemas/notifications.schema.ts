@@ -9,15 +9,15 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { users } from "./users.schema";
+import { user } from "./user.schema";
 import { notificationTypeEnum } from "./_enums";
 
 export const notifications = pgTable(
   "notifications",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    userId: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     type: notificationTypeEnum("type").notNull(),
     title: varchar("title", { length: 255 }).notNull(),
@@ -38,8 +38,8 @@ export const notifications = pgTable(
 );
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
-  user: one(users, {
+  user: one(user, {
     fields: [notifications.userId],
-    references: [users.id],
+    references: [user.id],
   }),
 }));

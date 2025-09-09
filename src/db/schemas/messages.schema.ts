@@ -10,7 +10,7 @@ import {
 import { relations } from "drizzle-orm";
 
 import { messageStatusEnum } from "./_enums";
-import { users } from "./users.schema";
+import { user } from "./user.schema";
 import { rentals } from "./rentals.schema";
 
 // Conversations table (1-to-1 only)
@@ -18,11 +18,11 @@ export const conversations = pgTable(
   "conversations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    user1Id: uuid("user1_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    user1Id: text("user1_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
-    user2Id: uuid("user2_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    user2Id: text("user2_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     lastMessageAt: timestamp("last_message_at"),
     // Per-user settings
@@ -54,8 +54,8 @@ export const messages = pgTable(
     conversationId: uuid("conversation_id")
       .references(() => conversations.id, { onDelete: "cascade" })
       .notNull(),
-    senderId: uuid("sender_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    senderId: text("sender_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     content: text("content").notNull(),
     status: messageStatusEnum("status").default("sent").notNull(),
@@ -79,14 +79,14 @@ export const messages = pgTable(
 export const conversationsRelations = relations(
   conversations,
   ({ one, many }) => ({
-    user1: one(users, {
+    user1: one(user, {
       fields: [conversations.user1Id],
-      references: [users.id],
+      references: [user.id],
       relationName: "conversationsAsUser1",
     }),
-    user2: one(users, {
+    user2: one(user, {
       fields: [conversations.user2Id],
-      references: [users.id],
+      references: [user.id],
       relationName: "conversationsAsUser2",
     }),
     messages: many(messages),
@@ -98,9 +98,9 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     fields: [messages.conversationId],
     references: [conversations.id],
   }),
-  sender: one(users, {
+  sender: one(user, {
     fields: [messages.senderId],
-    references: [users.id],
+    references: [user.id],
   }),
   rental: one(rentals, {
     fields: [messages.rentalId],

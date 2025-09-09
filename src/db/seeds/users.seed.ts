@@ -3,27 +3,27 @@ import { InferInsertModel } from "drizzle-orm";
 import "dotenv/config";
 import { db } from "../db";
 import {
-  users,
+  user,
   userAddresses,
   userPreferences,
   userPaymentMethods,
-} from "../schemas/users.schema";
+} from "../schemas/user.schema";
 
 // Infer types
 
-type NewUser = typeof users.$inferInsert;
+type NewUser = typeof user.$inferInsert;
 type NewAddress = InferInsertModel<typeof userAddresses>;
 type NewPreference = InferInsertModel<typeof userPreferences>;
 type NewPaymentMethod = InferInsertModel<typeof userPaymentMethods>;
 
 async function main() {
-  console.log("🌱 Seeding users-related tables...");
+  console.log("🌱 Seeding user-related tables...");
 
   // Clear existing data
   await db.delete(userPaymentMethods);
   await db.delete(userPreferences);
   await db.delete(userAddresses);
-  await db.delete(users);
+  await db.delete(user);
 
   const seedUsers: NewUser[] = [];
   const seedAddresses: NewAddress[] = [];
@@ -31,24 +31,23 @@ async function main() {
   const seedPaymentMethods: NewPaymentMethod[] = [];
 
   for (let i = 0; i < 20; i++) {
+    // BetterAuth typically uses text IDs, but UUID should work fine for seeding
     const id = faker.string.uuid();
 
     const user: NewUser = {
       id,
+      name: faker.person.fullName(),
       email: faker.internet.email(),
-      passwordHash: faker.internet.password(),
+      emailVerified: faker.datatype.boolean(),
+      image: faker.image.avatar(), // BetterAuth image field
       firstName: faker.person.firstName(),
       lastName: faker.person.lastName(),
+      status: "active",
       phone: faker.phone.number({ style: "national" }),
       bio: faker.lorem.sentences(2),
-      profileImageUrl: faker.image.avatar(),
-      status: "active",
-      emailVerified: faker.datatype.boolean(),
-      phoneVerified: faker.datatype.boolean(),
+      profileImageUrl: faker.image.avatar(), // Your custom profile image field
       idVerified: faker.datatype.boolean(),
       addressVerified: faker.datatype.boolean(),
-      twoFactorEnabled: faker.datatype.boolean(),
-      twoFactorSecret: faker.string.alphanumeric(32),
       lastLoginAt: faker.date.recent(),
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -112,7 +111,7 @@ async function main() {
     seedPaymentMethods.push(paymentMethod);
   }
 
-  await db.insert(users).values(seedUsers);
+  await db.insert(user).values(seedUsers);
   await db.insert(userAddresses).values(seedAddresses);
   await db.insert(userPreferences).values(seedPreferences);
   await db.insert(userPaymentMethods).values(seedPaymentMethods);

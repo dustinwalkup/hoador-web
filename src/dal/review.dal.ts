@@ -1,6 +1,6 @@
 import { eq, desc, count, inArray } from "drizzle-orm";
 import { reviews } from "@/db/schemas/rentals.schema";
-import { users } from "@/db/schemas/users.schema";
+import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
 import { getCurrentUserId } from "@/features/authentication/auth.utils";
 import { BaseDAL } from "./base";
@@ -108,13 +108,13 @@ export class ReviewDAL extends BaseDAL {
       reviewerIds.length > 0
         ? this.db
             .select({
-              id: users.id,
-              firstName: users.firstName,
-              lastName: users.lastName,
-              profileImageUrl: users.profileImageUrl,
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              profileImageUrl: user.profileImageUrl,
             })
-            .from(users)
-            .where(inArray(users.id, reviewerIds))
+            .from(user)
+            .where(inArray(user.id, reviewerIds))
         : [],
       listingIds.length > 0
         ? this.db

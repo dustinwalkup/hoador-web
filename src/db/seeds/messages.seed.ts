@@ -2,7 +2,7 @@ import { InferInsertModel } from "drizzle-orm";
 import { db } from "../db";
 import { faker } from "@faker-js/faker";
 import { conversations, messages } from "../schemas/messages.schema";
-import { users } from "../schemas/users.schema";
+import { user } from "../schemas/user.schema";
 
 // Types
 type NewConversation = InferInsertModel<typeof conversations>;
@@ -15,7 +15,7 @@ async function main() {
   await db.delete(messages);
   await db.delete(conversations);
 
-  const allUsers = await db.select().from(users);
+  const allUsers = await db.select().from(user);
   if (allUsers.length < 2) throw new Error("Seed at least 2 users first");
 
   const seedConversations: NewConversation[] = [];

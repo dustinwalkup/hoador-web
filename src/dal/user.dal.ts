@@ -13,38 +13,40 @@ import {
 } from "./types";
 import { ConflictError, NotFoundError } from "./errors";
 
-const { users, userPreferences, userAddresses, reviews, rentals } = schema;
+const { user, userPreferences, userAddresses, reviews, rentals } = schema;
 
 export class UserDAL extends BaseDAL {
   async createUser(userData: CreateUserDTO): Promise<UserProfile> {
     try {
       // Check if user already exists
-      const existingUser = await this.db.query.users.findFirst({
-        where: eq(users.email, userData.email),
+      const existingUser = await this.db.query.user.findFirst({
+        where: eq(user.email, userData.email),
       });
 
       if (existingUser) {
         throw new ConflictError("User with this email already exists");
       }
 
-      // Create user
-      const [user] = await this.db
-        .insert(users)
+      // Create user (BetterAuth handles password, we just create profile data)
+      const [newUser] = await this.db
+        .insert(user)
         .values({
+          id: userData.id, // BetterAuth provides the ID
+          name: `${userData.firstName} ${userData.lastName}`,
           email: userData.email,
-          passwordHash: "123",
           firstName: userData.firstName,
           lastName: userData.lastName,
           phone: userData.phone,
+          emailVerified: false,
         })
         .returning();
 
       // Create default preferences
       await this.db.insert(userPreferences).values({
-        userId: user.id,
+        userId: newUser.id,
       });
 
-      return this.getUserById(user.id);
+      return this.getUserById(newUser.id);
     } catch (error) {
       this.handleError(error, "createUser");
     }
@@ -52,15 +54,15 @@ export class UserDAL extends BaseDAL {
 
   async getUserById(id: string): Promise<UserProfile> {
     try {
-      const user = await this.db.query.users.findFirst({
-        where: eq(users.id, id),
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.id, id),
         with: {
           preferences: true,
           addresses: true, // fetch all addresses, no filter
         },
       });
 
-      if (!user) {
+      if (!userData) {
         throw new NotFoundError("User", id);
       }
 
@@ -68,23 +70,24 @@ export class UserDAL extends BaseDAL {
       const stats = await this.getUserStats(id);
 
       return {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone ?? null,
-        bio: user.bio ?? null,
-        profileImageUrl: user.profileImageUrl ?? null,
-        status: user.status,
-        emailVerified: user.emailVerified,
-        phoneVerified: user.phoneVerified,
-        idVerified: user.idVerified,
-        addressVerified: user.addressVerified,
-        createdAt: user.createdAt,
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        emailVerified: userData.emailVerified,
+        image: userData.image,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        status: userData.status,
+        phone: userData.phone ?? null,
+        bio: userData.bio ?? null,
+        profileImageUrl: userData.profileImageUrl ?? null,
+        stripeCustomerId: userData.stripeCustomerId ?? null,
+        idVerified: userData.idVerified,
+        addressVerified: userData.addressVerified,
+        createdAt: userData.createdAt,
         stats,
-        preferences: user.preferences,
-        primaryAddress: user.addresses?.[0] ?? undefined,
-        stripeCustomerId: user.stripeCustomerId ?? null,
+        preferences: userData.preferences,
+        primaryAddress: userData.addresses?.[0] ?? undefined,
       };
     } catch (error) {
       this.handleError(error, "getUserById");
@@ -108,37 +111,38 @@ export class UserDAL extends BaseDAL {
     try {
       await requireAuth();
 
-      const user = await this.db.query.users.findFirst({
-        where: eq(users.email, email),
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.email, email),
         // with: {
         //   preferences: true,
         // },
       });
 
-      if (!user) {
+      if (!userData) {
         return null;
       }
 
-      const stats = await this.getUserStats(user.id);
+      const stats = await this.getUserStats(userData.id);
 
       return {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone ?? null,
-        bio: user.bio ?? null,
-        profileImageUrl: user.profileImageUrl ?? null,
-        status: user.status,
-        emailVerified: user.emailVerified,
-        phoneVerified: user.phoneVerified,
-        idVerified: user.idVerified,
-        addressVerified: user.addressVerified,
-        createdAt: user.createdAt,
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        emailVerified: userData.emailVerified,
+        image: userData.image,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        status: userData.status,
+        phone: userData.phone ?? null,
+        bio: userData.bio ?? null,
+        profileImageUrl: userData.profileImageUrl ?? null,
+        stripeCustomerId: userData.stripeCustomerId ?? null,
+        idVerified: userData.idVerified,
+        addressVerified: userData.addressVerified,
+        createdAt: userData.createdAt,
         stats,
-        preferences: null, // user.preferences,
-        primaryAddress: undefined, // user.addresses?.[0] ?? undefined,
-        stripeCustomerId: user.stripeCustomerId ?? null,
+        preferences: null, // userData.preferences,
+        primaryAddress: undefined, // userData.addresses?.[0] ?? undefined,
       };
     } catch (error) {
       this.handleError(error, "getUserByEmail");
@@ -154,9 +158,9 @@ export class UserDAL extends BaseDAL {
       }
 
       const [updatedUser] = await this.db
-        .update(users)
+        .update(user)
         .set({ ...updates, updatedAt: new Date() })
-        .where(eq(users.id, id))
+        .where(eq(user.id, id))
         .returning();
 
       if (!updatedUser) {
@@ -194,8 +198,8 @@ export class UserDAL extends BaseDAL {
       }
 
       const result = await this.db
-        .delete(users)
-        .where(eq(users.id, id))
+        .delete(user)
+        .where(eq(user.id, id))
         .returning();
 
       if (result.length === 0) {
@@ -341,29 +345,11 @@ export class UserDAL extends BaseDAL {
       }
 
       await this.db
-        .update(users)
+        .update(user)
         .set({ emailVerified: true, updatedAt: new Date() })
-        .where(eq(users.id, userId));
+        .where(eq(user.id, userId));
     } catch (error) {
       this.handleError(error, "verifyUserEmail");
-    }
-  }
-
-  async verifyUserPhone(userId: string): Promise<void> {
-    try {
-      const auth = await requireAuth();
-
-      // Users can only verify their own phone
-      if (auth.id !== userId) {
-        throw new Error("Unauthorized: Cannot verify other user's phone");
-      }
-
-      await this.db
-        .update(users)
-        .set({ phoneVerified: true, updatedAt: new Date() })
-        .where(eq(users.id, userId));
-    } catch (error) {
-      this.handleError(error, "verifyUserPhone");
     }
   }
 
@@ -377,10 +363,10 @@ export class UserDAL extends BaseDAL {
       }
 
       await this.db
-        .update(users)
+        .update(user)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .set({ status: status as any, updatedAt: new Date() })
-        .where(eq(users.id, userId));
+        .where(eq(user.id, userId));
     } catch (error) {
       this.handleError(error, "updateUserStatus");
     }

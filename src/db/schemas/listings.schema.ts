@@ -13,7 +13,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { users } from "./users.schema";
+import { user } from "./user.schema";
 import { rentalRequests, rentals, reviews } from "./rentals.schema";
 import { collectionItems, userFavorites } from "./collections.schema";
 import { communities } from "./communities.schema";
@@ -59,8 +59,8 @@ export const listings = pgTable(
   "listings",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    ownerId: uuid("owner_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    ownerId: text("owner_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     communityId: uuid("community_id")
       .references(() => communities.id, { onDelete: "cascade" })
@@ -166,9 +166,9 @@ export const listingCategoriesRelations = relations(
 );
 
 export const listingsRelations = relations(listings, ({ one, many }) => ({
-  owner: one(users, {
+  owner: one(user, {
     fields: [listings.ownerId],
-    references: [users.id],
+    references: [user.id],
   }),
   community: one(communities, {
     fields: [listings.communityId],

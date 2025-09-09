@@ -11,7 +11,7 @@ import {
   CommunityMembershipWithDetails,
   UserCommunityInfo,
 } from "@/db/schemas/communities.schema";
-import { users } from "@/db/schemas/users.schema";
+import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
 import { getCurrentUserId } from "@/features/authentication/auth.utils";
 import { UnauthorizedError, ValidationError, NotFoundError } from "./errors";
@@ -449,11 +449,11 @@ export class CommunityDAL extends BaseDAL {
             createdAt: communityMemberships.createdAt,
             community: communities,
             user: {
-              id: users.id,
-              firstName: users.firstName,
-              lastName: users.lastName,
-              email: users.email,
-              avatarUrl: users.profileImageUrl,
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              avatarUrl: user.profileImageUrl,
             },
           })
           .from(communityMemberships)
@@ -461,7 +461,7 @@ export class CommunityDAL extends BaseDAL {
             communities,
             eq(communityMemberships.communityId, communities.id),
           )
-          .innerJoin(users, eq(communityMemberships.userId, users.id))
+          .innerJoin(user, eq(communityMemberships.userId, user.id))
           .where(and(...whereConditions))
           .orderBy(desc(communityMemberships.createdAt))
           .limit(limit)

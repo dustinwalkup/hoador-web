@@ -2,7 +2,7 @@ import { eq, and, inArray, sql } from "drizzle-orm";
 
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { listings, listingImages } from "@/db/schemas/listings.schema";
-import { users } from "@/db/schemas/users.schema";
+import { user } from "@/db/schemas/user.schema";
 import { type CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { getCurrentUserId } from "@/features/authentication/auth.utils";
 import { differenceInDays } from "@/lib/utils/date.utils";
@@ -250,7 +250,7 @@ export class RentalDAL extends BaseDAL {
           listingId: rentals.listingId,
           listingName: listings.name,
           ownerId: rentals.ownerId,
-          ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+          ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
           startDate: rentals.startDate,
           endDate: rentals.endDate,
           totalAmount: rentals.totalAmount,
@@ -259,7 +259,7 @@ export class RentalDAL extends BaseDAL {
         })
         .from(rentals)
         .innerJoin(listings, eq(rentals.listingId, listings.id))
-        .innerJoin(users, eq(rentals.ownerId, users.id))
+        .innerJoin(user, eq(rentals.ownerId, user.id))
         .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
         .where(
           and(
@@ -445,7 +445,7 @@ export class RentalDAL extends BaseDAL {
           listingName: listings.name,
           renterId: rentalRequests.renterId,
           ownerId: rentalRequests.ownerId,
-          ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+          ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
           startDate: rentalRequests.startDate,
           endDate: rentalRequests.endDate,
           totalDays: rentalRequests.totalDays,
@@ -463,7 +463,7 @@ export class RentalDAL extends BaseDAL {
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
-        .innerJoin(users, eq(rentalRequests.ownerId, users.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
         .where(eq(rentalRequests.id, requestId))
         .limit(1);
 
@@ -520,7 +520,7 @@ export class RentalDAL extends BaseDAL {
           listingName: listings.name,
           renterId: rentalRequests.renterId,
           ownerId: rentalRequests.ownerId,
-          ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+          ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
           startDate: rentalRequests.startDate,
           endDate: rentalRequests.endDate,
           totalDays: rentalRequests.totalDays,
@@ -536,7 +536,7 @@ export class RentalDAL extends BaseDAL {
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
-        .innerJoin(users, eq(rentalRequests.ownerId, users.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
         .where(
           and(
             eq(rentalRequests.renterId, userId),
@@ -596,8 +596,8 @@ export class RentalDAL extends BaseDAL {
           listingId: rentalRequests.listingId,
           listingName: listings.name,
           renterId: rentalRequests.renterId,
-          renterName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
-          renterProfileImage: users.profileImageUrl,
+          renterName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+          renterProfileImage: user.profileImageUrl,
           startDate: rentalRequests.startDate,
           endDate: rentalRequests.endDate,
           totalDays: rentalRequests.totalDays,
@@ -616,7 +616,7 @@ export class RentalDAL extends BaseDAL {
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
-        .innerJoin(users, eq(rentalRequests.renterId, users.id))
+        .innerJoin(user, eq(rentalRequests.renterId, user.id))
         .where(
           and(
             eq(rentalRequests.ownerId, userId),
@@ -680,7 +680,7 @@ export class RentalDAL extends BaseDAL {
           listingId: rentals.listingId,
           listingName: listings.name,
           ownerId: rentals.ownerId,
-          ownerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+          ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
           startDate: rentals.startDate,
           endDate: rentals.endDate,
           totalAmount: rentals.totalAmount,
@@ -689,7 +689,7 @@ export class RentalDAL extends BaseDAL {
         })
         .from(rentals)
         .innerJoin(listings, eq(rentals.listingId, listings.id))
-        .innerJoin(users, eq(rentals.ownerId, users.id))
+        .innerJoin(user, eq(rentals.ownerId, user.id))
         .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
         .where(and(eq(rentals.renterId, userId), eq(rentals.status, status)))
         .orderBy(rentals.startDate);
@@ -745,8 +745,8 @@ export class RentalDAL extends BaseDAL {
           listingId: rentals.listingId,
           listingName: listings.name,
           renterId: rentals.renterId,
-          renterName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
-          renterProfileImage: users.profileImageUrl,
+          renterName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+          renterProfileImage: user.profileImageUrl,
           startDate: rentals.startDate,
           endDate: rentals.endDate,
           totalDays: rentalRequests.totalDays,
@@ -765,7 +765,7 @@ export class RentalDAL extends BaseDAL {
         })
         .from(rentals)
         .innerJoin(listings, eq(rentals.listingId, listings.id))
-        .innerJoin(users, eq(rentals.renterId, users.id))
+        .innerJoin(user, eq(rentals.renterId, user.id))
         .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
         .where(and(eq(rentals.ownerId, userId), eq(rentals.status, status)))
         .orderBy(rentals.createdAt);
@@ -1026,13 +1026,13 @@ export class RentalDAL extends BaseDAL {
           .limit(1);
 
         // Get renter details
-        const renter = await this.db.query.users.findFirst({
-          where: eq(users.id, request.renterId),
+        const renter = await this.db.query.user.findFirst({
+          where: eq(user.id, request.renterId),
         });
 
         // Get owner details
-        const owner = await this.db.query.users.findFirst({
-          where: eq(users.id, request.ownerId),
+        const owner = await this.db.query.user.findFirst({
+          where: eq(user.id, request.ownerId),
         });
 
         return {
@@ -1147,13 +1147,13 @@ export class RentalDAL extends BaseDAL {
         .limit(1);
 
       // Get renter details
-      const renter = await this.db.query.users.findFirst({
-        where: eq(users.id, rentalData.renterId),
+      const renter = await this.db.query.user.findFirst({
+        where: eq(user.id, rentalData.renterId),
       });
 
       // Get owner details
-      const owner = await this.db.query.users.findFirst({
-        where: eq(users.id, rentalData.ownerId),
+      const owner = await this.db.query.user.findFirst({
+        where: eq(user.id, rentalData.ownerId),
       });
 
       return {

@@ -4,7 +4,7 @@ import "dotenv/config";
 import { db } from "../db";
 import { payments } from "../schemas/payments.schema";
 import { rentals } from "../schemas/rentals.schema";
-import { users } from "../schemas/users.schema";
+import { user } from "../schemas/user.schema";
 
 // Infer type
 type NewPayment = InferInsertModel<typeof payments>;
@@ -14,7 +14,7 @@ async function main() {
 
   await db.delete(payments);
 
-  const allUsers = await db.select().from(users);
+  const allUsers = await db.select().from(user);
   const allRentals = await db.select().from(rentals);
 
   console.log(

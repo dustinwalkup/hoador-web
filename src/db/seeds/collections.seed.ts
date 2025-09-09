@@ -7,7 +7,7 @@ import {
   userCollections,
   collectionItems,
 } from "../schemas/collections.schema";
-import { users } from "../schemas/users.schema";
+import { user } from "../schemas/user.schema";
 import { listings } from "../schemas/listings.schema";
 
 // Infer types
@@ -23,7 +23,7 @@ async function main() {
   await db.delete(userFavorites);
   await db.delete(userCollections);
 
-  const allUsers = await db.select().from(users);
+  const allUsers = await db.select().from(user);
   const allListings = await db.select().from(listings);
 
   if (allUsers.length === 0 || allListings.length === 0) {

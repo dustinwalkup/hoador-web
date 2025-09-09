@@ -6,9 +6,10 @@ import {
   pgEnum,
   index,
   uniqueIndex,
+  text,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { users } from "./users.schema";
+import { user } from "./user.schema";
 import { listings } from "./listings.schema";
 
 // Community membership role enum
@@ -47,8 +48,8 @@ export const communityMemberships = pgTable(
   "community_memberships",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    userId: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     communityId: uuid("community_id")
       .references(() => communities.id, { onDelete: "cascade" })
@@ -76,9 +77,9 @@ export const communitiesRelations = relations(communities, ({ many }) => ({
 export const communityMembershipsRelations = relations(
   communityMemberships,
   ({ one }) => ({
-    user: one(users, {
+    user: one(user, {
       fields: [communityMemberships.userId],
-      references: [users.id],
+      references: [user.id],
     }),
     community: one(communities, {
       fields: [communityMemberships.communityId],
@@ -106,8 +107,8 @@ export type CommunityMembershipWithDetails = CommunityMembership & {
   community: Community;
   user: {
     id: string;
-    firstName: string;
-    lastName: string;
+    firstName: string | null;
+    lastName: string | null;
     email: string;
     avatarUrl?: string | null;
   };

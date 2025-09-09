@@ -12,7 +12,7 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-import { users } from "./users.schema";
+import { user } from "./user.schema";
 import { listings } from "./listings.schema";
 import { rentalStatusEnum } from "./_enums";
 import { relations } from "drizzle-orm";
@@ -26,11 +26,11 @@ export const rentalRequests = pgTable(
     listingId: uuid("listing_id")
       .references(() => listings.id, { onDelete: "cascade" })
       .notNull(),
-    renterId: uuid("renter_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    renterId: text("renter_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
-    ownerId: uuid("owner_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    ownerId: text("owner_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     startDate: timestamp("start_date").notNull(),
     endDate: timestamp("end_date").notNull(),
@@ -79,11 +79,11 @@ export const rentals = pgTable(
     listingId: uuid("listing_id")
       .references(() => listings.id, { onDelete: "cascade" })
       .notNull(),
-    renterId: uuid("renter_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    renterId: text("renter_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
-    ownerId: uuid("owner_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    ownerId: text("owner_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     startDate: timestamp("start_date").notNull(),
     endDate: timestamp("end_date").notNull(),
@@ -130,11 +130,11 @@ export const reviews = pgTable(
     rentalId: uuid("rental_id")
       .references(() => rentals.id, { onDelete: "cascade" })
       .notNull(),
-    reviewerId: uuid("reviewer_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    reviewerId: text("reviewer_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
-    revieweeId: uuid("reviewee_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    revieweeId: text("reviewee_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     listingId: uuid("listing_id")
       .references(() => listings.id, { onDelete: "cascade" })
@@ -162,14 +162,14 @@ export const rentalRequestsRelations = relations(rentalRequests, ({ one }) => ({
     fields: [rentalRequests.listingId],
     references: [listings.id],
   }),
-  renter: one(users, {
+  renter: one(user, {
     fields: [rentalRequests.renterId],
-    references: [users.id],
+    references: [user.id],
     relationName: "renterRequests", // Add explicit relation name
   }),
-  owner: one(users, {
+  owner: one(user, {
     fields: [rentalRequests.ownerId],
-    references: [users.id],
+    references: [user.id],
     relationName: "ownerRequests", // Add explicit relation name
   }),
   // Fix: Add proper field/reference mapping for rental relation
@@ -188,14 +188,14 @@ export const rentalsRelations = relations(rentals, ({ one, many }) => ({
     fields: [rentals.listingId],
     references: [listings.id],
   }),
-  renter: one(users, {
+  renter: one(user, {
     fields: [rentals.renterId],
-    references: [users.id],
+    references: [user.id],
     relationName: "renterRentals", // Add explicit relation name
   }),
-  owner: one(users, {
+  owner: one(user, {
     fields: [rentals.ownerId],
-    references: [users.id],
+    references: [user.id],
     relationName: "ownerRentals", // Add explicit relation name
   }),
   reviews: many(reviews),
@@ -207,14 +207,14 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
     fields: [reviews.rentalId],
     references: [rentals.id],
   }),
-  reviewer: one(users, {
+  reviewer: one(user, {
     fields: [reviews.reviewerId],
-    references: [users.id],
+    references: [user.id],
     relationName: "reviewsGiven", // Add explicit relation name
   }),
-  reviewee: one(users, {
+  reviewee: one(user, {
     fields: [reviews.revieweeId],
-    references: [users.id],
+    references: [user.id],
     relationName: "reviewsReceived", // Add explicit relation name
   }),
   listing: one(listings, {

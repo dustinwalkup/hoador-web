@@ -3,7 +3,7 @@ import {
   communities,
   communityMemberships,
 } from "../schemas/communities.schema";
-import { users } from "../schemas/users.schema";
+import { user } from "../schemas/user.schema";
 
 export async function main() {
   console.log("🏘️ Seeding communities...");
@@ -46,12 +46,12 @@ export async function main() {
 
   console.log(`✅ Created ${insertedCommunities.length} communities`);
 
-  // Get all users to assign them to communities
-  const allUsers = await db.select().from(users);
+  // Get all user to assign them to communities
+  const allUsers = await db.select().from(user);
   console.log(`👥 Found ${allUsers.length} users to assign to communities`);
 
   if (allUsers.length === 0) {
-    console.log("⚠️ No users found - make sure users.seed.ts runs before this");
+    console.log("⚠️ No user found - make sure user.seed.ts runs before this");
     return;
   }
 

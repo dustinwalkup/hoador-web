@@ -8,7 +8,7 @@ import {
   listingAvailability,
   listingImages,
 } from "../schemas/listings.schema";
-import { users } from "../schemas/users.schema";
+import { user } from "../schemas/user.schema";
 import { communityMemberships } from "../schemas/communities.schema";
 
 // Infer types
@@ -530,7 +530,7 @@ async function main() {
   await db.delete(listings);
   await db.delete(listingCategories);
 
-  const allUsers = await db.select().from(users);
+  const allUsers = await db.select().from(user);
 
   if (allUsers.length === 0) {
     throw new Error("No users found. Run user seed first.");

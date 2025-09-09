@@ -1,13 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import {
-  userAddresses,
-  userPreferences,
-  users,
-} from "@/db/schemas/users.schema";
+import { userAddresses, userPreferences, user } from "@/db/schemas/user.schema";
 
 // Data Transfer Objects (DTOs)
 export interface CreateUserDTO {
+  id: string;
+  name: string;
   email: string;
   password: string;
   firstName: string;
@@ -115,7 +113,7 @@ export interface PaginatedResult<T> {
   };
 }
 
-type UserDB = typeof users.$inferSelect;
+type UserDB = typeof user.$inferSelect;
 type PreferencesDB = typeof userPreferences.$inferSelect;
 type AddressDB = typeof userAddresses.$inferSelect;
 

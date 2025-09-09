@@ -37,7 +37,7 @@ const {
   listingAvailability,
   userFavorites,
   listingImages,
-  users,
+  user,
 } = schema;
 
 type ListingDb = typeof listings.$inferSelect;
@@ -553,7 +553,7 @@ export class ListingDAL extends BaseDAL {
           listingCategories,
           eq(listings.categoryId, listingCategories.id),
         )
-        .innerJoin(users, eq(listings.ownerId, users.id))
+        .innerJoin(user, eq(listings.ownerId, user.id))
         .where(and(...whereConditions));
 
       // Build the order by clause
@@ -592,10 +592,10 @@ export class ListingDAL extends BaseDAL {
             icon: listingCategories.icon,
           },
           owner: {
-            id: users.id,
-            firstName: users.firstName,
-            lastName: users.lastName,
-            profileImageUrl: users.profileImageUrl,
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            profileImageUrl: user.profileImageUrl,
           },
         })
         .from(listings)
@@ -603,7 +603,7 @@ export class ListingDAL extends BaseDAL {
           listingCategories,
           eq(listings.categoryId, listingCategories.id),
         )
-        .innerJoin(users, eq(listings.ownerId, users.id))
+        .innerJoin(user, eq(listings.ownerId, user.id))
         .where(and(...whereConditions))
         .orderBy(...orderByClause)
         .limit(pagination.limit)

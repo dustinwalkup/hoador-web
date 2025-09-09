@@ -3,7 +3,7 @@ import { InferInsertModel } from "drizzle-orm";
 import "dotenv/config";
 import { db } from "../db";
 import { notifications } from "../schemas/notifications.schema";
-import { users } from "../schemas/users.schema";
+import { user } from "../schemas/user.schema";
 
 type NewNotification = InferInsertModel<typeof notifications>;
 
@@ -12,7 +12,7 @@ async function main() {
 
   await db.delete(notifications);
 
-  const allUsers = await db.select().from(users);
+  const allUsers = await db.select().from(user);
 
   if (allUsers.length === 0) {
     throw new Error("No users found. Seed users first.");

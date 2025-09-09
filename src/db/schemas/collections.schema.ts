@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { listings } from "./listings.schema";
-import { users } from "./users.schema";
+import { user } from "./user.schema";
 import { relations } from "drizzle-orm";
 
 // User favorites
@@ -18,8 +18,8 @@ export const userFavorites = pgTable(
   "user_favorites",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    userId: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     listingId: uuid("listing_id")
       .references(() => listings.id, { onDelete: "cascade" })
@@ -41,8 +41,8 @@ export const userCollections = pgTable(
   "user_collections",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-      .references(() => users.id, { onDelete: "cascade" })
+    userId: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
@@ -80,9 +80,9 @@ export const collectionItems = pgTable(
 );
 
 export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
-  user: one(users, {
+  user: one(user, {
     fields: [userFavorites.userId],
-    references: [users.id],
+    references: [user.id],
   }),
   listing: one(listings, {
     fields: [userFavorites.listingId],
@@ -93,9 +93,9 @@ export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
 export const userCollectionsRelations = relations(
   userCollections,
   ({ one, many }) => ({
-    user: one(users, {
+    user: one(user, {
       fields: [userCollections.userId],
-      references: [users.id],
+      references: [user.id],
     }),
     items: many(collectionItems),
   }),

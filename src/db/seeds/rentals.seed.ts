@@ -4,7 +4,7 @@ import "dotenv/config";
 import { db } from "../db";
 import { rentalRequests, rentals, reviews } from "../schemas/rentals.schema";
 import { listings } from "../schemas/listings.schema";
-import { users } from "../schemas/users.schema";
+import { user } from "../schemas/user.schema";
 
 // Infer types
 type NewRequest = InferInsertModel<typeof rentalRequests>;
@@ -155,7 +155,7 @@ async function main() {
   await db.delete(rentals);
   await db.delete(rentalRequests);
 
-  const allUsers = await db.select().from(users);
+  const allUsers = await db.select().from(user);
   const allListings = await db.select().from(listings);
 
   if (allUsers.length < 2 || allListings.length === 0) {
