@@ -15,7 +15,7 @@ export function getUserInitials(
 export function isVerified(
   user: Pick<UserProfile, "emailVerified" | "idVerified" | "addressVerified">,
 ) {
-  return user.emailVerified && user.idVerified && user.addressVerified;
+  return Boolean(user.emailVerified && user.idVerified && user.addressVerified);
 }
 
 export function getUserStreet(address?: UserProfile["primaryAddress"]): string {
@@ -47,9 +47,15 @@ export function getFullAddress(
 }
 
 export function formatMemberSince(date: string | Date): string {
+  // Handle null/undefined inputs
+  if (date == null) return "Member since Unknown";
+
   const d = typeof date === "string" ? new Date(date) : date;
 
-  if (isNaN(d.getTime())) return "Member since Unknown";
+  // Check if the date is valid
+  if (!(d instanceof Date) || isNaN(d.getTime())) {
+    return "Member since Unknown";
+  }
 
   const month = d.toLocaleString("default", { month: "long" });
   const year = d.getFullYear();
