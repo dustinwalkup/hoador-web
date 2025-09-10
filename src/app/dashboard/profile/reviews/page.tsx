@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/page-header";
 import { PROFILE_TABS } from "@/constants/profile";
 import { reviewDAL } from "@/dal";
-import { getCurrentUserId } from "@/features/authentication/auth.utils";
+import { getCurrentUserId } from "@/features/auth/auth.utils";
 
 import { ProfileTabs } from "../_components/profile-tabs";
 import { ReviewsSortingControls } from "../_components/reviews-sorting-controls";

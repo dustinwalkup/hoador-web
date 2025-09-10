@@ -1,7 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import { hideRentalHeader } from "@/features/rentals/lib/utils";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { RentalsTabs } from "@/features/rentals/components/renting-lending/rentals-tabs";
 

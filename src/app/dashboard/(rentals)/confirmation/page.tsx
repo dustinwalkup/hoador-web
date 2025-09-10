@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils/date.utils";
-import { getCurrentUser } from "@/features/authentication/auth.utils";
+import { getCurrentUser } from "@/features/auth/auth.utils";
 import { rentalDAL } from "@/dal";
 
 interface RentalConfirmationPageProps {

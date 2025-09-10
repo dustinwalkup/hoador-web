@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle } from "lucide-react";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 
 type BookingStep = "dates" | "delivery" | "windows" | "payment" | "summary";
 

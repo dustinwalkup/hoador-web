@@ -4,7 +4,7 @@ import { Clock } from "lucide-react";
 
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 
 interface TimeWindow {
   id: string;

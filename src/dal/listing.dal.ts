@@ -27,7 +27,7 @@ import {
   getCurrentUserId,
   getCurrentUserCommunityId,
   requireCommunityMembership,
-} from "@/features/authentication/auth.utils";
+} from "@/features/auth/auth.utils";
 import { NotFoundError, UnauthorizedError } from "./errors";
 
 const {

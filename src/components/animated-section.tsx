@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useScrollAnimation } from "@/hooks/use-scroll-animation";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 
 interface AnimatedSectionProps {
   children: ReactNode;

@@ -1,7 +1,7 @@
 import { AuthenticatedSidebar } from "@/components/authenticated-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { getCurrentUser } from "@/features/authentication/auth.utils";
+import { getCurrentUser } from "@/features/auth/auth.utils";
 import { redirect } from "next/navigation";
 import { ConditionalPadding } from "../../components/conditional-padding";
 

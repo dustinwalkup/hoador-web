@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { listingDAL } from "@/dal";
 import { updateListing } from "@/features/listings/actions/update-listing";
-import { getCurrentUser } from "@/features/authentication/auth.utils";
+import { getCurrentUser } from "@/features/auth/auth.utils";
 import type { ListingDetails } from "@/dal/types";
 import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
 

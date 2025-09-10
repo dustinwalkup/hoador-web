@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserProfile } from "@/dal/types";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 
 const ProfileFormSchema = z.object({
   firstName: z.string().min(1),

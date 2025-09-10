@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
-import { capitalize } from "@/lib/utils/utils";
+import { capitalize } from "@/lib/utils";
 import { useActiveListings } from "@/features/listings/hooks/use-garage";
 import type { GarageListingFilters } from "@/features/listings/hooks/use-garage";
 

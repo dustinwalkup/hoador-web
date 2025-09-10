@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { capitalize } from "../utils";
+import { capitalize } from "..";
 
 describe("utils", () => {
   describe("capitalize", () => {

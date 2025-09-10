@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/features/authentication/auth.utils";
+import { getCurrentUser } from "@/features/auth/auth.utils";
 import { listingDAL } from "@/dal";
 import { ListingDetailView } from "./_components/listing-detail-view";
 

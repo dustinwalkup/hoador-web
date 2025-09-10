@@ -13,7 +13,7 @@ import { PROFILE_TABS } from "@/constants/profile";
 import { PageHeader } from "@/components/page-header";
 import { ProfileTabs } from "../_components/profile-tabs";
 import { userDAL } from "@/dal";
-import { getCurrentUserId } from "@/features/authentication/auth.utils";
+import { getCurrentUserId } from "@/features/auth/auth.utils";
 
 export default async function VerificationPage() {
   const userId = await getCurrentUserId();

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/features/authentication/auth.utils";
+import { getCurrentUser } from "@/features/auth/auth.utils";
 import { listingDAL } from "@/dal";
 import { ListingDetailView } from "../../dashboard/listings/[id]/_components/listing-detail-view";
 

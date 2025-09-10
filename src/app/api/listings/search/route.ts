@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getCurrentUserId } from "@/features/authentication/auth.utils";
+import { getCurrentUserId } from "@/features/auth/auth.utils";
 import { listingDAL } from "@/dal";
 import type { ListingSearchFilters } from "@/dal/types";
 

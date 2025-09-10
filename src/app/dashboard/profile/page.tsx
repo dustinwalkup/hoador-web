@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { Star, MapPin, Calendar } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/features/authentication/auth.utils";
+import { getCurrentUser } from "@/features/auth/auth.utils";
 import { rentalDAL, reviewDAL } from "@/dal";
 import { PROFILE_TABS, PROFILE_OVERVIEW } from "@/constants/profile";
 import { formatReviewSummary } from "@/features/users/utils/reviews.utils";

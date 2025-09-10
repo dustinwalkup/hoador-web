@@ -13,7 +13,7 @@ import {
 } from "@/db/schemas/communities.schema";
 import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
-import { getCurrentUserId } from "@/features/authentication/auth.utils";
+import { getCurrentUserId } from "@/features/auth/auth.utils";
 import { UnauthorizedError, ValidationError, NotFoundError } from "./errors";
 import type { PaginatedResult } from "./types";
 

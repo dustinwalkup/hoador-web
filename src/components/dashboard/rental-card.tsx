@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { updateListingStatus } from "@/features/listings/actions/update-listing-status";
 
 import ListingManagementModal from "./listing-management-modal";
-import { capitalize } from "@/lib/utils/utils";
+import { capitalize } from "@/lib/utils";
 
 interface RentalCardProps {
   cardType: "listings" | "borrowing";
