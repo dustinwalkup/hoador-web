@@ -21,7 +21,6 @@ interface UserInfo {
 }
 
 export async function completeOnboardingAction(
-   
   _prevState: {
     success: boolean;
     error?: string;
