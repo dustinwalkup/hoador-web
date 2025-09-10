@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { listingDAL } from "@/dal";
-import { getCurrentUser } from "@/features/auth/auth.utils";
+import { getCurrentUser } from "@/features/auth/utils/session";
 import { RentListingPageContent } from "./_components/rent-listing-page-content";
 
 interface RentListingPageProps {

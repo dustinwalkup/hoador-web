@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { Suspense } from "react";
-import { getCurrentUser } from "@/features/auth/auth.utils";
+import { getCurrentUser } from "@/features/auth/utils/session";
 import { PageHeader } from "@/components/page-header";
 import { ExplorePageSkeleton } from "./_components/explore-page-skeleton";
 import { ExplorePageClient } from "./_components/explore-page-client";

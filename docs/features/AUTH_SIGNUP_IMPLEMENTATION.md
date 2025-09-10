@@ -292,18 +292,18 @@ Validated   Name/Photo     Phone/Address    Auto-verified    Bio/Preferences
 - [x] Create new DTOs: `CreateUserWithAddressDTO`, `AddressData`
 - [x] Test phone number formatting utility
 
-### **Phase 2: Better Auth Integration** 🚧 **NEXT**
+### **Phase 2: Better Auth Integration** ✅ **COMPLETE**
 
-- [ ] Update Better Auth server configuration
-- [ ] Add custom user fields (firstName, lastName, phone)
-- [ ] Configure email verification with Resend (24hr expiry)
-- [ ] Add Google OAuth profile mapping with photo/phone permissions
-- [ ] Configure OAuth redirect URLs (dev/prod)
-- [ ] Add custom callbacks for user creation
-- [ ] Update Better Auth client configuration
-- [ ] Replace mock auth utils with Better Auth session management
+- [x] Update Better Auth server configuration
+- [x] Add custom user fields (firstName, lastName, phone)
+- [x] Configure email verification with Resend (24hr expiry)
+- [x] Add Google OAuth profile mapping with photo/phone permissions
+- [x] Configure OAuth redirect URLs (dev/prod)
+- [x] Add custom callbacks for user creation
+- [x] Update Better Auth client configuration
+- [x] Replace mock auth utils with Better Auth session management
 
-### **Phase 3: Server Actions & Form Schemas** ⏳ **PENDING**
+### **Phase 3: Server Actions & Form Schemas** 🚧 **NEXT**
 
 - [ ] Create Zod validation schemas for signup forms
 - [ ] Create `validateJoinCodeAction()` server action

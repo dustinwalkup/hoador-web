@@ -7,8 +7,8 @@ import {
   createListingSchemaServer,
   type CreateListingFormDataServerType,
 } from "../form-schema/listing.schema";
-import { getCurrentUserId } from "../../auth/auth.utils";
-import { listingDAL } from "../../../dal";
+import { getCurrentUserId } from "@/features/auth/utils/session";
+import { listingDAL } from "@/dal";
 
 export async function updateListing(
   listingId: string,

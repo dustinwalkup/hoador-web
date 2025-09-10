@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getCurrentUserId } from "@/features/auth/auth.utils";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 import { listingDAL } from "@/dal";
 import type { GarageListingFilters } from "@/dal/listing.dal";
 

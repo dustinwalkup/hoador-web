@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
-import { getCurrentUser } from "@/features/auth/auth.utils";
+import { getCurrentUser } from "@/features/auth/utils/session";
 import { userDAL } from "@/dal";
 
 export async function POST() {
   try {
     // Get the current user
     const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     let stripeCustomerId = user.stripeCustomerId || null;
 

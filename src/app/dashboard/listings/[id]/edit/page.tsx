@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { listingDAL } from "@/dal";
 import { updateListing } from "@/features/listings/actions/update-listing";
-import { getCurrentUser } from "@/features/auth/auth.utils";
+import { getCurrentUser } from "@/features/auth/utils/session";
 import type { ListingDetails } from "@/dal/types";
 import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
 
@@ -43,6 +43,7 @@ export default async function EditListingPage({
   params: Promise<{ id: string }>;
 }) {
   const currentUser = await getCurrentUser();
+  if (!currentUser) return notFound();
   const { id } = await params;
   const listing = await listingDAL.getListingById(id, currentUser.id);
   if (!listing) return notFound();

@@ -8,7 +8,7 @@ import {
   createListingSchemaServer,
   type CreateListingFormDataServerType,
 } from "../form-schema/listing.schema";
-import { getCurrentUserId } from "../../auth/auth.utils";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
 import { listingDAL } from "../../../dal";

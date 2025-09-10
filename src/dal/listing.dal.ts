@@ -23,11 +23,11 @@ import {
   type PaginatedResult,
 } from "./types";
 import { schema } from "@/db/schemas";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 import {
-  getCurrentUserId,
   getCurrentUserCommunityId,
   requireCommunityMembership,
-} from "@/features/auth/auth.utils";
+} from "@/features/community/utils/membership";
 import { NotFoundError, UnauthorizedError } from "./errors";
 
 const {

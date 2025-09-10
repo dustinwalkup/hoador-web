@@ -2,7 +2,7 @@ import { eq, count, sql } from "drizzle-orm";
 
 import { geocodeAddress } from "@/services/geocoding";
 import { schema } from "@/db/schemas";
-import { requireAuth } from "@/features/auth/auth.utils";
+import { requireAuth } from "@/features/auth/utils/session";
 import { BaseDAL } from "./base";
 import {
   type CreateUserDTO,

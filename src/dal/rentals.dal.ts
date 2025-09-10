@@ -4,7 +4,7 @@ import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { listings, listingImages } from "@/db/schemas/listings.schema";
 import { user } from "@/db/schemas/user.schema";
 import { type CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
-import { getCurrentUserId } from "@/features/auth/auth.utils";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { BaseDAL } from "./base";
 import { UnauthorizedError, NotFoundError } from "./errors";

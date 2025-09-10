@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
-import { getCurrentUser } from "@/features/auth/auth.utils";
+import { getCurrentUser } from "@/features/auth/utils/session";
 
 export async function GET() {
   try {
     const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     if (!user.stripeCustomerId) {
       return NextResponse.json({ paymentMethods: [] });
