@@ -255,8 +255,8 @@ export function SignupForm() {
       <Card>
         <CardHeader>
           <div className="mb-2 flex items-center justify-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <span className="text-sm font-medium text-green-600">
+            <CheckCircle className="text-primary h-5 w-5" />
+            <span className="text-primary text-sm font-medium">
               {communityName}
             </span>
           </div>
