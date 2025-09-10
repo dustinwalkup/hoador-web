@@ -13,6 +13,31 @@ export interface CreateUserDTO {
   phone?: string;
 }
 
+export interface CreateUserWithAddressDTO {
+  id: string;
+  name: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  profileImageUrl?: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    unit?: string;
+  };
+}
+
+export interface AddressData {
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  unit?: string;
+}
+
 export interface UpdateUserDTO {
   firstName?: string;
   lastName?: string;

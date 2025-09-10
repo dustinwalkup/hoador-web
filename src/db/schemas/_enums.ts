@@ -1,10 +1,11 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
 export const userStatusEnum = pgEnum("user_status", [
-  "active",
-  "inactive",
-  "suspended",
-  "pending_verification",
+  "pending_verification", // Email not verified (email signups only)
+  "incomplete_profile", // Verified but missing onboarding data
+  "active", // Verified and onboarded - full access
+  "inactive", // User deactivated their account
+  "suspended", // Admin action - account suspended
 ]);
 
 export const verificationStatusEnum = pgEnum("verification_status", [

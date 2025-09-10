@@ -6,6 +6,8 @@ import { requireAuth } from "@/features/auth/auth.utils";
 import { BaseDAL } from "./base";
 import {
   type CreateUserDTO,
+  type CreateUserWithAddressDTO,
+  type AddressData,
   type UpdateUserDTO,
   type PaginationOptions,
   type PaginatedResult,
@@ -16,6 +18,57 @@ import { ConflictError, NotFoundError } from "./errors";
 const { user, userPreferences, userAddresses, reviews, rentals } = schema;
 
 export class UserDAL extends BaseDAL {
+  /**
+   * Format phone number as (555) 123-4567
+   */
+  static formatPhoneNumber(phone: string): string {
+    // Remove all non-digit characters
+    const cleaned = phone.replace(/\D/g, "");
+
+    // Check if it's a valid US phone number (10 digits)
+    if (cleaned.length === 10) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    }
+
+    // If 11 digits and starts with 1, remove the 1
+    if (cleaned.length === 11 && cleaned.startsWith("1")) {
+      const withoutCountryCode = cleaned.slice(1);
+      return `(${withoutCountryCode.slice(0, 3)}) ${withoutCountryCode.slice(3, 6)}-${withoutCountryCode.slice(6)}`;
+    }
+
+    // Return original if not a valid format
+    return phone;
+  }
+
+  /**
+   * Validate and format address data
+   */
+  private validateAndFormatAddress(addressData: AddressData): AddressData {
+    const { street, city, state, zipCode, unit } = addressData;
+
+    // Basic validation
+    if (!street?.trim()) throw new Error("Street address is required");
+    if (!city?.trim()) throw new Error("City is required");
+    if (!state?.trim()) throw new Error("State is required");
+    if (!zipCode?.trim()) throw new Error("ZIP code is required");
+
+    // Format ZIP code (remove spaces, ensure 5 or 9 digit format)
+    const cleanedZip = zipCode.replace(/\D/g, "");
+    let formattedZip = cleanedZip;
+    if (cleanedZip.length === 9) {
+      formattedZip = `${cleanedZip.slice(0, 5)}-${cleanedZip.slice(5)}`;
+    } else if (cleanedZip.length !== 5) {
+      throw new Error("ZIP code must be 5 or 9 digits");
+    }
+
+    return {
+      street: street.trim(),
+      city: city.trim(),
+      state: state.trim().toUpperCase(),
+      zipCode: formattedZip,
+      unit: unit?.trim() || undefined,
+    };
+  }
   async createUser(userData: CreateUserDTO): Promise<UserProfile> {
     try {
       // Check if user already exists
@@ -353,25 +406,6 @@ export class UserDAL extends BaseDAL {
     }
   }
 
-  async updateUserStatus(userId: string, status: string): Promise<void> {
-    try {
-      const auth = await requireAuth();
-
-      // Users can only update their own status
-      if (auth.id !== userId) {
-        throw new Error("Unauthorized: Cannot update other user's status");
-      }
-
-      await this.db
-        .update(user)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .set({ status: status as any, updatedAt: new Date() })
-        .where(eq(user.id, userId));
-    } catch (error) {
-      this.handleError(error, "updateUserStatus");
-    }
-  }
-
   async updateUserPrimaryAddress(
     userId: string,
     input: {
@@ -451,6 +485,292 @@ export class UserDAL extends BaseDAL {
       return this.updateUserPrimaryAddress(auth.id, input);
     } catch (error) {
       this.handleError(error, "updateCurrentUserPrimaryAddress");
+    }
+  }
+
+  /**
+   * Create user with address and community joining (atomic transaction)
+   * This is the main method for signup flow
+   */
+  async createUserWithAddress(
+    userData: CreateUserWithAddressDTO,
+    communityId: string,
+  ): Promise<{ user: UserProfile; communityJoined: boolean }> {
+    console.log("communityId", communityId);
+    try {
+      // Validate and format phone number
+      const formattedPhone = UserDAL.formatPhoneNumber(userData.phone);
+
+      // Validate and format address
+      const validatedAddress = this.validateAndFormatAddress(userData.address);
+
+      // Check if user already exists
+      const existingUser = await this.db.query.user.findFirst({
+        where: eq(user.email, userData.email),
+      });
+
+      if (existingUser) {
+        throw new ConflictError("User with this email already exists");
+      }
+
+      // Start transaction for atomic user creation + address + community joining
+      const result = await this.db.transaction(async (tx) => {
+        // Create user
+        const [newUser] = await tx
+          .insert(user)
+          .values({
+            id: userData.id, // Better Auth provides the ID
+            name: userData.name,
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            phone: formattedPhone,
+            profileImageUrl: userData.profileImageUrl,
+            status: "pending_verification", // Default status for email signups
+            emailVerified: false,
+          })
+          .returning();
+
+        // Create default preferences
+        await tx.insert(userPreferences).values({
+          userId: newUser.id,
+        });
+
+        // Create primary address with geocoding
+        let latitude: string | undefined;
+        let longitude: string | undefined;
+
+        try {
+          const geo = await geocodeAddress({
+            street: validatedAddress.street,
+            city: validatedAddress.city,
+            state: validatedAddress.state,
+            zipCode: validatedAddress.zipCode,
+          });
+
+          if (geo) {
+            latitude = geo.latitude.toString();
+            longitude = geo.longitude.toString();
+          }
+        } catch (geoError) {
+          // Log geocoding error but don't fail the transaction
+          console.warn("Geocoding failed during user creation:", geoError);
+        }
+
+        await tx.insert(userAddresses).values({
+          userId: newUser.id,
+          street: validatedAddress.street,
+          city: validatedAddress.city,
+          state: validatedAddress.state,
+          zipCode: validatedAddress.zipCode,
+          ...(validatedAddress.unit && { unit: validatedAddress.unit }),
+          latitude,
+          longitude,
+          isPrimary: true,
+        });
+
+        return newUser;
+      });
+
+      // Get the complete user profile
+      const userProfile = await this.getUserById(result.id);
+
+      // Community joining will be handled separately to avoid circular dependencies
+      // Return success flag for community joining
+      return {
+        user: userProfile,
+        communityJoined: false, // Will be updated by community joining logic
+      };
+    } catch (error) {
+      this.handleError(error, "createUserWithAddress");
+    }
+  }
+
+  /**
+   * Update user address (for existing users)
+   */
+  async updateUserAddress(
+    userId: string,
+    addressData: AddressData,
+  ): Promise<void> {
+    try {
+      const auth = await requireAuth();
+
+      // Users can only update their own address
+      if (auth.id !== userId) {
+        throw new Error("Unauthorized: Cannot update other user's address");
+      }
+
+      const validatedAddress = this.validateAndFormatAddress(addressData);
+
+      // Get geocoding for the new address
+      let latitude: string | undefined;
+      let longitude: string | undefined;
+
+      try {
+        const geo = await geocodeAddress({
+          street: validatedAddress.street,
+          city: validatedAddress.city,
+          state: validatedAddress.state,
+          zipCode: validatedAddress.zipCode,
+        });
+
+        if (geo) {
+          latitude = geo.latitude.toString();
+          longitude = geo.longitude.toString();
+        }
+      } catch (geoError) {
+        console.warn("Geocoding failed during address update:", geoError);
+      }
+
+      // Find existing primary address
+      const existing = await this.db.query.userAddresses.findFirst({
+        where: (addr, { eq, and }) =>
+          and(eq(addr.userId, userId), eq(addr.isPrimary, true)),
+      });
+
+      if (existing) {
+        // Update existing primary address
+        await this.db
+          .update(userAddresses)
+          .set({
+            street: validatedAddress.street,
+            city: validatedAddress.city,
+            state: validatedAddress.state,
+            zipCode: validatedAddress.zipCode,
+            ...(validatedAddress.unit && { unit: validatedAddress.unit }),
+            latitude,
+            longitude,
+            updatedAt: new Date(),
+          })
+          .where(eq(userAddresses.id, existing.id));
+      } else {
+        // Create new primary address
+        await this.db.insert(userAddresses).values({
+          userId,
+          street: validatedAddress.street,
+          city: validatedAddress.city,
+          state: validatedAddress.state,
+          zipCode: validatedAddress.zipCode,
+          ...(validatedAddress.unit && { unit: validatedAddress.unit }),
+          latitude,
+          longitude,
+          isPrimary: true,
+        });
+      }
+    } catch (error) {
+      this.handleError(error, "updateUserAddress");
+    }
+  }
+
+  /**
+   * Get user with address (for auth flows)
+   */
+  async getUserWithAddress(userId: string): Promise<UserProfile> {
+    try {
+      // This method can be called without auth for signup flows
+      return this.getUserById(userId);
+    } catch (error) {
+      this.handleError(error, "getUserWithAddress");
+    }
+  }
+
+  /**
+   * Get user by email for auth purposes (no auth required)
+   */
+  async getUserByEmailForAuth(email: string): Promise<UserProfile | null> {
+    try {
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.email, email),
+        with: {
+          preferences: true,
+          addresses: true,
+        },
+      });
+
+      if (!userData) {
+        return null;
+      }
+
+      const stats = await this.getUserStats(userData.id);
+
+      return {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        emailVerified: userData.emailVerified,
+        image: userData.image,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        status: userData.status,
+        phone: userData.phone ?? null,
+        bio: userData.bio ?? null,
+        profileImageUrl: userData.profileImageUrl ?? null,
+        stripeCustomerId: userData.stripeCustomerId ?? null,
+        idVerified: userData.idVerified,
+        addressVerified: userData.addressVerified,
+        createdAt: userData.createdAt,
+        stats,
+        preferences: userData.preferences,
+        primaryAddress: userData.addresses?.find((addr) => addr.isPrimary),
+      };
+    } catch (error) {
+      this.handleError(error, "getUserByEmailForAuth");
+    }
+  }
+
+  /**
+   * Update user status (for auth flows)
+   */
+  async updateUserStatus(
+    userId: string,
+    status:
+      | "pending_verification"
+      | "incomplete_profile"
+      | "active"
+      | "inactive"
+      | "suspended",
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(user)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(user.id, userId));
+    } catch (error) {
+      this.handleError(error, "updateUserStatus");
+    }
+  }
+
+  /**
+   * Complete user onboarding (update status to active)
+   */
+  async completeUserOnboarding(
+    userId: string,
+    onboardingData: { bio?: string; profileImageUrl?: string },
+  ): Promise<UserProfile> {
+    try {
+      const auth = await requireAuth();
+
+      // Users can only complete their own onboarding
+      if (auth.id !== userId) {
+        throw new Error(
+          "Unauthorized: Cannot complete other user's onboarding",
+        );
+      }
+
+      // Update user with onboarding data and set status to active
+      await this.db
+        .update(user)
+        .set({
+          ...onboardingData,
+          status: "active",
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId));
+
+      return this.getUserById(userId);
+    } catch (error) {
+      this.handleError(error, "completeUserOnboarding");
     }
   }
 }

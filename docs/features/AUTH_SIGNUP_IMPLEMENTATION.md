@@ -274,6 +274,72 @@ Community   Auto-populate   Missing Fields   Status: Active   Complete Profile
 Validated   Name/Photo     Phone/Address    Auto-verified    Bio/Preferences
 ```
 
+## 📋 **Implementation Checklist**
+
+### **Phase 1: Database & DAL Updates** ✅ **COMPLETE**
+
+- [x] Update user status enum with industry best practices
+- [x] Add phone number formatting utility (static method)
+- [x] Create address validation and formatting methods
+- [x] Add `createUserWithAddress()` method with atomic transactions
+- [x] Add `updateUserAddress()` method for existing users
+- [x] Add `getUserWithAddress()` method for auth flows
+- [x] Add `getUserByEmailForAuth()` method (no auth required)
+- [x] Add `updateUserStatus()` method with proper typing
+- [x] Add `completeUserOnboarding()` method
+- [x] Update Community DAL with `validateJoinCodeForSignup()` method
+- [x] Update Community DAL with `joinCommunityForNewUser()` method
+- [x] Create new DTOs: `CreateUserWithAddressDTO`, `AddressData`
+- [x] Test phone number formatting utility
+
+### **Phase 2: Better Auth Integration** 🚧 **NEXT**
+
+- [ ] Update Better Auth server configuration
+- [ ] Add custom user fields (firstName, lastName, phone)
+- [ ] Configure email verification with Resend (24hr expiry)
+- [ ] Add Google OAuth profile mapping with photo/phone permissions
+- [ ] Configure OAuth redirect URLs (dev/prod)
+- [ ] Add custom callbacks for user creation
+- [ ] Update Better Auth client configuration
+- [ ] Replace mock auth utils with Better Auth session management
+
+### **Phase 3: Server Actions & Form Schemas** ⏳ **PENDING**
+
+- [ ] Create Zod validation schemas for signup forms
+- [ ] Create `validateJoinCodeAction()` server action
+- [ ] Create `signupEmailAction()` server action
+- [ ] Create `signupGoogleAction()` server action
+- [ ] Create `completeOnboardingAction()` server action
+- [ ] Implement proper error handling with toast notifications
+
+### **Phase 4: React Hooks & Client Logic** ⏳ **PENDING**
+
+- [ ] Create `useSignup()` hook for email signup
+- [ ] Create `useGoogleSignin()` hook for OAuth flow
+- [ ] Create `useSession()` hook for session management
+- [ ] Implement form state management
+- [ ] Add loading states and error handling
+
+### **Phase 5: Component Implementation** ⏳ **PENDING**
+
+- [ ] Update SignupForm component with Better Auth integration
+- [ ] Add real form validation with Zod schemas
+- [ ] Implement Google OAuth flow in signup form
+- [ ] Add address collection to signup form
+- [ ] Create OnboardingForm component for post-verification
+- [ ] Add toast notifications with Sonner
+- [ ] Implement loading states and error handling
+
+### **Phase 6: User Experience & Flow** ⏳ **PENDING**
+
+- [ ] Implement email verification flow (24hr expiry, resend capability)
+- [ ] Implement Google OAuth flow with profile auto-population
+- [ ] Add mandatory onboarding after verification
+- [ ] Implement user status-based access control
+- [ ] Add proper error handling for all scenarios
+- [ ] Test end-to-end signup flows (email & Google)
+- [ ] Add mobile responsiveness testing
+
 ## 🎯 Success Criteria
 
 ### Technical

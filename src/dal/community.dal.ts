@@ -61,6 +61,28 @@ export class CommunityDAL extends BaseDAL {
   }
 
   /**
+   * Validate join code for signup (no auth required)
+   * Returns community info if valid
+   */
+  async validateJoinCodeForSignup(joinCode: string): Promise<Community | null> {
+    try {
+      if (!joinCode?.trim()) {
+        throw new ValidationError("Join code is required");
+      }
+
+      const [community] = await this.db
+        .select()
+        .from(communities)
+        .where(eq(communities.joinCode, joinCode.trim()))
+        .limit(1);
+
+      return community || null;
+    } catch (error) {
+      this.handleError(error, "validateJoinCodeForSignup");
+    }
+  }
+
+  /**
    * Get community with stats (member count, listing count)
    */
   async getCommunityWithStats(id: string): Promise<CommunityWithStats | null> {
@@ -550,6 +572,35 @@ export class CommunityDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "joinCommunityByCode");
+    }
+  }
+
+  /**
+   * Join community during signup (no existing membership check needed)
+   * Used specifically for new user signup flow
+   */
+  async joinCommunityForNewUser(
+    userId: string,
+    communityId: string,
+  ): Promise<UserCommunityInfo> {
+    try {
+      // Get the community (should be valid since we validated the join code)
+      const community = await this.getCommunityById(communityId);
+      if (!community) {
+        throw new NotFoundError("Community not found");
+      }
+
+      // Community exists and is valid for joining
+
+      // Add user as member (no existing membership check since it's a new user)
+      const membership = await this.addMember(userId, community.id, "member");
+
+      return {
+        membership,
+        community,
+      };
+    } catch (error) {
+      this.handleError(error, "joinCommunityForNewUser");
     }
   }
 
