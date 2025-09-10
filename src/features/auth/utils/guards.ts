@@ -15,10 +15,10 @@ export const requireActiveUser = async () => {
  * Helper to check if user has specific permission
  * TODO: Implement permission checking when auth system is in place
  */
-export async function hasPermission(permission: string): Promise<boolean> {
-  // TODO: Implement permission checking when auth system is in place
-  return false;
-}
+// export async function hasPermission(permission: string): Promise<boolean> {
+//   // TODO: Implement permission checking when auth system is in place
+//   return false;
+// }
 
 /**
  * Helper to check if user is admin
