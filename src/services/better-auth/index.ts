@@ -1,7 +1,9 @@
 import { betterAuth } from "better-auth";
-import type { Account, User as BetterAuthUser } from "better-auth";
+import type { User as BetterAuthUser } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db/db";
+import { userDAL } from "@/dal";
+import type { UserStatus } from "@/features/auth/schemas/signup.schema";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -112,96 +114,65 @@ export const auth = betterAuth({
 
   // Callbacks for custom logic
   callbacks: {
-    async signUp({
-      user,
-      account,
-    }: {
-      user: BetterAuthUser & {
-        firstName: string;
-        lastName: string;
-        phone?: string;
-        status?: string;
-        bio?: string;
-        profileImageUrl?: string;
-        stripeCustomerId?: string;
-        idVerified?: boolean;
-        addressVerified?: boolean;
-        emailVerified?: boolean;
-        lastLoginAt?: Date;
-      };
-      account?: Account & {
-        profile?: {
-          name?: string;
-          picture?: string;
-        };
-      };
-    }) {
-      console.log(
-        "User signed up:",
-        user.email,
-        "via:",
-        account?.providerId || "email",
-      );
+    after: {
+      signUp: async (
+        user: BetterAuthUser & { status?: UserStatus },
+        request: { body?: { provider?: string } },
+      ) => {
+        console.log(
+          "User signed up:",
+          user.email,
+          "via:",
+          request.body?.provider || "email",
+        );
 
-      // Set initial status based on signup method
-      if (account?.providerId === "google") {
-        // Google users skip email verification
-        user.status = "incomplete_profile";
-        user.emailVerified = true;
-
-        // Extract profile data from Google
-        if (account.profile) {
-          user.profileImageUrl = account.profile.picture;
-
-          // Parse Google name into firstName/lastName
-          const fullName = account.profile.name || "";
-          const nameParts = fullName.trim().split(" ");
-          if (nameParts.length >= 2) {
-            user.firstName = nameParts[0];
-            user.lastName = nameParts.slice(1).join(" ");
+        try {
+          // Set initial status based on signup method
+          if (request.body?.provider === "google") {
+            // Google users skip email verification but need onboarding
+            await userDAL.updateUserStatus(user.id, "incomplete_profile");
           } else {
-            user.firstName = nameParts[0] || "";
-            user.lastName = "";
+            // Email signups need verification first
+            await userDAL.updateUserStatus(user.id, "pending_verification");
           }
+        } catch (error) {
+          console.error("Failed to set initial user status:", error);
+          // Don't throw - user can still proceed
         }
-      } else {
-        // Email signups need verification
-        user.status = "pending_verification";
-        user.emailVerified = false;
-      }
+      },
 
-      return user;
+      verifyEmail: async (user: BetterAuthUser) => {
+        console.log("Email verified for user:", user.email);
+
+        try {
+          // Update status after email verification - user now needs onboarding
+          await userDAL.updateUserStatus(user.id, "incomplete_profile");
+        } catch (error) {
+          console.error(
+            "Failed to update status after email verification:",
+            error,
+          );
+          // Don't throw - user can still proceed
+        }
+      },
     },
 
-    async signIn({
-      user,
-      account,
-    }: {
-      user: BetterAuthUser & {
-        firstName: string;
-        lastName: string;
-        phone?: string;
-        status?: string;
-        bio?: string;
-        profileImageUrl?: string;
-        stripeCustomerId?: string;
-        idVerified?: boolean;
-        addressVerified?: boolean;
-        lastLoginAt?: Date;
-      };
-      account?: Account;
-    }) {
-      console.log(
-        "User signed in:",
-        user.email,
-        "via:",
-        account?.providerId || "email",
-      );
+    before: {
+      signIn: async ({ user }: { user: BetterAuthUser }) => {
+        console.log("User signing in:", user.email);
 
-      // Update last login
-      user.lastLoginAt = new Date();
+        try {
+          // Update last login timestamp in our database
+          // Note: This method needs to be added to UserDAL
+          // await userDAL.updateLastLogin(user.id);
+          console.log("User signed in:", user.id);
+        } catch (error) {
+          console.error("Failed to update last login:", error);
+          // Don't throw - user can still sign in
+        }
 
-      return user;
+        return user;
+      },
     },
   },
 

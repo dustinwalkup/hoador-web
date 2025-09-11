@@ -4,7 +4,6 @@ import React from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { showErrorToast } from "../utils/error-handling";
 
 interface AuthErrorBoundaryState {
   hasError: boolean;
@@ -52,7 +51,6 @@ export class AuthErrorBoundary extends React.Component<
     }
 
     // Show error toast
-    showErrorToast("Something went wrong", "Please try refreshing the page.");
   }
 
   handleRetry = () => {
@@ -138,12 +136,9 @@ export function useAuthErrorHandler() {
             "An account with this email already exists. Please try signing in instead.";
         } else if (errorMessage.includes("invalid join code")) {
           message = "Invalid join code. Please check and try again.";
-        } else {
-          message = (error as { message: string }).message;
+          console.log(message);
         }
       }
-
-      showErrorToast(`${context} Failed`, message);
     },
     [],
   );
