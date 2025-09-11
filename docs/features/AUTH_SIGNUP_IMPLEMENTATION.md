@@ -312,13 +312,70 @@ Validated   Name/Photo     Phone/Address    Auto-verified    Bio/Preferences
 - [x] Create `completeOnboardingAction()` server action
 - [x] Implement proper error handling with toast notifications
 
-### **Phase 4: React Hooks & Client Logic** ⏳ **PENDING**
+### **Phase 4: React Hooks & Client Logic** ✅ **COMPLETE**
 
-- [ ] Create `useSignup()` hook for email signup
-- [ ] Create `useGoogleSignin()` hook for OAuth flow
-- [ ] Create `useSession()` hook for session management
-- [ ] Implement form state management
-- [ ] Add loading states and error handling
+- [x] Create `useSignup()` hook for email signup
+- [x] Create `useGoogleSignin()` hook for OAuth flow
+- [x] Create `useSession()` hook for session management
+- [x] Implement form state management
+- [x] Add loading states and error handling
+
+#### **Phase 4 Implementation Details:**
+
+**1. useSignup() Hook** (`src/features/auth/hooks/use-signup.ts`)
+
+- Multi-step form state management (joinCode → profile → onboarding)
+- Community validation with join codes
+- Email signup flow with server actions
+- Form validation and error handling
+- Loading states with `useTransition`
+- Toast notifications using Sonner
+- Navigation and redirect handling
+
+**2. useGoogleSignin() Hook** (`src/features/auth/hooks/use-google-signin.ts`)
+
+- Google OAuth integration with Better Auth
+- Multi-step flow (joinCode → oauth → profile → onboarding)
+- Profile data auto-population from Google
+- Additional data collection for missing fields
+- Community joining after OAuth
+- Error handling and loading states
+- Toast notifications
+
+**3. useSession() Hook** (`src/features/auth/hooks/use-session.ts`)
+
+- Session state management with Better Auth
+- User status checking (pending_verification, incomplete_profile, active)
+- Authentication guards and route access control
+- Sign out functionality
+- Email verification resend
+- Session refresh and loading states
+- Helper hooks: `useRouteAccess`, `useAuthGuard`
+
+**4. Form State Management** (`src/features/auth/hooks/use-form-state.ts`)
+
+- Generic form state management with TypeScript
+- Field validation with Zod schemas
+- Touch state tracking
+- Error handling per field
+- Multi-step form support
+- Form submission handling
+- Dirty state tracking
+
+**5. Error Handling & Loading States** (`src/features/auth/hooks/use-error-handling.ts`)
+
+- Comprehensive error classification (validation, network, auth, etc.)
+- Error severity levels (low, medium, high, critical)
+- Loading state management per operation
+- Async operation handling with retry logic
+- Toast notifications with appropriate variants
+- Form-specific error handling
+
+**6. Export Structure** (`src/features/auth/hooks/index.ts`)
+
+- Centralized exports for all hooks
+- Type exports for convenience
+- Clean import structure
 
 ### **Phase 5: Component Implementation** ⏳ **PENDING**
 
