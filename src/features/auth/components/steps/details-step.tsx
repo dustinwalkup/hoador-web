@@ -33,6 +33,7 @@ export function DetailsStep() {
   } = useSignupContext();
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [state, formAction, isPending] = useActionState(
     createAccountAction,
     null,
@@ -45,15 +46,26 @@ export function DetailsStep() {
     }
   }, [state, setUserId, goToStep]);
 
+  // Clear general error when user makes changes
+  useEffect(() => {
+    if (state?.error) {
+      setErrors((prev) => ({ ...prev, general: "" }));
+    }
+  }, [signupData, state?.error]);
+
   // ---------------------------
-  // Helper for per-field validation
+  // Helper for per-field validation (only runs after first submit attempt)
   // ---------------------------
   const handleFieldValidation = (
     field:
       | keyof EmailSignupData
       | `address.${keyof EmailSignupData["address"]}`,
-    value: any,
+    value: unknown,
   ) => {
+    // Only validate after user has attempted to submit
+    if (!hasAttemptedSubmit) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const error = validateField(field as any, value);
     setErrors((prev) => ({ ...prev, [field]: error || "" }));
   };
@@ -66,6 +78,7 @@ export function DetailsStep() {
     value: EmailSignupData[K],
   ) => {
     updateSignupData({ [key]: value } as Partial<EmailSignupData>);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handleFieldValidation(key as any, value);
   };
 
@@ -83,6 +96,70 @@ export function DetailsStep() {
       },
     });
     handleFieldValidation(`address.${key}`, value);
+  };
+
+  // ---------------------------
+  // Form validation
+  // ---------------------------
+  const validateAllFields = (): boolean => {
+    const fieldsToValidate = [
+      { field: "firstName", value: signupData.firstName },
+      { field: "lastName", value: signupData.lastName },
+      { field: "email", value: signupData.email },
+      { field: "password", value: signupData.password },
+      { field: "phone", value: signupData.phone },
+      { field: "address.street", value: signupData.address.street },
+      { field: "address.city", value: signupData.address.city },
+      { field: "address.state", value: signupData.address.state },
+      { field: "address.zipCode", value: signupData.address.zipCode },
+      { field: "agreeToTerms", value: signupData.agreeToTerms },
+    ] as const;
+
+    let hasErrors = false;
+    const newErrors: Record<string, string> = {};
+
+    fieldsToValidate.forEach(({ field, value }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const error = validateField(field as any, value);
+      if (error) {
+        newErrors[field] = error;
+        hasErrors = true;
+      }
+    });
+
+    setErrors(newErrors);
+    return !hasErrors;
+  };
+
+  // Check if all required fields are filled (for button state)
+  const isFormComplete = Boolean(
+    signupData.firstName?.trim() &&
+      signupData.lastName?.trim() &&
+      signupData.email?.trim() &&
+      signupData.password?.trim() &&
+      signupData.phone?.trim() &&
+      signupData.address.street?.trim() &&
+      signupData.address.city?.trim() &&
+      signupData.address.state?.trim() &&
+      signupData.address.zipCode?.trim() &&
+      signupData.agreeToTerms,
+  );
+
+  // ---------------------------
+  // Form submission handler
+  // ---------------------------
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    setHasAttemptedSubmit(true);
+
+    // Validate all fields
+    const isValid = validateAllFields();
+
+    if (!isValid) {
+      event.preventDefault();
+      return;
+    }
+
+    // Form is valid, let it submit to server action
   };
 
   return (
@@ -112,7 +189,11 @@ export function DetailsStep() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="space-y-4">
+          <form
+            action={formAction}
+            onSubmit={handleFormSubmit}
+            className="space-y-4"
+          >
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -292,9 +373,10 @@ export function DetailsStep() {
                 name="agreeToTerms"
                 className="mt-1"
                 checked={signupData.agreeToTerms}
-                onCheckedChange={(checked) =>
-                  handleChange("agreeToTerms", !!checked)
-                }
+                onCheckedChange={(checked) => {
+                  console.log("Checkbox changed to:", checked);
+                  handleChange("agreeToTerms", !!checked);
+                }}
               />
               <label
                 htmlFor="terms"
@@ -314,11 +396,21 @@ export function DetailsStep() {
               <p className="text-xs text-red-500">{errors.agreeToTerms}</p>
             )}
 
-            {/* Hidden field for joinCode */}
+            {/* Hidden fields for community info and terms */}
             <input
               type="hidden"
               name="joinCode"
               value={signupData.joinCode || ""}
+            />
+            <input
+              type="hidden"
+              name="communityId"
+              value={signupData.communityId || ""}
+            />
+            <input
+              type="hidden"
+              name="agreeToTerms"
+              value={signupData.agreeToTerms ? "true" : "false"}
             />
 
             {/* General errors */}
@@ -334,7 +426,7 @@ export function DetailsStep() {
             <Button
               type="submit"
               className="w-full"
-              disabled={!signupData.agreeToTerms || isPending}
+              disabled={!isFormComplete || isPending}
             >
               {isPending ? (
                 <>

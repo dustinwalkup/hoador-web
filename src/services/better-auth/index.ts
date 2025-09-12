@@ -18,26 +18,26 @@ export const auth = betterAuth({
   },
 
   // Email verification configuration
-  emailVerification: {
-    sendOnSignUp: true,
-    expiresIn: 60 * 60 * 24, // 24 hours
-    sendVerificationEmail: async ({ user, url }) => {
-      // Import Resend service
-      const { sendVerificationEmail } = await import("@/services/resend");
+  // emailVerification: {
+  //   sendOnSignUp: true,
+  //   expiresIn: 60 * 60 * 24, // 24 hours
+  //   sendVerificationEmail: async ({ user, url }) => {
+  //     // Import Resend service
+  //     const { sendVerificationEmail } = await import("@/services/resend");
 
-      try {
-        await sendVerificationEmail({
-          to: user.email,
-          verificationUrl: url,
-          firstName: (user as User).name,
-        });
-        console.log("Verification email sent to:", user.email);
-      } catch (error) {
-        console.error("Failed to send verification email:", error);
-        // Don't throw - let user retry verification
-      }
-    },
-  },
+  //     try {
+  //       await sendVerificationEmail({
+  //         to: user.email,
+  //         verificationUrl: url,
+  //         firstName: (user as User).name,
+  //       });
+  //       console.log("Verification email sent to:", user.email);
+  //     } catch (error) {
+  //       console.error("Failed to send verification email:", error);
+  //       // Don't throw - let user retry verification
+  //     }
+  //   },
+  // },
 
   // Social providers configuration
   socialProviders: {
