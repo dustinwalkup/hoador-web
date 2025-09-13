@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionCookie } from "better-auth/cookies";
-
+import { getSessionCookie } from "@/services/better-auth";
 // Define protected route patterns
 const PROTECTED_ROUTES = [
   "/dashboard",

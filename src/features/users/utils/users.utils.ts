@@ -9,7 +9,7 @@ export function getUserFullName(
 export function getUserInitials(
   user: Pick<UserProfile, "firstName" | "lastName">,
 ) {
-  return `${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase();
+  return `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase();
 }
 
 export function isVerified(

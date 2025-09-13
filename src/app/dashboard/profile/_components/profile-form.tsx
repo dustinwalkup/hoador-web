@@ -39,8 +39,8 @@ export function ProfileForm({ user }: { user: UserProfile }) {
   const form = useForm<FormData>({
     resolver: zodResolver(ProfileFormSchema),
     defaultValues: {
-      firstName: user.firstName,
-      lastName: user.lastName,
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
       email: user.email,
       phone: user.phone || "",
       bio: user.bio || "",
@@ -99,7 +99,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
             {renderField(
               "firstName",
               <Input {...form.register("firstName")} />,
-              user.firstName,
+              user.firstName || "",
             )}
           </div>
           <div className="space-y-2">
@@ -109,7 +109,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
             {renderField(
               "lastName",
               <Input {...form.register("lastName")} />,
-              user.lastName,
+              user.lastName || "",
             )}
           </div>
         </div>

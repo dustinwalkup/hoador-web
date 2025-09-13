@@ -1,8 +1,6 @@
 import { cache } from "react";
-import { NextRequest } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/services/better-auth";
-import { getSessionCookie as getSessionCookieFromCookies } from "@/features/auth/utils/session";
 import { userDAL } from "@/dal";
 
 /**
@@ -71,10 +69,3 @@ export const getSession = cache(async (requestHeaders?: Headers) => {
     return null;
   }
 });
-
-/**
- * Get Better Auth session cookie directly
- */
-export function getSessionCookie(request: NextRequest) {
-  return getSessionCookieFromCookies(request);
-}

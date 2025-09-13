@@ -1,6 +1,12 @@
 import { betterAuth } from "better-auth";
+import { NextRequest } from "next/server";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { getSessionCookie as getSessionCookieFromCookies } from "better-auth/cookies";
 import { db } from "@/db/db";
+
+export function getSessionCookie(request: NextRequest) {
+  return getSessionCookieFromCookies(request);
+}
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
