@@ -22,22 +22,12 @@ export function EmailConfirmationStep() {
     null,
   );
 
-  const handleResendEmail = async () => {
-    if (!userId) return;
-
-    const formData = new FormData();
-    formData.append("email", signupData.email);
-    formData.append("userId", userId);
-
-    await formAction(formData);
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <Mail className="h-8 w-8 text-green-600" />
+            <Mail className="text-primary h-8 w-8" />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
             Check your email
@@ -65,24 +55,29 @@ export function EmailConfirmationStep() {
             </div>
           </div>
 
-          <Button
-            onClick={handleResendEmail}
-            disabled={isPending || !userId}
-            variant="outline"
-            className="w-full bg-transparent"
-          >
-            {isPending ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Mail className="mr-2 h-4 w-4" />
-                Resend confirmation email
-              </>
-            )}
-          </Button>
+          <form action={formAction}>
+            <input type="hidden" name="email" value={signupData.email} />
+            <input type="hidden" name="userId" value={userId || ""} />
+
+            <Button
+              type="submit"
+              disabled={isPending || !userId}
+              variant="outline"
+              className="w-full bg-transparent"
+            >
+              {isPending ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Resend confirmation email
+                </>
+              )}
+            </Button>
+          </form>
 
           {state?.error && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3">
@@ -103,7 +98,7 @@ export function EmailConfirmationStep() {
               Need help? Contact your community administrator or{" "}
               <a
                 href="#"
-                className="text-green-600 underline hover:text-green-700"
+                className="text-primary underline hover:text-green-700"
               >
                 support
               </a>

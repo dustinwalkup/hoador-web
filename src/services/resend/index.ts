@@ -20,7 +20,7 @@ export async function sendVerificationEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: "Hoador <noreply@hoador.com>", // Update with your domain
+      from: "Hoador <noreply@resend.dev>", // Update with your domain
       to: [to],
       subject: "Verify your Hoador account",
       html: `
@@ -105,7 +105,7 @@ export async function sendWelcomeEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: "Hoador <noreply@hoador.com>", // Update with your domain
+      from: "Hoador <noreply@resend.dev>", // Update with your domain
       to: [to],
       subject: "Welcome to Hoador! 🎉",
       html: `
