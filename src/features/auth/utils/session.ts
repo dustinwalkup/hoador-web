@@ -1,7 +1,9 @@
-import { userDAL } from "@/dal";
 import { cache } from "react";
+import { NextRequest } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/services/better-auth";
+import { getSessionCookie as getSessionCookieFromCookies } from "@/features/auth/utils/session";
+import { userDAL } from "@/dal";
 
 /**
  * Get current user from Better Auth session
@@ -58,10 +60,10 @@ export const requireVerifiedUser = cache(async () => {
 /**
  * Get Better Auth session directly
  */
-export const getSession = cache(async () => {
+export const getSession = cache(async (requestHeaders?: Headers) => {
   try {
     const session = await auth.api.getSession({
-      headers: await headers(),
+      headers: requestHeaders || (await headers()),
     });
     return session;
   } catch (error) {
@@ -69,3 +71,10 @@ export const getSession = cache(async () => {
     return null;
   }
 });
+
+/**
+ * Get Better Auth session cookie directly
+ */
+export function getSessionCookie(request: NextRequest) {
+  return getSessionCookieFromCookies(request);
+}

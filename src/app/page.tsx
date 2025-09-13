@@ -30,7 +30,7 @@ export default function HomePage() {
           </Link>
           <div className="flex items-center gap-4">
             <Link
-              href="/dashboard"
+              href="/login"
               className="text-muted-foreground hover:text-foreground text-sm font-medium"
             >
               {header.logIn}
