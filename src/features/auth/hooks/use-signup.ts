@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { EmailSignupData } from "../schemas/validation";
+import { authClient } from "@/services/better-auth/client";
+import { signInSocial } from "../utils";
 
 export type SignupStep =
   | "join-code"
@@ -47,10 +49,24 @@ export function useSignup() {
     setSignupData((prev) => ({ ...prev, ...updates }));
   };
 
+  const handleGoogleSignup = async () => {
+    try {
+      await signInSocial("google");
+      // Initiate Google OAuth with state
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/signup/google/callback?joinCode=" + signupData.joinCode,
+      });
+    } catch (error) {
+      console.error("Google signup error:", error);
+      // Could add error state here if needed
+    }
+  };
+
   const selectSignupMethod = (method: SignupMethod) => {
     updateSignupData({ signupMethod: method });
     if (method === "google") {
-      console.log("Initiating Google OAuth...");
+      handleGoogleSignup();
     } else {
       setCurrentStep("details");
     }

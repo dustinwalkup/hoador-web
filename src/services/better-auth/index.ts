@@ -23,6 +23,15 @@ export const auth = betterAuth({
     requireEmailVerification: true,
   },
 
+  // Enable account linking for Google → email/password sync
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google"],
+      updateUserInfoOnLink: true,
+    },
+  },
+
   // Email verification configuration
   emailVerification: {
     sendOnSignUp: true,
@@ -51,7 +60,6 @@ export const auth = betterAuth({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
       redirectURI: process.env.GOOGLE_CALLBACK_URL,
-      scope: ["openid", "email", "profile"], // Request profile data
     },
   },
 });
