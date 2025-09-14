@@ -45,6 +45,12 @@ export interface UpdateUserDTO {
   bio?: string;
   profileImageUrl?: string;
   stripeCustomerId?: string;
+  status?:
+    | "pending_verification"
+    | "incomplete_profile"
+    | "active"
+    | "inactive"
+    | "suspended";
 }
 
 export interface CreateListingDTO {
