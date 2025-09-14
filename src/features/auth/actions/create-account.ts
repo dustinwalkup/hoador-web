@@ -1,10 +1,10 @@
 "use server";
 
 import { tryCatch } from "@walkup/walkup-utils";
-import { emailSignupServerSchema } from "../schemas/validation";
 import { auth } from "@/services/better-auth";
-import { userDAL, communityDAL } from "@/dal";
-import { ConflictError, ValidationError } from "@/dal/errors";
+import { communityDAL } from "@/dal";
+import { ValidationError } from "@/dal/errors";
+import { emailSignupServerSchema } from "../schemas/validation";
 
 type CreateAccountResult = {
   success: boolean;
@@ -13,8 +13,6 @@ type CreateAccountResult = {
     user: {
       id: string;
       email: string;
-      firstName: string;
-      lastName: string;
     };
   };
 };
@@ -27,20 +25,8 @@ export async function createAccountAction(
   const userData = {
     joinCode: (formData.get("joinCode") as string) || "",
     communityId: (formData.get("communityId") as string) || "",
-    firstName: (formData.get("firstName") as string) || "",
-    lastName: (formData.get("lastName") as string) || "",
     email: (formData.get("email") as string) || "",
     password: (formData.get("password") as string) || "",
-    phone: (formData.get("phone") as string) || "",
-    address: {
-      street: (formData.get("street") as string) || "",
-      city: (formData.get("city") as string) || "",
-      state: (formData.get("state") as string) || "",
-      zipCode: (formData.get("zipCode") as string) || "",
-    },
-    agreeToTerms:
-      formData.get("agreeToTerms") === "on" ||
-      formData.get("agreeToTerms") === "true",
   };
 
   // Server-side validation
@@ -93,9 +79,9 @@ export async function createAccountAction(
   const { data: betterAuthResult, error: authError } = await tryCatch(
     auth.api.signUpEmail({
       body: {
+        name: "User",
         email: validatedData.email,
         password: validatedData.password,
-        name: `${validatedData.firstName} ${validatedData.lastName}`,
       },
     }),
   );
@@ -128,34 +114,17 @@ export async function createAccountAction(
   }
 
   // Update user profile with additional data using UserDAL
-  const { data: userProfile, error: userError } = await tryCatch(
-    userDAL.updateUserProfileForSignup(
-      betterAuthResult.user.id,
-      {
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName,
-        phone: validatedData.phone,
-        address: validatedData.address,
-      },
-      communityId,
-    ),
+  const { error: communityError } = await tryCatch(
+    communityDAL.joinCommunityForNewUser(betterAuthResult.user.id, communityId),
   );
 
-  if (userError) {
-    console.error("User profile creation error:", userError);
+  if (communityError) {
+    console.error("Join community error:", communityError);
 
-    // Handle specific DAL errors
-    if (userError instanceof ConflictError) {
+    if (communityError instanceof ValidationError) {
       return {
         success: false,
-        error: "An account with this email already exists.",
-      };
-    }
-
-    if (userError instanceof ValidationError) {
-      return {
-        success: false,
-        error: userError.message,
+        error: communityError.message,
       };
     }
 
@@ -169,10 +138,8 @@ export async function createAccountAction(
     success: true,
     data: {
       user: {
-        id: userProfile.user.id,
-        email: userProfile.user.email!,
-        firstName: userProfile.user.firstName!,
-        lastName: userProfile.user.lastName!,
+        id: betterAuthResult.user.id,
+        email: betterAuthResult.user.email!,
       },
     },
   };

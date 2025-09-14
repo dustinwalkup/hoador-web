@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Image from "next/image";
 import { Mail, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,15 @@ export function EmailConfirmationStep() {
   );
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center space-y-6 bg-gray-50 p-4">
+      <Image
+        src="/hoador-logo.svg"
+        alt="Hoador Logo"
+        width={100}
+        height={40}
+        className="h-6 w-auto"
+        priority
+      />
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
@@ -87,7 +96,7 @@ export function EmailConfirmationStep() {
 
           {state?.success && (
             <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-              <p className="text-sm text-green-600">
+              <p className="text-primary text-sm">
                 Confirmation email sent successfully!
               </p>
             </div>

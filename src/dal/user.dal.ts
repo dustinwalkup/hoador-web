@@ -732,6 +732,12 @@ export class UserDAL extends BaseDAL {
       | "suspended",
   ): Promise<void> {
     try {
+      const auth = await requireAuth();
+
+      if (auth.id !== userId) {
+        throw new Error("Unauthorized: Cannot update other user's status");
+      }
+
       await this.db
         .update(user)
         .set({ status, updatedAt: new Date() })
@@ -771,101 +777,6 @@ export class UserDAL extends BaseDAL {
       return this.getUserById(userId);
     } catch (error) {
       this.handleError(error, "completeUserOnboarding");
-    }
-  }
-
-  /**
-   * Update user profile during signup (no auth required)
-   * This method is specifically for the signup flow where Better Auth creates
-   * the user first, then we update with additional profile data
-   */
-  async updateUserProfileForSignup(
-    userId: string,
-    profileData: {
-      firstName: string;
-      lastName: string;
-      phone: string;
-      address: AddressData;
-    },
-    communityId: string,
-  ): Promise<{ user: UserProfile; communityJoined: boolean }> {
-    try {
-      // Validate and format phone number
-      const formattedPhone = UserDAL.formatPhoneNumber(profileData.phone);
-
-      // Validate and format address
-      const validatedAddress = this.validateAndFormatAddress(
-        profileData.address,
-      );
-
-      // Get geocoding for the address
-      let latitude: string | undefined;
-      let longitude: string | undefined;
-
-      try {
-        const geo = await geocodeAddress({
-          street: validatedAddress.street,
-          city: validatedAddress.city,
-          state: validatedAddress.state,
-          zipCode: validatedAddress.zipCode,
-        });
-        latitude = geo?.latitude?.toString();
-        longitude = geo?.longitude?.toString();
-      } catch (geoError) {
-        console.warn("Geocoding failed:", geoError);
-        // Continue without geocoding - not critical for signup
-      }
-
-      // 1. Update user profile
-      const [updatedUser] = await this.db
-        .update(user)
-        .set({
-          firstName: profileData.firstName,
-          lastName: profileData.lastName,
-          phone: formattedPhone,
-          status: "incomplete_profile", // Will be updated to active after email verification
-          updatedAt: new Date(),
-        })
-        .where(eq(user.id, userId))
-        .returning();
-
-      if (!updatedUser) {
-        throw new NotFoundError("User not found");
-      }
-
-      // 2. Create user address (for signup flow, user shouldn't have existing addresses)
-      await this.db.insert(userAddresses).values({
-        userId: userId,
-        isPrimary: true,
-        street: validatedAddress.street,
-        city: validatedAddress.city,
-        state: validatedAddress.state,
-        zipCode: validatedAddress.zipCode,
-        latitude,
-        longitude,
-      });
-
-      // 3. Join user to community
-      let communityJoined = false;
-      try {
-        const { communityDAL } = await import("./index");
-        await communityDAL.joinCommunityForNewUser(userId, communityId);
-        communityJoined = true;
-      } catch (communityError) {
-        console.error("Failed to join community:", communityError);
-        // Don't fail the entire signup if community joining fails
-        // This can be retried later
-      }
-
-      // 4. Get complete user profile with address
-      const userProfile = await this.getUserById(userId);
-
-      return {
-        user: userProfile,
-        communityJoined,
-      };
-    } catch (error) {
-      this.handleError(error, "updateUserProfileForSignup");
     }
   }
 }

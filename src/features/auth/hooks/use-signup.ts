@@ -24,18 +24,8 @@ const defaultSignupData: SignupData = {
   communityId: "",
   communityName: "",
   signupMethod: null,
-  firstName: "",
-  lastName: "",
   email: "",
   password: "",
-  phone: "",
-  address: {
-    street: "",
-    city: "",
-    state: "",
-    zipCode: "",
-  },
-  agreeToTerms: false,
 };
 
 export function useSignup() {

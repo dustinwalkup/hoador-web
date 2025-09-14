@@ -16,7 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useSignupContext } from "../signup-context";
 import { validateField } from "../../schemas/validation";
 import { createAccountAction } from "../../actions/create-account";
@@ -57,9 +56,7 @@ export function DetailsStep() {
   // Helper for per-field validation (only runs after first submit attempt)
   // ---------------------------
   const handleFieldValidation = (
-    field:
-      | keyof EmailSignupData
-      | `address.${keyof EmailSignupData["address"]}`,
+    field: keyof EmailSignupData,
     value: unknown,
   ) => {
     // Only validate after user has attempted to submit
@@ -83,36 +80,12 @@ export function DetailsStep() {
   };
 
   // ---------------------------
-  // Nested address change handler
-  // ---------------------------
-  const handleAddressChange = <K extends keyof EmailSignupData["address"]>(
-    key: K,
-    value: EmailSignupData["address"][K],
-  ) => {
-    updateSignupData({
-      address: {
-        ...signupData.address,
-        [key]: value,
-      },
-    });
-    handleFieldValidation(`address.${key}`, value);
-  };
-
-  // ---------------------------
   // Form validation
   // ---------------------------
   const validateAllFields = (): boolean => {
     const fieldsToValidate = [
-      { field: "firstName", value: signupData.firstName },
-      { field: "lastName", value: signupData.lastName },
       { field: "email", value: signupData.email },
       { field: "password", value: signupData.password },
-      { field: "phone", value: signupData.phone },
-      { field: "address.street", value: signupData.address.street },
-      { field: "address.city", value: signupData.address.city },
-      { field: "address.state", value: signupData.address.state },
-      { field: "address.zipCode", value: signupData.address.zipCode },
-      { field: "agreeToTerms", value: signupData.agreeToTerms },
     ] as const;
 
     let hasErrors = false;
@@ -133,16 +106,7 @@ export function DetailsStep() {
 
   // Check if all required fields are filled (for button state)
   const isFormComplete = Boolean(
-    signupData.firstName?.trim() &&
-      signupData.lastName?.trim() &&
-      signupData.email?.trim() &&
-      signupData.password?.trim() &&
-      signupData.phone?.trim() &&
-      signupData.address.street?.trim() &&
-      signupData.address.city?.trim() &&
-      signupData.address.state?.trim() &&
-      signupData.address.zipCode?.trim() &&
-      signupData.agreeToTerms,
+    signupData.email?.trim() && signupData.password?.trim(),
   );
 
   // ---------------------------
@@ -183,9 +147,9 @@ export function DetailsStep() {
               {signupData.communityName}
             </span>
           </div>
-          <CardTitle className="text-2xl">Complete Your Profile</CardTitle>
+          <CardTitle className="text-2xl">Create Your Account</CardTitle>
           <CardDescription>
-            Enter your information to finish creating your account
+            Enter your email and password to create your account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -194,36 +158,6 @@ export function DetailsStep() {
             onSubmit={handleFormSubmit}
             className="space-y-4"
           >
-            {/* Name Fields */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first-name">First name</Label>
-                <Input
-                  id="first-name"
-                  name="firstName"
-                  value={signupData.firstName}
-                  onChange={(e) => handleChange("firstName", e.target.value)}
-                  className={errors.firstName ? "border-red-500" : ""}
-                />
-                {errors.firstName && (
-                  <p className="text-xs text-red-500">{errors.firstName}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="last-name">Last name</Label>
-                <Input
-                  id="last-name"
-                  name="lastName"
-                  value={signupData.lastName}
-                  onChange={(e) => handleChange("lastName", e.target.value)}
-                  className={errors.lastName ? "border-red-500" : ""}
-                />
-                {errors.lastName && (
-                  <p className="text-xs text-red-500">{errors.lastName}</p>
-                )}
-              </div>
-            </div>
-
             {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -238,23 +172,6 @@ export function DetailsStep() {
               />
               {errors.email && (
                 <p className="text-xs text-red-500">{errors.email}</p>
-              )}
-            </div>
-
-            {/* Phone */}
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone number</Label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                placeholder="(555) 123-4567"
-                value={signupData.phone}
-                onChange={(e) => handleChange("phone", e.target.value)}
-                className={errors.phone ? "border-red-500" : ""}
-              />
-              {errors.phone && (
-                <p className="text-xs text-red-500">{errors.phone}</p>
               )}
             </div>
 
@@ -294,108 +211,6 @@ export function DetailsStep() {
               )}
             </div>
 
-            {/* Address */}
-            <div className="space-y-2">
-              <Label htmlFor="street">Street address</Label>
-              <Input
-                id="street"
-                name="street"
-                placeholder="Enter your street address"
-                value={signupData.address.street}
-                onChange={(e) => handleAddressChange("street", e.target.value)}
-                className={errors["address.street"] ? "border-red-500" : ""}
-              />
-              {errors["address.street"] && (
-                <p className="text-xs text-red-500">
-                  {errors["address.street"]}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  name="city"
-                  value={signupData.address.city}
-                  onChange={(e) => handleAddressChange("city", e.target.value)}
-                  className={errors["address.city"] ? "border-red-500" : ""}
-                />
-                {errors["address.city"] && (
-                  <p className="text-xs text-red-500">
-                    {errors["address.city"]}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
-                <Input
-                  id="state"
-                  name="state"
-                  maxLength={2}
-                  value={signupData.address.state}
-                  onChange={(e) =>
-                    handleAddressChange("state", e.target.value.toUpperCase())
-                  }
-                  className={errors["address.state"] ? "border-red-500" : ""}
-                />
-                {errors["address.state"] && (
-                  <p className="text-xs text-red-500">
-                    {errors["address.state"]}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="zipCode">ZIP code</Label>
-                <Input
-                  id="zipCode"
-                  name="zipCode"
-                  placeholder="12345"
-                  value={signupData.address.zipCode}
-                  onChange={(e) =>
-                    handleAddressChange("zipCode", e.target.value)
-                  }
-                  className={errors["address.zipCode"] ? "border-red-500" : ""}
-                />
-                {errors["address.zipCode"] && (
-                  <p className="text-xs text-red-500">
-                    {errors["address.zipCode"]}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Terms */}
-            <div className="flex items-start space-x-2">
-              <Checkbox
-                id="terms"
-                name="agreeToTerms"
-                className="mt-1"
-                checked={signupData.agreeToTerms}
-                onCheckedChange={(checked) => {
-                  console.log("Checkbox changed to:", checked);
-                  handleChange("agreeToTerms", !!checked);
-                }}
-              />
-              <label
-                htmlFor="terms"
-                className="text-sm leading-relaxed peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                I agree to the{" "}
-                <Link href="/terms" className="text-primary hover:underline">
-                  terms of service
-                </Link>{" "}
-                and{" "}
-                <Link href="/privacy" className="text-primary hover:underline">
-                  privacy policy
-                </Link>
-              </label>
-            </div>
-            {errors.agreeToTerms && (
-              <p className="text-xs text-red-500">{errors.agreeToTerms}</p>
-            )}
-
             {/* Hidden fields for community info and terms */}
             <input
               type="hidden"
@@ -406,11 +221,6 @@ export function DetailsStep() {
               type="hidden"
               name="communityId"
               value={signupData.communityId || ""}
-            />
-            <input
-              type="hidden"
-              name="agreeToTerms"
-              value={signupData.agreeToTerms ? "true" : "false"}
             />
 
             {/* General errors */}

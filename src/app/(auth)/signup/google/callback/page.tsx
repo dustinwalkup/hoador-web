@@ -29,6 +29,6 @@ export default async function GoogleSignupCallback({
     console.error("Community association failed:", error);
     redirect("/signup?error=community_failed");
   }
-  // Redirect to dashboard
-  redirect("/dashboard");
+  // Redirect to onboarding
+  redirect("/onboarding");
 }

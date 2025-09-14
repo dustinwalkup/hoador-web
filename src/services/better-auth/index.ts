@@ -4,6 +4,8 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getSessionCookie as getSessionCookieFromCookies } from "better-auth/cookies";
 import { db } from "@/db/db";
 
+export const EMAIL_VERIFICATION_CALLBACK_URL = "signup/email/callback";
+
 export function getSessionCookie(request: NextRequest) {
   return getSessionCookieFromCookies(request);
 }
@@ -34,6 +36,7 @@ export const auth = betterAuth({
 
   // Email verification configuration
   emailVerification: {
+    autoSignInAfterVerification: true,
     sendOnSignUp: true,
     expiresIn: 60 * 60 * 24, // 24 hours
     sendVerificationEmail: async ({ user, url }) => {
@@ -43,7 +46,8 @@ export const auth = betterAuth({
       try {
         await sendVerificationEmail({
           to: user.email,
-          verificationUrl: url,
+          // adding the callback url to the url
+          verificationUrl: url + EMAIL_VERIFICATION_CALLBACK_URL,
           firstName: (user as User).name,
         });
         console.log("Verification email sent to:", user.email);

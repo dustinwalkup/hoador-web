@@ -1,7 +1,7 @@
 "use server";
 
 import { tryCatch } from "@walkup/walkup-utils";
-import { auth } from "@/services/better-auth";
+import { auth, EMAIL_VERIFICATION_CALLBACK_URL } from "@/services/better-auth";
 import { UserDAL } from "@/dal/user.dal";
 import { eq, and, gte } from "drizzle-orm";
 import { db } from "@/db/db";
@@ -111,7 +111,7 @@ async function resendConfirmationEmail(email: string, userId: string) {
     auth.api.sendVerificationEmail({
       body: {
         email,
-        callbackURL: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard`,
+        callbackURL: "/" + EMAIL_VERIFICATION_CALLBACK_URL,
       },
     }),
   );
