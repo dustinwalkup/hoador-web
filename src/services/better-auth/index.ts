@@ -23,6 +23,26 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
+    sendResetPassword: async ({ user, url }) => {
+      // Import Resend service
+      const { sendResetPasswordEmail } = await import(
+        "@/services/resend/send-reset-password-email"
+      );
+
+      try {
+        await sendResetPasswordEmail({
+          to: user.email,
+          callbackUrl: url,
+        });
+      } catch (error) {
+        console.error("Failed to send reset password email:", error);
+        throw new Error("Failed to send reset password email");
+      }
+    },
+    onPasswordReset: async ({ user }) => {
+      // logic here
+      console.log(`Password for user ${user.email} has been reset.`);
+    },
   },
 
   // Enable account linking for Google → email/password sync
@@ -41,7 +61,9 @@ export const auth = betterAuth({
     expiresIn: 60 * 60 * 24, // 24 hours
     sendVerificationEmail: async ({ user, url }) => {
       // Import Resend service
-      const { sendVerificationEmail } = await import("@/services/resend");
+      const { sendVerificationEmail } = await import(
+        "@/services/resend/send-verification-email"
+      );
 
       try {
         await sendVerificationEmail({

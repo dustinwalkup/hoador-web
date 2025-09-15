@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { SuccessMessage } from "@/features/auth/components/success-message";
 import {
   Card,
   CardContent,
@@ -10,7 +11,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ message?: string }>;
+}) {
+  const params = await searchParams;
   return (
     <div className="bg-muted/40 flex min-h-screen flex-col items-center justify-center p-4">
       <Link href="/" className="mb-8 flex items-center gap-2">
@@ -32,6 +38,12 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {params.message === "password-reset-success" && (
+            <SuccessMessage
+              title="Password Reset Successful"
+              description="Your password has been reset successfully. Please log in with your new password."
+            />
+          )}
           <LoginForm />
         </CardContent>
         <CardFooter className="flex flex-col items-center gap-4">

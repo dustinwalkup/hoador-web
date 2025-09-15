@@ -55,10 +55,12 @@ export default async function ProfilePage() {
             <CardContent className="flex flex-col items-center">
               <div className="relative mb-4">
                 <Avatar className="h-32 w-32">
-                  <AvatarImage
-                    src={"/images/mock/users/testUser.jpg"}
-                    alt={`Avatar for ${getUserFullName(user)}`}
-                  />
+                  {user.profileImageUrl && (
+                    <AvatarImage
+                      src={user.profileImageUrl}
+                      alt={`Avatar for ${getUserFullName(user)}`}
+                    />
+                  )}
                   <AvatarFallback className="text-2xl">
                     {getUserInitials(user)}
                   </AvatarFallback>
