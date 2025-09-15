@@ -11,9 +11,15 @@ export function getSessionCookie(request: NextRequest) {
 }
 
 export const auth = betterAuth({
+  // Database adapter
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
+
+  // Trusted origins
+  trustedOrigins: [process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"],
+
+  // Base URL
   baseURL:
     process.env.BETTER_AUTH_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
