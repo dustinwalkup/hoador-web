@@ -173,4 +173,5 @@ export const config = {
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|tiff)$).*)",
   ],
+  runtime: "nodejs", // Force Node.js runtime for Better Auth compatibility
 };
