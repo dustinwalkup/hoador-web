@@ -5,7 +5,7 @@ import { getSession } from "@/features/auth/utils/session";
 export default async function EmailSignupCallback({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: Promise<{ error?: string }>;
 }) {
   // Get authenticated user session
   const session = await getSession();
@@ -13,8 +13,9 @@ export default async function EmailSignupCallback({
     redirect("/login");
   }
 
-  if (searchParams.error) {
-    redirect(`/signup?error=${searchParams.error}`);
+  const { error } = await searchParams;
+  if (error) {
+    redirect(`/signup?error=${error}`);
   }
 
   try {

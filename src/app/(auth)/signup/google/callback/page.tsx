@@ -5,7 +5,7 @@ import { getSession } from "@/features/auth/utils/session";
 export default async function GoogleSignupCallback({
   searchParams,
 }: {
-  searchParams: { joinCode?: string; error?: string };
+  searchParams: Promise<{ joinCode?: string; error?: string }>;
 }) {
   // Get authenticated user session
   const session = await getSession();
