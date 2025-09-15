@@ -3,9 +3,9 @@ import { EmailConfirmationForm } from "@/features/auth/components/email-confirma
 import { userDAL } from "@/dal";
 
 interface VerifyEmailPageProps {
-  searchParams: {
+  searchParams: Promise<{
     email?: string | string[] | undefined;
-  };
+  }>;
 }
 
 // Utility function to get user by email
@@ -42,7 +42,7 @@ export default async function VerifyEmailPage({
   searchParams,
 }: VerifyEmailPageProps) {
   // Extract and validate email parameter
-  const emailParam = searchParams.email;
+  const emailParam = (await searchParams).email;
   const email = Array.isArray(emailParam) ? emailParam[0] : emailParam;
 
   if (!email) {
