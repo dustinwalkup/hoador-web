@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionCookie } from "@/services/better-auth";
+import { getCurrentUser } from "@/features/auth/utils/session";
+
 // Define protected route patterns
 const PROTECTED_ROUTES = [
   "/dashboard",
+  "/onboarding", // Add onboarding as protected
   "/api/garage",
   "/api/listings",
   "/api/rentals",
   "/api/messages",
+];
+
+// Define auth routes that authenticated users shouldn't access
+const AUTH_ROUTES = ["/login", "/signup", "/verify-email"];
+
+// Define callback routes that pending_verification users can access
+const VERIFICATION_CALLBACK_ROUTES = [
+  "/signup/email/callback",
+  "/signup/google/callback",
 ];
 
 // Define public API routes that should not be protected
@@ -57,7 +68,7 @@ function shouldSkipMiddleware(pathname: string): boolean {
 function createRedirectUrl(request: NextRequest): string {
   const loginUrl = new URL("/login", request.url);
 
-  // Add callback URL for seamless redirect after login
+  // Add callback URL for redirect after login
   const callbackUrl = request.nextUrl.pathname + request.nextUrl.search;
   if (callbackUrl !== "/") {
     loginUrl.searchParams.set("callbackUrl", callbackUrl);
@@ -80,28 +91,60 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Check session using Better Auth
-    const sessionCookie = getSessionCookie(request);
+    // Get current user (includes session check)
+    const user = await getCurrentUser();
 
-    // Handle authenticated users on home page - redirect to dashboard
-    if (sessionCookie && pathname === "/") {
-      const dashboardUrl = new URL("/dashboard", request.url);
-      return NextResponse.redirect(dashboardUrl);
+    // Handle authenticated users
+    if (user) {
+      // Allow pending_verification users to access callback routes
+      if (
+        user.status === "pending_verification" &&
+        VERIFICATION_CALLBACK_ROUTES.some((route) => pathname.startsWith(route))
+      ) {
+        return NextResponse.next();
+      }
+
+      // Redirect authenticated users away from auth routes
+      if (AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
+        const dashboardUrl = new URL("/dashboard", request.url);
+        return NextResponse.redirect(dashboardUrl);
+      }
+
+      // Redirect authenticated users from home page to dashboard
+      if (pathname === "/") {
+        const dashboardUrl = new URL("/dashboard", request.url);
+        return NextResponse.redirect(dashboardUrl);
+      }
+
+      // Handle incomplete_profile users
+      if (user.status === "incomplete_profile") {
+        if (pathname === "/onboarding") {
+          return NextResponse.next(); // Allow access to onboarding
+        }
+        // Redirect to onboarding for any other route
+        const onboardingUrl = new URL("/onboarding", request.url);
+        return NextResponse.redirect(onboardingUrl);
+      }
+
+      // Handle users who don't need onboarding
+      if (pathname === "/onboarding") {
+        const dashboardUrl = new URL("/dashboard", request.url);
+        return NextResponse.redirect(dashboardUrl);
+      }
+
+      // User is authenticated with proper status, allow access
+      return NextResponse.next();
     }
 
+    // Handle unauthenticated users
     // Only run authentication check for protected routes
     if (!isProtectedRoute(pathname)) {
       return NextResponse.next();
     }
 
-    // If no valid session, redirect to login
-    if (!sessionCookie) {
-      const redirectUrl = createRedirectUrl(request);
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    // User is authenticated, allow the request to proceed
-    return NextResponse.next();
+    // Redirect to login for protected routes
+    const redirectUrl = createRedirectUrl(request);
+    return NextResponse.redirect(redirectUrl);
   } catch (error) {
     console.error("❌ MIDDLEWARE AUTHENTICATION ERROR:", error);
     // For protected routes, redirect to login on error

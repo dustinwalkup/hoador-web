@@ -2,10 +2,10 @@
 
 import { tryCatch } from "@walkup/walkup-utils";
 import { auth, EMAIL_VERIFICATION_CALLBACK_URL } from "@/services/better-auth";
-import { UserDAL } from "@/dal/user.dal";
 import { eq, and, gte } from "drizzle-orm";
 import { db } from "@/db/db";
 import { schema } from "@/db/schemas";
+import { userDAL } from "@/dal";
 
 const { verification } = schema;
 
@@ -89,7 +89,6 @@ async function resendConfirmationEmail(email: string, userId: string) {
   }
 
   // Verify user exists and email matches
-  const userDAL = new UserDAL();
   const { data: userData, error: userError } = await tryCatch(
     userDAL.getUserByEmailForAuth(email),
   );

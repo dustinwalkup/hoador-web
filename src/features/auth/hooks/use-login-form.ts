@@ -46,7 +46,7 @@ export function useLoginForm(callbackUrl: string) {
 
         return { error: null, success: true };
       } catch (error) {
-        let errorMessage = "Failed to sign in. Please try again.";
+        let errorMessage = "Invalid email or password. Please try again.";
 
         if (error instanceof Error) {
           if (error.message?.includes("email not verified")) {
@@ -54,8 +54,11 @@ export function useLoginForm(callbackUrl: string) {
               "Please verify your email address before signing in. Check your inbox for a verification link.";
           } else if (
             error.message?.includes("invalid") ||
-            error.message?.includes("credentials")
+            error.message?.includes("credentials") ||
+            error.message?.includes("password") ||
+            error.message?.includes("email")
           ) {
+            // For any authentication-related errors, show the standard message
             errorMessage = "Invalid email or password. Please try again.";
           }
         }
@@ -77,6 +80,7 @@ export function useLoginForm(callbackUrl: string) {
         await signInSocial(provider);
         toast.success("Redirecting to Google...");
       } catch (error) {
+        console.error("Google sign-in error:", error);
         toast.error("Failed to sign in with Google. Please try again.");
       }
     });

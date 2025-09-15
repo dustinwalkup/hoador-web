@@ -1,19 +1,14 @@
 import { createAuthClient } from "better-auth/react";
 import type { User } from "./index";
+import { handleBetterAuthSignInError } from "./errors";
 
 export const authClient = createAuthClient({
   baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+
   // Optional: Add custom fetch configuration
   fetchOptions: {
-    onError(context) {
-      // Log client-side auth errors
-      console.error("Auth client error:", context.error);
-
-      // Handle specific error cases
-      if (context.error?.message?.includes("email not verified")) {
-        // Redirect to email verification page
-        window.location.href = "/auth/verify-email";
-      }
+    onError: async (context) => {
+      handleBetterAuthSignInError(context);
     },
     onRequest(context) {
       // Log auth requests in development

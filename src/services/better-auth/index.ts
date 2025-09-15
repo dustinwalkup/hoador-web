@@ -47,7 +47,7 @@ export const auth = betterAuth({
         await sendVerificationEmail({
           to: user.email,
           // adding the callback url to the url
-          verificationUrl: url + EMAIL_VERIFICATION_CALLBACK_URL,
+          verificationUrl: url,
           firstName: (user as User).name,
         });
         console.log("Verification email sent to:", user.email);

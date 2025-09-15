@@ -37,8 +37,10 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 Auth TODO:
 
-[ ] handle users who try to login but haven't verified email
-[ ] handle users who try to create an account, but haven't veriried email
-[ ] middleware, if user status is incomplete_profile, the only place they can go is /onboarding
+[x] handle users who try to login but haven't verified email
+[x] handle users who try to create an account, but haven't veriried email
+[x] handle users who try to create an account, but have an active account
+[x] middleware, if user status is incomplete_profile, the only place they can go is /onboarding
 [ ] handle email signup callpack page with this error /signup/email/callback?error=invalid_token
 [ ] handle google signup callback page with this error /signup?error=join_code_not_found
+[ ] profile photo upload borken
