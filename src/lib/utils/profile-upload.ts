@@ -38,7 +38,18 @@ export async function uploadProfileImage(
     body: formData,
   });
 
-  const result = await response.json();
+  // Check if response is HTML (authentication redirect)
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("text/html")) {
+    throw new Error("Authentication required. Please log in and try again.");
+  }
+
+  let result;
+  try {
+    result = await response.json();
+  } catch (error) {
+    throw new Error("Invalid response from server. Please try again.");
+  }
 
   if (!response.ok) {
     throw new Error(result.error || "Failed to upload profile image");
@@ -57,7 +68,18 @@ export async function deleteProfileImage(
     },
   );
 
-  const result = await response.json();
+  // Check if response is HTML (authentication redirect)
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("text/html")) {
+    throw new Error("Authentication required. Please log in and try again.");
+  }
+
+  let result;
+  try {
+    result = await response.json();
+  } catch (error) {
+    throw new Error("Invalid response from server. Please try again.");
+  }
 
   if (!response.ok) {
     throw new Error(result.error || "Failed to delete profile image");

@@ -21,7 +21,12 @@ const VERIFICATION_CALLBACK_ROUTES = [
 ];
 
 // Define public API routes that should not be protected
-const PUBLIC_API_ROUTES = ["/api/auth", "/api/test-serp", "/api/test-upload"];
+const PUBLIC_API_ROUTES = [
+  "/api/auth",
+  "/api/test-serp",
+  "/api/test-upload",
+  "/api/profile",
+];
 
 // Define static file extensions and Next.js internal paths to skip
 const SKIP_MIDDLEWARE_PATHS = [

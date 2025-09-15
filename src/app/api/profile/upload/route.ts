@@ -5,9 +5,16 @@ import {
   validateImageForProcessing,
   getImageMetadata,
 } from "@/lib/image/server";
+import { getCurrentUser } from "@/features/auth/utils/session";
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
@@ -78,6 +85,12 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Check authentication
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const pathname = searchParams.get("pathname");
 
