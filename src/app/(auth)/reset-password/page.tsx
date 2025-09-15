@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Suspense } from "react";
 import {
   Card,
   CardContent,
@@ -32,7 +33,11 @@ export default function ResetPasswordPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResetPasswordForm />
+          <Suspense
+            fallback={<div className="flex justify-center p-4">Loading...</div>}
+          >
+            <ResetPasswordForm />
+          </Suspense>
         </CardContent>
         <CardFooter className="flex flex-col items-center gap-4">
           <div className="text-muted-foreground text-center text-sm">

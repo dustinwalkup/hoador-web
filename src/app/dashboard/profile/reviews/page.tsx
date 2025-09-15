@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -165,10 +166,14 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ReviewsSortingControls
-                    sortBy={sortBy}
-                    sortOrder={sortOrder}
-                  />
+                  <Suspense
+                    fallback={<div className="text-sm">Loading...</div>}
+                  >
+                    <ReviewsSortingControls
+                      sortBy={sortBy}
+                      sortOrder={sortOrder}
+                    />
+                  </Suspense>
                 </div>
               </div>
             </CardHeader>

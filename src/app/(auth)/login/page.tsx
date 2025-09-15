@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { SuccessMessage } from "@/features/auth/components/success-message";
 import {
@@ -44,7 +45,11 @@ export default async function LoginPage({
               description="Your password has been reset successfully. Please log in with your new password."
             />
           )}
-          <LoginForm />
+          <Suspense
+            fallback={<div className="flex justify-center p-4">Loading...</div>}
+          >
+            <LoginForm />
+          </Suspense>
         </CardContent>
         <CardFooter className="flex flex-col items-center gap-4">
           <div className="text-muted-foreground text-center text-sm">
