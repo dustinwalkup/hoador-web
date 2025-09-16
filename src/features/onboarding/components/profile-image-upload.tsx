@@ -1,19 +1,21 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Upload, X, RefreshCw, AlertCircle, User } from "lucide-react";
+import { toast } from "sonner";
+import { Upload, X, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   uploadProfileImage,
   deleteProfileImage,
 } from "@/lib/utils/profile-upload";
-import { toast } from "sonner";
 
 interface ProfileImageUploadProps {
   currentImageUrl?: string;
   onImageChange: (url: string | null) => void;
   disabled?: boolean;
   userInitials: string; // e.g., "JD" for John Doe
+  showRemoveButton?: boolean; // Whether to show the X remove button
+  showToasts?: boolean; // Whether to show success/error toasts
 }
 
 export function ProfileImageUpload({
@@ -21,6 +23,8 @@ export function ProfileImageUpload({
   onImageChange,
   disabled = false,
   userInitials,
+  showRemoveButton = true,
+  showToasts = true,
 }: ProfileImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -51,7 +55,9 @@ export function ProfileImageUpload({
       const validationError = validateFile(file);
       if (validationError) {
         setUploadError(validationError);
-        toast.error(validationError);
+        if (showToasts) {
+          toast.error(validationError);
+        }
         return;
       }
 
@@ -61,17 +67,21 @@ export function ProfileImageUpload({
       try {
         const result = await uploadProfileImage(file);
         onImageChange(result.url);
-        toast.success("Profile image uploaded successfully");
+        if (showToasts) {
+          toast.success("Profile image uploaded successfully");
+        }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to upload image";
         setUploadError(errorMessage);
-        toast.error(errorMessage);
+        if (showToasts) {
+          toast.error(errorMessage);
+        }
       } finally {
         setIsUploading(false);
       }
     },
-    [onImageChange, toast],
+    [onImageChange, showToasts],
   );
 
   // Handle file input change
@@ -122,7 +132,9 @@ export function ProfileImageUpload({
 
       onImageChange(null);
       setUploadError(null);
-      toast.success("Profile image removed");
+      if (showToasts) {
+        toast.success("Profile image removed");
+      }
     } catch (error) {
       console.warn("Failed to delete image from storage:", error);
       // Still remove from form even if deletion fails
@@ -165,6 +177,8 @@ export function ProfileImageUpload({
         {currentImageUrl && !uploadError ? (
           <img
             src={currentImageUrl}
+            height={128}
+            width={128}
             alt="Profile"
             className="h-full w-full rounded-full object-cover"
           />
@@ -193,7 +207,7 @@ export function ProfileImageUpload({
         )}
 
         {/* Remove Button */}
-        {currentImageUrl && !isUploading && (
+        {currentImageUrl && !isUploading && showRemoveButton && (
           <button
             type="button"
             onClick={(e) => {

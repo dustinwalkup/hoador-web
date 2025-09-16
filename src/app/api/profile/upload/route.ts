@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToBlob, deleteFromBlob } from "@/services/vercel-blob";
+import { getCurrentUser } from "@/features/auth/utils/session";
 import {
   processImageForUpload,
   validateImageForProcessing,
   getImageMetadata,
 } from "@/lib/image/server";
-import { getCurrentUser } from "@/features/auth/utils/session";
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,8 +60,35 @@ export async function POST(request: NextRequest) {
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const filename = `profiles/${timestamp}-${sanitizedName.replace(/\.[^/.]+$/, ".jpg")}`;
 
+    // Get current user's profile image before upload (for cleanup)
+    const currentProfileImageUrl = user.profileImageUrl;
+
     // Upload processed image to Vercel Blob
     const blob = await uploadToBlob(filename, processedBuffer);
+
+    // Background cleanup: delete old profile image if it exists
+    if (currentProfileImageUrl) {
+      try {
+        const oldImageUrl = new URL(currentProfileImageUrl);
+        const oldPathname = oldImageUrl.pathname.substring(1); // Remove leading slash
+
+        if (oldPathname.startsWith("profiles/")) {
+          // Don't await this - run in background
+          deleteFromBlob(oldPathname).catch((error) => {
+            console.warn(
+              "Failed to delete old profile image:",
+              oldPathname,
+              error,
+            );
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "Failed to parse old profile image URL for cleanup:",
+          error,
+        );
+      }
+    }
 
     return NextResponse.json({
       success: true,

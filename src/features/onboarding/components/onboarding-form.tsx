@@ -23,7 +23,6 @@ import { validateField } from "../schemas/validation";
 import type { OnboardingData } from "../schemas/validation";
 import { onboardingAction } from "../actions/onboarding-action";
 import { ProfileImageUpload } from "./profile-image-upload";
-// import { useToast } from "@/components/ui/use-toast";
 
 interface OnboardingFormProps {
   communityName?: string;

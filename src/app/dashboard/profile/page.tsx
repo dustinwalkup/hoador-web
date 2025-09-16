@@ -9,9 +9,9 @@ import {
   formatMemberSince,
   getUserCity,
   getUserFullName,
-  getUserInitials,
   getUserState,
 } from "@/features/users/utils/users.utils";
+import { ProfileImageSection } from "@/features/users/components/profile-image-section";
 import { PageHeader } from "@/components/page-header";
 import {
   Card,
@@ -20,7 +20,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ProfileTabs } from "./_components/profile-tabs";
@@ -53,19 +52,7 @@ export default async function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center">
-              <div className="relative mb-4">
-                <Avatar className="h-32 w-32">
-                  {user.profileImageUrl && (
-                    <AvatarImage
-                      src={user.profileImageUrl}
-                      alt={`Avatar for ${getUserFullName(user)}`}
-                    />
-                  )}
-                  <AvatarFallback className="text-2xl">
-                    {getUserInitials(user)}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
+              <ProfileImageSection user={user} />
 
               <div className="mb-2 flex items-center">
                 <h3 className="text-xl font-semibold">
