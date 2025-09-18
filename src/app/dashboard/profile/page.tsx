@@ -43,8 +43,8 @@ export default async function ProfilePage() {
       />
 
       <ProfileTabs>
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card className="md:col-span-1">
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle>{PROFILE_OVERVIEW.profileCard.title}</CardTitle>
               <CardDescription>
@@ -58,9 +58,6 @@ export default async function ProfilePage() {
                 <h3 className="text-xl font-semibold">
                   {getUserFullName(user)}
                 </h3>
-                <Badge variant="secondary" className="ml-2">
-                  {PROFILE_OVERVIEW.profileCard.verifiedBadge}
-                </Badge>
               </div>
 
               <div className="text-muted-foreground mb-4 flex items-center text-sm">
@@ -72,14 +69,16 @@ export default async function ProfilePage() {
               </div>
 
               <div className="mb-4 flex items-center">
-                <div className="flex">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={`h-4 w-4 ${star <= Math.round(reviews.averageRating) ? "fill-amber-400 text-amber-400" : "text-muted"}`}
-                    />
-                  ))}
-                </div>
+                {reviews.totalReviews > 0 && (
+                  <div className="flex">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`h-4 w-4 ${star <= Math.round(reviews.averageRating) ? "fill-amber-400 text-amber-400" : "text-muted"}`}
+                      />
+                    ))}
+                  </div>
+                )}
                 <span className="ml-2 text-sm">
                   {" "}
                   {formatReviewSummary(
@@ -115,17 +114,7 @@ export default async function ProfilePage() {
             </CardContent>
           </Card>
 
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>{PROFILE_OVERVIEW.formCard.title}</CardTitle>
-              <CardDescription>
-                {PROFILE_OVERVIEW.formCard.description}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ProfileForm user={user} />
-            </CardContent>
-          </Card>
+          <ProfileForm user={user} />
         </div>
       </ProfileTabs>
     </div>
