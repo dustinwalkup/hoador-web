@@ -5,6 +5,13 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
 import { cn } from "@/lib/utils";
 
+// Context to share state between Tooltip and TooltipTrigger
+const TooltipContext = React.createContext<{
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  isTouchDevice: boolean;
+} | null>(null);
+
 function TooltipProvider({
   delayDuration = 0,
   ...props
@@ -35,7 +42,9 @@ function Tooltip({
 
   return (
     <TooltipProvider>
-      <TooltipPrimitive.Root data-slot="tooltip" {...tooltipProps} />
+      <TooltipContext.Provider value={{ isOpen, setIsOpen, isTouchDevice }}>
+        <TooltipPrimitive.Root data-slot="tooltip" {...tooltipProps} />
+      </TooltipContext.Provider>
     </TooltipProvider>
   );
 }
@@ -44,13 +53,19 @@ function TooltipTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
+  const context = React.useContext(TooltipContext);
+
   const handleClick = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       // Call the original onClick if provided
       onClick?.(event);
-      // The click will trigger Radix's onOpenChange for touch devices
+
+      // On touch devices, toggle the tooltip
+      if (context?.isTouchDevice) {
+        context.setIsOpen(!context.isOpen);
+      }
     },
-    [onClick],
+    [onClick, context],
   );
 
   return (
