@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { updateUserProfileAndAddress } from "@/features/users/actions/update-user-profile";
-import { PROFILE_OVERVIEW } from "@/constants/profile";
+import { PROFILE_OVERVIEW, US_STATES } from "@/constants/profile";
 
 import {
   Card,
@@ -22,6 +22,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserProfile } from "@/dal/types";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const ProfileFormSchema = z.object({
@@ -443,9 +450,29 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                       {renderField(
                         "state",
                         <div>
-                          <Input
-                            {...form.register("address.state")}
-                            className="transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800"
+                          <Controller
+                            name="address.state"
+                            control={form.control}
+                            render={({ field }) => (
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
+                                <SelectTrigger className="w-full transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800">
+                                  <SelectValue placeholder="Select a state" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {US_STATES.map((state) => (
+                                    <SelectItem
+                                      key={state.value}
+                                      value={state.value}
+                                    >
+                                      {state.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           />
                           {form.formState.errors.address?.state && (
                             <p className="animate-in slide-in-from-top-1 mt-1 text-sm text-red-500 duration-300">
@@ -453,7 +480,12 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                             </p>
                           )}
                         </div>,
-                        user.primaryAddress?.state || "Not provided",
+                        user.primaryAddress?.state
+                          ? US_STATES.find(
+                              (state) =>
+                                state.value === user.primaryAddress?.state,
+                            )?.label || user.primaryAddress.state
+                          : "Not provided",
                       )}
                     </div>
                     <div className="space-y-2">

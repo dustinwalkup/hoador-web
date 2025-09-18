@@ -39,6 +39,7 @@ export function ProfileImageSection({ user }: ProfileImageSectionProps) {
       } catch (error) {
         // Revert optimistic update on failure
         setCurrentImageUrl(user.profileImageUrl);
+        console.error(error);
         toast.error("Something went wrong. Please try again.");
       }
     });
