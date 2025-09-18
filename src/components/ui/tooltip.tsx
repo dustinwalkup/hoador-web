@@ -21,17 +21,45 @@ function TooltipProvider({
 function Tooltip({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [isTouchDevice, setIsTouchDevice] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  // For touch devices, control the state manually
+  const tooltipProps = isTouchDevice
+    ? { open: isOpen, onOpenChange: setIsOpen, ...props }
+    : props;
+
   return (
     <TooltipProvider>
-      <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+      <TooltipPrimitive.Root data-slot="tooltip" {...tooltipProps} />
     </TooltipProvider>
   );
 }
 
 function TooltipTrigger({
+  onClick,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+  const handleClick = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      // Call the original onClick if provided
+      onClick?.(event);
+      // The click will trigger Radix's onOpenChange for touch devices
+    },
+    [onClick],
+  );
+
+  return (
+    <TooltipPrimitive.Trigger
+      data-slot="tooltip-trigger"
+      onClick={handleClick}
+      {...props}
+    />
+  );
 }
 
 function TooltipContent({
