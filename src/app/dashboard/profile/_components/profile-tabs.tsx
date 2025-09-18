@@ -25,7 +25,7 @@ export function ProfileTabs({ children }: ProfileTabsProps) {
   return (
     <Tabs value={activeTab} className="space-y-6">
       <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <TabsList className="grid w-full min-w-max grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-3">
+        <TabsList className="flex max-w-fit items-center justify-start gap-1">
           {PROFILE_TABS.tabValues.map((tab) => (
             <ProfileTabTrigger key={tab.value} tab={tab} />
           ))}

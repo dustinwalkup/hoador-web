@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { Star, MapPin, Calendar } from "lucide-react";
+import { Star, MapPin, Calendar, Info } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { rentalDAL, reviewDAL } from "@/dal";
@@ -21,6 +21,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ProfileTabs } from "./_components/profile-tabs";
 import { ProfileForm } from "./_components/profile-form";
 
@@ -44,11 +50,29 @@ export default async function ProfilePage() {
       <ProfileTabs>
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-1">
-            <CardHeader>
+            <CardHeader className="relative">
               <CardTitle>{PROFILE_OVERVIEW.profileCard.title}</CardTitle>
               <CardDescription>
                 {PROFILE_OVERVIEW.profileCard.description}
               </CardDescription>
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="absolute top-0 right-4">
+                      <Info className="text-muted-foreground hover:text-foreground h-4 w-4 cursor-help transition-colors" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    className="max-w-xs border border-gray-700 bg-gray-900 text-center text-white"
+                  >
+                    <p>Click on your profile photo to upload a new image</p>
+                    <p className="text-xs opacity-90">
+                      JPEG, PNG, WebP • Max 5MB
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardHeader>
             <CardContent className="flex flex-col items-center">
               <ProfileImageSection user={user} />
