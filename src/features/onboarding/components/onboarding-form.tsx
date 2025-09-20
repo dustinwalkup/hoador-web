@@ -26,12 +26,14 @@ import { ProfileImageUpload } from "./profile-image-upload";
 
 interface OnboardingFormProps {
   communityName?: string;
+  profileImageUrl?: string;
   userFirstName?: string;
   userLastName?: string;
 }
 
 export function OnboardingForm({
   communityName = "Your Community",
+  profileImageUrl = "",
   userFirstName = "",
   userLastName = "",
 }: OnboardingFormProps) {
@@ -50,11 +52,11 @@ export function OnboardingForm({
 
   // Form state
   const [formData, setFormData] = useState({
-    firstName: userFirstName,
+    firstName: userFirstName && userFirstName !== "User" ? userFirstName : "",
     lastName: userLastName,
     phone: "",
     bio: "",
-    profileImageUrl: "",
+    profileImageUrl,
     address: {
       street: "",
       city: "",

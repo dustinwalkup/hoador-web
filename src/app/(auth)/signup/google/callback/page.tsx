@@ -25,6 +25,11 @@ export default async function GoogleSignupCallback({
 
     // Set user status
     await userDAL.updateUserStatus(session.user.id, "incomplete_profile");
+
+    // Set user profile photo
+    if (session.user.image) {
+      await userDAL.updateUserProfilePhoto(session.user.id, session.user.image);
+    }
   } catch (error) {
     console.error("Community association failed:", error);
     redirect("/signup?error=community_failed");

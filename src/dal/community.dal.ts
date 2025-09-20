@@ -13,7 +13,7 @@ import {
 } from "@/db/schemas/communities.schema";
 import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
-import { getCurrentUserId } from "@/features/auth/utils/session";
+import { getCurrentUserId, requireAuth } from "@/features/auth/utils/session";
 import { UnauthorizedError, ValidationError, NotFoundError } from "./errors";
 import type { PaginatedResult } from "./types";
 
@@ -36,6 +36,33 @@ export class CommunityDAL extends BaseDAL {
       return community || null;
     } catch (error) {
       this.handleError(error, "getCommunityById");
+    }
+  }
+
+  /**
+   * Get community name by user id
+   */
+  async getCommunityNameByUserId(userId: string): Promise<string | null> {
+    const auth = await requireAuth();
+    if (!auth || auth.id !== userId) {
+      throw new UnauthorizedError("Unauthorized");
+    }
+
+    try {
+      const [result] = await this.db
+        .select({
+          name: communities.name,
+        })
+        .from(communities)
+        .innerJoin(
+          communityMemberships,
+          eq(communities.id, communityMemberships.communityId),
+        )
+        .where(eq(communityMemberships.userId, userId))
+        .limit(1);
+      return result?.name || null;
+    } catch (error) {
+      this.handleError(error, "getCommunityNameByUserId");
     }
   }
 

@@ -67,7 +67,9 @@ export function JoinCodeStep() {
                 name="joinCode"
                 placeholder="Enter your join code"
                 value={signupData.joinCode}
-                onChange={(e) => updateSignupData({ joinCode: e.target.value })}
+                onChange={(e) =>
+                  updateSignupData({ joinCode: e.target.value.toUpperCase() })
+                }
                 className="text-center text-lg tracking-wider"
                 disabled={isPending}
                 required

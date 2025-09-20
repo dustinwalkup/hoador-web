@@ -101,12 +101,33 @@ export async function middleware(request: NextRequest) {
 
     // Handle authenticated users
     if (user) {
-      // Allow pending_verification users to access callback routes
+      // FIRST: Always allow callback routes regardless of status
       if (
-        user.status === "pending_verification" &&
         VERIFICATION_CALLBACK_ROUTES.some((route) => pathname.startsWith(route))
       ) {
         return NextResponse.next();
+      }
+
+      // Handle pending_verification users with verified email
+      if (
+        user.status === "pending_verification" &&
+        user.emailVerified === true
+      ) {
+        // Redirect to onboarding to complete profile
+        if (pathname !== "/onboarding") {
+          const onboardingUrl = new URL("/onboarding", request.url);
+          return NextResponse.redirect(onboardingUrl);
+        }
+        // Allow access to onboarding
+        return NextResponse.next();
+      }
+
+      // Handle pending_verification users WITHOUT verified email
+      if (user.status === "pending_verification") {
+        // For other routes (not callbacks), redirect to verify email or appropriate auth flow
+        // You might want to redirect to a "check your email" page instead
+        const redirectUrl = createRedirectUrl(request);
+        return NextResponse.redirect(redirectUrl);
       }
 
       // Redirect authenticated users away from auth routes

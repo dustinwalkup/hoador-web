@@ -748,6 +748,30 @@ export class UserDAL extends BaseDAL {
   }
 
   /**
+   * Update users profile photo
+   */
+  async updateUserProfilePhoto(
+    userId: string,
+    profileImageUrl: string,
+  ): Promise<void> {
+    try {
+      const auth = await requireAuth();
+      if (auth.id !== userId) {
+        throw new Error(
+          "Unauthorized: Cannot update other user's profile photo",
+        );
+      }
+
+      await this.db
+        .update(user)
+        .set({ profileImageUrl, updatedAt: new Date() })
+        .where(eq(user.id, auth.id));
+    } catch (error) {
+      this.handleError(error, "updateUserProfilePhoto");
+    }
+  }
+
+  /**
    * Complete user onboarding (update status to active)
    */
   async completeUserOnboarding(

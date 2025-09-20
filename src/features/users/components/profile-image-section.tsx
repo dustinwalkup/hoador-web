@@ -15,7 +15,9 @@ interface ProfileImageSectionProps {
 
 export function ProfileImageSection({ user }: ProfileImageSectionProps) {
   const [isPending, startTransition] = useTransition();
-  const [currentImageUrl, setCurrentImageUrl] = useState(user.profileImageUrl);
+  const [currentImageUrl, setCurrentImageUrl] = useState(
+    user.profileImageUrl || user.image,
+  );
 
   const handleImageChange = (newImageUrl: string | null) => {
     // Only handle new image uploads, ignore null/delete requests
