@@ -58,8 +58,8 @@ export default async function ProfilePage() {
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="absolute top-0 right-4">
-                      <Info className="text-muted-foreground hover:text-foreground h-4 w-4 cursor-help transition-colors" />
+                    <div className="absolute top-0 right-2 flex h-12 w-12 items-center justify-center">
+                      <Info className="text-muted-foreground hover:text-foreground h-5 w-5 cursor-help transition-colors" />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { Upload, X, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -175,7 +176,7 @@ export function ProfileImageUpload({
 
         {/* Current Image */}
         {currentImageUrl && !uploadError ? (
-          <img
+          <Image
             src={currentImageUrl}
             height={128}
             width={128}

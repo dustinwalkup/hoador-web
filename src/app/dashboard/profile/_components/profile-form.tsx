@@ -2,7 +2,7 @@
 
 import { JSX, useTransition, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { Edit3, Save, X } from "lucide-react";
+import { Edit3, Save, X, Check } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -151,7 +151,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
     ) : (
       <div
         className={cn(
-          "overflow-hidden rounded-md border px-3 py-[7px] text-sm",
+          "overflow-hidden px-3 py-[7px] text-sm",
           id === "bio" && "pt-[8px] pb-[14px]",
         )}
       >
@@ -169,36 +169,69 @@ export function ProfileForm({ user }: { user: UserProfile }) {
   };
 
   return (
-    <Card className="lg:col-span-2">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {PROFILE_OVERVIEW.formCard.title}{" "}
-            <Edit3
-              className={`h-4 w-4 text-blue-500 transition-all duration-300 ease-in-out ${
-                editMode
-                  ? "scale-100 rotate-0 transform opacity-100"
-                  : "scale-75 rotate-45 transform opacity-0"
-              }`}
-            />
-          </div>
-          <div
-            className={`flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 transition-all duration-500 ease-in-out dark:bg-blue-900/30 ${
-              editMode
-                ? "translate-x-0 scale-100 transform opacity-100"
-                : "pointer-events-none translate-x-4 scale-95 transform opacity-0"
-            }`}
-          >
-            <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></div>
-            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Editing
-            </span>
-          </div>
-        </CardTitle>
-        <CardDescription>
-          {PROFILE_OVERVIEW.formCard.description}
-        </CardDescription>
-      </CardHeader>
+    <Card
+      className={cn(
+        "lg:col-span-2",
+        editMode && "border-primary bg-green-50/5",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <CardHeader className="flex-1 pr-0">
+          <CardTitle className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {PROFILE_OVERVIEW.formCard.title}{" "}
+            </div>
+          </CardTitle>
+          <CardDescription>
+            {PROFILE_OVERVIEW.formCard.description}
+          </CardDescription>
+        </CardHeader>
+        {/* Top-level action buttons */}
+        <div className="relative flex items-center">
+          {!editMode ? (
+            /* Edit button (when not in edit mode) */
+            <div className="animate-in fade-in-0 slide-in-from-right-4 transition-all duration-500 ease-in-out">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditMode(true)}
+                className="text-primary h-12 w-12 p-0 transition-all duration-300 ease-in-out hover:scale-105 hover:bg-transparent dark:hover:bg-transparent"
+              >
+                <Edit3 className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            /* Save and Cancel buttons (when in edit mode) */
+            <div className="animate-in fade-in-0 slide-in-from-right-4 flex gap-2 transition-all duration-500 ease-in-out">
+              <Button
+                type="submit"
+                variant="ghost"
+                aria-label="Save"
+                disabled={isPending}
+                onClick={(e) => {
+                  e.preventDefault();
+                  form.handleSubmit(handleSubmit)();
+                }}
+                className="text-primary focus-visible:ring-primary inline-flex h-12 w-12 items-center justify-center rounded-md bg-transparent p-0 transition-all duration-300 ease-in-out hover:scale-120 hover:bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                aria-label="Cancel"
+                size="sm"
+                onClick={handleCancel}
+                className="focus-visible:ring-primary h-12 w-12 p-0 text-red-600 transition-all duration-300 ease-in-out hover:scale-120 hover:bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none dark:text-red-400 dark:hover:bg-transparent"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
       <CardContent>
         <div className="mx-auto max-w-4xl">
           <div className="space-y-6">
@@ -217,11 +250,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                   <div className="space-y-2">
                     <Label
                       htmlFor="firstName"
-                      className={`transition-all duration-300 ease-in-out ${
-                        editMode
-                          ? "font-medium text-blue-700 dark:text-blue-300"
-                          : ""
-                      }`}
+                      className={`transition-all duration-300 ease-in-out`}
                     >
                       {PROFILE_OVERVIEW.formCard.fields.firstName}
                     </Label>
@@ -230,7 +259,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                       <div>
                         <Input
                           {...form.register("firstName")}
-                          className="transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800"
+                          className="focus:border-primary border-primary dark:border-primary transform bg-white transition-all duration-600 ease-in-out focus:scale-[1.02]"
                         />
                         {form.formState.errors.firstName && (
                           <p className="animate-in slide-in-from-top-1 mt-1 text-sm text-red-500 duration-300">
@@ -244,11 +273,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                   <div className="space-y-2">
                     <Label
                       htmlFor="lastName"
-                      className={`transition-all duration-300 ease-in-out ${
-                        editMode
-                          ? "font-medium text-blue-700 dark:text-blue-300"
-                          : ""
-                      }`}
+                      className={`transition-all duration-300 ease-in-out`}
                     >
                       {PROFILE_OVERVIEW.formCard.fields.lastName}
                     </Label>
@@ -257,7 +282,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                       <div>
                         <Input
                           {...form.register("lastName")}
-                          className="transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800"
+                          className="border-primary transform transition-all duration-300 ease-in-out focus:scale-[1.02]"
                         />
                         {form.formState.errors.lastName && (
                           <p className="animate-in slide-in-from-top-1 mt-1 text-sm text-red-500 duration-300">
@@ -274,11 +299,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                   <div className="space-y-2">
                     <Label
                       htmlFor="email"
-                      className={`transition-all duration-300 ease-in-out ${
-                        editMode
-                          ? "font-medium text-blue-700 dark:text-blue-300"
-                          : ""
-                      }`}
+                      className={`transition-all duration-300 ease-in-out`}
                     >
                       {PROFILE_OVERVIEW.formCard.fields.email}
                     </Label>
@@ -304,11 +325,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                   <div className="space-y-2">
                     <Label
                       htmlFor="phone"
-                      className={`transition-all duration-300 ease-in-out ${
-                        editMode
-                          ? "font-medium text-blue-700 dark:text-blue-300"
-                          : ""
-                      }`}
+                      className={`transition-all duration-300 ease-in-out`}
                     >
                       {PROFILE_OVERVIEW.formCard.fields.phone}
                     </Label>
@@ -323,7 +340,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                               value={field.value}
                               onChange={field.onChange}
                               onBlur={field.onBlur}
-                              className="transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800"
+                              className="border-primary transform transition-all duration-300 ease-in-out focus:scale-[1.02]"
                             />
                           )}
                         />
@@ -341,11 +358,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                 <div className="space-y-2">
                   <Label
                     htmlFor="bio"
-                    className={`transition-all duration-300 ease-in-out ${
-                      editMode
-                        ? "font-medium text-blue-700 dark:text-blue-300"
-                        : ""
-                    }`}
+                    className={`transition-all duration-300 ease-in-out`}
                   >
                     {PROFILE_OVERVIEW.formCard.fields.bio}
                   </Label>
@@ -355,7 +368,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                       <Textarea
                         {...form.register("bio")}
                         rows={3}
-                        className="transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.01] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800"
+                        className="border-primary transform transition-all duration-300 ease-in-out focus:scale-[1.01]"
                       />
                       {form.formState.errors.bio && (
                         <p className="animate-in slide-in-from-top-1 mt-1 text-sm text-red-500 duration-300">
@@ -369,25 +382,14 @@ export function ProfileForm({ user }: { user: UserProfile }) {
 
                 {/* Address Information Section */}
                 <div className="space-y-4 border-t pt-4">
-                  <h3 className="flex items-center gap-2 text-lg font-medium">
+                  <h3 className="flex items-center gap-2 text-base font-medium">
                     Address Information
-                    <Edit3
-                      className={`h-4 w-4 text-blue-500 transition-all duration-300 ease-in-out ${
-                        editMode
-                          ? "scale-100 rotate-0 transform opacity-100"
-                          : "scale-75 rotate-45 transform opacity-0"
-                      }`}
-                    />
                   </h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label
                         htmlFor="street"
-                        className={`transition-all duration-300 ease-in-out ${
-                          editMode
-                            ? "font-medium text-blue-700 dark:text-blue-300"
-                            : ""
-                        }`}
+                        className={`transition-all duration-300 ease-in-out`}
                       >
                         {PROFILE_OVERVIEW.formCard.fields.street}
                       </Label>
@@ -396,7 +398,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                         <div>
                           <Input
                             {...form.register("address.street")}
-                            className="transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800"
+                            className="border-primary transform transition-all duration-300 ease-in-out focus:scale-[1.02]"
                           />
                           {form.formState.errors.address?.street && (
                             <p className="animate-in slide-in-from-top-1 mt-1 text-sm text-red-500 duration-300">
@@ -410,11 +412,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                     <div className="space-y-2">
                       <Label
                         htmlFor="city"
-                        className={`transition-all duration-300 ease-in-out ${
-                          editMode
-                            ? "font-medium text-blue-700 dark:text-blue-300"
-                            : ""
-                        }`}
+                        className={`transition-all duration-300 ease-in-out`}
                       >
                         {PROFILE_OVERVIEW.formCard.fields.city}
                       </Label>
@@ -423,7 +421,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                         <div>
                           <Input
                             {...form.register("address.city")}
-                            className="transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800"
+                            className="border-primary transform transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800"
                           />
                           {form.formState.errors.address?.city && (
                             <p className="animate-in slide-in-from-top-1 mt-1 text-sm text-red-500 duration-300">
@@ -439,11 +437,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                     <div className="space-y-2">
                       <Label
                         htmlFor="state"
-                        className={`transition-all duration-300 ease-in-out ${
-                          editMode
-                            ? "font-medium text-blue-700 dark:text-blue-300"
-                            : ""
-                        }`}
+                        className={`transition-all duration-300 ease-in-out`}
                       >
                         {PROFILE_OVERVIEW.formCard.fields.state}
                       </Label>
@@ -458,7 +452,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                                 value={field.value}
                                 onValueChange={field.onChange}
                               >
-                                <SelectTrigger className="w-full transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800">
+                                <SelectTrigger className="border-primary w-full transform transition-all duration-300 ease-in-out focus:scale-[1.02]">
                                   <SelectValue placeholder="Select a state" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -491,11 +485,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                     <div className="space-y-2">
                       <Label
                         htmlFor="zipCode"
-                        className={`transition-all duration-300 ease-in-out ${
-                          editMode
-                            ? "font-medium text-blue-700 dark:text-blue-300"
-                            : ""
-                        }`}
+                        className={`transition-all duration-300 ease-in-out`}
                       >
                         {PROFILE_OVERVIEW.formCard.fields.zipCode}
                       </Label>
@@ -504,7 +494,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                         <div>
                           <Input
                             {...form.register("address.zipCode")}
-                            className="transform border-blue-200 transition-all duration-300 ease-in-out focus:scale-[1.02] focus:border-blue-500 focus:ring-blue-500 dark:border-blue-800"
+                            className="border-primary transform transition-all duration-300 ease-in-out focus:scale-[1.02]"
                           />
                           {form.formState.errors.address?.zipCode && (
                             <p className="animate-in slide-in-from-top-1 mt-1 text-sm text-red-500 duration-300">
@@ -528,7 +518,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                   <button
                     type="submit"
                     disabled={isPending}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all duration-300 ease-in-out hover:scale-105 hover:border-blue-700 hover:bg-blue-700 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                    className="bg-primary border-primary/20 hover:bg-primary focus-visible:ring-primary hover:border-primary inline-flex h-9 items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium text-white transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                   >
                     <Save className="h-4 w-4 transition-transform duration-300 ease-in-out" />
                     {isPending ? "Saving..." : "Save Changes"}
@@ -537,7 +527,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                     type="button"
                     variant="outline"
                     onClick={handleCancel}
-                    className="flex items-center gap-2 border-blue-200 bg-transparent text-blue-700 transition-all duration-300 ease-in-out hover:scale-105 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950/20"
+                    className="border-primary/20 text-primary hover:bg-primary/5 hover:border-primary/30 focus-visible:ring-primary/50 flex items-center gap-2 bg-transparent transition-all duration-300 ease-in-out hover:scale-105"
                   >
                     <X className="h-4 w-4 transition-transform duration-300 ease-in-out" />
                     Cancel
