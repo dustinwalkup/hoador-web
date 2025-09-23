@@ -42,7 +42,6 @@ export default async function OnboardingPage() {
         </CardHeader>
         <CardContent>
           <OnboardingForm
-            communityName={communityName || ""}
             profileImageUrl={user.image || ""}
             userFirstName={userFirstName || ""}
             userLastName={userLastName || ""}

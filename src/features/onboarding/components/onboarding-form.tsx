@@ -76,14 +76,12 @@ const PhoneInput = ({ value, onChange, onBlur, ...props }: PhoneInputProps) => {
 };
 
 interface OnboardingFormProps {
-  communityName?: string;
   profileImageUrl?: string;
   userFirstName?: string;
   userLastName?: string;
 }
 
 export function OnboardingForm({
-  communityName = "Your Community",
   profileImageUrl = "",
   userFirstName = "",
   userLastName = "",

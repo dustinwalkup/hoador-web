@@ -4,8 +4,8 @@ import { getCurrentUser } from "@/features/auth/utils/session";
 // Define protected route patterns
 const PROTECTED_ROUTES = [
   "/dashboard",
-  "/onboarding", // Add onboarding as protected
-  "/join-code", // Add join-code as protected
+  "/onboarding",
+  "/join-code",
   "/api/garage",
   "/api/listings",
   "/api/rentals",
@@ -118,6 +118,14 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
       }
 
+      // If email is verified, but user status is 'pending_verification', user created an account
+      // with Google via the sign in method, big no no, redirect to google callback
+      // to update the user status and redirect to join-code
+      if (user.status === "pending_verification") {
+        const redirectUrl = new URL("/signup/google/callback", request.url);
+        return NextResponse.redirect(redirectUrl);
+      }
+
       // Handle email_verified users (need to join community)
       if (user.status === "email_verified") {
         // Redirect to join-code page to join community
@@ -127,14 +135,6 @@ export async function middleware(request: NextRequest) {
         }
         // Allow access to join-code
         return NextResponse.next();
-      }
-
-      // Handle pending_verification users WITHOUT verified email
-      if (user.status === "pending_verification") {
-        // For other routes (not callbacks), redirect to verify email or appropriate auth flow
-        // You might want to redirect to a "check your email" page instead
-        const redirectUrl = createRedirectUrl(request);
-        return NextResponse.redirect(redirectUrl);
       }
 
       // Redirect authenticated users away from auth routes
