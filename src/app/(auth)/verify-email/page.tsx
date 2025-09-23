@@ -1,67 +1,70 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Mail } from "lucide-react";
 import { tryCatch } from "@walkup/walkup-utils";
-import { EmailConfirmationForm } from "@/features/auth/components/email-confirmation-form";
-import { userDAL } from "@/dal";
+
+import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
+import { VerifyEmailForm } from "@/features/auth/components/verify-email-form";
+import { requireAuth } from "@/features/auth/utils/session";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
 
 interface VerifyEmailPageProps {
-  searchParams: Promise<{
-    email?: string | string[] | undefined;
-  }>;
-}
-
-// Utility function to get user by email
-async function getUserForVerification(email: string) {
-  const { data: userData, error: userError } = await tryCatch(
-    userDAL.getUserByEmailForAuth(email),
-  );
-
-  if (userError) {
-    console.error("Failed to fetch user by email:", userError);
-    throw new Error("Unable to verify email. Please try again later.");
-  }
-
-  if (!userData) {
-    throw new Error("User not found. Please check your email or sign up.");
-  }
-
-  return userData;
-}
-
-// Error component
-function ErrorPage({ message }: { message: string }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
-        <h2 className="mb-2 text-xl font-semibold text-red-700">Error</h2>
-        <p className="text-red-600">{message}</p>
-      </div>
-    </div>
-  );
+  searchParams: Promise<{ email?: string }>;
 }
 
 export default async function VerifyEmailPage({
   searchParams,
 }: VerifyEmailPageProps) {
-  // Extract and validate email parameter
-  const emailParam = (await searchParams).email;
-  const email = Array.isArray(emailParam) ? emailParam[0] : emailParam;
+  const { email: paramEmail } = await searchParams;
 
-  if (!email) {
-    return <ErrorPage message="Email parameter is required" />;
+  // Get email from either params or session
+  const email = paramEmail ? paramEmail : await getEmailFromSession();
+
+  return (
+    <AuthLayoutWrapper>
+      <Card>
+        <CardHeader className="space-y-1 pt-4 text-center">
+          <div className="space-y-2 text-center">
+            <div className="bg-primary/10 mx-auto flex h-16 w-16 items-center justify-center rounded-full">
+              <Mail className="text-primary h-8 w-8" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Check your email
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              We&apos;ve sent a confirmation link to <strong>{email}</strong>
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <VerifyEmailForm email={email} />
+        </CardContent>
+        <CardFooter className="flex flex-col items-center gap-4">
+          {" "}
+          <div className="text-muted-foreground text-center text-xs">
+            Need help? Contact your community administrator or{" "}
+            <Link href="/support" className="text-green-600 underline">
+              support
+            </Link>
+          </div>
+        </CardFooter>
+      </Card>
+    </AuthLayoutWrapper>
+  );
+}
+
+// Helper functions
+async function getEmailFromSession() {
+  const { data: user, error } = await tryCatch(requireAuth());
+
+  if (!user?.id || !user?.email || error) {
+    redirect("/login");
   }
 
-  // Get user data with error handling
-  try {
-    const userData = await getUserForVerification(email);
-    return <EmailConfirmationForm email={email} userId={userData.id} />;
-  } catch (error) {
-    return (
-      <ErrorPage
-        message={
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred"
-        }
-      />
-    );
-  }
+  return user.email;
 }

@@ -726,6 +726,7 @@ export class UserDAL extends BaseDAL {
     userId: string,
     status:
       | "pending_verification"
+      | "email_verified"
       | "incomplete_profile"
       | "active"
       | "inactive"

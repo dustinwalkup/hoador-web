@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { tryCatch } from "@walkup/walkup-utils";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { userDAL } from "@/dal";
@@ -32,8 +33,6 @@ export async function onboardingAction(
     };
   }
 
-  console.log("*************** starting onboarding action ***************");
-
   // Extract and structure form data
   const userData = {
     firstName: (formData.get("firstName") as string) || "",
@@ -64,8 +63,6 @@ export async function onboardingAction(
     };
   }
 
-  console.log("*************** validated data ***************", validatedData);
-
   // Separate address from user profile data
   const { address, ...profileData } = validatedData;
 
@@ -73,8 +70,6 @@ export async function onboardingAction(
   const { data: updatedUser, error: userError } = await tryCatch(
     userDAL.updateUser(user.id, { ...profileData, status: "active" as const }),
   );
-
-  console.log("*************** updated user ***************", updatedUser);
 
   if (userError) {
     console.error("User profile update error:", userError);
@@ -103,11 +98,6 @@ export async function onboardingAction(
     };
   }
 
-  console.log("*************** address ***************", address);
-
-  // Step 2: Update address (optional - don't fail onboarding if this fails)
-  let addressWarning: string | undefined;
-
   if (
     address &&
     address.street &&
@@ -121,28 +111,9 @@ export async function onboardingAction(
 
     if (addressError) {
       console.warn("Address update failed during onboarding:", addressError);
-      addressWarning =
-        "Profile created successfully! Please verify your address in your profile settings.";
     }
   }
 
-  console.log(
-    "*************** address warning ***************",
-    addressWarning,
-  );
-
-  console.log("*************** returning onboarding result ***************");
-
-  return {
-    success: true,
-    warning: addressWarning,
-    data: {
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email || "",
-        firstName: updatedUser.firstName || "",
-        lastName: updatedUser.lastName || "",
-      },
-    },
-  };
+  // Success! Redirect to dashboard
+  redirect("/dashboard");
 }

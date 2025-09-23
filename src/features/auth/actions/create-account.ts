@@ -1,146 +1,102 @@
-"use server";
+// TODO: remove this file
+// "use server";
 
-import { tryCatch } from "@walkup/walkup-utils";
-import { auth } from "@/services/better-auth";
-import { communityDAL } from "@/dal";
-import { ValidationError } from "@/dal/errors";
-import { emailSignupServerSchema } from "../schemas/validation";
+// import { redirect } from "next/navigation";
+// import { tryCatch } from "@walkup/walkup-utils";
+// import { auth } from "@/services/better-auth";
+// import { emailSignupSchema } from "../schemas/validation";
+// import { getSession } from "../utils/session";
 
-type CreateAccountResult = {
-  success: boolean;
-  error?: string;
-  data?: {
-    user: {
-      id: string;
-      email: string;
-    };
-  };
-};
+// type CreateAccountResult = {
+//   success: boolean;
+//   error?: string;
+//   data?: {
+//     user: {
+//       id: string;
+//       email: string;
+//     };
+//   };
+// };
 
-export async function createAccountAction(
-  prevState: CreateAccountResult | null,
-  formData: FormData,
-): Promise<CreateAccountResult> {
-  // Extract and structure form data
-  const userData = {
-    joinCode: (formData.get("joinCode") as string) || "",
-    communityId: (formData.get("communityId") as string) || "",
-    email: (formData.get("email") as string) || "",
-    password: (formData.get("password") as string) || "",
-  };
+// export async function createAccountAction(
+//   prevState: CreateAccountResult | null,
+//   formData: FormData,
+// ): Promise<CreateAccountResult> {
+//   // Extract and structure form data
+//   const userData = {
+//     email: (formData.get("email") as string) || "",
+//     password: (formData.get("password") as string) || "",
+//   };
 
-  // Server-side validation
-  try {
-    emailSignupServerSchema.parse(userData);
-  } catch {
-    return {
-      success: false,
-      error: "Please check your information and try again.",
-    };
-  }
+//   // Server-side validation
+//   try {
+//     emailSignupSchema.parse(userData);
+//   } catch (error) {
+//     console.error("Email signup server schema error:", error);
+//     return {
+//       success: false,
+//       error: "Please check your information and try again.",
+//     };
+//   }
 
-  const validatedData = emailSignupServerSchema.parse(userData);
+//   const validatedData = emailSignupSchema.parse(userData);
 
-  // Use communityId if available, otherwise validate joinCode
-  let communityId = userData.communityId;
+//   // Create user account using Better Auth
+//   const { data: betterAuthResult, error: authError } = await tryCatch(
+//     auth.api.signUpEmail({
+//       body: {
+//         name: "User",
+//         email: validatedData.email,
+//         password: validatedData.password,
+//       },
+//     }),
+//   );
+//   if (authError) {
+//     console.error("Better Auth error:", authError);
 
-  if (!communityId && validatedData.joinCode) {
-    // Fallback: validate join code to get community
-    const { data: community, error: communityError } = await tryCatch(
-      communityDAL.validateJoinCodeForSignup(validatedData.joinCode),
-    );
+//     // Handle specific Better Auth errors
+//     if (
+//       authError.message?.includes("email") ||
+//       authError.message?.includes("already exists")
+//     ) {
+//       return {
+//         success: false,
+//         error: "An account with this email already exists.",
+//       };
+//     }
 
-    if (communityError) {
-      console.error("Community validation error:", communityError);
-      return {
-        success: false,
-        error: "Unable to validate community. Please try again.",
-      };
-    }
+//     return {
+//       success: false,
+//       error: "Failed to create account. Please try again.",
+//     };
+//   }
 
-    if (!community) {
-      return {
-        success: false,
-        error: "Community no longer available.",
-      };
-    }
+//   if (!betterAuthResult) {
+//     return {
+//       success: false,
+//       error: "Failed to create user account.",
+//     };
+//   }
 
-    communityId = community.id;
-  }
+//   // Check if user is now signed in (Better Auth should handle this automatically)
+//   const session = await getSession();
 
-  if (!communityId) {
-    return {
-      success: false,
-      error: "Community information is missing. Please start over.",
-    };
-  }
+//   if (!session) {
+//     // Fallback: manually sign in if auto sign-in didn't work
+//     const { error: signInError } = await tryCatch(
+//       auth.api.signInEmail({
+//         body: {
+//           email: validatedData.email,
+//           password: validatedData.password,
+//         },
+//       }),
+//     );
 
-  // Create user account using Better Auth
-  const { data: betterAuthResult, error: authError } = await tryCatch(
-    auth.api.signUpEmail({
-      body: {
-        name: "User",
-        email: validatedData.email,
-        password: validatedData.password,
-      },
-    }),
-  );
+//     if (signInError) {
+//       redirect("/login");
+//     }
+//   }
 
-  if (authError) {
-    console.error("Better Auth error:", authError);
-
-    // Handle specific Better Auth errors
-    if (
-      authError.message?.includes("email") ||
-      authError.message?.includes("already exists")
-    ) {
-      return {
-        success: false,
-        error: "An account with this email already exists.",
-      };
-    }
-
-    return {
-      success: false,
-      error: "Failed to create account. Please try again.",
-    };
-  }
-
-  if (!betterAuthResult) {
-    return {
-      success: false,
-      error: "Failed to create user account.",
-    };
-  }
-
-  // Update user profile with additional data using UserDAL
-  const { error: communityError } = await tryCatch(
-    communityDAL.joinCommunityForNewUser(betterAuthResult.user.id, communityId),
-  );
-
-  if (communityError) {
-    console.error("Join community error:", communityError);
-
-    if (communityError instanceof ValidationError) {
-      return {
-        success: false,
-        error: communityError.message,
-      };
-    }
-
-    return {
-      success: false,
-      error: "Failed to create user profile. Please try again.",
-    };
-  }
-
-  return {
-    success: true,
-    data: {
-      user: {
-        id: betterAuthResult.user.id,
-        email: betterAuthResult.user.email!,
-      },
-    },
-  };
-}
+//   // Redirect to verification page (user should now be signed in)
+//   redirect(`/verify-email?email=${validatedData.email}`);
+// }

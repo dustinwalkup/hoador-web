@@ -1,30 +1,17 @@
 import { redirect } from "next/navigation";
-import { userDAL, communityDAL } from "@/dal";
+import { userDAL } from "@/dal";
 import { getSession } from "@/features/auth/utils/session";
 
-export default async function GoogleSignupCallback({
-  searchParams,
-}: {
-  searchParams: Promise<{ joinCode?: string; error?: string }>;
-}) {
+export default async function GoogleSignupCallback() {
   // Get authenticated user session
   const session = await getSession();
   if (!session?.user) {
     redirect("/login");
   }
 
-  // Get join code from search params
-  const { joinCode } = await searchParams;
-  if (!joinCode) {
-    redirect("/signup?error=join_code_not_found");
-  }
-
   try {
-    // Associate user with community
-    await communityDAL.joinCommunityByCode(joinCode, session.user.id);
-
     // Set user status
-    await userDAL.updateUserStatus(session.user.id, "incomplete_profile");
+    await userDAL.updateUserStatus(session.user.id, "email_verified");
 
     // Set user profile photo
     if (session.user.image) {
@@ -35,5 +22,5 @@ export default async function GoogleSignupCallback({
     redirect("/signup?error=community_failed");
   }
   // Redirect to onboarding
-  redirect("/onboarding");
+  redirect("/join-code");
 }

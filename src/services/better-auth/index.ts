@@ -28,7 +28,7 @@ export const auth = betterAuth({
   // Email and password authentication
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    autoSignIn: true,
     sendResetPassword: async ({ user, url }) => {
       // Import Resend service
       const { sendResetPasswordEmail } = await import(
@@ -70,12 +70,23 @@ export const auth = betterAuth({
       const { sendVerificationEmail } = await import(
         "@/services/resend/send-verification-email"
       );
+      /**
+       * There seems to be a bug in Better Auth where the callback url is not being set correctly.
+       * So we need to add the EMAIL_VERIFICATION_CALLBACK_URL to the url if the callback url is /
+       */
+      let emailVerificationUrl = url;
+      const callbackUrl = url.split("callbackURL=")[1];
+
+      if (callbackUrl === "/") {
+        // add the EMAIL_VERIFICATION_CALLBACK_URL to the url
+        emailVerificationUrl = url + EMAIL_VERIFICATION_CALLBACK_URL;
+      }
 
       try {
         await sendVerificationEmail({
           to: user.email,
           // adding the callback url to the url
-          verificationUrl: url,
+          verificationUrl: emailVerificationUrl,
           firstName: (user as User).name,
         });
         console.log("Verification email sent to:", user.email);

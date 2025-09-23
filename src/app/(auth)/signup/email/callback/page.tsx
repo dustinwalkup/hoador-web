@@ -20,11 +20,11 @@ export default async function EmailSignupCallback({
 
   try {
     // Update user status, this means the user has verified their email
-    await userDAL.updateUserStatus(session.user.id, "incomplete_profile");
+    await userDAL.updateUserStatus(session.user.id, "email_verified");
   } catch (error) {
     console.log("Error updating user status: ", error);
     redirect("/signup?error=user_status_update_failed");
   }
   // Redirect to onboarding
-  redirect("/onboarding");
+  redirect("/join-code");
 }

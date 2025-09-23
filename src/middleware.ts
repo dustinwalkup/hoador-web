@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/features/auth/utils/session";
 const PROTECTED_ROUTES = [
   "/dashboard",
   "/onboarding", // Add onboarding as protected
+  "/join-code", // Add join-code as protected
   "/api/garage",
   "/api/listings",
   "/api/rentals",
@@ -12,7 +13,7 @@ const PROTECTED_ROUTES = [
 ];
 
 // Define auth routes that authenticated users shouldn't access
-const AUTH_ROUTES = ["/login", "/signup", "/verify-email"];
+const AUTH_ROUTES = ["/login", "/signup"];
 
 // Define callback routes that pending_verification users can access
 const VERIFICATION_CALLBACK_ROUTES = [
@@ -108,17 +109,23 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
       }
 
-      // Handle pending_verification users with verified email
-      if (
-        user.status === "pending_verification" &&
-        user.emailVerified === true
-      ) {
-        // Redirect to onboarding to complete profile
-        if (pathname !== "/onboarding") {
-          const onboardingUrl = new URL("/onboarding", request.url);
-          return NextResponse.redirect(onboardingUrl);
+      // If email is not verified, redirect to verify email
+      if (user.emailVerified === false) {
+        if (pathname !== "/verify-email") {
+          const verifyEmailUrl = new URL("/verify-email", request.url);
+          return NextResponse.redirect(verifyEmailUrl);
         }
-        // Allow access to onboarding
+        return NextResponse.next();
+      }
+
+      // Handle email_verified users (need to join community)
+      if (user.status === "email_verified") {
+        // Redirect to join-code page to join community
+        if (pathname !== "/join-code") {
+          const joinCodeUrl = new URL("/join-code", request.url);
+          return NextResponse.redirect(joinCodeUrl);
+        }
+        // Allow access to join-code
         return NextResponse.next();
       }
 

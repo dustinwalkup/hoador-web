@@ -6,11 +6,20 @@ import { z, ZodError } from "zod";
 
 // Join code validation (kept separate as it's used independently)
 export const joinCodeSchema = z.object({
-  joinCode: z.string().min(1, "Join code is required"),
+  joinCode: z
+    .string()
+    .min(1, "Join code is required")
+    .min(3, "Join code must be at least 3 characters")
+    .max(20, "Join code must be less than 20 characters")
+    .regex(
+      /^[A-Z0-9-_]+$/,
+      "Join code can only contain uppercase letters, numbers, hyphens, and underscores",
+    )
+    .transform((val) => val.toUpperCase()),
 });
 
-// Base signup schema for simplified form (email, password, joinCode)
-export const emailSignupBaseSchema = z.object({
+// Email signup schema (email + password)
+export const emailSignupSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z
     .string()
@@ -18,14 +27,19 @@ export const emailSignupBaseSchema = z.object({
     .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
     .regex(/[a-z]/, "Password must contain at least one lowercase letter")
     .regex(/\d/, "Password must contain at least one number"),
-  joinCode: z.string().min(1, "Join code is required"),
 });
 
-// Client-side schema (join code handled separately)
-export const emailSignupSchema = emailSignupBaseSchema.omit({ joinCode: true });
+// Full signup schema (email + password + names)
+export const signupSchema = emailSignupSchema.extend({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+});
 
-// Server-side schema (same as base for simplified form)
-export const emailSignupServerSchema = emailSignupBaseSchema;
+// Login schema
+export const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
 
 // ---------------------------
 // TypeScript Types
@@ -33,7 +47,8 @@ export const emailSignupServerSchema = emailSignupBaseSchema;
 
 export type JoinCodeData = z.infer<typeof joinCodeSchema>;
 export type EmailSignupData = z.infer<typeof emailSignupSchema>;
-export type EmailSignupServerData = z.infer<typeof emailSignupServerSchema>;
+export type SignupData = z.infer<typeof signupSchema>;
+export type LoginData = z.infer<typeof loginSchema>;
 
 // ---------------------------
 // Field Validators for per-field validation

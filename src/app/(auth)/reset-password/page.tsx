@@ -10,23 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ResetPasswordForm } from "@/features/auth/components/reset-password-form";
+import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
 
 export default function ResetPasswordPage() {
   return (
-    <div className="bg-muted/40 flex min-h-screen flex-col items-center justify-center p-4">
-      <Link href="/" className="mb-8 flex items-center justify-center gap-2">
-        <Image
-          src="/hoador-logo.svg"
-          alt="Hoador Logo"
-          width={100}
-          height={40}
-          className="h-6 w-auto"
-          priority
-        />
-      </Link>
-
+    <AuthLayoutWrapper>
       <Card className="mx-auto w-full max-w-md">
-        <CardHeader>
+        <CardHeader className="pt-4">
           <CardTitle className="text-2xl">Reset Your Password</CardTitle>
           <CardDescription>
             Enter your new password below to reset your account password
@@ -48,6 +38,6 @@ export default function ResetPasswordPage() {
           </div>
         </CardFooter>
       </Card>
-    </div>
+    </AuthLayoutWrapper>
   );
 }

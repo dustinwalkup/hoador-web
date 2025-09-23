@@ -7,10 +7,12 @@ export async function signOut(): Promise<void> {
 export async function signInEmail(
   email: string,
   password: string,
+  callbackUrl?: string,
 ): Promise<void> {
   const { error } = await authClient.signIn.email({
     email,
     password,
+    callbackURL: callbackUrl,
   });
 
   if (error) {
@@ -21,8 +23,16 @@ export async function signInEmail(
   // Success - authentication completed
 }
 
-export async function signInSocial(provider: string): Promise<void> {
-  await authClient.signIn.social({
+export async function signInSocial(
+  provider: string,
+  callbackUrl?: string,
+): Promise<void> {
+  const { error } = await authClient.signIn.social({
     provider,
+    callbackURL: callbackUrl,
   });
+
+  if (error) {
+    throw new Error(error.message || "Failed to sign in with social provider");
+  }
 }
