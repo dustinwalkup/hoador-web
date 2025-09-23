@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { tryCatch } from "@walkup/walkup-utils";
 import { auth } from "@/services/better-auth";
-import { signupSchema } from "../schemas/validation";
+import { emailSignupSchema } from "../schemas/auth-schemas";
 
 type SignupResult = {
   success: boolean;
@@ -20,8 +20,10 @@ export async function signupAction(
   const lastName = formData.get("lastName") as string;
 
   // Validate form data
+  const signupData = { email, password, firstName, lastName };
+
   try {
-    signupSchema.parse({ email, password, firstName, lastName });
+    emailSignupSchema.parse(signupData);
   } catch {
     return {
       success: false,

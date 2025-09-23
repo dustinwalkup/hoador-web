@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { loginSchema, type LoginData } from "../schemas/validation";
+import { loginSchema, type LoginData } from "../schemas/auth-schemas";
 import { GoogleIcon } from "../../../../public/svg/google-icon";
 import { signInEmail, signInSocial } from "../utils";
 

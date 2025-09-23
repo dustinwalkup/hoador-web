@@ -11,7 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signupAction } from "../actions/signup";
-import { signupSchema, type SignupData } from "../schemas/validation";
+import {
+  emailSignupSchema,
+  type EmailSignupInput,
+} from "../schemas/auth-schemas";
 import { GoogleIcon } from "../../../../public/svg/google-icon";
 import { authClient } from "@/services/better-auth/client";
 
@@ -28,13 +31,13 @@ export function SignupForm() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<SignupData>({
-    resolver: zodResolver(signupSchema),
+  } = useForm<EmailSignupInput>({
+    resolver: zodResolver(emailSignupSchema),
     mode: "onChange",
   });
 
   // Handle form submission with client-side validation first
-  const onSubmit = async (data: SignupData) => {
+  const onSubmit = async (data: EmailSignupInput) => {
     startTransition(() => {
       const formData = new FormData();
       formData.append("firstName", data.firstName);

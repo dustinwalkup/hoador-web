@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { tryCatch } from "@walkup/walkup-utils";
 import { communityDAL, userDAL } from "@/dal";
 import { ValidationError, UnauthorizedError } from "@/dal/errors";
-import { joinCodeSchema } from "../schemas/validation";
+import { joinCodeSchema } from "../schemas/auth-schemas";
 import { requireAuth } from "../utils/session";
 
 type JoinCommunityResult = {

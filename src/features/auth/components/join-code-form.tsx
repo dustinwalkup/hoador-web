@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { joinCommunityAction } from "../actions/join-community";
-import { joinCodeSchema, type JoinCodeData } from "../schemas/validation";
+import { joinCodeSchema, type JoinCodeData } from "../schemas/auth-schemas";
 
 export function JoinCodeForm() {
   const [isTransitionPending, startTransition] = useTransition();
