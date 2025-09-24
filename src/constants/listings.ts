@@ -2,7 +2,7 @@ export const STATIC_CATEGORIES = [
   {
     id: "ce4622d8-e9cf-40c2-8fbc-d99495aad651",
     name: "Power Tools",
-    icon: "🔧",
+    icon: "⚡",
   },
   {
     id: "3c0d8ccb-2545-4dcc-97d8-394540ea6eb0",

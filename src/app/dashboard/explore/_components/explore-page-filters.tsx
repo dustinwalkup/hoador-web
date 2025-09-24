@@ -149,8 +149,8 @@ export function ExplorePageFilters({
       {/* Category buttons */}
       <div className="mb-4 flex flex-nowrap gap-2 overflow-x-auto pb-2 md:mb-8">
         <CategoryButton
-          icon="🔨"
-          label="All Tools"
+          icon="🏪"
+          label="All Categories"
           active={!filters.categoryId}
           onClick={() => handleCategorySelect("")}
         />
