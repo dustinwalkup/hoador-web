@@ -1,8 +1,6 @@
 export const dynamic = "force-dynamic";
-import { Suspense } from "react";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { PageHeader } from "@/components/page-header";
-import { ExplorePageSkeleton } from "./_components/explore-page-skeleton";
 import { ExplorePageClient } from "./_components/explore-page-client";
 
 export default async function ExplorePage() {
@@ -14,10 +12,7 @@ export default async function ExplorePage() {
         title="Explore Listings"
         description="Find listings available in your neighborhood"
       />
-
-      <Suspense fallback={<ExplorePageSkeleton />}>
-        <ExplorePageClient userId={user?.id} />
-      </Suspense>
+      <ExplorePageClient userId={user?.id} />
     </div>
   );
 }

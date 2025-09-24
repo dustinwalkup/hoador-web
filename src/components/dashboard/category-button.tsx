@@ -24,7 +24,7 @@ export default function CategoryButton({
       )}
     >
       <span className="text-xl">{icon}</span>
-      <span className="mt-1 text-xs font-medium">{label}</span>
+      <span className="mt-1 line-clamp-1 text-xs font-medium">{label}</span>
     </button>
   );
 }

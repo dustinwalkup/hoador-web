@@ -22,5 +22,10 @@ export function useDebouncedSearch(
     [debouncedSearch],
   );
 
-  return { localQuery, handleSearchChange, debouncedSearch };
+  const clearSearch = useCallback(() => {
+    setLocalQuery("");
+    onSearch("");
+  }, [onSearch]);
+
+  return { localQuery, handleSearchChange, debouncedSearch, clearSearch };
 }

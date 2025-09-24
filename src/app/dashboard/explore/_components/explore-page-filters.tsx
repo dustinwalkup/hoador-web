@@ -24,55 +24,18 @@ import {
 } from "@/components/ui/popover";
 import CategoryButton from "@/components/dashboard/category-button";
 import { useListingFilters } from "@/features/listings/hooks/use-url-state";
-import { useListingCategories } from "@/features/listings/hooks/use-listings";
 import { useDebouncedSearch } from "@/hooks/use-debounced-search";
-import { emojiMap } from "@/constants/garage";
+import { STATIC_CATEGORIES } from "@/constants/listings";
 
 interface ExplorePageFiltersProps {
   basePath?: string;
 }
-
-// Map category names to emoji icons
-const getCategoryIcon = (name: string, iconFromDb: string | null) => {
-  // First check if we have a database icon identifier and map it to emoji
-  if (iconFromDb && emojiMap[iconFromDb]) {
-    return emojiMap[iconFromDb];
-  }
-
-  // If the database icon is already an emoji, return it directly
-  if (iconFromDb) {
-    return iconFromDb;
-  }
-
-  // Fallback emoji mapping based on category names
-  const iconMap: Record<string, string> = {
-    "Power Tools": "🔌",
-    "Hand Tools": "🪚",
-    "Lawn & Garden": "🌱",
-    Gardening: "🌱",
-    "Ladders & Access": "🪜",
-    Ladders: "🪜",
-    Painting: "🎨",
-    Trucks: "🚚",
-    Plumbing: "🧰",
-    Automotive: "🚗",
-    Electrical: "⚡",
-    Cleaning: "🧽",
-    Construction: "🏗️",
-    "Party Equipment": "⛺",
-  };
-
-  return iconMap[name] || "🔧";
-};
 
 export function ExplorePageFilters({
   basePath: _basePath = "/dashboard/explore", // eslint-disable-line @typescript-eslint/no-unused-vars
 }: ExplorePageFiltersProps) {
   // URL state management
   const { state: filters, updateState: updateFilters } = useListingFilters();
-
-  // React Query for categories
-  const { data: categories = [] } = useListingCategories();
 
   // Local state for filter form
   const [minPrice, setMinPrice] = useState(filters.minPrice?.toString() || "");
@@ -87,7 +50,7 @@ export function ExplorePageFilters({
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Debounced search
-  const { localQuery, handleSearchChange } = useDebouncedSearch(
+  const { localQuery, handleSearchChange, clearSearch } = useDebouncedSearch(
     (query: string) => updateFilters({ query: query || undefined }),
     300,
     filters.query || "",
@@ -144,7 +107,7 @@ export function ExplorePageFilters({
   };
 
   const handleClearSearch = () => {
-    updateFilters({ query: undefined });
+    clearSearch();
   };
 
   const handleConditionToggle = (condition: string) => {
@@ -182,20 +145,20 @@ export function ExplorePageFilters({
   };
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-6">
       {/* Category buttons */}
-      <div className="mb-8 flex flex-nowrap gap-2 overflow-x-auto pb-2">
+      <div className="mb-4 flex flex-nowrap gap-2 overflow-x-auto pb-2 md:mb-8">
         <CategoryButton
           icon="🔨"
           label="All Tools"
           active={!filters.categoryId}
           onClick={() => handleCategorySelect("")}
         />
-        {categories.map(
+        {STATIC_CATEGORIES.map(
           (category: { id: string; name: string; icon: string | null }) => (
             <CategoryButton
               key={category.id}
-              icon={getCategoryIcon(category.name, category.icon)}
+              icon={category.icon || ""}
               label={category.name}
               active={filters.categoryId === category.id}
               onClick={() => handleCategorySelect(category.id)}
@@ -205,7 +168,7 @@ export function ExplorePageFilters({
       </div>
 
       {/* Search and filters row */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between md:gap-4">
         <form
           onSubmit={handleSearch}
           className="relative flex w-full max-w-sm items-center"
@@ -228,7 +191,7 @@ export function ExplorePageFilters({
           )}
         </form>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 lg:justify-end">
           <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="h-9">
