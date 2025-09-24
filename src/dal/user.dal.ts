@@ -431,18 +431,12 @@ export class UserDAL extends BaseDAL {
 
       const { latitude, longitude } = geo;
 
-      console.log("userId", userId);
-
       const existing = await this.db.query.userAddresses.findFirst({
         where: (addr, { eq, and }) =>
           and(eq(addr.userId, userId), eq(addr.isPrimary, true)),
       });
 
-      console.log("input", input);
-
       if (existing) {
-        console.log("existing", existing);
-
         await this.db
           .update(userAddresses)
           .set({
@@ -453,7 +447,6 @@ export class UserDAL extends BaseDAL {
           })
           .where(eq(userAddresses.id, existing.id))
           .execute();
-        console.log("updated");
       } else {
         await this.db.insert(userAddresses).values({
           userId,
