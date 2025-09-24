@@ -13,7 +13,13 @@ const PROTECTED_ROUTES = [
 ];
 
 // Define auth routes that authenticated users shouldn't access
-const AUTH_ROUTES = ["/login", "/signup"];
+const AUTH_ROUTES = [
+  "/login",
+  "/signup",
+  "/verify-email",
+  "/join-code",
+  "/onboarding",
+];
 
 // Define callback routes that pending_verification users can access
 const VERIFICATION_CALLBACK_ROUTES = [
