@@ -128,8 +128,11 @@ export async function middleware(request: NextRequest) {
       // with Google via the sign in method, big no no, redirect to google callback
       // to update the user status and redirect to join-code
       if (user.status === "pending_verification") {
-        const redirectUrl = new URL("/signup/google/callback", request.url);
-        return NextResponse.redirect(redirectUrl);
+        if (pathname !== "/signup/google/callback") {
+          const redirectUrl = new URL("/signup/google/callback", request.url);
+          return NextResponse.redirect(redirectUrl);
+        }
+        return NextResponse.next();
       }
 
       // Handle email_verified users (need to join community)
@@ -143,10 +146,13 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
       }
 
-      // Redirect authenticated users away from auth routes
-      if (AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
-        const dashboardUrl = new URL("/dashboard", request.url);
-        return NextResponse.redirect(dashboardUrl);
+      // Handle incomplete_profile users
+      if (user.status === "incomplete_profile") {
+        if (pathname !== "/onboarding") {
+          const onboardingUrl = new URL("/onboarding", request.url);
+          return NextResponse.redirect(onboardingUrl);
+        }
+        return NextResponse.next();
       }
 
       // Redirect authenticated users from home page to dashboard
@@ -155,18 +161,8 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(dashboardUrl);
       }
 
-      // Handle incomplete_profile users
-      if (user.status === "incomplete_profile") {
-        if (pathname === "/onboarding") {
-          return NextResponse.next(); // Allow access to onboarding
-        }
-        // Redirect to onboarding for any other route
-        const onboardingUrl = new URL("/onboarding", request.url);
-        return NextResponse.redirect(onboardingUrl);
-      }
-
-      // Handle users who don't need onboarding
-      if (pathname === "/onboarding") {
+      // Redirect active users away from auth routes
+      if (AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
         const dashboardUrl = new URL("/dashboard", request.url);
         return NextResponse.redirect(dashboardUrl);
       }
