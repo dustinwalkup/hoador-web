@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useActionState, useEffect } from "react";
+import { useState, useActionState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -86,18 +85,9 @@ export function OnboardingForm({
   userFirstName = "",
   userLastName = "",
 }: OnboardingFormProps) {
-  const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [state, formAction, isPending] = useActionState(onboardingAction, null);
-
-  // Navigate to dashboard on successful onboarding
-  useEffect(() => {
-    if (state?.success && !state?.error) {
-      // Small delay to ensure state updates are complete
-      router.push("/dashboard");
-    }
-  }, [state?.success, state?.error, router]);
 
   // Form state
   const [formData, setFormData] = useState({

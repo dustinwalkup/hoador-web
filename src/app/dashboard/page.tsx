@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import ActivityFeed from "@/components/dashboard/activity-feed";
 import { PageHeader } from "@/components/page-header";
+import { ScrollToTop } from "@/components/scroll-to-top";
 
 const { header, alerts, pendingRequests } = DASHBOARD_PAGE;
 
@@ -33,6 +34,7 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   return (
     <div className="space-y-6">
+      <ScrollToTop />
       <PageHeader
         title={header.titleFor(user?.firstName ?? "User")}
         description={header.description}
