@@ -1,7 +1,15 @@
 import { authClient } from "@/services/better-auth/client";
 
-export async function signOut(): Promise<void> {
+export async function signOut(redirectTo?: string): Promise<void> {
   await authClient.signOut();
+
+  // Small delay to ensure the signOut request is fully processed
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  // Force a full page redirect to ensure clean state and bypass any middleware issues
+  if (redirectTo) {
+    window.location.href = redirectTo;
+  }
 }
 
 export async function signInEmail(

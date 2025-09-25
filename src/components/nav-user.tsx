@@ -24,22 +24,18 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { signOut } from "@/features/auth/utils";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function NavUser({ user }: { user: UserProfile }) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const { isMobile } = useSidebar();
-  const router = useRouter();
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
-      await signOut();
-      router.push("/"); // or router.replace("/")
+      await signOut("/");
     } catch (error) {
       console.error("Sign out failed:", error);
-    } finally {
       setIsSigningOut(false);
     }
   };
