@@ -22,6 +22,8 @@ export function useSearchListings(
       deliveryAvailable: filters.deliveryAvailable || false,
       sortBy: filters.sortBy || "newest",
       sortOrder: filters.sortOrder || "desc",
+      // Include user context for distance sorting cache invalidation
+      isDistanceSort: filters.sortBy === "distance" ? userId : undefined,
     };
     return ["search-listings", serializedFilters, userId];
   }, [filters, userId]);
@@ -66,10 +68,20 @@ export function useSearchListings(
       return lastPage.pagination.hasNext ? allPages.length + 1 : undefined;
     },
     initialPageParam: 1,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: filters.sortBy === "distance" ? 2 * 60 * 1000 : 5 * 60 * 1000, // Shorter cache for distance queries
     enabled: true, // Always enable the query
     refetchOnWindowFocus: false,
-    refetchOnMount: true,
+    refetchOnMount: false, // Prevent automatic refetch on mount to avoid race conditions
+    // Add placeholderData to prevent flash of empty state during filter changes
+    placeholderData: (previousData) => previousData,
+    // Ensure cache is properly invalidated when filters change
+    retry: (failureCount, error) => {
+      // Don't retry on 4xx errors
+      if (error.message.includes("400") || error.message.includes("401")) {
+        return false;
+      }
+      return failureCount < 2; // Reduce retry attempts to prevent duplicate requests
+    },
   });
 }
 

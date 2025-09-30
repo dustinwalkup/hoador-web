@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Filter, ChevronDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,10 +44,24 @@ export function ExplorePageFilters({
     filters.condition || [],
   );
   const [deliveryAvailable, setDeliveryAvailable] = useState(
-    filters.deliveryAvailable || false,
+    filters.deliveryAvailable === true,
   );
+
   const [sortOpen, setSortOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Sync local state with URL filters when they change
+  useEffect(() => {
+    setMinPrice(filters.minPrice?.toString() || "");
+    setMaxPrice(filters.maxPrice?.toString() || "");
+    setSelectedConditions(filters.condition || []);
+    setDeliveryAvailable(filters.deliveryAvailable === true);
+  }, [
+    filters.minPrice,
+    filters.maxPrice,
+    filters.condition,
+    filters.deliveryAvailable,
+  ]);
 
   // Debounced search
   const { localQuery, handleSearchChange, clearSearch } = useDebouncedSearch(
@@ -65,6 +79,10 @@ export function ExplorePageFilters({
     if (sortBy === "price" && sortOrder === "asc") return "Price: Low to high";
     if (sortBy === "price" && sortOrder === "desc") return "Price: High to low";
     if (sortBy === "rating") return "Highest rated";
+    if (sortBy === "distance" && sortOrder === "asc")
+      return "Distance: Near to far";
+    if (sortBy === "distance" && sortOrder === "desc")
+      return "Distance: Far to near";
     return "Sort";
   };
 
@@ -116,13 +134,17 @@ export function ExplorePageFilters({
       : [...selectedConditions, condition];
 
     setSelectedConditions(newConditions);
-    updateFilters({
-      condition: newConditions.length > 0 ? newConditions : undefined,
-    });
+    // Don't apply immediately - wait for "Apply Filters" button
   };
 
   const handleFiltersApply = () => {
     updateFilters({
+      // Preserve existing filters that aren't managed in this modal
+      categoryId: filters.categoryId,
+      query: filters.query,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder,
+      // Update the filters managed in this modal
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
       condition: selectedConditions.length > 0 ? selectedConditions : undefined,
@@ -132,16 +154,38 @@ export function ExplorePageFilters({
   };
 
   const handleFiltersReset = () => {
+    // Reset all local state
     setMinPrice("");
     setMaxPrice("");
     setSelectedConditions([]);
     setDeliveryAvailable(false);
+
+    // Clear search input
+    clearSearch();
+
+    // Clear ALL filters from URL (complete reset)
     updateFilters({
+      categoryId: undefined,
+      query: undefined,
       minPrice: undefined,
       maxPrice: undefined,
       condition: undefined,
       deliveryAvailable: undefined,
+      sortBy: undefined, // Clear sort (will default to "newest")
+      sortOrder: undefined, // Clear sort order (will default to "desc")
     });
+
+    // Close the sheet
+    setFiltersOpen(false);
+  };
+
+  const handleFiltersCancel = () => {
+    // Revert local state to current URL filters
+    setMinPrice(filters.minPrice?.toString() || "");
+    setMaxPrice(filters.maxPrice?.toString() || "");
+    setSelectedConditions(filters.condition || []);
+    setDeliveryAvailable(filters.deliveryAvailable === true);
+    setFiltersOpen(false);
   };
 
   return (
@@ -192,7 +236,16 @@ export function ExplorePageFilters({
         </form>
 
         <div className="flex items-center justify-between gap-2 lg:justify-end">
-          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <Sheet
+            open={filtersOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                handleFiltersCancel();
+              } else {
+                setFiltersOpen(true);
+              }
+            }}
+          >
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="h-9">
                 <Filter className="mr-2 h-4 w-4" />
@@ -292,16 +345,25 @@ export function ExplorePageFilters({
               </div>
 
               <SheetFooter className="mt-6">
-                <Button
-                  variant="outline"
-                  onClick={handleFiltersReset}
-                  className="w-full"
-                >
-                  Reset Filters
-                </Button>
-                <Button onClick={handleFiltersApply} className="w-full">
-                  Apply Filters
-                </Button>
+                <div className="flex w-full gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleFiltersReset}
+                    className="flex-1"
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleFiltersCancel}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleFiltersApply} className="flex-1">
+                    Apply
+                  </Button>
+                </div>
               </SheetFooter>
             </SheetContent>
           </Sheet>
@@ -342,6 +404,20 @@ export function ExplorePageFilters({
                   onClick={() => handleSortSelect("rating", "desc")}
                 >
                   Highest rated
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleSortSelect("distance", "asc")}
+                >
+                  Distance: Near to far
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleSortSelect("distance", "desc")}
+                >
+                  Distance: Far to near
                 </Button>
               </div>
             </PopoverContent>

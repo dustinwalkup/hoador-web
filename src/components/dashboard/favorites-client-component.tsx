@@ -128,7 +128,7 @@ export default function FavoritesClientComponent() {
               id="1"
               name="Power Drill"
               price="$8/day"
-              distance="0.5 miles"
+              distance={0.5}
               rating={4.8}
               reviews={12}
               imageUrl="/images/mock/cordless-drill.jpg"
@@ -138,7 +138,7 @@ export default function FavoritesClientComponent() {
               id="2"
               name="Circular Saw"
               price="$12/day"
-              distance="0.8 miles"
+              distance={0.8}
               rating={4.5}
               reviews={8}
               imageUrl="/images/mock/skill-saw.jpg"
@@ -148,7 +148,7 @@ export default function FavoritesClientComponent() {
               id="3"
               name="Pressure Washer"
               price="$15/day"
-              distance="1.2 miles"
+              distance={1.2}
               rating={4.9}
               reviews={24}
               imageUrl="/images/mock/pressure-washer.jpg"
@@ -158,7 +158,7 @@ export default function FavoritesClientComponent() {
               id="4"
               name="Ladder (8ft)"
               price="$6/day"
-              distance="0.3 miles"
+              distance={0.3}
               rating={4.7}
               reviews={15}
               imageUrl="/images/mock/ladder.jpg"
@@ -168,7 +168,7 @@ export default function FavoritesClientComponent() {
               id="5"
               name="Lawn Mower"
               price="$10/day"
-              distance="0.7 miles"
+              distance={0.7}
               rating={4.6}
               reviews={19}
               imageUrl="/images/mock/lawn-mower.jpg"
@@ -178,7 +178,7 @@ export default function FavoritesClientComponent() {
               id="6"
               name="Miter Saw"
               price="$20/day"
-              distance="1.5 miles"
+              distance={1.5}
               rating={4.8}
               reviews={7}
               imageUrl="/images/mock/miter-saw.jpg"
@@ -282,7 +282,7 @@ export default function FavoritesClientComponent() {
               id="7"
               name="Hedge Trimmer"
               price="$9/day"
-              distance="0.9 miles"
+              distance={0.9}
               rating={4.4}
               reviews={11}
               imageUrl="/images/mock/hedge-trimmer.jpg"
@@ -293,7 +293,7 @@ export default function FavoritesClientComponent() {
               id="8"
               name="Trailer Hitch"
               price="$18/day"
-              distance="1.1 miles"
+              distance={1.1}
               rating={4.7}
               reviews={14}
               imageUrl="/images/mock/trailer-hitch.jpg"

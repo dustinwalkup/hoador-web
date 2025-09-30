@@ -9,7 +9,7 @@ interface ListingCardProps {
   id: string;
   name: string;
   price: string;
-  distance: string;
+  distance?: number; // Changed to optional number (miles)
   rating: number;
   reviews: number;
   imageUrl: string;
@@ -26,6 +26,14 @@ export default function ListingCard({
   imageUrl,
   isNew = false,
 }: ListingCardProps) {
+  // Format distance for display
+  const formatDistance = (miles?: number) => {
+    if (miles === undefined) return null;
+    if (miles < 0.1) return "< 0.1 mi";
+    if (miles < 1) return `${Math.round(miles * 5280)} ft`;
+    if (miles < 10) return `${miles.toFixed(1)} mi`;
+    return `${Math.round(miles)} mi`;
+  };
   return (
     <Card className="group overflow-hidden pt-0 pb-2 transition-all hover:shadow-md">
       <div className="relative">
@@ -57,10 +65,12 @@ export default function ListingCard({
           <span className="text-primary font-medium">{price}</span>
         </div>
 
-        <div className="text-muted-foreground mb-2 flex items-center gap-1 text-xs">
-          <MapPin className="h-3 w-3" />
-          <span>{distance} away</span>
-        </div>
+        {formatDistance(distance) && (
+          <div className="text-muted-foreground mb-2 flex items-center gap-1 text-xs">
+            <MapPin className="h-3 w-3" />
+            <span>{formatDistance(distance)} away</span>
+          </div>
+        )}
 
         <div className="mb-3 flex items-center gap-1">
           <div className="flex items-center">

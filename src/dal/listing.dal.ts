@@ -38,6 +38,7 @@ const {
   userFavorites,
   listingImages,
   user,
+  userAddresses,
 } = schema;
 
 type ListingDb = typeof listings.$inferSelect;
@@ -101,6 +102,7 @@ export type UserListing = Omit<
   averageRating: number;
   reviewCount: number;
   firstImageUrl: string | null;
+  distanceMiles?: number;
 };
 
 export interface GarageListingFilters {
@@ -112,6 +114,118 @@ export interface GarageListingFilters {
 }
 
 export class ListingDAL extends BaseDAL {
+  // Cache for user locations to avoid repeated queries
+  private userLocationCache = new Map<
+    string,
+    typeof userAddresses.$inferSelect
+  >();
+
+  // Helper method for building conditional SELECT with distance calculation
+  private buildSelectFields(
+    includeDistance: boolean,
+    userLocation?: typeof userAddresses.$inferSelect | null,
+  ) {
+    const baseFields = {
+      listing: listings,
+      category: {
+        id: listingCategories.id,
+        name: listingCategories.name,
+        icon: listingCategories.icon,
+      },
+      owner: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
+      },
+      ownerAddress: {
+        latitude: userAddresses.latitude,
+        longitude: userAddresses.longitude,
+      },
+    };
+
+    if (includeDistance && userLocation?.latitude && userLocation?.longitude) {
+      return {
+        ...baseFields,
+        calculatedDistance: sql<number>`
+              ST_Distance(
+                ST_Point(${userLocation.longitude}::float, ${userLocation.latitude}::float)::geography,
+                ST_Point(${userAddresses.longitude}::float, ${userAddresses.latitude}::float)::geography
+              ) / 1609.34
+            `.as("distance_miles"),
+      };
+    }
+
+    return baseFields;
+  }
+
+  // Helper method for building ORDER BY clause
+  private buildOrderByClause(
+    filters: ListingSearchFilters,
+    hasDistanceCalculation: boolean,
+  ) {
+    if (filters.sortBy) {
+      switch (filters.sortBy) {
+        case "price":
+          return [
+            filters.sortOrder === "desc"
+              ? desc(listings.dailyRate)
+              : asc(listings.dailyRate),
+          ];
+        case "newest":
+          return [desc(listings.createdAt)];
+        case "rating":
+          // Still handled in post-processing due to aggregation complexity
+          return [desc(listings.favoriteCount)];
+        case "distance":
+          if (hasDistanceCalculation) {
+            // Use the calculated distance field from SELECT
+            return [
+              filters.sortOrder === "desc"
+                ? sql`distance_miles DESC NULLS LAST`
+                : sql`distance_miles ASC NULLS LAST`,
+            ];
+          } else {
+            // Fallback if no user location
+            return [desc(listings.createdAt)];
+          }
+        default:
+          return [desc(listings.createdAt)];
+      }
+    }
+    return [desc(listings.createdAt)];
+  }
+
+  // Helper method to get user's primary address with caching
+  private async getUserPrimaryAddress(userId: string) {
+    if (this.userLocationCache.has(userId)) {
+      return this.userLocationCache.get(userId)!;
+    }
+
+    // Try primary address first, fallback to any address
+    let address = await this.db.query.userAddresses.findFirst({
+      where: and(
+        eq(userAddresses.userId, userId),
+        eq(userAddresses.isPrimary, true),
+      ),
+    });
+
+    // If no primary address, use any address
+    if (!address) {
+      address = await this.db.query.userAddresses.findFirst({
+        where: eq(userAddresses.userId, userId),
+      });
+    }
+
+    if (address) {
+      this.userLocationCache.set(userId, address);
+      // Clear cache after 5 minutes
+      setTimeout(() => this.userLocationCache.delete(userId), 5 * 60 * 1000);
+    }
+
+    return address || null;
+  }
+
   async createListing(
     listingData: CreateListingDTO,
   ): Promise<typeof listings.$inferSelect> {
@@ -479,6 +593,7 @@ export class ListingDAL extends BaseDAL {
     filters: ListingSearchFilters,
     pagination: PaginationOptions,
     currentUserId?: string,
+    skipDistance = false, // Internal parameter to skip distance calculations
   ): Promise<PaginatedResult<UserListing>> {
     try {
       this.validatePagination(pagination.page, pagination.limit);
@@ -495,6 +610,18 @@ export class ListingDAL extends BaseDAL {
       if (!userCommunityId) {
         throw new UnauthorizedError("User must be a member of a community");
       }
+
+      // Get user location for distance calculations (unless skipped for fallback)
+      const userLocation = skipDistance
+        ? null
+        : await this.getUserPrimaryAddress(userId);
+
+      // Determine if we need distance calculation in SELECT and ORDER BY
+      const needsDistanceSort = filters.sortBy === "distance" && !skipDistance;
+      const hasUserLocation =
+        !skipDistance && !!userLocation?.latitude && !!userLocation?.longitude;
+
+      // Note: Distance calculation setup complete
 
       // Build the where conditions
       const whereConditions = [
@@ -556,58 +683,86 @@ export class ListingDAL extends BaseDAL {
         .innerJoin(user, eq(listings.ownerId, user.id))
         .where(and(...whereConditions));
 
-      // Build the order by clause
-      let orderByClause = [];
+      // Build the order by clause using helper method
+      const hasDistanceCalculation = needsDistanceSort && hasUserLocation;
+      const orderByClause = this.buildOrderByClause(
+        filters,
+        hasDistanceCalculation,
+      );
 
-      if (filters.sortBy) {
-        switch (filters.sortBy) {
-          case "price":
-            orderByClause = [
-              filters.sortOrder === "desc"
-                ? desc(listings.dailyRate)
-                : asc(listings.dailyRate),
-            ];
-            break;
-          case "newest":
-            orderByClause = [desc(listings.createdAt)];
-            break;
-          case "rating":
-            // We'll handle rating sorting in the post-processing since it requires aggregation
-            orderByClause = [desc(listings.favoriteCount)];
-            break;
-          default:
-            orderByClause = [desc(listings.createdAt)];
+      // Always include distance in SELECT if user has location (for display on cards)
+      const includeDistanceInSelect = hasUserLocation;
+      const selectFields = this.buildSelectFields(
+        includeDistanceInSelect,
+        userLocation,
+      );
+
+      // Get the listings with relations using conditional SELECT with error handling
+      let listingsWithRelations;
+      const startTime = Date.now();
+      try {
+        listingsWithRelations = await this.db
+          .select(selectFields)
+          .from(listings)
+          .innerJoin(
+            listingCategories,
+            eq(listings.categoryId, listingCategories.id),
+          )
+          .innerJoin(user, eq(listings.ownerId, user.id))
+          .leftJoin(
+            userAddresses,
+            and(
+              eq(userAddresses.userId, user.id),
+              eq(userAddresses.isPrimary, true),
+            ),
+          )
+          .where(and(...whereConditions))
+          .orderBy(...orderByClause)
+          .limit(pagination.limit)
+          .offset(offset);
+      } catch (error) {
+        // Handle spatial query errors gracefully
+        if (
+          error instanceof Error &&
+          (error.message.includes("ST_Distance") ||
+            error.message.includes("st_distance") ||
+            error.message.includes("st_point") ||
+            error.message.includes("function st_point") ||
+            error.message.includes("geography") ||
+            error.message.includes("does not exist"))
+        ) {
+          console.warn(
+            "PostGIS spatial query failed, falling back to non-distance mode:",
+            error.message,
+          );
+
+          // Retry without distance calculation
+          const fallbackFilters = { ...filters };
+          if (filters.sortBy === "distance") {
+            fallbackFilters.sortBy = "newest";
+          }
+
+          const result = await this.searchListings(
+            fallbackFilters,
+            pagination,
+            currentUserId,
+            true, // skipDistance = true
+          );
+          return result;
         }
-      } else {
-        orderByClause = [desc(listings.createdAt)];
+
+        throw error;
       }
 
-      // Get the listings with relations
-      const listingsWithRelations = await this.db
-        .select({
-          listing: listings,
-          category: {
-            id: listingCategories.id,
-            name: listingCategories.name,
-            icon: listingCategories.icon,
-          },
-          owner: {
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            profileImageUrl: user.profileImageUrl,
-          },
-        })
-        .from(listings)
-        .innerJoin(
-          listingCategories,
-          eq(listings.categoryId, listingCategories.id),
-        )
-        .innerJoin(user, eq(listings.ownerId, user.id))
-        .where(and(...whereConditions))
-        .orderBy(...orderByClause)
-        .limit(pagination.limit)
-        .offset(offset);
+      // Log slow queries for performance monitoring
+      const queryTime = Date.now() - startTime;
+      if (queryTime > 1000) {
+        console.warn(`Slow listing query: ${queryTime}ms`, {
+          sortBy: filters.sortBy,
+          includeDistanceInSelect,
+          resultCount: listingsWithRelations.length,
+        });
+      }
 
       // Get first image for each listing (matching getUserlistings pattern)
       const listingIds = listingsWithRelations.map((t) => t.listing.id);
@@ -670,6 +825,15 @@ export class ListingDAL extends BaseDAL {
             reviewCount: 0,
           };
 
+          // Use database-calculated distance if available, otherwise undefined
+          const distanceMiles =
+            "calculatedDistance" in item
+              ? (item as typeof item & { calculatedDistance: number })
+                  .calculatedDistance
+              : undefined;
+
+          // Distance calculation working correctly
+
           return {
             ...item.listing,
             dailyRate: Number(item.listing.dailyRate),
@@ -684,6 +848,7 @@ export class ListingDAL extends BaseDAL {
             averageRating: Math.round(listingRating.averageRating * 10) / 10,
             reviewCount: listingRating.reviewCount,
             firstImageUrl: listingImagesMap.get(item.listing.id) || null,
+            distanceMiles,
           };
         },
       );

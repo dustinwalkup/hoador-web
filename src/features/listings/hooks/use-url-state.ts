@@ -21,10 +21,26 @@ export function useURLState<T extends Record<string, unknown>>(
       const params = new URLSearchParams(searchParams);
       const serialized = serializer(updates);
 
+      // Handle explicit deletions for undefined values in updates
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === undefined) {
+          // Map internal field names to URL parameter names for deletion
+          if (key === "categoryId") {
+            params.delete("category");
+          } else if (key === "query") {
+            params.delete("q");
+          } else if (key === "deliveryAvailable") {
+            params.delete("delivery");
+            params.delete("deliveryAvailable"); // Also delete the full name if it exists
+          } else {
+            params.delete(key);
+          }
+        }
+      });
+
+      // Set values from serialized data
       Object.entries(serialized).forEach(([key, value]) => {
-        if (value === undefined || value === "") {
-          params.delete(key);
-        } else {
+        if (value !== undefined && value !== "") {
           params.set(key, value);
         }
       });
@@ -33,17 +49,13 @@ export function useURLState<T extends Record<string, unknown>>(
       params.delete("categoryId");
       params.delete("query");
 
-      // If categoryId is explicitly undefined in updates, remove the category parameter
-      if (updates.categoryId === undefined) {
-        params.delete("category");
-      }
-
-      // If query is explicitly undefined in updates, remove the q parameter
+      // Additional cleanup for delivery parameters if they were set to undefined
       if (
-        "query" in updates &&
-        (updates as { query?: unknown }).query === undefined
+        "deliveryAvailable" in updates &&
+        updates.deliveryAvailable === undefined
       ) {
-        params.delete("q");
+        params.delete("delivery");
+        params.delete("deliveryAvailable");
       }
 
       // Reset pagination when filters change
@@ -75,7 +87,9 @@ export function useListingFilters() {
       condition: searchParams.get("condition")
         ? searchParams.get("condition")!.split(",").filter(Boolean)
         : undefined,
-      deliveryAvailable: searchParams.get("delivery") === "true",
+      deliveryAvailable:
+        searchParams.get("delivery") === "true" ||
+        searchParams.get("deliveryAvailable") === "true",
       sortBy:
         (searchParams.get("sortBy") as
           | "price"
@@ -93,7 +107,12 @@ export function useListingFilters() {
 
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== "") {
-        if (Array.isArray(value)) {
+        // Special handling for boolean values - only include if true
+        if (typeof value === "boolean") {
+          if (value === true) {
+            result[key] = String(value);
+          }
+        } else if (Array.isArray(value)) {
           result[key] = value.join(",");
         } else {
           result[key] = String(value);
@@ -111,6 +130,12 @@ export function useListingFilters() {
     if (result.query) {
       result.q = result.query;
       delete result.query;
+    }
+
+    // Map deliveryAvailable to delivery for URL compatibility
+    if ("deliveryAvailable" in result) {
+      result.delivery = result.deliveryAvailable;
+      delete result.deliveryAvailable;
     }
 
     return result;

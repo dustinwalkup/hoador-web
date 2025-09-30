@@ -22,7 +22,7 @@ export function ExplorePageContent({
               id={listing.id}
               name={listing.name}
               price={`$${listing.dailyRate}/day`}
-              distance="0.5 miles" // TODO: Calculate actual distance
+              distance={listing.distanceMiles}
               rating={listing.averageRating}
               reviews={listing.reviewCount}
               imageUrl={listing.firstImageUrl || "/images/placeholder.jpg"}
