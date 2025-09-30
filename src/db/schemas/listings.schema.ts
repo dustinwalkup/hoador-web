@@ -89,11 +89,17 @@ export const listings = pgTable(
     minimumRentalPeriod: integer("minimum_rental_period").default(1).notNull(), // in days
     maximumRentalPeriod: integer("maximum_rental_period").default(30).notNull(), // in days
     requiresPickup: boolean("requires_pickup").default(true).notNull(),
+    // Delivery
     deliveryAvailable: boolean("delivery_available").default(false).notNull(),
     deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 })
       .default("0")
       .notNull(),
     deliveryRadius: integer("delivery_radius").default(0).notNull(), // in miles
+    // Setup Fee
+    setupFee: decimal("setup_fee", { precision: 10, scale: 2 })
+      .default("0")
+      .notNull(),
+    setupAvailable: boolean("setup_available").default(false).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     viewCount: integer("view_count").default(0).notNull(),
     favoriteCount: integer("favorite_count").default(0).notNull(),
