@@ -73,6 +73,8 @@ export interface CreateListingDTO {
   deliveryAvailable?: boolean;
   deliveryFee?: number;
   deliveryRadius?: number;
+  setupAvailable?: boolean;
+  setupFee?: number;
 }
 
 export interface UpdateListingDTO {
@@ -95,6 +97,8 @@ export interface UpdateListingDTO {
   deliveryAvailable?: boolean;
   deliveryFee?: number;
   deliveryRadius?: number;
+  setupAvailable?: boolean;
+  setupFee?: number;
   status?: "available" | "rented" | "maintenance" | "inactive";
 }
 
@@ -123,6 +127,7 @@ export interface ListingSearchFilters {
   };
   condition?: string[];
   deliveryAvailable?: boolean;
+  setupAvailable?: boolean;
   sortBy?: "price" | "rating" | "distance" | "newest";
   sortOrder?: "asc" | "desc";
 }
@@ -190,6 +195,8 @@ export interface ListingDetails {
   deliveryAvailable: boolean;
   deliveryFee: number;
   deliveryRadius: number;
+  setupAvailable: boolean;
+  setupFee: number;
   viewCount: number;
   favoriteCount: number;
   averageRating: number;

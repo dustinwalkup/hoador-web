@@ -20,6 +20,7 @@ export function useSearchListings(
       maxPrice: filters.maxPrice || undefined,
       condition: filters.condition?.join(",") || undefined,
       deliveryAvailable: filters.deliveryAvailable || false,
+      setupAvailable: filters.setupAvailable || false,
       sortBy: filters.sortBy || "newest",
       sortOrder: filters.sortOrder || "desc",
       // Include user context for distance sorting cache invalidation
@@ -45,6 +46,7 @@ export function useSearchListings(
         searchParams.set("condition", filters.condition.join(","));
       }
       if (filters.deliveryAvailable) searchParams.set("delivery", "true");
+      if (filters.setupAvailable) searchParams.set("setup", "true");
       if (filters.sortBy) searchParams.set("sortBy", filters.sortBy);
       if (filters.sortOrder) searchParams.set("sortOrder", filters.sortOrder);
 

@@ -45,10 +45,12 @@ const baseListingSchema = z.object({
     .number()
     .min(0, "Delivery radius cannot be negative")
     .default(0),
+  setupAvailable: z.boolean().default(false),
+  setupFee: z.number().min(0, "Setup fee cannot be negative").default(0),
 });
 
-// Helper function to add delivery validation to the schema
-const withDeliveryValidation = <T extends z.ZodTypeAny>(schema: T) =>
+// Helper function to add delivery and setup validation to the schema
+const withServiceValidation = <T extends z.ZodTypeAny>(schema: T) =>
   schema
     .refine(
       (data) => {
@@ -75,11 +77,23 @@ const withDeliveryValidation = <T extends z.ZodTypeAny>(schema: T) =>
         message: "Delivery radius is required when delivery is available",
         path: ["deliveryRadius"],
       },
+    )
+    .refine(
+      (data) => {
+        const d = data as Record<string, unknown>;
+        return (
+          !d.setupAvailable || (d.setupAvailable && (d.setupFee as number) > 0)
+        );
+      },
+      {
+        message: "Setup fee is required when setup is available",
+        path: ["setupFee"],
+      },
     );
 
 // Server schema = base + refinements
 export const createListingSchemaServer =
-  withDeliveryValidation(baseListingSchema);
+  withServiceValidation(baseListingSchema);
 
 // Schema for image uploads
 export const imageFileSchema = z.object({
@@ -89,8 +103,8 @@ export const imageFileSchema = z.object({
   orderIndex: z.number().optional(),
 });
 
-// Client schema = base + images + delivery validation
-export const createListingSchemaClient = withDeliveryValidation(
+// Client schema = base + images + service validation
+export const createListingSchemaClient = withServiceValidation(
   baseListingSchema.extend({
     images: z.array(imageFileSchema).min(1, "At least one image is required"),
   }),

@@ -32,6 +32,9 @@ export function useURLState<T extends Record<string, unknown>>(
           } else if (key === "deliveryAvailable") {
             params.delete("delivery");
             params.delete("deliveryAvailable"); // Also delete the full name if it exists
+          } else if (key === "setupAvailable") {
+            params.delete("setup");
+            params.delete("setupAvailable"); // Also delete the full name if it exists
           } else {
             params.delete(key);
           }
@@ -56,6 +59,12 @@ export function useURLState<T extends Record<string, unknown>>(
       ) {
         params.delete("delivery");
         params.delete("deliveryAvailable");
+      }
+
+      // Additional cleanup for setup parameters if they were set to undefined
+      if ("setupAvailable" in updates && updates.setupAvailable === undefined) {
+        params.delete("setup");
+        params.delete("setupAvailable");
       }
 
       // Reset pagination when filters change
@@ -89,7 +98,14 @@ export function useListingFilters() {
         : undefined,
       deliveryAvailable:
         searchParams.get("delivery") === "true" ||
-        searchParams.get("deliveryAvailable") === "true",
+        searchParams.get("deliveryAvailable") === "true"
+          ? true
+          : undefined,
+      setupAvailable:
+        searchParams.get("setup") === "true" ||
+        searchParams.get("setupAvailable") === "true"
+          ? true
+          : undefined,
       sortBy:
         (searchParams.get("sortBy") as
           | "price"
@@ -136,6 +152,12 @@ export function useListingFilters() {
     if ("deliveryAvailable" in result) {
       result.delivery = result.deliveryAvailable;
       delete result.deliveryAvailable;
+    }
+
+    // Map setupAvailable to setup for URL compatibility
+    if ("setupAvailable" in result) {
+      result.setup = result.setupAvailable;
+      delete result.setupAvailable;
     }
 
     return result;

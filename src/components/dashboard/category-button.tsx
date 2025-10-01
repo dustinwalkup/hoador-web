@@ -17,14 +17,14 @@ export default function CategoryButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex min-w-[100px] flex-col items-center rounded-lg border px-3 py-2 transition-colors",
+        "flex items-center gap-2 rounded-lg border px-3 transition-colors",
         active
           ? "border-primary bg-primary/5 text-primary"
           : "border-border bg-background hover:border-primary/50 hover:bg-primary/5",
       )}
     >
       <span className="text-xl">{icon}</span>
-      <span className="mt-1 line-clamp-1 text-xs font-medium">{label}</span>
+      <span className="line-clamp-1 text-xs font-medium">{label}</span>
     </button>
   );
 }

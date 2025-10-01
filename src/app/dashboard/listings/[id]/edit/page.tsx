@@ -34,6 +34,8 @@ function mapListingToFormData(
     deliveryAvailable: listing.deliveryAvailable,
     deliveryFee: listing.deliveryFee,
     deliveryRadius: listing.deliveryRadius,
+    setupAvailable: listing.setupAvailable,
+    setupFee: listing.setupFee,
   };
 }
 

@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
       condition: searchParams.get("condition")
         ? searchParams.get("condition")!.split(",").filter(Boolean)
         : undefined,
-      deliveryAvailable: searchParams.get("delivery") === "true",
+      deliveryAvailable:
+        searchParams.get("delivery") === "true" ? true : undefined,
+      setupAvailable: searchParams.get("setup") === "true" ? true : undefined,
       sortBy:
         (searchParams.get("sortBy") as
           | "price"

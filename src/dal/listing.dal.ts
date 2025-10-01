@@ -92,13 +92,19 @@ interface ListingWithRelations extends ListingDb {
 // Type for the transformed listing data returned by getUserlistings
 export type UserListing = Omit<
   typeof listings.$inferSelect,
-  "dailyRate" | "weeklyRate" | "monthlyRate" | "securityDeposit" | "deliveryFee"
+  | "dailyRate"
+  | "weeklyRate"
+  | "monthlyRate"
+  | "securityDeposit"
+  | "deliveryFee"
+  | "setupFee"
 > & {
   dailyRate: number;
   weeklyRate?: number;
   monthlyRate?: number;
   securityDeposit: number;
   deliveryFee: number;
+  setupFee: number;
   averageRating: number;
   reviewCount: number;
   firstImageUrl: string | null;
@@ -262,6 +268,8 @@ export class ListingDAL extends BaseDAL {
           deliveryAvailable: listingData.deliveryAvailable ?? false,
           deliveryFee: (listingData.deliveryFee || 0).toString(),
           deliveryRadius: listingData.deliveryRadius || 0,
+          setupAvailable: listingData.setupAvailable ?? false,
+          setupFee: (listingData.setupFee || 0).toString(),
         })
         .returning();
       return listing;
@@ -409,6 +417,8 @@ export class ListingDAL extends BaseDAL {
         deliveryAvailable: listing.deliveryAvailable,
         deliveryFee: Number(listing.deliveryFee),
         deliveryRadius: listing.deliveryRadius,
+        setupAvailable: listing.setupAvailable,
+        setupFee: Number(listing.setupFee),
         viewCount: listing.viewCount,
         favoriteCount: listing.favoriteCount,
         averageRating: Math.round(averageRating * 10) / 10,
@@ -497,6 +507,8 @@ export class ListingDAL extends BaseDAL {
         updateData.securityDeposit = updates.securityDeposit.toString();
       if (updates.deliveryFee !== undefined)
         updateData.deliveryFee = updates.deliveryFee.toString();
+      if (updates.setupFee !== undefined)
+        updateData.setupFee = updates.setupFee.toString();
 
       const [updatedListing] = await this.db
         .update(listings)
@@ -667,6 +679,15 @@ export class ListingDAL extends BaseDAL {
       // Delivery filter
       if (filters.deliveryAvailable) {
         whereConditions.push(eq(listings.deliveryAvailable, true));
+      }
+
+      // Setup filter
+      if (filters.setupAvailable) {
+        console.log(
+          "************* APPLYING SETUP FILTER *************",
+          filters.setupAvailable,
+        );
+        whereConditions.push(eq(listings.setupAvailable, true));
       }
 
       // Exclude current user's listings
@@ -845,6 +866,7 @@ export class ListingDAL extends BaseDAL {
               : undefined,
             securityDeposit: Number(item.listing.securityDeposit),
             deliveryFee: Number(item.listing.deliveryFee),
+            setupFee: Number(item.listing.setupFee),
             averageRating: Math.round(listingRating.averageRating * 10) / 10,
             reviewCount: listingRating.reviewCount,
             firstImageUrl: listingImagesMap.get(item.listing.id) || null,
@@ -944,6 +966,7 @@ export class ListingDAL extends BaseDAL {
               : undefined,
             securityDeposit: Number(listing.securityDeposit),
             deliveryFee: Number(listing.deliveryFee),
+            setupFee: Number(listing.setupFee),
             averageRating: Math.round(averageRating * 10) / 10,
             reviewCount: ratings.length,
             firstImageUrl: firstImage[0]?.imageUrl || null,
@@ -1180,6 +1203,7 @@ export class ListingDAL extends BaseDAL {
               : undefined,
             securityDeposit: Number(listing.securityDeposit),
             deliveryFee: Number(listing.deliveryFee),
+            setupFee: Number(listing.setupFee),
             averageRating: Math.round(averageRating * 10) / 10,
             reviewCount: ratings.length,
             firstImageUrl: firstImage[0]?.imageUrl || null,
@@ -1249,6 +1273,7 @@ export class ListingDAL extends BaseDAL {
               : undefined,
             securityDeposit: Number(listing.securityDeposit),
             deliveryFee: Number(listing.deliveryFee),
+            setupFee: Number(listing.setupFee),
             averageRating: Math.round(averageRating * 10) / 10,
             reviewCount: ratings.length,
             firstImageUrl: firstImage[0]?.imageUrl || null,

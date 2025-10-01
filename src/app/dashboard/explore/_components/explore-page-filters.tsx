@@ -22,6 +22,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import CategoryButton from "@/components/dashboard/category-button";
 import { useListingFilters } from "@/features/listings/hooks/use-url-state";
 import { useDebouncedSearch } from "@/hooks/use-debounced-search";
@@ -32,7 +39,8 @@ interface ExplorePageFiltersProps {
 }
 
 export function ExplorePageFilters({
-  basePath: _basePath = "/dashboard/explore", // eslint-disable-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  basePath: _basePath = "/dashboard/explore",
 }: ExplorePageFiltersProps) {
   // URL state management
   const { state: filters, updateState: updateFilters } = useListingFilters();
@@ -46,6 +54,9 @@ export function ExplorePageFilters({
   const [deliveryAvailable, setDeliveryAvailable] = useState(
     filters.deliveryAvailable === true,
   );
+  const [setupAvailable, setSetupAvailable] = useState(
+    filters.setupAvailable === true,
+  );
 
   const [sortOpen, setSortOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -55,12 +66,18 @@ export function ExplorePageFilters({
     setMinPrice(filters.minPrice?.toString() || "");
     setMaxPrice(filters.maxPrice?.toString() || "");
     setSelectedConditions(filters.condition || []);
-    setDeliveryAvailable(filters.deliveryAvailable === true);
+    const setupFromFilters = filters.setupAvailable === true;
+    const deliveryFromFilters = filters.deliveryAvailable === true;
+
+    setSetupAvailable(setupFromFilters);
+    // If setup is enabled, delivery must be enabled too
+    setDeliveryAvailable(deliveryFromFilters || setupFromFilters);
   }, [
     filters.minPrice,
     filters.maxPrice,
     filters.condition,
     filters.deliveryAvailable,
+    filters.setupAvailable,
   ]);
 
   // Debounced search
@@ -93,6 +110,7 @@ export function ExplorePageFilters({
     if (maxPrice) count++; // Max price
     count += selectedConditions.length; // Each condition individually
     if (deliveryAvailable) count++; // Delivery filter
+    if (setupAvailable) count++; // Setup filter
     return count;
   };
 
@@ -145,10 +163,11 @@ export function ExplorePageFilters({
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       // Update the filters managed in this modal
-      minPrice: minPrice ? parseFloat(minPrice) : undefined,
-      maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+      minPrice: minPrice ? Number.parseFloat(minPrice) : undefined,
+      maxPrice: maxPrice ? Number.parseFloat(maxPrice) : undefined,
       condition: selectedConditions.length > 0 ? selectedConditions : undefined,
       deliveryAvailable: deliveryAvailable || undefined,
+      setupAvailable: setupAvailable || undefined,
     });
     setFiltersOpen(false);
   };
@@ -159,6 +178,7 @@ export function ExplorePageFilters({
     setMaxPrice("");
     setSelectedConditions([]);
     setDeliveryAvailable(false);
+    setSetupAvailable(false);
 
     // Clear search input
     clearSearch();
@@ -171,6 +191,7 @@ export function ExplorePageFilters({
       maxPrice: undefined,
       condition: undefined,
       deliveryAvailable: undefined,
+      setupAvailable: undefined,
       sortBy: undefined, // Clear sort (will default to "newest")
       sortOrder: undefined, // Clear sort order (will default to "desc")
     });
@@ -184,14 +205,49 @@ export function ExplorePageFilters({
     setMinPrice(filters.minPrice?.toString() || "");
     setMaxPrice(filters.maxPrice?.toString() || "");
     setSelectedConditions(filters.condition || []);
-    setDeliveryAvailable(filters.deliveryAvailable === true);
+    const setupFromUrl = filters.setupAvailable === true;
+    const deliveryFromUrl = filters.deliveryAvailable === true;
+
+    setSetupAvailable(setupFromUrl);
+    // If setup is enabled, delivery must be enabled too
+    setDeliveryAvailable(deliveryFromUrl || setupFromUrl);
     setFiltersOpen(false);
   };
 
   return (
     <div className="space-y-6">
-      {/* Category buttons */}
-      <div className="mb-4 flex flex-nowrap gap-2 overflow-x-auto pb-2 md:mb-8">
+      <div className="md:hidden">
+        <Select
+          value={filters.categoryId || "all"}
+          onValueChange={(value) =>
+            handleCategorySelect(value === "all" ? "" : value)
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              <div className="flex items-center gap-2">
+                <span>🏪</span>
+                <span>All Categories</span>
+              </div>
+            </SelectItem>
+            {STATIC_CATEGORIES.map(
+              (category: { id: string; name: string; icon: string | null }) => (
+                <SelectItem key={category.id} value={category.id}>
+                  <div className="flex items-center gap-2">
+                    {category.icon && <span>{category.icon}</span>}
+                    <span>{category.name}</span>
+                  </div>
+                </SelectItem>
+              ),
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="mb-4 hidden flex-wrap gap-2 md:mb-8 md:flex">
         <CategoryButton
           icon="🏪"
           label="All Categories"
@@ -247,7 +303,11 @@ export function ExplorePageFilters({
             }}
           >
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 bg-transparent"
+              >
                 <Filter className="mr-2 h-4 w-4" />
                 Filters
                 {getActiveFiltersCount() > 0 && (
@@ -325,21 +385,49 @@ export function ExplorePageFilters({
                 <Separator />
 
                 <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Delivery</h3>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="delivery-available"
-                      checked={deliveryAvailable}
-                      onCheckedChange={(checked) =>
-                        setDeliveryAvailable(checked === true)
-                      }
-                    />
-                    <label
-                      htmlFor="delivery-available"
-                      className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Delivery available
-                    </label>
+                  <h3 className="text-sm font-medium">Services</h3>
+                  <div className="flex flex-col space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="delivery-available"
+                        checked={deliveryAvailable || setupAvailable}
+                        disabled={setupAvailable}
+                        onCheckedChange={(checked) =>
+                          setDeliveryAvailable(checked === true)
+                        }
+                      />
+                      <label
+                        htmlFor="delivery-available"
+                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Delivery available
+                        {setupAvailable && (
+                          <span className="text-muted-foreground ml-1 text-xs">
+                            (required for setup)
+                          </span>
+                        )}
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="setup-available"
+                        checked={setupAvailable}
+                        onCheckedChange={(checked) => {
+                          const isChecked = checked === true;
+                          setSetupAvailable(isChecked);
+                          // Auto-enable delivery when setup is selected
+                          if (isChecked) {
+                            setDeliveryAvailable(true);
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="setup-available"
+                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Setup available
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -349,7 +437,7 @@ export function ExplorePageFilters({
                   <Button
                     variant="outline"
                     onClick={handleFiltersReset}
-                    className="flex-1"
+                    className="flex-1 bg-transparent"
                   >
                     Reset
                   </Button>
@@ -370,7 +458,11 @@ export function ExplorePageFilters({
 
           <Popover open={sortOpen} onOpenChange={setSortOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 bg-transparent"
+              >
                 {getCurrentSortLabel()}
                 <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
