@@ -12,7 +12,7 @@ interface DeliveryMethodStepProps {
   deliveryAddress: string;
   setDeliveryAddress: (address: string) => void;
   ownerName: string;
-  deliveryAvailable: boolean;
+  deliveryMode: "pickup_only" | "delivery_only" | "both_available";
   deliveryFee: number;
   deliveryRadius: number;
 }
@@ -23,7 +23,7 @@ export function DeliveryMethodStep({
   deliveryAddress,
   setDeliveryAddress,
   ownerName,
-  deliveryAvailable,
+  deliveryMode,
   deliveryFee,
   deliveryRadius,
 }: DeliveryMethodStepProps) {
@@ -56,7 +56,8 @@ export function DeliveryMethodStep({
               </div>
             </div>
 
-            {deliveryAvailable && (
+            {(deliveryMode === "delivery_only" ||
+              deliveryMode === "both_available") && (
               <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-gray-50">
                 <RadioGroupItem value="delivery" id="delivery" />
                 <div className="flex-1">

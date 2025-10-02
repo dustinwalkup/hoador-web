@@ -31,6 +31,11 @@ export const listingStatusEnum = pgEnum("listing_status", [
   "maintenance",
   "inactive",
 ]);
+export const deliveryModeEnum = pgEnum("delivery_mode", [
+  "pickup_only",
+  "delivery_only",
+  "both_available",
+]);
 
 // Listing categories
 export const _listingCategories = pgTable(
@@ -88,9 +93,9 @@ export const listings = pgTable(
     safetyNotes: text("safety_notes"),
     minimumRentalPeriod: integer("minimum_rental_period").default(1).notNull(), // in days
     maximumRentalPeriod: integer("maximum_rental_period").default(30).notNull(), // in days
-    requiresPickup: boolean("requires_pickup").default(true).notNull(),
-    // Delivery
-    deliveryAvailable: boolean("delivery_available").default(false).notNull(),
+    deliveryMode: deliveryModeEnum("delivery_mode")
+      .default("pickup_only")
+      .notNull(),
     deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 })
       .default("0")
       .notNull(),

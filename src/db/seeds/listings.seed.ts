@@ -736,8 +736,11 @@ async function main() {
       safetyNotes: `Always wear appropriate safety gear when using this ${template.name.toLowerCase()}. ${faker.lorem.sentence()}`,
       minimumRentalPeriod: faker.helpers.arrayElement([1, 2, 3]),
       maximumRentalPeriod: faker.number.int({ min: 7, max: 60 }),
-      requiresPickup: faker.datatype.boolean(),
-      deliveryAvailable: faker.datatype.boolean(),
+      deliveryMode: faker.helpers.arrayElement([
+        "pickup_only",
+        "delivery_only",
+        "both_available",
+      ]),
       deliveryFee: faker.number
         .float({ min: 0, max: 35, multipleOf: 5 })
         .toString(),

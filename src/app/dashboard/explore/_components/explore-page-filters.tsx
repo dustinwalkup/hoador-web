@@ -51,8 +51,8 @@ export function ExplorePageFilters({
   const [selectedConditions, setSelectedConditions] = useState<string[]>(
     filters.condition || [],
   );
-  const [deliveryAvailable, setDeliveryAvailable] = useState(
-    filters.deliveryAvailable === true,
+  const [deliveryMode, setDeliveryMode] = useState(
+    filters.deliveryMode || "pickup_only",
   );
   const [setupAvailable, setSetupAvailable] = useState(
     filters.setupAvailable === true,
@@ -67,16 +67,15 @@ export function ExplorePageFilters({
     setMaxPrice(filters.maxPrice?.toString() || "");
     setSelectedConditions(filters.condition || []);
     const setupFromFilters = filters.setupAvailable === true;
-    const deliveryFromFilters = filters.deliveryAvailable === true;
+    const deliveryFromFilters = filters.deliveryMode || "pickup_only";
 
     setSetupAvailable(setupFromFilters);
-    // If setup is enabled, delivery must be enabled too
-    setDeliveryAvailable(deliveryFromFilters || setupFromFilters);
+    setDeliveryMode(deliveryFromFilters);
   }, [
     filters.minPrice,
     filters.maxPrice,
     filters.condition,
-    filters.deliveryAvailable,
+    filters.deliveryMode,
     filters.setupAvailable,
   ]);
 
@@ -109,7 +108,7 @@ export function ExplorePageFilters({
     if (minPrice) count++; // Min price
     if (maxPrice) count++; // Max price
     count += selectedConditions.length; // Each condition individually
-    if (deliveryAvailable) count++; // Delivery filter
+    if (deliveryMode !== "pickup_only") count++; // Delivery filter
     if (setupAvailable) count++; // Setup filter
     return count;
   };
@@ -166,7 +165,7 @@ export function ExplorePageFilters({
       minPrice: minPrice ? Number.parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? Number.parseFloat(maxPrice) : undefined,
       condition: selectedConditions.length > 0 ? selectedConditions : undefined,
-      deliveryAvailable: deliveryAvailable || undefined,
+      deliveryMode: deliveryMode !== "pickup_only" ? deliveryMode : undefined,
       setupAvailable: setupAvailable || undefined,
     });
     setFiltersOpen(false);
@@ -177,7 +176,7 @@ export function ExplorePageFilters({
     setMinPrice("");
     setMaxPrice("");
     setSelectedConditions([]);
-    setDeliveryAvailable(false);
+    setDeliveryMode("pickup_only");
     setSetupAvailable(false);
 
     // Clear search input
@@ -190,7 +189,7 @@ export function ExplorePageFilters({
       minPrice: undefined,
       maxPrice: undefined,
       condition: undefined,
-      deliveryAvailable: undefined,
+      deliveryMode: undefined,
       setupAvailable: undefined,
       sortBy: undefined, // Clear sort (will default to "newest")
       sortOrder: undefined, // Clear sort order (will default to "desc")
@@ -206,11 +205,10 @@ export function ExplorePageFilters({
     setMaxPrice(filters.maxPrice?.toString() || "");
     setSelectedConditions(filters.condition || []);
     const setupFromUrl = filters.setupAvailable === true;
-    const deliveryFromUrl = filters.deliveryAvailable === true;
+    const deliveryFromUrl = filters.deliveryMode || "pickup_only";
 
     setSetupAvailable(setupFromUrl);
-    // If setup is enabled, delivery must be enabled too
-    setDeliveryAvailable(deliveryFromUrl || setupFromUrl);
+    setDeliveryMode(deliveryFromUrl);
     setFiltersOpen(false);
   };
 
@@ -387,26 +385,36 @@ export function ExplorePageFilters({
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium">Services</h3>
                   <div className="flex flex-col space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="delivery-available"
-                        checked={deliveryAvailable || setupAvailable}
-                        disabled={setupAvailable}
-                        onCheckedChange={(checked) =>
-                          setDeliveryAvailable(checked === true)
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Delivery Mode
+                      </Label>
+                      <Select
+                        value={deliveryMode}
+                        onValueChange={(value) =>
+                          setDeliveryMode(
+                            value as
+                              | "pickup_only"
+                              | "delivery_only"
+                              | "both_available",
+                          )
                         }
-                      />
-                      <label
-                        htmlFor="delivery-available"
-                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        Delivery available
-                        {setupAvailable && (
-                          <span className="text-muted-foreground ml-1 text-xs">
-                            (required for setup)
-                          </span>
-                        )}
-                      </label>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pickup_only">
+                            Pickup Only
+                          </SelectItem>
+                          <SelectItem value="delivery_only">
+                            Delivery Only
+                          </SelectItem>
+                          <SelectItem value="both_available">
+                            Both Available
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
@@ -416,8 +424,8 @@ export function ExplorePageFilters({
                           const isChecked = checked === true;
                           setSetupAvailable(isChecked);
                           // Auto-enable delivery when setup is selected
-                          if (isChecked) {
-                            setDeliveryAvailable(true);
+                          if (isChecked && deliveryMode === "pickup_only") {
+                            setDeliveryMode("both_available");
                           }
                         }}
                       />

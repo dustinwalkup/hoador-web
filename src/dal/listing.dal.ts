@@ -264,8 +264,7 @@ export class ListingDAL extends BaseDAL {
           safetyNotes: listingData.safetyNotes,
           minimumRentalPeriod: listingData.minimumRentalPeriod || 1,
           maximumRentalPeriod: listingData.maximumRentalPeriod || 30,
-          requiresPickup: listingData.requiresPickup ?? true,
-          deliveryAvailable: listingData.deliveryAvailable ?? false,
+          deliveryMode: listingData.deliveryMode ?? "pickup_only",
           deliveryFee: (listingData.deliveryFee || 0).toString(),
           deliveryRadius: listingData.deliveryRadius || 0,
           setupAvailable: listingData.setupAvailable ?? false,
@@ -413,8 +412,7 @@ export class ListingDAL extends BaseDAL {
         safetyNotes: listing.safetyNotes || undefined,
         minimumRentalPeriod: listing.minimumRentalPeriod,
         maximumRentalPeriod: listing.maximumRentalPeriod,
-        requiresPickup: listing.requiresPickup,
-        deliveryAvailable: listing.deliveryAvailable,
+        deliveryMode: listing.deliveryMode,
         deliveryFee: Number(listing.deliveryFee),
         deliveryRadius: listing.deliveryRadius,
         setupAvailable: listing.setupAvailable,
@@ -677,8 +675,10 @@ export class ListingDAL extends BaseDAL {
       }
 
       // Delivery filter
-      if (filters.deliveryAvailable) {
-        whereConditions.push(eq(listings.deliveryAvailable, true));
+      if (filters.deliveryMode && filters.deliveryMode !== "pickup_only") {
+        whereConditions.push(
+          inArray(listings.deliveryMode, ["delivery_only", "both_available"]),
+        );
       }
 
       // Setup filter

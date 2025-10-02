@@ -1,5 +1,5 @@
 import { DollarSign, MapPin, Truck } from "lucide-react";
-import { Control, UseFormGetValues } from "react-hook-form";
+import { Control, useWatch } from "react-hook-form";
 
 import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
 
@@ -11,7 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
   FormField,
   FormItem,
@@ -19,18 +18,23 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PickupDeliverySectionProps {
   control: Control<CreateListingFormDataClientType>;
-  getValues: UseFormGetValues<CreateListingFormDataClientType>;
-  handleDeliveryAvailableChange: (checked: boolean) => void;
 }
 
-export function PickupDeliverySection({
-  control,
-  getValues,
-  handleDeliveryAvailableChange,
-}: PickupDeliverySectionProps) {
+export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
+  const deliveryMode = useWatch({
+    control,
+    name: "deliveryMode",
+  });
   return (
     <Card>
       <CardHeader>
@@ -43,45 +47,34 @@ export function PickupDeliverySection({
       <CardContent className="space-y-4">
         <FormField
           control={control}
-          name="requiresPickup"
+          name="deliveryMode"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Requires Pickup</FormLabel>
-              <FormControl>
-                <Switch
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  id="requiresPickup"
-                />
-              </FormControl>
+              <FormLabel>Delivery Mode</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select delivery mode" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="pickup_only">
+                    Pickup Only - Renter must pick up from your location
+                  </SelectItem>
+                  <SelectItem value="delivery_only">
+                    Delivery Only - You deliver to the renter
+                  </SelectItem>
+                  <SelectItem value="both_available">
+                    Both Available - Renter can choose pickup or delivery
+                  </SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
-              <p className="text-muted-foreground text-sm">
-                Renter must pick up the item from your location
-              </p>
             </FormItem>
           )}
         />
-        <FormField
-          control={control}
-          name="deliveryAvailable"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Delivery Available</FormLabel>
-              <FormControl>
-                <Switch
-                  checked={field.value}
-                  onCheckedChange={handleDeliveryAvailableChange}
-                  id="deliveryAvailable"
-                />
-              </FormControl>
-              <FormMessage />
-              <p className="text-muted-foreground text-sm">
-                You can deliver the tool to the renter
-              </p>
-            </FormItem>
-          )}
-        />
-        {getValues("deliveryAvailable") && (
+        {(deliveryMode === "delivery_only" ||
+          deliveryMode === "both_available") && (
           <div className="border-muted ml-4 space-y-4 border-l-2 pl-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField

@@ -73,7 +73,7 @@ export function AddListingForm({
     addSpecification,
     removeSpecification,
     reset,
-    handleDeliveryAvailableChange,
+    handleDeliveryModeChange,
   } = form;
 
   // Debug: Log form values when they change
@@ -301,8 +301,6 @@ export function AddListingForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <PickupDeliverySection
             control={control}
-            getValues={getValues}
-            handleDeliveryAvailableChange={handleDeliveryAvailableChange}
           />
           <AdditionalDetailsSection
             control={control}

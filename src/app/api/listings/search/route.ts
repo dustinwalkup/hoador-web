@@ -21,8 +21,11 @@ export async function GET(request: NextRequest) {
       condition: searchParams.get("condition")
         ? searchParams.get("condition")!.split(",").filter(Boolean)
         : undefined,
-      deliveryAvailable:
-        searchParams.get("delivery") === "true" ? true : undefined,
+      deliveryMode:
+        (searchParams.get("delivery") as
+          | "pickup_only"
+          | "delivery_only"
+          | "both_available") || undefined,
       setupAvailable: searchParams.get("setup") === "true" ? true : undefined,
       sortBy:
         (searchParams.get("sortBy") as

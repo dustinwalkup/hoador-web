@@ -69,8 +69,7 @@ export interface CreateListingDTO {
   safetyNotes?: string;
   minimumRentalPeriod?: number;
   maximumRentalPeriod?: number;
-  requiresPickup?: boolean;
-  deliveryAvailable?: boolean;
+  deliveryMode?: "pickup_only" | "delivery_only" | "both_available";
   deliveryFee?: number;
   deliveryRadius?: number;
   setupAvailable?: boolean;
@@ -93,8 +92,7 @@ export interface UpdateListingDTO {
   safetyNotes?: string;
   minimumRentalPeriod?: number;
   maximumRentalPeriod?: number;
-  requiresPickup?: boolean;
-  deliveryAvailable?: boolean;
+  deliveryMode?: "pickup_only" | "delivery_only" | "both_available";
   deliveryFee?: number;
   deliveryRadius?: number;
   setupAvailable?: boolean;
@@ -126,7 +124,7 @@ export interface ListingSearchFilters {
     endDate: Date;
   };
   condition?: string[];
-  deliveryAvailable?: boolean;
+  deliveryMode?: "pickup_only" | "delivery_only" | "both_available";
   setupAvailable?: boolean;
   sortBy?: "price" | "rating" | "distance" | "newest";
   sortOrder?: "asc" | "desc";
@@ -191,8 +189,7 @@ export interface ListingDetails {
   safetyNotes?: string;
   minimumRentalPeriod: number;
   maximumRentalPeriod: number;
-  requiresPickup: boolean;
-  deliveryAvailable: boolean;
+  deliveryMode: "pickup_only" | "delivery_only" | "both_available";
   deliveryFee: number;
   deliveryRadius: number;
   setupAvailable: boolean;

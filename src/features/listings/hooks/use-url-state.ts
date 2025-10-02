@@ -29,9 +29,9 @@ export function useURLState<T extends Record<string, unknown>>(
             params.delete("category");
           } else if (key === "query") {
             params.delete("q");
-          } else if (key === "deliveryAvailable") {
+          } else if (key === "deliveryMode") {
             params.delete("delivery");
-            params.delete("deliveryAvailable"); // Also delete the full name if it exists
+            params.delete("deliveryMode"); // Also delete the full name if it exists
           } else if (key === "setupAvailable") {
             params.delete("setup");
             params.delete("setupAvailable"); // Also delete the full name if it exists
@@ -53,12 +53,9 @@ export function useURLState<T extends Record<string, unknown>>(
       params.delete("query");
 
       // Additional cleanup for delivery parameters if they were set to undefined
-      if (
-        "deliveryAvailable" in updates &&
-        updates.deliveryAvailable === undefined
-      ) {
+      if ("deliveryMode" in updates && updates.deliveryMode === undefined) {
         params.delete("delivery");
-        params.delete("deliveryAvailable");
+        params.delete("deliveryMode");
       }
 
       // Additional cleanup for setup parameters if they were set to undefined
@@ -96,11 +93,11 @@ export function useListingFilters() {
       condition: searchParams.get("condition")
         ? searchParams.get("condition")!.split(",").filter(Boolean)
         : undefined,
-      deliveryAvailable:
-        searchParams.get("delivery") === "true" ||
-        searchParams.get("deliveryAvailable") === "true"
-          ? true
-          : undefined,
+      deliveryMode:
+        ((searchParams.get("delivery") || searchParams.get("deliveryMode")) as
+          | "pickup_only"
+          | "delivery_only"
+          | "both_available") || undefined,
       setupAvailable:
         searchParams.get("setup") === "true" ||
         searchParams.get("setupAvailable") === "true"
@@ -148,10 +145,10 @@ export function useListingFilters() {
       delete result.query;
     }
 
-    // Map deliveryAvailable to delivery for URL compatibility
-    if ("deliveryAvailable" in result) {
-      result.delivery = result.deliveryAvailable;
-      delete result.deliveryAvailable;
+    // Map deliveryMode to delivery for URL compatibility
+    if ("deliveryMode" in result) {
+      result.delivery = result.deliveryMode;
+      delete result.deliveryMode;
     }
 
     // Map setupAvailable to setup for URL compatibility

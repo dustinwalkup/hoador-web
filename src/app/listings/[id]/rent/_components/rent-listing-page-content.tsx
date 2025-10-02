@@ -232,7 +232,7 @@ export function RentListingPageContent({
                       deliveryAddress={deliveryAddress}
                       setDeliveryAddress={setDeliveryAddress}
                       ownerName={`${listing.owner.firstName} ${listing.owner.lastName}`}
-                      deliveryAvailable={listing.deliveryAvailable}
+                      deliveryMode={listing.deliveryMode}
                       deliveryFee={listing.deliveryFee}
                       deliveryRadius={listing.deliveryRadius}
                     />

@@ -7,6 +7,12 @@ export const listingConditionSchema = z.enum([
   "poor",
 ]);
 
+export const deliveryModeSchema = z.enum([
+  "pickup_only",
+  "delivery_only",
+  "both_available",
+]);
+
 // Base schema for listing creation
 const baseListingSchema = z.object({
   name: z.string().min(1, "Listing name is required").max(255),
@@ -38,8 +44,7 @@ const baseListingSchema = z.object({
     .number()
     .min(1, "Maximum rental period must be at least 1 day")
     .default(30),
-  requiresPickup: z.boolean().default(true),
-  deliveryAvailable: z.boolean().default(false),
+  deliveryMode: deliveryModeSchema.default("pickup_only"),
   deliveryFee: z.number().min(0, "Delivery fee cannot be negative").default(0),
   deliveryRadius: z
     .number()
@@ -55,9 +60,11 @@ const withServiceValidation = <T extends z.ZodTypeAny>(schema: T) =>
     .refine(
       (data) => {
         const d = data as Record<string, unknown>;
+        const deliveryMode = d.deliveryMode as string;
+        const deliveryFee = d.deliveryFee as number;
         return (
-          !d.deliveryAvailable ||
-          (d.deliveryAvailable && (d.deliveryFee as number) > 0)
+          deliveryMode === "pickup_only" ||
+          (deliveryMode !== "pickup_only" && deliveryFee > 0)
         );
       },
       {
@@ -68,9 +75,11 @@ const withServiceValidation = <T extends z.ZodTypeAny>(schema: T) =>
     .refine(
       (data) => {
         const d = data as Record<string, unknown>;
+        const deliveryMode = d.deliveryMode as string;
+        const deliveryRadius = d.deliveryRadius as number;
         return (
-          !d.deliveryAvailable ||
-          (d.deliveryAvailable && (d.deliveryRadius as number) > 0)
+          deliveryMode === "pickup_only" ||
+          (deliveryMode !== "pickup_only" && deliveryRadius > 0)
         );
       },
       {

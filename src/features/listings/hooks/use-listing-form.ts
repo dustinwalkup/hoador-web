@@ -27,8 +27,7 @@ export function useListingForm(
     safetyNotes: undefined,
     minimumRentalPeriod: 1,
     maximumRentalPeriod: 30,
-    requiresPickup: true,
-    deliveryAvailable: false,
+    deliveryMode: "pickup_only",
     deliveryFee: 0,
     deliveryRadius: 0,
     ...initialValues,
@@ -105,13 +104,15 @@ export function useListingForm(
     });
   };
 
-  // Custom handler for deliveryAvailable toggle
-  const handleDeliveryAvailableChange = (checked: boolean) => {
-    form.setValue("deliveryAvailable", checked, {
+  // Custom handler for deliveryMode change
+  const handleDeliveryModeChange = (
+    mode: "pickup_only" | "delivery_only" | "both_available",
+  ) => {
+    form.setValue("deliveryMode", mode, {
       shouldDirty: true,
       shouldValidate: true,
     });
-    if (checked) {
+    if (mode !== "pickup_only") {
       // Optionally set defaults for dependent fields if not already set
       if (!form.getValues("deliveryFee")) {
         form.setValue("deliveryFee", 0, {
@@ -135,6 +136,6 @@ export function useListingForm(
     updateImageOrder,
     addSpecification,
     removeSpecification,
-    handleDeliveryAvailableChange,
+    handleDeliveryModeChange,
   };
 }

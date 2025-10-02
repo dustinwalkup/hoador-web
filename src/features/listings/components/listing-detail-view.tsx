@@ -168,22 +168,16 @@ export function ListingDetailView({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-gray-700">Requires Pickup</span>
-                <Badge
-                  variant={listing.requiresPickup ? "default" : "secondary"}
-                >
-                  {listing.requiresPickup ? "Yes" : "No"}
+                <span className="text-gray-700">Delivery Mode</span>
+                <Badge variant="default">
+                  {listing.deliveryMode === "pickup_only" && "Pickup Only"}
+                  {listing.deliveryMode === "delivery_only" && "Delivery Only"}
+                  {listing.deliveryMode === "both_available" &&
+                    "Both Available"}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700">Delivery Available</span>
-                <Badge
-                  variant={listing.deliveryAvailable ? "default" : "secondary"}
-                >
-                  {listing.deliveryAvailable ? "Yes" : "No"}
-                </Badge>
-              </div>
-              {listing.deliveryAvailable && (
+              {(listing.deliveryMode === "delivery_only" ||
+                listing.deliveryMode === "both_available") && (
                 <>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-700">Delivery Fee</span>
