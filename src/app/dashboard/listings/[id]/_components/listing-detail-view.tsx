@@ -6,12 +6,11 @@ import {
   Truck,
   MessageCircle,
   AlertTriangle,
-  CheckCircle,
-  XCircle,
   Info,
   DollarSign,
 } from "lucide-react";
 
+import { StatusIconWithTooltip } from "@/features/listings/components/status-icon-with-tooltip";
 import { BackButton } from "@/components/back-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +21,7 @@ import { UserCard } from "@/components/user-card";
 import type { ListingDetails } from "@/dal/types";
 
 import { ImageCarousel } from "./image-carousel";
-import { FavoritesButton } from "./favorites-button";
+// import { FavoritesButton } from "./favorites-button";
 
 interface ListingDetailViewProps {
   listing: ListingDetails;
@@ -57,24 +56,9 @@ export function ListingDetailView({
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "available":
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case "rented":
-        return <Clock className="h-4 w-4 text-blue-600" />;
-      case "maintenance":
-        return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
-      case "inactive":
-        return <XCircle className="h-4 w-4 text-gray-600" />;
-      default:
-        return <XCircle className="h-4 w-4 text-gray-600" />;
-    }
-  };
-
   return (
     <>
-      <BackButton href="/dashboard/garage" />
+      <BackButton />
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
         {/* Main Content */}
         <div className="space-y-6 lg:col-span-3">
@@ -95,7 +79,7 @@ export function ListingDetailView({
                     >
                       {listing.condition}
                     </Badge>
-                    {getStatusIcon(listing.status)}
+                    <StatusIconWithTooltip status={listing.status} />
                   </div>
                 </div>
               </div>
@@ -332,10 +316,10 @@ export function ListingDetailView({
                 </Button>
               </>
             )}
-            <FavoritesButton
+            {/* <FavoritesButton
               listingId={listing.id}
               isFavorite={listing.isFavorited || false}
-            />
+            /> */}
           </div>
 
           {/* Quick Stats */}

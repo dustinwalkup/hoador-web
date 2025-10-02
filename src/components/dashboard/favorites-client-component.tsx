@@ -132,6 +132,7 @@ export default function FavoritesClientComponent() {
               rating={4.8}
               reviews={12}
               imageUrl="/images/mock/cordless-drill.jpg"
+              status="available"
             />
 
             <ListingCard
@@ -142,6 +143,7 @@ export default function FavoritesClientComponent() {
               rating={4.5}
               reviews={8}
               imageUrl="/images/mock/skill-saw.jpg"
+              status="available"
             />
 
             <ListingCard
@@ -152,6 +154,7 @@ export default function FavoritesClientComponent() {
               rating={4.9}
               reviews={24}
               imageUrl="/images/mock/pressure-washer.jpg"
+              status="rented"
             />
 
             <ListingCard
@@ -162,6 +165,7 @@ export default function FavoritesClientComponent() {
               rating={4.7}
               reviews={15}
               imageUrl="/images/mock/ladder.jpg"
+              status="available"
             />
 
             <ListingCard
@@ -172,6 +176,7 @@ export default function FavoritesClientComponent() {
               rating={4.6}
               reviews={19}
               imageUrl="/images/mock/lawn-mower.jpg"
+              status="available"
             />
 
             <ListingCard
@@ -182,6 +187,7 @@ export default function FavoritesClientComponent() {
               rating={4.8}
               reviews={7}
               imageUrl="/images/mock/miter-saw.jpg"
+              status="maintenance"
             />
           </div>
         </TabsContent>
@@ -287,6 +293,7 @@ export default function FavoritesClientComponent() {
               reviews={11}
               imageUrl="/images/mock/hedge-trimmer.jpg"
               isNew
+              status="available"
             />
 
             <ListingCard
@@ -298,6 +305,7 @@ export default function FavoritesClientComponent() {
               reviews={14}
               imageUrl="/images/mock/trailer-hitch.jpg"
               isNew
+              status="available"
             />
           </div>
         </TabsContent>

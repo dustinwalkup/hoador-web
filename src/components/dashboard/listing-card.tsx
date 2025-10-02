@@ -1,9 +1,10 @@
+import Image from "next/image";
+import Link from "next/link";
+import { MapPin, Star } from "lucide-react";
+import { StatusIconWithTooltip } from "@/features/listings/components/status-icon-with-tooltip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Heart, MapPin, Star } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
 
 interface ListingCardProps {
   id: string;
@@ -14,6 +15,7 @@ interface ListingCardProps {
   reviews: number;
   imageUrl: string;
   isNew?: boolean;
+  status: string;
 }
 
 export default function ListingCard({
@@ -25,6 +27,7 @@ export default function ListingCard({
   reviews,
   imageUrl,
   isNew = false,
+  status,
 }: ListingCardProps) {
   // Format distance for display
   const formatDistance = (miles?: number) => {
@@ -47,14 +50,14 @@ export default function ListingCard({
           />
         </div>
 
-        <Button
+        {/* <Button
           variant="ghost"
           size="icon"
           className="bg-background/80 absolute top-2 right-2 h-8 w-8 rounded-full backdrop-blur-sm"
         >
           <Heart className="h-4 w-4" />
           <span className="sr-only">Add to favorites</span>
-        </Button>
+        </Button> */}
 
         {isNew && <Badge className="absolute top-2 left-2">New</Badge>}
       </div>
@@ -65,12 +68,17 @@ export default function ListingCard({
           <span className="text-primary font-medium">{price}</span>
         </div>
 
-        {formatDistance(distance) && (
-          <div className="text-muted-foreground mb-2 flex items-center gap-1 text-xs">
-            <MapPin className="h-3 w-3" />
-            <span>{formatDistance(distance)} away</span>
-          </div>
-        )}
+        <div className="text-muted-foreground mb-2 flex items-center justify-between text-xs">
+          {formatDistance(distance) ? (
+            <div className="flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              <span>{formatDistance(distance)} away</span>
+            </div>
+          ) : (
+            <div />
+          )}
+          <StatusIconWithTooltip status={status} />
+        </div>
 
         <div className="mb-3 flex items-center gap-1">
           <div className="flex items-center">

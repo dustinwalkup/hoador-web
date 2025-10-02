@@ -30,6 +30,7 @@ export function ExplorePageContent({
                 new Date(listing.createdAt).getTime() >
                 Date.now() - 7 * 24 * 60 * 60 * 1000
               }
+              status={listing.status}
             />
           ))}
         </div>
