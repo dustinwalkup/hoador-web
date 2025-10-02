@@ -301,19 +301,35 @@ describe("ListingDetailView", () => {
   });
 
   describe("Pickup & Delivery", () => {
-    it("should display pickup requirement", () => {
+    it("should display delivery options", () => {
       render(<ListingDetailView listing={mockListing} isOwner={false} />);
 
-      expect(screen.getByText("Requires Pickup")).toBeInTheDocument();
-      expect(screen.getByText("No")).toBeInTheDocument();
+      expect(screen.getByText("Delivery Options")).toBeInTheDocument();
+      expect(screen.getByText("Pickup or Delivery")).toBeInTheDocument();
     });
 
-    it("should display delivery availability", () => {
-      render(<ListingDetailView listing={mockListing} isOwner={false} />);
+    it("should display pickup only mode", () => {
+      const pickupOnlyListing = {
+        ...mockListing,
+        deliveryMode: "pickup_only" as const,
+      };
+      render(<ListingDetailView listing={pickupOnlyListing} isOwner={false} />);
 
-      expect(screen.getByText("Delivery Available")).toBeInTheDocument();
-      // There are multiple "Yes" badges, check one exists
-      expect(screen.getAllByText("Yes").length).toBeGreaterThan(0);
+      expect(screen.getByText("Delivery Options")).toBeInTheDocument();
+      expect(screen.getByText("Pickup Only")).toBeInTheDocument();
+    });
+
+    it("should display delivery only mode", () => {
+      const deliveryOnlyListing = {
+        ...mockListing,
+        deliveryMode: "delivery_only" as const,
+      };
+      render(
+        <ListingDetailView listing={deliveryOnlyListing} isOwner={false} />,
+      );
+
+      expect(screen.getByText("Delivery Options")).toBeInTheDocument();
+      expect(screen.getByText("Delivery Only")).toBeInTheDocument();
     });
 
     it("should display delivery fee when delivery available", () => {
@@ -330,14 +346,12 @@ describe("ListingDetailView", () => {
       expect(screen.getByText("25 miles")).toBeInTheDocument();
     });
 
-    it("should not display delivery details when delivery not available", () => {
-      const listingWithoutDelivery = {
+    it("should not display delivery details when pickup only", () => {
+      const pickupOnlyListing = {
         ...mockListing,
-        deliveryAvailable: false,
+        deliveryMode: "pickup_only" as const,
       };
-      render(
-        <ListingDetailView listing={listingWithoutDelivery} isOwner={false} />,
-      );
+      render(<ListingDetailView listing={pickupOnlyListing} isOwner={false} />);
 
       expect(screen.queryByText("Delivery Fee")).not.toBeInTheDocument();
       expect(screen.queryByText("Delivery Radius")).not.toBeInTheDocument();

@@ -168,12 +168,12 @@ export function ListingDetailView({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-gray-700">Delivery Mode</span>
+                <span className="text-gray-700">Delivery Options</span>
                 <Badge variant="default">
                   {listing.deliveryMode === "pickup_only" && "Pickup Only"}
                   {listing.deliveryMode === "delivery_only" && "Delivery Only"}
                   {listing.deliveryMode === "both_available" &&
-                    "Both Available"}
+                    "Pickup or Delivery"}
                 </Badge>
               </div>
               {(listing.deliveryMode === "delivery_only" ||

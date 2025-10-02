@@ -387,7 +387,7 @@ export function ExplorePageFilters({
                   <div className="flex flex-col space-y-2">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">
-                        Delivery Mode
+                        Delivery Options
                       </Label>
                       <Select
                         value={deliveryMode}
@@ -411,7 +411,7 @@ export function ExplorePageFilters({
                             Delivery Only
                           </SelectItem>
                           <SelectItem value="both_available">
-                            Both Available
+                            Pickup & Delivery
                           </SelectItem>
                         </SelectContent>
                       </Select>

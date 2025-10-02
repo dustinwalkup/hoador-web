@@ -50,11 +50,11 @@ export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
           name="deliveryMode"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Delivery Mode</FormLabel>
+              <FormLabel>Delivery Options</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select delivery mode" />
+                    <SelectValue placeholder="Select delivery option" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
