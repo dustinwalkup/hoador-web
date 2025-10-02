@@ -20,16 +20,21 @@ interface ImageCarouselProps {
 
 export function ImageCarousel({ images, listingName }: ImageCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+
+  // Minimum swipe distance (in px) to trigger navigation
+  const minSwipeDistance = 50;
 
   if (!images || images.length === 0) {
     return (
       <Card className="overflow-hidden py-0">
-        <div className="bg-muted relative aspect-square">
+        <div className="bg-muted relative aspect-[4/3]">
           <Image
             src="/images/placeholder.jpg"
             alt={listingName}
             fill
-            className="object-cover"
+            className="size-full object-cover"
           />
         </div>
       </Card>
@@ -44,16 +49,45 @@ export function ImageCarousel({ images, listingName }: ImageCarouselProps) {
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(0); // Reset touchEnd
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      goToNext();
+    } else if (isRightSwipe) {
+      goToPrevious();
+    }
+  };
+
   return (
     <>
-      <Card className="overflow-hidden py-0">
-        <div className="relative aspect-square">
+      <Card className="overflow-hidden border-none py-0 shadow-none">
+        <div
+          className="relative flex h-[40vh] w-full items-center justify-center lg:h-[60vh]"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           {/* Main Image */}
           <Image
             src={images[currentIndex].imageUrl}
             alt={`${listingName} - Image ${currentIndex + 1}`}
-            fill
-            className="object-cover"
+            width={942}
+            height={630}
+            className="h-full w-full object-contain"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
 
