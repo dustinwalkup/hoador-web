@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/utils/session";
+import { ListingDetailView } from "@/features/listings/components/listing-detail-view";
 import { listingDAL } from "@/dal";
-import { ListingDetailView } from "./_components/listing-detail-view";
 
 interface ToolDetailPageProps {
   params: Promise<{ id: string }>;

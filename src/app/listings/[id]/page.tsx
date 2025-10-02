@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { listingDAL } from "@/dal";
-import { ListingDetailView } from "../../dashboard/listings/[id]/_components/listing-detail-view";
+import { ListingDetailView } from "../../../features/listings/components/listing-detail-view";
 
 interface PublicListingDetailPageProps {
   params: Promise<{ id: string }>;
