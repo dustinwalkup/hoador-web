@@ -45,7 +45,8 @@ export function useSearchListings(
       if (filters.condition && filters.condition.length > 0) {
         searchParams.set("condition", filters.condition.join(","));
       }
-      if (filters.deliveryMode && filters.deliveryMode !== "pickup_only") searchParams.set("delivery", filters.deliveryMode);
+      if (filters.deliveryMode && filters.deliveryMode !== "pickup_only")
+        searchParams.set("delivery", filters.deliveryMode);
       if (filters.setupAvailable) searchParams.set("setup", "true");
       if (filters.sortBy) searchParams.set("sortBy", filters.sortBy);
       if (filters.sortOrder) searchParams.set("sortOrder", filters.sortOrder);
