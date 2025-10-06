@@ -12,6 +12,7 @@ import { relations } from "drizzle-orm";
 import { messageStatusEnum } from "./_enums";
 import { user } from "./user.schema";
 import { rentals } from "./rentals.schema";
+import { listings } from "./listings.schema";
 
 // Conversations table (1-to-1 only)
 export const conversations = pgTable(
@@ -61,6 +62,10 @@ export const messages = pgTable(
     status: messageStatusEnum("status").default("sent").notNull(),
     // Optional: Link to rental for context (but don't require it)
     rentalId: uuid("rental_id").references(() => rentals.id), // nullable
+    // Optional: Link to listing for context (e.g., when starting a conversation about a listing)
+    listingId: uuid("listing_id").references(() => listings.id, {
+      onDelete: "set null",
+    }), // nullable
     editedAt: timestamp("edited_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -70,6 +75,7 @@ export const messages = pgTable(
     ),
     senderIdIdx: index("messages_sender_id_idx").on(table.senderId),
     rentalIdIdx: index("messages_rental_id_idx").on(table.rentalId),
+    listingIdIdx: index("messages_listing_id_idx").on(table.listingId),
     createdAtIdx: index("messages_created_at_idx").on(table.createdAt),
     lastMessageAtIdx: index("messages_last_message_at_idx").on(table.createdAt),
   }),
@@ -105,5 +111,9 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   rental: one(rentals, {
     fields: [messages.rentalId],
     references: [rentals.id],
+  }),
+  listing: one(listings, {
+    fields: [messages.listingId],
+    references: [listings.id],
   }),
 }));

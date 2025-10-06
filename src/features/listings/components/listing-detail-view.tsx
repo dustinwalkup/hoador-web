@@ -4,7 +4,6 @@ import {
   Clock,
   Wrench,
   Truck,
-  MessageCircle,
   AlertTriangle,
   Info,
   DollarSign,
@@ -21,6 +20,7 @@ import { UserCard } from "@/components/user-card";
 import type { ListingDetails } from "@/dal/types";
 
 import { ImageCarousel } from "./image-carousel";
+import { MessageOwnerButton } from "./message-owner-button";
 // import { FavoritesButton } from "./favorites-button";
 
 interface ListingDetailViewProps {
@@ -104,9 +104,9 @@ export function ListingDetailView({
             </CardContent>
           </Card>
 
-          {/* Specifications */}
+          {/* Specifications - Mobile Only */}
           {Object.keys(listing.specifications).length > 0 && (
-            <Card>
+            <Card className="lg:hidden">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Info className="mr-2 h-5 w-5" />
@@ -300,14 +300,12 @@ export function ListingDetailView({
                     Rent Tool
                   </Link>
                 </Button>
-                <Button
-                  variant="outline"
-                  className="w-full bg-transparent"
-                  size="lg"
-                >
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Message Owner
-                </Button>
+                <MessageOwnerButton
+                  recipientId={listing.owner.id}
+                  recipientName={`${listing.owner.firstName} ${listing.owner.lastName}`}
+                  listingId={listing.id}
+                  listingName={listing.name}
+                />
               </>
             )}
             {/* <FavoritesButton
@@ -316,8 +314,34 @@ export function ListingDetailView({
             /> */}
           </div>
 
+          {/* Specifications - Desktop Only */}
+          {Object.keys(listing.specifications).length > 0 && (
+            <Card className="hidden lg:block">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Info className="mr-2 h-5 w-5" />
+                  Specifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Object.entries(listing.specifications).map(
+                    ([key, value]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="text-gray-600">{key}</span>
+                        <span className="font-medium text-gray-900">
+                          {String(value)}
+                        </span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Stats */}
-          <Card>
+          {/* <Card>
             <CardHeader>
               <CardTitle>Quick Stats</CardTitle>
             </CardHeader>
@@ -335,7 +359,7 @@ export function ListingDetailView({
                 <span>{listing.favoriteCount}</span>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
       </div>
     </>

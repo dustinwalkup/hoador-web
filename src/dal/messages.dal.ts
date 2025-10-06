@@ -80,6 +80,53 @@ export class MessagesDAL extends BaseDAL {
     return data;
   }
 
+  async sendMessageToUser(
+    recipientId: string,
+    content: string,
+    listingId?: string,
+  ): Promise<{ conversationId: string; messageId: string }> {
+    const { data, error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        const conversation = await this.findOrCreateConversation(
+          currentUserId,
+          recipientId,
+        );
+
+        const [message] = await this.db
+          .insert(messages)
+          .values({
+            conversationId: conversation.id,
+            senderId: currentUserId,
+            content,
+            listingId, // Store listing reference for context
+          })
+          .returning();
+
+        // Update conversation's lastMessageAt
+        await this.db
+          .update(conversations)
+          .set({ lastMessageAt: new Date() })
+          .where(eq(conversations.id, conversation.id));
+
+        return {
+          conversationId: conversation.id,
+          messageId: message.id,
+        };
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "sendMessageToUser");
+    }
+
+    return data;
+  }
+
   async getUserConversations(
     archived?: boolean,
   ): Promise<ConversationSummary[]> {
@@ -248,6 +295,12 @@ export class MessagesDAL extends BaseDAL {
                     lastName: true,
                   },
                 },
+                listing: {
+                  columns: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -291,6 +344,8 @@ export class MessagesDAL extends BaseDAL {
               | "me"
               | "them",
             senderName: `${message.sender.firstName} ${message.sender.lastName}`,
+            listingId: message.listing?.id ?? null,
+            listingName: message.listing?.name ?? null,
           })),
           unread: isUnread,
           archived:

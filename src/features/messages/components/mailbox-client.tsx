@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { MobileHeader } from "./mobile-header";
@@ -15,12 +16,38 @@ export function MailboxClient({
 }: {
   conversations: ConversationSummary[];
 }) {
+  const searchParams = useSearchParams();
+  const conversationParam = searchParams.get("conversation");
+
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
-  >(null);
+  >(conversationParam);
   const [activeTab, setActiveTab] = useState<"inbox" | "archived">("inbox");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showMobileChat, setShowMobileChat] = useState(false);
+  const [showMobileChat, setShowMobileChat] = useState(!!conversationParam);
+
+  // Handle conversation query parameter
+  useEffect(() => {
+    if (conversationParam && conversationParam !== selectedConversationId) {
+      // Find which tab the conversation is in
+      const conversation = conversations.find(
+        (conv) => conv.id === conversationParam,
+      );
+
+      if (conversation) {
+        // Switch to the appropriate tab if needed
+        if (conversation.archived && activeTab !== "archived") {
+          setActiveTab("archived");
+        } else if (!conversation.archived && activeTab !== "inbox") {
+          setActiveTab("inbox");
+        }
+
+        // Select the conversation
+        setSelectedConversationId(conversationParam);
+        setShowMobileChat(true);
+      }
+    }
+  }, [conversationParam, conversations, selectedConversationId, activeTab]);
 
   // Filter initial conversations by active tab
   const conversationsForActiveTab = conversations.filter(

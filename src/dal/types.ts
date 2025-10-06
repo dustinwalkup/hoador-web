@@ -309,6 +309,8 @@ export interface ConversationDetails {
     time: Date;
     sender: "me" | "them";
     senderName: string;
+    listingId?: string | null;
+    listingName?: string | null;
   }>;
   unread: boolean;
   archived: boolean;

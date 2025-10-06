@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import {
   MoreHorizontal,
   ArrowLeft,
@@ -11,6 +12,7 @@ import {
   Archive,
   Trash2,
   Eye,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -983,6 +985,8 @@ export function ChatArea({
               time: Date;
               sender: "me" | "them";
               senderName: string;
+              listingId?: string | null;
+              listingName?: string | null;
             }) => (
               <div
                 key={message.id}
@@ -996,6 +1000,19 @@ export function ChatArea({
                         : "bg-gray-100 text-gray-900"
                     }`}
                   >
+                    {message.listingId && message.listingName && (
+                      <Link
+                        href={`/listings/${message.listingId}`}
+                        className={`mb-2 flex items-center gap-1 text-xs font-medium underline underline-offset-2 ${
+                          message.sender === "me"
+                            ? "text-white/90 hover:text-white"
+                            : "text-gray-600 hover:text-gray-900"
+                        }`}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        <span>Re: {message.listingName}</span>
+                      </Link>
+                    )}
                     <p className="text-sm">{message.content}</p>
                   </div>
                   <p className="mt-1 text-right text-xs text-gray-500">
