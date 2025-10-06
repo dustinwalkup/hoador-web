@@ -9,6 +9,9 @@ export default defineConfig({
     environment: "happy-dom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    env: {
+      OPENCAGE_API_KEY: "test-dummy-api-key-for-vitest",
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
