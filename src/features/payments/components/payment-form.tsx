@@ -120,7 +120,7 @@ function CCForm({ onSuccess }: { onSuccess: (methodId: string) => void }) {
   // Show saved payment methods if they exist
   if (savedMethods.length > 0 && !showNewCardForm) {
     return (
-      <div className="mx-auto max-w-md py-10">
+      <div className="mx-auto max-w-md py-6">
         <h3 className="mb-4 text-lg font-semibold">Select Payment Method</h3>
 
         {savedMethods.map((method: PaymentMethod) => (
@@ -152,7 +152,7 @@ function CCForm({ onSuccess }: { onSuccess: (methodId: string) => void }) {
   // Show new card form
   if (!clientSecret || !stripe || !elements) {
     return (
-      <div className="mx-auto max-w-md py-10">
+      <div className="mx-auto max-w-md py-6">
         <div className="flex h-32 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
         </div>
@@ -161,7 +161,7 @@ function CCForm({ onSuccess }: { onSuccess: (methodId: string) => void }) {
   }
 
   return (
-    <div className="mx-auto max-w-md py-10">
+    <div className="mx-auto max-w-md py-6">
       {savedMethods.length > 0 && (
         <Button
           variant="ghost"

@@ -13,6 +13,10 @@ interface ListingSummaryCardProps {
     owner: {
       firstName: string;
       lastName: string;
+      address?: {
+        city: string;
+        state: string;
+      };
     };
     images: Array<{ imageUrl: string }>;
   };
@@ -49,7 +53,9 @@ export function ListingSummaryCard({
             </p>
             <div className="flex items-center gap-1 text-sm text-gray-600">
               <MapPin className="h-3 w-3" />
-              Owner location
+              {listing.owner.address
+                ? `${listing.owner.address.city}, ${listing.owner.address.state}`
+                : "Location not available"}
             </div>
           </div>
         </div>

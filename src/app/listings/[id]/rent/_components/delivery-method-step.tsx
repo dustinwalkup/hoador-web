@@ -40,22 +40,27 @@ export function DeliveryMethodStep({
           }
         >
           <div className="space-y-4">
-            <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-gray-50">
-              <RadioGroupItem value="pickup" id="pickup" />
-              <div className="flex-1">
-                <Label
-                  htmlFor="pickup"
-                  className="flex cursor-pointer items-center gap-2 font-medium"
-                >
-                  <MapPin className="h-4 w-4" />
-                  Pickup from owner
-                </Label>
-                <p className="mt-1 text-sm text-gray-600">
-                  Coordinate pickup time and location with {ownerName}
-                </p>
+            {/* Pickup */}
+            {(deliveryMode === "pickup_only" ||
+              deliveryMode === "both_available") && (
+              <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-gray-50">
+                <RadioGroupItem value="pickup" id="pickup" />
+                <div className="flex-1">
+                  <Label
+                    htmlFor="pickup"
+                    className="flex cursor-pointer items-center gap-2 font-medium"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Pickup from owner
+                  </Label>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Coordinate pickup time and location with {ownerName}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
+            {/* Delivery */}
             {(deliveryMode === "delivery_only" ||
               deliveryMode === "both_available") && (
               <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-gray-50">

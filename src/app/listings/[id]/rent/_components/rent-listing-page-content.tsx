@@ -119,6 +119,26 @@ export function RentListingPageContent({
     }
   };
 
+  const handleBack = () => {
+    switch (currentStep) {
+      case "delivery":
+        setCurrentStep("dates");
+        break;
+      case "windows":
+        setCurrentStep("delivery");
+        break;
+      case "payment":
+        setCurrentStep("windows");
+        break;
+      case "summary":
+        setCurrentStep("payment");
+        break;
+      case "dates":
+        // Don't go back from the first step
+        break;
+    }
+  };
+
   const handlePaymentSuccess = async (methodId: string) => {
     setPaymentMethodId(methodId);
     setCurrentStep("summary");
@@ -159,10 +179,22 @@ export function RentListingPageContent({
   };
 
   const pricing = calculateTotal();
+
+  // Validation helper for date range
+  const isDateRangeValid = () => {
+    if (!dateRange?.from || !dateRange?.to) return false;
+
+    const selectedDays = differenceInDays(dateRange.to, dateRange.from) + 1;
+    return (
+      selectedDays >= listing.minimumRentalPeriod &&
+      selectedDays <= listing.maximumRentalPeriod
+    );
+  };
+
   const canProceed = () => {
     switch (currentStep) {
       case "dates":
-        return dateRange?.from && dateRange?.to;
+        return dateRange?.from && dateRange?.to && isDateRangeValid();
       case "delivery":
         return (
           deliveryMethod === "pickup" ||
@@ -200,8 +232,8 @@ export function RentListingPageContent({
     <div className="min-h-screen">
       <div className="container mx-auto">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <BackButton />
+        <div className="mb-6 flex flex-col items-start justify-between md:flex-row md:items-center">
+          <BackButton className="md:mb-0!" />
           <StepIndicator currentStep={currentStep} />
         </div>
 
@@ -211,8 +243,8 @@ export function RentListingPageContent({
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Main Content */}
             <div className="lg:col-span-2">
-              <Card>
-                <CardContent className="p-6">
+              <Card className="pt-0">
+                <CardContent className="p-4">
                   {/* Step 1: Date Selection */}
                   {currentStep === "dates" && (
                     <DateSelectionStep
@@ -294,7 +326,7 @@ export function RentListingPageContent({
                       ? handleCreateRentalRequest
                       : handleNext
                   }
-                  className="w-full bg-green-600 hover:bg-green-700"
+                  className="bg-primary hover:bg-primary/90 w-full"
                   size="lg"
                   disabled={!canProceed() || isSubmitting}
                 >
@@ -303,6 +335,19 @@ export function RentListingPageContent({
                     : currentStep === "summary"
                       ? "Send Request"
                       : "Continue"}
+                </Button>
+              )}
+
+              {/* Back button - show on all steps except the first */}
+              {currentStep !== "dates" && (
+                <Button
+                  onClick={handleBack}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                  disabled={isSubmitting}
+                >
+                  Back
                 </Button>
               )}
 

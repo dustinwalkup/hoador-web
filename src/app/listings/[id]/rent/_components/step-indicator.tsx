@@ -19,16 +19,16 @@ const steps: BookingStep[] = [
 
 export function StepIndicator({ currentStep }: StepIndicatorProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 px-4">
       {steps.map((step, index) => (
         <div key={step} className="flex items-center">
           <div
             className={cn(
               "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium",
               currentStep === step
-                ? "bg-green-600 text-white"
+                ? "bg-primary text-white"
                 : steps.indexOf(currentStep) > index
-                  ? "bg-green-100 text-green-600"
+                  ? "text-primary bg-green-100"
                   : "bg-gray-200 text-gray-500",
             )}
           >
@@ -39,7 +39,7 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
             )}
           </div>
           {index < steps.length - 1 && (
-            <div className="mx-2 h-0.5 w-8 bg-gray-200" />
+            <div className="mx-2 h-0.5 w-4 bg-gray-200 md:w-8" />
           )}
         </div>
       ))}

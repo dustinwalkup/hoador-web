@@ -385,6 +385,9 @@ export class ListingDAL extends BaseDAL {
         isFavorited = !!favorite;
       }
 
+      // Get owner's primary address
+      const ownerAddress = await this.getUserPrimaryAddress(listing.ownerId);
+
       // Increment view count (only if not the owner)
       if (userId && userId !== listing.ownerId) {
         await this.db
@@ -432,6 +435,12 @@ export class ListingDAL extends BaseDAL {
           averageRating: Math.round(ownerAverageRating * 10) / 10,
           reviewCount: ownerRatings.length,
           memberSince: listing.owner.createdAt,
+          address: ownerAddress
+            ? {
+                city: ownerAddress.city,
+                state: ownerAddress.state,
+              }
+            : undefined,
         },
         category: {
           id: listing.category.id,

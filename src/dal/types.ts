@@ -214,6 +214,10 @@ export interface ListingDetails {
     averageRating: number;
     reviewCount: number;
     memberSince: Date;
+    address?: {
+      city: string;
+      state: string;
+    };
   };
   category: {
     id: string;
