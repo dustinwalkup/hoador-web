@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { listingDAL } from "@/dal";
+import { listingDAL, rentalDAL } from "@/dal";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { RentListingPageContent } from "./_components/rent-listing-page-content";
 
@@ -19,8 +19,11 @@ export default async function RentListingPage({
 
   const { id } = await params;
 
-  // Get listing details
-  const listing = await listingDAL.getListingById(id, currentUser.id);
+  // Fetch listing details and booked dates in parallel for better performance
+  const [listing, bookedDates] = await Promise.all([
+    listingDAL.getListingById(id, currentUser.id),
+    rentalDAL.getBookedDatesForListing(id),
+  ]);
 
   if (!listing) {
     notFound();
@@ -31,5 +34,5 @@ export default async function RentListingPage({
     notFound();
   }
 
-  return <RentListingPageContent listing={listing} />;
+  return <RentListingPageContent listing={listing} bookedDates={bookedDates} />;
 }

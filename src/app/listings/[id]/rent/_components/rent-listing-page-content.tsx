@@ -20,6 +20,7 @@ import { ListingSummaryCard } from "./listing-summary-card";
 
 interface RentListingPageContentProps {
   listing: ListingDetails;
+  bookedDates: Array<{ startDate: Date; endDate: Date; reason?: string }>;
 }
 
 type BookingStep = "dates" | "delivery" | "windows" | "payment" | "summary";
@@ -47,6 +48,7 @@ const timeWindows = {
 
 export function RentListingPageContent({
   listing,
+  bookedDates,
 }: RentListingPageContentProps) {
   const router = useRouter();
 
@@ -101,18 +103,22 @@ export function RentListingPageContent({
       case "dates":
         if (dateRange?.from && dateRange?.to) {
           setCurrentStep("delivery");
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }
         break;
       case "delivery":
         setCurrentStep("windows");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         break;
       case "windows":
         if (selectedWindow) {
           setCurrentStep("payment");
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }
         break;
       case "payment":
         setCurrentStep("summary");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         break;
       case "summary":
         break;
@@ -123,15 +129,19 @@ export function RentListingPageContent({
     switch (currentStep) {
       case "delivery":
         setCurrentStep("dates");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         break;
       case "windows":
         setCurrentStep("delivery");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         break;
       case "payment":
         setCurrentStep("windows");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         break;
       case "summary":
         setCurrentStep("payment");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         break;
       case "dates":
         // Don't go back from the first step
@@ -142,6 +152,7 @@ export function RentListingPageContent({
   const handlePaymentSuccess = async (methodId: string) => {
     setPaymentMethodId(methodId);
     setCurrentStep("summary");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleCreateRentalRequest = async () => {
@@ -253,6 +264,7 @@ export function RentListingPageContent({
                       minimumRentalPeriod={listing.minimumRentalPeriod}
                       maximumRentalPeriod={listing.maximumRentalPeriod}
                       days={pricing.days}
+                      bookedDates={bookedDates}
                     />
                   )}
 

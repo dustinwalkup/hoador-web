@@ -13,6 +13,7 @@ interface DateSelectionStepProps {
   minimumRentalPeriod: number;
   maximumRentalPeriod: number;
   days: number;
+  bookedDates: Array<{ startDate: Date; endDate: Date; reason?: string }>;
 }
 
 export function DateSelectionStep({
@@ -21,7 +22,21 @@ export function DateSelectionStep({
   minimumRentalPeriod,
   maximumRentalPeriod,
   days,
+  bookedDates,
 }: DateSelectionStepProps) {
+  // Helper to check if a date falls within any booked range
+  const isDateBooked = (date: Date) => {
+    return bookedDates.some((range) => {
+      const checkDate = new Date(date);
+      checkDate.setHours(0, 0, 0, 0);
+      const start = new Date(range.startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(range.endDate);
+      end.setHours(0, 0, 0, 0);
+      return checkDate >= start && checkDate <= end;
+    });
+  };
+
   // Validation logic
   const getValidationStatus = () => {
     if (!dateRange?.from || !dateRange?.to) {
@@ -66,17 +81,39 @@ export function DateSelectionStep({
             onSelect={setDateRange}
             disabled={(date) => {
               // Disable past dates
-              if (date < new Date()) return true;
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              if (date < today) return true;
+
+              // Disable booked dates
+              if (isDateBooked(date)) return true;
 
               // If we have a start date selected, validate the range
               if (dateRange?.from) {
                 const daysFromStart =
                   differenceInDays(date, dateRange.from) + 1;
+
                 // Disable if it would exceed maximum rental period
                 if (daysFromStart > maximumRentalPeriod) return true;
+
+                // Check if any date in the range is booked
+                const startDate = new Date(dateRange.from);
+                const endDate = new Date(date);
+                const currentDate = new Date(startDate);
+
+                while (currentDate <= endDate) {
+                  if (isDateBooked(currentDate)) return true;
+                  currentDate.setDate(currentDate.getDate() + 1);
+                }
               }
 
               return false;
+            }}
+            modifiers={{
+              booked: (date) => isDateBooked(date),
+            }}
+            modifiersClassNames={{
+              booked: "bg-red-50 text-red-400 line-through opacity-50",
             }}
             numberOfMonths={2}
             className="w-full rounded-md border"

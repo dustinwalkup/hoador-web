@@ -1,7 +1,11 @@
 import { eq, and, inArray, sql } from "drizzle-orm";
 
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
-import { listings, listingImages } from "@/db/schemas/listings.schema";
+import {
+  listings,
+  listingImages,
+  listingAvailability,
+} from "@/db/schemas/listings.schema";
 import { user } from "@/db/schemas/user.schema";
 import { type CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { getCurrentUserId } from "@/features/auth/utils/session";
@@ -1207,6 +1211,66 @@ export class RentalDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "getRentalDetailsById");
+    }
+  }
+
+  async getBookedDatesForListing(
+    listingId: string,
+  ): Promise<Array<{ startDate: Date; endDate: Date; reason?: string }>> {
+    try {
+      // Check authentication
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Get booked rentals (approved/active)
+      const bookedRentals = await this.db
+        .select({
+          startDate: rentals.startDate,
+          endDate: rentals.endDate,
+        })
+        .from(rentals)
+        .where(
+          and(
+            eq(rentals.listingId, listingId),
+            inArray(rentals.status, ["approved", "active"]),
+          ),
+        )
+        .orderBy(rentals.startDate);
+
+      // Get manual availability blocks
+      const manualBlocks = await this.db
+        .select({
+          startDate: listingAvailability.startDate,
+          endDate: listingAvailability.endDate,
+          reason: listingAvailability.reason,
+        })
+        .from(listingAvailability)
+        .where(
+          and(
+            eq(listingAvailability.listingId, listingId),
+            eq(listingAvailability.isBlocked, true),
+          ),
+        )
+        .orderBy(listingAvailability.startDate);
+
+      // Combine both sources of blocked dates
+      const allBlockedDates = [
+        ...bookedRentals.map((rental) => ({
+          startDate: rental.startDate,
+          endDate: rental.endDate,
+        })),
+        ...manualBlocks.map((block) => ({
+          startDate: block.startDate,
+          endDate: block.endDate,
+          reason: block.reason || undefined,
+        })),
+      ];
+
+      return allBlockedDates;
+    } catch (error) {
+      this.handleError(error, "getBookedDatesForListing");
     }
   }
 }
