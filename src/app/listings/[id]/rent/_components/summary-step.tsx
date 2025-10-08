@@ -17,6 +17,7 @@ interface SummaryStepProps {
   dateRange: DateRange | undefined;
   deliveryMethod: "pickup" | "delivery";
   deliveryAddress: string;
+  setupRequested: boolean;
   selectedWindow: string;
   message: string;
   setMessage: (message: string) => void;
@@ -24,6 +25,7 @@ interface SummaryStepProps {
     days: number;
     subtotal: number;
     deliveryFee: number;
+    setupFee: number;
     securityDeposit: number;
     total: number;
   };
@@ -37,6 +39,7 @@ export function SummaryStep({
   dateRange,
   deliveryMethod,
   deliveryAddress,
+  setupRequested,
   selectedWindow,
   message,
   setMessage,
@@ -74,6 +77,13 @@ export function SummaryStep({
               }
             </span>
           </div>
+
+          {setupRequested && (
+            <div className="flex justify-between py-2">
+              <span>Setup Service:</span>
+              <span className="font-medium">Requested</span>
+            </div>
+          )}
         </div>
 
         <Separator className="my-4" />
@@ -87,6 +97,12 @@ export function SummaryStep({
             <div className="flex justify-between">
               <span>Delivery fee</span>
               <span>${pricing.deliveryFee.toFixed(2)}</span>
+            </div>
+          )}
+          {pricing.setupFee > 0 && (
+            <div className="flex justify-between">
+              <span>Setup service</span>
+              <span>${pricing.setupFee.toFixed(2)}</span>
             </div>
           )}
           <div className="flex justify-between">

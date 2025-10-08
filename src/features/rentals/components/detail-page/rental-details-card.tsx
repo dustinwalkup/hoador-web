@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Truck, Clock } from "lucide-react";
+import { Calendar, MapPin, Truck, Clock, Wrench } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { RentalDetailsInfo } from "@/dal/rentals.dal";
@@ -9,9 +9,10 @@ interface RentalDetailsCardProps {
 
 export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
   const deliveryTotal = parseFloat(rentalDetails.deliveryFee);
+  const setupTotal = parseFloat(rentalDetails.setupFee || "0");
   const securityDeposit = parseFloat(rentalDetails.securityDeposit);
   const totalAmount = parseFloat(rentalDetails.totalAmount);
-  const grandTotal = totalAmount + deliveryTotal + securityDeposit;
+  const grandTotal = totalAmount + deliveryTotal + setupTotal + securityDeposit;
 
   return (
     <Card>
@@ -78,6 +79,12 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
                   <span>{rentalDetails.selectedWindow}</span>
                 </div>
               )}
+              {rentalDetails.setupRequested && (
+                <div className="mt-2 flex items-center gap-2 text-green-600">
+                  <Wrench className="h-3 w-3" />
+                  <span className="text-sm font-medium">Setup service requested</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -98,6 +105,12 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
               <div className="flex justify-between">
                 <span>Delivery fee</span>
                 <span>${deliveryTotal.toFixed(2)}</span>
+              </div>
+            )}
+            {setupTotal > 0 && (
+              <div className="flex justify-between">
+                <span>Setup service</span>
+                <span>${setupTotal.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between">

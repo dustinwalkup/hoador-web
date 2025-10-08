@@ -45,6 +45,10 @@ export const rentalRequests = pgTable(
     deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 })
       .default("0")
       .notNull(),
+    setupRequested: boolean("setup_requested").default(false).notNull(),
+    setupFee: decimal("setup_fee", { precision: 10, scale: 2 })
+      .default("0")
+      .notNull(),
     message: text("message"),
     paymentIntentId: varchar("payment_intent_id", { length: 255 }), // Stripe payment intent ID
     paymentMethodId: varchar("payment_method_id", { length: 255 }), // Stripe payment method ID
@@ -91,6 +95,10 @@ export const rentals = pgTable(
     actualEndDate: timestamp("actual_end_date"),
     totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
     securityDeposit: decimal("security_deposit", { precision: 10, scale: 2 })
+      .default("0")
+      .notNull(),
+    setupRequested: boolean("setup_requested").default(false).notNull(),
+    setupFee: decimal("setup_fee", { precision: 10, scale: 2 })
       .default("0")
       .notNull(),
     status: rentalStatusEnum("status").default("approved").notNull(),

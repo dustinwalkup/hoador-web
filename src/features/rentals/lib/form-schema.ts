@@ -11,6 +11,8 @@ export const createRentalRequestSchema = z
     }),
     deliveryRequested: z.boolean().default(false),
     deliveryAddress: z.string().optional(),
+    setupRequested: z.boolean().default(false),
+    setupFee: z.number().default(0),
     selectedWindow: z.string().min(1, "Time window is required"),
     message: z.string().optional(),
     paymentIntentId: z.string().optional(), // Stripe payment intent ID
@@ -30,7 +32,11 @@ export const createRentalRequestSchema = z
       message: "Delivery address is required when delivery is requested",
       path: ["deliveryAddress"],
     },
-  );
+  )
+  .refine((data) => !data.setupRequested || data.deliveryRequested, {
+    message: "Setup service requires delivery to be selected",
+    path: ["setupRequested"],
+  });
 
 export type CreateRentalRequestFormData = z.infer<
   typeof createRentalRequestSchema

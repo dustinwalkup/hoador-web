@@ -48,6 +48,8 @@ export interface RentalRequestItem {
   status: string;
   createdAt: Date;
   deliveryRequested: boolean;
+  setupRequested?: boolean;
+  setupFee?: string;
   message: string | null;
   rejectedAt?: Date | null;
   rejectionReason?: string | null;
@@ -76,6 +78,8 @@ export interface LendingRequestItem {
   deliveryRequested: boolean;
   deliveryAddress: string | null;
   deliveryFee: string;
+  setupRequested?: boolean;
+  setupFee?: string;
   message: string | null;
   selectedWindow?: string | null;
   rejectedAt?: Date | null;
@@ -127,6 +131,8 @@ export interface RentalDetails {
   deliveryRequested: boolean;
   deliveryAddress?: string;
   deliveryFee: string;
+  setupRequested?: boolean;
+  setupFee?: string;
   selectedWindow?: string;
   message?: string;
   pickupInstructions?: string;
@@ -172,6 +178,8 @@ export type RentalDetailsInfo = Pick<
   | "deliveryRequested"
   | "deliveryAddress"
   | "deliveryFee"
+  | "setupRequested"
+  | "setupFee"
   | "selectedWindow"
 >;
 export type RentalUserInfo = Pick<
@@ -379,8 +387,11 @@ export class RentalDAL extends BaseDAL {
       const deliveryFee = formData.deliveryRequested
         ? Number(listing.deliveryFee)
         : 0;
+      const setupFee = formData.setupRequested
+        ? Number(formData.setupFee || listing.setupFee || 0)
+        : 0;
       const securityDeposit = Number(listing.securityDeposit);
-      const totalAmount = subtotal + deliveryFee;
+      const totalAmount = subtotal + deliveryFee + setupFee;
 
       // Create rental request with payment information
       const [rentalRequest] = await this.db
@@ -398,6 +409,8 @@ export class RentalDAL extends BaseDAL {
           deliveryRequested: formData.deliveryRequested,
           deliveryAddress: formData.deliveryAddress || null,
           deliveryFee: deliveryFee.toString(),
+          setupRequested: formData.setupRequested || false,
+          setupFee: setupFee.toString(),
           message: formData.message || null,
           paymentIntentId: formData.paymentIntentId || null,
           paymentMethodId: formData.paymentMethodId || null,
@@ -909,6 +922,8 @@ export class RentalDAL extends BaseDAL {
         endDate: request.endDate,
         totalAmount: request.totalAmount,
         securityDeposit: request.securityDeposit,
+        setupRequested: request.setupRequested,
+        setupFee: request.setupFee,
         status: "approved",
         pickupInstructions: options?.pickupInstructions || null,
         returnInstructions: options?.returnInstructions || null,
@@ -997,6 +1012,8 @@ export class RentalDAL extends BaseDAL {
           deliveryRequested: rentalRequests.deliveryRequested,
           deliveryAddress: rentalRequests.deliveryAddress,
           deliveryFee: rentalRequests.deliveryFee,
+          setupRequested: rentalRequests.setupRequested,
+          setupFee: rentalRequests.setupFee,
           message: rentalRequests.message,
           status: rentalRequests.status,
           createdAt: rentalRequests.createdAt,
@@ -1072,6 +1089,8 @@ export class RentalDAL extends BaseDAL {
           deliveryRequested: request.deliveryRequested,
           deliveryAddress: request.deliveryAddress || undefined,
           deliveryFee: request.deliveryFee,
+          setupRequested: request.setupRequested,
+          setupFee: request.setupFee,
           message: request.message || undefined,
           status: request.status,
           createdAt: request.createdAt,
@@ -1131,6 +1150,8 @@ export class RentalDAL extends BaseDAL {
           deliveryRequested: rentalRequests.deliveryRequested,
           deliveryAddress: rentalRequests.deliveryAddress,
           deliveryFee: rentalRequests.deliveryFee,
+          setupRequested: rentalRequests.setupRequested,
+          setupFee: rentalRequests.setupFee,
           message: rentalRequests.message,
         })
         .from(rentalRequests)
@@ -1195,6 +1216,8 @@ export class RentalDAL extends BaseDAL {
         deliveryRequested: request[0]?.deliveryRequested || false,
         deliveryAddress: request[0]?.deliveryAddress || undefined,
         deliveryFee: request[0]?.deliveryFee || "0",
+        setupRequested: request[0]?.setupRequested || false,
+        setupFee: request[0]?.setupFee || "0",
         message: request[0]?.message || undefined,
         pickupInstructions: rentalData.pickupInstructions || undefined,
         returnInstructions: rentalData.returnInstructions || undefined,

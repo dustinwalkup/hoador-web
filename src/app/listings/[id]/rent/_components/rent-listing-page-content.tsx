@@ -8,10 +8,10 @@ import { PaymentForm } from "@/features/payments/components/payment-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BackButton } from "@/components/back-button";
-import { type ListingDetails } from "@/dal/types";
+import { type ListingDetails, type UserProfile } from "@/dal/types";
 import { createRentalRequest } from "@/features/rentals/actions/create-rental-request";
 import { DateSelectionStep } from "./date-selection-step";
-import { DeliveryMethodStep } from "./delivery-method-step";
+import { ServicesStep } from "./services-step";
 import { TimeWindowStep } from "./time-window-step";
 import { SummaryStep } from "./summary-step";
 import { StepIndicator } from "./step-indicator";
@@ -21,6 +21,7 @@ import { ListingSummaryCard } from "./listing-summary-card";
 interface RentListingPageContentProps {
   listing: ListingDetails;
   bookedDates: Array<{ startDate: Date; endDate: Date; reason?: string }>;
+  currentUser: UserProfile;
 }
 
 type BookingStep = "dates" | "delivery" | "windows" | "payment" | "summary";
@@ -49,6 +50,7 @@ const timeWindows = {
 export function RentListingPageContent({
   listing,
   bookedDates,
+  currentUser,
 }: RentListingPageContentProps) {
   const router = useRouter();
 
@@ -57,7 +59,19 @@ export function RentListingPageContent({
   const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "delivery">(
     "pickup",
   );
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryStreet, setDeliveryStreet] = useState(
+    currentUser.primaryAddress?.street || "",
+  );
+  const [deliveryCity, setDeliveryCity] = useState(
+    currentUser.primaryAddress?.city || "",
+  );
+  const [deliveryState, setDeliveryState] = useState(
+    currentUser.primaryAddress?.state || "",
+  );
+  const [deliveryZip, setDeliveryZip] = useState(
+    currentUser.primaryAddress?.zipCode || "",
+  );
+  const [setupRequested, setSetupRequested] = useState(false);
   const [selectedWindow, setSelectedWindow] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,6 +83,7 @@ export function RentListingPageContent({
         days: 0,
         subtotal: 0,
         deliveryFee: 0,
+        setupFee: 0,
         securityDeposit: 0,
         total: 0,
       };
@@ -86,13 +101,17 @@ export function RentListingPageContent({
     const subtotal = Math.round(rate * days * 100) / 100;
     const deliveryFeeAmount =
       deliveryMethod === "delivery" ? listing.deliveryFee : 0;
+    const setupFeeAmount =
+      setupRequested && deliveryMethod === "delivery" ? listing.setupFee : 0;
     const securityDeposit = listing.securityDeposit;
-    const total = subtotal + deliveryFeeAmount + securityDeposit;
+    const total =
+      subtotal + deliveryFeeAmount + setupFeeAmount + securityDeposit;
 
     return {
       days,
       subtotal,
       deliveryFee: deliveryFeeAmount,
+      setupFee: setupFeeAmount,
       securityDeposit,
       total,
     };
@@ -161,13 +180,23 @@ export function RentListingPageContent({
     setIsSubmitting(true);
 
     try {
+      // Concatenate address fields into a single string for navigation
+      const fullAddress =
+        deliveryMethod === "delivery"
+          ? `${deliveryStreet}, ${deliveryCity}, ${deliveryState} ${deliveryZip}`
+          : undefined;
+
       const result = await createRentalRequest({
         listingId: listing.id,
         startDate: dateRange.from,
         endDate: dateRange.to,
         deliveryRequested: deliveryMethod === "delivery",
-        deliveryAddress:
-          deliveryMethod === "delivery" ? deliveryAddress : undefined,
+        deliveryAddress: fullAddress,
+        setupRequested: setupRequested && deliveryMethod === "delivery",
+        setupFee:
+          setupRequested && deliveryMethod === "delivery"
+            ? listing.setupFee
+            : 0,
         selectedWindow,
         message: message || undefined,
         paymentMethodId,
@@ -209,7 +238,11 @@ export function RentListingPageContent({
       case "delivery":
         return (
           deliveryMethod === "pickup" ||
-          (deliveryMethod === "delivery" && deliveryAddress.trim())
+          (deliveryMethod === "delivery" &&
+            deliveryStreet.trim() &&
+            deliveryCity.trim() &&
+            deliveryState.trim() &&
+            deliveryZip.trim())
         );
       case "windows":
         return selectedWindow;
@@ -227,7 +260,7 @@ export function RentListingPageContent({
       case "dates":
         return "Select Rental Dates";
       case "delivery":
-        return "Pickup or Delivery?";
+        return "Services & Delivery";
       case "windows":
         return `Select ${deliveryMethod === "pickup" ? "Pickup" : "Delivery"} Window`;
       case "summary":
@@ -268,17 +301,27 @@ export function RentListingPageContent({
                     />
                   )}
 
-                  {/* Step 2: Delivery Method */}
+                  {/* Step 2: Services & Delivery */}
                   {currentStep === "delivery" && (
-                    <DeliveryMethodStep
+                    <ServicesStep
                       deliveryMethod={deliveryMethod}
                       setDeliveryMethod={setDeliveryMethod}
-                      deliveryAddress={deliveryAddress}
-                      setDeliveryAddress={setDeliveryAddress}
+                      deliveryStreet={deliveryStreet}
+                      setDeliveryStreet={setDeliveryStreet}
+                      deliveryCity={deliveryCity}
+                      setDeliveryCity={setDeliveryCity}
+                      deliveryState={deliveryState}
+                      setDeliveryState={setDeliveryState}
+                      deliveryZip={deliveryZip}
+                      setDeliveryZip={setDeliveryZip}
                       ownerName={`${listing.owner.firstName} ${listing.owner.lastName}`}
                       deliveryMode={listing.deliveryMode}
                       deliveryFee={listing.deliveryFee}
                       deliveryRadius={listing.deliveryRadius}
+                      setupAvailable={listing.setupAvailable}
+                      setupFee={listing.setupFee}
+                      setupRequested={setupRequested}
+                      setSetupRequested={setSetupRequested}
                     />
                   )}
 
@@ -315,7 +358,8 @@ export function RentListingPageContent({
                     <SummaryStep
                       dateRange={dateRange}
                       deliveryMethod={deliveryMethod}
-                      deliveryAddress={deliveryAddress}
+                      deliveryAddress={`${deliveryStreet}, ${deliveryCity}, ${deliveryState} ${deliveryZip}`}
+                      setupRequested={setupRequested}
                       selectedWindow={selectedWindow}
                       message={message}
                       setMessage={setMessage}

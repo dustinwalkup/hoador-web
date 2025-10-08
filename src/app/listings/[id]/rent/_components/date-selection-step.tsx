@@ -116,6 +116,7 @@ export function DateSelectionStep({
               booked: "bg-red-50 text-red-400 line-through opacity-50",
             }}
             numberOfMonths={2}
+            showOutsideDays={false}
             className="w-full rounded-md border"
           />
         </div>

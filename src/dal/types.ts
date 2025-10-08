@@ -106,6 +106,8 @@ export interface CreateRentalRequestDTO {
   endDate: Date;
   deliveryRequested?: boolean;
   deliveryAddress?: string;
+  setupRequested?: boolean;
+  setupFee?: number;
   message?: string;
 }
 

@@ -34,5 +34,11 @@ export default async function RentListingPage({
     notFound();
   }
 
-  return <RentListingPageContent listing={listing} bookedDates={bookedDates} />;
+  return (
+    <RentListingPageContent
+      listing={listing}
+      bookedDates={bookedDates}
+      currentUser={currentUser}
+    />
+  );
 }

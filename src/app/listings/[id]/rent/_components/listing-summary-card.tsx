@@ -24,6 +24,7 @@ interface ListingSummaryCardProps {
     days: number;
     subtotal: number;
     deliveryFee: number;
+    setupFee: number;
     securityDeposit: number;
     total: number;
   };
@@ -74,6 +75,12 @@ export function ListingSummaryCard({
                 <div className="flex justify-between">
                   <span>Delivery fee</span>
                   <span>${pricing.deliveryFee.toFixed(2)}</span>
+                </div>
+              )}
+              {pricing.setupFee > 0 && (
+                <div className="flex justify-between">
+                  <span>Setup service</span>
+                  <span>${pricing.setupFee.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between">
