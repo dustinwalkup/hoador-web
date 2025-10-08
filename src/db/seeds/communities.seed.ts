@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db } from "../db-seed"; // Use WebSocket driver for Node.js compatibility
 import {
   communities,
   communityMemberships,

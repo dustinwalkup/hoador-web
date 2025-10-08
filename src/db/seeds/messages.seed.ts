@@ -1,5 +1,5 @@
 import { InferInsertModel } from "drizzle-orm";
-import { db } from "../db";
+import { db } from "../db-seed"; // Use WebSocket driver for Node.js compatibility
 import { faker } from "@faker-js/faker";
 import { conversations, messages } from "../schemas/messages.schema";
 import { user } from "../schemas/user.schema";

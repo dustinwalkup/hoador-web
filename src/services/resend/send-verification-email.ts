@@ -12,6 +12,9 @@ export async function sendVerificationEmail({
   verificationUrl: string;
   firstName?: string;
 }) {
+  console.log("Sending verification email to:", to);
+  console.log("Verification URL:", verificationUrl);
+  console.log("First name:", firstName);
   try {
     const { data, error } = await resend.emails.send({
       from: RESEND_FROM_EMAIL,

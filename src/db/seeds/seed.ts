@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { db } from "../db";
+import { db } from "../db-seed"; // Use WebSocket driver for Node.js compatibility
 
 async function runSeed(file: string) {
   console.log(`\n🌱 Running ${file}...`);

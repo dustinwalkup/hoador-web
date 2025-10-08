@@ -324,21 +324,21 @@ export function OnboardingForm({
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="city">City</Label>
-            <Input
-              id="city"
-              name="city"
-              value={formData.address.city}
-              onChange={(e) => handleAddressChange("city", e.target.value)}
-              className={errors["address.city"] ? "border-red-500" : ""}
-              disabled={isPending}
-            />
-            {errors["address.city"] && (
-              <p className="text-xs text-red-500">{errors["address.city"]}</p>
-            )}
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="city">City</Label>
+          <Input
+            id="city"
+            name="city"
+            value={formData.address.city}
+            onChange={(e) => handleAddressChange("city", e.target.value)}
+            className={errors["address.city"] ? "border-red-500" : ""}
+            disabled={isPending}
+          />
+          {errors["address.city"] && (
+            <p className="text-xs text-red-500">{errors["address.city"]}</p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="state">State</Label>
             <Select

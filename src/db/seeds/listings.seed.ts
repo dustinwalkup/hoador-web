@@ -1,7 +1,7 @@
 import { faker } from "@faker-js/faker";
 import { InferInsertModel } from "drizzle-orm";
 import "dotenv/config";
-import { db } from "../db";
+import { db } from "../db-seed"; // Use WebSocket driver for Node.js compatibility
 import {
   listings,
   listingCategories,
