@@ -13,7 +13,6 @@ export const createRentalRequestSchema = z
     deliveryAddress: z.string().optional(),
     setupRequested: z.boolean().default(false),
     setupFee: z.number().default(0),
-    selectedWindow: z.string().min(1, "Time window is required"),
     message: z.string().optional(),
     paymentIntentId: z.string().optional(), // Stripe payment intent ID
     paymentMethodId: z.string().optional(), // Stripe payment method ID

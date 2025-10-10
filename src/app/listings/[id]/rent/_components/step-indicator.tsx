@@ -3,19 +3,13 @@
 import { CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type BookingStep = "dates" | "delivery" | "windows" | "payment" | "summary";
+type BookingStep = "dates" | "delivery" | "payment" | "summary";
 
 interface StepIndicatorProps {
   currentStep: BookingStep;
 }
 
-const steps: BookingStep[] = [
-  "dates",
-  "delivery",
-  "windows",
-  "payment",
-  "summary",
-];
+const steps: BookingStep[] = ["dates", "delivery", "payment", "summary"];
 
 export function StepIndicator({ currentStep }: StepIndicatorProps) {
   return (

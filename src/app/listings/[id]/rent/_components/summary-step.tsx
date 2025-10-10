@@ -7,18 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { formatDate } from "@/lib/utils/date.utils";
 
-interface TimeWindow {
-  id: string;
-  label: string;
-  available: boolean;
-}
-
 interface SummaryStepProps {
   dateRange: DateRange | undefined;
   deliveryMethod: "pickup" | "delivery";
   deliveryAddress: string;
   setupRequested: boolean;
-  selectedWindow: string;
   message: string;
   setMessage: (message: string) => void;
   pricing: {
@@ -29,10 +22,6 @@ interface SummaryStepProps {
     securityDeposit: number;
     total: number;
   };
-  timeWindows: {
-    pickup: TimeWindow[];
-    delivery: TimeWindow[];
-  };
 }
 
 export function SummaryStep({
@@ -40,11 +29,9 @@ export function SummaryStep({
   deliveryMethod,
   deliveryAddress,
   setupRequested,
-  selectedWindow,
   message,
   setMessage,
   pricing,
-  timeWindows,
 }: SummaryStepProps) {
   return (
     <div className="space-y-6">
@@ -65,16 +52,6 @@ export function SummaryStep({
             <span>{deliveryMethod === "pickup" ? "Pickup" : "Delivery"}:</span>
             <span className="font-medium">
               {deliveryMethod === "pickup" ? "Owner location" : deliveryAddress}
-            </span>
-          </div>
-
-          <div className="flex justify-between py-2">
-            <span>Time Window:</span>
-            <span className="font-medium">
-              {
-                timeWindows[deliveryMethod].find((w) => w.id === selectedWindow)
-                  ?.label
-              }
             </span>
           </div>
 
@@ -117,13 +94,16 @@ export function SummaryStep({
         </div>
 
         <div className="mt-6">
-          <Label htmlFor="message">Message to Owner (Optional)</Label>
+          <Label htmlFor="message">
+            Message to Owner (Optional but Recommended)
+          </Label>
           <Textarea
             id="message"
-            placeholder="Let the owner know about your project or any special requirements..."
+            placeholder="Tell the owner about your project and any special requirements. After approval, you'll coordinate exact pickup/delivery times via messaging..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className="mt-2"
+            rows={4}
           />
         </div>
       </div>

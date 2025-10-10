@@ -101,7 +101,8 @@ export function ServicesStep({
                     Pickup from owner
                   </Label>
                   <p className="mt-1 text-sm text-gray-600">
-                    Coordinate pickup time and location with {ownerName}
+                    Exact times will be coordinated with {ownerName} after
+                    approval
                   </p>
                 </div>
               </div>
@@ -121,7 +122,8 @@ export function ServicesStep({
                     Delivery (+${deliveryFee.toFixed(2)})
                   </Label>
                   <p className="mt-1 text-sm text-gray-600">
-                    Available within {deliveryRadius} miles
+                    Available within {deliveryRadius} miles. Exact times will be
+                    coordinated after approval
                   </p>
                 </div>
               </div>

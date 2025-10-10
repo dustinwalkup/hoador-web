@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 
 import { PaymentForm } from "@/features/payments/components/payment-form";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,6 @@ import { type ListingDetails, type UserProfile } from "@/dal/types";
 import { createRentalRequest } from "@/features/rentals/actions/create-rental-request";
 import { DateSelectionStep } from "./date-selection-step";
 import { ServicesStep } from "./services-step";
-import { TimeWindowStep } from "./time-window-step";
 import { SummaryStep } from "./summary-step";
 import { StepIndicator } from "./step-indicator";
 import { differenceInDays } from "@/lib/utils/date.utils";
@@ -24,28 +24,7 @@ interface RentListingPageContentProps {
   currentUser: UserProfile;
 }
 
-type BookingStep = "dates" | "delivery" | "windows" | "payment" | "summary";
-
-// Mock time windows (in a real app, these could come from the listing owner's availability)
-const timeWindows = {
-  pickup: [
-    { id: "morning", label: "Morning (9:00 AM - 12:00 PM)", available: true },
-    {
-      id: "afternoon",
-      label: "Afternoon (1:00 PM - 5:00 PM)",
-      available: true,
-    },
-    { id: "evening", label: "Evening (6:00 PM - 8:00 PM)", available: false },
-  ],
-  delivery: [
-    { id: "morning", label: "Morning (9:00 AM - 12:00 PM)", available: true },
-    {
-      id: "afternoon",
-      label: "Afternoon (1:00 PM - 5:00 PM)",
-      available: true,
-    },
-  ],
-};
+type BookingStep = "dates" | "delivery" | "payment" | "summary";
 
 export function RentListingPageContent({
   listing,
@@ -72,7 +51,6 @@ export function RentListingPageContent({
     currentUser.primaryAddress?.zipCode || "",
   );
   const [setupRequested, setSetupRequested] = useState(false);
-  const [selectedWindow, setSelectedWindow] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethodId, setPaymentMethodId] = useState<string>("");
@@ -126,14 +104,8 @@ export function RentListingPageContent({
         }
         break;
       case "delivery":
-        setCurrentStep("windows");
+        setCurrentStep("payment");
         window.scrollTo({ top: 0, behavior: "smooth" });
-        break;
-      case "windows":
-        if (selectedWindow) {
-          setCurrentStep("payment");
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
         break;
       case "payment":
         setCurrentStep("summary");
@@ -150,12 +122,8 @@ export function RentListingPageContent({
         setCurrentStep("dates");
         window.scrollTo({ top: 0, behavior: "smooth" });
         break;
-      case "windows":
-        setCurrentStep("delivery");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        break;
       case "payment":
-        setCurrentStep("windows");
+        setCurrentStep("delivery");
         window.scrollTo({ top: 0, behavior: "smooth" });
         break;
       case "summary":
@@ -197,22 +165,28 @@ export function RentListingPageContent({
           setupRequested && deliveryMethod === "delivery"
             ? listing.setupFee
             : 0,
-        selectedWindow,
         message: message || undefined,
         paymentMethodId,
       });
 
       if (result.success) {
+        toast.success("Request Submitted!", {
+          description: `Your request has been sent to ${listing.owner.firstName}. Check your messages after approval to coordinate logistics.`,
+        });
         // Redirect to the confirmation page with the request ID
         router.push(`/dashboard/rental/${result.requestId}?view=renting`);
       } else {
-        // Handle error
-        console.error("Rental request failed:", result.error);
-        alert(result.error || "Failed to submit rental request");
+        toast.error("Rental Request Failed", {
+          description: result.error || "Please try again",
+        });
       }
     } catch (error) {
-      console.error("Error submitting rental request:", error);
-      alert("Failed to submit rental request");
+      toast.error("Error", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to submit rental request",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -244,8 +218,6 @@ export function RentListingPageContent({
             deliveryState.trim() &&
             deliveryZip.trim())
         );
-      case "windows":
-        return selectedWindow;
       case "summary":
         return true;
       case "payment":
@@ -261,8 +233,6 @@ export function RentListingPageContent({
         return "Select Rental Dates";
       case "delivery":
         return "Services & Delivery";
-      case "windows":
-        return `Select ${deliveryMethod === "pickup" ? "Pickup" : "Delivery"} Window`;
       case "summary":
         return "Confirm Booking";
       case "payment":
@@ -276,9 +246,11 @@ export function RentListingPageContent({
     <div className="min-h-screen">
       <div className="container mx-auto">
         {/* Header */}
-        <div className="mb-6 flex flex-col items-start justify-between md:flex-row md:items-center">
-          <BackButton className="md:mb-0!" />
-          <StepIndicator currentStep={currentStep} />
+        <div className="flex w-full justify-center">
+          <div className="mb-6 flex w-full max-w-4xl flex-col items-start justify-between md:flex-row md:items-center">
+            <BackButton className="md:mb-0!" />
+            <StepIndicator currentStep={currentStep} />
+          </div>
         </div>
 
         <div className="mx-auto max-w-4xl">
@@ -325,17 +297,7 @@ export function RentListingPageContent({
                     />
                   )}
 
-                  {/* Step 3: Time Windows */}
-                  {currentStep === "windows" && (
-                    <TimeWindowStep
-                      deliveryMethod={deliveryMethod}
-                      selectedWindow={selectedWindow}
-                      setSelectedWindow={setSelectedWindow}
-                      timeWindows={timeWindows}
-                    />
-                  )}
-
-                  {/* Step 4: Payment */}
+                  {/* Step 3: Payment */}
                   {currentStep === "payment" && (
                     <div className="space-y-6">
                       <div className="mb-4">
@@ -353,18 +315,16 @@ export function RentListingPageContent({
                     </div>
                   )}
 
-                  {/* Step 5: Summary */}
+                  {/* Step 4: Summary */}
                   {currentStep === "summary" && (
                     <SummaryStep
                       dateRange={dateRange}
                       deliveryMethod={deliveryMethod}
                       deliveryAddress={`${deliveryStreet}, ${deliveryCity}, ${deliveryState} ${deliveryZip}`}
                       setupRequested={setupRequested}
-                      selectedWindow={selectedWindow}
                       message={message}
                       setMessage={setMessage}
                       pricing={pricing}
-                      timeWindows={timeWindows}
                     />
                   )}
                 </CardContent>

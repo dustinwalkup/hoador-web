@@ -1,9 +1,10 @@
 "use client";
 
-import { MapPin } from "lucide-react";
+import { MapPin, Info } from "lucide-react";
 import Image from "next/image";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 
 interface ListingSummaryCardProps {
@@ -93,6 +94,16 @@ export function ListingSummaryCard({
                 <span>${pricing.total.toFixed(2)}</span>
               </div>
             </div>
+
+            <Alert className="mt-4">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Flexible Logistics</AlertTitle>
+              <AlertDescription>
+                After {listing.owner.firstName} approves your request,
+                you&apos;ll coordinate exact pickup/delivery times via
+                messaging.
+              </AlertDescription>
+            </Alert>
           </>
         )}
       </CardContent>
