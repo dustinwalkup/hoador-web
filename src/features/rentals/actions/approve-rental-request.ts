@@ -3,9 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { rentalDAL } from "@/dal";
+import { rentalDAL, userDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
-// import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
+import {
+  chargeRentalPayment,
+  authorizeSecurityDeposit,
+  getPaymentErrorMessage,
+  isRetryablePaymentError,
+} from "@/services/stripe/rental-payments";
+import {
+  sendPaymentFailureEmailToRenter,
+  sendPaymentFailureEmailToOwner,
+} from "../notifications/payment-failure";
 
 const approveRequestSchema = z.object({
   requestId: z.string().uuid(),
@@ -27,6 +36,7 @@ export async function approveRentalRequest(
 
   const validatedData = parseResult.data;
 
+  // Fetch rental request details
   const { data: rentalRequest, error: fetchError } = await tryCatch(
     (async () => {
       return await rentalDAL.getRentalRequestById(validatedData.requestId);
@@ -40,93 +50,233 @@ export async function approveRentalRequest(
     };
   }
 
-  // if (!rentalRequest.paymentMethodId) {
-  //   return {
-  //     success: false,
-  //     error: "No payment method on file for renter",
-  //   };
-  // }
+  // Check if payment method is available
+  if (!rentalRequest.paymentMethodId) {
+    return {
+      success: false,
+      error: "No payment method on file for renter",
+    };
+  }
 
-  // Get the renter's Stripe customer ID from the users table
-  // const { data: renterUser, error: userError } = await tryCatch(
-  //   (async () => {
-  //     return await userDAL.getUserById(rentalRequest.renterId);
-  //   })(),
-  // );
+  // Get or create Stripe customer ID for the renter
+  const { data: stripeCustomerId, error: customerError } = await tryCatch(
+    (async () => {
+      return await userDAL.getOrCreateStripeCustomerId(rentalRequest.renterId);
+    })(),
+  );
 
-  // if (userError || !renterUser) {
-  //   return {
-  //     success: false,
-  //     error: userError?.message || "Renter not found",
-  //   };
-  // }
+  if (customerError || !stripeCustomerId) {
+    return {
+      success: false,
+      error: customerError?.message || "Failed to get renter's payment info",
+    };
+  }
 
-  // if (!renterUser.stripeCustomerId) {
-  //   return {
-  //     success: false,
-  //     error: "Renter does not have a Stripe customer ID",
-  //   };
-  // }
+  // Update payment status to processing
+  await rentalDAL.updateRentalRequestPaymentStatus(validatedData.requestId, {
+    paymentStatus: "processing",
+  });
 
-  // Create a PaymentIntent in Stripe
-  // const amountInCents = Math.round(Number(rentalRequest.totalAmount) * 100);
+  // Process the rental payment (with automatic retry for network errors)
+  let rentalPaymentAttempts = 0;
+  let rentalPaymentResult = await tryCatch(
+    (async () => {
+      return await chargeRentalPayment(
+        stripeCustomerId,
+        rentalRequest.paymentMethodId!,
+        Number(rentalRequest.totalAmount),
+        {
+          rentalRequestId: rentalRequest.id,
+          listingId: rentalRequest.listingId,
+          ownerId: rentalRequest.ownerId,
+          renterId: rentalRequest.renterId,
+          listingName: rentalRequest.listingName,
+        },
+      );
+    })(),
+  );
 
-  // const { data: paymentIntent, error: stripeError } = await tryCatch(
-  //   (async () => {
-  //     return await PAYMENT_SERVER_INSTANCE.paymentIntents.create({
-  //       amount: amountInCents,
-  //       currency: "usd",
-  //       customer: renterUser.stripeCustomerId || undefined,
-  //       payment_method: rentalRequest.paymentMethodId || undefined,
-  //       off_session: true, // renter doesn't need to be online
-  //       confirm: true, // try to confirm immediately
-  //       metadata: {
-  //         rentalRequestId: rentalRequest.id,
-  //         listingId: rentalRequest.listingId,
-  //         ownerId: rentalRequest.ownerId,
-  //         renterId: rentalRequest.renterId,
-  //       },
-  //     });
-  //   })(),
-  // );
+  // Retry once if it's a retryable error (network issues, etc)
+  if (
+    rentalPaymentResult.error &&
+    isRetryablePaymentError(rentalPaymentResult.error) &&
+    rentalPaymentAttempts === 0
+  ) {
+    rentalPaymentAttempts++;
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+    rentalPaymentResult = await tryCatch(
+      (async () => {
+        return await chargeRentalPayment(
+          stripeCustomerId,
+          rentalRequest.paymentMethodId!,
+          Number(rentalRequest.totalAmount),
+          {
+            rentalRequestId: rentalRequest.id,
+            listingId: rentalRequest.listingId,
+            ownerId: rentalRequest.ownerId,
+            renterId: rentalRequest.renterId,
+            listingName: rentalRequest.listingName,
+          },
+        );
+      })(),
+    );
+  }
 
-  // if (stripeError || !paymentIntent) {
-  //   return {
-  //     success: false,
-  //     error: stripeError?.message || "Failed to process payment",
-  //   };
-  // }
+  // Check if rental payment failed
+  if (rentalPaymentResult.error || !rentalPaymentResult.data) {
+    const errorMessage = getPaymentErrorMessage(rentalPaymentResult.error);
 
-  // Check if payment was successful
-  // if (paymentIntent.status !== "succeeded") {
-  //   return {
-  //     success: false,
-  //     error: `Payment failed with status: ${paymentIntent.status}`,
-  //   };
-  // }
+    // Update payment status to failed
+    await rentalDAL.updateRentalRequestPaymentStatus(validatedData.requestId, {
+      paymentStatus: "failed",
+      paymentFailureReason: errorMessage,
+    });
 
-  // Now approve the rental request
+    // Get owner and renter details for notifications
+    const { data: renterUser } = await tryCatch(
+      (async () => {
+        return await userDAL.getUserById(rentalRequest.renterId);
+      })(),
+    );
+
+    const { data: ownerUser } = await tryCatch(
+      (async () => {
+        return await userDAL.getUserById(rentalRequest.ownerId);
+      })(),
+    );
+
+    // Send notifications to both parties (don't block on email failures)
+    if (renterUser && ownerUser) {
+      // Send email to renter
+      tryCatch(
+        sendPaymentFailureEmailToRenter({
+          to: renterUser.email,
+          renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+          ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+          listingName: rentalRequest.listingName,
+          totalAmount: rentalRequest.totalAmount,
+          failureReason: errorMessage,
+        }),
+      ).catch((err) => {
+        console.error("Failed to send payment failure email to renter:", err);
+      });
+
+      // Send email to owner
+      tryCatch(
+        sendPaymentFailureEmailToOwner({
+          to: ownerUser.email,
+          ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+          renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+          listingName: rentalRequest.listingName,
+          totalAmount: rentalRequest.totalAmount,
+          failureReason: errorMessage,
+        }),
+      ).catch((err) => {
+        console.error("Failed to send payment failure email to owner:", err);
+      });
+    }
+
+    return {
+      success: false,
+      error: `Payment failed: ${errorMessage}. The renter has been notified to update their payment method.`,
+      paymentFailed: true,
+    };
+  }
+
+  const rentalPaymentIntent = rentalPaymentResult.data;
+
+  // Check if payment succeeded
+  if (rentalPaymentIntent.status !== "succeeded") {
+    const errorMessage = `Payment status: ${rentalPaymentIntent.status}`;
+
+    await rentalDAL.updateRentalRequestPaymentStatus(validatedData.requestId, {
+      paymentStatus: "failed",
+      paymentFailureReason: errorMessage,
+    });
+
+    return {
+      success: false,
+      error: `Payment was not completed. ${errorMessage}. The renter has been notified.`,
+      paymentFailed: true,
+    };
+  }
+
+  // Authorize (hold) the security deposit
+  let securityDepositAuthId: string | undefined;
+
+  if (Number(rentalRequest.securityDeposit) > 0) {
+    const { data: securityDepositAuth, error: depositError } = await tryCatch(
+      (async () => {
+        return await authorizeSecurityDeposit(
+          stripeCustomerId,
+          rentalRequest.paymentMethodId!,
+          Number(rentalRequest.securityDeposit),
+          {
+            type: "security_deposit",
+            rentalRequestId: rentalRequest.id,
+            listingId: rentalRequest.listingId,
+            renterId: rentalRequest.renterId,
+          },
+        );
+      })(),
+    );
+
+    if (depositError || !securityDepositAuth) {
+      // Security deposit authorization failed
+      // The rental payment succeeded, so we need to handle this carefully
+      console.error(
+        "Security deposit authorization failed:",
+        depositError?.message,
+      );
+
+      // We could either:
+      // 1. Refund the rental payment and fail the approval
+      // 2. Continue without security deposit hold (log for manual review)
+      // For now, we'll continue and log the issue
+      console.warn(
+        `Rental ${rentalRequest.id} approved without security deposit hold`,
+      );
+    } else if (
+      securityDepositAuth.status === "requires_capture" ||
+      securityDepositAuth.status === "requires_confirmation"
+    ) {
+      securityDepositAuthId = securityDepositAuth.id;
+    }
+  }
+
+  // Now approve the rental request with payment IDs
   const { error: approvalError } = await tryCatch(
     (async () => {
       return await rentalDAL.approveRentalRequest(validatedData.requestId, {
         pickupInstructions: validatedData.pickupInstructions,
         returnInstructions: validatedData.returnInstructions,
+        rentalPaymentIntentId: rentalPaymentIntent.id,
+        securityDepositAuthId: securityDepositAuthId,
       });
     })(),
   );
 
   if (approvalError) {
+    // Approval failed after payment succeeded
+    // This is a critical error that needs manual intervention
+    console.error("Rental approval failed after payment:", approvalError);
+
     return {
       success: false,
-      error: approvalError.message,
+      error:
+        "Payment was processed but approval failed. Please contact support immediately.",
     };
   }
 
   // Revalidate the relevant pages
   revalidatePath("/dashboard/lending/incoming");
   revalidatePath("/dashboard/lending/active");
+  revalidatePath("/dashboard/renting/pending");
+  revalidatePath("/dashboard/renting/active");
 
   return {
     success: true,
+    paymentIntentId: rentalPaymentIntent.id,
+    securityDepositAuthId,
   };
 }

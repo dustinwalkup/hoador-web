@@ -34,7 +34,9 @@ export const rentalStatusEnum = pgEnum("rental_status", [
 
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pending",
-  "completed",
+  "processing",
+  "succeeded",
+  "completed", // Keep for backward compatibility with existing payments table
   "failed",
   "refunded",
 ]);

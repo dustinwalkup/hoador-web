@@ -14,7 +14,7 @@ import {
 
 import { user } from "./user.schema";
 import { listings } from "./listings.schema";
-import { rentalStatusEnum } from "./_enums";
+import { rentalStatusEnum, paymentStatusEnum } from "./_enums";
 import { relations } from "drizzle-orm";
 import { payments } from "./payments.schema";
 
@@ -50,8 +50,11 @@ export const rentalRequests = pgTable(
       .default("0")
       .notNull(),
     message: text("message"),
-    paymentIntentId: varchar("payment_intent_id", { length: 255 }), // Stripe payment intent ID
+    paymentIntentId: varchar("payment_intent_id", { length: 255 }), // Stripe payment intent ID for rental charge
     paymentMethodId: varchar("payment_method_id", { length: 255 }), // Stripe payment method ID
+    paymentStatus: paymentStatusEnum("payment_status").default("pending"), // Payment processing status
+    paymentFailureReason: text("payment_failure_reason"), // Why payment failed
+    securityDepositAuthId: varchar("security_deposit_auth_id", { length: 255 }), // Stripe auth ID for security deposit hold
     status: rentalStatusEnum("status").default("pending").notNull(),
     approvedAt: timestamp("approved_at"),
     rejectedAt: timestamp("rejected_at"),
@@ -101,6 +104,8 @@ export const rentals = pgTable(
     setupFee: decimal("setup_fee", { precision: 10, scale: 2 })
       .default("0")
       .notNull(),
+    rentalPaymentIntentId: varchar("rental_payment_intent_id", { length: 255 }), // Stripe payment intent ID for rental charge
+    securityDepositAuthId: varchar("security_deposit_auth_id", { length: 255 }), // Stripe auth ID for security deposit hold
     status: rentalStatusEnum("status").default("approved").notNull(),
     pickupInstructions: text("pickup_instructions"),
     returnInstructions: text("return_instructions"),

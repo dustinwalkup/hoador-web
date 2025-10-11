@@ -797,4 +797,52 @@ export class UserDAL extends BaseDAL {
       this.handleError(error, "completeUserOnboarding");
     }
   }
+
+  /**
+   * Get or create Stripe customer ID for a user
+   * Returns the existing customer ID if present, or creates a new Stripe customer
+   */
+  async getOrCreateStripeCustomerId(userId: string): Promise<string> {
+    try {
+      // Get user data
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.id, userId),
+      });
+
+      if (!userData) {
+        throw new NotFoundError("User", userId);
+      }
+
+      // Return existing customer ID if present
+      if (userData.stripeCustomerId) {
+        return userData.stripeCustomerId;
+      }
+
+      // Create new Stripe customer
+      const { PAYMENT_SERVER_INSTANCE } = await import(
+        "@/services/stripe/server"
+      );
+
+      const customer = await PAYMENT_SERVER_INSTANCE.customers.create({
+        email: userData.email,
+        name: userData.name,
+        metadata: {
+          userId: userData.id,
+        },
+      });
+
+      // Update user with new Stripe customer ID
+      await this.db
+        .update(user)
+        .set({
+          stripeCustomerId: customer.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId));
+
+      return customer.id;
+    } catch (error) {
+      this.handleError(error, "getOrCreateStripeCustomerId");
+    }
+  }
 }

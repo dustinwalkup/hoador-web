@@ -864,6 +864,36 @@ export class RentalDAL extends BaseDAL {
   }
 
   /**
+   * Update rental request payment status
+   */
+  async updateRentalRequestPaymentStatus(
+    requestId: string,
+    paymentData: {
+      paymentStatus:
+        | "pending"
+        | "processing"
+        | "succeeded"
+        | "failed"
+        | "refunded";
+      paymentIntentId?: string;
+      securityDepositAuthId?: string;
+      paymentFailureReason?: string;
+    },
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(rentalRequests)
+        .set({
+          ...paymentData,
+          updatedAt: new Date(),
+        })
+        .where(eq(rentalRequests.id, requestId));
+    } catch (error) {
+      this.handleError(error, "updateRentalRequestPaymentStatus");
+    }
+  }
+
+  /**
    * Approve a rental request
    * Only the owner can approve their own pending requests
    */
@@ -872,6 +902,8 @@ export class RentalDAL extends BaseDAL {
     options?: {
       pickupInstructions?: string;
       returnInstructions?: string;
+      rentalPaymentIntentId?: string;
+      securityDepositAuthId?: string;
     },
   ): Promise<void> {
     try {
@@ -903,12 +935,19 @@ export class RentalDAL extends BaseDAL {
         throw new Error("Only pending requests can be approved");
       }
 
-      // Update the rental request status
+      // Update the rental request status and payment info
       await this.db
         .update(rentalRequests)
         .set({
           status: "approved",
           approvedAt: new Date(),
+          paymentStatus: "succeeded",
+          ...(options?.rentalPaymentIntentId && {
+            paymentIntentId: options.rentalPaymentIntentId,
+          }),
+          ...(options?.securityDepositAuthId && {
+            securityDepositAuthId: options.securityDepositAuthId,
+          }),
         })
         .where(eq(rentalRequests.id, requestId));
 
@@ -924,6 +963,8 @@ export class RentalDAL extends BaseDAL {
         securityDeposit: request.securityDeposit,
         setupRequested: request.setupRequested,
         setupFee: request.setupFee,
+        rentalPaymentIntentId: options?.rentalPaymentIntentId || null,
+        securityDepositAuthId: options?.securityDepositAuthId || null,
         status: "approved",
         pickupInstructions: options?.pickupInstructions || null,
         returnInstructions: options?.returnInstructions || null,

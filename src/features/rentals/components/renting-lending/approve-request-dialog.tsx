@@ -39,8 +39,6 @@ export function ApproveRequestDialog({
   const [isPending, startTransition] = useTransition();
 
   const handleApprove = async () => {
-    // Show optimistic toast immediately
-
     startTransition(async () => {
       try {
         const result = await approveRentalRequest({
@@ -56,18 +54,27 @@ export function ApproveRequestDialog({
           setReturnInstructions("");
           onSuccess?.();
           toast.success("Request approved successfully!", {
-            description: "The renter has been notified.",
+            description:
+              "Payment has been processed and the renter has been notified.",
           });
         } else {
-          // Show error toast if the action fails
-          toast.error("Failed to approve request", {
-            description: result.error || "Please try again.",
-          });
+          // Check if it's a payment failure
+          if (result.paymentFailed) {
+            toast.error("Payment Failed", {
+              description: result.error || "Payment could not be processed.",
+              duration: 10000, // Longer duration for important message
+            });
+            // Keep dialog open so owner can see the instructions
+          } else {
+            toast.error("Failed to approve request", {
+              description: result.error || "Please try again.",
+            });
+          }
         }
-      } catch {
+      } catch (error) {
         // Show error toast if the action fails
         toast.error("Failed to approve request", {
-          description: "Please try again.",
+          description: "An unexpected error occurred. Please try again.",
         });
       }
     });
@@ -83,7 +90,8 @@ export function ApproveRequestDialog({
           </DialogTitle>
           <DialogDescription>
             Approve the rental request for {listingName} from {renterName}. The
-            renter will be notified of your approval.
+            renter&apos;s payment method will be charged, and they will be
+            notified of your approval.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -125,15 +133,15 @@ export function ApproveRequestDialog({
             type="button"
             onClick={handleApprove}
             disabled={isPending}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-primary hover:bg-green-700"
           >
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Approving...
+                Processing Payment...
               </>
             ) : (
-              "Approve Request"
+              "Approve & Charge Payment"
             )}
           </Button>
         </DialogFooter>

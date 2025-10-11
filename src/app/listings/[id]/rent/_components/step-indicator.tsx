@@ -13,7 +13,7 @@ const steps: BookingStep[] = ["dates", "delivery", "payment", "summary"];
 
 export function StepIndicator({ currentStep }: StepIndicatorProps) {
   return (
-    <div className="flex items-center gap-1 px-4">
+    <div className="flex items-center gap-1">
       {steps.map((step, index) => (
         <div key={step} className="flex items-center">
           <div

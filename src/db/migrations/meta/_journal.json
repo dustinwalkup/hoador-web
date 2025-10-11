@@ -29,6 +29,27 @@
       "when": 1759894934683,
       "tag": "0003_soft_liz_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1760129260497,
+      "tag": "0004_stormy_butterfly",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1760132400000,
+      "tag": "0005_add_payment_enum_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1760132500000,
+      "tag": "0006_use_payment_enum",
+      "breakpoints": true
     }
   ]
 }
