@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import type { RentalStatusInfo } from "@/dal/rentals.dal";
+import { capitalize } from "@/lib/utils";
 
 interface RentalStatusCardProps {
   rentalDetails: RentalStatusInfo;
@@ -25,6 +26,7 @@ const getStatusDescription = (status: string) => {
 };
 
 export function RentalStatusCard({ rentalDetails }: RentalStatusCardProps) {
+  console.log("rentalDetails", rentalDetails);
   return (
     <Card>
       <CardContent className="p-6">
@@ -64,7 +66,8 @@ export function RentalStatusCard({ rentalDetails }: RentalStatusCardProps) {
             <div className="flex items-center gap-3">
               <div className="h-2 w-2 rounded-full bg-red-600"></div>
               <span className="text-sm">
-                Rejected: {new Date(rentalDetails.rejectedAt).toLocaleString()}
+                {capitalize(rentalDetails.status)}:{" "}
+                {new Date(rentalDetails.rejectedAt).toLocaleString()}
               </span>
             </div>
           )}

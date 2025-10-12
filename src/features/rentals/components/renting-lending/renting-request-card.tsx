@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -12,27 +11,15 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Loader2,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 import type { RentalRequestItem } from "@/dal/rentals.dal";
-import { cancelRentalRequestAction } from "@/features/rentals/actions";
+import { CancelRequestDialog } from "./cancel-request-dialog";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -73,27 +60,7 @@ interface RentingRequestCardProps {
 }
 
 export function RentingRequestCard({ request }: RentingRequestCardProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const handleCancelRequest = async () => {
-    try {
-      setIsLoading(true);
-      const result = await cancelRentalRequestAction(request.id);
-
-      if (!result.success) {
-        toast.error(result.error || "Failed to cancel request");
-      } else {
-        toast.success("Rental request cancelled successfully");
-        setIsDialogOpen(false);
-      }
-    } catch (error) {
-      console.error("Error cancelling request:", error);
-      toast.error("Failed to cancel request");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   return (
     <Card>
@@ -194,46 +161,13 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
               </Button>
 
               {request.status === "pending" && (
-                <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="destructive"
-                      className="w-full justify-center"
-                    >
-                      Cancel Request
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Cancel Rental Request</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to cancel your request for &ldquo;
-                        {request.listingName}&rdquo;? This action cannot be
-                        undone and you&apos;ll need to submit a new request if
-                        you change your mind.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={isLoading}>
-                        Keep Request
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleCancelRequest}
-                        disabled={isLoading}
-                        className="bg-destructive hover:bg-destructive/90 text-white"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                            Cancelling...
-                          </>
-                        ) : (
-                          "Yes, Cancel Request"
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button
+                  variant="destructive"
+                  className="w-full justify-center"
+                  onClick={() => setShowCancelDialog(true)}
+                >
+                  Cancel Request
+                </Button>
               )}
             </div>
           </div>
@@ -326,48 +260,26 @@ export function RentingRequestCard({ request }: RentingRequestCardProps) {
                 Message Owner
               </Button>
               {request.status === "pending" && (
-                <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
-                      Cancel Request
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Cancel Rental Request</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to cancel your request for &ldquo;
-                        {request.listingName}&rdquo;? This action cannot be
-                        undone and you&apos;ll need to submit a new request if
-                        you change your mind.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={isLoading}>
-                        Keep Request
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleCancelRequest}
-                        disabled={isLoading}
-                        className="bg-destructive hover:bg-destructive/90 text-white"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                            Cancelling...
-                          </>
-                        ) : (
-                          "Yes, Cancel Request"
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowCancelDialog(true)}
+                >
+                  Cancel Request
+                </Button>
               )}
             </div>
           </div>
         </div>
       </CardContent>
+
+      {/* Cancel Request Dialog */}
+      <CancelRequestDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        requestId={request.id}
+        listingName={request.listingName}
+      />
     </Card>
   );
 }

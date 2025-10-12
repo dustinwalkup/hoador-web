@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle,
@@ -11,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { RentalActionsInfo } from "@/dal/rentals.dal";
+import { CancelRequestDialog } from "@/features/rentals/components/renting-lending/cancel-request-dialog";
 
 interface RentalActionsProps {
   rentalDetails: RentalActionsInfo;
@@ -24,6 +28,7 @@ export function RentalActions({
   isRenter,
   isOwner,
 }: RentalActionsProps) {
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   return (
     <Card>
       <CardHeader>
@@ -34,7 +39,11 @@ export function RentalActions({
         {isRenter && (
           <>
             {rentalDetails.status === "pending" && (
-              <Button variant="destructive" className="w-full">
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => setShowCancelDialog(true)}
+              >
                 <XCircle className="mr-2 h-4 w-4" />
                 Cancel Request
               </Button>
@@ -96,6 +105,14 @@ export function RentalActions({
           Download Contract
         </Button>
       </CardContent>
+
+      {/* Cancel Request Dialog */}
+      <CancelRequestDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        requestId={rentalDetails.id}
+        listingName={rentalDetails.listingName}
+      />
     </Card>
   );
 }

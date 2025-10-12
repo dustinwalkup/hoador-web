@@ -211,7 +211,7 @@ export type RentalUserInfo = Pick<
 >;
 export type RentalActionsInfo = Pick<
   RentalDetails,
-  "id" | "listingId" | "status"
+  "id" | "listingId" | "listingName" | "status"
 >;
 export type RentalMessagesInfo = Pick<
   RentalDetails,
