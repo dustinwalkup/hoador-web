@@ -44,9 +44,7 @@ export function MessageOwnerModal({
 }: MessageOwnerModalProps) {
   const [isPending, startTransition] = useTransition();
   const [formState, setFormState] = useState<FormState>("idle");
-  const [message, setMessage] = useState(
-    `Hi, I'm interested in your ${listingName}`,
-  );
+  const [message, setMessage] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);

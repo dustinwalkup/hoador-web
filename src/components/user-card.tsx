@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { User, Star, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MessageOwnerButton } from "@/features/listings/components/message-owner-button";
 
 interface UserCardProps {
   user: {
@@ -20,13 +19,21 @@ interface UserCardProps {
   showActions?: boolean;
   showContactInfo?: boolean;
   className?: string;
+  recipientId?: string;
+  recipientName?: string;
+  listingId?: string;
+  listingName?: string;
 }
 
 export function UserCard({
   user,
   title,
-  showActions = true,
+  showActions = false,
   className = "",
+  recipientId,
+  recipientName,
+  listingId,
+  listingName,
 }: UserCardProps) {
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -67,14 +74,19 @@ export function UserCard({
                 </Badge>
               )}
             </div>
-            {user.rating && (
-              <div className="mb-2 flex items-center space-x-1">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm text-gray-600">
-                  {user.rating} ({user.reviewCount || 0} reviews)
-                </span>
-              </div>
-            )}
+            <div className="mb-2 flex items-center space-x-1">
+              <Star
+                className={`h-4 w-4 ${
+                  user.rating && user.rating > 0
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "text-gray-300"
+                }`}
+              />
+              <span className="text-sm text-gray-600">
+                {user.rating && user.rating > 0 ? user.rating : "0.0"} (
+                {user.reviewCount || 0} reviews)
+              </span>
+            </div>
             <div className="space-y-1 text-xs text-gray-500">
               {user.memberSince && (
                 <p>Member since {formatDate(user.memberSince)}</p>
@@ -87,15 +99,20 @@ export function UserCard({
           </div>
         </div>
 
-        {showActions && (
-          <div className="mt-4 space-y-2">
-            <Link href={`/users/${user.id}`}>
-              <Button variant="outline" className="w-full" size="sm">
-                View Full Profile
-              </Button>
-            </Link>
-          </div>
-        )}
+        {showActions &&
+          recipientId &&
+          recipientName &&
+          listingId &&
+          listingName && (
+            <div className="mt-4">
+              <MessageOwnerButton
+                recipientId={recipientId}
+                recipientName={recipientName}
+                listingId={listingId}
+                listingName={listingName}
+              />
+            </div>
+          )}
       </CardContent>
     </Card>
   );

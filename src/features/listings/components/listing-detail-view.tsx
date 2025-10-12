@@ -20,7 +20,6 @@ import { UserCard } from "@/components/user-card";
 import type { ListingDetails } from "@/dal/types";
 
 import { ImageCarousel } from "./image-carousel";
-import { MessageOwnerButton } from "./message-owner-button";
 // import { FavoritesButton } from "./favorites-button";
 
 interface ListingDetailViewProps {
@@ -33,13 +32,6 @@ export function ListingDetailView({
   isOwner,
 }: ListingDetailViewProps) {
   const formatPrice = (amount: number) => `$${amount.toFixed(2)}`;
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
 
   const getConditionColor = (condition: string) => {
     switch (condition.toLowerCase()) {
@@ -278,7 +270,11 @@ export function ListingDetailView({
               memberSince: listing.owner.memberSince.toISOString(),
             }}
             title="Listing Owner"
-            showActions={false}
+            showActions={!isOwner}
+            recipientId={listing.owner.id}
+            recipientName={`${listing.owner.firstName} ${listing.owner.lastName}`}
+            listingId={listing.id}
+            listingName={listing.name}
           />
 
           {/* Action Buttons */}
@@ -290,23 +286,15 @@ export function ListingDetailView({
                 </Link>
               </Button>
             ) : (
-              <>
-                <Button asChild className="w-full" size="lg">
-                  <Link
-                    className="flex items-center justify-center"
-                    href={`/listings/${listing.id}/rent`}
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Rent Tool
-                  </Link>
-                </Button>
-                <MessageOwnerButton
-                  recipientId={listing.owner.id}
-                  recipientName={`${listing.owner.firstName} ${listing.owner.lastName}`}
-                  listingId={listing.id}
-                  listingName={listing.name}
-                />
-              </>
+              <Button asChild className="w-full" size="lg">
+                <Link
+                  className="flex items-center justify-center"
+                  href={`/listings/${listing.id}/rent`}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Rent Tool
+                </Link>
+              </Button>
             )}
             {/* <FavoritesButton
               listingId={listing.id}

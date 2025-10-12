@@ -42,6 +42,10 @@ export function RentalUserInfo({
       title={isRenter ? "Listing Owner" : "Renter"}
       showActions={true}
       showContactInfo={true}
+      recipientId={otherUser.id}
+      recipientName={otherUser.name}
+      listingId={rentalDetails.listingId}
+      listingName={rentalDetails.listingName}
     />
   );
 }

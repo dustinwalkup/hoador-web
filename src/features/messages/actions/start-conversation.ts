@@ -9,12 +9,8 @@ export async function startConversationAction(
   listingName: string,
   message: string,
 ): Promise<{ success: boolean; conversationId?: string; error?: string }> {
-  // Format message with listing context
-  const formattedMessage = `Re: ${listingName} - ${message}`;
-
-  // Pass listingId for context - this enables us to show clickable listing links in the chat
   const { data, error } = await tryCatch(
-    messagesDAL.sendMessageToUser(recipientId, formattedMessage, listingId),
+    messagesDAL.sendMessageToUser(recipientId, message, listingId),
   );
 
   if (error) {

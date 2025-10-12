@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { MobileHeader } from "./mobile-header";
@@ -16,8 +16,10 @@ export function MailboxClient({
 }: {
   conversations: ConversationSummary[];
 }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const conversationParam = searchParams.get("conversation");
+  const hasHandledInitialParam = useRef(false);
 
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
@@ -26,9 +28,9 @@ export function MailboxClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileChat, setShowMobileChat] = useState(!!conversationParam);
 
-  // Handle conversation query parameter
+  // Handle conversation query parameter only on initial load
   useEffect(() => {
-    if (conversationParam && conversationParam !== selectedConversationId) {
+    if (conversationParam && !hasHandledInitialParam.current) {
       // Find which tab the conversation is in
       const conversation = conversations.find(
         (conv) => conv.id === conversationParam,
@@ -46,8 +48,10 @@ export function MailboxClient({
         setSelectedConversationId(conversationParam);
         setShowMobileChat(true);
       }
+
+      hasHandledInitialParam.current = true;
     }
-  }, [conversationParam, conversations, selectedConversationId, activeTab]);
+  }, [conversationParam, conversations, activeTab]);
 
   // Filter initial conversations by active tab
   const conversationsForActiveTab = conversations.filter(
@@ -85,11 +89,19 @@ export function MailboxClient({
   const handleConversationClick = (conversationId: string) => {
     setSelectedConversationId(conversationId);
     setShowMobileChat(true);
+
+    // Update URL with the selected conversation
+    router.replace(`/dashboard/mailbox?conversation=${conversationId}`, {
+      scroll: false,
+    });
   };
 
   const handleBackToConversations = () => {
     setShowMobileChat(false);
     setSelectedConversationId(null);
+
+    // Clear the conversation query parameter
+    router.replace("/dashboard/mailbox", { scroll: false });
   };
 
   return (

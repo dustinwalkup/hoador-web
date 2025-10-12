@@ -1,6 +1,6 @@
 import { eq, and, inArray, sql } from "drizzle-orm";
 
-import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
+import { rentals, rentalRequests, reviews } from "@/db/schemas/rentals.schema";
 import {
   listings,
   listingImages,
@@ -206,6 +206,8 @@ export type RentalUserInfo = Pick<
   | "ownerMemberSince"
   | "ownerListingsListed"
   | "ownerResponseRate"
+  | "listingId"
+  | "listingName"
 >;
 export type RentalActionsInfo = Pick<
   RentalDetails,
@@ -1092,10 +1094,43 @@ export class RentalDAL extends BaseDAL {
           where: eq(user.id, request.renterId),
         });
 
+        // Get renter reviews and stats
+        const renterReviews = await this.db.query.reviews.findMany({
+          where: eq(reviews.revieweeId, request.renterId),
+          columns: { rating: true },
+        });
+        const renterRatings = renterReviews.map((r) => r.rating);
+        const renterAverageRating =
+          renterRatings.length > 0
+            ? renterRatings.reduce((a, b) => a + b, 0) / renterRatings.length
+            : 0;
+
+        // Get renter completed rentals count
+        const renterCompletedRentals = await this.db
+          .select()
+          .from(rentals)
+          .where(
+            and(
+              eq(rentals.renterId, request.renterId),
+              eq(rentals.status, "completed"),
+            ),
+          );
+
         // Get owner details
         const owner = await this.db.query.user.findFirst({
           where: eq(user.id, request.ownerId),
         });
+
+        // Get owner reviews
+        const ownerReviews = await this.db.query.reviews.findMany({
+          where: eq(reviews.revieweeId, request.ownerId),
+          columns: { rating: true },
+        });
+        const ownerRatings = ownerReviews.map((r) => r.rating);
+        const ownerAverageRating =
+          ownerRatings.length > 0
+            ? ownerRatings.reduce((a, b) => a + b, 0) / ownerRatings.length
+            : 0;
 
         return {
           id: request.id,
@@ -1114,6 +1149,14 @@ export class RentalDAL extends BaseDAL {
           renterEmail: renter?.email || "",
           renterPhone: renter?.phone || undefined,
           renterProfileImage: renter?.profileImageUrl || undefined,
+          renterRating:
+            renterRatings.length > 0
+              ? Math.round(renterAverageRating * 10) / 10
+              : undefined,
+          renterReviewCount: renterRatings.length || undefined,
+          renterVerified: renter?.emailVerified || false,
+          renterMemberSince: renter?.createdAt?.toISOString() || undefined,
+          renterCompletedRentals: renterCompletedRentals.length || undefined,
           ownerId: request.ownerId,
           ownerName: owner
             ? `${owner.firstName} ${owner.lastName}`
@@ -1121,6 +1164,13 @@ export class RentalDAL extends BaseDAL {
           ownerEmail: owner?.email || "",
           ownerPhone: owner?.phone || undefined,
           ownerProfileImage: owner?.profileImageUrl || undefined,
+          ownerRating:
+            ownerRatings.length > 0
+              ? Math.round(ownerAverageRating * 10) / 10
+              : undefined,
+          ownerReviewCount: ownerRatings.length || undefined,
+          ownerVerified: owner?.emailVerified || false,
+          ownerMemberSince: owner?.createdAt?.toISOString() || undefined,
           startDate: request.startDate,
           endDate: request.endDate,
           totalDays: request.totalDays,
@@ -1217,10 +1267,43 @@ export class RentalDAL extends BaseDAL {
         where: eq(user.id, rentalData.renterId),
       });
 
+      // Get renter reviews and stats
+      const renterReviews = await this.db.query.reviews.findMany({
+        where: eq(reviews.revieweeId, rentalData.renterId),
+        columns: { rating: true },
+      });
+      const renterRatings = renterReviews.map((r) => r.rating);
+      const renterAverageRating =
+        renterRatings.length > 0
+          ? renterRatings.reduce((a, b) => a + b, 0) / renterRatings.length
+          : 0;
+
+      // Get renter completed rentals count
+      const renterCompletedRentals = await this.db
+        .select()
+        .from(rentals)
+        .where(
+          and(
+            eq(rentals.renterId, rentalData.renterId),
+            eq(rentals.status, "completed"),
+          ),
+        );
+
       // Get owner details
       const owner = await this.db.query.user.findFirst({
         where: eq(user.id, rentalData.ownerId),
       });
+
+      // Get owner reviews
+      const ownerReviews = await this.db.query.reviews.findMany({
+        where: eq(reviews.revieweeId, rentalData.ownerId),
+        columns: { rating: true },
+      });
+      const ownerRatings = ownerReviews.map((r) => r.rating);
+      const ownerAverageRating =
+        ownerRatings.length > 0
+          ? ownerRatings.reduce((a, b) => a + b, 0) / ownerRatings.length
+          : 0;
 
       return {
         id: rentalData.id,
@@ -1239,6 +1322,14 @@ export class RentalDAL extends BaseDAL {
         renterEmail: renter?.email || "",
         renterPhone: renter?.phone || undefined,
         renterProfileImage: renter?.profileImageUrl || undefined,
+        renterRating:
+          renterRatings.length > 0
+            ? Math.round(renterAverageRating * 10) / 10
+            : undefined,
+        renterReviewCount: renterRatings.length || undefined,
+        renterVerified: renter?.emailVerified || false,
+        renterMemberSince: renter?.createdAt?.toISOString() || undefined,
+        renterCompletedRentals: renterCompletedRentals.length || undefined,
         ownerId: rentalData.ownerId,
         ownerName: owner
           ? `${owner.firstName} ${owner.lastName}`
@@ -1246,6 +1337,13 @@ export class RentalDAL extends BaseDAL {
         ownerEmail: owner?.email || "",
         ownerPhone: owner?.phone || undefined,
         ownerProfileImage: owner?.profileImageUrl || undefined,
+        ownerRating:
+          ownerRatings.length > 0
+            ? Math.round(ownerAverageRating * 10) / 10
+            : undefined,
+        ownerReviewCount: ownerRatings.length || undefined,
+        ownerVerified: owner?.emailVerified || false,
+        ownerMemberSince: owner?.createdAt?.toISOString() || undefined,
         startDate: rentalData.startDate,
         endDate: rentalData.endDate,
         actualStartDate: rentalData.actualStartDate || undefined,
