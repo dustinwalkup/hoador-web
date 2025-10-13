@@ -179,7 +179,7 @@ function CCForm({ onSuccess }: { onSuccess: (methodId: string) => void }) {
           type="submit"
           disabled={isLoading || !stripe}
         >
-          {isLoading ? "Processing..." : "Continue"}
+          {isLoading ? "Finalizing setup..." : "Continue"}
         </Button>
         {errorMessage && (
           <div className="mt-2 text-sm text-red-600">{errorMessage}</div>
