@@ -15,6 +15,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { RentalActionsInfo } from "@/dal/rentals.dal";
 import { CancelRequestDialog } from "@/features/rentals/components/renting-lending/cancel-request-dialog";
+import {
+  ApproveRequestDialog,
+  DeclineRequestDialog,
+} from "@/features/rentals/components/renting-lending";
 
 interface RentalActionsProps {
   rentalDetails: RentalActionsInfo;
@@ -29,6 +33,8 @@ export function RentalActions({
   isOwner,
 }: RentalActionsProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showDeclineDialog, setShowDeclineDialog] = useState(false);
   return (
     <Card>
       <CardHeader>
@@ -64,7 +70,7 @@ export function RentalActions({
 
             {rentalDetails.status === "completed" && (
               <Link href={`/listings/${rentalDetails.listingId}/rent`}>
-                <Button className="w-full bg-green-600 hover:bg-green-700">
+                <Button className="w-full">
                   <Plus className="mr-2 h-4 w-4" />
                   Rent Again
                 </Button>
@@ -78,11 +84,18 @@ export function RentalActions({
           <>
             {rentalDetails.status === "pending" && (
               <>
-                <Button className="w-full bg-green-600 hover:bg-green-700">
+                <Button
+                  className="w-full"
+                  onClick={() => setShowApproveDialog(true)}
+                >
                   <CheckCircle className="mr-2 h-4 w-4" />
-                  Review & Approve
+                  Approve
                 </Button>
-                <Button variant="outline" className="w-full bg-transparent">
+                <Button
+                  variant="outline"
+                  className="w-full bg-transparent"
+                  onClick={() => setShowDeclineDialog(true)}
+                >
                   <XCircle className="mr-2 h-4 w-4" />
                   Decline Request
                 </Button>
@@ -112,6 +125,24 @@ export function RentalActions({
         onOpenChange={setShowCancelDialog}
         requestId={rentalDetails.id}
         listingName={rentalDetails.listingName}
+      />
+
+      {/* Approve Request Dialog */}
+      <ApproveRequestDialog
+        open={showApproveDialog}
+        onOpenChange={setShowApproveDialog}
+        requestId={rentalDetails.id}
+        listingName={rentalDetails.listingName}
+        renterName={rentalDetails.renterName}
+      />
+
+      {/* Decline Request Dialog */}
+      <DeclineRequestDialog
+        open={showDeclineDialog}
+        onOpenChange={setShowDeclineDialog}
+        requestId={rentalDetails.id}
+        listingName={rentalDetails.listingName}
+        renterName={rentalDetails.renterName}
       />
     </Card>
   );

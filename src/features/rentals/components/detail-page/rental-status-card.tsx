@@ -63,12 +63,21 @@ export function RentalStatusCard({ rentalDetails }: RentalStatusCardProps) {
             </div>
           )}
           {rentalDetails.rejectedAt && (
-            <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-red-600"></div>
-              <span className="text-sm">
-                {capitalize(rentalDetails.status)}:{" "}
-                {new Date(rentalDetails.rejectedAt).toLocaleString()}
-              </span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 rounded-full bg-red-600"></div>
+                <span className="text-sm">
+                  {capitalize(rentalDetails.status)}:{" "}
+                  {new Date(rentalDetails.rejectedAt).toLocaleString()}
+                </span>
+              </div>
+              {rentalDetails.rejectionReason && (
+                <div className="ml-5 rounded-md border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm text-red-800">
+                    <strong>Reason:</strong> {rentalDetails.rejectionReason}
+                  </p>
+                </div>
+              )}
             </div>
           )}
           {rentalDetails.status === "pending" && (

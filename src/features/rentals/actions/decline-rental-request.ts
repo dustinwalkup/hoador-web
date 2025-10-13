@@ -41,6 +41,7 @@ export async function declineRentalRequest(
 
   // Revalidate the relevant pages
   revalidatePath("/dashboard/lending/incoming");
+  revalidatePath("/dashboard/rental/[id]", "page");
 
   return {
     success: true,

@@ -273,6 +273,7 @@ export async function approveRentalRequest(
   revalidatePath("/dashboard/lending/active");
   revalidatePath("/dashboard/renting/pending");
   revalidatePath("/dashboard/renting/active");
+  revalidatePath("/dashboard/rental/[id]", "page");
 
   return {
     success: true,

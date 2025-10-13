@@ -155,7 +155,12 @@ export interface RentalDetails {
 // Utility types for specific components
 export type RentalStatusInfo = Pick<
   RentalDetails,
-  "status" | "totalAmount" | "createdAt" | "approvedAt" | "rejectedAt"
+  | "status"
+  | "totalAmount"
+  | "createdAt"
+  | "approvedAt"
+  | "rejectedAt"
+  | "rejectionReason"
 >;
 export type RentalListingInfo = Pick<
   RentalDetails,
@@ -211,7 +216,7 @@ export type RentalUserInfo = Pick<
 >;
 export type RentalActionsInfo = Pick<
   RentalDetails,
-  "id" | "listingId" | "listingName" | "status"
+  "id" | "listingId" | "listingName" | "renterName" | "status"
 >;
 export type RentalMessagesInfo = Pick<
   RentalDetails,
