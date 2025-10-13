@@ -266,7 +266,6 @@ export function ListingDetailView({
               profileImage: listing.owner.profileImageUrl,
               rating: listing.owner.averageRating,
               reviewCount: listing.owner.reviewCount,
-              verified: false, // Not available in listingDetails
               memberSince: listing.owner.memberSince.toISOString(),
             }}
             title="Listing Owner"

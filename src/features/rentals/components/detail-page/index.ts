@@ -8,3 +8,4 @@ export * from "./rental-reviews-card";
 export * from "./rental-user-info";
 export * from "./rental-actions";
 export * from "./rental-protection";
+export * from "./rental-details-server";

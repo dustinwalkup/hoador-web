@@ -1,6 +1,5 @@
-import { User, Star, Shield } from "lucide-react";
+import { User, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageOwnerButton } from "@/features/listings/components/message-owner-button";
 
@@ -11,7 +10,6 @@ interface UserCardProps {
     profileImage?: string;
     rating?: number;
     reviewCount?: number;
-    verified?: boolean;
     memberSince?: string;
     completedRentals?: number;
   };
@@ -64,15 +62,6 @@ export function UserCard({
           <div className="flex-1">
             <div className="mb-1 flex items-center gap-2">
               <h4 className="font-medium">{user.name}</h4>
-              {user.verified && (
-                <Badge
-                  variant="secondary"
-                  className="bg-blue-100 text-blue-800"
-                >
-                  <Shield className="mr-1 h-3 w-3" />
-                  Verified
-                </Badge>
-              )}
             </div>
             <div className="mb-2 flex items-center space-x-1">
               <Star
