@@ -188,6 +188,9 @@ export type RentalDetailsInfo = Pick<
   | "setupRequested"
   | "setupFee"
   | "selectedWindow"
+  | "pickupInstructions"
+  | "returnInstructions"
+  | "status"
 >;
 export type RentalUserInfo = Pick<
   RentalDetails,
@@ -1070,8 +1073,12 @@ export class RentalDAL extends BaseDAL {
           approvedAt: rentalRequests.approvedAt,
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,
+          // Join with rentals table to get pickup/return instructions if approved
+          pickupInstructions: rentals.pickupInstructions,
+          returnInstructions: rentals.returnInstructions,
         })
         .from(rentalRequests)
+        .leftJoin(rentals, eq(rentals.requestId, rentalRequests.id))
         .where(eq(rentalRequests.id, rentalId))
         .limit(1);
 
@@ -1204,6 +1211,8 @@ export class RentalDAL extends BaseDAL {
           setupRequested: request.setupRequested,
           setupFee: request.setupFee,
           message: request.message || undefined,
+          pickupInstructions: request.pickupInstructions || undefined,
+          returnInstructions: request.returnInstructions || undefined,
           status: request.status,
           createdAt: request.createdAt,
           approvedAt: request.approvedAt || undefined,

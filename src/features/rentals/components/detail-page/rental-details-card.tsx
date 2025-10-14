@@ -5,6 +5,7 @@ import {
   Clock,
   Wrench,
   ExternalLink,
+  Info,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -110,6 +111,41 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
                   <span>{rentalDetails.selectedWindow}</span>
                 </div>
               )}
+              {rentalDetails.status === "approved" &&
+                rentalDetails.pickupInstructions && (
+                  <div className="mt-3 rounded-md bg-blue-50 p-3">
+                    <div className="flex gap-2">
+                      <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">
+                          {rentalDetails.deliveryRequested
+                            ? "Delivery"
+                            : "Pickup"}{" "}
+                          Instructions
+                        </p>
+                        <p className="mt-1 text-sm text-blue-700">
+                          {rentalDetails.pickupInstructions}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              {rentalDetails.status === "active" &&
+                rentalDetails.returnInstructions && (
+                  <div className="mt-3 rounded-md bg-amber-50 p-3">
+                    <div className="flex gap-2">
+                      <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-900">
+                          Return Instructions
+                        </p>
+                        <p className="mt-1 text-sm text-amber-700">
+                          {rentalDetails.returnInstructions}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               {rentalDetails.setupRequested && (
                 <div className="mt-2 flex items-center gap-2 text-green-600">
                   <Wrench className="h-3 w-3" />
