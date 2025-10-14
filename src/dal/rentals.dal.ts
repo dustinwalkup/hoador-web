@@ -221,7 +221,13 @@ export type RentalUserInfo = Pick<
 >;
 export type RentalActionsInfo = Pick<
   RentalDetails,
-  "id" | "listingId" | "listingName" | "renterName" | "status"
+  | "id"
+  | "listingId"
+  | "listingName"
+  | "renterName"
+  | "status"
+  | "pickupInstructions"
+  | "returnInstructions"
 >;
 export type RentalMessagesInfo = Pick<
   RentalDetails,
@@ -1034,6 +1040,121 @@ export class RentalDAL extends BaseDAL {
         .where(eq(rentalRequests.id, requestId));
     } catch (error) {
       this.handleError(error, "declineRentalRequest");
+    }
+  }
+
+  /**
+   * Update rental instructions (pickup and return)
+   * Only the owner can update instructions for approved or active rentals
+   * @param rentalRequestId - The rental request ID (can be from either rental_requests or rentals table)
+   */
+  async updateRentalInstructions(
+    rentalRequestId: string,
+    pickupInstructions?: string,
+    returnInstructions?: string,
+  ): Promise<{
+    rental: {
+      id: string;
+      ownerId: string;
+      renterId: string;
+      listingId: string;
+      status: string;
+    };
+    renterEmail: string;
+    renterName: string;
+    ownerName: string;
+    listingName: string;
+  }> {
+    try {
+      // Get current user ID and verify authentication
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Get the rental by request ID and verify ownership
+      // Note: We look up by requestId since that's what getRentalDetailsById returns as the ID
+      const [rental] = await this.db
+        .select({
+          id: rentals.id,
+          ownerId: rentals.ownerId,
+          renterId: rentals.renterId,
+          listingId: rentals.listingId,
+          status: rentals.status,
+        })
+        .from(rentals)
+        .where(eq(rentals.requestId, rentalRequestId))
+        .limit(1);
+
+      if (!rental) {
+        throw new NotFoundError("Rental not found");
+      }
+
+      // Verify that the current user is the owner of the listing
+      if (rental.ownerId !== userId) {
+        throw new UnauthorizedError(
+          "Only the listing owner can update rental instructions",
+        );
+      }
+
+      // Verify that the rental is in approved or active status
+      if (rental.status !== "approved" && rental.status !== "active") {
+        throw new Error(
+          "Instructions can only be updated for approved or active rentals",
+        );
+      }
+
+      // Update the rental instructions using the actual rental ID
+      await this.db
+        .update(rentals)
+        .set({
+          pickupInstructions: pickupInstructions || null,
+          returnInstructions: returnInstructions || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(rentals.id, rental.id));
+
+      // Get renter and owner details for email notification
+      const [renterUser] = await this.db
+        .select({
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(user)
+        .where(eq(user.id, rental.renterId))
+        .limit(1);
+
+      const [ownerUser] = await this.db
+        .select({
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(user)
+        .where(eq(user.id, rental.ownerId))
+        .limit(1);
+
+      const [listing] = await this.db
+        .select({
+          name: listings.name,
+        })
+        .from(listings)
+        .where(eq(listings.id, rental.listingId))
+        .limit(1);
+
+      if (!renterUser || !ownerUser || !listing) {
+        throw new Error("Failed to fetch user or listing details");
+      }
+
+      return {
+        rental,
+        renterEmail: renterUser.email,
+        renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+        ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+        listingName: listing.name,
+      };
+    } catch (error) {
+      this.handleError(error, "updateRentalInstructions");
     }
   }
 

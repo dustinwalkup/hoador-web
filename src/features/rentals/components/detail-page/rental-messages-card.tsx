@@ -5,13 +5,13 @@ import type { RentalMessagesInfo } from "@/dal/rentals.dal";
 interface RentalMessagesCardProps {
   rentalDetails: RentalMessagesInfo;
   isRenter: boolean;
-  isOwner: boolean;
+  isOwner?: boolean;
 }
 
 export function RentalMessagesCard({
   rentalDetails,
   isRenter,
-  isOwner,
+  // isOwner,
 }: RentalMessagesCardProps) {
   return (
     <Card>
@@ -32,7 +32,7 @@ export function RentalMessagesCard({
           </div>
         )}
 
-        {rentalDetails.pickupInstructions && (
+        {/* {rentalDetails.pickupInstructions && (
           <div className="rounded-lg border border-green-200 bg-green-50 p-4">
             <h4 className="mb-2 flex items-center gap-2 font-medium">
               <User className="h-4 w-4" />
@@ -40,9 +40,9 @@ export function RentalMessagesCard({
             </h4>
             <p className="text-gray-700">{rentalDetails.pickupInstructions}</p>
           </div>
-        )}
+        )} */}
 
-        {rentalDetails.returnInstructions && (
+        {/* {rentalDetails.returnInstructions && (
           <div className="rounded-lg border border-green-200 bg-green-50 p-4">
             <h4 className="mb-2 flex items-center gap-2 font-medium">
               <User className="h-4 w-4" />
@@ -50,17 +50,15 @@ export function RentalMessagesCard({
             </h4>
             <p className="text-gray-700">{rentalDetails.returnInstructions}</p>
           </div>
-        )}
+        )} */}
 
-        {!rentalDetails.message &&
-          !rentalDetails.pickupInstructions &&
-          !rentalDetails.returnInstructions && (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <p className="text-center text-gray-600">
-                No messages or instructions for this rental.
-              </p>
-            </div>
-          )}
+        {!rentalDetails.message && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-center text-gray-600">
+              No messages or instructions for this rental.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

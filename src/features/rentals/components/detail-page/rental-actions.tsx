@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle,
   XCircle,
@@ -18,6 +19,7 @@ import { CancelRequestDialog } from "@/features/rentals/components/renting-lendi
 import {
   ApproveRequestDialog,
   DeclineRequestDialog,
+  UpdateInstructionsDialog,
 } from "@/features/rentals/components/renting-lending";
 
 interface RentalActionsProps {
@@ -32,9 +34,17 @@ export function RentalActions({
   isRenter,
   isOwner,
 }: RentalActionsProps) {
+  const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
+  const [showUpdateInstructionsDialog, setShowUpdateInstructionsDialog] =
+    useState(false);
+
+  const handleInstructionsUpdated = () => {
+    router.refresh();
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -104,7 +114,11 @@ export function RentalActions({
 
             {(rentalDetails.status === "approved" ||
               rentalDetails.status === "active") && (
-              <Button variant="outline" className="w-full bg-transparent">
+              <Button
+                variant="outline"
+                className="w-full bg-transparent"
+                onClick={() => setShowUpdateInstructionsDialog(true)}
+              >
                 <Edit className="mr-2 h-4 w-4" />
                 Update Instructions
               </Button>
@@ -143,6 +157,17 @@ export function RentalActions({
         requestId={rentalDetails.id}
         listingName={rentalDetails.listingName}
         renterName={rentalDetails.renterName}
+      />
+
+      {/* Update Instructions Dialog */}
+      <UpdateInstructionsDialog
+        open={showUpdateInstructionsDialog}
+        onOpenChange={setShowUpdateInstructionsDialog}
+        rentalId={rentalDetails.id}
+        listingName={rentalDetails.listingName}
+        currentPickupInstructions={rentalDetails.pickupInstructions}
+        currentReturnInstructions={rentalDetails.returnInstructions}
+        onSuccess={handleInstructionsUpdated}
       />
     </Card>
   );

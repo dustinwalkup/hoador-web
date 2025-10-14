@@ -9,3 +9,4 @@ export * from "./lending-request-card";
 export * from "./borrowed-listing-card";
 export * from "./approve-request-dialog";
 export * from "./decline-request-dialog";
+export * from "./update-instructions-dialog";
