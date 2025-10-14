@@ -335,8 +335,7 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
                   {request.status === "denied" && request.denialReason && (
                     <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
                       <p className="text-sm text-red-800">
-                        <strong>Denial reason:</strong>{" "}
-                        {request.denialReason}
+                        <strong>Denial reason:</strong> {request.denialReason}
                       </p>
                     </div>
                   )}

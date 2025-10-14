@@ -167,8 +167,7 @@ export function useAllRentingData() {
       denied.isLoading ||
       active.isLoading ||
       completed.isLoading,
-    hasError:
-      requests.error || denied.error || active.error || completed.error,
+    hasError: requests.error || denied.error || active.error || completed.error,
   };
 }
 
@@ -189,7 +188,6 @@ export function useAllLendingData() {
       denied.isLoading ||
       active.isLoading ||
       completed.isLoading,
-    hasError:
-      incoming.error || denied.error || active.error || completed.error,
+    hasError: incoming.error || denied.error || active.error || completed.error,
   };
 }
