@@ -129,12 +129,7 @@ export function ApproveRequestDialog({
           >
             Cancel
           </Button>
-          <Button
-            type="button"
-            onClick={handleApprove}
-            disabled={isPending}
-            className="bg-primary hover:bg-green-700"
-          >
+          <Button type="button" onClick={handleApprove} disabled={isPending}>
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

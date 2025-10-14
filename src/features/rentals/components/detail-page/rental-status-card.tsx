@@ -11,7 +11,7 @@ const getStatusDescription = (status: string) => {
     case "pending":
       return "Waiting for owner approval";
     case "approved":
-      return "Approved - Ready for pickup/delivery";
+      return "Approved";
     case "active":
       return "Currently in progress";
     case "completed":

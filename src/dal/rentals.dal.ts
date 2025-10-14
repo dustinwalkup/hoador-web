@@ -6,7 +6,7 @@ import {
   listingImages,
   listingAvailability,
 } from "@/db/schemas/listings.schema";
-import { user } from "@/db/schemas/user.schema";
+import { user, userAddresses } from "@/db/schemas/user.schema";
 import { type CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { differenceInDays } from "@/lib/utils/date.utils";
@@ -131,6 +131,7 @@ export interface RentalDetails {
   deliveryRequested: boolean;
   deliveryAddress?: string;
   deliveryFee: string;
+  pickupAddress?: string;
   setupRequested?: boolean;
   setupFee?: string;
   selectedWindow?: string;
@@ -183,6 +184,7 @@ export type RentalDetailsInfo = Pick<
   | "deliveryRequested"
   | "deliveryAddress"
   | "deliveryFee"
+  | "pickupAddress"
   | "setupRequested"
   | "setupFee"
   | "selectedWindow"
@@ -1137,6 +1139,19 @@ export class RentalDAL extends BaseDAL {
             ? ownerRatings.reduce((a, b) => a + b, 0) / ownerRatings.length
             : 0;
 
+        // Get owner's primary address for pickup
+        const ownerAddress = await this.db.query.userAddresses.findFirst({
+          where: and(
+            eq(userAddresses.userId, request.ownerId),
+            eq(userAddresses.isPrimary, true),
+          ),
+        });
+
+        // Format pickup address
+        const pickupAddress = ownerAddress
+          ? `${ownerAddress.street}, ${ownerAddress.city}, ${ownerAddress.state} ${ownerAddress.zipCode}`
+          : undefined;
+
         return {
           id: request.id,
           type: "request",
@@ -1185,6 +1200,7 @@ export class RentalDAL extends BaseDAL {
           deliveryRequested: request.deliveryRequested,
           deliveryAddress: request.deliveryAddress || undefined,
           deliveryFee: request.deliveryFee,
+          pickupAddress,
           setupRequested: request.setupRequested,
           setupFee: request.setupFee,
           message: request.message || undefined,
@@ -1310,6 +1326,19 @@ export class RentalDAL extends BaseDAL {
           ? ownerRatings.reduce((a, b) => a + b, 0) / ownerRatings.length
           : 0;
 
+      // Get owner's primary address for pickup
+      const ownerAddress = await this.db.query.userAddresses.findFirst({
+        where: and(
+          eq(userAddresses.userId, rentalData.ownerId),
+          eq(userAddresses.isPrimary, true),
+        ),
+      });
+
+      // Format pickup address
+      const pickupAddress = ownerAddress
+        ? `${ownerAddress.street}, ${ownerAddress.city}, ${ownerAddress.state} ${ownerAddress.zipCode}`
+        : undefined;
+
       return {
         id: rentalData.id,
         type: "rental",
@@ -1360,6 +1389,7 @@ export class RentalDAL extends BaseDAL {
         deliveryRequested: request[0]?.deliveryRequested || false,
         deliveryAddress: request[0]?.deliveryAddress || undefined,
         deliveryFee: request[0]?.deliveryFee || "0",
+        pickupAddress,
         setupRequested: request[0]?.setupRequested || false,
         setupFee: request[0]?.setupFee || "0",
         message: request[0]?.message || undefined,

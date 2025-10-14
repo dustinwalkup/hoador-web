@@ -1,4 +1,11 @@
-import { Calendar, MapPin, Truck, Clock, Wrench } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  Truck,
+  Clock,
+  Wrench,
+  ExternalLink,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { RentalDetailsInfo } from "@/dal/rentals.dal";
@@ -61,16 +68,40 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
               {rentalDetails.deliveryRequested ? (
                 <div>
                   <p className="font-medium">Delivery Address:</p>
-                  <p className="text-gray-600">
-                    {rentalDetails.deliveryAddress || "Address not specified"}
-                  </p>
+                  {rentalDetails.deliveryAddress ? (
+                    <a
+                      href={`https://maps.google.com/maps?q=${encodeURIComponent(rentalDetails.deliveryAddress)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      <span className="text-sm">
+                        {rentalDetails.deliveryAddress}
+                      </span>
+                      <ExternalLink className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </a>
+                  ) : (
+                    <p className="text-gray-600">Address not specified</p>
+                  )}
                 </div>
               ) : (
                 <div>
                   <p className="font-medium">Pickup Address:</p>
-                  <p className="text-gray-600">
-                    Contact owner for pickup location
-                  </p>
+                  {rentalDetails.pickupAddress ? (
+                    <a
+                      href={`https://maps.google.com/maps?q=${encodeURIComponent(rentalDetails.pickupAddress)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      <span className="text-sm">
+                        {rentalDetails.pickupAddress}
+                      </span>
+                      <ExternalLink className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </a>
+                  ) : (
+                    <p className="text-gray-600">Address not available</p>
+                  )}
                 </div>
               )}
               {rentalDetails.selectedWindow && (
