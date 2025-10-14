@@ -19,7 +19,7 @@ const statusDistribution = [
   { status: "completed", weight: 30 },
   { status: "cancelled", weight: 8 },
   { status: "overdue", weight: 7 },
-  { status: "rejected", weight: 5 },
+  { status: "denied", weight: 5 },
 ] as const;
 
 // Helper function to get weighted random status
@@ -46,7 +46,7 @@ function generateDatesForStatus(status: string) {
   let startDate: Date;
   let endDate: Date;
   let approvedAt: Date | null = null;
-  let rejectedAt: Date | null = null;
+  let deniedAt: Date | null = null;
   let actualStartDate: Date | null = null;
   let actualEndDate: Date | null = null;
 
@@ -123,9 +123,9 @@ function generateDatesForStatus(status: string) {
       }
       break;
 
-    case "rejected":
-      // Rejected requests
-      rejectedAt = faker.date.between({ from: createdAt, to: now });
+    case "denied":
+      // Denied requests
+      deniedAt = faker.date.between({ from: createdAt, to: now });
       startDate = faker.date.soon({ days: daysFromNow });
       endDate = new Date(
         startDate.getTime() + rentalDuration * 24 * 60 * 60 * 1000,
@@ -141,7 +141,7 @@ function generateDatesForStatus(status: string) {
     startDate,
     endDate,
     approvedAt,
-    rejectedAt,
+    deniedAt,
     actualStartDate,
     actualEndDate,
   };
@@ -214,9 +214,9 @@ async function main() {
       }),
       status,
       approvedAt: dates.approvedAt,
-      rejectedAt: dates.rejectedAt,
-      rejectionReason:
-        status === "rejected"
+      deniedAt: dates.deniedAt,
+      denialReason:
+        status === "denied"
           ? faker.helpers.arrayElement([
               "Tool not available for those dates",
               "Renter profile incomplete",

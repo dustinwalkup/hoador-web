@@ -19,7 +19,7 @@ export const rentalKeys = {
 };
 
 // Renting hooks
-export function useRentingRequests(status: "pending" | "rejected" = "pending") {
+export function useRentingRequests(status: "pending" | "denied" = "pending") {
   return useQuery({
     queryKey: rentalKeys.rentingByStatus(`requests-${status}`),
     queryFn: async (): Promise<RentalRequestItem[]> => {
@@ -74,7 +74,7 @@ export function useRentingCompleted() {
 
 // Lending hooks
 export function useLendingRequests(
-  status: "pending" | "rejected" | "active" | "completed" = "pending",
+  status: "pending" | "denied" | "active" | "completed" = "pending",
 ) {
   return useQuery({
     queryKey: rentalKeys.lendingByStatus(`requests-${status}`),
@@ -99,8 +99,8 @@ export function useLendingIncoming() {
   return useLendingRequests("pending");
 }
 
-export function useLendingRejected() {
-  return useLendingRequests("rejected");
+export function useLendingDenied() {
+  return useLendingRequests("denied");
 }
 
 export function useLendingActive() {
@@ -153,43 +153,41 @@ export function usePrefetchRental() {
 // Utility hook for getting all renting data at once (for tab switching)
 export function useAllRentingData() {
   const requests = useRentingRequests("pending");
-  const rejected = useRentingRequests("rejected");
+  const denied = useRentingRequests("denied");
   const active = useRentingActive();
   const completed = useRentingCompleted();
 
   return {
     requests,
-    rejected,
+    denied,
     active,
     completed,
     isLoading:
       requests.isLoading ||
-      rejected.isLoading ||
+      denied.isLoading ||
       active.isLoading ||
       completed.isLoading,
-    hasError:
-      requests.error || rejected.error || active.error || completed.error,
+    hasError: requests.error || denied.error || active.error || completed.error,
   };
 }
 
 // Utility hook for getting all lending data at once (for tab switching)
 export function useAllLendingData() {
   const incoming = useLendingIncoming();
-  const rejected = useLendingRejected();
+  const denied = useLendingDenied();
   const active = useLendingActive();
   const completed = useLendingCompleted();
 
   return {
     incoming,
-    rejected,
+    denied,
     active,
     completed,
     isLoading:
       incoming.isLoading ||
-      rejected.isLoading ||
+      denied.isLoading ||
       active.isLoading ||
       completed.isLoading,
-    hasError:
-      incoming.error || rejected.error || active.error || completed.error,
+    hasError: incoming.error || denied.error || active.error || completed.error,
   };
 }

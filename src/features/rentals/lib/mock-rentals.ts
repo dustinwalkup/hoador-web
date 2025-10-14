@@ -232,7 +232,7 @@ export const mockRentalsData: RentalsData = {
         reviewGiven: false,
       },
     ],
-    rejected: [
+    denied: [
       {
         id: "req-3",
         listing: {
@@ -247,10 +247,10 @@ export const mockRentalsData: RentalsData = {
         startDate: "2024-01-05",
         endDate: "2024-01-07",
         totalAmount: 150,
-        status: "rejected",
+        status: "denied",
         createdAt: "2024-01-02",
-        rejectedAt: "2024-01-03",
-        rejectionReason:
+        deniedAt: "2024-01-03",
+        denialReason:
           "listing not available for those dates due to maintenance.",
       },
     ],
@@ -361,9 +361,9 @@ export const mockRentalsData: RentalsData = {
         status: "completed",
       },
     ],
-    rejected: [
+    denied: [
       {
-        id: "lend-rejected-1",
+        id: "lend-denied-1",
         listing: {
           id: "18",
           name: "Pressure Washer",
@@ -381,10 +381,10 @@ export const mockRentalsData: RentalsData = {
         totalAmount: 105.0,
         securityDeposit: 25.0,
         deliveryRequested: true,
-        rejectedAt: "2024-01-10T16:45:00Z",
-        rejectionReason:
+        deniedAt: "2024-01-10T16:45:00Z",
+        denialReason:
           "listing is not available for those dates due to maintenance.",
-        status: "rejected",
+        status: "denied",
       },
     ],
   },

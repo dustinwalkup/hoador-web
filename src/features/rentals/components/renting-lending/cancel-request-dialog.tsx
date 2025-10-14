@@ -51,7 +51,7 @@ export function CancelRequestDialog({
               queryKey: rentalKeys.rentingByStatus("requests-pending"),
             }),
             queryClient.invalidateQueries({
-              queryKey: rentalKeys.rentingByStatus("requests-rejected"),
+              queryKey: rentalKeys.rentingByStatus("requests-denied"),
             }),
           ]);
 

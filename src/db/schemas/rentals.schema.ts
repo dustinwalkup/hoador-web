@@ -57,8 +57,8 @@ export const rentalRequests = pgTable(
     securityDepositAuthId: varchar("security_deposit_auth_id", { length: 255 }), // Stripe auth ID for security deposit hold
     status: rentalStatusEnum("status").default("pending").notNull(),
     approvedAt: timestamp("approved_at"),
-    rejectedAt: timestamp("rejected_at"),
-    rejectionReason: text("rejection_reason"),
+    deniedAt: timestamp("denied_at"),
+    denialReason: text("denial_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

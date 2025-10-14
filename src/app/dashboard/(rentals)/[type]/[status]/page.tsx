@@ -6,14 +6,14 @@ import { RentalsClient } from "../../_components/rentals-client";
 interface RentalsPageProps {
   params: Promise<{
     type: "renting" | "lending";
-    status: "requests" | "active" | "completed" | "rejected" | "incoming";
+    status: "requests" | "active" | "completed" | "denied" | "incoming";
   }>;
 }
 
 // Valid routes configuration
 const validRoutes: Record<string, string[]> = {
-  renting: ["requests", "active", "completed", "rejected"],
-  lending: ["incoming", "active", "completed", "rejected"],
+  renting: ["requests", "active", "completed", "denied"],
+  lending: ["incoming", "active", "completed", "denied"],
 };
 
 function RentalsPageSkeleton() {

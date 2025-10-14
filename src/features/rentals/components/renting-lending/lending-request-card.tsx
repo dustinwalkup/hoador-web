@@ -34,7 +34,7 @@ const getStatusIcon = (status: string) => {
       return <CheckCircle className="h-4 w-4 text-green-600" />;
     case "completed":
       return <CheckCircle className="h-4 w-4 text-blue-600" />;
-    case "rejected":
+    case "denied":
     case "cancelled":
       return <XCircle className="h-4 w-4 text-red-600" />;
     default:
@@ -51,7 +51,7 @@ const getStatusColor = (status: string) => {
       return "bg-green-100 text-green-800";
     case "completed":
       return "bg-blue-100 text-blue-800";
-    case "rejected":
+    case "denied":
     case "cancelled":
       return "bg-red-100 text-red-800";
     default:
@@ -182,11 +182,11 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
               </div>
             )}
 
-            {/* Rejection Reason */}
-            {request.status === "rejected" && request.rejectionReason && (
+            {/* Denial Reason */}
+            {request.status === "denied" && request.denialReason && (
               <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3">
                 <p className="text-sm text-red-800">
-                  <strong>Rejection reason:</strong> {request.rejectionReason}
+                  <strong>Denial reason:</strong> {request.denialReason}
                 </p>
               </div>
             )}
@@ -332,11 +332,10 @@ export function LendingRequestCard({ request }: LendingRequestCardProps) {
                     </div>
                   )}
 
-                  {request.status === "rejected" && request.rejectionReason && (
+                  {request.status === "denied" && request.denialReason && (
                     <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
                       <p className="text-sm text-red-800">
-                        <strong>Rejection reason:</strong>{" "}
-                        {request.rejectionReason}
+                        <strong>Denial reason:</strong> {request.denialReason}
                       </p>
                     </div>
                   )}

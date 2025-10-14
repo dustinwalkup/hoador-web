@@ -82,7 +82,9 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
               {rentalDetails.setupRequested && (
                 <div className="mt-2 flex items-center gap-2 text-green-600">
                   <Wrench className="h-3 w-3" />
-                  <span className="text-sm font-medium">Setup service requested</span>
+                  <span className="text-sm font-medium">
+                    Setup service requested
+                  </span>
                 </div>
               )}
             </div>

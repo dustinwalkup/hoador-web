@@ -8,7 +8,7 @@ import {
   useRentingActive,
   useRentingCompleted,
   useLendingIncoming,
-  useLendingRejected,
+  useLendingDenied,
   useLendingActive,
   useLendingCompleted,
 } from "@/features/rentals/hooks/use-rentals";
@@ -49,12 +49,12 @@ export function RentalsClient({
 
   // Data fetching hooks - only fetch what we need based on current tab
   const rentingRequests = useRentingRequests("pending");
-  const rentingRejected = useRentingRequests("rejected");
+  const rentingDenied = useRentingRequests("denied");
   const rentingActive = useRentingActive();
   const rentingCompleted = useRentingCompleted();
 
   const lendingIncoming = useLendingIncoming();
-  const lendingRejected = useLendingRejected();
+  const lendingDenied = useLendingDenied();
   const lendingActive = useLendingActive();
   const lendingCompleted = useLendingCompleted();
 
@@ -63,16 +63,16 @@ export function RentalsClient({
     switch (currentTab) {
       case "renting-requests":
         return rentingRequests;
-      case "renting-rejected":
-        return rentingRejected;
+      case "renting-denied":
+        return rentingDenied;
       case "renting-active":
         return rentingActive;
       case "renting-completed":
         return rentingCompleted;
       case "lending-incoming":
         return lendingIncoming;
-      case "lending-rejected":
-        return lendingRejected;
+      case "lending-denied":
+        return lendingDenied;
       case "lending-active":
         return lendingActive;
       case "lending-completed":
@@ -131,14 +131,14 @@ export function RentalsClient({
 
     // Render appropriate component based on tab
     if (activeType === "renting") {
-      if (activeStatus === "requests" || activeStatus === "rejected") {
+      if (activeStatus === "requests" || activeStatus === "denied") {
         return (
           <RentingRequestsListWrapper
             data={data as RentalRequestItem[]}
             emptyStateMessage={
               activeStatus === "requests"
                 ? "No pending requests."
-                : "No rejected requests."
+                : "No denied requests."
             }
             emptyStateAction={
               activeStatus === "requests"
@@ -182,14 +182,14 @@ export function RentalsClient({
                 <TabsTrigger value="renting-requests">Requests</TabsTrigger>
                 <TabsTrigger value="renting-active">Active</TabsTrigger>
                 <TabsTrigger value="renting-completed">Completed</TabsTrigger>
-                <TabsTrigger value="renting-rejected">Rejected</TabsTrigger>
+                <TabsTrigger value="renting-denied">Denied</TabsTrigger>
               </>
             ) : (
               <>
                 <TabsTrigger value="lending-incoming">Incoming</TabsTrigger>
                 <TabsTrigger value="lending-active">Active</TabsTrigger>
                 <TabsTrigger value="lending-completed">Completed</TabsTrigger>
-                <TabsTrigger value="lending-rejected">Rejected</TabsTrigger>
+                <TabsTrigger value="lending-denied">Denied</TabsTrigger>
               </>
             )}
           </TabsList>

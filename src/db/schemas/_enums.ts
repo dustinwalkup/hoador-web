@@ -12,7 +12,7 @@ export const userStatusEnum = pgEnum("user_status", [
 export const verificationStatusEnum = pgEnum("verification_status", [
   "pending",
   "verified",
-  "rejected",
+  "denied",
 ]);
 
 export const listingStatusEnum = pgEnum("listing_status", [
@@ -29,7 +29,7 @@ export const rentalStatusEnum = pgEnum("rental_status", [
   "completed",
   "cancelled",
   "overdue",
-  "rejected",
+  "denied",
 ]);
 
 export const paymentStatusEnum = pgEnum("payment_status", [
