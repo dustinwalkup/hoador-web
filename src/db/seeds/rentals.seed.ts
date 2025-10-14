@@ -246,7 +246,6 @@ async function main() {
         actualEndDate: dates.actualEndDate,
         totalAmount,
         securityDeposit: listing.securityDeposit,
-        status,
         pickupInstructions: faker.helpers.maybe(
           () => faker.lorem.sentences(2),
           { probability: 0.8 },
@@ -289,7 +288,7 @@ async function main() {
   console.log("🏁 Generating reviews for completed rentals...");
 
   // Generate reviews only for completed rentals (realistic approach)
-  const completedRentals = seedRentals.filter((r) => r.status === "completed");
+  const completedRentals = seedRentals.filter((r) => r.actualEndDate);
 
   for (const rental of completedRentals) {
     // 80% chance of getting a review from renter

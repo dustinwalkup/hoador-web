@@ -61,6 +61,24 @@ export function RentalStatusCard({ rentalDetails }: RentalStatusCardProps) {
               </span>
             </div>
           )}
+          {rentalDetails.actualStartDate && (
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-green-600"></div>
+              <span className="text-sm">
+                Rental started:{" "}
+                {new Date(rentalDetails.actualStartDate).toLocaleString()}
+              </span>
+            </div>
+          )}
+          {rentalDetails.actualEndDate && (
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-green-600"></div>
+              <span className="text-sm">
+                Rental ended:{" "}
+                {new Date(rentalDetails.actualEndDate).toLocaleString()}
+              </span>
+            </div>
+          )}
           {rentalDetails.deniedAt && (
             <div className="space-y-2">
               <div className="flex items-center gap-3">

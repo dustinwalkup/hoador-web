@@ -162,6 +162,8 @@ export type RentalStatusInfo = Pick<
   | "approvedAt"
   | "deniedAt"
   | "denialReason"
+  | "actualStartDate"
+  | "actualEndDate"
 >;
 export type RentalListingInfo = Pick<
   RentalDetails,
@@ -226,6 +228,7 @@ export type RentalActionsInfo = Pick<
   | "listingName"
   | "renterName"
   | "status"
+  | "startDate"
   | "pickupInstructions"
   | "returnInstructions"
 >;
@@ -238,11 +241,11 @@ export class RentalDAL extends BaseDAL {
   async countBorrowedListings(userId: string): Promise<number> {
     const result = await this.db
       .select()
-      .from(rentals)
+      .from(rentalRequests)
       .where(
         and(
-          eq(rentals.renterId, userId),
-          inArray(rentals.status, ["approved", "completed"]),
+          eq(rentalRequests.renterId, userId),
+          inArray(rentalRequests.status, ["approved", "completed"]),
         ),
       );
 
@@ -252,11 +255,11 @@ export class RentalDAL extends BaseDAL {
   async countSharedListings(userId: string): Promise<number> {
     const result = await this.db
       .select()
-      .from(rentals)
+      .from(rentalRequests)
       .where(
         and(
-          eq(rentals.ownerId, userId),
-          inArray(rentals.status, ["approved", "completed"]),
+          eq(rentalRequests.ownerId, userId),
+          inArray(rentalRequests.status, ["approved", "completed"]),
         ),
       );
 
@@ -276,28 +279,27 @@ export class RentalDAL extends BaseDAL {
       // Get all active and approved rentals for the user
       const allRentals = await this.db
         .select({
-          id: rentals.id,
-          listingId: rentals.listingId,
+          id: rentalRequests.id,
+          listingId: rentalRequests.listingId,
           listingName: listings.name,
-          ownerId: rentals.ownerId,
+          ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
-          startDate: rentals.startDate,
-          endDate: rentals.endDate,
-          totalAmount: rentals.totalAmount,
-          status: rentals.status,
+          startDate: rentalRequests.startDate,
+          endDate: rentalRequests.endDate,
+          totalAmount: rentalRequests.totalAmount,
+          status: rentalRequests.status,
           dailyRate: rentalRequests.dailyRate,
         })
-        .from(rentals)
-        .innerJoin(listings, eq(rentals.listingId, listings.id))
-        .innerJoin(user, eq(rentals.ownerId, user.id))
-        .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
         .where(
           and(
-            eq(rentals.renterId, userId),
-            inArray(rentals.status, ["approved", "active"]),
+            eq(rentalRequests.renterId, userId),
+            inArray(rentalRequests.status, ["approved", "active"]),
           ),
         )
-        .orderBy(rentals.startDate);
+        .orderBy(rentalRequests.startDate);
 
       // Get images for all listings
       const listingIds = [
@@ -711,23 +713,27 @@ export class RentalDAL extends BaseDAL {
       // Get rentals with related data
       const rentalsList = await this.db
         .select({
-          id: rentals.id,
-          listingId: rentals.listingId,
+          id: rentalRequests.id,
+          listingId: rentalRequests.listingId,
           listingName: listings.name,
-          ownerId: rentals.ownerId,
+          ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
-          startDate: rentals.startDate,
-          endDate: rentals.endDate,
-          totalAmount: rentals.totalAmount,
-          status: rentals.status,
+          startDate: rentalRequests.startDate,
+          endDate: rentalRequests.endDate,
+          totalAmount: rentalRequests.totalAmount,
+          status: rentalRequests.status,
           dailyRate: rentalRequests.dailyRate,
         })
-        .from(rentals)
-        .innerJoin(listings, eq(rentals.listingId, listings.id))
-        .innerJoin(user, eq(rentals.ownerId, user.id))
-        .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
-        .where(and(eq(rentals.renterId, userId), eq(rentals.status, status)))
-        .orderBy(rentals.startDate);
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .where(
+          and(
+            eq(rentalRequests.renterId, userId),
+            eq(rentalRequests.status, status),
+          ),
+        )
+        .orderBy(rentalRequests.startDate);
 
       // Get images for all listings
       const listingIds = [
@@ -776,20 +782,20 @@ export class RentalDAL extends BaseDAL {
       // Get rentals where current user is the owner
       const rentalsList = await this.db
         .select({
-          id: rentals.id,
-          listingId: rentals.listingId,
+          id: rentalRequests.id,
+          listingId: rentalRequests.listingId,
           listingName: listings.name,
-          renterId: rentals.renterId,
+          renterId: rentalRequests.renterId,
           renterName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
           renterProfileImage: user.profileImageUrl,
-          startDate: rentals.startDate,
-          endDate: rentals.endDate,
+          startDate: rentalRequests.startDate,
+          endDate: rentalRequests.endDate,
           totalDays: rentalRequests.totalDays,
           dailyRate: rentalRequests.dailyRate,
-          totalAmount: rentals.totalAmount,
+          totalAmount: rentalRequests.totalAmount,
           securityDeposit: rentalRequests.securityDeposit,
-          status: rentals.status,
-          createdAt: rentals.createdAt,
+          status: rentalRequests.status,
+          createdAt: rentalRequests.createdAt,
           deliveryRequested: rentalRequests.deliveryRequested,
           deliveryAddress: rentalRequests.deliveryAddress,
           deliveryFee: rentalRequests.deliveryFee,
@@ -798,12 +804,16 @@ export class RentalDAL extends BaseDAL {
           denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
         })
-        .from(rentals)
-        .innerJoin(listings, eq(rentals.listingId, listings.id))
-        .innerJoin(user, eq(rentals.renterId, user.id))
-        .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
-        .where(and(eq(rentals.ownerId, userId), eq(rentals.status, status)))
-        .orderBy(rentals.createdAt);
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.renterId, user.id))
+        .where(
+          and(
+            eq(rentalRequests.ownerId, userId),
+            eq(rentalRequests.status, status),
+          ),
+        )
+        .orderBy(rentalRequests.createdAt);
 
       // Get images for all listings
       const listingIds = [
@@ -983,7 +993,6 @@ export class RentalDAL extends BaseDAL {
         setupFee: request.setupFee,
         rentalPaymentIntentId: options?.rentalPaymentIntentId || null,
         securityDepositAuthId: options?.securityDepositAuthId || null,
-        status: "approved",
         pickupInstructions: options?.pickupInstructions || null,
         returnInstructions: options?.returnInstructions || null,
       });
@@ -1072,39 +1081,41 @@ export class RentalDAL extends BaseDAL {
         throw new UnauthorizedError("Authentication required");
       }
 
-      // Get the rental by request ID and verify ownership
-      // Note: We look up by requestId since that's what getRentalDetailsById returns as the ID
-      const [rental] = await this.db
+      // Get the rental request to verify ownership and status
+      const [rentalRequest] = await this.db
         .select({
-          id: rentals.id,
-          ownerId: rentals.ownerId,
-          renterId: rentals.renterId,
-          listingId: rentals.listingId,
-          status: rentals.status,
+          id: rentalRequests.id,
+          ownerId: rentalRequests.ownerId,
+          renterId: rentalRequests.renterId,
+          listingId: rentalRequests.listingId,
+          status: rentalRequests.status,
         })
-        .from(rentals)
-        .where(eq(rentals.requestId, rentalRequestId))
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, rentalRequestId))
         .limit(1);
 
-      if (!rental) {
+      if (!rentalRequest) {
         throw new NotFoundError("Rental not found");
       }
 
       // Verify that the current user is the owner of the listing
-      if (rental.ownerId !== userId) {
+      if (rentalRequest.ownerId !== userId) {
         throw new UnauthorizedError(
           "Only the listing owner can update rental instructions",
         );
       }
 
-      // Verify that the rental is in approved or active status
-      if (rental.status !== "approved" && rental.status !== "active") {
+      // Verify status from rental_requests
+      if (
+        rentalRequest.status !== "approved" &&
+        rentalRequest.status !== "active"
+      ) {
         throw new Error(
           "Instructions can only be updated for approved or active rentals",
         );
       }
 
-      // Update the rental instructions using the actual rental ID
+      // Update the rental instructions in the rentals table
       await this.db
         .update(rentals)
         .set({
@@ -1112,7 +1123,7 @@ export class RentalDAL extends BaseDAL {
           returnInstructions: returnInstructions || null,
           updatedAt: new Date(),
         })
-        .where(eq(rentals.id, rental.id));
+        .where(eq(rentals.requestId, rentalRequestId));
 
       // Get renter and owner details for email notification
       const [renterUser] = await this.db
@@ -1122,7 +1133,7 @@ export class RentalDAL extends BaseDAL {
           lastName: user.lastName,
         })
         .from(user)
-        .where(eq(user.id, rental.renterId))
+        .where(eq(user.id, rentalRequest.renterId))
         .limit(1);
 
       const [ownerUser] = await this.db
@@ -1131,7 +1142,7 @@ export class RentalDAL extends BaseDAL {
           lastName: user.lastName,
         })
         .from(user)
-        .where(eq(user.id, rental.ownerId))
+        .where(eq(user.id, rentalRequest.ownerId))
         .limit(1);
 
       const [listing] = await this.db
@@ -1139,7 +1150,7 @@ export class RentalDAL extends BaseDAL {
           name: listings.name,
         })
         .from(listings)
-        .where(eq(listings.id, rental.listingId))
+        .where(eq(listings.id, rentalRequest.listingId))
         .limit(1);
 
       if (!renterUser || !ownerUser || !listing) {
@@ -1147,7 +1158,13 @@ export class RentalDAL extends BaseDAL {
       }
 
       return {
-        rental,
+        rental: {
+          id: rentalRequest.id,
+          ownerId: rentalRequest.ownerId,
+          renterId: rentalRequest.renterId,
+          listingId: rentalRequest.listingId,
+          status: rentalRequest.status,
+        },
         renterEmail: renterUser.email,
         renterName: `${renterUser.firstName} ${renterUser.lastName}`,
         ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
@@ -1194,9 +1211,11 @@ export class RentalDAL extends BaseDAL {
           approvedAt: rentalRequests.approvedAt,
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,
-          // Join with rentals table to get pickup/return instructions if approved
+          // Join with rentals table to get pickup/return instructions and actual dates if approved
           pickupInstructions: rentals.pickupInstructions,
           returnInstructions: rentals.returnInstructions,
+          actualStartDate: rentals.actualStartDate,
+          actualEndDate: rentals.actualEndDate,
         })
         .from(rentalRequests)
         .leftJoin(rentals, eq(rentals.requestId, rentalRequests.id))
@@ -1243,11 +1262,11 @@ export class RentalDAL extends BaseDAL {
         // Get renter completed rentals count
         const renterCompletedRentals = await this.db
           .select()
-          .from(rentals)
+          .from(rentalRequests)
           .where(
             and(
-              eq(rentals.renterId, request.renterId),
-              eq(rentals.status, "completed"),
+              eq(rentalRequests.renterId, request.renterId),
+              eq(rentalRequests.status, "completed"),
             ),
           );
 
@@ -1339,11 +1358,13 @@ export class RentalDAL extends BaseDAL {
           approvedAt: request.approvedAt || undefined,
           deniedAt: request.deniedAt || undefined,
           denialReason: request.denialReason || undefined,
+          actualStartDate: request.actualStartDate || undefined,
+          actualEndDate: request.actualEndDate || undefined,
           currentUserId: userId,
         };
       }
 
-      // If not found as request, try as rental
+      // If not found as request, try as rental (this shouldn't happen as we use request IDs)
       const rental = await this.db
         .select({
           id: rentals.id,
@@ -1357,7 +1378,6 @@ export class RentalDAL extends BaseDAL {
           actualEndDate: rentals.actualEndDate,
           totalAmount: rentals.totalAmount,
           securityDeposit: rentals.securityDeposit,
-          status: rentals.status,
           pickupInstructions: rentals.pickupInstructions,
           returnInstructions: rentals.returnInstructions,
           conditionAtPickup: rentals.conditionAtPickup,
@@ -1395,6 +1415,7 @@ export class RentalDAL extends BaseDAL {
           setupRequested: rentalRequests.setupRequested,
           setupFee: rentalRequests.setupFee,
           message: rentalRequests.message,
+          status: rentalRequests.status,
         })
         .from(rentalRequests)
         .where(eq(rentalRequests.id, rentalData.requestId))
@@ -1432,11 +1453,11 @@ export class RentalDAL extends BaseDAL {
       // Get renter completed rentals count
       const renterCompletedRentals = await this.db
         .select()
-        .from(rentals)
+        .from(rentalRequests)
         .where(
           and(
-            eq(rentals.renterId, rentalData.renterId),
-            eq(rentals.status, "completed"),
+            eq(rentalRequests.renterId, rentalData.renterId),
+            eq(rentalRequests.status, "completed"),
           ),
         );
 
@@ -1532,7 +1553,7 @@ export class RentalDAL extends BaseDAL {
         damagePhotos: rentalData.damagePhotos || [],
         extensionRequested: rentalData.extensionRequested || false,
         extensionApproved: rentalData.extensionApproved || false,
-        status: rentalData.status,
+        status: request[0]?.status || "approved",
         createdAt: rentalData.createdAt,
         currentUserId: userId,
       };
@@ -1554,17 +1575,17 @@ export class RentalDAL extends BaseDAL {
       // Get booked rentals (approved/active)
       const bookedRentals = await this.db
         .select({
-          startDate: rentals.startDate,
-          endDate: rentals.endDate,
+          startDate: rentalRequests.startDate,
+          endDate: rentalRequests.endDate,
         })
-        .from(rentals)
+        .from(rentalRequests)
         .where(
           and(
-            eq(rentals.listingId, listingId),
-            inArray(rentals.status, ["approved", "active"]),
+            eq(rentalRequests.listingId, listingId),
+            inArray(rentalRequests.status, ["approved", "active"]),
           ),
         )
-        .orderBy(rentals.startDate);
+        .orderBy(rentalRequests.startDate);
 
       // Get manual availability blocks
       const manualBlocks = await this.db
@@ -1598,6 +1619,257 @@ export class RentalDAL extends BaseDAL {
       return allBlockedDates;
     } catch (error) {
       this.handleError(error, "getBookedDatesForListing");
+    }
+  }
+
+  /**
+   * Start a rental
+   * Only the owner can start their approved rentals on or after the start date
+   */
+  async startRental(rentalId: string): Promise<{
+    rental: {
+      id: string;
+      ownerId: string;
+      renterId: string;
+      listingId: string;
+      status: string;
+    };
+    renterEmail: string;
+    renterName: string;
+    ownerName: string;
+    listingName: string;
+  }> {
+    try {
+      // Get current user ID and verify authentication
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Get the rental request to verify ownership and status
+      const [request] = await this.db
+        .select({
+          id: rentalRequests.id,
+          ownerId: rentalRequests.ownerId,
+          renterId: rentalRequests.renterId,
+          listingId: rentalRequests.listingId,
+          status: rentalRequests.status,
+          startDate: rentalRequests.startDate,
+        })
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, rentalId))
+        .limit(1);
+
+      if (!request) {
+        throw new NotFoundError("Rental request not found");
+      }
+
+      // Verify that the current user is the owner of the listing
+      if (request.ownerId !== userId) {
+        throw new UnauthorizedError("Only the listing owner can start rentals");
+      }
+
+      // Verify that the rental is in approved status
+      if (request.status !== "approved") {
+        throw new Error("Only approved rentals can be started");
+      }
+
+      // Verify that the current date is on or after the start date
+      const now = new Date();
+      const startDate = new Date(request.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      now.setHours(0, 0, 0, 0);
+
+      if (now < startDate) {
+        throw new Error(
+          "Rental cannot be started before the scheduled start date",
+        );
+      }
+
+      // Update the rental_requests status to active
+      await this.db
+        .update(rentalRequests)
+        .set({
+          status: "active",
+          updatedAt: new Date(),
+        })
+        .where(eq(rentalRequests.id, rentalId));
+
+      // Update the rentals table with actual start date
+      await this.db
+        .update(rentals)
+        .set({
+          actualStartDate: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(rentals.requestId, rentalId));
+
+      // Get renter and owner details for email notification
+      const [renterUser] = await this.db
+        .select({
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(user)
+        .where(eq(user.id, request.renterId))
+        .limit(1);
+
+      const [ownerUser] = await this.db
+        .select({
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(user)
+        .where(eq(user.id, request.ownerId))
+        .limit(1);
+
+      const [listing] = await this.db
+        .select({
+          name: listings.name,
+        })
+        .from(listings)
+        .where(eq(listings.id, request.listingId))
+        .limit(1);
+
+      if (!renterUser || !ownerUser || !listing) {
+        throw new Error("Failed to fetch user or listing details");
+      }
+
+      return {
+        rental: {
+          id: request.id,
+          ownerId: request.ownerId,
+          renterId: request.renterId,
+          listingId: request.listingId,
+          status: "active",
+        },
+        renterEmail: renterUser.email,
+        renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+        ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+        listingName: listing.name,
+      };
+    } catch (error) {
+      this.handleError(error, "startRental");
+    }
+  }
+
+  /**
+   * End a rental
+   * Only the owner can end their active rentals
+   */
+  async endRental(rentalId: string): Promise<{
+    rental: {
+      id: string;
+      ownerId: string;
+      renterId: string;
+      listingId: string;
+      status: string;
+    };
+    renterEmail: string;
+    renterName: string;
+    ownerName: string;
+    listingName: string;
+  }> {
+    try {
+      // Get current user ID and verify authentication
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Get the rental request to verify ownership and status
+      const [request] = await this.db
+        .select({
+          id: rentalRequests.id,
+          ownerId: rentalRequests.ownerId,
+          renterId: rentalRequests.renterId,
+          listingId: rentalRequests.listingId,
+          status: rentalRequests.status,
+        })
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, rentalId))
+        .limit(1);
+
+      if (!request) {
+        throw new NotFoundError("Rental request not found");
+      }
+
+      // Verify that the current user is the owner of the listing
+      if (request.ownerId !== userId) {
+        throw new UnauthorizedError("Only the listing owner can end rentals");
+      }
+
+      // Verify that the rental is in active status
+      if (request.status !== "active") {
+        throw new Error("Only active rentals can be ended");
+      }
+
+      // Update the rental_requests status to completed
+      await this.db
+        .update(rentalRequests)
+        .set({
+          status: "completed",
+          updatedAt: new Date(),
+        })
+        .where(eq(rentalRequests.id, rentalId));
+
+      // Update the rentals table with actual end date
+      await this.db
+        .update(rentals)
+        .set({
+          actualEndDate: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(rentals.requestId, rentalId));
+
+      // Get renter and owner details for email notification
+      const [renterUser] = await this.db
+        .select({
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(user)
+        .where(eq(user.id, request.renterId))
+        .limit(1);
+
+      const [ownerUser] = await this.db
+        .select({
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(user)
+        .where(eq(user.id, request.ownerId))
+        .limit(1);
+
+      const [listing] = await this.db
+        .select({
+          name: listings.name,
+        })
+        .from(listings)
+        .where(eq(listings.id, request.listingId))
+        .limit(1);
+
+      if (!renterUser || !ownerUser || !listing) {
+        throw new Error("Failed to fetch user or listing details");
+      }
+
+      return {
+        rental: {
+          id: request.id,
+          ownerId: request.ownerId,
+          renterId: request.renterId,
+          listingId: request.listingId,
+          status: "completed",
+        },
+        renterEmail: renterUser.email,
+        renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+        ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+        listingName: listing.name,
+      };
+    } catch (error) {
+      this.handleError(error, "endRental");
     }
   }
 }

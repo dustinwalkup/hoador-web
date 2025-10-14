@@ -106,7 +106,6 @@ export const rentals = pgTable(
       .notNull(),
     rentalPaymentIntentId: varchar("rental_payment_intent_id", { length: 255 }), // Stripe payment intent ID for rental charge
     securityDepositAuthId: varchar("security_deposit_auth_id", { length: 255 }), // Stripe auth ID for security deposit hold
-    status: rentalStatusEnum("status").default("approved").notNull(),
     pickupInstructions: text("pickup_instructions"),
     returnInstructions: text("return_instructions"),
     conditionAtPickup: text("condition_at_pickup"),
@@ -127,7 +126,6 @@ export const rentals = pgTable(
     listingIdIdx: index("rentals_listing_id_idx").on(table.listingId),
     renterIdIdx: index("rentals_renter_id_idx").on(table.renterId),
     ownerIdIdx: index("rentals_owner_id_idx").on(table.ownerId),
-    statusIdx: index("rentals_status_idx").on(table.status),
     dateRangeIdx: index("rentals_date_range_idx").on(
       table.startDate,
       table.endDate,

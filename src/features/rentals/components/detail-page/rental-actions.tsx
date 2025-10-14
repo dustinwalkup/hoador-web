@@ -11,6 +11,7 @@ import {
   Plus,
   Edit,
   Download,
+  PlayCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,8 @@ import {
   ApproveRequestDialog,
   DeclineRequestDialog,
   UpdateInstructionsDialog,
+  StartRentalDialog,
+  EndRentalDialog,
 } from "@/features/rentals/components/renting-lending";
 
 interface RentalActionsProps {
@@ -40,9 +43,24 @@ export function RentalActions({
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
   const [showUpdateInstructionsDialog, setShowUpdateInstructionsDialog] =
     useState(false);
+  const [showStartRentalDialog, setShowStartRentalDialog] = useState(false);
+  const [showEndRentalDialog, setShowEndRentalDialog] = useState(false);
 
   const handleInstructionsUpdated = () => {
     router.refresh();
+  };
+
+  const handleRentalStatusChanged = () => {
+    router.refresh();
+  };
+
+  // Check if current date is on or after start date
+  const isStartDateReached = () => {
+    const now = new Date();
+    const startDate = new Date(rentalDetails.startDate);
+    now.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    return now >= startDate;
   };
 
   return (
@@ -67,10 +85,10 @@ export function RentalActions({
 
             {rentalDetails.status === "active" && (
               <>
-                <Button variant="outline" className="w-full bg-transparent">
+                {/* <Button variant="outline" className="w-full bg-transparent">
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Request Extension
-                </Button>
+                </Button> */}
                 <Button variant="outline" className="w-full bg-transparent">
                   <Flag className="mr-2 h-4 w-4" />
                   Report Issue
@@ -110,6 +128,26 @@ export function RentalActions({
                   Decline Request
                 </Button>
               </>
+            )}
+
+            {rentalDetails.status === "approved" && isStartDateReached() && (
+              <Button
+                className="w-full"
+                onClick={() => setShowStartRentalDialog(true)}
+              >
+                <PlayCircle className="mr-2 h-4 w-4" />
+                Start Rental
+              </Button>
+            )}
+
+            {rentalDetails.status === "active" && (
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowEndRentalDialog(true)}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                End Rental
+              </Button>
             )}
 
             {(rentalDetails.status === "approved" ||
@@ -168,6 +206,26 @@ export function RentalActions({
         currentPickupInstructions={rentalDetails.pickupInstructions}
         currentReturnInstructions={rentalDetails.returnInstructions}
         onSuccess={handleInstructionsUpdated}
+      />
+
+      {/* Start Rental Dialog */}
+      <StartRentalDialog
+        open={showStartRentalDialog}
+        onOpenChange={setShowStartRentalDialog}
+        rentalId={rentalDetails.id}
+        listingName={rentalDetails.listingName}
+        renterName={rentalDetails.renterName}
+        onSuccess={handleRentalStatusChanged}
+      />
+
+      {/* End Rental Dialog */}
+      <EndRentalDialog
+        open={showEndRentalDialog}
+        onOpenChange={setShowEndRentalDialog}
+        rentalId={rentalDetails.id}
+        listingName={rentalDetails.listingName}
+        renterName={rentalDetails.renterName}
+        onSuccess={handleRentalStatusChanged}
       />
     </Card>
   );
