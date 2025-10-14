@@ -98,7 +98,7 @@ export function RentalActions({
 
             {rentalDetails.status === "completed" && (
               <Link href={`/listings/${rentalDetails.listingId}/rent`}>
-                <Button className="w-full">
+                <Button className="mb-3 w-full">
                   <Plus className="mr-2 h-4 w-4" />
                   Rent Again
                 </Button>

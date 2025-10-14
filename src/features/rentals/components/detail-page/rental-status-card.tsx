@@ -36,12 +36,6 @@ export function RentalStatusCard({ rentalDetails }: RentalStatusCardProps) {
               {getStatusDescription(rentalDetails.status)}
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-green-600">
-              ${parseFloat(rentalDetails.totalAmount).toFixed(2)}
-            </div>
-            <p className="text-sm text-gray-600">Total amount</p>
-          </div>
         </div>
 
         {/* Timeline */}
