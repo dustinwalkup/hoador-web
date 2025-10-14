@@ -1,6 +1,6 @@
 {
-  "id": "f85f9cd6-4b79-42b9-825b-e31baadae074",
-  "prevId": "9a16de4c-9c1c-47b5-8c1d-f3b6cbb991e8",
+  "id": "58b0de57-77aa-4d0d-9d87-9f4932f1b9f2",
+  "prevId": "f85f9cd6-4b79-42b9-825b-e31baadae074",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1984,7 +1984,8 @@
         },
         "payment_status": {
           "name": "payment_status",
-          "type": "varchar(50)",
+          "type": "payment_status",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": false,
           "default": "'pending'"
@@ -2015,14 +2016,14 @@
           "primaryKey": false,
           "notNull": false
         },
-        "rejected_at": {
-          "name": "rejected_at",
+        "denied_at": {
+          "name": "denied_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },
-        "rejection_reason": {
-          "name": "rejection_reason",
+        "denial_reason": {
+          "name": "denial_reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -3511,7 +3512,14 @@
     "public.payment_status": {
       "name": "payment_status",
       "schema": "public",
-      "values": ["pending", "completed", "failed", "refunded"]
+      "values": [
+        "pending",
+        "processing",
+        "succeeded",
+        "completed",
+        "failed",
+        "refunded"
+      ]
     },
     "public.rental_status": {
       "name": "rental_status",
@@ -3523,7 +3531,7 @@
         "completed",
         "cancelled",
         "overdue",
-        "rejected"
+        "denied"
       ]
     },
     "public.user_status": {
@@ -3541,7 +3549,7 @@
     "public.verification_status": {
       "name": "verification_status",
       "schema": "public",
-      "values": ["pending", "verified", "rejected"]
+      "values": ["pending", "verified", "denied"]
     },
     "public.community_membership_role": {
       "name": "community_membership_role",

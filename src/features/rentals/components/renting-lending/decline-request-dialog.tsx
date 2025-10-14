@@ -53,7 +53,7 @@ export function DeclineRequestDialog({
       try {
         const result = await declineRentalRequest({
           requestId,
-          rejectionReason: reason,
+          denialReason: reason,
         });
 
         if (result.success) {

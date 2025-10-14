@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const status =
     (searchParams.get("status") as
       | "pending"
-      | "rejected"
+      | "denied"
       | "active"
       | "completed") || "pending";
 

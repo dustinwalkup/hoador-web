@@ -23,7 +23,7 @@ const getStatusIcon = (status: string) => {
       return <CheckCircle className="h-5 w-5 text-green-600" />;
     case "completed":
       return <CheckCircle className="h-5 w-5 text-blue-600" />;
-    case "rejected":
+    case "denied":
     case "cancelled":
       return <XCircle className="h-5 w-5 text-red-600" />;
     default:
@@ -41,7 +41,7 @@ const getStatusColor = (status: string) => {
       return "bg-green-100 text-green-800";
     case "completed":
       return "bg-blue-100 text-blue-800";
-    case "rejected":
+    case "denied":
     case "cancelled":
       return "bg-red-100 text-red-800";
     default:

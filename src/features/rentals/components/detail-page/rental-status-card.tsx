@@ -16,7 +16,7 @@ const getStatusDescription = (status: string) => {
       return "Currently in progress";
     case "completed":
       return "Rental completed successfully";
-    case "rejected":
+    case "denied":
       return "Request was declined";
     case "cancelled":
       return "Rental was cancelled";
@@ -26,7 +26,6 @@ const getStatusDescription = (status: string) => {
 };
 
 export function RentalStatusCard({ rentalDetails }: RentalStatusCardProps) {
-  console.log("rentalDetails", rentalDetails);
   return (
     <Card>
       <CardContent className="p-6">
@@ -62,19 +61,19 @@ export function RentalStatusCard({ rentalDetails }: RentalStatusCardProps) {
               </span>
             </div>
           )}
-          {rentalDetails.rejectedAt && (
+          {rentalDetails.deniedAt && (
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <div className="h-2 w-2 rounded-full bg-red-600"></div>
                 <span className="text-sm">
                   {capitalize(rentalDetails.status)}:{" "}
-                  {new Date(rentalDetails.rejectedAt).toLocaleString()}
+                  {new Date(rentalDetails.deniedAt).toLocaleString()}
                 </span>
               </div>
-              {rentalDetails.rejectionReason && (
+              {rentalDetails.denialReason && (
                 <div className="ml-5 rounded-md border border-red-200 bg-red-50 p-3">
                   <p className="text-sm text-red-800">
-                    <strong>Reason:</strong> {rentalDetails.rejectionReason}
+                    <strong>Reason:</strong> {rentalDetails.denialReason}
                   </p>
                 </div>
               )}

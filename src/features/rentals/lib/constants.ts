@@ -7,11 +7,11 @@ import type { RentalType } from "@/features/rentals/lib/types";
  * - /dashboard/renting/requests
  * - /dashboard/renting/active
  * - /dashboard/renting/completed
- * - /dashboard/renting/rejected
+ * - /dashboard/renting/denied
  * - /dashboard/lending/incoming
  * - /dashboard/lending/active
  * - /dashboard/lending/completed
- * - /dashboard/lending/rejected
+ * - /dashboard/lending/denied
  */
 
 export const RENTAL_ROUTES = {
@@ -19,13 +19,13 @@ export const RENTAL_ROUTES = {
     REQUESTS: "/dashboard/renting/requests",
     ACTIVE: "/dashboard/renting/active",
     COMPLETED: "/dashboard/renting/completed",
-    REJECTED: "/dashboard/renting/rejected",
+    DENIED: "/dashboard/renting/denied",
   },
   LENDING: {
     INCOMING: "/dashboard/lending/incoming",
     ACTIVE: "/dashboard/lending/active",
     COMPLETED: "/dashboard/lending/completed",
-    REJECTED: "/dashboard/lending/rejected",
+    DENIED: "/dashboard/lending/denied",
   },
 } as const;
 
@@ -54,8 +54,8 @@ export function getDefaultRentalRoute(type: RentalType): string {
 export function isValidRentalRoute(type: string, status: string): boolean {
   const validTypes = ["renting", "lending"];
   const validStatuses = {
-    renting: ["requests", "active", "completed", "rejected"],
-    lending: ["incoming", "active", "completed", "rejected"],
+    renting: ["requests", "active", "completed", "denied"],
+    lending: ["incoming", "active", "completed", "denied"],
   };
 
   return (

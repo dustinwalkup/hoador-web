@@ -31,8 +31,8 @@ function getStatusBadge(status: string) {
       );
     case "approved":
       return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
-    case "rejected":
-      return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
+    case "denied":
+      return <Badge className="bg-red-100 text-red-800">Denied</Badge>;
     case "cancelled":
       return <Badge className="bg-gray-100 text-gray-800">Cancelled</Badge>;
     default:

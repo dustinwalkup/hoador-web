@@ -8,7 +8,7 @@ import { tryCatch } from "@walkup/walkup-utils";
 
 const declineRequestSchema = z.object({
   requestId: z.string().uuid(),
-  rejectionReason: z.string().min(1, "Rejection reason is required"),
+  denialReason: z.string().min(1, "Denial reason is required"),
 });
 
 export async function declineRentalRequest(
@@ -28,7 +28,7 @@ export async function declineRentalRequest(
   const { error } = await tryCatch(
     rentalDAL.declineRentalRequest(
       validatedData.requestId,
-      validatedData.rejectionReason,
+      validatedData.denialReason,
     ),
   );
 

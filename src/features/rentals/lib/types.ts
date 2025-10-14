@@ -5,7 +5,7 @@ export type RentalStatus =
   | "completed"
   | "cancelled"
   | "overdue"
-  | "rejected";
+  | "denied";
 
 export type RentalType = "renting" | "lending";
 
@@ -41,8 +41,8 @@ export interface RentingRental extends BaseRental {
   actualEndDate?: string;
   pickupInstructions?: string;
   reviewGiven?: boolean;
-  rejectedAt?: string;
-  rejectionReason?: string;
+  deniedAt?: string;
+  denialReason?: string;
 }
 
 export interface LendingRental extends BaseRental {
@@ -56,8 +56,8 @@ export interface LendingRental extends BaseRental {
   message?: string;
   approvedAt?: string;
   completedAt?: string;
-  rejectedAt?: string;
-  rejectionReason?: string;
+  deniedAt?: string;
+  denialReason?: string;
   selectedWindow?: string;
 }
 
@@ -94,12 +94,12 @@ export interface RentalsData {
     requests: RentingRental[];
     active: RentingRental[];
     completed: RentingRental[];
-    rejected: RentingRental[];
+    denied: RentingRental[];
   };
   lending: {
     incoming: LendingRental[];
     active: LendingRental[];
     completed: LendingRental[];
-    rejected: LendingRental[];
+    denied: LendingRental[];
   };
 }

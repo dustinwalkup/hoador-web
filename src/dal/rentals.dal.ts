@@ -51,8 +51,8 @@ export interface RentalRequestItem {
   setupRequested?: boolean;
   setupFee?: string;
   message: string | null;
-  rejectedAt?: Date | null;
-  rejectionReason?: string | null;
+  deniedAt?: Date | null;
+  denialReason?: string | null;
   approvedAt?: Date | null;
 }
 
@@ -82,8 +82,8 @@ export interface LendingRequestItem {
   setupFee?: string;
   message: string | null;
   selectedWindow?: string | null;
-  rejectedAt?: Date | null;
-  rejectionReason?: string | null;
+  deniedAt?: Date | null;
+  denialReason?: string | null;
   approvedAt?: Date | null;
 }
 
@@ -147,8 +147,8 @@ export interface RentalDetails {
   status: string;
   createdAt: Date;
   approvedAt?: Date;
-  rejectedAt?: Date;
-  rejectionReason?: string;
+  deniedAt?: Date;
+  denialReason?: string;
   currentUserId: string;
 }
 
@@ -159,8 +159,8 @@ export type RentalStatusInfo = Pick<
   | "totalAmount"
   | "createdAt"
   | "approvedAt"
-  | "rejectedAt"
-  | "rejectionReason"
+  | "deniedAt"
+  | "denialReason"
 >;
 export type RentalListingInfo = Pick<
   RentalDetails,
@@ -527,7 +527,7 @@ export class RentalDAL extends BaseDAL {
       | "completed"
       | "cancelled"
       | "overdue"
-      | "rejected",
+      | "denied",
   ): Promise<RentalRequestItem[]> {
     try {
       // Get current user ID
@@ -554,8 +554,8 @@ export class RentalDAL extends BaseDAL {
           createdAt: rentalRequests.createdAt,
           deliveryRequested: rentalRequests.deliveryRequested,
           message: rentalRequests.message,
-          rejectedAt: rentalRequests.rejectedAt,
-          rejectionReason: rentalRequests.rejectionReason,
+          deniedAt: rentalRequests.deniedAt,
+          denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
         })
         .from(rentalRequests)
@@ -604,7 +604,7 @@ export class RentalDAL extends BaseDAL {
       | "completed"
       | "cancelled"
       | "overdue"
-      | "rejected",
+      | "denied",
   ): Promise<LendingRequestItem[]> {
     try {
       // Get current user ID
@@ -634,8 +634,8 @@ export class RentalDAL extends BaseDAL {
           deliveryAddress: rentalRequests.deliveryAddress,
           deliveryFee: rentalRequests.deliveryFee,
           message: rentalRequests.message,
-          rejectedAt: rentalRequests.rejectedAt,
-          rejectionReason: rentalRequests.rejectionReason,
+          deniedAt: rentalRequests.deniedAt,
+          denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
         })
         .from(rentalRequests)
@@ -688,7 +688,7 @@ export class RentalDAL extends BaseDAL {
       | "completed"
       | "cancelled"
       | "overdue"
-      | "rejected",
+      | "denied",
   ): Promise<BorrowedListing[]> {
     try {
       // Get current user ID
@@ -753,7 +753,7 @@ export class RentalDAL extends BaseDAL {
       | "completed"
       | "cancelled"
       | "overdue"
-      | "rejected",
+      | "denied",
   ): Promise<LendingRequestItem[]> {
     try {
       // Get current user ID
@@ -783,8 +783,8 @@ export class RentalDAL extends BaseDAL {
           deliveryAddress: rentalRequests.deliveryAddress,
           deliveryFee: rentalRequests.deliveryFee,
           message: rentalRequests.message,
-          rejectedAt: rentalRequests.rejectedAt,
-          rejectionReason: rentalRequests.rejectionReason,
+          deniedAt: rentalRequests.deniedAt,
+          denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
         })
         .from(rentals)
@@ -861,8 +861,8 @@ export class RentalDAL extends BaseDAL {
         .update(rentalRequests)
         .set({
           status: "cancelled",
-          rejectedAt: new Date(),
-          rejectionReason: "Cancelled by renter",
+          deniedAt: new Date(),
+          denialReason: "Cancelled by renter",
         })
         .where(eq(rentalRequests.id, requestId));
     } catch (error) {
@@ -987,7 +987,7 @@ export class RentalDAL extends BaseDAL {
    */
   async declineRentalRequest(
     requestId: string,
-    rejectionReason: string,
+    denialReason: string,
   ): Promise<void> {
     try {
       // Get current user ID and verify authentication
@@ -1022,9 +1022,9 @@ export class RentalDAL extends BaseDAL {
       await this.db
         .update(rentalRequests)
         .set({
-          status: "rejected",
-          rejectedAt: new Date(),
-          rejectionReason: rejectionReason,
+          status: "denied",
+          deniedAt: new Date(),
+          denialReason: denialReason,
         })
         .where(eq(rentalRequests.id, requestId));
     } catch (error) {
@@ -1066,8 +1066,8 @@ export class RentalDAL extends BaseDAL {
           status: rentalRequests.status,
           createdAt: rentalRequests.createdAt,
           approvedAt: rentalRequests.approvedAt,
-          rejectedAt: rentalRequests.rejectedAt,
-          rejectionReason: rentalRequests.rejectionReason,
+          deniedAt: rentalRequests.deniedAt,
+          denialReason: rentalRequests.denialReason,
         })
         .from(rentalRequests)
         .where(eq(rentalRequests.id, rentalId))
@@ -1191,8 +1191,8 @@ export class RentalDAL extends BaseDAL {
           status: request.status,
           createdAt: request.createdAt,
           approvedAt: request.approvedAt || undefined,
-          rejectedAt: request.rejectedAt || undefined,
-          rejectionReason: request.rejectionReason || undefined,
+          deniedAt: request.deniedAt || undefined,
+          denialReason: request.denialReason || undefined,
           currentUserId: userId,
         };
       }
