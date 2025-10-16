@@ -13,11 +13,21 @@ export async function GET(request: NextRequest) {
       const page = parseInt(searchParams.get("page") || "1");
       const limit = parseInt(searchParams.get("limit") || "20");
       const unreadOnly = searchParams.get("unreadOnly") === "true";
+      const isReadParam = searchParams.get("isRead");
+      const type = searchParams.get("type") || undefined;
+
+      // Parse isRead parameter
+      let isRead: boolean | undefined;
+      if (isReadParam !== null) {
+        isRead = isReadParam === "true";
+      }
 
       return await notificationsDAL.getUserNotifications({
         page,
         limit,
         unreadOnly,
+        isRead,
+        type,
       });
     })(),
   );
@@ -35,7 +45,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/notifications
- * Mark notification(s) as read
+ * Mark notification(s) as read or toggle read status
  */
 export async function POST(request: NextRequest) {
   const { data: body, error: parseError } = await tryCatch(request.json());
@@ -47,7 +57,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { notificationId, markAll } = body;
+  const { notificationId, markAll, toggleRead, currentReadStatus } = body;
 
   if (!notificationId && !markAll) {
     return NextResponse.json(
@@ -60,6 +70,11 @@ export async function POST(request: NextRequest) {
     (async () => {
       if (markAll) {
         return await notificationsDAL.markAllAsRead();
+      } else if (toggleRead && currentReadStatus !== undefined) {
+        return await notificationsDAL.toggleReadStatus(
+          notificationId,
+          currentReadStatus,
+        );
       } else {
         return await notificationsDAL.markAsRead(notificationId);
       }
@@ -67,7 +82,7 @@ export async function POST(request: NextRequest) {
   );
 
   if (error) {
-    console.error("Failed to mark notification as read:", error);
+    console.error("Failed to update notification:", error);
     return NextResponse.json(
       { error: error.message || "Failed to update notification" },
       { status: error.message?.includes("Authentication") ? 401 : 500 },

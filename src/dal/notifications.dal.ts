@@ -1,4 +1,4 @@
-import { desc, eq, and, count } from "drizzle-orm";
+import { desc, eq, and, count, lt, sql } from "drizzle-orm";
 import { notifications } from "@/db/schemas/notifications.schema";
 import { user } from "@/db/schemas/user.schema";
 import { getCurrentUserId } from "@/features/auth/utils/session";
@@ -73,6 +73,8 @@ export class NotificationDAL extends BaseDAL {
       page?: number;
       limit?: number;
       unreadOnly?: boolean;
+      isRead?: boolean;
+      type?: string;
     } = {},
   ): Promise<PaginatedResult<NotificationWithUser>> {
     try {
@@ -90,8 +92,17 @@ export class NotificationDAL extends BaseDAL {
 
       // Build where clause
       const whereConditions = [eq(notifications.userId, userId)];
+
+      // Handle read/unread filtering
       if (options.unreadOnly) {
         whereConditions.push(eq(notifications.isRead, false));
+      } else if (options.isRead !== undefined) {
+        whereConditions.push(eq(notifications.isRead, options.isRead));
+      }
+
+      // Handle type filtering
+      if (options.type) {
+        whereConditions.push(sql`${notifications.type} = ${options.type}`);
       }
 
       // Get total count
@@ -234,6 +245,45 @@ export class NotificationDAL extends BaseDAL {
   }
 
   /**
+   * Toggle notification read status
+   */
+  async toggleReadStatus(notificationId: string, isRead: boolean) {
+    try {
+      // Verify authentication
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      const [notification] = await this.db
+        .update(notifications)
+        .set({
+          isRead: !isRead,
+          readAt: !isRead ? new Date() : null,
+        })
+        .where(
+          and(
+            eq(notifications.id, notificationId),
+            eq(notifications.userId, userId),
+          ),
+        )
+        .returning();
+
+      if (!notification) {
+        throw new DALError(
+          "Notification not found or access denied",
+          "NOT_FOUND",
+          404,
+        );
+      }
+
+      return notification;
+    } catch (error) {
+      this.handleError(error, "toggle notification read status");
+    }
+  }
+
+  /**
    * Delete a notification
    */
   async deleteNotification(notificationId: string) {
@@ -297,6 +347,30 @@ export class NotificationDAL extends BaseDAL {
       return notification;
     } catch (error) {
       this.handleError(error, "get notification by id");
+    }
+  }
+
+  /**
+   * Delete notifications older than specified days
+   * Used by cron job for cleanup
+   */
+  async deleteOldNotifications(daysOld: number): Promise<number> {
+    try {
+      if (daysOld < 1) {
+        throw new ValidationError("daysOld must be at least 1", "daysOld");
+      }
+
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      const deletedNotifications = await this.db
+        .delete(notifications)
+        .where(lt(notifications.createdAt, cutoffDate))
+        .returning({ id: notifications.id });
+
+      return deletedNotifications.length;
+    } catch (error) {
+      this.handleError(error, "delete old notifications");
     }
   }
 }

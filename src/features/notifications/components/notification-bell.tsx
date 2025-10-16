@@ -2,7 +2,6 @@
 
 import { BellIcon, CheckIcon, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,45 +16,9 @@ import {
   useNotifications,
   useUnreadCount,
   useMarkAsRead,
+  useToggleReadStatus,
 } from "../hooks/use-notifications";
-
-const notificationIcons: Record<string, string> = {
-  rental_request_created: "📬",
-  rental_approved: "✅",
-  rental_denied: "❌",
-  rental_started: "🎉",
-  rental_ended: "🏁",
-  rental_cancelled: "🚫",
-  rental_overdue: "⚠️",
-  rental_reminder: "⏰",
-  payment_succeeded: "💰",
-  payment_failed: "⚠️",
-  payment_refunded: "↩️",
-  review_received: "⭐",
-  message_received: "💬",
-  system: "🔔",
-};
-
-// Helper function to get the time ago string
-function getTimeAgo(date: Date): string {
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) {
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
-  }
-  if (seconds < 86400) {
-    const hours = Math.floor(seconds / 3600);
-    return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
-  }
-  if (seconds < 604800) {
-    const days = Math.floor(seconds / 86400);
-    return `${days} ${days === 1 ? "day" : "days"} ago`;
-  }
-  const weeks = Math.floor(seconds / 604800);
-  return `${weeks} ${weeks === 1 ? "week" : "weeks"} ago`;
-}
+import { NotificationCard } from "./notification-card";
 
 export function NotificationBell() {
   const router = useRouter();
@@ -66,6 +29,7 @@ export function NotificationBell() {
     error,
   } = useNotifications({ limit: 10 });
   const markAsRead = useMarkAsRead();
+  const toggleReadStatus = useToggleReadStatus();
 
   const notifications = notificationsData?.data || [];
   const hasUnread = (unreadCount ?? 0) > 0;
@@ -81,6 +45,13 @@ export function NotificationBell() {
     if (linkUrl) {
       router.push(linkUrl);
     }
+  };
+
+  const handleToggleRead = async (
+    notificationId: string,
+    currentReadStatus: boolean,
+  ) => {
+    await toggleReadStatus.mutateAsync({ notificationId, currentReadStatus });
   };
 
   const handleMarkAllAsRead = async () => {
@@ -132,44 +103,37 @@ export function NotificationBell() {
             <p className="text-sm text-gray-500">No notifications yet</p>
           </div>
         ) : (
-          <ScrollArea className="h-[400px]">
-            {notifications.map((notification) => {
-              const icon =
-                notificationIcons[notification.type] ||
-                notificationIcons.system;
-              const linkUrl = notification.data?.linkUrl as string | undefined;
-              const timeAgo = getTimeAgo(new Date(notification.createdAt));
-
-              return (
+          <>
+            <ScrollArea className="h-[400px]">
+              {notifications.map((notification) => (
                 <DropdownMenuItem
                   key={notification.id}
-                  className={cn(
-                    "cursor-pointer flex-col items-start gap-1 p-3",
-                    !notification.isRead && "bg-muted/50",
-                  )}
-                  onClick={() =>
-                    handleNotificationClick(notification.id, linkUrl)
-                  }
+                  className="cursor-pointer p-0"
+                  onSelect={(e) => e.preventDefault()}
                 >
-                  <div className="flex w-full items-start gap-2">
-                    <span className="text-lg">{icon}</span>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm leading-none font-medium">
-                        {notification.title}
-                      </p>
-                      <p className="text-muted-foreground line-clamp-2 text-xs">
-                        {notification.message}
-                      </p>
-                      <p className="text-muted-foreground text-xs">{timeAgo}</p>
-                    </div>
-                    {!notification.isRead && (
-                      <div className="bg-primary h-2 w-2 rounded-full" />
-                    )}
-                  </div>
+                  <NotificationCard
+                    notification={notification}
+                    onNavigate={handleNotificationClick}
+                    onToggleRead={handleToggleRead}
+                    variant="dropdown"
+                  />
                 </DropdownMenuItem>
-              );
-            })}
-          </ScrollArea>
+              ))}
+            </ScrollArea>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="cursor-pointer justify-center"
+              onClick={() => router.push("/dashboard/notifications")}
+            >
+              <span className="font-medium">
+                View All Notifications
+                {notificationsData?.pagination?.total &&
+                  notificationsData.pagination.total > 10 &&
+                  ` (${notificationsData.pagination.total})`}
+              </span>
+            </DropdownMenuItem>
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

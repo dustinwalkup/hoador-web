@@ -1,6 +1,11 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
 
 export interface Notification {
   id: string;
@@ -84,6 +89,53 @@ export function useUnreadCount() {
 }
 
 /**
+ * Fetch infinite scrolling notifications with filters
+ */
+export function useInfiniteNotifications(
+  options: {
+    limit?: number;
+    isRead?: boolean;
+    type?: string;
+  } = {},
+) {
+  const { limit = 20, isRead, type } = options;
+
+  return useInfiniteQuery({
+    queryKey: ["notifications", "infinite", { limit, isRead, type }],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params = new URLSearchParams({
+        page: pageParam.toString(),
+        limit: limit.toString(),
+      });
+
+      if (isRead !== undefined) {
+        params.set("isRead", isRead.toString());
+      }
+
+      if (type) {
+        params.set("type", type);
+      }
+
+      const response = await fetch(`/api/notifications?${params}`);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to fetch notifications");
+      }
+
+      return response.json() as Promise<NotificationsResponse>;
+    },
+    getNextPageParam: (lastPage) => {
+      return lastPage.pagination.hasNext
+        ? lastPage.pagination.page + 1
+        : undefined;
+    },
+    initialPageParam: 1,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+/**
  * Mark notification(s) as read
  */
 export function useMarkAsRead() {
@@ -105,6 +157,43 @@ export function useMarkAsRead() {
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || "Failed to mark as read");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate notifications and unread count queries to trigger refetch
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+/**
+ * Toggle notification read/unread status
+ */
+export function useToggleReadStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (options: {
+      notificationId: string;
+      currentReadStatus: boolean;
+    }) => {
+      const response = await fetch("/api/notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          notificationId: options.notificationId,
+          toggleRead: true,
+          currentReadStatus: options.currentReadStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to toggle read status");
       }
 
       return response.json();
