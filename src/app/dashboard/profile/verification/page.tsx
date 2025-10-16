@@ -15,6 +15,11 @@ import { ProfileTabs } from "../_components/profile-tabs";
 import { userDAL } from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
+export const metadata = {
+  title: "Verification | Hoador",
+  description: "Verify your identity and build trust in the community",
+};
+
 export default async function VerificationPage() {
   const userId = await getCurrentUserId();
   if (!userId) {

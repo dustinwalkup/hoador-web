@@ -10,6 +10,11 @@ import type { CreateListingFormDataClientType } from "@/features/listings/form-s
 import { BackButton } from "@/components/back-button";
 import { AddListingForm } from "../../add/_components/add-listing-form";
 
+export const metadata = {
+  title: "Edit Listing | Hoador",
+  description: "Update your listing information",
+};
+
 function mapListingToFormData(
   listing: ListingDetails,
 ): CreateListingFormDataClientType {

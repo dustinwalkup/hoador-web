@@ -30,6 +30,11 @@ import { ScrollToTop } from "@/components/scroll-to-top";
 
 const { header, alerts, pendingRequests } = DASHBOARD_PAGE;
 
+export const metadata = {
+  title: "Dashboard | Hoador",
+  description: "Manage your rentals, listings, and community connections",
+};
+
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   return (

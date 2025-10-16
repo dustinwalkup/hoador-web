@@ -22,6 +22,11 @@ import { ProfileTabs } from "../_components/profile-tabs";
 import { ReviewsSortingControls } from "../_components/reviews-sorting-controls";
 import { formatDistanceToNow } from "@/lib/utils/date.utils";
 
+export const metadata = {
+  title: "Reviews | Hoador",
+  description: "View your reviews and ratings from the community",
+};
+
 interface ReviewsPageProps {
   searchParams: Promise<{
     page?: string;

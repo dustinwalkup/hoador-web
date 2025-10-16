@@ -1,6 +1,11 @@
 export const dynamic = "force-dynamic";
 import { RentalDetailsServer } from "@/features/rentals/components/detail-page";
 
+export const metadata = {
+  title: "Rental Details | Hoador",
+  description: "View detailed information about this rental",
+};
+
 interface RentalDetailPageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ view?: string }>;

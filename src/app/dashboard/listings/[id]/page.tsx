@@ -4,6 +4,11 @@ import { getCurrentUser } from "@/features/auth/utils/session";
 import { ListingDetailView } from "@/features/listings/components/listing-detail-view";
 import { listingDAL } from "@/dal";
 
+export const metadata = {
+  title: "Listing Details | Hoador",
+  description: "View detailed information about this listing",
+};
+
 interface ToolDetailPageProps {
   params: Promise<{ id: string }>;
 }

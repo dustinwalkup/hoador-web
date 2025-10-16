@@ -30,6 +30,11 @@ import {
 import { ProfileTabs } from "./_components/profile-tabs";
 import { ProfileForm } from "./_components/profile-form";
 
+export const metadata = {
+  title: "Profile | Hoador",
+  description: "Manage your profile and account settings",
+};
+
 export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) return notFound();

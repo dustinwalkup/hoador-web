@@ -17,6 +17,11 @@ import { formatDate } from "@/lib/utils/date.utils";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { rentalDAL } from "@/dal";
 
+export const metadata = {
+  title: "Rental Confirmation | Hoador",
+  description: "Your rental request confirmation details",
+};
+
 interface RentalConfirmationPageProps {
   searchParams: Promise<{ requestId?: string }>;
 }

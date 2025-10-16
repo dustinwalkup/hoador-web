@@ -3,6 +3,11 @@ import { listingDAL } from "@/dal";
 import { AddListingForm } from "./_components/add-listing-form";
 import { BackButton } from "../../../../components/back-button";
 
+export const metadata = {
+  title: "Add Listing | Hoador",
+  description: "List your tool to start earning money from your garage",
+};
+
 export default async function AddListingPage() {
   const categories = await listingDAL.getListingCategories();
 

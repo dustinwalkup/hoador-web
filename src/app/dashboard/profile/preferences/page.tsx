@@ -4,6 +4,11 @@ import { PageHeader } from "@/components/page-header";
 import { ProfileTabs } from "../_components/profile-tabs";
 import { PreferencesTab } from "../_components/preferences-tab";
 
+export const metadata = {
+  title: "Preferences | Hoador",
+  description: "Customize your notification and app preferences",
+};
+
 export default async function PreferencesPage() {
   return (
     <div className="container py-6">

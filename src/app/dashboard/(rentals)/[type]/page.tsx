@@ -1,6 +1,11 @@
 export const dynamic = "force-dynamic";
 import { redirect, notFound } from "next/navigation";
 
+export const metadata = {
+  title: "Rentals | Hoador",
+  description: "Manage your rentals and lending activities",
+};
+
 interface RentalsTypePageProps {
   params: Promise<{
     type: "renting" | "lending";

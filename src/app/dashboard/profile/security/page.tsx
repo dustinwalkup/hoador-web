@@ -4,6 +4,11 @@ import { PageHeader } from "@/components/page-header";
 import { ProfileTabs } from "../_components/profile-tabs";
 import { SecurityTab } from "../_components/security-tab";
 
+export const metadata = {
+  title: "Security | Hoador",
+  description: "Manage your password and security settings",
+};
+
 export default async function SecurityPage() {
   return (
     <div className="container py-6">

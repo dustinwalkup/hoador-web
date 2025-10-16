@@ -3,6 +3,11 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { RentalsClient } from "../../_components/rentals-client";
 
+export const metadata = {
+  title: "Rentals | Hoador",
+  description: "View and manage your rental requests and active rentals",
+};
+
 interface RentalsPageProps {
   params: Promise<{
     type: "renting" | "lending";
