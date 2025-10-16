@@ -1,27 +1,46 @@
-import { resend, RESEND_FROM_EMAIL } from "@/services/resend";
+import { sendNotification } from "@/features/notifications/utils/send-notification";
 
 /**
- * Send email to renter when payment fails during rental approval
+ * Send notification to renter when payment fails during rental approval
  */
-export async function sendPaymentFailureEmailToRenter({
+export async function sendPaymentFailureNotificationToRenter({
+  userId,
   to,
   renterName,
   ownerName,
   listingName,
   totalAmount,
   failureReason,
+  rentalId,
 }: {
+  userId: string;
   to: string;
   renterName: string;
   ownerName: string;
   listingName: string;
   totalAmount: string;
   failureReason: string;
+  rentalId: string;
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: RESEND_FROM_EMAIL,
-      to: [to],
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
+  const linkUrl = `${baseUrl}/dashboard/profile`;
+
+  return await sendNotification({
+    userId,
+    type: "payment_failed",
+    title: "Payment Failed",
+    message: `Payment for ${listingName} could not be processed. Please update your payment method.`,
+    data: {
+      rentalId,
+      listingName,
+      ownerName,
+      totalAmount,
+      failureReason,
+    },
+    linkUrl,
+    email: {
+      to,
       subject: `Payment Failed for ${listingName}`,
       html: `
         <!DOCTYPE html>
@@ -33,7 +52,7 @@ export async function sendPaymentFailureEmailToRenter({
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
-              <img src="https://hoador-web.vercel.app/hoador-logo.svg" alt="Hoador" style="height: 50px;">
+              <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
             </div>
             
             <div style="background-color: #fee; border-left: 4px solid #dc2626; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
@@ -71,7 +90,7 @@ export async function sendPaymentFailureEmailToRenter({
             </ol>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://hoador-web.vercel.app/dashboard/profile" 
+              <a href="${baseUrl}/dashboard/profile" 
                  style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
                 Update Payment Method
               </a>
@@ -106,49 +125,57 @@ What to do next:
 3. Contact ${ownerName} to let them know you're ready
 4. ${ownerName} can then retry the approval
 
-Update your payment method: https://hoador-web.vercel.app/dashboard/profile
+Update your payment method: ${baseUrl}/dashboard/profile
 
 If you have questions or need assistance, please contact our support team.
 
 The Hoador Team
       `.trim(),
-    });
-
-    if (error) {
-      console.error("Failed to send payment failure email to renter:", error);
-      throw new Error("Failed to send payment failure email to renter");
-    }
-
-    console.log("Payment failure email sent to renter:", data?.id);
-    return data;
-  } catch (error) {
-    console.error("Error sending payment failure email to renter:", error);
-    throw error;
-  }
+    },
+  });
 }
 
 /**
- * Send email to owner when payment fails during rental approval
+ * Send notification to owner when payment fails during rental approval
  */
-export async function sendPaymentFailureEmailToOwner({
+export async function sendPaymentFailureNotificationToOwner({
+  userId,
   to,
   ownerName,
   renterName,
   listingName,
   totalAmount,
   failureReason,
+  rentalId,
 }: {
+  userId: string;
   to: string;
   ownerName: string;
   renterName: string;
   listingName: string;
   totalAmount: string;
   failureReason: string;
+  rentalId: string;
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: RESEND_FROM_EMAIL,
-      to: [to],
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
+  const linkUrl = `${baseUrl}/dashboard/lending/incoming`;
+
+  return await sendNotification({
+    userId,
+    type: "payment_failed",
+    title: "Payment Could Not Be Processed",
+    message: `Payment from ${renterName} for ${listingName} could not be processed. They have been notified to update their payment method.`,
+    data: {
+      rentalId,
+      listingName,
+      renterName,
+      totalAmount,
+      failureReason,
+    },
+    linkUrl,
+    email: {
+      to,
       subject: `Payment Could Not Be Processed for ${listingName}`,
       html: `
         <!DOCTYPE html>
@@ -160,7 +187,7 @@ export async function sendPaymentFailureEmailToOwner({
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
-              <img src="https://hoador-web.vercel.app/hoador-logo.svg" alt="Hoador" style="height: 50px;">
+              <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
             </div>
             
             <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
@@ -198,7 +225,7 @@ export async function sendPaymentFailureEmailToOwner({
             </ul>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://hoador-web.vercel.app/dashboard/lending/incoming" 
+              <a href="${baseUrl}/dashboard/lending/incoming" 
                  style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
                 View Pending Requests
               </a>
@@ -233,23 +260,12 @@ What happens next:
 - Once ${renterName} updates their payment method, they will contact you
 - You can then retry the approval to process the payment
 
-View Pending Requests: https://hoador-web.vercel.app/dashboard/lending/incoming
+View Pending Requests: ${baseUrl}/dashboard/lending/incoming
 
 No action is required from you at this time. We'll keep you updated when ${renterName} is ready to proceed.
 
 The Hoador Team
       `.trim(),
-    });
-
-    if (error) {
-      console.error("Failed to send payment failure email to owner:", error);
-      throw new Error("Failed to send payment failure email to owner");
-    }
-
-    console.log("Payment failure email sent to owner:", data?.id);
-    return data;
-  } catch (error) {
-    console.error("Error sending payment failure email to owner:", error);
-    throw error;
-  }
+    },
+  });
 }

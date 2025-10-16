@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { RentalDAL } from "@/dal/rentals.dal";
-import { sendRentalStartedEmail } from "@/features/rentals/notifications/rental-started";
+import { sendRentalStartedNotification } from "@/features/rentals/notifications/rental-started";
 
 /**
  * Start a rental (approved → active)
@@ -18,18 +18,21 @@ export async function startRental(rentalId: string): Promise<{
     // Start the rental and get details for notification
     const result = await rentalDAL.startRental(rentalId);
 
-    // Send email notification to renter
+    // Send notification to renter
     try {
-      await sendRentalStartedEmail({
-        to: result.renterEmail,
+      await sendRentalStartedNotification({
+        userId: result.rental.renterId,
         renterName: result.renterName,
         ownerName: result.ownerName,
         listingName: result.listingName,
         rentalId: rentalId,
       });
-    } catch (emailError) {
-      // Log email error but don't fail the action
-      console.error("Failed to send rental started email:", emailError);
+    } catch (notificationError) {
+      // Log notification error but don't fail the action
+      console.error(
+        "Failed to send rental started notification:",
+        notificationError,
+      );
     }
 
     // Revalidate rental detail page

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { RentalDAL } from "@/dal/rentals.dal";
-import { sendRentalEndedEmail } from "@/features/rentals/notifications/rental-ended";
+import { sendRentalEndedNotification } from "@/features/rentals/notifications/rental-ended";
 
 /**
  * End a rental (active → completed)
@@ -18,18 +18,21 @@ export async function endRental(rentalId: string): Promise<{
     // End the rental and get details for notification
     const result = await rentalDAL.endRental(rentalId);
 
-    // Send email notification to renter
+    // Send notification to renter
     try {
-      await sendRentalEndedEmail({
-        to: result.renterEmail,
+      await sendRentalEndedNotification({
+        userId: result.rental.renterId,
         renterName: result.renterName,
         ownerName: result.ownerName,
         listingName: result.listingName,
         rentalId: rentalId,
       });
-    } catch (emailError) {
-      // Log email error but don't fail the action
-      console.error("Failed to send rental ended email:", emailError);
+    } catch (notificationError) {
+      // Log notification error but don't fail the action
+      console.error(
+        "Failed to send rental ended notification:",
+        notificationError,
+      );
     }
 
     // Revalidate rental detail page

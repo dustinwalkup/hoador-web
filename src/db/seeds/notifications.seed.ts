@@ -19,11 +19,16 @@ async function main() {
   }
 
   const types = [
-    "rental_request",
+    "rental_request_created",
     "rental_approved",
+    "rental_denied",
+    "rental_started",
+    "rental_ended",
+    "rental_cancelled",
     "rental_reminder",
-    "payment",
-    "review",
+    "payment_succeeded",
+    "payment_failed",
+    "review_received",
     "system",
   ] as const;
 

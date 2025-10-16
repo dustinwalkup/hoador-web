@@ -332,7 +332,7 @@ export function RentListingPageContent({
             </div>
 
             {/* Sidebar - Listing Summary */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               <ListingSummaryCard listing={listing} pricing={pricing} />
 
               {currentStep !== "payment" && (

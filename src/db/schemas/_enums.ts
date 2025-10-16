@@ -42,11 +42,19 @@ export const paymentStatusEnum = pgEnum("payment_status", [
 ]);
 
 export const notificationTypeEnum = pgEnum("notification_type", [
-  "rental_request",
+  "rental_request_created",
   "rental_approved",
+  "rental_denied",
+  "rental_started",
+  "rental_ended",
+  "rental_cancelled",
+  "rental_overdue",
   "rental_reminder",
-  "payment",
-  "review",
+  "payment_succeeded",
+  "payment_failed",
+  "payment_refunded",
+  "review_received",
+  "message_received",
   "system",
 ]);
 

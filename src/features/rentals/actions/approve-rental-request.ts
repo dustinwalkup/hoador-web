@@ -12,9 +12,14 @@ import {
   isRetryablePaymentError,
 } from "@/services/stripe/rental-payments";
 import {
-  sendPaymentFailureEmailToRenter,
-  sendPaymentFailureEmailToOwner,
+  sendPaymentFailureNotificationToRenter,
+  sendPaymentFailureNotificationToOwner,
 } from "../notifications/payment-failure";
+import {
+  sendPaymentSucceededNotificationToRenter,
+  sendPaymentSucceededNotificationToOwner,
+} from "../notifications/payment-succeeded";
+import { sendRentalApprovedNotification } from "../notifications/rental-approved";
 
 const approveRequestSchema = z.object({
   requestId: z.string().uuid(),
@@ -145,34 +150,44 @@ export async function approveRentalRequest(
       })(),
     );
 
-    // Send notifications to both parties (don't block on email failures)
+    // Send notifications to both parties (don't block on notification failures)
     if (renterUser && ownerUser) {
-      // Send email to renter
+      // Send notification to renter
       tryCatch(
-        sendPaymentFailureEmailToRenter({
+        sendPaymentFailureNotificationToRenter({
+          userId: renterUser.id,
           to: renterUser.email,
           renterName: `${renterUser.firstName} ${renterUser.lastName}`,
           ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
           listingName: rentalRequest.listingName,
           totalAmount: rentalRequest.totalAmount,
           failureReason: errorMessage,
+          rentalId: rentalRequest.id,
         }),
       ).catch((err) => {
-        console.error("Failed to send payment failure email to renter:", err);
+        console.error(
+          "Failed to send payment failure notification to renter:",
+          err,
+        );
       });
 
-      // Send email to owner
+      // Send notification to owner
       tryCatch(
-        sendPaymentFailureEmailToOwner({
+        sendPaymentFailureNotificationToOwner({
+          userId: ownerUser.id,
           to: ownerUser.email,
           ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
           renterName: `${renterUser.firstName} ${renterUser.lastName}`,
           listingName: rentalRequest.listingName,
           totalAmount: rentalRequest.totalAmount,
           failureReason: errorMessage,
+          rentalId: rentalRequest.id,
         }),
       ).catch((err) => {
-        console.error("Failed to send payment failure email to owner:", err);
+        console.error(
+          "Failed to send payment failure notification to owner:",
+          err,
+        );
       });
     }
 
@@ -266,6 +281,77 @@ export async function approveRentalRequest(
       error:
         "Payment was processed but approval failed. Please contact support immediately.",
     };
+  }
+
+  // Send success notifications to both parties (don't block on notification failures)
+  try {
+    const { data: renterUser } = await tryCatch(
+      userDAL.getUserById(rentalRequest.renterId),
+    );
+    const { data: ownerUser } = await tryCatch(
+      userDAL.getUserById(rentalRequest.ownerId),
+    );
+
+    if (renterUser && ownerUser) {
+      const startDate = new Date(rentalRequest.startDate).toLocaleDateString();
+      const endDate = new Date(rentalRequest.endDate).toLocaleDateString();
+
+      // Send payment success notification to renter
+      tryCatch(
+        sendPaymentSucceededNotificationToRenter({
+          userId: renterUser.id,
+          to: renterUser.email,
+          renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+          ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+          listingName: rentalRequest.listingName,
+          rentalId: rentalRequest.id,
+          totalAmount: rentalRequest.totalAmount,
+          securityDeposit: rentalRequest.securityDeposit,
+        }),
+      ).catch((err) => {
+        console.error(
+          "Failed to send payment success notification to renter:",
+          err,
+        );
+      });
+
+      // Send payment success notification to owner
+      tryCatch(
+        sendPaymentSucceededNotificationToOwner({
+          userId: ownerUser.id,
+          to: ownerUser.email,
+          ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+          renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+          listingName: rentalRequest.listingName,
+          rentalId: rentalRequest.id,
+          totalAmount: rentalRequest.totalAmount,
+        }),
+      ).catch((err) => {
+        console.error(
+          "Failed to send payment success notification to owner:",
+          err,
+        );
+      });
+
+      // Send rental approved notification to renter
+      tryCatch(
+        sendRentalApprovedNotification({
+          userId: renterUser.id,
+          to: renterUser.email,
+          renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+          ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+          listingName: rentalRequest.listingName,
+          rentalId: rentalRequest.id,
+          startDate,
+          endDate,
+          totalAmount: rentalRequest.totalAmount,
+        }),
+      ).catch((err) => {
+        console.error("Failed to send rental approved notification:", err);
+      });
+    }
+  } catch (notificationError) {
+    console.error("Error sending success notifications:", notificationError);
   }
 
   // Revalidate the relevant pages

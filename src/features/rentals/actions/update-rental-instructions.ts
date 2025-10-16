@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { rentalDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
-import { sendInstructionsUpdatedEmail } from "../notifications/instructions-updated";
+import { sendInstructionsUpdatedNotification } from "../notifications/instructions-updated";
 
 const updateInstructionsSchema = z.object({
   rentalId: z.string().uuid(),
@@ -45,23 +45,19 @@ export async function updateRentalInstructions(
     };
   }
 
-  // Send email notification to renter
-  // Note: We use the rentalRequestId for the email link since that's what the URL expects
-  const { error: emailError } = await tryCatch(
-    sendInstructionsUpdatedEmail({
-      to: rentalData.renterEmail,
+  // Send notification to renter
+  try {
+    await sendInstructionsUpdatedNotification({
+      userId: rentalData.rental.renterId,
       renterName: rentalData.renterName,
       ownerName: rentalData.ownerName,
       listingName: rentalData.listingName,
-      rentalId: validatedData.rentalId, // This is actually the rental request ID
+      rentalId: validatedData.rentalId,
       pickupInstructions: validatedData.pickupInstructions,
       returnInstructions: validatedData.returnInstructions,
-    }),
-  );
-
-  // Log email error but don't fail the whole operation
-  if (emailError) {
-    console.error("Failed to send email notification:", emailError);
+    });
+  } catch (notificationError) {
+    console.error("Failed to send notification:", notificationError);
   }
 
   // Revalidate the relevant pages
