@@ -6,7 +6,7 @@ import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MessageUserModal } from "@/features/messages/components/message-user-modal";
 
-interface MessageOwnerButtonProps {
+interface MessageUserButtonProps {
   recipientId: string;
   recipientName: string;
   listingId: string;
@@ -15,14 +15,14 @@ interface MessageOwnerButtonProps {
   buttonText?: string;
 }
 
-export function MessageOwnerButton({
+export function MessageUserButton({
   recipientId,
   recipientName,
   listingId,
   listingName,
   existingConversationId,
   buttonText = "Message Owner",
-}: MessageOwnerButtonProps) {
+}: MessageUserButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (

@@ -1,7 +1,7 @@
 import { User, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageOwnerButton } from "@/features/listings/components/message-owner-button";
+import { MessageUserButton } from "@/features/messages/components/message-user-button";
 
 interface UserCardProps {
   user: {
@@ -96,7 +96,7 @@ export function UserCard({
           listingId &&
           listingName && (
             <div className="mt-4">
-              <MessageOwnerButton
+              <MessageUserButton
                 recipientId={recipientId}
                 recipientName={recipientName}
                 listingId={listingId}
