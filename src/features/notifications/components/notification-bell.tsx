@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { BellIcon, CheckIcon, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { NotificationCard } from "./notification-card";
 
 export function NotificationBell() {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const { data: unreadCount, isLoading: isLoadingCount } = useUnreadCount();
   const {
     data: notificationsData,
@@ -43,6 +45,7 @@ export function NotificationBell() {
 
     // Navigate to link if provided
     if (linkUrl) {
+      setOpen(false); // Close dropdown before navigating
       router.push(linkUrl);
     }
   };
@@ -59,7 +62,7 @@ export function NotificationBell() {
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8" size="icon">
           <BellIcon className="h-4 w-4" />

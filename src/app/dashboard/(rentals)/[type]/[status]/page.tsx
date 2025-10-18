@@ -17,8 +17,8 @@ interface RentalsPageProps {
 
 // Valid routes configuration
 const validRoutes: Record<string, string[]> = {
-  renting: ["requests", "active", "completed", "denied"],
-  lending: ["incoming", "active", "completed", "denied"],
+  renting: ["requests", "approved", "active", "completed", "denied"],
+  lending: ["incoming", "approved", "active", "completed", "denied"],
 };
 
 function RentalsPageSkeleton() {

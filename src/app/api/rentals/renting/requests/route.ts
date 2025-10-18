@@ -5,7 +5,8 @@ import { tryCatch } from "@walkup/walkup-utils";
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const status =
-    (searchParams.get("status") as "pending" | "denied") || "pending";
+    (searchParams.get("status") as "pending" | "approved" | "denied") ||
+    "pending";
 
   const { data, error } = await tryCatch(
     (async () => {

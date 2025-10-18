@@ -26,7 +26,7 @@ export async function sendRentalRequestCreatedNotification({
 }) {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
-  const linkUrl = `${baseUrl}/dashboard/lending/incoming`;
+  const linkUrl = `${baseUrl}/dashboard/rental/${rentalId}?view=lending`;
 
   return await sendNotification({
     userId,

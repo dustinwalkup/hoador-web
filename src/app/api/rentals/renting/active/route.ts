@@ -4,8 +4,7 @@ import { tryCatch } from "@walkup/walkup-utils";
 export async function GET() {
   const { data, error } = await tryCatch(
     (async () => {
-      const borrowedData = await rentalDAL.getBorrowedListings();
-      return borrowedData.currentRentals;
+      return await rentalDAL.getRentalsByStatus("active");
     })(),
   );
 
