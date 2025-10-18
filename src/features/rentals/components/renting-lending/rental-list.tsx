@@ -13,12 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { BorrowedListing } from "@/dal/rentals.dal";
-import { BorrowedListingCard } from "./borrowed-listing-card";
+import type { RentalRequestItem, BorrowedListing } from "@/dal/rentals.dal";
+import { RentalCard } from "./rental-card";
 
-interface BorrowedListingsListProps {
-  data: BorrowedListing[];
-  currentTab: string;
+interface RentalListProps {
+  data: RentalRequestItem[] | BorrowedListing[];
+  variant: "request" | "active";
   emptyStateMessage?: string;
   emptyStateAction?: {
     label: string;
@@ -26,12 +26,12 @@ interface BorrowedListingsListProps {
   };
 }
 
-export function BorrowedListingsList({
+export function RentalList({
   data,
-  currentTab,
+  variant,
   emptyStateMessage,
   emptyStateAction,
-}: BorrowedListingsListProps) {
+}: RentalListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
@@ -50,15 +50,30 @@ export function BorrowedListingsList({
     const sorted = [...filteredData];
     switch (sortBy) {
       case "newest":
-        return sorted.sort(
-          (a, b) =>
-            new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
-        );
+        return sorted.sort((a, b) => {
+          // For requests, use createdAt; for active rentals, use startDate
+          const dateA =
+            variant === "request" && "createdAt" in a
+              ? new Date((a as RentalRequestItem).createdAt).getTime()
+              : new Date(a.startDate).getTime();
+          const dateB =
+            variant === "request" && "createdAt" in b
+              ? new Date((b as RentalRequestItem).createdAt).getTime()
+              : new Date(b.startDate).getTime();
+          return dateB - dateA;
+        });
       case "oldest":
-        return sorted.sort(
-          (a, b) =>
-            new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
-        );
+        return sorted.sort((a, b) => {
+          const dateA =
+            variant === "request" && "createdAt" in a
+              ? new Date((a as RentalRequestItem).createdAt).getTime()
+              : new Date(a.startDate).getTime();
+          const dateB =
+            variant === "request" && "createdAt" in b
+              ? new Date((b as RentalRequestItem).createdAt).getTime()
+              : new Date(b.startDate).getTime();
+          return dateA - dateB;
+        });
       case "amount_high":
         return sorted.sort(
           (a, b) => parseFloat(b.totalAmount) - parseFloat(a.totalAmount),
@@ -70,7 +85,7 @@ export function BorrowedListingsList({
       default:
         return sorted;
     }
-  }, [filteredData, sortBy]);
+  }, [filteredData, sortBy, variant]);
 
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -85,6 +100,8 @@ export function BorrowedListingsList({
     setSortBy(value);
     setCurrentPage(1);
   };
+
+  const itemLabel = variant === "request" ? "requests" : "rentals";
 
   return (
     <div className="space-y-6">
@@ -118,8 +135,8 @@ export function BorrowedListingsList({
           <CardContent className="py-8 text-center">
             <p className="text-gray-600">
               {searchQuery
-                ? "No rentals match your search."
-                : emptyStateMessage || "No rentals."}
+                ? `No ${itemLabel} match your search.`
+                : emptyStateMessage || `No ${itemLabel}.`}
             </p>
             {searchQuery && (
               <Button
@@ -141,11 +158,7 @@ export function BorrowedListingsList({
         <>
           <div className="space-y-4">
             {paginatedData.map((item) => (
-              <BorrowedListingCard
-                key={item.id}
-                rental={item}
-                currentTab={currentTab}
-              />
+              <RentalCard key={item.id} rental={item} variant={variant} />
             ))}
           </div>
 
@@ -155,7 +168,7 @@ export function BorrowedListingsList({
               <div className="text-sm text-gray-600">
                 Showing {startIndex + 1}-
                 {Math.min(startIndex + itemsPerPage, sortedData.length)} of{" "}
-                {sortedData.length} rentals
+                {sortedData.length} {itemLabel}
               </div>
               <div className="flex items-center gap-2">
                 <Button

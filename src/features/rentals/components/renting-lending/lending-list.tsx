@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useState, useMemo } from "react";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,11 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { RentalRequestItem } from "@/dal/rentals.dal";
-import { RentingRequestCard } from "@/features/rentals/components/renting-lending";
 
-interface RentingRequestsListProps {
-  data: RentalRequestItem[];
+import type { LendingRequestItem } from "@/dal/rentals.dal";
+import { LendingCard } from "@/features/rentals/components/renting-lending";
+
+interface LendingRequestsListProps {
+  data: LendingRequestItem[];
   emptyStateMessage?: string;
   emptyStateAction?: {
     label: string;
@@ -26,11 +27,11 @@ interface RentingRequestsListProps {
   };
 }
 
-export function RentingRequestsList({
+export function LendingRequestsList({
   data,
   emptyStateMessage,
   emptyStateAction,
-}: RentingRequestsListProps) {
+}: LendingRequestsListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
@@ -39,9 +40,9 @@ export function RentingRequestsList({
   const filteredData = useMemo(() => {
     return data.filter((item) => {
       const listingName = item.listingName?.toLowerCase() || "";
-      const ownerName = item.ownerName?.toLowerCase() || "";
+      const renterName = item.renterName?.toLowerCase() || "";
       const query = searchQuery.toLowerCase();
-      return listingName.includes(query) || ownerName.includes(query);
+      return listingName.includes(query) || renterName.includes(query);
     });
   }, [data, searchQuery]);
 
@@ -92,7 +93,7 @@ export function RentingRequestsList({
         <div className="relative flex-1">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <Input
-            placeholder="Search by listing name or owner..."
+            placeholder="Search by listing name or renter..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="max-w-md pl-10"
@@ -118,7 +119,7 @@ export function RentingRequestsList({
             <p className="text-gray-600">
               {searchQuery
                 ? "No requests match your search."
-                : emptyStateMessage || "No rental requests."}
+                : emptyStateMessage || "No lending requests."}
             </p>
             {searchQuery && (
               <Button
@@ -140,7 +141,7 @@ export function RentingRequestsList({
         <>
           <div className="space-y-4">
             {paginatedData.map((item) => (
-              <RentingRequestCard key={item.id} request={item} />
+              <LendingCard key={item.id} request={item} />
             ))}
           </div>
 

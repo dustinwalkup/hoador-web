@@ -39,6 +39,8 @@ export async function startRental(rentalId: string): Promise<{
     revalidatePath(`/dashboard/rental/${rentalId}`);
     revalidatePath("/dashboard/lending");
     revalidatePath("/dashboard/rentals");
+    revalidatePath("/dashboard/lending/approved");
+    revalidatePath("/dashboard/lending/active");
 
     return { success: true };
   } catch (error) {

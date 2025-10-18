@@ -59,11 +59,11 @@ const getStatusColor = (status: string) => {
   }
 };
 
-interface LendingRequestCardProps {
+interface LendingCardProps {
   request: LendingRequestItem;
 }
 
-export function LendingRequestCard({ request }: LendingRequestCardProps) {
+export function LendingCard({ request }: LendingCardProps) {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
 

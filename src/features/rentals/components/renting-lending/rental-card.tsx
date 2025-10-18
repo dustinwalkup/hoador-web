@@ -1,7 +1,11 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   Calendar,
+  MapPin,
   MessageCircle,
   Clock,
   CheckCircle,
@@ -14,7 +18,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import type { BorrowedListing } from "@/dal/rentals.dal";
+
+import type { RentalRequestItem, BorrowedListing } from "@/dal/rentals.dal";
+import { CancelRequestDialog } from "./cancel-request-dialog";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -50,15 +56,31 @@ const getStatusColor = (status: string) => {
   }
 };
 
-interface BorrowedListingCardProps {
-  rental: BorrowedListing;
-  currentTab: string;
+interface RentalCardProps {
+  rental: RentalRequestItem | BorrowedListing;
+  variant: "request" | "active";
 }
 
-export function BorrowedListingCard({
-  rental,
-  currentTab,
-}: BorrowedListingCardProps) {
+// Type guard to check if rental is a request
+function isRentalRequest(
+  rental: RentalRequestItem | BorrowedListing,
+): rental is RentalRequestItem {
+  return "message" in rental || "denialReason" in rental;
+}
+
+export function RentalCard({ rental, variant }: RentalCardProps) {
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const isRequest = isRentalRequest(rental);
+
+  // Calculate total days for active rentals (requests already have it)
+  const totalDays = isRequest
+    ? rental.totalDays
+    : Math.ceil(
+        (new Date(rental.endDate).getTime() -
+          new Date(rental.startDate).getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
+
   return (
     <Card>
       <CardContent className="p-6">
@@ -77,13 +99,14 @@ export function BorrowedListingCard({
 
           {/* Content Section */}
           <div>
-            {/* listing Information */}
+            {/* Listing Information */}
             <div className="mb-4">
               <h3 className="mb-1 text-xl font-bold text-gray-900">
                 {rental.listingName}
               </h3>
               <p className="mb-3 text-sm text-gray-600">
-                by {rental.ownerName}
+                {variant === "active" ? "by " : ""}
+                {rental.ownerName}
               </p>
 
               {/* Status and Price Row */}
@@ -99,20 +122,50 @@ export function BorrowedListingCard({
                 </div>
               </div>
 
-              {/* Date Range and Daily Rate */}
-              <div className="mb-4 flex items-center gap-4 text-sm text-gray-700">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    {new Date(rental.startDate).toLocaleDateString()} to{" "}
-                    {new Date(rental.endDate).toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span>${parseFloat(rental.dailyRate).toFixed(2)}/day</span>
-                </div>
+              {/* Date Range */}
+              <div className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+                <Calendar className="h-4 w-4" />
+                <span>
+                  {new Date(rental.startDate).toLocaleDateString()} to{" "}
+                  {new Date(rental.endDate).toLocaleDateString()}
+                  {variant === "request" && ` (${totalDays} days)`}
+                </span>
               </div>
+
+              {/* Daily Rate for active rentals */}
+              {variant === "active" && "dailyRate" in rental && (
+                <div className="mb-4 text-sm text-gray-700">
+                  ${parseFloat(rental.dailyRate).toFixed(2)}/day
+                </div>
+              )}
+
+              {/* Delivery Info for requests */}
+              {isRequest && rental.deliveryRequested && (
+                <div className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+                  <MapPin className="h-4 w-4" />
+                  <span>Delivery requested</span>
+                </div>
+              )}
             </div>
+
+            {/* Denial Reason */}
+            {isRequest && rental.status === "denied" && rental.denialReason && (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3">
+                <p className="text-sm text-red-800">
+                  <strong>Denial reason:</strong> {rental.denialReason}
+                </p>
+              </div>
+            )}
+
+            {/* Message Section for requests */}
+            {isRequest && rental.message && (
+              <div className="mb-6 rounded-md border border-blue-200 bg-blue-50 p-4">
+                <p className="mb-2 text-sm font-semibold text-blue-800">
+                  Your message:
+                </p>
+                <p className="text-sm text-blue-700">{rental.message}</p>
+              </div>
+            )}
 
             {/* Action Buttons - Vertical Stack */}
             <div className="space-y-3">
@@ -136,7 +189,19 @@ export function BorrowedListingCard({
                 Message Owner
               </Button>
 
-              {currentTab === "active" && (
+              {/* Request-specific actions */}
+              {variant === "request" && rental.status === "pending" && (
+                <Button
+                  variant="destructive"
+                  className="w-full justify-center"
+                  onClick={() => setShowCancelDialog(true)}
+                >
+                  Cancel Request
+                </Button>
+              )}
+
+              {/* Active rental actions */}
+              {variant === "active" && rental.status === "active" && (
                 <>
                   <Button className="w-full justify-center">
                     Report Issue
@@ -147,7 +212,8 @@ export function BorrowedListingCard({
                 </>
               )}
 
-              {currentTab === "completed" && (
+              {/* Completed rental actions */}
+              {variant === "active" && rental.status === "completed" && (
                 <>
                   <Button className="w-full justify-center">
                     <Star className="mr-2 h-4 w-4" />
@@ -189,7 +255,10 @@ export function BorrowedListingCard({
                         .join("")}
                     </AvatarFallback>
                   </Avatar>
-                  <span>by {rental.ownerName}</span>
+                  <span>
+                    {variant === "active" ? "by " : ""}
+                    {rental.ownerName}
+                  </span>
                 </div>
               </div>
               <div className="text-right">
@@ -211,12 +280,37 @@ export function BorrowedListingCard({
                 <span>
                   {new Date(rental.startDate).toLocaleDateString()} to{" "}
                   {new Date(rental.endDate).toLocaleDateString()}
+                  {variant === "request" && ` (${totalDays} days)`}
                 </span>
               </div>
-              <div className="flex items-center gap-1">
-                <span>${parseFloat(rental.dailyRate).toFixed(2)}/day</span>
-              </div>
+              {variant === "active" && "dailyRate" in rental && (
+                <div className="flex items-center gap-1">
+                  <span>${parseFloat(rental.dailyRate).toFixed(2)}/day</span>
+                </div>
+              )}
+              {isRequest && rental.deliveryRequested && (
+                <div className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  <span>Delivery requested</span>
+                </div>
+              )}
             </div>
+
+            {isRequest && rental.status === "denied" && rental.denialReason && (
+              <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3">
+                <p className="text-sm text-red-800">
+                  <strong>Denial reason:</strong> {rental.denialReason}
+                </p>
+              </div>
+            )}
+
+            {isRequest && rental.message && (
+              <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Your message:</strong> {rental.message}
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-2">
               <Link href={`/dashboard/rental/${rental.id}?view=renting`}>
@@ -233,7 +327,20 @@ export function BorrowedListingCard({
                 <MessageCircle className="mr-1 h-4 w-4" />
                 Message Owner
               </Button>
-              {currentTab === "active" && (
+
+              {/* Request-specific actions */}
+              {variant === "request" && rental.status === "pending" && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowCancelDialog(true)}
+                >
+                  Cancel Request
+                </Button>
+              )}
+
+              {/* Active rental actions */}
+              {variant === "active" && rental.status === "active" && (
                 <>
                   <Button size="sm">Report Issue</Button>
                   <Button variant="outline" size="sm">
@@ -241,7 +348,9 @@ export function BorrowedListingCard({
                   </Button>
                 </>
               )}
-              {currentTab === "completed" && (
+
+              {/* Completed rental actions */}
+              {variant === "active" && rental.status === "completed" && (
                 <>
                   <Button size="sm">
                     <Star className="mr-1 h-4 w-4" />
@@ -258,6 +367,16 @@ export function BorrowedListingCard({
           </div>
         </div>
       </CardContent>
+
+      {/* Cancel Request Dialog - only for requests */}
+      {variant === "request" && (
+        <CancelRequestDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          requestId={rental.id}
+          listingName={rental.listingName}
+        />
+      )}
     </Card>
   );
 }

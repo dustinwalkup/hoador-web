@@ -12,9 +12,10 @@ import {
   useLendingCompleted,
   useLendingApproved,
 } from "@/features/rentals/hooks/use-rentals";
-import { RentingRequestsListWrapper } from "@/features/rentals/components/renting-lending/renting-requests-list-wrapper";
-import { LendingRequestsListWrapper } from "@/features/rentals/components/renting-lending/lending-requests-list-wrapper";
-import { BorrowedListingsListWrapper } from "@/features/rentals/components/renting-lending/borrowed-listings-list-wrapper";
+import {
+  RentalList,
+  LendingRequestsList,
+} from "@/features/rentals/components/renting-lending";
 import type {
   RentalRequestItem,
   LendingRequestItem,
@@ -194,41 +195,35 @@ export function RentalsClient({
 
     // Render appropriate component based on tab
     if (activeType === "renting") {
-      if (
+      const isRequest =
         activeStatus === "requests" ||
         activeStatus === "approved" ||
-        activeStatus === "denied"
-      ) {
-        return (
-          <RentingRequestsListWrapper
-            data={data as RentalRequestItem[]}
-            emptyStateMessage={
-              activeStatus === "requests"
-                ? "No pending requests."
-                : activeStatus === "approved"
-                  ? "No approved requests."
-                  : "No denied requests."
-            }
-            emptyStateAction={
-              activeStatus === "requests"
-                ? { label: "Browse Listings", href: "/explore" }
-                : undefined
-            }
-          />
-        );
-      } else {
-        return (
-          <BorrowedListingsListWrapper
-            data={data as BorrowedListing[]}
-            currentTab={activeStatus}
-            emptyStateMessage={`No ${activeStatus} rentals.`}
-          />
-        );
-      }
+        activeStatus === "denied";
+
+      return (
+        <RentalList
+          data={data as RentalRequestItem[] | BorrowedListing[]}
+          variant={isRequest ? "request" : "active"}
+          emptyStateMessage={
+            activeStatus === "requests"
+              ? "No pending requests."
+              : activeStatus === "approved"
+                ? "No approved requests."
+                : activeStatus === "denied"
+                  ? "No denied requests."
+                  : `No ${activeStatus} rentals.`
+          }
+          emptyStateAction={
+            activeStatus === "requests"
+              ? { label: "Browse Listings", href: "/explore" }
+              : undefined
+          }
+        />
+      );
     } else {
       // Lending
       return (
-        <LendingRequestsListWrapper
+        <LendingRequestsList
           data={data as LendingRequestItem[]}
           emptyStateMessage={
             activeStatus === "incoming"
