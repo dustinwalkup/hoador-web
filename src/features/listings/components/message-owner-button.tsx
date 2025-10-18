@@ -4,13 +4,15 @@ import { useState } from "react";
 import { MessageCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { MessageOwnerModal } from "./message-owner-modal";
+import { MessageUserModal } from "@/features/messages/components/message-user-modal";
 
 interface MessageOwnerButtonProps {
   recipientId: string;
   recipientName: string;
   listingId: string;
   listingName: string;
+  existingConversationId?: string | null;
+  buttonText?: string;
 }
 
 export function MessageOwnerButton({
@@ -18,6 +20,8 @@ export function MessageOwnerButton({
   recipientName,
   listingId,
   listingName,
+  existingConversationId,
+  buttonText = "Message Owner",
 }: MessageOwnerButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -30,16 +34,17 @@ export function MessageOwnerButton({
         onClick={() => setIsModalOpen(true)}
       >
         <MessageCircle className="mr-2 h-4 w-4" />
-        Message Owner
+        {buttonText}
       </Button>
 
-      <MessageOwnerModal
+      <MessageUserModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         recipientId={recipientId}
         recipientName={recipientName}
         listingId={listingId}
         listingName={listingName}
+        existingConversationId={existingConversationId}
       />
     </>
   );

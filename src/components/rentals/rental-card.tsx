@@ -146,11 +146,7 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
                   View Details
                 </Button>
               </Link>
-              <Link href={`/listings/${rental.listing.id}`}>
-                <Button variant="outline" size="sm">
-                  View Listing
-                </Button>
-              </Link>
+
               <Button variant="outline" size="sm">
                 <MessageCircle className="mr-1 h-4 w-4" />
                 Message Owner

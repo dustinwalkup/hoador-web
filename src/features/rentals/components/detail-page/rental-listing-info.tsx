@@ -59,7 +59,7 @@ export function RentalListingInfo({ rentalDetails }: RentalListingInfoProps) {
                 </div>
               )}
             </div>
-            <Link href={`/listings/${rentalDetails.listingId}`}>
+            <Link href={`/dashboard/listings/${rentalDetails.listingId}`}>
               <Button variant="outline" size="sm">
                 View Full Details
               </Button>

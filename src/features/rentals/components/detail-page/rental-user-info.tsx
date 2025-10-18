@@ -46,6 +46,7 @@ export function RentalUserInfo({
       recipientName={otherUser.name}
       listingId={rentalDetails.listingId}
       listingName={rentalDetails.listingName}
+      existingConversationId={rentalDetails.conversationId}
     />
   );
 }

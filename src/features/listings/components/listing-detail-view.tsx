@@ -286,7 +286,7 @@ export function ListingDetailView({
               memberSince: listing.owner.memberSince.toISOString(),
             }}
             title="Listing Owner"
-            showActions={!isOwner}
+            showActions={false}
             recipientId={listing.owner.id}
             recipientName={`${listing.owner.firstName} ${listing.owner.lastName}`}
             listingId={listing.id}

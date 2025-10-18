@@ -24,6 +24,7 @@ import {
   ApproveRequestDialog,
   DeclineRequestDialog,
 } from "@/features/rentals/components/renting-lending";
+import { MessageUserModal } from "@/features/messages/components/message-user-modal";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -66,6 +67,7 @@ interface LendingCardProps {
 export function LendingCard({ request }: LendingCardProps) {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
 
   return (
     <Card>
@@ -227,7 +229,11 @@ export function LendingCard({ request }: LendingCardProps) {
                 </Button>
               </Link>
 
-              <Button variant="outline" className="w-full justify-center">
+              <Button
+                variant="outline"
+                className="w-full justify-center"
+                onClick={() => setShowMessageModal(true)}
+              >
                 <MessageCircle className="mr-2 h-4 w-4" />
                 Message Renter
               </Button>
@@ -395,6 +401,7 @@ export function LendingCard({ request }: LendingCardProps) {
                     variant="outline"
                     className="w-full bg-transparent"
                     size="sm"
+                    onClick={() => setShowMessageModal(true)}
                   >
                     <MessageCircle className="mr-2 h-4 w-4" />
                     Message Renter
@@ -405,6 +412,17 @@ export function LendingCard({ request }: LendingCardProps) {
           </div>
         </div>
       </CardContent>
+
+      {/* Message Renter Modal */}
+      <MessageUserModal
+        open={showMessageModal}
+        onOpenChange={setShowMessageModal}
+        recipientId={request.renterId}
+        recipientName={request.renterName}
+        listingId={request.listingId}
+        listingName={request.listingName}
+        existingConversationId={request.conversationId}
+      />
 
       <ApproveRequestDialog
         open={showApproveDialog}

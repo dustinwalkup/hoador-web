@@ -21,6 +21,7 @@ interface UserCardProps {
   recipientName?: string;
   listingId?: string;
   listingName?: string;
+  existingConversationId?: string | null;
 }
 
 export function UserCard({
@@ -32,6 +33,7 @@ export function UserCard({
   recipientName,
   listingId,
   listingName,
+  existingConversationId,
 }: UserCardProps) {
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -99,6 +101,10 @@ export function UserCard({
                 recipientName={recipientName}
                 listingId={listingId}
                 listingName={listingName}
+                existingConversationId={existingConversationId}
+                buttonText={
+                  title === "Renter" ? "Message Renter" : "Message Owner"
+                }
               />
             </div>
           )}

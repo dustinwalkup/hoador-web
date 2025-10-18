@@ -17,13 +17,14 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { startConversationAction } from "@/features/messages/actions/start-conversation";
 
-interface MessageOwnerModalProps {
+interface MessageUserModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recipientId: string;
   recipientName: string;
   listingId: string;
   listingName: string;
+  existingConversationId?: string | null;
 }
 
 type FormState = "idle" | "sending" | "success";
@@ -34,20 +35,23 @@ const validateMessage = (msg: string): string | null => {
   return null;
 };
 
-export function MessageOwnerModal({
+export function MessageUserModal({
   open,
   onOpenChange,
   recipientId,
   recipientName,
   listingId,
   listingName,
-}: MessageOwnerModalProps) {
+  existingConversationId,
+}: MessageUserModalProps) {
   const [isPending, startTransition] = useTransition();
   const [formState, setFormState] = useState<FormState>("idle");
   const [message, setMessage] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(
+    existingConversationId || null,
+  );
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
@@ -93,10 +97,10 @@ export function MessageOwnerModal({
   const handleClose = () => {
     // Reset state when closing
     setFormState("idle");
-    setMessage(`Hi, I'm interested in your ${listingName}`);
+    setMessage("");
     setValidationError(null);
     setSubmitError(null);
-    setConversationId(null);
+    setConversationId(existingConversationId || null);
     onOpenChange(false);
   };
 
@@ -114,7 +118,7 @@ export function MessageOwnerModal({
                 Message sent successfully!
               </DialogTitle>
               <DialogDescription>
-                Your message has been sent to {recipientName}. They`&apos;ll
+                Your message has been sent to {recipientName}. They&apos;ll
                 receive a notification and can respond to you.
               </DialogDescription>
             </div>
@@ -147,6 +151,23 @@ export function MessageOwnerModal({
                 Send a message about {listingName}
               </DialogDescription>
             </DialogHeader>
+
+            {existingConversationId && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <p className="mb-3 text-sm text-blue-800">
+                  You already have a conversation with {recipientName}. Any
+                  message sent here will be added to that conversation.
+                </p>
+                <Button asChild variant="outline" className="w-full" size="sm">
+                  <Link
+                    href={`/dashboard/mailbox?conversation=${existingConversationId}`}
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    View Existing Conversation
+                  </Link>
+                </Button>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {submitError && (
@@ -191,6 +212,7 @@ export function MessageOwnerModal({
                   variant="outline"
                   onClick={handleClose}
                   disabled={formState === "sending"}
+                  className="flex-1"
                 >
                   Cancel
                 </Button>

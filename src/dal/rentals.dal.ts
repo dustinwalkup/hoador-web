@@ -1,4 +1,4 @@
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, or } from "drizzle-orm";
 
 import { rentals, rentalRequests, reviews } from "@/db/schemas/rentals.schema";
 import {
@@ -7,6 +7,7 @@ import {
   listingAvailability,
 } from "@/db/schemas/listings.schema";
 import { user, userAddresses } from "@/db/schemas/user.schema";
+import { conversations } from "@/db/schemas/messages.schema";
 import { type CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { differenceInDays } from "@/lib/utils/date.utils";
@@ -25,6 +26,7 @@ export interface BorrowedListing {
   totalAmount: string;
   status: string;
   dailyRate: string;
+  conversationId?: string | null;
 }
 
 export interface BorrowedListingsData {
@@ -54,6 +56,7 @@ export interface RentalRequestItem {
   deniedAt?: Date | null;
   denialReason?: string | null;
   approvedAt?: Date | null;
+  conversationId?: string | null;
 }
 
 export interface LendingRequestItem {
@@ -85,6 +88,7 @@ export interface LendingRequestItem {
   deniedAt?: Date | null;
   denialReason?: string | null;
   approvedAt?: Date | null;
+  conversationId?: string | null;
 }
 
 export interface RentalDetails {
@@ -151,6 +155,7 @@ export interface RentalDetails {
   deniedAt?: Date;
   denialReason?: string;
   currentUserId: string;
+  conversationId?: string | null;
 }
 
 // Utility types for specific components
@@ -220,6 +225,7 @@ export type RentalUserInfo = Pick<
   | "ownerResponseRate"
   | "listingId"
   | "listingName"
+  | "conversationId"
 >;
 export type RentalActionsInfo = Pick<
   RentalDetails,
@@ -572,10 +578,24 @@ export class RentalDAL extends BaseDAL {
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
+          conversationId: conversations.id,
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
         .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .leftJoin(
+          conversations,
+          and(
+            eq(
+              conversations.user1Id,
+              sql`LEAST(${userId}, ${rentalRequests.ownerId})`,
+            ),
+            eq(
+              conversations.user2Id,
+              sql`GREATEST(${userId}, ${rentalRequests.ownerId})`,
+            ),
+          ),
+        )
         .where(
           and(
             eq(rentalRequests.renterId, userId),
@@ -654,10 +674,24 @@ export class RentalDAL extends BaseDAL {
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
+          conversationId: conversations.id,
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
         .innerJoin(user, eq(rentalRequests.renterId, user.id))
+        .leftJoin(
+          conversations,
+          and(
+            eq(
+              conversations.user1Id,
+              sql`LEAST(${userId}, ${rentalRequests.renterId})`,
+            ),
+            eq(
+              conversations.user2Id,
+              sql`GREATEST(${userId}, ${rentalRequests.renterId})`,
+            ),
+          ),
+        )
         .where(
           and(
             eq(rentalRequests.ownerId, userId),
@@ -730,10 +764,24 @@ export class RentalDAL extends BaseDAL {
           deliveryRequested: rentalRequests.deliveryRequested,
           setupRequested: rentalRequests.setupRequested,
           setupFee: rentalRequests.setupFee,
+          conversationId: conversations.id,
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
         .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .leftJoin(
+          conversations,
+          and(
+            eq(
+              conversations.user1Id,
+              sql`LEAST(${userId}, ${rentalRequests.ownerId})`,
+            ),
+            eq(
+              conversations.user2Id,
+              sql`GREATEST(${userId}, ${rentalRequests.ownerId})`,
+            ),
+          ),
+        )
         .where(
           and(
             eq(rentalRequests.renterId, userId),
@@ -812,10 +860,24 @@ export class RentalDAL extends BaseDAL {
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
+          conversationId: conversations.id,
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
         .innerJoin(user, eq(rentalRequests.renterId, user.id))
+        .leftJoin(
+          conversations,
+          and(
+            eq(
+              conversations.user1Id,
+              sql`LEAST(${userId}, ${rentalRequests.renterId})`,
+            ),
+            eq(
+              conversations.user2Id,
+              sql`GREATEST(${userId}, ${rentalRequests.renterId})`,
+            ),
+          ),
+        )
         .where(
           and(
             eq(rentalRequests.ownerId, userId),
@@ -1225,9 +1287,23 @@ export class RentalDAL extends BaseDAL {
           returnInstructions: rentals.returnInstructions,
           actualStartDate: rentals.actualStartDate,
           actualEndDate: rentals.actualEndDate,
+          conversationId: conversations.id,
         })
         .from(rentalRequests)
         .leftJoin(rentals, eq(rentals.requestId, rentalRequests.id))
+        .leftJoin(
+          conversations,
+          and(
+            eq(
+              conversations.user1Id,
+              sql`LEAST(${rentalRequests.renterId}, ${rentalRequests.ownerId})`,
+            ),
+            eq(
+              conversations.user2Id,
+              sql`GREATEST(${rentalRequests.renterId}, ${rentalRequests.ownerId})`,
+            ),
+          ),
+        )
         .where(eq(rentalRequests.id, rentalId))
         .limit(1);
 
@@ -1370,6 +1446,7 @@ export class RentalDAL extends BaseDAL {
           actualStartDate: request.actualStartDate || undefined,
           actualEndDate: request.actualEndDate || undefined,
           currentUserId: userId,
+          conversationId: request.conversationId || null,
         };
       }
 
@@ -1397,8 +1474,22 @@ export class RentalDAL extends BaseDAL {
           extensionRequested: rentals.extensionRequested,
           extensionApproved: rentals.extensionApproved,
           createdAt: rentals.createdAt,
+          conversationId: conversations.id,
         })
         .from(rentals)
+        .leftJoin(
+          conversations,
+          and(
+            eq(
+              conversations.user1Id,
+              sql`LEAST(${rentals.renterId}, ${rentals.ownerId})`,
+            ),
+            eq(
+              conversations.user2Id,
+              sql`GREATEST(${rentals.renterId}, ${rentals.ownerId})`,
+            ),
+          ),
+        )
         .where(eq(rentals.id, rentalId))
         .limit(1);
 
@@ -1565,6 +1656,7 @@ export class RentalDAL extends BaseDAL {
         status: request[0]?.status || "approved",
         createdAt: rentalData.createdAt,
         currentUserId: userId,
+        conversationId: rentalData.conversationId || null,
       };
     } catch (error) {
       this.handleError(error, "getRentalDetailsById");

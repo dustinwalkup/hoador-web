@@ -21,6 +21,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import type { RentalRequestItem, BorrowedListing } from "@/dal/rentals.dal";
 import { CancelRequestDialog } from "./cancel-request-dialog";
+import { MessageUserModal } from "@/features/messages/components/message-user-modal";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -70,6 +71,7 @@ function isRentalRequest(
 
 export function RentalCard({ rental, variant }: RentalCardProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
   const isRequest = isRentalRequest(rental);
 
   // Calculate total days for active rentals (requests already have it)
@@ -186,13 +188,11 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
                 </Button>
               </Link>
 
-              <Link href={`/listings/${rental.listingId}`} className="block">
-                <Button variant="outline" className="w-full justify-center">
-                  View Listing
-                </Button>
-              </Link>
-
-              <Button variant="outline" className="w-full justify-center">
+              <Button
+                variant="outline"
+                className="w-full justify-center"
+                onClick={() => setShowMessageModal(true)}
+              >
                 <MessageCircle className="mr-2 h-4 w-4" />
                 Message Owner
               </Button>
@@ -332,12 +332,12 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
                   View Details
                 </Button>
               </Link>
-              <Link href={`/listings/${rental.listingId}`}>
-                <Button variant="outline" size="sm">
-                  View Listing
-                </Button>
-              </Link>
-              <Button variant="outline" size="sm">
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMessageModal(true)}
+              >
                 <MessageCircle className="mr-1 h-4 w-4" />
                 Message Owner
               </Button>
@@ -391,6 +391,17 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
           listingName={rental.listingName}
         />
       )}
+
+      {/* Message Owner Modal */}
+      <MessageUserModal
+        open={showMessageModal}
+        onOpenChange={setShowMessageModal}
+        recipientId={rental.ownerId}
+        recipientName={rental.ownerName}
+        listingId={rental.listingId}
+        listingName={rental.listingName}
+        existingConversationId={rental.conversationId}
+      />
     </Card>
   );
 }
