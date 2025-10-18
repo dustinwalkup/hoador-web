@@ -566,6 +566,8 @@ export class RentalDAL extends BaseDAL {
           status: rentalRequests.status,
           createdAt: rentalRequests.createdAt,
           deliveryRequested: rentalRequests.deliveryRequested,
+          setupRequested: rentalRequests.setupRequested,
+          setupFee: rentalRequests.setupFee,
           message: rentalRequests.message,
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,
@@ -646,6 +648,8 @@ export class RentalDAL extends BaseDAL {
           deliveryRequested: rentalRequests.deliveryRequested,
           deliveryAddress: rentalRequests.deliveryAddress,
           deliveryFee: rentalRequests.deliveryFee,
+          setupRequested: rentalRequests.setupRequested,
+          setupFee: rentalRequests.setupFee,
           message: rentalRequests.message,
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,
@@ -723,6 +727,9 @@ export class RentalDAL extends BaseDAL {
           totalAmount: rentalRequests.totalAmount,
           status: rentalRequests.status,
           dailyRate: rentalRequests.dailyRate,
+          deliveryRequested: rentalRequests.deliveryRequested,
+          setupRequested: rentalRequests.setupRequested,
+          setupFee: rentalRequests.setupFee,
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
@@ -799,6 +806,8 @@ export class RentalDAL extends BaseDAL {
           deliveryRequested: rentalRequests.deliveryRequested,
           deliveryAddress: rentalRequests.deliveryAddress,
           deliveryFee: rentalRequests.deliveryFee,
+          setupRequested: rentalRequests.setupRequested,
+          setupFee: rentalRequests.setupFee,
           message: rentalRequests.message,
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,

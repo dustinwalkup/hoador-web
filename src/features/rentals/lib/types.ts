@@ -37,6 +37,7 @@ export interface BaseRental {
 export interface RentingRental extends BaseRental {
   owner: User;
   deliveryRequested?: boolean;
+  setupRequested?: boolean;
   actualStartDate?: string;
   actualEndDate?: string;
   pickupInstructions?: string;
@@ -51,8 +52,10 @@ export interface LendingRental extends BaseRental {
   dailyRate: number;
   securityDeposit: number;
   deliveryRequested: boolean;
+  setupRequested?: boolean;
   deliveryAddress?: string;
   deliveryFee?: number;
+  setupFee?: number;
   message?: string;
   approvedAt?: string;
   completedAt?: string;

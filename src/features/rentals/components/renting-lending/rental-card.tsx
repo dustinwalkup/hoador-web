@@ -146,6 +146,14 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
                   <span>Delivery requested</span>
                 </div>
               )}
+
+              {/* Setup Info for requests */}
+              {isRequest && rental.setupRequested && (
+                <div className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Setup requested</span>
+                </div>
+              )}
             </div>
 
             {/* Denial Reason */}
@@ -292,6 +300,12 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
                 <div className="flex items-center gap-1">
                   <MapPin className="h-4 w-4" />
                   <span>Delivery requested</span>
+                </div>
+              )}
+              {isRequest && rental.setupRequested && (
+                <div className="flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Setup requested</span>
                 </div>
               )}
             </div>

@@ -18,7 +18,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { LendingRequestItem } from "@/dal/rentals.dal";
 import {
   ApproveRequestDialog,
@@ -112,7 +112,6 @@ export function LendingCard({ request }: LendingCardProps) {
               {/* Renter Information */}
               <div className="mb-4 flex items-center gap-3 rounded-lg bg-gray-50 p-3">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={request.renterProfileImage || undefined} />
                   <AvatarFallback>
                     {request.renterName
                       .split(" ")
@@ -159,6 +158,12 @@ export function LendingCard({ request }: LendingCardProps) {
                     </>
                   )}
                 </div>
+                {request.setupRequested && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-purple-600" />
+                    <span className="font-medium">Setup Requested</span>
+                  </div>
+                )}
                 {request.deliveryAddress && (
                   <div className="ml-6 text-sm text-gray-600">
                     <span>{request.deliveryAddress}</span>
@@ -265,9 +270,6 @@ export function LendingCard({ request }: LendingCardProps) {
 
                   <div className="mb-3 flex items-center gap-3 rounded-lg bg-gray-50 p-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage
-                        src={request.renterProfileImage || undefined}
-                      />
                       <AvatarFallback>
                         {request.renterName
                           .split(" ")
@@ -302,19 +304,27 @@ export function LendingCard({ request }: LendingCardProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      {request.deliveryRequested ? (
-                        <>
-                          <Truck className="h-4 w-4 text-blue-600" />
-                          <span className="font-medium">
-                            Delivery Requested
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <MapPin className="h-4 w-4 text-green-600" />
-                          <span className="font-medium">Pickup</span>
-                        </>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        {request.deliveryRequested ? (
+                          <>
+                            <Truck className="h-4 w-4 text-blue-600" />
+                            <span className="font-medium">
+                              Delivery Requested
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <MapPin className="h-4 w-4 text-green-600" />
+                            <span className="font-medium">Pickup</span>
+                          </>
+                        )}
+                      </div>
+                      {request.setupRequested && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle className="h-4 w-4 text-purple-600" />
+                          <span className="font-medium">Setup Requested</span>
+                        </div>
                       )}
                     </div>
                     {request.deliveryAddress && (

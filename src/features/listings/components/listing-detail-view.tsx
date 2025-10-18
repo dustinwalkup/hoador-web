@@ -185,6 +185,23 @@ export function ListingDetailView({
                   </div>
                 </>
               )}
+              <Separator />
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700">Setup Available</span>
+                <Badge
+                  variant={listing.setupAvailable ? "default" : "secondary"}
+                >
+                  {listing.setupAvailable ? "Yes" : "No"}
+                </Badge>
+              </div>
+              {listing.setupAvailable && listing.setupFee > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-700">Setup Fee</span>
+                  <span className="font-medium">
+                    {formatPrice(listing.setupFee)}
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

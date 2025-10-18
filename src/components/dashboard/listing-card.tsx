@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Star } from "lucide-react";
+import { MapPin, Star, Truck, Settings } from "lucide-react";
 import { StatusIconWithTooltip } from "@/features/listings/components/status-icon-with-tooltip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,8 @@ interface ListingCardProps {
   imageUrl: string;
   isNew?: boolean;
   status: string;
+  deliveryMode?: "pickup_only" | "delivery_only" | "both_available";
+  setupAvailable?: boolean;
 }
 
 export default function ListingCard({
@@ -28,6 +30,8 @@ export default function ListingCard({
   imageUrl,
   isNew = false,
   status,
+  deliveryMode,
+  setupAvailable,
 }: ListingCardProps) {
   // Format distance for display
   const formatDistance = (miles?: number) => {
@@ -79,6 +83,32 @@ export default function ListingCard({
           )}
           <StatusIconWithTooltip status={status} />
         </div>
+
+        {(deliveryMode === "delivery_only" ||
+          deliveryMode === "both_available" ||
+          setupAvailable) && (
+          <div className="mb-2 flex items-center gap-2 text-xs">
+            {(deliveryMode === "delivery_only" ||
+              deliveryMode === "both_available") && (
+              <Badge
+                variant="secondary"
+                className="flex items-center gap-1 text-xs"
+              >
+                <Truck className="h-3 w-3" />
+                <span>Delivery</span>
+              </Badge>
+            )}
+            {setupAvailable && (
+              <Badge
+                variant="secondary"
+                className="flex items-center gap-1 text-xs"
+              >
+                <Settings className="h-3 w-3" />
+                <span>Setup</span>
+              </Badge>
+            )}
+          </div>
+        )}
 
         <div className="mb-3 flex items-center gap-1">
           <div className="flex items-center">

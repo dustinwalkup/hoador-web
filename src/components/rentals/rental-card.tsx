@@ -111,8 +111,14 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
               </div>
               {rental.deliveryRequested && (
                 <div className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
+                  <Truck className="h-4 w-4" />
                   <span>Delivery requested</span>
+                </div>
+              )}
+              {rental.setupRequested && (
+                <div className="flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Setup requested</span>
                 </div>
               )}
             </div>
@@ -270,6 +276,12 @@ export function LendingCard({ request, currentTab }: LendingCardProps) {
                       </>
                     )}
                   </div>
+                  {request.setupRequested && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="h-4 w-4 text-purple-600" />
+                      <span className="font-medium">Setup Requested</span>
+                    </div>
+                  )}
                   {request.selectedWindow && (
                     <div className="ml-6 flex items-center gap-2 text-sm text-gray-600">
                       <Clock className="h-3 w-3" />
