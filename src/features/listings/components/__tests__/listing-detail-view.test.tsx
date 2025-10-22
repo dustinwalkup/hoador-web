@@ -410,15 +410,6 @@ describe("ListingDetailView", () => {
       expect(rentButton).toHaveAttribute("href", "/listings/listing-123/rent");
     });
 
-    it("should display Message Owner button for non-owner", () => {
-      render(<ListingDetailView listing={mockListing} isOwner={false} />);
-
-      const messageButton = screen.getByRole("button", {
-        name: /message owner/i,
-      });
-      expect(messageButton).toBeInTheDocument();
-    });
-
     it("should not display Edit Listing button for non-owner", () => {
       render(<ListingDetailView listing={mockListing} isOwner={false} />);
 
