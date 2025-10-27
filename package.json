@@ -103,7 +103,7 @@
     "tsx": "^4.19.4",
     "tw-animate-css": "^1.2.8",
     "typescript": "^5",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.3"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
