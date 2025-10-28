@@ -53,19 +53,28 @@ export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
               <FormLabel>Delivery Options</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full md:w-fit">
                     <SelectValue placeholder="Select delivery option" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="pickup_only">
-                    Pickup Only - Renter must pick up from your location
+                    Pickup Only{" "}
+                    <span className="text-muted-foreground hidden text-xs md:block">
+                      Renter must pick up from your location
+                    </span>
                   </SelectItem>
                   <SelectItem value="delivery_only">
-                    Delivery Only - You deliver to the renter
+                    Delivery Only{" "}
+                    <span className="text-muted-foreground hidden text-xs md:block">
+                      You deliver to the renter
+                    </span>
                   </SelectItem>
                   <SelectItem value="both_available">
-                    Both Available - Renter can choose pickup or delivery
+                    Both Available{" "}
+                    <span className="text-muted-foreground hidden text-xs md:block">
+                      Renter can choose pickup or delivery
+                    </span>
                   </SelectItem>
                 </SelectContent>
               </Select>

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { listingDAL } from "@/dal";
-import { AddListingForm } from "./_components/add-listing-form";
-import { BackButton } from "../../../../components/back-button";
+import { AddListingForm } from "@/features/listings/components/listing-form/add-listing-form";
+import { BackButton } from "@/components/back-button";
 
 export const metadata = {
   title: "Add Listing | Hoador",

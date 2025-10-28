@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
+import { toast } from "sonner";
 import { Camera, GripVertical, Upload, X } from "lucide-react";
 import { Control, UseFormGetValues } from "react-hook-form";
 
@@ -25,7 +26,6 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import { toast } from "sonner";
 
 interface PhotosSectionProps {
   control: Control<CreateListingFormDataClientType>;
@@ -274,7 +274,7 @@ export function PhotosSection({
 
               {/* Upload button */}
               <div
-                className={`flex aspect-square min-h-[120px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all duration-200 ${
+                className={`flex aspect-square h-full min-h-[120px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all duration-200 ${
                   dragActive
                     ? "border-primary bg-primary/5"
                     : "border-muted-foreground/25 hover:border-primary hover:bg-primary/5"
@@ -289,11 +289,11 @@ export function PhotosSection({
                   className={`mb-2 h-6 w-6 ${dragActive ? "text-primary" : "text-muted-foreground"}`}
                 />
                 <span
-                  className={`text-center text-xs sm:text-sm ${dragActive ? "text-primary" : "text-muted-foreground"}`}
+                  className={`mb-2 px-2 text-center text-xs sm:text-sm ${dragActive ? "text-primary" : "text-muted-foreground"}`}
                 >
                   {dragActive ? "Drop images here" : "Click or drag to upload"}
                 </span>
-                <span className="text-muted-foreground mt-1 text-xs">
+                <span className="text-muted-foreground mt-1 px-2 text-center text-xs">
                   Max 10MB - images will be automatically optimized
                 </span>
               </div>

@@ -75,7 +75,7 @@ export function BasicInformationSection({
               <FormLabel>Category *</FormLabel>
               <FormControl>
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="text-base">
+                  <SelectTrigger className="w-full text-base md:w-fit">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -150,7 +150,7 @@ export function BasicInformationSection({
               <FormLabel>Condition *</FormLabel>
               <FormControl>
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="text-base">
+                  <SelectTrigger className="w-full text-base md:w-fit">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

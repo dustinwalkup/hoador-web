@@ -285,7 +285,7 @@ export function AddListingForm({
   return (
     <Form {...form}>
       <form className="space-y-8" onSubmit={handleSubmit(handleFormSubmit)}>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
           <BasicInformationSection control={control} categories={categories} />
           <PricingSection control={control} />
         </div>
@@ -298,7 +298,7 @@ export function AddListingForm({
           isLoadingImages={isLoadingImages}
         />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
           <PickupDeliverySection control={control} />
           <AdditionalDetailsSection
             control={control}

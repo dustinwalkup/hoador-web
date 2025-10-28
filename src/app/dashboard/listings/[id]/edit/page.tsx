@@ -8,7 +8,7 @@ import type { ListingDetails } from "@/dal/types";
 import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
 
 import { BackButton } from "@/components/back-button";
-import { AddListingForm } from "../../add/_components/add-listing-form";
+import { AddListingForm } from "@/features/listings/components/listing-form/add-listing-form";
 
 export const metadata = {
   title: "Edit Listing | Hoador",
