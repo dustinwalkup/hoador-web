@@ -30,6 +30,8 @@ export function useListingForm(
     deliveryMode: "pickup_only",
     deliveryFee: 0,
     deliveryRadius: 0,
+    setupAvailable: false,
+    setupFee: 0,
     ...initialValues,
   } as unknown as CreateListingFormDataClientType;
 

@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-export const listingConditionSchema = z.enum([
-  "excellent",
-  "good",
-  "fair",
-  "poor",
-]);
+export const listingConditionSchema = z.enum(["new", "good", "fair", "poor"]);
 
 export const deliveryModeSchema = z.enum([
   "pickup_only",
@@ -61,21 +56,6 @@ const withServiceValidation = <T extends z.ZodTypeAny>(schema: T) =>
       (data) => {
         const d = data as Record<string, unknown>;
         const deliveryMode = d.deliveryMode as string;
-        const deliveryFee = d.deliveryFee as number;
-        return (
-          deliveryMode === "pickup_only" ||
-          (deliveryMode !== "pickup_only" && deliveryFee > 0)
-        );
-      },
-      {
-        message: "Delivery fee is required when delivery is available",
-        path: ["deliveryFee"],
-      },
-    )
-    .refine(
-      (data) => {
-        const d = data as Record<string, unknown>;
-        const deliveryMode = d.deliveryMode as string;
         const deliveryRadius = d.deliveryRadius as number;
         return (
           deliveryMode === "pickup_only" ||
@@ -90,13 +70,12 @@ const withServiceValidation = <T extends z.ZodTypeAny>(schema: T) =>
     .refine(
       (data) => {
         const d = data as Record<string, unknown>;
-        return (
-          !d.setupAvailable || (d.setupAvailable && (d.setupFee as number) > 0)
-        );
+        const deliveryMode = d.deliveryMode as string;
+        return !d.setupAvailable || deliveryMode !== "pickup_only";
       },
       {
-        message: "Setup fee is required when setup is available",
-        path: ["setupFee"],
+        message: "Setup service requires delivery to be available",
+        path: ["setupAvailable"],
       },
     );
 

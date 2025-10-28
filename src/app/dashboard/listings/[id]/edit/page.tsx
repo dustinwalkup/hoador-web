@@ -24,7 +24,7 @@ function mapListingToFormData(
     categoryId: listing.category.id,
     brand: listing.brand,
     model: listing.model,
-    condition: listing.condition as "excellent" | "good" | "fair" | "poor",
+    condition: listing.condition as "new" | "good" | "fair" | "poor",
     dailyRate: listing.dailyRate,
     weeklyRate: listing.weeklyRate,
     monthlyRate: listing.monthlyRate,

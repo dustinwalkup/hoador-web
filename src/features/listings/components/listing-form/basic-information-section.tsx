@@ -154,9 +154,7 @@ export function BasicInformationSection({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="excellent">
-                      Excellent - Like new
-                    </SelectItem>
+                    <SelectItem value="new">Excellent - Like new</SelectItem>
                     <SelectItem value="good">Good - Minor wear</SelectItem>
                     <SelectItem value="fair">
                       Fair - Some wear but functional

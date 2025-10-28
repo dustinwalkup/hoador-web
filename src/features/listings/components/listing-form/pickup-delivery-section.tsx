@@ -11,12 +11,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   FormField,
   FormItem,
   FormLabel,
   FormControl,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -34,6 +36,11 @@ export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
   const deliveryMode = useWatch({
     control,
     name: "deliveryMode",
+  });
+
+  const setupAvailable = useWatch({
+    control,
+    name: "setupAvailable",
   });
   return (
     <Card>
@@ -99,17 +106,28 @@ export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
                           type="number"
                           inputMode="decimal"
                           placeholder="0.00"
+                          step="0.01"
                           className="pl-9 text-base"
-                          {...field}
-                          value={field.value || 0}
-                          onChange={(e) =>
-                            field.onChange(
-                              Number.parseFloat(e.target.value) || 0,
-                            )
-                          }
+                          name={field.name}
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            field.onChange(Number.parseFloat(e.target.value));
+                          }}
+                          onBlur={() => {
+                            if (
+                              field.value === undefined ||
+                              field.value === null
+                            ) {
+                              field.onChange(0);
+                            }
+                            field.onBlur();
+                          }}
                         />
                       </div>
                     </FormControl>
+                    <FormDescription>
+                      Enter $0 for free delivery
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -127,12 +145,23 @@ export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
                           type="number"
                           inputMode="numeric"
                           placeholder="10"
+                          step="1"
                           className="pl-9 text-base"
-                          {...field}
-                          value={field.value || 0}
-                          onChange={(e) =>
-                            field.onChange(Number.parseInt(e.target.value) || 0)
-                          }
+                          name={field.name}
+                          ref={field.ref}
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            field.onChange(Number.parseInt(e.target.value));
+                          }}
+                          onBlur={() => {
+                            if (
+                              field.value === undefined ||
+                              field.value === null
+                            ) {
+                              field.onChange(0);
+                            }
+                            field.onBlur();
+                          }}
                         />
                       </div>
                     </FormControl>
@@ -140,6 +169,77 @@ export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Setup Service Section */}
+            <div className="space-y-4">
+              <FormField
+                control={control}
+                name="setupAvailable"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-y-0 space-x-3">
+                    <FormControl>
+                      <Checkbox
+                        id="setupAvailable"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel htmlFor="setupAvailable">
+                        Offer Setup Service
+                      </FormLabel>
+                      <FormDescription>
+                        Provide setup and installation at delivery location
+                      </FormDescription>
+                      <FormMessage />
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              {setupAvailable && (
+                <FormField
+                  control={control}
+                  name="setupFee"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Setup Fee</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <DollarSign className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            step="0.01"
+                            className="pl-9 text-base"
+                            name={field.name}
+                            ref={field.ref}
+                            value={field.value ?? ""}
+                            onChange={(e) => {
+                              field.onChange(Number.parseFloat(e.target.value));
+                            }}
+                            onBlur={() => {
+                              if (
+                                field.value === undefined ||
+                                field.value === null
+                              ) {
+                                field.onChange(0);
+                              }
+                              field.onBlur();
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Enter $0 for free setup included with delivery
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
           </div>
         )}
