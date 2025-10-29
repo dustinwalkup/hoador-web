@@ -203,7 +203,11 @@ export default function RentalCard({
                   listing={listingData}
                   onSave={handleListingUpdate}
                   trigger={
-                    <Button size="sm" className="flex-1">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      disabled={listingData.status === "rented"}
+                    >
                       Manage
                     </Button>
                   }

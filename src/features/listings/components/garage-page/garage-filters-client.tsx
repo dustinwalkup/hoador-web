@@ -144,7 +144,7 @@ export function GarageFiltersClient({ currentTab }: GarageFiltersClientProps) {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 md:justify-start">
         {/* Sort Dropdown */}
         <Select value={getSortDisplayValue()} onValueChange={handleSortChange}>
           <SelectTrigger className="h-9 w-[140px]">
@@ -184,7 +184,7 @@ export function GarageFiltersClient({ currentTab }: GarageFiltersClientProps) {
             value={filters.rentalStatus || "all"}
             onValueChange={handleRentalStatusChange}
           >
-            <SelectTrigger className="h-9 w-[140px]">
+            <SelectTrigger className="hidden h-9 w-[140px] md:flex">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

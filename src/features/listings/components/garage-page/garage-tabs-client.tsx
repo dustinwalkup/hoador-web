@@ -6,7 +6,7 @@ import { useGarageFilters } from "@/features/listings/hooks/use-garage";
 
 import { ActiveListings } from "./active-listings";
 import { InactiveListings } from "./inactive-listings";
-import { ArchivedListings } from "./archived-listings";
+// import { ArchivedListings } from "./archived-listings";
 import { GarageFiltersClient } from "./garage-filters-client";
 
 interface GarageTabsClientProps {
@@ -37,10 +37,10 @@ export function GarageTabsClient({ currentTab }: GarageTabsClientProps) {
 
   return (
     <Tabs value={currentTab} onValueChange={handleTabChange} className="mb-6">
-      <TabsList>
+      <TabsList className="max-w-48">
         <TabsTrigger value="active">Active</TabsTrigger>
         <TabsTrigger value="inactive">Inactive</TabsTrigger>
-        <TabsTrigger value="archived">Archived</TabsTrigger>
+        {/* <TabsTrigger value="archived">Archived</TabsTrigger> */}
       </TabsList>
 
       <GarageFiltersClient currentTab={currentTab} />
@@ -53,9 +53,9 @@ export function GarageTabsClient({ currentTab }: GarageTabsClientProps) {
         <InactiveListings filters={filters} />
       </TabsContent>
 
-      <TabsContent value="archived" className="mt-6">
+      {/* <TabsContent value="archived" className="mt-6">
         <ArchivedListings filters={filters} />
-      </TabsContent>
+      </TabsContent> */}
     </Tabs>
   );
 }

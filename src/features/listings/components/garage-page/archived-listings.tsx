@@ -71,7 +71,7 @@ export function ArchivedListings({ filters }: ArchivedListingsProps) {
           <p className="text-muted-foreground text-sm">
             {filters.query || filters.categoryId
               ? "Try adjusting your search or filters"
-              : "Listings you&apos;ve archived will appear here"}
+              : "Listings you've archived will appear here"}
           </p>
         </div>
       )}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Settings } from "lucide-react";
 
 import { capitalize } from "@/lib/utils";
 import { useActiveListings } from "@/features/listings/hooks/use-garage";
@@ -62,16 +62,19 @@ export function ActiveListings({ filters }: ActiveListingsProps) {
         ))
       ) : (
         <div className="col-span-full py-8 text-center">
-          <p className="text-muted-foreground mb-4">
+          <div className="bg-muted mb-4 inline-flex rounded-full p-3">
+            <Settings className="text-muted-foreground h-6 w-6" />
+          </div>
+          <p className="text-muted-foreground mb-2">
             {filters.query || filters.categoryId || filters.rentalStatus
               ? "No listings found matching your search criteria"
-              : "No active listings listed"}
+              : "No active listings"}
           </p>
-          {filters.query || filters.categoryId || filters.rentalStatus ? (
-            <p className="text-muted-foreground text-sm">
-              Try adjusting your search or filters
-            </p>
-          ) : null}
+          <p className="text-muted-foreground text-sm">
+            {filters.query || filters.categoryId || filters.rentalStatus
+              ? "Try adjusting your search or filters"
+              : "Listings you've listed and are currently available for rent will appear here"}
+          </p>
         </div>
       )}
       <Card className="items-center justify-center overflow-hidden border-dashed">
