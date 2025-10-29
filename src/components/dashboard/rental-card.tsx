@@ -125,7 +125,7 @@ export default function RentalCard({
   );
 
   return (
-    <Card className="overflow-hidden pt-0 pb-2">
+    <Card className="overflow-hidden pt-0 pb-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
       <div className="bg-muted relative aspect-[4/3] overflow-hidden">
         <Image
           src={imageUrl || "/images/placeholder.jpg"}

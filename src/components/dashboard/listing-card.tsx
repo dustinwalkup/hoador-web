@@ -42,7 +42,7 @@ export default function ListingCard({
     return `${Math.round(miles)} mi`;
   };
   return (
-    <Card className="group overflow-hidden pt-0 pb-2 transition-all hover:shadow-md">
+    <Card className="group overflow-hidden pt-0 pb-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
       <div className="relative">
         <div className="bg-muted aspect-[4/3] overflow-hidden">
           <Image
@@ -50,7 +50,7 @@ export default function ListingCard({
             alt={name}
             width={300}
             height={200}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            className="h-full w-full object-cover"
           />
         </div>
 
