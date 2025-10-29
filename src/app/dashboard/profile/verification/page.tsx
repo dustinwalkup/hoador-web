@@ -1,5 +1,9 @@
 export const dynamic = "force-dynamic";
 import { CheckCircle, AlertCircle } from "lucide-react";
+import { userDAL } from "@/dal";
+import { ProfileTabs } from "@/features/users/components/profile";
+import { getCurrentUserId } from "@/features/auth/utils/session";
+import { PROFILE_TABS } from "@/constants/profile";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,11 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PROFILE_TABS } from "@/constants/profile";
 import { PageHeader } from "@/components/page-header";
-import { ProfileTabs } from "../_components/profile-tabs";
-import { userDAL } from "@/dal";
-import { getCurrentUserId } from "@/features/auth/utils/session";
 
 export const metadata = {
   title: "Verification | Hoador",

@@ -1,8 +1,7 @@
 export const dynamic = "force-dynamic";
 import { PROFILE_TABS } from "@/constants/profile";
 import { PageHeader } from "@/components/page-header";
-import { ProfileTabs } from "../_components/profile-tabs";
-import { SecurityTab } from "../_components/security-tab";
+import { ProfileTabs, SecurityTab } from "@/features/users/components/profile";
 
 export const metadata = {
   title: "Security | Hoador",

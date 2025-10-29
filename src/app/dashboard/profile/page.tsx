@@ -27,8 +27,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ProfileTabs } from "./_components/profile-tabs";
-import { ProfileForm } from "./_components/profile-form";
+import { ProfileTabs } from "../../../features/users/components/profile/profile-tabs";
+import { ProfileForm } from "../../../features/users/components/profile/profile-form";
 
 export const metadata = {
   title: "Profile | Hoador",

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { Suspense } from "react";
-import { GarageClient } from "./_components/garage-client";
+import { GarageClient } from "@/features/listings/components/garage-page/garage-client";
 
 export const metadata = {
   title: "Garage | Hoador",

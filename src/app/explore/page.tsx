@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/utils/session";
+import { ExplorePageSkeleton } from "@/features/listings/components/explore-page/explore-page-skeleton";
 import { PageHeader } from "@/components/page-header";
-import { ExplorePageSkeleton } from "../dashboard/explore/_components/explore-page-skeleton";
 import { ExplorePageClient } from "./_components/explore-page-client";
 
 interface PublicExplorePageProps {

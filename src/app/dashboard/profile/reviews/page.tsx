@@ -18,8 +18,10 @@ import { PROFILE_TABS } from "@/constants/profile";
 import { reviewDAL } from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
-import { ProfileTabs } from "../_components/profile-tabs";
-import { ReviewsSortingControls } from "../_components/reviews-sorting-controls";
+import {
+  ProfileTabs,
+  ReviewsSortingControls,
+} from "@/features/users/components/profile";
 import { formatDistanceToNow } from "@/lib/utils/date.utils";
 
 export const metadata = {

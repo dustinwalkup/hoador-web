@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import { Loader2 } from "lucide-react";
 import { useListingFilters } from "@/features/listings/hooks/use-url-state";
 import { useSearchListings } from "@/features/listings/hooks/use-listings";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { ExplorePageFilters } from "../../dashboard/explore/_components/explore-page-filters";
-import { ExplorePageContent } from "../../dashboard/explore/_components/explore-page-content";
+import { ExplorePageFilters } from "@/features/listings/components/explore-page/explore-page-filters";
+import { ExplorePageContent } from "@/features/listings/components/explore-page/explore-page-content";
 import { ListingCardSkeleton } from "@/components/dashboard/listing-card-skeleton";
 
 interface ExplorePageClientProps {

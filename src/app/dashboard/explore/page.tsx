@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
-import { getCurrentUser } from "@/features/auth/utils/session";
 import { PageHeader } from "@/components/page-header";
-import { ExplorePageClient } from "./_components/explore-page-client";
+import { getCurrentUser } from "@/features/auth/utils/session";
+import { ExplorePageClient } from "@/features/listings/components/explore-page/explore-page-client";
 
 export const metadata = {
   title: "Explore | Hoador",
