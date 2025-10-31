@@ -1,4 +1,4 @@
-import { eq, and, inArray, sql, or } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 import { rentals, rentalRequests, reviews } from "@/db/schemas/rentals.schema";
 import {
@@ -1805,6 +1805,15 @@ export class RentalDAL extends BaseDAL {
         })
         .where(eq(rentals.requestId, rentalId));
 
+      // Update the listing status to rented
+      await this.db
+        .update(listings)
+        .set({
+          status: "rented",
+          updatedAt: new Date(),
+        })
+        .where(eq(listings.id, request.listingId));
+
       // Get renter and owner details for email notification
       const [renterUser] = await this.db
         .select({
@@ -1923,6 +1932,15 @@ export class RentalDAL extends BaseDAL {
           updatedAt: new Date(),
         })
         .where(eq(rentals.requestId, rentalId));
+
+      // Update the listing status to available
+      await this.db
+        .update(listings)
+        .set({
+          status: "available",
+          updatedAt: new Date(),
+        })
+        .where(eq(listings.id, request.listingId));
 
       // Get renter and owner details for email notification
       const [renterUser] = await this.db
