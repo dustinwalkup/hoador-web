@@ -42,6 +42,7 @@ export const rentalRequests = pgTable(
       .notNull(),
     deliveryRequested: boolean("delivery_requested").default(false).notNull(),
     deliveryAddress: text("delivery_address"),
+    deliveryInstructions: text("delivery_instructions"),
     deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 })
       .default("0")
       .notNull(),

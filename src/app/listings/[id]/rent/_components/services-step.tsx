@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -26,6 +27,8 @@ interface ServicesStepProps {
   setDeliveryState: (state: string) => void;
   deliveryZip: string;
   setDeliveryZip: (zip: string) => void;
+  deliveryInstructions: string;
+  setDeliveryInstructions: (instructions: string) => void;
   ownerName: string;
   deliveryMode: "pickup_only" | "delivery_only" | "both_available";
   deliveryFee: number;
@@ -47,6 +50,8 @@ export function ServicesStep({
   setDeliveryState,
   deliveryZip,
   setDeliveryZip,
+  deliveryInstructions,
+  setDeliveryInstructions,
   ownerName,
   deliveryMode,
   deliveryFee,
@@ -202,6 +207,25 @@ export function ServicesStep({
                   required
                 />
               </div>
+            </div>
+
+            {/* Delivery Instructions */}
+            <div>
+              <Label htmlFor="delivery-instructions" className="text-sm text-gray-700">
+                Delivery Instructions (Optional)
+              </Label>
+              <Textarea
+                id="delivery-instructions"
+                placeholder="Any special instructions for delivery, such as gate codes, building access, or preferred delivery times..."
+                value={deliveryInstructions}
+                onChange={(e) => setDeliveryInstructions(e.target.value)}
+                className="mt-1"
+                rows={2}
+                maxLength={500}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                {deliveryInstructions.length}/500 characters
+              </p>
             </div>
           </div>
         )}

@@ -11,6 +11,7 @@ export const createRentalRequestSchema = z
     }),
     deliveryRequested: z.boolean().default(false),
     deliveryAddress: z.string().optional(),
+    deliveryInstructions: z.string().max(500).optional(),
     setupRequested: z.boolean().default(false),
     setupFee: z.number().default(0),
     message: z.string().optional(),

@@ -50,6 +50,7 @@ export function RentListingPageContent({
   const [deliveryZip, setDeliveryZip] = useState(
     currentUser.primaryAddress?.zipCode || "",
   );
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [setupRequested, setSetupRequested] = useState(false);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -160,6 +161,10 @@ export function RentListingPageContent({
         endDate: dateRange.to,
         deliveryRequested: deliveryMethod === "delivery",
         deliveryAddress: fullAddress,
+        deliveryInstructions:
+          deliveryMethod === "delivery" && deliveryInstructions.trim()
+            ? deliveryInstructions.trim()
+            : undefined,
         setupRequested: setupRequested && deliveryMethod === "delivery",
         setupFee:
           setupRequested && deliveryMethod === "delivery"
@@ -286,6 +291,8 @@ export function RentListingPageContent({
                       setDeliveryState={setDeliveryState}
                       deliveryZip={deliveryZip}
                       setDeliveryZip={setDeliveryZip}
+                      deliveryInstructions={deliveryInstructions}
+                      setDeliveryInstructions={setDeliveryInstructions}
                       ownerName={`${listing.owner.firstName} ${listing.owner.lastName}`}
                       deliveryMode={listing.deliveryMode}
                       deliveryFee={listing.deliveryFee}
@@ -321,6 +328,7 @@ export function RentListingPageContent({
                       dateRange={dateRange}
                       deliveryMethod={deliveryMethod}
                       deliveryAddress={`${deliveryStreet}, ${deliveryCity}, ${deliveryState} ${deliveryZip}`}
+                      deliveryInstructions={deliveryInstructions}
                       setupRequested={setupRequested}
                       message={message}
                       setMessage={setMessage}

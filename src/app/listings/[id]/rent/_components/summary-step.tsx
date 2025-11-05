@@ -11,6 +11,7 @@ interface SummaryStepProps {
   dateRange: DateRange | undefined;
   deliveryMethod: "pickup" | "delivery";
   deliveryAddress: string;
+  deliveryInstructions: string;
   setupRequested: boolean;
   message: string;
   setMessage: (message: string) => void;
@@ -28,6 +29,7 @@ export function SummaryStep({
   dateRange,
   deliveryMethod,
   deliveryAddress,
+  deliveryInstructions,
   setupRequested,
   message,
   setMessage,
@@ -54,6 +56,15 @@ export function SummaryStep({
               {deliveryMethod === "pickup" ? "Owner location" : deliveryAddress}
             </span>
           </div>
+
+          {deliveryMethod === "delivery" && deliveryInstructions && (
+            <div className="py-2">
+              <span className="mb-1 block text-sm text-gray-600">
+                Delivery Instructions:
+              </span>
+              <span className="text-sm">{deliveryInstructions}</span>
+            </div>
+          )}
 
           {setupRequested && (
             <div className="flex justify-between py-2">

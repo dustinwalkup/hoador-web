@@ -1,0 +1,1 @@
+ALTER TABLE "rental_requests" ADD COLUMN "delivery_instructions" text;

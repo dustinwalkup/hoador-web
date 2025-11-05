@@ -134,6 +134,7 @@ export interface RentalDetails {
   securityDeposit: string;
   deliveryRequested: boolean;
   deliveryAddress?: string;
+  deliveryInstructions?: string;
   deliveryFee: string;
   pickupAddress?: string;
   setupRequested?: boolean;
@@ -190,6 +191,7 @@ export type RentalDetailsInfo = Pick<
   | "securityDeposit"
   | "deliveryRequested"
   | "deliveryAddress"
+  | "deliveryInstructions"
   | "deliveryFee"
   | "pickupAddress"
   | "setupRequested"
@@ -434,6 +436,7 @@ export class RentalDAL extends BaseDAL {
           securityDeposit: securityDeposit.toString(),
           deliveryRequested: formData.deliveryRequested,
           deliveryAddress: formData.deliveryAddress || null,
+          deliveryInstructions: formData.deliveryInstructions || null,
           deliveryFee: deliveryFee.toString(),
           setupRequested: formData.setupRequested || false,
           setupFee: setupFee.toString(),
@@ -1273,6 +1276,7 @@ export class RentalDAL extends BaseDAL {
           securityDeposit: rentalRequests.securityDeposit,
           deliveryRequested: rentalRequests.deliveryRequested,
           deliveryAddress: rentalRequests.deliveryAddress,
+          deliveryInstructions: rentalRequests.deliveryInstructions,
           deliveryFee: rentalRequests.deliveryFee,
           setupRequested: rentalRequests.setupRequested,
           setupFee: rentalRequests.setupFee,
@@ -1431,6 +1435,7 @@ export class RentalDAL extends BaseDAL {
           securityDeposit: request.securityDeposit,
           deliveryRequested: request.deliveryRequested,
           deliveryAddress: request.deliveryAddress || undefined,
+          deliveryInstructions: request.deliveryInstructions || undefined,
           deliveryFee: request.deliveryFee,
           pickupAddress,
           setupRequested: request.setupRequested,

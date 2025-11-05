@@ -84,6 +84,21 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
                   ) : (
                     <p className="text-gray-600">Address not specified</p>
                   )}
+                  {rentalDetails.deliveryInstructions && (
+                    <div className="mt-3 rounded-md bg-blue-50 p-3">
+                      <div className="flex gap-2">
+                        <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">
+                            Delivery Instructions
+                          </p>
+                          <p className="mt-1 text-sm text-blue-700">
+                            {rentalDetails.deliveryInstructions}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div>
