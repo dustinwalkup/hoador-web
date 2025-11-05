@@ -211,7 +211,10 @@ export function ServicesStep({
 
             {/* Delivery Instructions */}
             <div>
-              <Label htmlFor="delivery-instructions" className="text-sm text-gray-700">
+              <Label
+                htmlFor="delivery-instructions"
+                className="text-sm text-gray-700"
+              >
                 Delivery Instructions (Optional)
               </Label>
               <Textarea
