@@ -239,6 +239,7 @@ export type RentalActionsInfo = Pick<
   | "startDate"
   | "pickupInstructions"
   | "returnInstructions"
+  | "deliveryRequested"
 >;
 export type RentalMessagesInfo = Pick<
   RentalDetails,

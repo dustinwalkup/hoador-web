@@ -186,6 +186,7 @@ export function RentalActions({
         requestId={rentalDetails.id}
         listingName={rentalDetails.listingName}
         renterName={rentalDetails.renterName}
+        deliveryRequested={rentalDetails.deliveryRequested}
       />
 
       {/* Decline Request Dialog */}

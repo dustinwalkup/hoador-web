@@ -430,6 +430,7 @@ export function LendingCard({ request }: LendingCardProps) {
         requestId={request.id}
         listingName={request.listingName}
         renterName={request.renterName}
+        deliveryRequested={request.deliveryRequested}
       />
 
       <DeclineRequestDialog

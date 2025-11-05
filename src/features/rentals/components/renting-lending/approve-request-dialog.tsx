@@ -23,6 +23,7 @@ interface ApproveRequestDialogProps {
   requestId: string;
   listingName: string;
   renterName: string;
+  deliveryRequested?: boolean;
   onSuccess?: () => void;
 }
 
@@ -32,6 +33,7 @@ export function ApproveRequestDialog({
   requestId,
   listingName,
   renterName,
+  deliveryRequested,
   onSuccess,
 }: ApproveRequestDialogProps) {
   const [pickupInstructions, setPickupInstructions] = useState("");
@@ -43,8 +45,14 @@ export function ApproveRequestDialog({
       try {
         const result = await approveRentalRequest({
           requestId,
-          pickupInstructions: pickupInstructions || undefined,
-          returnInstructions: returnInstructions || undefined,
+          pickupInstructions:
+            deliveryRequested === true
+              ? undefined
+              : pickupInstructions || undefined,
+          returnInstructions:
+            deliveryRequested === true
+              ? undefined
+              : returnInstructions || undefined,
         });
 
         if (result.success) {
@@ -71,7 +79,7 @@ export function ApproveRequestDialog({
             });
           }
         }
-      } catch (error) {
+      } catch {
         // Show error toast if the action fails
         toast.error("Failed to approve request", {
           description: "An unexpected error occurred. Please try again.",
@@ -94,32 +102,34 @@ export function ApproveRequestDialog({
             notified of your approval.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="pickup-instructions">
-              Pickup Instructions (Optional)
-            </Label>
-            <Textarea
-              id="pickup-instructions"
-              placeholder="Provide details about when and where the renter can pick up the listing..."
-              value={pickupInstructions}
-              onChange={(e) => setPickupInstructions(e.target.value)}
-              className="min-h-[100px]"
-            />
+        {deliveryRequested !== true && (
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="pickup-instructions">
+                Pickup Instructions (Optional)
+              </Label>
+              <Textarea
+                id="pickup-instructions"
+                placeholder="Provide details about when and where the renter can pick up the listing..."
+                value={pickupInstructions}
+                onChange={(e) => setPickupInstructions(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="return-instructions">
+                Return Instructions (Optional)
+              </Label>
+              <Textarea
+                id="return-instructions"
+                placeholder="Provide details about when and where the renter should return the listing..."
+                value={returnInstructions}
+                onChange={(e) => setReturnInstructions(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="return-instructions">
-              Return Instructions (Optional)
-            </Label>
-            <Textarea
-              id="return-instructions"
-              placeholder="Provide details about when and where the renter should return the listing..."
-              value={returnInstructions}
-              onChange={(e) => setReturnInstructions(e.target.value)}
-              className="min-h-[100px]"
-            />
-          </div>
-        </div>
+        )}
         <DialogFooter>
           <Button
             type="button"
