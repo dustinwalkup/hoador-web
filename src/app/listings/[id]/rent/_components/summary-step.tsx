@@ -1,20 +1,20 @@
 "use client";
 
-import type { DateRange } from "react-day-picker";
+import { useFormContext } from "react-hook-form";
 
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  FormField,
+  FormItem,
+  FormControl,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { formatDate } from "@/lib/utils/date.utils";
+import { type RentalFormData } from "@/features/rentals/lib/rental-form.schema";
 
 interface SummaryStepProps {
-  dateRange: DateRange | undefined;
-  deliveryMethod: "pickup" | "delivery";
-  deliveryAddress: string;
-  deliveryInstructions: string;
-  setupRequested: boolean;
-  message: string;
-  setMessage: (message: string) => void;
   pricing: {
     days: number;
     subtotal: number;
@@ -25,16 +25,23 @@ interface SummaryStepProps {
   };
 }
 
-export function SummaryStep({
-  dateRange,
-  deliveryMethod,
-  deliveryAddress,
-  deliveryInstructions,
-  setupRequested,
-  message,
-  setMessage,
-  pricing,
-}: SummaryStepProps) {
+export function SummaryStep({ pricing }: SummaryStepProps) {
+  const form = useFormContext<RentalFormData>();
+  const startDate = form.watch("startDate");
+  const endDate = form.watch("endDate");
+  const deliveryMethod = form.watch("deliveryMethod");
+  const deliveryStreet = form.watch("deliveryStreet");
+  const deliveryCity = form.watch("deliveryCity");
+  const deliveryState = form.watch("deliveryState");
+  const deliveryZip = form.watch("deliveryZip");
+  const deliveryInstructions = form.watch("deliveryInstructions");
+  const setupRequested = form.watch("setupRequested");
+
+  const deliveryAddress =
+    deliveryMethod === "delivery" && deliveryStreet && deliveryCity
+      ? `${deliveryStreet}, ${deliveryCity}, ${deliveryState} ${deliveryZip}`
+      : "";
+
   return (
     <div className="space-y-6">
       <div>
@@ -44,9 +51,9 @@ export function SummaryStep({
           <div className="flex justify-between py-2">
             <span>Rental Period:</span>
             <span className="font-medium">
-              {dateRange?.from &&
-                dateRange?.to &&
-                `${formatDate(dateRange.from, "MMM d")} - ${formatDate(dateRange.to, "MMM d")} (${pricing.days} days)`}
+              {startDate &&
+                endDate &&
+                `${formatDate(startDate, "MMM d")} - ${formatDate(endDate, "MMM d")} (${pricing.days} days)`}
             </span>
           </div>
 
@@ -105,16 +112,26 @@ export function SummaryStep({
         </div>
 
         <div className="mt-6">
-          <Label htmlFor="message">
-            Message to Owner (Optional but Recommended)
-          </Label>
-          <Textarea
-            id="message"
-            placeholder="Tell the owner about your project and any special requirements. After approval, you'll coordinate exact pickup/delivery times via messaging..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="mt-2"
-            rows={4}
+          <FormField
+            control={form.control}
+            name="message"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="message">
+                  Message to Owner (Optional but Recommended)
+                </FormLabel>
+                <FormControl>
+                  <Textarea
+                    id="message"
+                    placeholder="Tell the owner about your project and any special requirements. After approval, you'll coordinate exact pickup/delivery times via messaging..."
+                    {...field}
+                    className="mt-2"
+                    rows={4}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
       </div>

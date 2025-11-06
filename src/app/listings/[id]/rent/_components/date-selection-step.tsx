@@ -1,15 +1,22 @@
 "use client";
 
 import type { DateRange } from "react-day-picker";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import { useFormContext } from "react-hook-form";
 
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertCircle, CheckCircle } from "lucide-react";
+import {
+  FormField,
+  FormItem,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
 import { formatDate, differenceInDays } from "@/lib/utils/date.utils";
+import { type RentalFormData } from "@/features/rentals/lib/rental-form.schema";
+import { validateDateRange } from "@/features/rentals/lib/rental-form.schema";
 
 interface DateSelectionStepProps {
-  dateRange: DateRange | undefined;
-  setDateRange: (range: DateRange | undefined) => void;
   minimumRentalPeriod: number;
   maximumRentalPeriod: number;
   days: number;
@@ -17,13 +24,23 @@ interface DateSelectionStepProps {
 }
 
 export function DateSelectionStep({
-  dateRange,
-  setDateRange,
   minimumRentalPeriod,
   maximumRentalPeriod,
   days,
   bookedDates,
 }: DateSelectionStepProps) {
+  const form = useFormContext<RentalFormData>();
+  const startDate = form.watch("startDate");
+  const endDate = form.watch("endDate");
+
+  // Convert to DateRange format for Calendar component
+  const dateRange: DateRange | undefined =
+    startDate && endDate
+      ? { from: startDate, to: endDate }
+      : startDate
+        ? { from: startDate, to: undefined }
+        : undefined;
+
   // Helper to check if a date falls within any booked range
   const isDateBooked = (date: Date) => {
     return bookedDates.some((range) => {
@@ -39,27 +56,12 @@ export function DateSelectionStep({
 
   // Validation logic
   const getValidationStatus = () => {
-    if (!dateRange?.from || !dateRange?.to) {
-      return { isValid: false, message: null };
-    }
-
-    const selectedDays = differenceInDays(dateRange.to, dateRange.from) + 1;
-
-    if (selectedDays < minimumRentalPeriod) {
-      return {
-        isValid: false,
-        message: `Minimum rental period is ${minimumRentalPeriod} day${minimumRentalPeriod !== 1 ? "s" : ""}. Please select a longer period.`,
-      };
-    }
-
-    if (selectedDays > maximumRentalPeriod) {
-      return {
-        isValid: false,
-        message: `Maximum rental period is ${maximumRentalPeriod} days. Please select a shorter period.`,
-      };
-    }
-
-    return { isValid: true, message: null };
+    return validateDateRange(
+      startDate,
+      endDate,
+      minimumRentalPeriod,
+      maximumRentalPeriod,
+    );
   };
 
   const validation = getValidationStatus();
@@ -74,55 +76,94 @@ export function DateSelectionStep({
           Minimum: {minimumRentalPeriod} day(s) • Maximum: {maximumRentalPeriod}{" "}
           days
         </p>
-        <div className="flex justify-center">
-          <Calendar
-            mode="range"
-            selected={dateRange}
-            onSelect={setDateRange}
-            disabled={(date) => {
-              // Disable past dates
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              if (date < today) return true;
+        <FormField
+          control={form.control}
+          name="startDate"
+          render={() => (
+            <FormItem>
+              <FormControl>
+                <div className="flex justify-center">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={(range) => {
+                      if (range?.from) {
+                        form.setValue("startDate", range.from, {
+                          shouldValidate: true,
+                        });
+                      }
+                      if (range?.to) {
+                        form.setValue("endDate", range.to, {
+                          shouldValidate: true,
+                        });
+                      }
+                      if (!range) {
+                        form.setValue("startDate", undefined, {
+                          shouldValidate: true,
+                        });
+                        form.setValue("endDate", undefined, {
+                          shouldValidate: true,
+                        });
+                      }
+                    }}
+                    disabled={(date) => {
+                      // Disable past dates
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      if (date < today) return true;
 
-              // Disable booked dates
-              if (isDateBooked(date)) return true;
+                      // Disable booked dates
+                      if (isDateBooked(date)) return true;
 
-              // If we have a start date selected, validate the range
-              if (dateRange?.from) {
-                const daysFromStart =
-                  differenceInDays(date, dateRange.from) + 1;
+                      // If we have a start date selected, validate the range
+                      if (startDate) {
+                        const daysFromStart =
+                          differenceInDays(date, startDate) + 1;
 
-                // Disable if it would exceed maximum rental period
-                if (daysFromStart > maximumRentalPeriod) return true;
+                        // Disable if it would exceed maximum rental period
+                        if (daysFromStart > maximumRentalPeriod) return true;
 
-                // Check if any date in the range is booked
-                const startDate = new Date(dateRange.from);
-                const endDate = new Date(date);
-                const currentDate = new Date(startDate);
+                        // Check if any date in the range is booked
+                        const startDateObj = new Date(startDate);
+                        const endDateObj = new Date(date);
+                        const currentDate = new Date(startDateObj);
 
-                while (currentDate <= endDate) {
-                  if (isDateBooked(currentDate)) return true;
-                  currentDate.setDate(currentDate.getDate() + 1);
-                }
-              }
+                        while (currentDate <= endDateObj) {
+                          if (isDateBooked(currentDate)) return true;
+                          currentDate.setDate(currentDate.getDate() + 1);
+                        }
+                      }
 
-              return false;
-            }}
-            modifiers={{
-              booked: (date) => isDateBooked(date),
-            }}
-            modifiersClassNames={{
-              booked: "bg-red-50 text-red-400 line-through opacity-50",
-            }}
-            numberOfMonths={2}
-            showOutsideDays={false}
-            className="w-full rounded-md border"
-          />
-        </div>
+                      return false;
+                    }}
+                    modifiers={{
+                      booked: (date) => isDateBooked(date),
+                    }}
+                    modifiersClassNames={{
+                      booked: "bg-red-50 text-red-400 line-through opacity-50",
+                    }}
+                    numberOfMonths={2}
+                    showOutsideDays={false}
+                    className="w-full rounded-md border"
+                  />
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="endDate"
+          render={() => (
+            <FormItem>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Date selection feedback */}
-        {dateRange?.from && dateRange?.to && (
+        {startDate && endDate && (
           <div className="mt-4 space-y-3">
             <div
               className={`rounded-lg p-4 ${
@@ -143,14 +184,13 @@ export function DateSelectionStep({
                       validation.isValid ? "text-green-800" : "text-red-800"
                     }`}
                   >
-                    <strong>Selected:</strong>{" "}
-                    {formatDate(dateRange.from, "PPP")} to{" "}
-                    {formatDate(dateRange.to, "PPP")} ({days} day
+                    <strong>Selected:</strong> {formatDate(startDate, "PPP")} to{" "}
+                    {formatDate(endDate, "PPP")} ({days} day
                     {days !== 1 ? "s" : ""})
                   </p>
-                  {validation.message && (
+                  {validation.error && (
                     <p className="mt-1 text-sm text-red-700">
-                      {validation.message}
+                      {validation.error}
                     </p>
                   )}
                 </div>

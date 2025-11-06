@@ -2,15 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DateRange } from "react-day-picker";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import { PaymentForm } from "@/features/payments/components/payment-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Form } from "@/components/ui/form";
 import { BackButton } from "@/components/back-button";
 import { type ListingDetails, type UserProfile } from "@/dal/types";
 import { createRentalRequest } from "@/features/rentals/actions/create-rental-request";
+import {
+  rentalFormSchema,
+  type RentalFormData,
+  validateDateRange,
+} from "@/features/rentals/lib/rental-form.schema";
 import { DateSelectionStep } from "./date-selection-step";
 import { ServicesStep } from "./services-step";
 import { SummaryStep } from "./summary-step";
@@ -32,32 +39,36 @@ export function RentListingPageContent({
   currentUser,
 }: RentListingPageContentProps) {
   const router = useRouter();
-
   const [currentStep, setCurrentStep] = useState<BookingStep>("dates");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "delivery">(
-    "pickup",
-  );
-  const [deliveryStreet, setDeliveryStreet] = useState(
-    currentUser.primaryAddress?.street || "",
-  );
-  const [deliveryCity, setDeliveryCity] = useState(
-    currentUser.primaryAddress?.city || "",
-  );
-  const [deliveryState, setDeliveryState] = useState(
-    currentUser.primaryAddress?.state || "",
-  );
-  const [deliveryZip, setDeliveryZip] = useState(
-    currentUser.primaryAddress?.zipCode || "",
-  );
-  const [deliveryInstructions, setDeliveryInstructions] = useState("");
-  const [setupRequested, setSetupRequested] = useState(false);
-  const [message, setMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paymentMethodId, setPaymentMethodId] = useState<string>("");
+
+  const form = useForm<RentalFormData>({
+    resolver: zodResolver(rentalFormSchema),
+    defaultValues: {
+      deliveryMethod: "pickup",
+      deliveryStreet: currentUser.primaryAddress?.street || "",
+      deliveryCity: currentUser.primaryAddress?.city || "",
+      deliveryState: currentUser.primaryAddress?.state || "",
+      deliveryZip: currentUser.primaryAddress?.zipCode || "",
+      deliveryInstructions: "",
+      setupRequested: false,
+      message: "",
+      paymentMethodId: "",
+    },
+    mode: "onTouched",
+  }) as ReturnType<typeof useForm<RentalFormData>>;
+
+  const {
+    watch,
+    trigger,
+    formState: { isSubmitting },
+    setValue,
+    handleSubmit,
+  } = form;
+
+  const watchedValues = watch();
 
   const calculateTotal = () => {
-    if (!dateRange?.from || !dateRange?.to)
+    if (!watchedValues.startDate || !watchedValues.endDate)
       return {
         days: 0,
         subtotal: 0,
@@ -67,7 +78,8 @@ export function RentListingPageContent({
         total: 0,
       };
 
-    const days = differenceInDays(dateRange.to, dateRange.from) + 1;
+    const days =
+      differenceInDays(watchedValues.endDate, watchedValues.startDate) + 1;
     let rate = listing.dailyRate;
 
     // Apply weekly/monthly discounts
@@ -79,9 +91,12 @@ export function RentListingPageContent({
 
     const subtotal = Math.round(rate * days * 100) / 100;
     const deliveryFeeAmount =
-      deliveryMethod === "delivery" ? listing.deliveryFee : 0;
+      watchedValues.deliveryMethod === "delivery" ? listing.deliveryFee : 0;
     const setupFeeAmount =
-      setupRequested && deliveryMethod === "delivery" ? listing.setupFee : 0;
+      watchedValues.setupRequested &&
+      watchedValues.deliveryMethod === "delivery"
+        ? listing.setupFee
+        : 0;
     const securityDeposit = listing.securityDeposit;
     const total =
       subtotal + deliveryFeeAmount + setupFeeAmount + securityDeposit;
@@ -96,18 +111,47 @@ export function RentListingPageContent({
     };
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     switch (currentStep) {
-      case "dates":
-        if (dateRange?.from && dateRange?.to) {
-          setCurrentStep("delivery");
+      case "dates": {
+        const isValid = await trigger(["startDate", "endDate"]);
+        if (!isValid) return;
+
+        // Additional validation for date range constraints
+        const dateValidation = validateDateRange(
+          watchedValues.startDate,
+          watchedValues.endDate,
+          listing.minimumRentalPeriod,
+          listing.maximumRentalPeriod,
+        );
+
+        if (!dateValidation.isValid) {
+          toast.error("Invalid Date Range", {
+            description: dateValidation.error,
+          });
+          return;
+        }
+
+        setCurrentStep("delivery");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        break;
+      }
+      case "delivery": {
+        const isValid = await trigger([
+          "deliveryMethod",
+          "deliveryStreet",
+          "deliveryCity",
+          "deliveryState",
+          "deliveryZip",
+          "deliveryInstructions",
+          "setupRequested",
+        ]);
+        if (isValid) {
+          setCurrentStep("payment");
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
         break;
-      case "delivery":
-        setCurrentStep("payment");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        break;
+      }
       case "payment":
         setCurrentStep("summary");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -138,91 +182,81 @@ export function RentListingPageContent({
   };
 
   const handlePaymentSuccess = async (methodId: string) => {
-    setPaymentMethodId(methodId);
+    setValue("paymentMethodId", methodId);
     setCurrentStep("summary");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleCreateRentalRequest = async () => {
-    if (!dateRange?.from || !dateRange?.to) return;
-
-    setIsSubmitting(true);
-
-    try {
-      // Concatenate address fields into a single string for navigation
-      const fullAddress =
-        deliveryMethod === "delivery"
-          ? `${deliveryStreet}, ${deliveryCity}, ${deliveryState} ${deliveryZip}`
-          : undefined;
-
-      const result = await createRentalRequest({
-        listingId: listing.id,
-        startDate: dateRange.from,
-        endDate: dateRange.to,
-        deliveryRequested: deliveryMethod === "delivery",
-        deliveryAddress: fullAddress,
-        deliveryInstructions:
-          deliveryMethod === "delivery" && deliveryInstructions.trim()
-            ? deliveryInstructions.trim()
-            : undefined,
-        setupRequested: setupRequested && deliveryMethod === "delivery",
-        setupFee:
-          setupRequested && deliveryMethod === "delivery"
-            ? listing.setupFee
-            : 0,
-        message: message || undefined,
-        paymentMethodId,
+  const onSubmit = async (data: RentalFormData) => {
+    // Validate dates are present (they should be at this point)
+    if (!data.startDate || !data.endDate) {
+      toast.error("Invalid Date Range", {
+        description: "Please select both start and end dates",
       });
+      return;
+    }
 
-      if (result.success) {
-        toast.success("Request Submitted!", {
-          description: `Your request has been sent to ${listing.owner.firstName}. Check your messages after approval to coordinate logistics.`,
-        });
-        // Redirect to the confirmation page with the request ID
-        router.push(`/dashboard/rental/${result.requestId}?view=renting`);
-      } else {
-        toast.error("Rental Request Failed", {
-          description: result.error || "Please try again",
-        });
-      }
-    } catch (error) {
-      toast.error("Error", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to submit rental request",
+    // Concatenate address fields into a single string for navigation
+    const fullAddress =
+      data.deliveryMethod === "delivery"
+        ? `${data.deliveryStreet}, ${data.deliveryCity}, ${data.deliveryState} ${data.deliveryZip}`
+        : undefined;
+
+    const result = await createRentalRequest({
+      listingId: listing.id,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      deliveryRequested: data.deliveryMethod === "delivery",
+      deliveryAddress: fullAddress,
+      deliveryInstructions:
+        data.deliveryMethod === "delivery" && data.deliveryInstructions?.trim()
+          ? data.deliveryInstructions.trim()
+          : undefined,
+      setupRequested: data.setupRequested && data.deliveryMethod === "delivery",
+      setupFee:
+        data.setupRequested && data.deliveryMethod === "delivery"
+          ? listing.setupFee
+          : 0,
+      message: data.message || undefined,
+      paymentMethodId: data.paymentMethodId,
+    });
+
+    if (result.success) {
+      toast.success("Request Submitted!", {
+        description: `Your request has been sent to ${listing.owner.firstName}. Check your messages after approval to coordinate logistics.`,
       });
-    } finally {
-      setIsSubmitting(false);
+      // Redirect to the confirmation page with the request ID
+      router.push(`/dashboard/rental/${result.requestId}?view=renting`);
+    } else {
+      toast.error("Rental Request Failed", {
+        description: result.error || "Please try again",
+      });
     }
   };
 
   const pricing = calculateTotal();
 
-  // Validation helper for date range
-  const isDateRangeValid = () => {
-    if (!dateRange?.from || !dateRange?.to) return false;
-
-    const selectedDays = differenceInDays(dateRange.to, dateRange.from) + 1;
-    return (
-      selectedDays >= listing.minimumRentalPeriod &&
-      selectedDays <= listing.maximumRentalPeriod
-    );
-  };
-
   const canProceed = () => {
     switch (currentStep) {
-      case "dates":
-        return dateRange?.from && dateRange?.to && isDateRangeValid();
-      case "delivery":
-        return (
-          deliveryMethod === "pickup" ||
-          (deliveryMethod === "delivery" &&
-            deliveryStreet.trim() &&
-            deliveryCity.trim() &&
-            deliveryState.trim() &&
-            deliveryZip.trim())
+      case "dates": {
+        const dateValidation = validateDateRange(
+          watchedValues.startDate,
+          watchedValues.endDate,
+          listing.minimumRentalPeriod,
+          listing.maximumRentalPeriod,
         );
+        return dateValidation.isValid;
+      }
+      case "delivery": {
+        // Check if delivery method is pickup or all delivery fields are filled
+        if (watchedValues.deliveryMethod === "pickup") return true;
+        return !!(
+          watchedValues.deliveryStreet?.trim() &&
+          watchedValues.deliveryCity?.trim() &&
+          watchedValues.deliveryState?.trim() &&
+          watchedValues.deliveryZip?.trim()
+        );
+      }
       case "summary":
         return true;
       case "payment":
@@ -248,143 +282,122 @@ export function RentListingPageContent({
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="container mx-auto">
-        {/* Header */}
-        <div className="flex w-full justify-center">
-          <div className="mb-6 flex w-full max-w-4xl flex-col items-start justify-between md:flex-row md:items-center">
-            <BackButton className="md:mb-0!" />
-            <StepIndicator currentStep={currentStep} />
-          </div>
-        </div>
-
-        <div className="mx-auto max-w-4xl">
-          <h1 className="mb-8 text-3xl font-bold">{getStepTitle()}</h1>
-
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            {/* Main Content */}
-            <div className="lg:col-span-2">
-              <Card className="pt-0">
-                <CardContent className="p-4">
-                  {/* Step 1: Date Selection */}
-                  {currentStep === "dates" && (
-                    <DateSelectionStep
-                      dateRange={dateRange}
-                      setDateRange={setDateRange}
-                      minimumRentalPeriod={listing.minimumRentalPeriod}
-                      maximumRentalPeriod={listing.maximumRentalPeriod}
-                      days={pricing.days}
-                      bookedDates={bookedDates}
-                    />
-                  )}
-
-                  {/* Step 2: Services & Delivery */}
-                  {currentStep === "delivery" && (
-                    <ServicesStep
-                      deliveryMethod={deliveryMethod}
-                      setDeliveryMethod={setDeliveryMethod}
-                      deliveryStreet={deliveryStreet}
-                      setDeliveryStreet={setDeliveryStreet}
-                      deliveryCity={deliveryCity}
-                      setDeliveryCity={setDeliveryCity}
-                      deliveryState={deliveryState}
-                      setDeliveryState={setDeliveryState}
-                      deliveryZip={deliveryZip}
-                      setDeliveryZip={setDeliveryZip}
-                      deliveryInstructions={deliveryInstructions}
-                      setDeliveryInstructions={setDeliveryInstructions}
-                      ownerName={`${listing.owner.firstName} ${listing.owner.lastName}`}
-                      deliveryMode={listing.deliveryMode}
-                      deliveryFee={listing.deliveryFee}
-                      deliveryRadius={listing.deliveryRadius}
-                      setupAvailable={listing.setupAvailable}
-                      setupFee={listing.setupFee}
-                      setupRequested={setupRequested}
-                      setSetupRequested={setSetupRequested}
-                    />
-                  )}
-
-                  {/* Step 3: Payment */}
-                  {currentStep === "payment" && (
-                    <div className="space-y-6">
-                      <div className="mb-4">
-                        <h3 className="mb-2 text-lg font-medium">
-                          Confirm Payment Method
-                        </h3>
-                        <p className="text-gray-600">
-                          Your payment method is stored securely by Stripe.
-                          Payment will only be processed after{" "}
-                          {listing.owner.firstName} approves your rental
-                          request.
-                        </p>
-                      </div>
-                      <PaymentForm onSuccess={handlePaymentSuccess} />
-                    </div>
-                  )}
-
-                  {/* Step 4: Summary */}
-                  {currentStep === "summary" && (
-                    <SummaryStep
-                      dateRange={dateRange}
-                      deliveryMethod={deliveryMethod}
-                      deliveryAddress={`${deliveryStreet}, ${deliveryCity}, ${deliveryState} ${deliveryZip}`}
-                      deliveryInstructions={deliveryInstructions}
-                      setupRequested={setupRequested}
-                      message={message}
-                      setMessage={setMessage}
-                      pricing={pricing}
-                    />
-                  )}
-                </CardContent>
-              </Card>
+    <Form {...form}>
+      <div className="min-h-screen">
+        <div className="container mx-auto">
+          {/* Header */}
+          <div className="flex w-full justify-center">
+            <div className="mb-6 flex w-full max-w-4xl flex-col items-start justify-between md:flex-row md:items-center">
+              <BackButton className="md:mb-0!" />
+              <StepIndicator currentStep={currentStep} />
             </div>
+          </div>
 
-            {/* Sidebar - Listing Summary */}
-            <div className="space-y-4">
-              <ListingSummaryCard listing={listing} pricing={pricing} />
+          <div className="mx-auto max-w-4xl">
+            <h1 className="mb-8 text-3xl font-bold">{getStepTitle()}</h1>
 
-              {currentStep !== "payment" && (
-                <Button
-                  onClick={
-                    currentStep === "summary"
-                      ? handleCreateRentalRequest
-                      : handleNext
-                  }
-                  className="bg-primary hover:bg-primary/90 w-full"
-                  size="lg"
-                  disabled={!canProceed() || isSubmitting}
-                >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : currentStep === "summary"
-                      ? "Send Request"
-                      : "Continue"}
-                </Button>
-              )}
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+              {/* Main Content */}
+              <div className="lg:col-span-2">
+                <Card className="pt-0">
+                  <CardContent className="p-4">
+                    {/* Step 1: Date Selection */}
+                    {currentStep === "dates" && (
+                      <DateSelectionStep
+                        minimumRentalPeriod={listing.minimumRentalPeriod}
+                        maximumRentalPeriod={listing.maximumRentalPeriod}
+                        days={pricing.days}
+                        bookedDates={bookedDates}
+                      />
+                    )}
 
-              {/* Back button - show on all steps except the first */}
-              {currentStep !== "dates" && (
-                <Button
-                  onClick={handleBack}
-                  variant="outline"
-                  className="w-full"
-                  size="lg"
-                  disabled={isSubmitting}
-                >
-                  Back
-                </Button>
-              )}
+                    {/* Step 2: Services & Delivery */}
+                    {currentStep === "delivery" && (
+                      <ServicesStep
+                        ownerName={`${listing.owner.firstName} ${listing.owner.lastName}`}
+                        deliveryMode={listing.deliveryMode}
+                        deliveryFee={listing.deliveryFee}
+                        deliveryRadius={listing.deliveryRadius}
+                        setupAvailable={listing.setupAvailable}
+                        setupFee={listing.setupFee}
+                      />
+                    )}
 
-              {currentStep !== "summary" && currentStep !== "payment" && (
-                <p className="text-center text-xs text-gray-600">
-                  Payment will be processed after the owner approves your
-                  request
-                </p>
-              )}
+                    {/* Step 3: Payment */}
+                    {currentStep === "payment" && (
+                      <div className="space-y-6">
+                        <div className="mb-4">
+                          <h3 className="mb-2 text-lg font-medium">
+                            Confirm Payment Method
+                          </h3>
+                          <p className="text-gray-600">
+                            Your payment method is stored securely by Stripe.
+                            Payment will only be processed after{" "}
+                            {listing.owner.firstName} approves your rental
+                            request.
+                          </p>
+                        </div>
+                        <PaymentForm onSuccess={handlePaymentSuccess} />
+                      </div>
+                    )}
+
+                    {/* Step 4: Summary */}
+                    {currentStep === "summary" && (
+                      <SummaryStep pricing={pricing} />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Sidebar - Listing Summary */}
+              <div className="space-y-4">
+                <ListingSummaryCard listing={listing} pricing={pricing} />
+
+                {currentStep !== "payment" && (
+                  <Button
+                    type="button"
+                    onClick={
+                      currentStep === "summary"
+                        ? handleSubmit(onSubmit)
+                        : handleNext
+                    }
+                    className="bg-primary hover:bg-primary/90 w-full"
+                    size="lg"
+                    disabled={!canProceed() || isSubmitting}
+                  >
+                    {isSubmitting
+                      ? "Submitting..."
+                      : currentStep === "summary"
+                        ? "Send Request"
+                        : "Continue"}
+                  </Button>
+                )}
+
+                {/* Back button - show on all steps except the first */}
+                {currentStep !== "dates" && (
+                  <Button
+                    type="button"
+                    onClick={handleBack}
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                    disabled={isSubmitting}
+                  >
+                    Back
+                  </Button>
+                )}
+
+                {currentStep !== "summary" && currentStep !== "payment" && (
+                  <p className="text-center text-xs text-gray-600">
+                    Payment will be processed after the owner approves your
+                    request
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Form>
   );
 }
