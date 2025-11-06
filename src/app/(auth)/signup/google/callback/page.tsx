@@ -33,10 +33,13 @@ export default async function GoogleSignupCallback() {
         : currentStatus;
 
     // Redirect based on final user status
-    // Active users should go to dashboard, others to join-code
+    // Match the middleware routing logic for each status
     if (finalStatus === "active") {
       redirect("/dashboard");
+    } else if (finalStatus === "incomplete_profile") {
+      redirect("/onboarding");
     } else {
+      // email_verified, pending_verification, etc. -> join-code
       redirect("/join-code");
     }
   } catch (error) {
