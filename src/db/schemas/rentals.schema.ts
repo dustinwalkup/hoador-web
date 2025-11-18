@@ -107,6 +107,10 @@ export const rentals = pgTable(
       .notNull(),
     rentalPaymentIntentId: varchar("rental_payment_intent_id", { length: 255 }), // Stripe payment intent ID for rental charge
     securityDepositAuthId: varchar("security_deposit_auth_id", { length: 255 }), // Stripe auth ID for security deposit hold
+    applicationFeeAmount: decimal("application_fee_amount", {
+      precision: 10,
+      scale: 2,
+    }), // Platform fee collected (10% of total amount)
     pickupInstructions: text("pickup_instructions"),
     returnInstructions: text("return_instructions"),
     conditionAtPickup: text("condition_at_pickup"),

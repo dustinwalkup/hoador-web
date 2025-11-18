@@ -11,6 +11,7 @@ import {
   getPaymentErrorMessage,
   isRetryablePaymentError,
 } from "@/services/stripe/rental-payments";
+import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 import {
   sendPaymentFailureNotificationToRenter,
   sendPaymentFailureNotificationToOwner,
@@ -77,6 +78,40 @@ export async function approveRentalRequest(
     };
   }
 
+  // Get owner's connected account ID and verify onboarding
+  const { data: ownerAccountId, error: accountError } = await tryCatch(
+    (async () => {
+      return await userDAL.getConnectedAccountId(rentalRequest.ownerId);
+    })(),
+  );
+
+  if (accountError || !ownerAccountId) {
+    return {
+      success: false,
+      error:
+        "Owner must complete Stripe onboarding before receiving payments. Please contact the owner.",
+    };
+  }
+
+  // Verify owner has completed onboarding (charges enabled)
+  const { data: isOnboarded, error: onboardingCheckError } = await tryCatch(
+    (async () => {
+      return await userDAL.isConnectOnboardingComplete(rentalRequest.ownerId);
+    })(),
+  );
+
+  if (onboardingCheckError || !isOnboarded) {
+    return {
+      success: false,
+      error:
+        "Owner's Stripe account is not fully set up. Please contact the owner to complete onboarding.",
+    };
+  }
+
+  // Calculate application fee amount
+  const totalAmount = Number(rentalRequest.totalAmount);
+  const applicationFeeAmount = totalAmount * PLATFORM_FEE_PERCENTAGE;
+
   // Update payment status to processing
   await rentalDAL.updateRentalRequestPaymentStatus(validatedData.requestId, {
     paymentStatus: "processing",
@@ -89,7 +124,7 @@ export async function approveRentalRequest(
       return await chargeRentalPayment(
         stripeCustomerId,
         rentalRequest.paymentMethodId!,
-        Number(rentalRequest.totalAmount),
+        totalAmount,
         {
           rentalRequestId: rentalRequest.id,
           listingId: rentalRequest.listingId,
@@ -97,6 +132,7 @@ export async function approveRentalRequest(
           renterId: rentalRequest.renterId,
           listingName: rentalRequest.listingName,
         },
+        ownerAccountId, // Pass for destination transfer
       );
     })(),
   );
@@ -114,7 +150,7 @@ export async function approveRentalRequest(
         return await chargeRentalPayment(
           stripeCustomerId,
           rentalRequest.paymentMethodId!,
-          Number(rentalRequest.totalAmount),
+          totalAmount,
           {
             rentalRequestId: rentalRequest.id,
             listingId: rentalRequest.listingId,
@@ -122,6 +158,7 @@ export async function approveRentalRequest(
             renterId: rentalRequest.renterId,
             listingName: rentalRequest.listingName,
           },
+          ownerAccountId, // Pass for destination transfer
         );
       })(),
     );
@@ -267,6 +304,7 @@ export async function approveRentalRequest(
         returnInstructions: validatedData.returnInstructions,
         rentalPaymentIntentId: rentalPaymentIntent.id,
         securityDepositAuthId: securityDepositAuthId,
+        applicationFeeAmount: applicationFeeAmount.toString(),
       });
     })(),
   );

@@ -11,7 +11,7 @@ import {
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
-import { listingDAL } from "../../../dal";
+import { listingDAL, userDAL } from "../../../dal";
 
 // Separate action for uploading images
 export async function uploadListingImage(
@@ -62,6 +62,18 @@ export async function createListing(formData: CreateListingFormDataServerType) {
   const userId = await getCurrentUserId();
   if (!userId) {
     return { error: "Unauthorized: User not authenticated" };
+  }
+
+  // Check if user has completed Stripe Connect onboarding
+  const { data: isOnboarded, error: onboardingError } = await tryCatch(
+    userDAL.isConnectOnboardingComplete(userId),
+  );
+
+  if (onboardingError || !isOnboarded) {
+    return {
+      error:
+        "Complete Stripe onboarding first. You need to set up payments before creating listings.",
+    };
   }
 
   // Create the listing first

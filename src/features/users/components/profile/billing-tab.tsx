@@ -22,8 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ExpressDashboardButton } from "@/features/users/components/express-dashboard-button";
 
-export function BillingTab() {
+interface BillingTabProps {
+  isOnboarded?: boolean;
+}
+
+export function BillingTab({ isOnboarded = false }: BillingTabProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {/* TODO: Add payment method */}
@@ -106,7 +111,11 @@ export function BillingTab() {
             </Select>
           </div>
 
-          <Button className="w-full">Request Payout</Button>
+          {isOnboarded && (
+            <div className="mt-4">
+              <ExpressDashboardButton className="w-full" />
+            </div>
+          )}
         </CardContent>
       </Card>
       <Card>

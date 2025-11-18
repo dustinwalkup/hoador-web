@@ -135,6 +135,10 @@ export class UserDAL extends BaseDAL {
         bio: userData.bio ?? null,
         profileImageUrl: userData.profileImageUrl ?? null,
         stripeCustomerId: userData.stripeCustomerId ?? null,
+        stripeConnectedAccountId: userData.stripeConnectedAccountId ?? null,
+        connectOnboardingComplete: userData.connectOnboardingComplete,
+        connectChargesEnabled: userData.connectChargesEnabled,
+        connectPayoutsEnabled: userData.connectPayoutsEnabled,
         idVerified: userData.idVerified,
         addressVerified: userData.addressVerified,
         createdAt: userData.createdAt,
@@ -190,6 +194,10 @@ export class UserDAL extends BaseDAL {
         bio: userData.bio ?? null,
         profileImageUrl: userData.profileImageUrl ?? null,
         stripeCustomerId: userData.stripeCustomerId ?? null,
+        stripeConnectedAccountId: userData.stripeConnectedAccountId ?? null,
+        connectOnboardingComplete: userData.connectOnboardingComplete,
+        connectChargesEnabled: userData.connectChargesEnabled,
+        connectPayoutsEnabled: userData.connectPayoutsEnabled,
         idVerified: userData.idVerified,
         addressVerified: userData.addressVerified,
         createdAt: userData.createdAt,
@@ -700,6 +708,10 @@ export class UserDAL extends BaseDAL {
         bio: userData.bio ?? null,
         profileImageUrl: userData.profileImageUrl ?? null,
         stripeCustomerId: userData.stripeCustomerId ?? null,
+        stripeConnectedAccountId: userData.stripeConnectedAccountId ?? null,
+        connectOnboardingComplete: userData.connectOnboardingComplete,
+        connectChargesEnabled: userData.connectChargesEnabled,
+        connectPayoutsEnabled: userData.connectPayoutsEnabled,
         idVerified: userData.idVerified,
         addressVerified: userData.addressVerified,
         createdAt: userData.createdAt,
@@ -843,6 +855,145 @@ export class UserDAL extends BaseDAL {
       return customer.id;
     } catch (error) {
       this.handleError(error, "getOrCreateStripeCustomerId");
+    }
+  }
+
+  /**
+   * Get or create Stripe Connect account for a user
+   * Returns the existing connected account ID if present, or creates a new Express account
+   */
+  async getOrCreateConnectedAccount(userId: string): Promise<string> {
+    try {
+      // Get user data
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.id, userId),
+      });
+
+      if (!userData) {
+        throw new NotFoundError("User", userId);
+      }
+
+      // Return existing connected account ID if present
+      if (userData.stripeConnectedAccountId) {
+        return userData.stripeConnectedAccountId;
+      }
+
+      // Create new Stripe Connect Express account
+      const {
+        createConnectedAccount,
+      } = await import("@/services/stripe/connect");
+
+      const account = await createConnectedAccount(userId, userData.email);
+
+      // Update user with new connected account ID
+      await this.db
+        .update(user)
+        .set({
+          stripeConnectedAccountId: account.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId));
+
+      return account.id;
+    } catch (error) {
+      this.handleError(error, "getOrCreateConnectedAccount");
+    }
+  }
+
+  /**
+   * Update Stripe Connect onboarding status
+   */
+  async updateConnectOnboardingStatus(
+    userId: string,
+    status: { chargesEnabled: boolean; payoutsEnabled: boolean },
+  ): Promise<void> {
+    try {
+      const isComplete =
+        status.chargesEnabled && status.payoutsEnabled;
+
+      await this.db
+        .update(user)
+        .set({
+          connectChargesEnabled: status.chargesEnabled,
+          connectPayoutsEnabled: status.payoutsEnabled,
+          connectOnboardingComplete: isComplete,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId));
+    } catch (error) {
+      this.handleError(error, "updateConnectOnboardingStatus");
+    }
+  }
+
+  /**
+   * Check if user has completed Stripe Connect onboarding
+   * Returns true if charges_enabled && payouts_enabled
+   */
+  async isConnectOnboardingComplete(userId: string): Promise<boolean> {
+    try {
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.id, userId),
+        columns: {
+          connectChargesEnabled: true,
+          connectPayoutsEnabled: true,
+          connectOnboardingComplete: true,
+        },
+      });
+
+      if (!userData) {
+        throw new NotFoundError("User", userId);
+      }
+
+      return (
+        userData.connectChargesEnabled &&
+        userData.connectPayoutsEnabled &&
+        userData.connectOnboardingComplete
+      );
+    } catch (error) {
+      this.handleError(error, "isConnectOnboardingComplete");
+    }
+  }
+
+  /**
+   * Get connected account ID for a user
+   */
+  async getConnectedAccountId(userId: string): Promise<string | null> {
+    try {
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.id, userId),
+        columns: {
+          stripeConnectedAccountId: true,
+        },
+      });
+
+      if (!userData) {
+        throw new NotFoundError("User", userId);
+      }
+
+      return userData.stripeConnectedAccountId || null;
+    } catch (error) {
+      this.handleError(error, "getConnectedAccountId");
+    }
+  }
+
+  /**
+   * Get user by connected account ID (for webhooks)
+   */
+  async getUserByConnectedAccountId(
+    accountId: string,
+  ): Promise<UserProfile | null> {
+    try {
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.stripeConnectedAccountId, accountId),
+      });
+
+      if (!userData) {
+        return null;
+      }
+
+      return this.getUserById(userData.id);
+    } catch (error) {
+      this.handleError(error, "getUserByConnectedAccountId");
     }
   }
 }

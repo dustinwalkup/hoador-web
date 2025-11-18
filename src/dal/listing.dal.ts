@@ -990,6 +990,22 @@ export class ListingDAL extends BaseDAL {
   }
 
   /**
+   * Count total listings for a user
+   */
+  async countUserListings(userId: string): Promise<number> {
+    try {
+      const result = await this.db
+        .select({ count: count() })
+        .from(listings)
+        .where(eq(listings.ownerId, userId));
+
+      return result[0]?.count || 0;
+    } catch (error) {
+      this.handleError(error, "countUserListings");
+    }
+  }
+
+  /**
    * Get active listings owned by a user with search, sort, and filter options
    * @param userId - The user ID
    * @param filters - Optional filters for search, sort, and filtering

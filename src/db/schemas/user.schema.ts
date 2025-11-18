@@ -40,6 +40,18 @@ export const user = pgTable("user", {
   bio: text("bio"),
   profileImageUrl: varchar("profile_image_url", { length: 500 }),
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeConnectedAccountId: varchar("stripe_connected_account_id", {
+    length: 255,
+  }),
+  connectOnboardingComplete: boolean("connect_onboarding_complete")
+    .default(false)
+    .notNull(),
+  connectChargesEnabled: boolean("connect_charges_enabled")
+    .default(false)
+    .notNull(),
+  connectPayoutsEnabled: boolean("connect_payouts_enabled")
+    .default(false)
+    .notNull(),
   idVerified: boolean("id_verified").default(false).notNull(),
   addressVerified: boolean("address_verified").default(false).notNull(),
   lastLoginAt: timestamp("last_login_at"),

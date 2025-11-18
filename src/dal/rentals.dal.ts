@@ -1007,6 +1007,7 @@ export class RentalDAL extends BaseDAL {
       returnInstructions?: string;
       rentalPaymentIntentId?: string;
       securityDepositAuthId?: string;
+      applicationFeeAmount?: string;
     },
   ): Promise<void> {
     try {
@@ -1068,6 +1069,7 @@ export class RentalDAL extends BaseDAL {
         setupFee: request.setupFee,
         rentalPaymentIntentId: options?.rentalPaymentIntentId || null,
         securityDepositAuthId: options?.securityDepositAuthId || null,
+        applicationFeeAmount: options?.applicationFeeAmount || null,
         pickupInstructions: options?.pickupInstructions || null,
         returnInstructions: options?.returnInstructions || null,
       });

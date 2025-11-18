@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { PAYMENT_SERVER_INSTANCE } from "./server";
+import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 
 /**
  * Rental payment service for processing rental charges and security deposits
@@ -23,15 +24,17 @@ interface SecurityDepositMetadata {
 /**
  * Charge the rental payment (rental amount + delivery + setup fees)
  * This creates an immediate charge on the renter's payment method
+ * With destination charges, funds transfer immediately to the owner's connected account
  */
 export async function chargeRentalPayment(
   customerId: string,
   paymentMethodId: string,
   amount: number, // in dollars
   metadata: RentalPaymentMetadata,
+  ownerConnectedAccountId?: string, // Optional: if provided, creates destination charge
 ): Promise<Stripe.PaymentIntent> {
   try {
-    const paymentIntent = await PAYMENT_SERVER_INSTANCE.paymentIntents.create({
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
       amount: Math.round(amount * 100), // Convert to cents
       currency: "usd",
       customer: customerId,
@@ -42,7 +45,20 @@ export async function chargeRentalPayment(
         ...metadata,
         paymentType: "rental_charge",
       },
-    });
+    };
+
+    // Add destination charge parameters if owner connected account is provided
+    if (ownerConnectedAccountId) {
+      paymentIntentParams.transfer_data = {
+        destination: ownerConnectedAccountId,
+      };
+      paymentIntentParams.application_fee_amount = Math.round(
+        amount * PLATFORM_FEE_PERCENTAGE * 100,
+      );
+    }
+
+    const paymentIntent =
+      await PAYMENT_SERVER_INSTANCE.paymentIntents.create(paymentIntentParams);
 
     return paymentIntent;
   } catch (error) {

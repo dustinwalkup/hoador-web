@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 import { PROFILE_TABS } from "@/constants/profile";
 import { PageHeader } from "@/components/page-header";
+import { getCurrentUser } from "@/features/auth/utils/session";
+import { userDAL } from "@/dal";
 import { ProfileTabs, BillingTab } from "@/features/users/components/profile";
 
 export const metadata = {
@@ -9,6 +11,11 @@ export const metadata = {
 };
 
 export default async function BillingPage() {
+  const user = await getCurrentUser();
+  const isOnboarded = user
+    ? await userDAL.isConnectOnboardingComplete(user.id)
+    : false;
+
   return (
     <div className="container py-6">
       <PageHeader
@@ -17,7 +24,7 @@ export default async function BillingPage() {
       />
 
       <ProfileTabs>
-        <BillingTab />
+        <BillingTab isOnboarded={isOnboarded} />
       </ProfileTabs>
     </div>
   );
