@@ -879,9 +879,9 @@ export class UserDAL extends BaseDAL {
       }
 
       // Create new Stripe Connect Express account
-      const {
-        createConnectedAccount,
-      } = await import("@/services/stripe/connect");
+      const { createConnectedAccount } = await import(
+        "@/services/stripe/connect"
+      );
 
       const account = await createConnectedAccount(userId, userData.email);
 
@@ -908,8 +908,7 @@ export class UserDAL extends BaseDAL {
     status: { chargesEnabled: boolean; payoutsEnabled: boolean },
   ): Promise<void> {
     try {
-      const isComplete =
-        status.chargesEnabled && status.payoutsEnabled;
+      const isComplete = status.chargesEnabled && status.payoutsEnabled;
 
       await this.db
         .update(user)

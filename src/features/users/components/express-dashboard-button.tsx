@@ -30,15 +30,10 @@ export function ExpressDashboardButton({
       window.open(data.url, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Error opening dashboard:", error);
-      toast.error(
-        "Failed to open dashboard",
-        {
-          description:
-            error instanceof Error
-              ? error.message
-              : "Please try again later.",
-        },
-      );
+      toast.error("Failed to open dashboard", {
+        description:
+          error instanceof Error ? error.message : "Please try again later.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -65,8 +60,3 @@ export function ExpressDashboardButton({
     </Button>
   );
 }
-
-
-
-
-
