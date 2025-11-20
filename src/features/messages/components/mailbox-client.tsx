@@ -58,33 +58,39 @@ export function MailboxClient({
     (conv) => (activeTab === "archived") === conv.archived,
   );
 
-  // Direct useInfiniteQuery for pagination only (starts at page 1, not 0)
+  // Convert activeTab to boolean for consistent query key
+  const archived = activeTab === "archived";
+
+  // Direct useInfiniteQuery with initialData for proper React Query management
   const {
-    data: additionalPages,
+    data: conversationsData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ["conversations", activeTab],
-    queryFn: async ({ pageParam = 1 }) => {
+    queryKey: ["conversations", archived],
+    queryFn: async ({ pageParam = 0 }) => {
       const response = await fetch(
-        `/api/messages/conversations?archived=${activeTab === "archived"}&offset=${pageParam * 20}&limit=20`,
+        `/api/messages/conversations?archived=${archived}&offset=${pageParam}&limit=20`,
       );
       if (!response.ok) throw new Error("Failed to fetch conversations");
       const data = await response.json();
       return data as ConversationSummary[];
     },
     getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === 20 ? allPages.length : undefined;
+      return lastPage.length === 20
+        ? allPages.length * 20
+        : undefined;
     },
-    initialPageParam: 1,
+    initialPageParam: 0,
+    // Seed the cache with server-side data for the first page
+    initialData: {
+      pages: [conversationsForActiveTab],
+      pageParams: [0],
+    },
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds
   });
-
-  // Create conversationsData object that matches expected format
-  const conversationsData = {
-    pages: [conversationsForActiveTab, ...(additionalPages?.pages || [])],
-    pageParams: [0, ...(additionalPages?.pageParams || [])],
-  };
 
   const handleConversationClick = (conversationId: string) => {
     setSelectedConversationId(conversationId);

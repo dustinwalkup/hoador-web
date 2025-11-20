@@ -1,4 +1,4 @@
-import { and, eq, desc, asc, or, sql } from "drizzle-orm";
+import { and, eq, desc, asc, or, sql, isNull, gt, ne } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import { conversations, messages } from "@/db/schemas/messages.schema";
@@ -590,5 +590,84 @@ export class MessagesDAL extends BaseDAL {
     if (error) {
       this.handleError(error, "deleteConversation");
     }
+  }
+
+  /**
+   * Get total unread message count for the current user
+   * Counts all unread messages across all non-archived conversations
+   */
+  async getUnreadMessageCount(): Promise<number> {
+    const { data, error } = await tryCatch(
+      (async () => {
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          throw new UnauthorizedError("User not authenticated");
+        }
+
+        // Use SQL to efficiently count unread messages
+        // We need to count messages where:
+        // 1. The conversation belongs to the current user
+        // 2. The conversation is not archived for the current user
+        // 3. The message was sent by the other user (not current user)
+        // 4. The message was created after the user's last read timestamp (or all if never read)
+
+        const result = await this.db
+          .select({ count: sql<number>`count(*)` })
+          .from(messages)
+          .innerJoin(
+            conversations,
+            eq(messages.conversationId, conversations.id),
+          )
+          .where(
+            and(
+              // Conversation involves the current user
+              or(
+                eq(conversations.user1Id, currentUserId),
+                eq(conversations.user2Id, currentUserId),
+              ),
+              // Exclude archived conversations
+              or(
+                and(
+                  eq(conversations.user1Id, currentUserId),
+                  eq(conversations.user1Archived, false),
+                ),
+                and(
+                  eq(conversations.user2Id, currentUserId),
+                  eq(conversations.user2Archived, false),
+                ),
+              ),
+              // Message was sent by the other user (not current user)
+              ne(messages.senderId, currentUserId),
+              // Message is unread: either never read, or created after last read
+              or(
+                // User1 case: never read or message after last read
+                and(
+                  eq(conversations.user1Id, currentUserId),
+                  or(
+                    isNull(conversations.user1LastReadAt),
+                    gt(messages.createdAt, conversations.user1LastReadAt),
+                  ),
+                ),
+                // User2 case: never read or message after last read
+                and(
+                  eq(conversations.user2Id, currentUserId),
+                  or(
+                    isNull(conversations.user2LastReadAt),
+                    gt(messages.createdAt, conversations.user2LastReadAt),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+        return Number(result[0]?.count || 0);
+      })(),
+    );
+
+    if (error) {
+      this.handleError(error, "getUnreadMessageCount");
+    }
+
+    return data;
   }
 }

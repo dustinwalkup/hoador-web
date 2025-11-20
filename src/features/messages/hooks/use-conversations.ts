@@ -24,6 +24,8 @@ export function useConversations(archived: boolean = false) {
         : undefined;
     },
     initialPageParam: 0,
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds
   });
 }
 
@@ -40,7 +42,8 @@ export function useConversationDetails(conversationId: string | null) {
       return data as ConversationDetails;
     },
     enabled: !!conversationId,
-    staleTime: 2 * 60 * 1000, // 2 minutes for active conversations
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds
   });
 }
 

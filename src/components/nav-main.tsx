@@ -19,12 +19,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
 import { DASHBOARD } from "@/constants/navbar";
+import { useUnreadMessageCount } from "@/features/messages/hooks/use-unread-count";
 
 const { mainNav } = DASHBOARD;
 
 export function NavMain() {
   const pathname = usePathname();
+  const { data: unreadCount = 0 } = useUnreadMessageCount();
 
   return (
     <SidebarGroup>
@@ -106,6 +109,10 @@ export function NavMain() {
               isActive = pathname.startsWith(item.url + "/");
             }
 
+            // Check if this is the Mailbox item and has unread messages
+            const isMailbox = item.url === "/dashboard/mailbox";
+            const hasUnread = isMailbox && unreadCount > 0;
+
             return (
               <SidebarMenuItem key={item.title} className="!cursor-pointer">
                 <Link href={item.url!} passHref>
@@ -116,6 +123,14 @@ export function NavMain() {
                   >
                     {item.icon && <item.icon className="!size-5" />}
                     <span>{item.title}</span>
+                    {hasUnread && (
+                      <Badge
+                        variant="destructive"
+                        className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Badge>
+                    )}
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
