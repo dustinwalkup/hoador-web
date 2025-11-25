@@ -17,7 +17,7 @@ export function sanitizeHtml(html: string): string {
     FORBID_TAGS: ["script", "iframe", "object", "embed", "form"], // Explicitly forbid dangerous tags
     FORBID_ATTR: ["onerror", "onload", "onclick", "onfocus", "onmouseover"], // Explicitly forbid event handlers
   });
-  
+
   // DOMPurify may return HTML string even with ALLOWED_TAGS: [] in some environments
   // Strip any remaining tags manually as a fallback to ensure complete sanitization
   return result.replace(/<[^>]*>/g, "");
@@ -43,7 +43,10 @@ export function sanitizeText(text: string): string {
  * @param maxLength - Maximum length allowed (default: 200)
  * @returns Sanitized search query string
  */
-export function sanitizeSearchQuery(query: string, maxLength: number = 200): string {
+export function sanitizeSearchQuery(
+  query: string,
+  maxLength: number = 200,
+): string {
   if (!query || typeof query !== "string") {
     return "";
   }
@@ -92,9 +95,10 @@ export function sanitizeMessageContent(
   }
 
   if (sanitized.length > maxLength) {
-    throw new Error(`Message content exceeds maximum length of ${maxLength} characters`);
+    throw new Error(
+      `Message content exceeds maximum length of ${maxLength} characters`,
+    );
   }
 
   return sanitized;
 }
-

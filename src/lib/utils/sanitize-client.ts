@@ -22,7 +22,7 @@ export function sanitizeForDisplay(text: string): string {
     FORBID_TAGS: ["script", "iframe", "object", "embed", "form"], // Explicitly forbid dangerous tags
     FORBID_ATTR: ["onerror", "onload", "onclick", "onfocus", "onmouseover"], // Explicitly forbid event handlers
   });
-  
+
   // DOMPurify may return HTML string even with ALLOWED_TAGS: [] in some environments
   // Strip any remaining tags manually as a fallback to ensure complete sanitization
   return result.replace(/<[^>]*>/g, "");
@@ -38,4 +38,3 @@ export function sanitizeAndTruncate(text: string, maxLength: number): string {
   const sanitized = sanitizeForDisplay(text);
   return sanitized.slice(0, maxLength);
 }
-

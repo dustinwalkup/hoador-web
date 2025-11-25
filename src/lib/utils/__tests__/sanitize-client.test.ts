@@ -28,7 +28,7 @@ function sanitizeForDisplay(text: string): string {
     FORBID_TAGS: ["script", "iframe", "object", "embed", "form"], // Explicitly forbid dangerous tags
     FORBID_ATTR: ["onerror", "onload", "onclick", "onfocus", "onmouseover"], // Explicitly forbid event handlers
   });
-  
+
   // DOMPurify may return HTML string even with ALLOWED_TAGS: [] in some environments
   // Strip any remaining tags manually as a fallback
   return result.replace(/<[^>]*>/g, "");
@@ -42,7 +42,6 @@ function sanitizeAndTruncate(text: string, maxLength: number): string {
 // Note: These tests use isomorphic-dompurify which provides the same
 // sanitization behavior as browser DOMPurify, allowing tests to run in Node
 describe("sanitize-client", () => {
-
   describe("sanitizeForDisplay", () => {
     it("should remove all HTML tags", () => {
       expect(sanitizeForDisplay("<p>Hello</p>")).toBe("Hello");
@@ -54,12 +53,16 @@ describe("sanitize-client", () => {
     it("should remove HTML attributes", () => {
       expect(sanitizeForDisplay('<a href="evil.com">Link</a>')).toBe("Link");
       expect(sanitizeForDisplay('<img src="x" onerror="alert(1)">')).toBe("");
-      expect(sanitizeForDisplay('<div class="test">Content</div>')).toBe("Content");
+      expect(sanitizeForDisplay('<div class="test">Content</div>')).toBe(
+        "Content",
+      );
     });
 
     it("should handle nested HTML tags", () => {
       expect(sanitizeForDisplay("<div><p>Nested</p></div>")).toBe("Nested");
-      expect(sanitizeForDisplay("<b><i>Bold Italic</i></b>")).toBe("Bold Italic");
+      expect(sanitizeForDisplay("<b><i>Bold Italic</i></b>")).toBe(
+        "Bold Italic",
+      );
     });
 
     it("should handle empty HTML tags", () => {
@@ -230,7 +233,9 @@ describe("sanitize-client", () => {
 
     it("should handle mixed content", () => {
       expect(sanitizeForDisplay("Hello <b>World</b>!")).toBe("Hello World!");
-      expect(sanitizeForDisplay("Price: $<span>100</span>")).toBe("Price: $100");
+      expect(sanitizeForDisplay("Price: $<span>100</span>")).toBe(
+        "Price: $100",
+      );
     });
 
     it("should handle newlines and whitespace", () => {
@@ -261,4 +266,3 @@ describe("sanitize-client", () => {
     });
   });
 });
-
