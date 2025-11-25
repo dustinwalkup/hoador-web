@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ArrowRight, Coins, Search, Home } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -10,11 +11,161 @@ import FadeIn from "@/components/fade-in";
 import AnimatedSection from "@/components/animated-section";
 import { HOME_PAGE } from "@/constants/home";
 
+// Ensure static generation
+export const dynamic = "force-static";
+
+// Base URL - Update this with your production domain
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://hoador.com";
+
 const { header, hero, valueProp, community, howItWorks, cta } = HOME_PAGE;
 
+// Comprehensive metadata for SEO
+export const metadata: Metadata = {
+  title: "Hoador - Your Neighborhood Tool Rental Marketplace",
+  description:
+    "Borrow tools from neighbors, save money, and build community. Rent power tools, lawn equipment, and more in your neighborhood marketplace.",
+  keywords: [
+    "tool rental",
+    "neighborhood marketplace",
+    "borrow tools",
+    "rent tools",
+    "community sharing",
+    "power tools",
+    "lawn equipment",
+    "hand tools",
+    "tool sharing",
+    "local marketplace",
+  ],
+  authors: [{ name: "Hoador" }],
+  creator: "Hoador",
+  publisher: "Hoador",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL(baseUrl),
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Hoador - Your Neighborhood Tool Rental Marketplace",
+    description:
+      "Borrow tools from neighbors, save money, and build community. Rent power tools, lawn equipment, and more in your neighborhood marketplace.",
+    url: baseUrl,
+    siteName: "Hoador",
+    images: [
+      {
+        url: `${baseUrl}/images/cartoon.png`,
+        width: 322,
+        height: 108,
+        alt: "Neighbors sharing tools in the Hoador community marketplace",
+      },
+      {
+        url: `${baseUrl}/hoador-logo.svg`,
+        width: 100,
+        height: 40,
+        alt: "Hoador Logo",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hoador - Your Neighborhood Tool Rental Marketplace",
+    description:
+      "Borrow tools from neighbors, save money, and build community. Rent power tools, lawn equipment, and more.",
+    images: [`${baseUrl}/images/cartoon.png`],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    // Add your verification codes here when available
+    // google: "your-google-verification-code",
+    // yandex: "your-yandex-verification-code",
+    // yahoo: "your-yahoo-verification-code",
+  },
+};
+
 export default function HomePage() {
+  // Structured data for SEO
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${baseUrl}/#organization`,
+        name: "Hoador",
+        url: baseUrl,
+        logo: {
+          "@type": "ImageObject",
+          url: `${baseUrl}/hoador-logo.svg`,
+        },
+        sameAs: [
+          // Add your social media URLs here when available
+          // "https://twitter.com/hoador",
+          // "https://www.facebook.com/hoador",
+          // "https://www.instagram.com/hoador",
+        ],
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${baseUrl}/#website`,
+        url: baseUrl,
+        name: "Hoador",
+        description:
+          "Your neighborhood tool rental marketplace. Borrow tools from neighbors, save money, and build community.",
+        publisher: {
+          "@id": `${baseUrl}/#organization`,
+        },
+        potentialAction: {
+          "@type": "SearchAction",
+          target: {
+            "@type": "EntryPoint",
+            urlTemplate: `${baseUrl}/dashboard/explore?q={search_term_string}`,
+          },
+          "query-input": "required name=search_term_string",
+        },
+      },
+      {
+        "@type": "Service",
+        "@id": `${baseUrl}/#service`,
+        serviceType: "Tool Rental Marketplace",
+        provider: {
+          "@id": `${baseUrl}/#organization`,
+        },
+        areaServed: {
+          "@type": "Country",
+          name: "United States",
+        },
+        description:
+          "Hoador connects neighbors to share tools, equipment, and resources. Rent power tools, lawn equipment, hand tools, and more from people in your neighborhood.",
+        offers: {
+          "@type": "Offer",
+          description:
+            "Affordable tool rentals from neighbors in your community",
+        },
+      },
+    ],
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Structured Data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       {/* Header */}
       <header className="bg-background/95 mobile-padding supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
         <div className="container mx-auto flex h-16 items-center justify-between">
@@ -54,7 +205,7 @@ export default function HomePage() {
               <p className="text-muted-foreground mb-8 text-xl">
                 {hero.description}
               </p>
-              <div className="mx-auto mb-8 max-w-xl">
+              {/* <div className="mx-auto mb-8 max-w-xl">
                 <div className="relative">
                   <Search className="text-muted-foreground absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2" />
                   <Input
@@ -63,7 +214,7 @@ export default function HomePage() {
                     className="border-muted bg-background focus-visible:ring-primary h-12 rounded-full pr-4 pl-10 shadow-sm"
                   />
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -112,14 +263,14 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="mt-12 text-center">
+          {/* <div className="mt-12 text-center">
             <Button asChild size="lg" className="rounded-full">
               <Link href="/categories" className="flex items-center gap-2">
                 {valueProp.buttonLabel}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-          </div>
+          </div> */}
         </div>
       </AnimatedSection>
 
@@ -187,7 +338,7 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="mt-12 text-center">
+          {/* <div className="mt-12 text-center">
             <Button
               asChild
               variant="outline"
@@ -196,7 +347,7 @@ export default function HomePage() {
             >
               <Link href="/how-it-works">{howItWorks.buttonLabel}</Link>
             </Button>
-          </div>
+          </div> */}
         </div>
       </AnimatedSection>
 

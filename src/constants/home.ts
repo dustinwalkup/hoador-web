@@ -79,9 +79,9 @@ export const HOME_PAGE: HomePageConstants = {
     inputPlaceholder: "What are you looking for?",
   },
   valueProp: {
-    title: "Save Time, Make Money",
+    title: "Get the Tools You Need—Right in Your Neighborhood",
     description:
-      "Tools from a hyper-local marketplace are cheaper than renting or buying from big box stores. Leverage what you already have to make money.",
+      "Stop overpaying for tools you’ll only use once. Hoador helps you borrow power tools, lawn equipment, and home-project essentials from real people around you. Lower cost for renters, extra income for owners, and less waste for everyone.",
     buttonLabel: "Explore all categories",
     categoryCards: [
       {
@@ -107,9 +107,9 @@ export const HOME_PAGE: HomePageConstants = {
     ],
   },
   community: {
-    title: "Neighbor-to-neighborhood",
+    title: "Built Around Local Communities",
     description:
-      "Trust in a community marketplace that is limited to households in your neighborhood. Build connections while sharing resources.",
+      "Every rental strengthens your neighborhood. Hoador connects people who want to get projects done with those who already have the right equipment. More sharing. Less clutter. Better projects.",
     featuredCards: [
       {
         iconName: "Users",
