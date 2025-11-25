@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
+import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1020,10 +1021,14 @@ export function ChatArea({
                         }`}
                       >
                         <ExternalLink className="h-3 w-3" />
-                        <span>Re: {message.listingName}</span>
+                        <span>
+                          Re: {sanitizeForDisplay(message.listingName)}
+                        </span>
                       </Link>
                     )}
-                    <p className="text-sm">{message.content}</p>
+                    <p className="text-sm">
+                      {sanitizeForDisplay(message.content)}
+                    </p>
                   </div>
                   <p className="mt-1 text-right text-xs text-gray-500">
                     {formatDate(message.time)}

@@ -6,6 +6,7 @@ import { getCurrentUserId } from "@/features/auth/utils/session";
 import { BaseDAL } from "./base";
 import { UnauthorizedError } from "./errors";
 import { ConversationSummary, ConversationDetails } from "./types";
+import { sanitizeMessageContent } from "@/lib/utils/sanitize";
 
 // Types
 type ConversationDb = typeof conversations.$inferSelect;
@@ -56,6 +57,9 @@ export class MessagesDAL extends BaseDAL {
   ): Promise<MessageDb[]> {
     const { data, error } = await tryCatch(
       (async () => {
+        // Sanitize and validate message content
+        const sanitizedContent = sanitizeMessageContent(content);
+
         const conversation = await this.findOrCreateConversation(
           senderId,
           recipientId,
@@ -66,7 +70,7 @@ export class MessagesDAL extends BaseDAL {
           .values({
             conversationId: conversation.id,
             senderId,
-            content,
+            content: sanitizedContent,
             rentalId,
           })
           .returning();
@@ -92,6 +96,9 @@ export class MessagesDAL extends BaseDAL {
           throw new UnauthorizedError("User not authenticated");
         }
 
+        // Sanitize and validate message content
+        const sanitizedContent = sanitizeMessageContent(content);
+
         const conversation = await this.findOrCreateConversation(
           currentUserId,
           recipientId,
@@ -102,7 +109,7 @@ export class MessagesDAL extends BaseDAL {
           .values({
             conversationId: conversation.id,
             senderId: currentUserId,
-            content,
+            content: sanitizedContent,
             listingId, // Store listing reference for context
           })
           .returning();
@@ -467,6 +474,9 @@ export class MessagesDAL extends BaseDAL {
           throw new UnauthorizedError("User not authenticated");
         }
 
+        // Sanitize and validate message content
+        const sanitizedContent = sanitizeMessageContent(content);
+
         // Verify user is part of conversation
         const conversation = await this.db.query.conversations.findFirst({
           where: and(
@@ -487,7 +497,7 @@ export class MessagesDAL extends BaseDAL {
           .values({
             conversationId,
             senderId: currentUserId,
-            content,
+            content: sanitizedContent,
             rentalId,
           })
           .returning();

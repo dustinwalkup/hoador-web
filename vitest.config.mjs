@@ -12,6 +12,9 @@ export default defineConfig({
     env: {
       OPENCAGE_API_KEY: "test-dummy-api-key-for-vitest",
     },
+    // Note: Uncaught exceptions from XSS sanitization tests are handled in src/test/setup.ts
+    // via process.on('uncaughtException'). These occur when happy-dom tries to execute
+    // malicious scripts in eval contexts before DOMPurify removes them.
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

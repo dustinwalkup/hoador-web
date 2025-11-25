@@ -11,6 +11,7 @@ import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { usePrefetchConversation } from "@/features/messages/hooks/use-conversations";
 import { markConversationAsReadAction } from "@/features/messages/actions/mark-conversation-read";
 import { ConversationSummary } from "@/dal/types";
+import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
 
 interface ConversationsListProps {
   conversationsData?: {
@@ -208,14 +209,16 @@ export function ConversationsList({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
             <h3 className="truncate text-sm font-medium text-gray-900">
-              {conversation.otherUser.name}
+              {sanitizeForDisplay(conversation.otherUser.name)}
             </h3>
             <span className="text-xs text-gray-500">
               {formatDate(conversation.lastMessageAt)}
             </span>
           </div>
           <p className="mt-1 truncate text-sm text-gray-600">
-            {conversation.lastMessage?.content || "No messages yet"}
+            {conversation.lastMessage?.content
+              ? sanitizeForDisplay(conversation.lastMessage.content)
+              : "No messages yet"}
           </p>
         </div>
       </div>

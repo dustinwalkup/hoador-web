@@ -2,6 +2,7 @@ import { User, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageUserButton } from "@/features/messages/components/message-user-button";
+import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
 
 interface UserCardProps {
   user: {
@@ -63,7 +64,7 @@ export function UserCard({
           </Avatar>
           <div className="flex-1">
             <div className="mb-1 flex items-center gap-2">
-              <h4 className="font-medium">{user.name}</h4>
+              <h4 className="font-medium">{sanitizeForDisplay(user.name)}</h4>
             </div>
             <div className="mb-2 flex items-center space-x-1">
               <Star

@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { UserCard } from "@/components/user-card";
+import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
 
 import type { ListingDetails } from "@/dal/types";
 
@@ -62,9 +63,13 @@ export function ListingDetailView({
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div>
-                  <CardTitle className="text-2xl">{listing.name}</CardTitle>
+                  <CardTitle className="text-2xl">
+                    {sanitizeForDisplay(listing.name)}
+                  </CardTitle>
                   <div className="mt-2 flex items-center space-x-2">
-                    <Badge variant="outline">{listing.category.name}</Badge>
+                    <Badge variant="outline">
+                      {sanitizeForDisplay(listing.category.name)}
+                    </Badge>
                     <Badge
                       variant="secondary"
                       className={`capitalize ${getConditionColor(listing.condition)}`}
@@ -77,19 +82,25 @@ export function ListingDetailView({
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-gray-700">{listing.description}</p>
+              <p className="text-gray-700">
+                {sanitizeForDisplay(listing.description)}
+              </p>
 
               <div className="grid grid-cols-2 gap-4">
                 {listing.brand && (
                   <div>
                     <h4 className="font-medium text-gray-900">Brand</h4>
-                    <p className="text-gray-600">{listing.brand}</p>
+                    <p className="text-gray-600">
+                      {sanitizeForDisplay(listing.brand)}
+                    </p>
                   </div>
                 )}
                 {listing.model && (
                   <div>
                     <h4 className="font-medium text-gray-900">Model</h4>
-                    <p className="text-gray-600">{listing.model}</p>
+                    <p className="text-gray-600">
+                      {sanitizeForDisplay(listing.model)}
+                    </p>
                   </div>
                 )}
               </div>
@@ -130,7 +141,9 @@ export function ListingDetailView({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700">{listing.instructions}</p>
+                <p className="text-gray-700">
+                  {sanitizeForDisplay(listing.instructions)}
+                </p>
               </CardContent>
             </Card>
           )}
@@ -145,7 +158,9 @@ export function ListingDetailView({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700">{listing.safetyNotes}</p>
+                <p className="text-gray-700">
+                  {sanitizeForDisplay(listing.safetyNotes)}
+                </p>
               </CardContent>
             </Card>
           )}

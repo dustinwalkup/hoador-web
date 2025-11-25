@@ -14,6 +14,7 @@ import {
   UserProfile,
 } from "./types";
 import { ConflictError, NotFoundError } from "./errors";
+import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
 const { user, userPreferences, userAddresses, reviews, rentals } = schema;
 
@@ -218,9 +219,27 @@ export class UserDAL extends BaseDAL {
         throw new Error("Unauthorized: Cannot update other user's profile");
       }
 
+      // Sanitize text fields if provided
+      const sanitizedUpdates: UpdateUserDTO = { ...updates };
+      if (updates.firstName !== undefined) {
+        sanitizedUpdates.firstName = sanitizeTextWithMaxLength(
+          updates.firstName,
+          100,
+        );
+      }
+      if (updates.lastName !== undefined) {
+        sanitizedUpdates.lastName = sanitizeTextWithMaxLength(
+          updates.lastName,
+          100,
+        );
+      }
+      if (updates.bio !== undefined && updates.bio !== null) {
+        sanitizedUpdates.bio = sanitizeTextWithMaxLength(updates.bio, 500);
+      }
+
       const [updatedUser] = await this.db
         .update(user)
-        .set({ ...updates, updatedAt: new Date() })
+        .set({ ...sanitizedUpdates, updatedAt: new Date() })
         .where(eq(user.id, id))
         .returning();
 

@@ -13,6 +13,7 @@ import { getCurrentUserId } from "@/features/auth/utils/session";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { BaseDAL } from "./base";
 import { UnauthorizedError, NotFoundError } from "./errors";
+import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
 export interface BorrowedListing {
   id: string;
@@ -422,6 +423,14 @@ export class RentalDAL extends BaseDAL {
       const securityDeposit = Number(listing.securityDeposit);
       const totalAmount = subtotal + deliveryFee + setupFee;
 
+      // Sanitize text fields
+      const sanitizedMessage = formData.message
+        ? sanitizeTextWithMaxLength(formData.message, 2000)
+        : null;
+      const sanitizedDeliveryInstructions = formData.deliveryInstructions
+        ? sanitizeTextWithMaxLength(formData.deliveryInstructions, 2000)
+        : null;
+
       // Create rental request with payment information
       const [rentalRequest] = await this.db
         .insert(rentalRequests)
@@ -437,11 +446,11 @@ export class RentalDAL extends BaseDAL {
           securityDeposit: securityDeposit.toString(),
           deliveryRequested: formData.deliveryRequested,
           deliveryAddress: formData.deliveryAddress || null,
-          deliveryInstructions: formData.deliveryInstructions || null,
+          deliveryInstructions: sanitizedDeliveryInstructions,
           deliveryFee: deliveryFee.toString(),
           setupRequested: formData.setupRequested || false,
           setupFee: setupFee.toString(),
-          message: formData.message || null,
+          message: sanitizedMessage,
           paymentIntentId: formData.paymentIntentId || null,
           paymentMethodId: formData.paymentMethodId || null,
           status: "pending",
@@ -1192,12 +1201,20 @@ export class RentalDAL extends BaseDAL {
         );
       }
 
+      // Sanitize instruction fields
+      const sanitizedPickupInstructions = pickupInstructions
+        ? sanitizeTextWithMaxLength(pickupInstructions, 2000)
+        : null;
+      const sanitizedReturnInstructions = returnInstructions
+        ? sanitizeTextWithMaxLength(returnInstructions, 2000)
+        : null;
+
       // Update the rental instructions in the rentals table
       await this.db
         .update(rentals)
         .set({
-          pickupInstructions: pickupInstructions || null,
-          returnInstructions: returnInstructions || null,
+          pickupInstructions: sanitizedPickupInstructions,
+          returnInstructions: sanitizedReturnInstructions,
           updatedAt: new Date(),
         })
         .where(eq(rentals.requestId, rentalRequestId));

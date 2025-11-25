@@ -29,6 +29,7 @@ import {
   requireCommunityMembership,
 } from "@/features/community/utils/membership";
 import { NotFoundError, UnauthorizedError } from "./errors";
+import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
 const {
   listings,
@@ -244,24 +245,43 @@ export class ListingDAL extends BaseDAL {
 
       const userCommunityInfo = await requireCommunityMembership();
 
+      // Sanitize text fields
+      const sanitizedName = sanitizeTextWithMaxLength(listingData.name, 200);
+      const sanitizedDescription = sanitizeTextWithMaxLength(
+        listingData.description,
+        2000,
+      );
+      const sanitizedBrand = listingData.brand
+        ? sanitizeTextWithMaxLength(listingData.brand, 100)
+        : undefined;
+      const sanitizedModel = listingData.model
+        ? sanitizeTextWithMaxLength(listingData.model, 100)
+        : undefined;
+      const sanitizedInstructions = listingData.instructions
+        ? sanitizeTextWithMaxLength(listingData.instructions, 2000)
+        : undefined;
+      const sanitizedSafetyNotes = listingData.safetyNotes
+        ? sanitizeTextWithMaxLength(listingData.safetyNotes, 2000)
+        : undefined;
+
       const [listing] = await this.db
         .insert(listings)
         .values({
           ownerId: userId,
           communityId: userCommunityInfo.community.id,
           categoryId: listingData.categoryId,
-          name: listingData.name,
-          description: listingData.description,
-          brand: listingData.brand,
-          model: listingData.model,
+          name: sanitizedName,
+          description: sanitizedDescription,
+          brand: sanitizedBrand,
+          model: sanitizedModel,
           condition: listingData.condition,
           dailyRate: listingData.dailyRate.toString(),
           weeklyRate: listingData.weeklyRate?.toString(),
           monthlyRate: listingData.monthlyRate?.toString(),
           securityDeposit: (listingData.securityDeposit || 0).toString(),
           specifications: listingData.specifications || {},
-          instructions: listingData.instructions,
-          safetyNotes: listingData.safetyNotes,
+          instructions: sanitizedInstructions,
+          safetyNotes: sanitizedSafetyNotes,
           minimumRentalPeriod: listingData.minimumRentalPeriod || 1,
           maximumRentalPeriod: listingData.maximumRentalPeriod || 30,
           deliveryMode: listingData.deliveryMode ?? "pickup_only",
@@ -497,6 +517,35 @@ export class ListingDAL extends BaseDAL {
 
       if (!listing) {
         throw new NotFoundError("Listing not found or access denied");
+      }
+
+      // Sanitize text fields if provided
+      if (updates.name !== undefined) {
+        updates.name = sanitizeTextWithMaxLength(updates.name, 200);
+      }
+      if (updates.description !== undefined) {
+        updates.description = sanitizeTextWithMaxLength(
+          updates.description,
+          2000,
+        );
+      }
+      if (updates.brand !== undefined && updates.brand !== null) {
+        updates.brand = sanitizeTextWithMaxLength(updates.brand, 100);
+      }
+      if (updates.model !== undefined && updates.model !== null) {
+        updates.model = sanitizeTextWithMaxLength(updates.model, 100);
+      }
+      if (updates.instructions !== undefined && updates.instructions !== null) {
+        updates.instructions = sanitizeTextWithMaxLength(
+          updates.instructions,
+          2000,
+        );
+      }
+      if (updates.safetyNotes !== undefined && updates.safetyNotes !== null) {
+        updates.safetyNotes = sanitizeTextWithMaxLength(
+          updates.safetyNotes,
+          2000,
+        );
       }
 
       // Convert numeric fields to strings for database

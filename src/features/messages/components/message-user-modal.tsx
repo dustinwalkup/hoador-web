@@ -32,6 +32,7 @@ type FormState = "idle" | "sending" | "success";
 const validateMessage = (msg: string): string | null => {
   if (!msg.trim()) return "Message is required";
   if (msg.trim().length < 10) return "Message must be at least 10 characters";
+  if (msg.trim().length > 5000) return "Message must be less than 5000 characters";
   return null;
 };
 

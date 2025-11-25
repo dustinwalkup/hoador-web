@@ -1,6 +1,7 @@
 import { MessageCircle, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { RentalMessagesInfo } from "@/dal/rentals.dal";
+import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
 
 interface RentalMessagesCardProps {
   rentalDetails: RentalMessagesInfo;
@@ -28,7 +29,9 @@ export function RentalMessagesCard({
               <User className="h-4 w-4" />
               Message from {isRenter ? "you" : "renter"}:
             </h4>
-            <p className="text-gray-700">{rentalDetails.message}</p>
+            <p className="text-gray-700">
+              {sanitizeForDisplay(rentalDetails.message)}
+            </p>
           </div>
         )}
 

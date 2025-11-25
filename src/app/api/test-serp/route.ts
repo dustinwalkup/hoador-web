@@ -1,5 +1,6 @@
 // app/api/test-serp/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { sanitizeSearchQuery } from "@/lib/utils/sanitize";
 
 interface Product {
   title: string;
@@ -323,12 +324,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Get search parameters
+  // Get and sanitize search parameters
   const { searchParams } = new URL(request.url);
-  const name = searchParams.get("name");
-  const category = searchParams.get("category");
-  const brand = searchParams.get("brand");
-  const model = searchParams.get("model");
+  const name = searchParams.get("name")
+    ? sanitizeSearchQuery(searchParams.get("name")!, 100)
+    : null;
+  const category = searchParams.get("category")
+    ? sanitizeSearchQuery(searchParams.get("category")!, 100)
+    : null;
+  const brand = searchParams.get("brand")
+    ? sanitizeSearchQuery(searchParams.get("brand")!, 100)
+    : null;
+  const model = searchParams.get("model")
+    ? sanitizeSearchQuery(searchParams.get("model")!, 100)
+    : null;
 
   // Optional override (defaults to google_shopping)
   const engine = searchParams.get("engine") || "google_shopping";

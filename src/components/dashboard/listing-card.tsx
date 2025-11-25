@@ -5,6 +5,7 @@ import { StatusIconWithTooltip } from "@/features/listings/components/status-ico
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
 
 interface ListingCardProps {
   id: string;
@@ -68,7 +69,9 @@ export default function ListingCard({
 
       <CardContent className="flex flex-1 flex-col p-4">
         <div className="mb-1 flex grow items-start justify-between">
-          <h3 className="mr-2 leading-tight font-medium">{name}</h3>
+          <h3 className="mr-2 leading-tight font-medium">
+            {sanitizeForDisplay(name)}
+          </h3>
           <span className="text-primary font-medium">{price}</span>
         </div>
 
