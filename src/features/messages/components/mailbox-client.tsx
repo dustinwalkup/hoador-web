@@ -78,9 +78,7 @@ export function MailboxClient({
       return data as ConversationSummary[];
     },
     getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === 20
-        ? allPages.length * 20
-        : undefined;
+      return lastPage.length === 20 ? allPages.length * 20 : undefined;
     },
     initialPageParam: 0,
     // Seed the cache with server-side data for the first page

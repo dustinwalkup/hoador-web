@@ -152,7 +152,9 @@ export function ConversationsList({
             toast.error("Failed to mark conversation as read");
           } else {
             // Invalidate unread count to update the badge
-            queryClient.invalidateQueries({ queryKey: ["messages", "unread-count"] });
+            queryClient.invalidateQueries({
+              queryKey: ["messages", "unread-count"],
+            });
           }
         } catch (error) {
           // If there's an error, revert the optimistic update

@@ -210,7 +210,9 @@ export function ChatArea({
         );
 
         // Invalidate unread count to update the badge
-        queryClient.invalidateQueries({ queryKey: ["messages", "unread-count"] });
+        queryClient.invalidateQueries({
+          queryKey: ["messages", "unread-count"],
+        });
       } else {
         toast.error(result.error || "Failed to send message");
       }
@@ -261,7 +263,9 @@ export function ChatArea({
           );
 
           // Invalidate unread count to update the badge
-          queryClient.invalidateQueries({ queryKey: ["messages", "unread-count"] });
+          queryClient.invalidateQueries({
+            queryKey: ["messages", "unread-count"],
+          });
         } else {
           toast.error(String(result.error) || "Failed to mark as unread");
         }
