@@ -88,8 +88,8 @@ describe("sanitize", () => {
 
     it("should handle special characters", () => {
       expect(sanitizeText("Hello & World")).toBe("Hello & World");
-      // DOMPurify encodes HTML entities
-      expect(sanitizeText("Test < > &")).toBe("Test &lt; &gt; &amp;");
+      // Plain text characters should remain unchanged after sanitization
+      expect(sanitizeText("Test < > &")).toBe("Test < > &");
     });
 
     it("should handle unicode characters", () => {

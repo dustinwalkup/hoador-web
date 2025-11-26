@@ -1,60 +1,61 @@
 /**
  * Server-side sanitization utilities
- * Uses custom wrapper for dompurify with jsdom for Node.js compatibility
+ * Uses sanitize-html for robust server-side HTML sanitization
  */
 
-import DOMPurify from "dompurify";
-// @ts-expect-error - jsdom types may not be available, but it's a dev dependency
-import { JSDOM } from "jsdom";
-import type { Config } from "dompurify";
+import sanitizeHtmlLib from "sanitize-html";
 
 /**
- * Internal wrapper function that handles server/client-side DOMPurify initialization
- * @param dirty - The HTML string to sanitize
- * @param config - DOMPurify configuration options
- * @returns Sanitized HTML string
+ * Decodes HTML entities in plain text
+ * @param text - Text that may contain HTML entities
+ * @returns Text with HTML entities decoded
  */
-function sanitize(dirty: string, config?: Config): string {
-  if (typeof window === "undefined") {
-    // Server-side: Create JSDOM window and initialize DOMPurify
-    const { window: jsdomWindow } = new JSDOM("");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const purify = DOMPurify(jsdomWindow as any);
-    return purify.sanitize(dirty, config);
-  }
-  // Client-side: Use DOMPurify directly
-  return DOMPurify.sanitize(dirty, config);
+function decodeHtmlEntities(text: string): string {
+  // Use a simple approach: replace common HTML entities
+  // For a more complete solution, we could use a library like he or html-entities
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
 }
 
 /**
  * Sanitizes HTML content by removing all HTML tags and attributes
  * @param html - The HTML string to sanitize
- * @returns Sanitized plain text string
+ * @returns Sanitized plain text string with HTML entities encoded
  */
 export function sanitizeHtml(html: string): string {
-  const result = sanitize(html, {
-    ALLOWED_TAGS: [], // No HTML tags allowed
-    ALLOWED_ATTR: [],
-    FORBID_TAGS: ["script", "iframe", "object", "embed", "form"], // Explicitly forbid dangerous tags
-    FORBID_ATTR: ["onerror", "onload", "onclick", "onfocus", "onmouseover"], // Explicitly forbid event handlers
+  if (!html || typeof html !== "string") {
+    return "";
+  }
+
+  // Remove all HTML tags and get plain text
+  const result = sanitizeHtmlLib(html, {
+    allowedTags: [], // No HTML tags allowed
+    allowedAttributes: {},
+    disallowedTagsMode: "discard",
   });
 
-  // DOMPurify may return HTML string even with ALLOWED_TAGS: [] in some environments
-  // Strip any remaining tags manually as a fallback to ensure complete sanitization
-  return result.replace(/<[^>]*>/g, "");
+  return result.trim();
 }
 
 /**
  * Sanitizes text content by removing HTML and trimming whitespace
  * @param text - The text string to sanitize
- * @returns Sanitized plain text string
+ * @returns Sanitized plain text string with HTML entities decoded
  */
 export function sanitizeText(text: string): string {
   if (!text || typeof text !== "string") {
     return "";
   }
-  // Remove HTML tags and encode special characters
-  return sanitizeHtml(text).trim();
+  // Remove HTML tags and decode HTML entities for plain text output
+  const sanitized = sanitizeHtml(text);
+  return decodeHtmlEntities(sanitized);
 }
 
 /**
