@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/features/auth/utils/session";
+import { auth } from "@/services/better-auth";
+import { userDAL } from "@/dal";
 
 // Define protected route patterns
 const PROTECTED_ROUTES = [
@@ -103,8 +104,21 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Get current user (includes session check)
-    const user = await getCurrentUser();
+    // Get session from Better Auth using request headers (middleware-compatible)
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+
+    // Get full user profile if session exists
+    let user = null;
+    if (session?.user?.email) {
+      try {
+        user = await userDAL.getUserByEmailForAuth(session.user.email);
+      } catch (error) {
+        console.error("Error fetching user profile in middleware:", error);
+        // Continue with null user - will be treated as unauthenticated
+      }
+    }
 
     // Handle authenticated users
     if (user) {
