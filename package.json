@@ -120,5 +120,8 @@
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "overrides": {
+    "parse5": "7.1.2"
   }
 }
