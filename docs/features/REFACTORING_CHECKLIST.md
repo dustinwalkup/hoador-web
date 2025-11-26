@@ -21,7 +21,6 @@ This checklist tracks the implementation of 5 major architectural improvements.
 ### Tasks
 
 - [x] **Rename constants files** from `.tsx` to `.ts`
-
   - [x] `src/lib/constants/dashboard.tsx` → `dashboard.ts`
   - [x] `src/lib/constants/garage.tsx` → `garage.ts`
   - [x] `src/lib/constants/home.tsx` → `home.ts`
@@ -29,7 +28,6 @@ This checklist tracks the implementation of 5 major architectural improvements.
   - [x] `src/lib/constants/profile.ts` (already correct)
 
 - [x] **Refactor JSX in constants** to use string references
-
   - [x] Replace `<PlusCircle className="..." />` with `iconName: "PlusCircle"`
   - [x] Create icon mapping in components
   - [x] Update all button definitions in constants
@@ -97,35 +95,30 @@ Handle external dependencies and technical concerns (email, storage, payments, l
   ```
 
 - [ ] **Migrate Data Access Layer (DAL)**
-
   - [ ] Move `src/lib/dal/` to `src/infrastructure/database/dal/`
   - [ ] Update import paths across the codebase
   - [ ] Ensure DAL remains focused on raw database operations
   - [ ] Keep base DAL class and error handling
 
 - [ ] **Implement File Storage Service**
-
   - [ ] Create `src/infrastructure/storage/file-storage.ts`
   - [ ] Define `FileStorageService` interface
   - [ ] Implement `VercelBlobStorage` class
   - [ ] Move existing blob upload logic from actions
 
 - [ ] **Implement Email Service**
-
   - [ ] Create `src/infrastructure/email/email-service.ts`
   - [ ] Define `EmailService` interface
   - [ ] Implement `SendGridEmailService` class
   - [ ] Add email templates for common scenarios
 
 - [ ] **Implement Payment Service**
-
   - [ ] Create `src/infrastructure/payments/payment-service.ts`
   - [ ] Define `PaymentService` interface
   - [ ] Implement `StripePaymentService` class
   - [ ] Add payment processing logic
 
 - [ ] **Implement Logging Service**
-
   - [ ] Create `src/infrastructure/logging/logger.ts`
   - [ ] Define `Logger` interface
   - [ ] Implement `WinstonLogger` class
@@ -193,20 +186,17 @@ Contain business logic that needs to be shared between server actions and API ro
   ```
 
 - [ ] **Implement Tool Service (Only if needed for mobile)**
-
   - [ ] Create `src/lib/services/tool-service.ts` (only when needed)
   - [ ] Extract ONLY business logic that mobile will need
   - [ ] Keep validation and simple operations in server actions
   - [ ] Focus on complex workflows (create tool → upload images → notifications)
 
 - [ ] **Implement User Service (Only if needed for mobile)**
-
   - [ ] Create `src/lib/services/user-service.ts` (only when needed)
   - [ ] Extract user registration/verification workflows
   - [ ] Keep simple profile updates in server actions
 
 - [ ] **Implement Rental Service (Only if needed for mobile)**
-
   - [ ] Create `src/lib/services/rental-service.ts` (only when needed)
   - [ ] Extract rental approval workflows
   - [ ] Keep simple status updates in server actions
@@ -295,7 +285,6 @@ Infrastructure Layer (DAL) → Feature Layer (Repository) → Feature Layer (Ser
   ```
 
 - [ ] **Implement Tool Repository**
-
   - [ ] Create `src/features/tools/repositories/tool-repository.ts`
   - [ ] Define `ToolRepository` interface
   - [ ] Use `ToolDAL` from infrastructure for raw database operations
@@ -304,7 +293,6 @@ Infrastructure Layer (DAL) → Feature Layer (Repository) → Feature Layer (Ser
   - [ ] Add favorites management
 
 - [ ] **Implement User Repository**
-
   - [ ] Create `src/features/users/repositories/user-repository.ts`
   - [ ] Define `UserRepository` interface
   - [ ] Use `UserDAL` from infrastructure for raw database operations
@@ -313,7 +301,6 @@ Infrastructure Layer (DAL) → Feature Layer (Repository) → Feature Layer (Ser
   - [ ] Add favorites queries
 
 - [ ] **Implement Rental Repository**
-
   - [ ] Create `src/features/rentals/repositories/rental-repository.ts`
   - [ ] Define `RentalRepository` interface
   - [ ] Use `RentalDAL` from infrastructure for raw database operations
@@ -322,7 +309,6 @@ Infrastructure Layer (DAL) → Feature Layer (Repository) → Feature Layer (Ser
   - [ ] Add user rental history
 
 - [ ] **Add Caching Layer**
-
   - [ ] Create `src/infrastructure/caching/cache-service.ts`
   - [ ] Implement Redis or in-memory caching
   - [ ] Add cache invalidation strategies
@@ -407,7 +393,6 @@ Organize business logic by domains while maintaining Next.js conventions for opt
   ```
 
 - [ ] **Migrate Tools Feature (Shared Logic)**
-
   - [ ] Create `src/features/tools/` structure
   - [ ] Move tool services from `src/lib/services/`
   - [ ] Move tool repositories from `src/lib/repositories/`
@@ -416,28 +401,24 @@ Organize business logic by domains while maintaining Next.js conventions for opt
   - [ ] Keep tool components in `src/components/` (web-specific)
 
 - [ ] **Migrate Users Feature (Shared Logic)**
-
   - [ ] Create `src/features/users/` structure
   - [ ] Move user services and repositories
   - [ ] Move user schemas and types
   - [ ] Keep user components in `src/components/` (web-specific)
 
 - [ ] **Migrate Rentals Feature (Shared Logic)**
-
   - [ ] Create `src/features/rentals/` structure
   - [ ] Move rental services and repositories
   - [ ] Move rental schemas and types
   - [ ] Keep rental components in `src/components/` (web-specific)
 
 - [ ] **Create Shared Module**
-
   - [ ] Move common types to `src/features/shared/types/`
   - [ ] Move common utilities to `src/features/shared/utils/`
   - [ ] Keep UI components in `src/components/ui/` (web-specific)
   - [ ] Keep common hooks in `src/hooks/` (web-specific)
 
 - [ ] **Update API Routes for Mobile**
-
   - [ ] Ensure API routes use feature services
   - [ ] Add mobile-specific API endpoints
   - [ ] Implement consistent response formats

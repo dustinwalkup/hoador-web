@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  sanitizeForDisplay,
-  sanitizeAndTruncate,
-} from "../sanitize-client";
+import { sanitizeForDisplay, sanitizeAndTruncate } from "../sanitize-client";
 
 // Ensure alert is available before tests run
 beforeEach(() => {

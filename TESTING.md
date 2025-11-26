@@ -162,7 +162,6 @@ Thanks to `@testing-library/jest-dom`, you have access to:
    ```
 
 2. **Use semantic queries**
-
    - Prefer `getByRole`, `getByLabelText`, `getByText`
    - Avoid `getByTestId` unless necessary
 

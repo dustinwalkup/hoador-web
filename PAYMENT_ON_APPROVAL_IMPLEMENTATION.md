@@ -249,7 +249,6 @@ Expired card: 4000 0000 0000 0069
 When implementing platform fees and direct payouts to owners:
 
 1. **Onboard owners to Stripe Connect**
-
    - Create Connected Account for each owner
    - Store `stripeConnectedAccountId` in user table
 
