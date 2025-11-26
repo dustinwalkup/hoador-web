@@ -98,7 +98,7 @@ jobs:
           SERP_API_KEY: mock_serp_key_for_build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-files
           path: .next/
