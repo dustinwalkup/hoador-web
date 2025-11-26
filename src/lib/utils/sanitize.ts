@@ -1,9 +1,30 @@
 /**
  * Server-side sanitization utilities
- * Uses isomorphic-dompurify for Node.js compatibility
+ * Uses custom wrapper for dompurify with jsdom for Node.js compatibility
  */
 
-import DOMPurify from "isomorphic-dompurify";
+import DOMPurify from "dompurify";
+// @ts-expect-error - jsdom types may not be available, but it's a dev dependency
+import { JSDOM } from "jsdom";
+import type { Config } from "dompurify";
+
+/**
+ * Internal wrapper function that handles server/client-side DOMPurify initialization
+ * @param dirty - The HTML string to sanitize
+ * @param config - DOMPurify configuration options
+ * @returns Sanitized HTML string
+ */
+function sanitize(dirty: string, config?: Config): string {
+  if (typeof window === "undefined") {
+    // Server-side: Create JSDOM window and initialize DOMPurify
+    const { window: jsdomWindow } = new JSDOM("");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const purify = DOMPurify(jsdomWindow as any);
+    return purify.sanitize(dirty, config);
+  }
+  // Client-side: Use DOMPurify directly
+  return DOMPurify.sanitize(dirty, config);
+}
 
 /**
  * Sanitizes HTML content by removing all HTML tags and attributes
@@ -11,7 +32,7 @@ import DOMPurify from "isomorphic-dompurify";
  * @returns Sanitized plain text string
  */
 export function sanitizeHtml(html: string): string {
-  const result = DOMPurify.sanitize(html, {
+  const result = sanitize(html, {
     ALLOWED_TAGS: [], // No HTML tags allowed
     ALLOWED_ATTR: [],
     FORBID_TAGS: ["script", "iframe", "object", "embed", "form"], // Explicitly forbid dangerous tags

@@ -1,7 +1,7 @@
 import { authClient } from "@/services/better-auth/client";
 
 export async function forgotPassword(email: string) {
-  const { data, error } = await authClient.forgetPassword({
+  const { data, error } = await authClient.requestPasswordReset({
     email,
     redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`,
   });

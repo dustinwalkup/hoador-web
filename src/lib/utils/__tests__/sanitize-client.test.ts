@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import DOMPurify from "isomorphic-dompurify";
+import {
+  sanitizeForDisplay,
+  sanitizeAndTruncate,
+} from "../sanitize-client";
 
 // Ensure alert is available before tests run
 beforeEach(() => {
@@ -15,32 +18,8 @@ beforeEach(() => {
   }
 });
 
-// Test implementations that mirror sanitize-client.ts but use isomorphic-dompurify
-// This allows testing in Node environment while verifying the same behavior
-function sanitizeForDisplay(text: string): string {
-  if (!text || typeof text !== "string") {
-    return "";
-  }
-
-  const result = DOMPurify.sanitize(text, {
-    ALLOWED_TAGS: [], // No HTML tags allowed
-    ALLOWED_ATTR: [],
-    FORBID_TAGS: ["script", "iframe", "object", "embed", "form"], // Explicitly forbid dangerous tags
-    FORBID_ATTR: ["onerror", "onload", "onclick", "onfocus", "onmouseover"], // Explicitly forbid event handlers
-  });
-
-  // DOMPurify may return HTML string even with ALLOWED_TAGS: [] in some environments
-  // Strip any remaining tags manually as a fallback
-  return result.replace(/<[^>]*>/g, "");
-}
-
-function sanitizeAndTruncate(text: string, maxLength: number): string {
-  const sanitized = sanitizeForDisplay(text);
-  return sanitized.slice(0, maxLength);
-}
-
-// Note: These tests use isomorphic-dompurify which provides the same
-// sanitization behavior as browser DOMPurify, allowing tests to run in Node
+// Note: These tests use the actual sanitize-client.ts functions
+// which use DOMPurify directly in browser environments
 describe("sanitize-client", () => {
   describe("sanitizeForDisplay", () => {
     it("should remove all HTML tags", () => {
