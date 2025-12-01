@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
-import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
+import type Stripe from "stripe";
 import { UserDAL } from "@/dal/user.dal";
 import { tryCatch } from "@walkup/walkup-utils";
+
+// Force dynamic rendering for webhook route
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -27,6 +30,11 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // Use dynamic import to avoid initialization issues during build
+    const { PAYMENT_SERVER_INSTANCE } = await import(
+      "@/services/stripe/server"
+    );
 
     let event: Stripe.Event;
 
