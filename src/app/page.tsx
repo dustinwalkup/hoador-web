@@ -1,10 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, Coins, Search, Home } from "lucide-react";
+import { Coins, Home } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import CategoryCard from "@/components/category-card";
 import FeatureCard from "@/components/feature-card";
 import FadeIn from "@/components/fade-in";

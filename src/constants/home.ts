@@ -75,7 +75,8 @@ export const HOME_PAGE: HomePageConstants = {
   hero: {
     titleA: "Your neighborhood",
     titleB: "rental marketplace",
-    description: "Borrow tools from neighbors, save money, and build community",
+    description:
+      "Borrow tools or offer simple services to neighbors—earn money, save time, and strengthen your community",
     inputPlaceholder: "What are you looking for?",
   },
   valueProp: {
