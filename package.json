@@ -6,8 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "lint:fix": "next lint --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
     "type-check": "tsc --noEmit --skipLibCheck",
     "test": "vitest",
     "test:run": "vitest run",
@@ -64,7 +64,7 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
     "lucide-react": "^0.555.0",
-    "next": "^15.5.0",
+    "next": "^16.0.7",
     "next-themes": "^0.4.6",
     "openai": "^6.9.1",
     "react": "^19.2.1",
@@ -80,7 +80,6 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
