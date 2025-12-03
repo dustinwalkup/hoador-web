@@ -8,10 +8,18 @@ interface ExplorePageContentProps {
   basePath?: string; // Default to /dashboard/explore for backward compatibility
 }
 
+// 7 days in milliseconds
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Compute "one week ago" threshold at module load time (stable across renders)
+// This is acceptable because "new" status doesn't need real-time precision
+const oneWeekAgoTimestamp = Date.now() - SEVEN_DAYS_MS;
+
 export function ExplorePageContent({
   listings,
   basePath = "/dashboard/explore",
 }: ExplorePageContentProps) {
+
   return (
     <>
       {listings.length > 0 ? (
@@ -27,8 +35,7 @@ export function ExplorePageContent({
               reviews={listing.reviewCount}
               imageUrl={listing.firstImageUrl || "/images/placeholder.jpg"}
               isNew={
-                new Date(listing.createdAt).getTime() >
-                Date.now() - 7 * 24 * 60 * 60 * 1000
+                new Date(listing.createdAt).getTime() > oneWeekAgoTimestamp
               }
               status={listing.status}
             />

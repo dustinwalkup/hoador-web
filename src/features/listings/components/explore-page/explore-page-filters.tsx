@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Filter, ChevronDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,23 +61,14 @@ export function ExplorePageFilters({
   const [sortOpen, setSortOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Sync local state with URL filters when they change
-  useEffect(() => {
+  // Sync local state with URL filters when opening the sheet
+  const syncLocalStateFromFilters = () => {
     setMinPrice(filters.minPrice?.toString() || "");
     setMaxPrice(filters.maxPrice?.toString() || "");
     setSelectedConditions(filters.condition || []);
-    const setupFromFilters = filters.setupAvailable === true;
-    const deliveryFromFilters = filters.deliveryMode || "pickup_only";
-
-    setSetupAvailable(setupFromFilters);
-    setDeliveryMode(deliveryFromFilters);
-  }, [
-    filters.minPrice,
-    filters.maxPrice,
-    filters.condition,
-    filters.deliveryMode,
-    filters.setupAvailable,
-  ]);
+    setSetupAvailable(filters.setupAvailable === true);
+    setDeliveryMode(filters.deliveryMode || "pickup_only");
+  };
 
   // Debounced search
   const { localQuery, handleSearchChange, clearSearch } = useDebouncedSearch(
@@ -296,6 +287,7 @@ export function ExplorePageFilters({
               if (!open) {
                 handleFiltersCancel();
               } else {
+                syncLocalStateFromFilters();
                 setFiltersOpen(true);
               }
             }}

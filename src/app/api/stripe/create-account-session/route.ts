@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { userDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
@@ -8,7 +8,7 @@ import { createAccountSession } from "@/services/stripe/connect";
  * Create an account session for embedded onboarding
  * POST /api/stripe/create-account-session
  */
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Verify user authentication
     const userId = await getCurrentUserId();

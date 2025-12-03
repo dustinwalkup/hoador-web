@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { getAccountStatus } from "@/services/stripe/connect";
@@ -8,7 +8,7 @@ import { userDAL } from "@/dal";
  * Update onboarding status after completion
  * POST /api/stripe/update-onboarding-status
  */
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Verify user authentication
     const userId = await getCurrentUserId();

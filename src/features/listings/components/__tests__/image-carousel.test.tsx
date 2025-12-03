@@ -111,7 +111,7 @@ describe("ImageCarousel", () => {
       const { container } = render(
         <ImageCarousel images={[]} listingName={mockListingName} />,
       );
-
+      console.log(container.innerHTML);
       const buttons = screen.queryAllByRole("button");
       expect(buttons).toHaveLength(0);
     });

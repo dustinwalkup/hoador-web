@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
@@ -11,6 +11,18 @@ import { ConversationsList } from "./conversations-list";
 import { ChatArea } from "./chat-area";
 import { ConversationSummary } from "@/dal/types";
 
+// Compute initial tab based on conversation parameter
+function getInitialTab(
+  conversationParam: string | null,
+  conversations: ConversationSummary[],
+): "inbox" | "archived" {
+  if (!conversationParam) return "inbox";
+  const conversation = conversations.find(
+    (conv) => conv.id === conversationParam,
+  );
+  return conversation?.archived ? "archived" : "inbox";
+}
+
 export function MailboxClient({
   conversations,
 }: {
@@ -19,39 +31,26 @@ export function MailboxClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const conversationParam = searchParams.get("conversation");
-  const hasHandledInitialParam = useRef(false);
 
+  // Compute initial values based on URL parameter
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
-  >(conversationParam);
-  const [activeTab, setActiveTab] = useState<"inbox" | "archived">("inbox");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showMobileChat, setShowMobileChat] = useState(!!conversationParam);
-
-  // Handle conversation query parameter only on initial load
-  useEffect(() => {
-    if (conversationParam && !hasHandledInitialParam.current) {
-      // Find which tab the conversation is in
-      const conversation = conversations.find(
-        (conv) => conv.id === conversationParam,
-      );
-
-      if (conversation) {
-        // Switch to the appropriate tab if needed
-        if (conversation.archived && activeTab !== "archived") {
-          setActiveTab("archived");
-        } else if (!conversation.archived && activeTab !== "inbox") {
-          setActiveTab("inbox");
-        }
-
-        // Select the conversation
-        setSelectedConversationId(conversationParam);
-        setShowMobileChat(true);
-      }
-
-      hasHandledInitialParam.current = true;
+  >(() => {
+    // Only set if the conversation exists in the data
+    if (conversationParam) {
+      const exists = conversations.some((conv) => conv.id === conversationParam);
+      return exists ? conversationParam : null;
     }
-  }, [conversationParam, conversations, activeTab]);
+    return null;
+  });
+  const [activeTab, setActiveTab] = useState<"inbox" | "archived">(() =>
+    getInitialTab(conversationParam, conversations),
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showMobileChat, setShowMobileChat] = useState(() => {
+    if (!conversationParam) return false;
+    return conversations.some((conv) => conv.id === conversationParam);
+  });
 
   // Filter initial conversations by active tab
   const conversationsForActiveTab = conversations.filter(

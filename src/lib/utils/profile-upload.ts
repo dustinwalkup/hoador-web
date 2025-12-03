@@ -48,7 +48,9 @@ export async function uploadProfileImage(
   try {
     result = await response.json();
   } catch (error) {
-    throw new Error("Invalid response from server. Please try again.");
+    throw new Error("Invalid response from server. Please try again.", {
+      cause: error,
+    });
   }
 
   if (!response.ok) {
@@ -78,7 +80,9 @@ export async function deleteProfileImage(
   try {
     result = await response.json();
   } catch (error) {
-    throw new Error("Invalid response from server. Please try again.");
+    throw new Error("Invalid response from server. Please try again.", {
+      cause: error,
+    });
   }
 
   if (!response.ok) {

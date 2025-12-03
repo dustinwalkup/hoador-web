@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -102,6 +103,7 @@ export default function TestImageUploadPage() {
       hasSearchedRef.current = true;
       handleSerpSearch();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysis]);
 
   const handleSerpSearch = async () => {
@@ -319,10 +321,12 @@ export default function TestImageUploadPage() {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {selectedImages.map((image) => (
                     <div key={image.id} className="group relative">
-                      <img
+                      <Image
                         src={image.preview}
                         alt="Preview"
                         className="h-32 w-full rounded border object-cover"
+                        width={128}
+                        height={128}
                       />
                       <button
                         onClick={() => removeImage(image.id)}
@@ -364,7 +368,7 @@ export default function TestImageUploadPage() {
                     hasSearchedRef.current = false;
                     setError(null);
                   }}
-                  className="flex-shrink-0"
+                  className="shrink-0"
                 >
                   Clear All
                 </Button>
@@ -396,53 +400,55 @@ export default function TestImageUploadPage() {
                 <div className="space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0">
                   <div className="space-y-1">
                     <Label className="text-sm font-medium">Tool Name</Label>
-                    <p className="text-sm break-words">{analysis.name}</p>
+                    <p className="text-sm wrap-break-word">{analysis.name}</p>
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-sm font-medium">Category</Label>
-                    <p className="text-sm break-words">
+                    <p className="text-sm wrap-break-word">
                       {analysis.categoryName}
                     </p>
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-sm font-medium">Brand</Label>
-                    <p className="text-sm break-words">
+                    <p className="text-sm wrap-break-word">
                       {analysis.brand || "Not specified"}
                     </p>
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-sm font-medium">Model</Label>
-                    <p className="text-sm break-words">
+                    <p className="text-sm wrap-break-word">
                       {analysis.model || "Not specified"}
                     </p>
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-sm font-medium">Condition</Label>
-                    <p className="text-sm break-words">{analysis.condition}</p>
+                    <p className="text-sm wrap-break-word">
+                      {analysis.condition}
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-1">
                   <Label className="text-sm font-medium">Description</Label>
-                  <p className="text-sm leading-relaxed break-words">
+                  <p className="text-sm leading-relaxed wrap-break-word">
                     {analysis.description}
                   </p>
                 </div>
 
                 <div className="space-y-1">
                   <Label className="text-sm font-medium">Instructions</Label>
-                  <p className="text-sm leading-relaxed break-words">
+                  <p className="text-sm leading-relaxed wrap-break-word">
                     {analysis.instructions}
                   </p>
                 </div>
 
                 <div className="space-y-1">
                   <Label className="text-sm font-medium">Safety Notes</Label>
-                  <p className="text-sm leading-relaxed break-words">
+                  <p className="text-sm leading-relaxed wrap-break-word">
                     {analysis.safetyNotes}
                   </p>
                 </div>
@@ -457,7 +463,7 @@ export default function TestImageUploadPage() {
                           className="flex flex-col space-y-1 sm:flex-row sm:items-center sm:justify-between sm:space-y-0"
                         >
                           <span className="font-medium capitalize">{key}:</span>
-                          <span className="break-words sm:text-right">
+                          <span className="wrap-break-word sm:text-right">
                             {value}
                           </span>
                         </div>
@@ -565,7 +571,7 @@ export default function TestImageUploadPage() {
               <Button
                 onClick={handleManualSerpSearch}
                 disabled={serpLoading || !searchQuery.trim()}
-                className="flex-shrink-0"
+                className="shrink-0"
               >
                 {serpLoading ? (
                   <svg
@@ -686,10 +692,12 @@ export default function TestImageUploadPage() {
                     <div className="flex-1">
                       <div className="flex items-start gap-3">
                         {toolMatchResult.bestMatch.thumbnail && (
-                          <img
+                          <Image
                             src={toolMatchResult.bestMatch.thumbnail}
                             alt="Product"
-                            className="h-16 w-16 flex-shrink-0 rounded object-cover"
+                            className="h-16 w-16 shrink-0 rounded object-cover"
+                            width={64}
+                            height={64}
                           />
                         )}
                         <div className="flex-1">
@@ -737,7 +745,7 @@ export default function TestImageUploadPage() {
                         href={toolMatchResult.bestMatch.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-4 flex-shrink-0 rounded-md bg-blue-600 px-3 py-2 text-white transition-colors hover:bg-blue-700"
+                        className="ml-4 shrink-0 rounded-md bg-blue-600 px-3 py-2 text-white transition-colors hover:bg-blue-700"
                         title="View Product"
                       >
                         <ExternalLink size={16} />
@@ -765,10 +773,12 @@ export default function TestImageUploadPage() {
                       <div className="flex items-start justify-between">
                         <div className="flex flex-1 items-start gap-3">
                           {product.thumbnail && (
-                            <img
+                            <Image
                               src={product.thumbnail}
                               alt="Product"
-                              className="h-12 w-12 flex-shrink-0 rounded object-cover"
+                              className="h-12 w-12 shrink-0 rounded object-cover"
+                              width={48}
+                              height={48}
                             />
                           )}
                           <div className="flex-1">
@@ -811,7 +821,7 @@ export default function TestImageUploadPage() {
                             href={product.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="ml-4 flex-shrink-0 rounded-md bg-gray-100 p-2 transition-colors hover:bg-gray-200"
+                            className="ml-4 shrink-0 rounded-md bg-gray-100 p-2 transition-colors hover:bg-gray-200"
                             title="View Product"
                           >
                             <ExternalLink size={16} className="text-gray-600" />

@@ -46,7 +46,7 @@ export function MessageUserModal({
   listingName,
   existingConversationId,
 }: MessageUserModalProps) {
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [formState, setFormState] = useState<FormState>("idle");
   const [message, setMessage] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);

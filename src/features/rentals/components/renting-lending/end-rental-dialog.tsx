@@ -53,6 +53,7 @@ export function EndRentalDialog({
           });
         }
       } catch (error) {
+        console.error("Failed to end rental", error);
         // Show error toast if the action fails
         toast.error("Failed to end rental", {
           description: "An unexpected error occurred. Please try again.",

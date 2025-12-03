@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   useRentingRequests,
@@ -41,10 +41,17 @@ export function RentalsClient({
   const pathname = usePathname();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const [activeType, setActiveType] = useState<"renting" | "lending">(
-    initialType,
-  );
-  const [activeStatus, setActiveStatus] = useState<string>(initialStatus);
+  // Derive active type and status from URL pathname (supports browser back/forward)
+  const { activeType, activeStatus } = useMemo(() => {
+    const pathParts = pathname.split("/");
+    if (pathParts.length >= 4) {
+      const type = pathParts[2] as "renting" | "lending";
+      const status = pathParts[3];
+      return { activeType: type, activeStatus: status };
+    }
+    // Fallback to initial props
+    return { activeType: initialType, activeStatus: initialStatus };
+  }, [pathname, initialType, initialStatus]);
 
   // Data fetching hooks - only fetch what we need based on current tab
   const rentingRequests = useRentingRequests("pending");
@@ -98,10 +105,8 @@ export function RentalsClient({
         scrollContainerRef.current.scrollLeft.toString(),
       );
     }
-    setActiveType(newType);
     // Set appropriate default status for the type
     const defaultStatus = newType === "renting" ? "requests" : "incoming";
-    setActiveStatus(defaultStatus);
     router.push(`/dashboard/${newType}/${defaultStatus}`);
   };
 
@@ -113,22 +118,8 @@ export function RentalsClient({
         scrollContainerRef.current.scrollLeft.toString(),
       );
     }
-    setActiveStatus(newStatus);
     router.push(`/dashboard/${activeType}/${newStatus}`);
   };
-
-  // Sync with URL changes (browser back/forward)
-  useEffect(() => {
-    const pathParts = pathname.split("/");
-    if (pathParts.length >= 4) {
-      const type = pathParts[2] as "renting" | "lending";
-      const status = pathParts[3];
-      if (type !== activeType || status !== activeStatus) {
-        setActiveType(type);
-        setActiveStatus(status);
-      }
-    }
-  }, [pathname, activeType, activeStatus]);
 
   // Restore scroll position after mount and navigation
   useEffect(() => {

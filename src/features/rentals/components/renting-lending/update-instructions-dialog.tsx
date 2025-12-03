@@ -77,6 +77,7 @@ export function UpdateInstructionsDialog({
         }
       } catch (error) {
         // Show error toast if the action fails
+        console.error("Failed to update instructions", error);
         toast.error("Failed to update instructions", {
           description: "An unexpected error occurred. Please try again.",
         });

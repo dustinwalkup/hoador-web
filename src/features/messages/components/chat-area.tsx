@@ -64,24 +64,14 @@ export function ChatArea({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [previousConversationId, setPreviousConversationId] = useState<
-    string | null
-  >(null);
+  const scrolledConversationRef = useRef<string | null>(null);
+  const previousMessageCountRef = useRef<number>(0);
 
   const { data: selectedConversation, isLoading: isLoadingConversation } =
     useConversationDetails(conversationId);
 
   // Get messages from the conversation data, including any optimistic ones
   const messages = selectedConversation?.messages || [];
-
-  // Track conversation changes to detect initial loads
-  useEffect(() => {
-    if (conversationId !== previousConversationId) {
-      setIsInitialLoad(true);
-      setPreviousConversationId(conversationId);
-    }
-  }, [conversationId, previousConversationId]);
 
   // Smooth scroll to bottom function
   const scrollToBottom = useCallback((smooth = true) => {
@@ -99,26 +89,28 @@ export function ChatArea({
     }
   }, []);
 
-  // Handle scrolling for initial conversation load
+  // Handle scrolling - both initial load and new messages
   useEffect(() => {
-    if (selectedConversation && messages.length > 0 && isInitialLoad) {
+    if (!selectedConversation || messages.length === 0) return;
+
+    const isInitialLoad = scrolledConversationRef.current !== conversationId;
+    const hasNewMessages = messages.length > previousMessageCountRef.current;
+
+    if (isInitialLoad) {
       // Use requestAnimationFrame to ensure DOM is updated
       requestAnimationFrame(() => {
         scrollToBottom(false); // Instant scroll for initial load
-        setIsInitialLoad(false);
+        scrolledConversationRef.current = conversationId;
+        previousMessageCountRef.current = messages.length;
       });
-    }
-  }, [selectedConversation, messages.length, isInitialLoad, scrollToBottom]);
-
-  // Handle scrolling when new messages are added (not initial load)
-  useEffect(() => {
-    if (!isInitialLoad && messages.length > 0) {
+    } else if (hasNewMessages) {
       // Small delay to ensure DOM is updated with new message
       requestAnimationFrame(() => {
         scrollToBottom(true); // Smooth scroll for new messages
+        previousMessageCountRef.current = messages.length;
       });
     }
-  }, [messages.length, isInitialLoad, scrollToBottom]);
+  }, [selectedConversation, messages.length, scrollToBottom, conversationId]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;

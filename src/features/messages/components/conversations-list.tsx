@@ -173,6 +173,7 @@ export function ConversationsList({
       startTransition,
       allConversations,
       updateConversationCache,
+      queryClient,
     ],
   );
 

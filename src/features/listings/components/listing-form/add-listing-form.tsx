@@ -73,7 +73,6 @@ export function AddListingForm({
     addSpecification,
     removeSpecification,
     reset,
-    handleDeliveryModeChange,
   } = form;
 
   // Debug: Log form values when they change

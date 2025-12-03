@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
@@ -58,14 +58,14 @@ export function RentListingPageContent({
   }) as ReturnType<typeof useForm<RentalFormData>>;
 
   const {
-    watch,
+    control,
     trigger,
     formState: { isSubmitting },
     setValue,
     handleSubmit,
   } = form;
 
-  const watchedValues = watch();
+  const watchedValues = useWatch({ control });
 
   const calculateTotal = () => {
     if (!watchedValues.startDate || !watchedValues.endDate)

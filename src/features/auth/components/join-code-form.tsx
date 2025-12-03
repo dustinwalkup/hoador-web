@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Users } from "lucide-react";
 
@@ -23,14 +23,14 @@ export function JoinCodeForm() {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
+    control,
     setValue,
   } = useForm<JoinCodeData>({
     resolver: zodResolver(joinCodeSchema),
     mode: "onChange",
   });
 
-  const joinCodeValue = watch("joinCode");
+  const joinCodeValue = useWatch({ control, name: "joinCode" });
 
   // Auto-uppercase the join code as user types
   const handleJoinCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {

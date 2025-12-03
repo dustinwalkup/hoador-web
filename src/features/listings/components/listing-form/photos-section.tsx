@@ -35,22 +35,68 @@ interface PhotosSectionProps {
   isLoadingImages?: boolean;
 }
 
-// Image component with smooth loading
+// Helper to create object URL from file
+function createObjectUrlFromFile(file: File | undefined): string | null {
+  if (!file) return null;
+  try {
+    return URL.createObjectURL(file);
+  } catch (error) {
+    console.error("Failed to create object URL for image:", error);
+    return null;
+  }
+}
+
+// Helper to revoke object URL safely
+function revokeObjectUrl(url: string | null) {
+  if (url) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to revoke object URL:", error);
+    }
+  }
+}
+
+// Image component with smooth loading - manages its own object URL lifecycle
 function ListingImage({
   image,
   index,
-  objectUrls,
   onLoad,
   onError,
 }: {
   image: ImageFile;
   index: number;
-  objectUrls: Record<number, string>;
   onLoad: () => void;
   onError: (index: number, e: React.SyntheticEvent<HTMLImageElement>) => void;
 }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
+
+  // Create object URL synchronously - lazy initializer runs once
+  const [objectUrl, setObjectUrl] = useState<string | null>(() =>
+    createObjectUrlFromFile(image.file),
+  );
+
+  // Track the file to detect changes and update URL
+  const prevFileRef = useRef<File | undefined>(image.file);
+
+  // Handle file changes - create new URL when file changes
+  if (image.file !== prevFileRef.current) {
+    // Revoke old URL
+    revokeObjectUrl(objectUrl);
+    // Create new URL
+    const newUrl = createObjectUrlFromFile(image.file);
+    setObjectUrl(newUrl);
+    prevFileRef.current = image.file;
+  }
+
+  // Cleanup on unmount only
+  useEffect(() => {
+    return () => {
+      revokeObjectUrl(objectUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run cleanup on unmount
 
   const handleLoad = () => {
     setIsLoaded(true);
@@ -64,8 +110,8 @@ function ListingImage({
 
   // Determine image source
   let imageSrc = "";
-  if (image.file && objectUrls[index]) {
-    imageSrc = objectUrls[index];
+  if (image.file && objectUrl) {
+    imageSrc = objectUrl;
   } else if (
     image.url &&
     typeof image.url === "string" &&
@@ -118,36 +164,8 @@ export function PhotosSection({
 }: PhotosSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [objectUrls, setObjectUrls] = useState<Record<number, string>>({});
 
   const images = getValues("images");
-
-  // Clean up object URLs when component unmounts or images change
-  useEffect(() => {
-    const newObjectUrls: Record<number, string> = {};
-
-    images.forEach((image: ImageFile, index: number) => {
-      if (image.file) {
-        try {
-          newObjectUrls[index] = URL.createObjectURL(image.file);
-        } catch (error) {
-          console.error("Failed to create object URL for image:", error);
-        }
-      }
-    });
-
-    setObjectUrls(newObjectUrls);
-
-    return () => {
-      Object.values(newObjectUrls).forEach((url) => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (error) {
-          console.error("Failed to revoke object URL:", error);
-        }
-      });
-    };
-  }, [images]);
 
   const handleImageLoad = () => {
     // Image loaded successfully
@@ -232,7 +250,6 @@ export function PhotosSection({
                   <ListingImage
                     image={image}
                     index={index}
-                    objectUrls={objectUrls}
                     onLoad={handleImageLoad}
                     onError={handleImageError}
                   />

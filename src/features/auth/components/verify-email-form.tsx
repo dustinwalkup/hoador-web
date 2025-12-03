@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
 import { Mail, Loader2, CheckCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

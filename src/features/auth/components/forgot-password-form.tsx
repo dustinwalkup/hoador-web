@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -8,14 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
 import { forgotPasswordAction } from "../actions/forgot-password";
 
 export function ForgotPasswordForm() {

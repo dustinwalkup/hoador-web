@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { userDAL } from "@/dal";
@@ -8,7 +8,7 @@ import { createLoginLink } from "@/services/stripe/connect";
  * Create a login link for Express Dashboard access
  * POST /api/stripe/create-login-link
  */
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Verify user authentication
     const userId = await getCurrentUserId();
