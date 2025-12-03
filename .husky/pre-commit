@@ -1,7 +1,26 @@
-bun lint-staged
+#!/usr/bin/env sh
+# Try to find bun in common locations
+BUN_PATH=""
+if [ -f ~/.bun/bin/bun ]; then
+  BUN_PATH="$HOME/.bun/bin/bun"
+elif command -v bun >/dev/null 2>&1; then
+  BUN_PATH="bun"
+fi
+
+# Use bun if available, otherwise fallback to npm/npx
+if [ -n "$BUN_PATH" ]; then
+  "$BUN_PATH" lint-staged
+else
+  # Fallback to npm/npx if bun is not found
+  npm run lint-staged 2>/dev/null || npx lint-staged
+fi
 
 # Run type checking if there are any TypeScript files staged
 if git diff --cached --name-only | grep -E '\.(ts|tsx)$' > /dev/null; then
   echo "Running TypeScript type check..."
-  bun run type-check
+  if [ -n "$BUN_PATH" ]; then
+    "$BUN_PATH" run type-check
+  else
+    npm run type-check
+  fi
 fi

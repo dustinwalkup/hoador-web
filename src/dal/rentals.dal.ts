@@ -1,4 +1,5 @@
 import { eq, and, inArray, sql } from "drizzle-orm";
+import { tryCatch } from "@walkup/walkup-utils";
 
 import { rentals, rentalRequests, reviews } from "@/db/schemas/rentals.schema";
 import {
@@ -11,9 +12,10 @@ import { conversations } from "@/db/schemas/messages.schema";
 import { type CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { differenceInDays } from "@/lib/utils/date.utils";
+import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BaseDAL } from "./base";
 import { UnauthorizedError, NotFoundError } from "./errors";
-import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
+import { reviewDAL } from "./index";
 
 export interface BorrowedListing {
   id: string;
@@ -28,6 +30,7 @@ export interface BorrowedListing {
   status: string;
   dailyRate: string;
   conversationId?: string | null;
+  canLeaveReview?: boolean;
 }
 
 export interface BorrowedListingsData {
@@ -58,6 +61,7 @@ export interface RentalRequestItem {
   denialReason?: string | null;
   approvedAt?: Date | null;
   conversationId?: string | null;
+  canLeaveReview?: boolean;
 }
 
 export interface LendingRequestItem {
@@ -158,6 +162,24 @@ export interface RentalDetails {
   denialReason?: string;
   currentUserId: string;
   conversationId?: string | null;
+  hasReview?: boolean;
+  canLeaveReview?: boolean;
+  review?: {
+    id: string;
+    rating: number;
+    comment: string | null;
+    title: string | null;
+    accuracyRating: number | null;
+    listingConditionRating: number | null;
+    ownerCommunicationRating: number | null;
+    createdAt: Date;
+    reviewer: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      profileImageUrl: string | null;
+    } | null;
+  } | null;
 }
 
 // Utility types for specific components
@@ -241,6 +263,8 @@ export type RentalActionsInfo = Pick<
   | "pickupInstructions"
   | "returnInstructions"
   | "deliveryRequested"
+  | "hasReview"
+  | "canLeaveReview"
 >;
 export type RentalMessagesInfo = Pick<
   RentalDetails,
@@ -820,10 +844,53 @@ export class RentalDAL extends BaseDAL {
         listingImagesMap.set(listingId, firstImage?.imageUrl || null);
       }
 
-      // Add listing images to rentals
+      // For completed rentals, check review eligibility
+      const canLeaveReviewMap = new Map<string, boolean>();
+      if (status === "completed") {
+        const rentalRequestIds = rentalsList.map((r) => r.id);
+
+        // Get actual rental records for these requests
+        const actualRentals = await this.db
+          .select({
+            requestId: rentals.requestId,
+            id: rentals.id,
+            damageReported: rentals.damageReported,
+          })
+          .from(rentals)
+          .where(inArray(rentals.requestId, rentalRequestIds));
+
+        // Get existing reviews for these rentals
+        const rentalIds = actualRentals.map((r) => r.id);
+        const existingReviews =
+          rentalIds.length > 0
+            ? await this.db
+                .select({ rentalId: reviews.rentalId })
+                .from(reviews)
+                .where(inArray(reviews.rentalId, rentalIds))
+            : [];
+
+        const reviewedRentalIds = new Set(
+          existingReviews.map((r) => r.rentalId),
+        );
+
+        // Build map of requestId -> canLeaveReview
+        for (const rental of actualRentals) {
+          const canLeave =
+            !rental.damageReported &&
+            !reviewedRentalIds.has(rental.id) &&
+            rental.requestId !== null;
+          canLeaveReviewMap.set(rental.requestId, canLeave);
+        }
+      }
+
+      // Add listing images and canLeaveReview to rentals
       return rentalsList.map((rental) => ({
         ...rental,
         listingImageUrl: listingImagesMap.get(rental.listingId) || null,
+        canLeaveReview:
+          status === "completed"
+            ? canLeaveReviewMap.get(rental.id) || false
+            : undefined,
       }));
     } catch (error) {
       this.handleError(error, "getRentalsByStatus");
@@ -1408,6 +1475,58 @@ export class RentalDAL extends BaseDAL {
           ? `${ownerAddress.street}, ${ownerAddress.city}, ${ownerAddress.state} ${ownerAddress.zipCode}`
           : undefined;
 
+        // Check if rental exists and get review status
+        const rentalRecord = await this.db
+          .select({ id: rentals.id, damageReported: rentals.damageReported })
+          .from(rentals)
+          .where(eq(rentals.requestId, request.id))
+          .limit(1);
+
+        let hasReview = false;
+        let canLeaveReview = false;
+        let reviewData = null;
+
+        if (rentalRecord[0]) {
+          // Get full review if it exists
+          const { data: reviewResult } = await tryCatch(
+            reviewDAL.getReviewByRentalId(rentalRecord[0].id),
+          );
+
+          hasReview = !!reviewResult;
+
+          if (reviewResult) {
+            reviewData = {
+              id: reviewResult.id,
+              rating: reviewResult.rating,
+              comment: reviewResult.comment,
+              title: reviewResult.title,
+              accuracyRating: reviewResult.accuracyRating,
+              listingConditionRating: reviewResult.listingConditionRating,
+              ownerCommunicationRating: reviewResult.ownerCommunicationRating,
+              createdAt: reviewResult.createdAt,
+              reviewer: reviewResult.reviewer
+                ? {
+                    id: reviewResult.reviewer.id,
+                    firstName: reviewResult.reviewer.firstName || "",
+                    lastName: reviewResult.reviewer.lastName || "",
+                    profileImageUrl: reviewResult.reviewer.profileImageUrl,
+                  }
+                : null,
+            };
+          }
+
+          // Can leave review if:
+          // - Status is completed
+          // - No damage reported
+          // - No existing review
+          // - User is renter
+          canLeaveReview =
+            request.status === "completed" &&
+            !rentalRecord[0].damageReported &&
+            !hasReview &&
+            request.renterId === userId;
+        }
+
         return {
           id: request.id,
           type: "request",
@@ -1472,6 +1591,9 @@ export class RentalDAL extends BaseDAL {
           actualEndDate: request.actualEndDate || undefined,
           currentUserId: userId,
           conversationId: request.conversationId || null,
+          hasReview,
+          canLeaveReview,
+          review: reviewData,
         };
       }
 
@@ -1615,6 +1737,49 @@ export class RentalDAL extends BaseDAL {
         ? `${ownerAddress.street}, ${ownerAddress.city}, ${ownerAddress.state} ${ownerAddress.zipCode}`
         : undefined;
 
+      // Get full review if it exists
+      let hasReview = false;
+      let canLeaveReview = false;
+      let reviewData = null;
+
+      const { data: reviewResult } = await tryCatch(
+        reviewDAL.getReviewByRentalId(rentalData.id),
+      );
+
+      hasReview = !!reviewResult;
+
+      if (reviewResult) {
+        reviewData = {
+          id: reviewResult.id,
+          rating: reviewResult.rating,
+          comment: reviewResult.comment,
+          title: reviewResult.title,
+          accuracyRating: reviewResult.accuracyRating,
+          listingConditionRating: reviewResult.listingConditionRating,
+          ownerCommunicationRating: reviewResult.ownerCommunicationRating,
+          createdAt: reviewResult.createdAt,
+          reviewer: reviewResult.reviewer
+            ? {
+                id: reviewResult.reviewer.id,
+                firstName: reviewResult.reviewer.firstName || "",
+                lastName: reviewResult.reviewer.lastName || "",
+                profileImageUrl: reviewResult.reviewer.profileImageUrl,
+              }
+            : null,
+        };
+      }
+
+      // Can leave review if:
+      // - Status is completed
+      // - No damage reported
+      // - No existing review
+      // - User is renter
+      canLeaveReview =
+        request[0]?.status === "completed" &&
+        !rentalData.damageReported &&
+        !hasReview &&
+        rentalData.renterId === userId;
+
       return {
         id: rentalData.id,
         type: "rental",
@@ -1682,6 +1847,9 @@ export class RentalDAL extends BaseDAL {
         createdAt: rentalData.createdAt,
         currentUserId: userId,
         conversationId: rentalData.conversationId || null,
+        hasReview,
+        canLeaveReview,
+        review: reviewData,
       };
     } catch (error) {
       this.handleError(error, "getRentalDetailsById");

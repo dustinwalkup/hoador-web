@@ -42,6 +42,7 @@ export interface RentingRental extends BaseRental {
   actualEndDate?: string;
   pickupInstructions?: string;
   reviewGiven?: boolean;
+  canLeaveReview?: boolean;
   deniedAt?: string;
   denialReason?: string;
 }
@@ -79,6 +80,7 @@ export interface BorrowedListing {
   totalAmount: string;
   status: string;
   dailyRate: string;
+  canLeaveReview?: boolean;
 }
 
 export interface BorrowedListingsData {

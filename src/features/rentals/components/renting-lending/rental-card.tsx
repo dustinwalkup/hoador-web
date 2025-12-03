@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -22,6 +23,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { RentalRequestItem, BorrowedListing } from "@/dal/rentals.dal";
 import { CancelRequestDialog } from "./cancel-request-dialog";
 import { MessageUserModal } from "@/features/messages/components/message-user-modal";
+import { LeaveReviewModal } from "@/features/reviews/components/leave-review-modal";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -72,6 +74,8 @@ function isRentalRequest(
 export function RentalCard({ rental, variant }: RentalCardProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const router = useRouter();
   const isRequest = isRentalRequest(rental);
 
   // Calculate total days for active rentals (requests already have it)
@@ -221,12 +225,21 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
               )}
 
               {/* Completed rental actions */}
+              {variant === "active" &&
+                rental.status === "completed" &&
+                rental.canLeaveReview && (
+                  <>
+                    <Button
+                      className="w-full justify-center"
+                      onClick={() => setShowReviewModal(true)}
+                    >
+                      <Star className="mr-2 h-4 w-4" />
+                      Leave Review
+                    </Button>
+                  </>
+                )}
               {variant === "active" && rental.status === "completed" && (
                 <>
-                  <Button className="w-full justify-center">
-                    <Star className="mr-2 h-4 w-4" />
-                    Leave Review
-                  </Button>
                   <Link
                     href={`/listings/${rental.listingId}/rent`}
                     className="block"
@@ -364,18 +377,20 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
               )}
 
               {/* Completed rental actions */}
-              {variant === "active" && rental.status === "completed" && (
-                <>
-                  <Button size="sm">
+              {variant === "active" &&
+                rental.status === "completed" &&
+                rental.canLeaveReview && (
+                  <Button size="sm" onClick={() => setShowReviewModal(true)}>
                     <Star className="mr-1 h-4 w-4" />
                     Leave Review
                   </Button>
-                  <Link href={`/listings/${rental.listingId}/rent`}>
-                    <Button variant="outline" size="sm">
-                      Rent Again
-                    </Button>
-                  </Link>
-                </>
+                )}
+              {variant === "active" && rental.status === "completed" && (
+                <Link href={`/listings/${rental.listingId}/rent`}>
+                  <Button variant="outline" size="sm">
+                    Rent Again
+                  </Button>
+                </Link>
               )}
             </div>
           </div>
@@ -402,6 +417,21 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
         listingName={rental.listingName}
         existingConversationId={rental.conversationId}
       />
+
+      {/* Leave Review Modal */}
+      {variant === "active" &&
+        rental.status === "completed" &&
+        rental.canLeaveReview && (
+          <LeaveReviewModal
+            open={showReviewModal}
+            onOpenChange={setShowReviewModal}
+            rentalId={rental.id}
+            listingName={rental.listingName}
+            onSuccess={() => {
+              router.refresh();
+            }}
+          />
+        )}
     </Card>
   );
 }

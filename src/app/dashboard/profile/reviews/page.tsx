@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ReviewerAvatar } from "@/features/reviews/components/reviewer-avatar";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/page-header";
 import { PROFILE_TABS } from "@/constants/profile";
@@ -191,55 +191,126 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
                     <p>No reviews yet</p>
                   </div>
                 ) : (
-                  reviews.map((review) => (
-                    <div key={review.id} className="rounded-lg border p-4">
-                      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback>
-                              {review.reviewer?.name
-                                ? review.reviewer.name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")
-                                    .toUpperCase()
-                                : "U"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">
-                              {review.reviewer?.name || "Anonymous"}
-                            </div>
-                            <div className="text-muted-foreground text-xs">
-                              {formatDistanceToNow(new Date(review.createdAt), {
-                                addSuffix: true,
-                              })}
+                  reviews.map((review) => {
+                    return (
+                      <div key={review.id} className="rounded-lg border p-4">
+                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-2">
+                            <ReviewerAvatar
+                              avatarUrl={review.reviewer?.avatarUrl}
+                              name={review.reviewer?.name}
+                              reviewerId={review.reviewer?.id || review.id}
+                            />
+                            <div>
+                              <div className="font-medium">
+                                {review.reviewer?.name || "Anonymous"}
+                              </div>
+                              <div className="text-muted-foreground text-xs">
+                                {formatDistanceToNow(
+                                  new Date(review.createdAt),
+                                  {
+                                    addSuffix: true,
+                                  },
+                                )}
+                              </div>
                             </div>
                           </div>
+                          <div className="flex">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`h-4 w-4 ${
+                                  star <= review.rating
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "fill-amber-200 text-amber-200"
+                                }`}
+                              />
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`h-4 w-4 ${
-                                star <= review.rating
-                                  ? "fill-amber-400 text-amber-400"
-                                  : "fill-amber-200 text-amber-200"
-                              }`}
-                            />
-                          ))}
-                        </div>
+                        {review.comment && (
+                          <p className="text-sm">{review.comment}</p>
+                        )}
+
+                        {/* Structured Ratings */}
+                        {(review.accuracyRating ||
+                          review.listingConditionRating ||
+                          review.ownerCommunicationRating) && (
+                          <div className="mt-3 space-y-1.5 border-t pt-3">
+                            <div className="text-muted-foreground text-xs font-medium">
+                              Detailed Ratings:
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              {review.accuracyRating && (
+                                <div className="flex items-center text-xs">
+                                  <span className="text-muted-foreground">
+                                    Accuracy:
+                                  </span>
+                                  <div className="ml-2 flex items-center gap-0.5">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <Star
+                                        key={star}
+                                        className={`h-3 w-3 ${
+                                          star <= review.accuracyRating!
+                                            ? "fill-amber-400 text-amber-400"
+                                            : "fill-amber-200 text-amber-200"
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {review.listingConditionRating && (
+                                <div className="flex items-center text-xs">
+                                  <span className="text-muted-foreground">
+                                    Condition:
+                                  </span>
+                                  <div className="ml-2 flex items-center gap-0.5">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <Star
+                                        key={star}
+                                        className={`h-3 w-3 ${
+                                          star <= review.listingConditionRating!
+                                            ? "fill-amber-400 text-amber-400"
+                                            : "fill-amber-200 text-amber-200"
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {review.ownerCommunicationRating && (
+                                <div className="flex items-center text-xs">
+                                  <span className="text-muted-foreground">
+                                    Communication:
+                                  </span>
+                                  <div className="ml-2 flex items-center gap-0.5">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <Star
+                                        key={star}
+                                        className={`h-3 w-3 ${
+                                          star <=
+                                          review.ownerCommunicationRating!
+                                            ? "fill-amber-400 text-amber-400"
+                                            : "fill-amber-200 text-amber-200"
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {review.listing && (
+                          <p className="text-muted-foreground mt-2 text-xs">
+                            Listing: {review.listing.name}
+                          </p>
+                        )}
                       </div>
-                      {review.comment && (
-                        <p className="text-sm">{review.comment}</p>
-                      )}
-                      {review.listing && (
-                        <p className="text-muted-foreground mt-2 text-xs">
-                          Listing: {review.listing.name}
-                        </p>
-                      )}
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 

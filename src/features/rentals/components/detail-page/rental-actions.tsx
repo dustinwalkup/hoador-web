@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle,
   XCircle,
-  RefreshCw,
   Flag,
   Plus,
   Edit,
   Download,
   PlayCircle,
+  Star,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
   StartRentalDialog,
   EndRentalDialog,
 } from "@/features/rentals/components/renting-lending";
+import { LeaveReviewModal } from "@/features/reviews/components/leave-review-modal";
 
 interface RentalActionsProps {
   rentalDetails: RentalActionsInfo;
@@ -45,6 +46,7 @@ export function RentalActions({
     useState(false);
   const [showStartRentalDialog, setShowStartRentalDialog] = useState(false);
   const [showEndRentalDialog, setShowEndRentalDialog] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   const handleInstructionsUpdated = () => {
     router.refresh();
@@ -97,12 +99,23 @@ export function RentalActions({
             )}
 
             {rentalDetails.status === "completed" && (
-              <Link href={`/listings/${rentalDetails.listingId}/rent`}>
-                <Button className="mb-3 w-full">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Rent Again
-                </Button>
-              </Link>
+              <>
+                {rentalDetails.canLeaveReview && (
+                  <Button
+                    className="mb-3 w-full"
+                    onClick={() => setShowReviewModal(true)}
+                  >
+                    <Star className="mr-2 h-4 w-4" />
+                    Leave Review
+                  </Button>
+                )}
+                <Link href={`/listings/${rentalDetails.listingId}/rent`}>
+                  <Button className="mb-3 w-full">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Rent Again
+                  </Button>
+                </Link>
+              </>
             )}
           </>
         )}
@@ -228,6 +241,17 @@ export function RentalActions({
         renterName={rentalDetails.renterName}
         onSuccess={handleRentalStatusChanged}
       />
+
+      {/* Leave Review Modal */}
+      {rentalDetails.status === "completed" && rentalDetails.canLeaveReview && (
+        <LeaveReviewModal
+          open={showReviewModal}
+          onOpenChange={setShowReviewModal}
+          rentalId={rentalDetails.id}
+          listingName={rentalDetails.listingName}
+          onSuccess={handleRentalStatusChanged}
+        />
+      )}
     </Card>
   );
 }

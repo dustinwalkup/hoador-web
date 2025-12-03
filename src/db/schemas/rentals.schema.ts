@@ -159,6 +159,9 @@ export const reviews = pgTable(
     title: varchar("title", { length: 255 }),
     comment: text("comment"),
     isOwnerReview: boolean("is_owner_review").notNull(), // true if owner reviewing renter, false if renter reviewing owner
+    accuracyRating: integer("accuracy_rating"), // 1-5, optional
+    listingConditionRating: integer("listing_condition_rating"), // 1-5, optional
+    ownerCommunicationRating: integer("owner_communication_rating"), // 1-5, optional
     isPublic: boolean("is_public").default(true).notNull(),
     helpfulCount: integer("helpful_count").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

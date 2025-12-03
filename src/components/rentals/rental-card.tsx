@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +24,7 @@ import type {
   LendingRental,
   RentalStatus,
 } from "@/features/rentals/lib/types";
+import { LeaveReviewModal } from "@/features/reviews/components/leave-review-modal";
 
 const getStatusIcon = (status: RentalStatus) => {
   switch (status) {
@@ -61,6 +66,9 @@ interface RentingCardProps {
 }
 
 export function RentingCard({ rental, currentTab }: RentingCardProps) {
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const router = useRouter();
+
   return (
     <Card>
       <CardContent className="p-6">
@@ -164,12 +172,14 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
                   </Button>
                 </>
               )}
-              {currentTab === "completed" && !rental.reviewGiven && (
-                <Button size="sm">
-                  <Star className="mr-1 h-4 w-4" />
-                  Leave Review
-                </Button>
-              )}
+              {currentTab === "completed" &&
+                rental.canLeaveReview &&
+                !rental.reviewGiven && (
+                  <Button size="sm" onClick={() => setShowReviewModal(true)}>
+                    <Star className="mr-1 h-4 w-4" />
+                    Leave Review
+                  </Button>
+                )}
               {currentTab === "completed" && (
                 <Link href={`/listings/${rental.listing.id}/rent`}>
                   <Button variant="outline" size="sm">
@@ -181,6 +191,16 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
           </div>
         </div>
       </CardContent>
+
+      <LeaveReviewModal
+        open={showReviewModal}
+        onOpenChange={setShowReviewModal}
+        rentalId={rental.id}
+        listingName={rental.listing.name}
+        onSuccess={() => {
+          router.refresh();
+        }}
+      />
     </Card>
   );
 }
