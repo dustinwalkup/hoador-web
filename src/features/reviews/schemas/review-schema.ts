@@ -9,13 +9,7 @@ export const reviewSchema = z
       .string()
       .min(10, "Comment must be at least 10 characters")
       .max(2000, "Comment must be less than 2000 characters"),
-    accuracyRating: z
-      .number()
-      .int()
-      .min(1)
-      .max(5)
-      .optional()
-      .nullable(),
+    accuracyRating: z.number().int().min(1).max(5).optional().nullable(),
     listingConditionRating: z
       .number()
       .int()
@@ -36,4 +30,3 @@ export const reviewSchema = z
   });
 
 export type ReviewFormData = z.infer<typeof reviewSchema>;
-
