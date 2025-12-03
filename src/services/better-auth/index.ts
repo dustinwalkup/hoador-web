@@ -31,9 +31,8 @@ export const auth = betterAuth({
     autoSignIn: true,
     sendResetPassword: async ({ user, url }) => {
       // Import Resend service
-      const { sendResetPasswordEmail } = await import(
-        "@/services/resend/send-reset-password-email"
-      );
+      const { sendResetPasswordEmail } =
+        await import("@/services/resend/send-reset-password-email");
 
       try {
         await sendResetPasswordEmail({
@@ -67,9 +66,8 @@ export const auth = betterAuth({
     expiresIn: 60 * 60 * 24, // 24 hours
     sendVerificationEmail: async ({ user, url }) => {
       // Import Resend service
-      const { sendVerificationEmail } = await import(
-        "@/services/resend/send-verification-email"
-      );
+      const { sendVerificationEmail } =
+        await import("@/services/resend/send-verification-email");
       /**
        * There seems to be a bug in Better Auth where the callback url is not being set correctly.
        * So we need to add the EMAIL_VERIFICATION_CALLBACK_URL to the url if the callback url is /

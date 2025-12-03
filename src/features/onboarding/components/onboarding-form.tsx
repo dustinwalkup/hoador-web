@@ -181,13 +181,13 @@ export function OnboardingForm({
   // Check if all required fields are filled (for button state)
   const isFormComplete = Boolean(
     formData.firstName?.trim() &&
-      formData.lastName?.trim() &&
-      formData.phone?.trim() &&
-      formData.address.street?.trim() &&
-      formData.address.city?.trim() &&
-      formData.address.state?.trim() &&
-      formData.address.zipCode?.trim() &&
-      formData.agreeToTerms,
+    formData.lastName?.trim() &&
+    formData.phone?.trim() &&
+    formData.address.street?.trim() &&
+    formData.address.city?.trim() &&
+    formData.address.state?.trim() &&
+    formData.address.zipCode?.trim() &&
+    formData.agreeToTerms,
   );
 
   // ---------------------------

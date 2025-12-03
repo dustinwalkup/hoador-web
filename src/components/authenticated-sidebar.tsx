@@ -19,8 +19,9 @@ import { UserProfile } from "@/dal/types";
 import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
 import { NavMain } from "./nav-main";
 
-interface AuthenticatedSidebarProps
-  extends React.ComponentProps<typeof Sidebar> {
+interface AuthenticatedSidebarProps extends React.ComponentProps<
+  typeof Sidebar
+> {
   user: UserProfile;
 }
 

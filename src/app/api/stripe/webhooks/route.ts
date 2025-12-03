@@ -32,9 +32,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Use dynamic import to avoid initialization issues during build
-    const { PAYMENT_SERVER_INSTANCE } = await import(
-      "@/services/stripe/server"
-    );
+    const { PAYMENT_SERVER_INSTANCE } =
+      await import("@/services/stripe/server");
 
     let event: Stripe.Event;
 

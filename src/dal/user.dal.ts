@@ -850,9 +850,8 @@ export class UserDAL extends BaseDAL {
       }
 
       // Create new Stripe customer
-      const { PAYMENT_SERVER_INSTANCE } = await import(
-        "@/services/stripe/server"
-      );
+      const { PAYMENT_SERVER_INSTANCE } =
+        await import("@/services/stripe/server");
 
       const customer = await PAYMENT_SERVER_INSTANCE.customers.create({
         email: userData.email,
@@ -898,9 +897,8 @@ export class UserDAL extends BaseDAL {
       }
 
       // Create new Stripe Connect Express account
-      const { createConnectedAccount } = await import(
-        "@/services/stripe/connect"
-      );
+      const { createConnectedAccount } =
+        await import("@/services/stripe/connect");
 
       const account = await createConnectedAccount(userId, userData.email);
 

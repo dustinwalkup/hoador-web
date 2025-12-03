@@ -160,15 +160,14 @@ export interface UserStats {
   totalReviews: number;
 }
 
-export interface UserProfile
-  extends Omit<
-    UserDB,
-    | "passwordHash"
-    | "twoFactorSecret"
-    | "updatedAt"
-    | "lastLoginAt"
-    | "twoFactorEnabled"
-  > {
+export interface UserProfile extends Omit<
+  UserDB,
+  | "passwordHash"
+  | "twoFactorSecret"
+  | "updatedAt"
+  | "lastLoginAt"
+  | "twoFactorEnabled"
+> {
   stats: UserStats;
   preferences: PreferencesDB | null;
   primaryAddress?: AddressDB;
