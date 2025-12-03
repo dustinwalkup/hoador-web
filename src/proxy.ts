@@ -89,7 +89,7 @@ function createRedirectUrl(request: NextRequest): string {
   return loginUrl.toString();
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip middleware for static files and Next.js internals
@@ -202,6 +202,5 @@ export const config = {
      * - public files (images, icons, etc.)
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|tiff)$).*)",
-  ],
-  runtime: "nodejs", // Force Node.js runtime for Better Auth compatibility
+  ]
 };
