@@ -138,6 +138,13 @@ jobs:
   performance-check:
     name: Performance Check
     runs-on: ubuntu-latest
+    env:
+      # Use real secrets if available, otherwise use dummy values for build testing
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || 'sk_test_dummy_key_for_build_testing' }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_dummy_key' }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy' }}
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET || 'dummy_secret_for_build_testing_min_32_chars_long' }}
+      BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL || 'http://localhost:3000' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
