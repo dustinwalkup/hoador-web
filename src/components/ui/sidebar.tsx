@@ -605,7 +605,16 @@ function SidebarMenuBadge({
 }
 
 // Predefined skeleton widths for visual variety (avoids impure Math.random)
-const SKELETON_WIDTHS = ["60%", "75%", "50%", "85%", "70%", "55%", "80%", "65%"];
+const SKELETON_WIDTHS = [
+  "60%",
+  "75%",
+  "50%",
+  "85%",
+  "70%",
+  "55%",
+  "80%",
+  "65%",
+];
 let skeletonWidthIndex = 0;
 
 function SidebarMenuSkeleton({

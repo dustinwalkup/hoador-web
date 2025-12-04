@@ -19,7 +19,6 @@ export function ExplorePageContent({
   listings,
   basePath = "/dashboard/explore",
 }: ExplorePageContentProps) {
-
   return (
     <>
       {listings.length > 0 ? (

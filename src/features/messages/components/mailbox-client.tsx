@@ -38,7 +38,9 @@ export function MailboxClient({
   >(() => {
     // Only set if the conversation exists in the data
     if (conversationParam) {
-      const exists = conversations.some((conv) => conv.id === conversationParam);
+      const exists = conversations.some(
+        (conv) => conv.id === conversationParam,
+      );
       return exists ? conversationParam : null;
     }
     return null;
