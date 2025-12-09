@@ -81,27 +81,42 @@ jobs:
       - name: Parse audit results
         id: parse
         run: |
-          if grep -q "vulnerabilities" audit-report.txt; then
+          if grep -qi "vulnerabilities" audit-report.txt 2>/dev/null; then
             echo "has_vulnerabilities=true" >> $GITHUB_OUTPUT
             
-            # Count vulnerabilities by severity
-            CRITICAL=$(grep -c "critical" audit-report.txt || echo "0")
-            HIGH=$(grep -c "high" audit-report.txt || echo "0")
-            MODERATE=$(grep -c "moderate" audit-report.txt || echo "0")
-            LOW=$(grep -c "low" audit-report.txt || echo "0")
+            # Count vulnerabilities by severity (case-insensitive, default to 0)
+            CRITICAL=$(grep -ic "critical" audit-report.txt 2>/dev/null || echo "0")
+            HIGH=$(grep -ic "high" audit-report.txt 2>/dev/null || echo "0")
+            MODERATE=$(grep -ic "moderate" audit-report.txt 2>/dev/null || echo "0")
+            LOW=$(grep -ic "low" audit-report.txt 2>/dev/null || echo "0")
             
-            echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
-            echo "high=$HIGH" >> $GITHUB_OUTPUT
-            echo "moderate=$MODERATE" >> $GITHUB_OUTPUT
-            echo "low=$LOW" >> $GITHUB_OUTPUT
+            # Ensure values are numeric and not empty
+            CRITICAL=${CRITICAL:-0}
+            HIGH=${HIGH:-0}
+            MODERATE=${MODERATE:-0}
+            LOW=${LOW:-0}
+            
+            # Write outputs with proper formatting
+            {
+              echo "critical=${CRITICAL}"
+              echo "high=${HIGH}"
+              echo "moderate=${MODERATE}"
+              echo "low=${LOW}"
+            } >> $GITHUB_OUTPUT
             
             echo "⚠️ Security vulnerabilities detected:"
-            echo "  Critical: $CRITICAL"
-            echo "  High: $HIGH"
-            echo "  Moderate: $MODERATE"
-            echo "  Low: $LOW"
+            echo "  Critical: ${CRITICAL}"
+            echo "  High: ${HIGH}"
+            echo "  Moderate: ${MODERATE}"
+            echo "  Low: ${LOW}"
           else
             echo "has_vulnerabilities=false" >> $GITHUB_OUTPUT
+            {
+              echo "critical=0"
+              echo "high=0"
+              echo "moderate=0"
+              echo "low=0"
+            } >> $GITHUB_OUTPUT
             echo "✅ No vulnerabilities found"
           fi
 
