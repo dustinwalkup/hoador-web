@@ -692,8 +692,14 @@ export class ListingDAL extends BaseDAL {
       // Note: Distance calculation setup complete
 
       // Build the where conditions
+      // Default: show both "available" and "rented" listings
+      // When availableNow filter is enabled, show only "available"
+      const statusFilter = filters.availableNow
+        ? eq(listings.status, "available")
+        : inArray(listings.status, ["available", "rented"]);
+
       const whereConditions = [
-        eq(listings.status, "available"),
+        statusFilter,
         eq(listings.isActive, true),
         eq(listings.communityId, userCommunityId), // Only show listings from user's community
       ];

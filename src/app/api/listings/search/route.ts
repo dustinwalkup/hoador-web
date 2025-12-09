@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
           | "delivery_only"
           | "both_available") || undefined,
       setupAvailable: searchParams.get("setup") === "true" ? true : undefined,
+      availableNow:
+        searchParams.get("availableNow") === "true" ? true : undefined,
       sortBy:
         (searchParams.get("sortBy") as
           | "price"

@@ -35,6 +35,8 @@ export function useURLState<T extends Record<string, unknown>>(
           } else if (key === "setupAvailable") {
             params.delete("setup");
             params.delete("setupAvailable"); // Also delete the full name if it exists
+          } else if (key === "availableNow") {
+            params.delete("availableNow");
           } else {
             params.delete(key);
           }
@@ -62,6 +64,11 @@ export function useURLState<T extends Record<string, unknown>>(
       if ("setupAvailable" in updates && updates.setupAvailable === undefined) {
         params.delete("setup");
         params.delete("setupAvailable");
+      }
+
+      // Additional cleanup for availableNow parameters if they were set to undefined
+      if ("availableNow" in updates && updates.availableNow === undefined) {
+        params.delete("availableNow");
       }
 
       // Reset pagination when filters change
@@ -103,6 +110,8 @@ export function useListingFilters() {
         searchParams.get("setupAvailable") === "true"
           ? true
           : undefined,
+      availableNow:
+        searchParams.get("availableNow") === "true" ? true : undefined,
       sortBy:
         (searchParams.get("sortBy") as
           | "price"

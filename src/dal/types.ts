@@ -128,6 +128,7 @@ export interface ListingSearchFilters {
   condition?: string[];
   deliveryMode?: "pickup_only" | "delivery_only" | "both_available";
   setupAvailable?: boolean;
+  availableNow?: boolean;
   sortBy?: "price" | "rating" | "distance" | "newest";
   sortOrder?: "asc" | "desc";
 }

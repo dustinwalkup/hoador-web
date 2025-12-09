@@ -57,6 +57,9 @@ export function ExplorePageFilters({
   const [setupAvailable, setSetupAvailable] = useState(
     filters.setupAvailable === true,
   );
+  const [availableNow, setAvailableNow] = useState(
+    filters.availableNow === true,
+  );
 
   const [sortOpen, setSortOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -67,6 +70,7 @@ export function ExplorePageFilters({
     setMaxPrice(filters.maxPrice?.toString() || "");
     setSelectedConditions(filters.condition || []);
     setSetupAvailable(filters.setupAvailable === true);
+    setAvailableNow(filters.availableNow === true);
     setDeliveryMode(filters.deliveryMode || "pickup_only");
   };
 
@@ -101,6 +105,7 @@ export function ExplorePageFilters({
     count += selectedConditions.length; // Each condition individually
     if (deliveryMode !== "pickup_only") count++; // Delivery filter
     if (setupAvailable) count++; // Setup filter
+    if (availableNow) count++; // Available now filter
     return count;
   };
 
@@ -158,6 +163,7 @@ export function ExplorePageFilters({
       condition: selectedConditions.length > 0 ? selectedConditions : undefined,
       deliveryMode: deliveryMode !== "pickup_only" ? deliveryMode : undefined,
       setupAvailable: setupAvailable || undefined,
+      availableNow: availableNow || undefined,
     });
     setFiltersOpen(false);
   };
@@ -169,6 +175,7 @@ export function ExplorePageFilters({
     setSelectedConditions([]);
     setDeliveryMode("pickup_only");
     setSetupAvailable(false);
+    setAvailableNow(false);
 
     // Clear search input
     clearSearch();
@@ -182,6 +189,7 @@ export function ExplorePageFilters({
       condition: undefined,
       deliveryMode: undefined,
       setupAvailable: undefined,
+      availableNow: undefined,
       sortBy: undefined, // Clear sort (will default to "newest")
       sortOrder: undefined, // Clear sort order (will default to "desc")
     });
@@ -196,9 +204,11 @@ export function ExplorePageFilters({
     setMaxPrice(filters.maxPrice?.toString() || "");
     setSelectedConditions(filters.condition || []);
     const setupFromUrl = filters.setupAvailable === true;
+    const availableNowFromUrl = filters.availableNow === true;
     const deliveryFromUrl = filters.deliveryMode || "pickup_only";
 
     setSetupAvailable(setupFromUrl);
+    setAvailableNow(availableNowFromUrl);
     setDeliveryMode(deliveryFromUrl);
     setFiltersOpen(false);
   };
@@ -375,11 +385,10 @@ export function ExplorePageFilters({
                 <Separator />
 
                 <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Services</h3>
                   <div className="flex flex-col space-y-2">
-                    <div className="space-y-2">
+                    <div className="mb-4 space-y-2">
                       <Label className="text-sm font-medium">
-                        Delivery Options
+                        Delivery Method
                       </Label>
                       <Select
                         value={deliveryMode}
@@ -408,6 +417,7 @@ export function ExplorePageFilters({
                         </SelectContent>
                       </Select>
                     </div>
+                    <h3 className="text-sm font-medium">Options</h3>
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="setup-available"
@@ -426,6 +436,21 @@ export function ExplorePageFilters({
                         className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
                         Setup available
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="available-now"
+                        checked={availableNow}
+                        onCheckedChange={(checked) => {
+                          setAvailableNow(checked === true);
+                        }}
+                      />
+                      <label
+                        htmlFor="available-now"
+                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Available now
                       </label>
                     </div>
                   </div>

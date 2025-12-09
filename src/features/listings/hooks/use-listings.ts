@@ -21,6 +21,7 @@ export function useSearchListings(
       condition: filters.condition?.join(",") || undefined,
       deliveryMode: filters.deliveryMode || undefined,
       setupAvailable: filters.setupAvailable || false,
+      availableNow: filters.availableNow || false,
       sortBy: filters.sortBy || "newest",
       sortOrder: filters.sortOrder || "desc",
       // Include user context for distance sorting cache invalidation
@@ -48,6 +49,7 @@ export function useSearchListings(
       if (filters.deliveryMode && filters.deliveryMode !== "pickup_only")
         searchParams.set("delivery", filters.deliveryMode);
       if (filters.setupAvailable) searchParams.set("setup", "true");
+      if (filters.availableNow) searchParams.set("availableNow", "true");
       if (filters.sortBy) searchParams.set("sortBy", filters.sortBy);
       if (filters.sortOrder) searchParams.set("sortOrder", filters.sortOrder);
 
