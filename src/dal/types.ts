@@ -174,6 +174,8 @@ export interface UserProfile extends Omit<
   primaryAddress?: AddressDB;
 }
 
+export type AdminUserType = "admin" | "superadmin";
+
 export interface ListingDetails {
   id: string;
   name: string;

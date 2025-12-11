@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/features/auth/utils/session";
+import { getAdminUser } from "@/features/auth/utils/admin-session";
 
 // Define protected route patterns
 const PROTECTED_ROUTES = [
@@ -11,6 +12,9 @@ const PROTECTED_ROUTES = [
   "/api/rentals",
   "/api/messages",
 ];
+
+// Define admin routes that require admin privileges
+const ADMIN_ROUTES = ["/admin/dashboard"];
 
 // Define auth routes that authenticated users shouldn't access
 const AUTH_ROUTES = [
@@ -48,6 +52,13 @@ const SKIP_MIDDLEWARE_PATHS = [
  */
 function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
+}
+
+/**
+ * Check if a path is an admin route
+ */
+function isAdminRoute(pathname: string): boolean {
+  return ADMIN_ROUTES.some((route) => pathname.startsWith(route));
 }
 
 /**
@@ -103,6 +114,19 @@ export async function proxy(request: NextRequest) {
   }
 
   try {
+    // Check admin routes first - require admin privileges
+    if (isAdminRoute(pathname)) {
+      const adminUser = await getAdminUser();
+      if (!adminUser) {
+        // Redirect to admin login if not admin
+        const adminLoginUrl = new URL("/admin", request.url);
+        adminLoginUrl.searchParams.set("callbackUrl", pathname);
+        return NextResponse.redirect(adminLoginUrl);
+      }
+      // Admin user accessing admin route - allow
+      return NextResponse.next();
+    }
+
     // Get current user (includes session check)
     const user = await getCurrentUser();
 

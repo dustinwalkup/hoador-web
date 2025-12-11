@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
+import { tryCatch } from "@walkup/walkup-utils";
 import { reviewDAL } from "@/dal";
 import { reviewSchema } from "@/features/reviews/schemas/review-schema";
-import { tryCatch } from "@walkup/walkup-utils";
 
 export async function POST(request: NextRequest) {
   try {

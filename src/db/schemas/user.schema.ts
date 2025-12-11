@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-import { userStatusEnum } from "./_enums";
+import { userStatusEnum, userTypeEnum } from "./_enums";
 import { listings } from "./listings.schema";
 import { rentalRequests, rentals, reviews } from "./rentals.schema";
 import { payments } from "./payments.schema";
@@ -36,6 +36,7 @@ export const user = pgTable("user", {
   firstName: varchar("first_name", { length: 100 }), // Nullable for Better Auth compatibility
   lastName: varchar("last_name", { length: 100 }), // Nullable for Better Auth compatibility
   status: userStatusEnum("status").default("pending_verification").notNull(),
+  userType: userTypeEnum("user_type").default("standard").notNull(),
   phone: varchar("phone", { length: 20 }),
   bio: text("bio"),
   profileImageUrl: varchar("profile_image_url", { length: 500 }),

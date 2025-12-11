@@ -63,3 +63,9 @@ export const messageStatusEnum = pgEnum("message_status", [
   "delivered",
   "read",
 ]);
+
+export const userTypeEnum = pgEnum("user_type", [
+  "standard", // Regular user
+  "admin", // Admin user with admin privileges
+  "superadmin", // Super admin with full system access
+]);

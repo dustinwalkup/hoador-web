@@ -78,6 +78,13 @@
       "when": 1762568711544,
       "tag": "0010_add_review_structured_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1765420569036,
+      "tag": "0011_clever_thing",
+      "breakpoints": true
     }
   ]
 }
