@@ -60,6 +60,12 @@ jobs:
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
+    outputs:
+      has_vulnerabilities: ${{ steps.parse.outputs.has_vulnerabilities }}
+      critical: ${{ steps.parse.outputs.critical }}
+      high: ${{ steps.parse.outputs.high }}
+      moderate: ${{ steps.parse.outputs.moderate }}
+      low: ${{ steps.parse.outputs.low }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -161,7 +167,12 @@ jobs:
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_dummy_key' }}
       DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy' }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET || 'dummy_secret_for_build_testing_min_32_chars_long' }}
-      BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL || 'http://localhost:3000' }}
+      BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL || 'https://example.com' }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://example.com' }}
+      OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY || 'mock_opencage_key_for_build' }}
+      # Mock API keys for build testing (secrets used in production deployments)
+      OPENAI_API_KEY: sk-mock_openai_key_for_build
+      SERP_API_KEY: mock_serp_key_for_build
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
