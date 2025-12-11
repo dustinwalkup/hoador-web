@@ -9,7 +9,12 @@ import {
 import { BaseDAL } from "./base";
 import { UnauthorizedError } from "./errors";
 import { requireAuth } from "@/features/auth/utils/session";
-import type { LegalDocumentId } from "@/constants/legal-documents";
+import {
+  type LegalDocumentId,
+  LEGAL_DOCUMENT_IDS,
+} from "@/constants/legal-documents";
+import { deleteFromBlob } from "@/services/vercel-blob";
+import { requireAdmin } from "@/features/auth/utils/guards";
 
 export interface CurrentDocumentVersion {
   id: string;
@@ -31,6 +36,15 @@ export interface LegalAcceptance {
   ipAddress: string | null;
   userAgent: string | null;
   method: string;
+}
+
+export interface DocumentVersion {
+  id: string;
+  version: string;
+  url: string;
+  publishedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export class LegalDocumentDAL extends BaseDAL {
@@ -103,6 +117,99 @@ export class LegalDocumentDAL extends BaseDAL {
   }
 
   /**
+   * Validate document ID against known document IDs
+   */
+  private static validateDocumentId(
+    documentId: string,
+  ): documentId is LegalDocumentId {
+    return Object.values(LEGAL_DOCUMENT_IDS).includes(
+      documentId as LegalDocumentId,
+    );
+  }
+
+  /**
+   * Get all versions of a specific document (not just current)
+   */
+  static async getAllVersions(
+    documentId: LegalDocumentId,
+  ): Promise<DocumentVersion[]> {
+    try {
+      if (!this.validateDocumentId(documentId)) {
+        throw new Error(`Invalid document ID: ${documentId}`);
+      }
+
+      const versions = await db
+        .select()
+        .from(legalDocuments)
+        .where(eq(legalDocuments.id, documentId))
+        .orderBy(desc(legalDocuments.publishedAt));
+
+      return versions.map((doc) => ({
+        id: doc.id,
+        version: doc.version,
+        url: doc.url,
+        publishedAt: doc.publishedAt,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+      }));
+    } catch (error) {
+      console.error("Error fetching all document versions:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get version history for a document (sorted by publishedAt, newest first)
+   */
+  static async getVersionHistory(
+    documentId: LegalDocumentId,
+  ): Promise<DocumentVersion[]> {
+    return this.getAllVersions(documentId);
+  }
+
+  /**
+   * Get a specific version of a document
+   */
+  static async getVersion(
+    documentId: LegalDocumentId,
+    version: string,
+  ): Promise<DocumentVersion | null> {
+    try {
+      if (!this.validateDocumentId(documentId)) {
+        throw new Error(`Invalid document ID: ${documentId}`);
+      }
+
+      const versions = await db
+        .select()
+        .from(legalDocuments)
+        .where(
+          and(
+            eq(legalDocuments.id, documentId),
+            eq(legalDocuments.version, version),
+          ),
+        )
+        .limit(1);
+
+      if (versions.length === 0) {
+        return null;
+      }
+
+      const doc = versions[0];
+      return {
+        id: doc.id,
+        version: doc.version,
+        url: doc.url,
+        publishedAt: doc.publishedAt,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+      };
+    } catch (error) {
+      console.error("Error fetching document version:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Create a new document version (admin method)
    */
   static async createVersion(
@@ -110,8 +217,12 @@ export class LegalDocumentDAL extends BaseDAL {
     version: string,
     url: string,
   ): Promise<CurrentDocumentVersion> {
-    // Require authentication (admin check should be done at service/action level)
-    await requireAuth();
+    // Require admin privileges
+    await requireAdmin();
+
+    if (!this.validateDocumentId(documentId)) {
+      throw new Error(`Invalid document ID: ${documentId}`);
+    }
 
     const { data, error } = await tryCatch(
       db
@@ -137,6 +248,77 @@ export class LegalDocumentDAL extends BaseDAL {
       url: newVersion.url,
       publishedAt: newVersion.publishedAt,
     };
+  }
+
+  /**
+   * Delete a document version (admin method)
+   * Only allows deletion of non-current versions
+   */
+  static async deleteVersion(
+    documentId: LegalDocumentId,
+    version: string,
+    blobPathname?: string,
+  ): Promise<void> {
+    // Require admin privileges
+    await requireAdmin();
+
+    if (!this.validateDocumentId(documentId)) {
+      throw new Error(`Invalid document ID: ${documentId}`);
+    }
+
+    // Get current version to prevent deletion
+    const currentVersion = await this.getCurrentVersion(documentId);
+    if (currentVersion && currentVersion.version === version) {
+      throw new Error(
+        "Cannot delete the current version. Upload a new version first.",
+      );
+    }
+
+    // Get the version to delete
+    const versionToDelete = await this.getVersion(documentId, version);
+    if (!versionToDelete) {
+      throw new Error(
+        `Version ${version} not found for document ${documentId}`,
+      );
+    }
+
+    // Extract pathname from URL if not provided
+    let pathname = blobPathname;
+    if (!pathname && versionToDelete.url) {
+      try {
+        const url = new URL(versionToDelete.url);
+        pathname = url.pathname.substring(1); // Remove leading slash
+      } catch (error) {
+        console.warn("Could not parse blob URL for deletion:", error);
+      }
+    }
+
+    // Delete from database
+    const { error: dbError } = await tryCatch(
+      db
+        .delete(legalDocuments)
+        .where(
+          and(
+            eq(legalDocuments.id, documentId),
+            eq(legalDocuments.version, version),
+          ),
+        ),
+    );
+
+    if (dbError) {
+      console.error("Error deleting document version from database:", dbError);
+      throw dbError;
+    }
+
+    // Delete from blob storage (don't fail if this fails)
+    if (pathname) {
+      try {
+        await deleteFromBlob(pathname);
+      } catch (error) {
+        console.warn("Failed to delete blob file:", pathname, error);
+        // Don't throw - database deletion succeeded
+      }
+    }
   }
 
   /**
