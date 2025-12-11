@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { signupAction } from "../actions/signup";
 import {
   emailSignupSchema,
@@ -17,8 +18,17 @@ import {
 } from "../schemas/auth-schemas";
 import { GoogleIcon } from "../../../../public/svg/google-icon";
 import { authClient } from "@/services/better-auth/client";
+import Link from "next/link";
 
-export function SignupForm() {
+interface SignupFormProps {
+  documentUrls: {
+    tos: string;
+    privacy: string;
+    community: string;
+  };
+}
+
+export function SignupForm({ documentUrls }: SignupFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isTransitionPending, startTransition] = useTransition();
@@ -27,14 +37,25 @@ export function SignupForm() {
     success: false,
   });
 
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [communityAccepted, setCommunityAccepted] = useState(false);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
+    watch,
   } = useForm<EmailSignupInput>({
     resolver: zodResolver(emailSignupSchema),
     mode: "onChange",
   });
+
+  // Watch acceptance values for form validation
+  watch("tosAccepted");
+  watch("privacyAccepted");
+  watch("communityAccepted");
 
   // Handle form submission with client-side validation first
   const onSubmit = async (data: EmailSignupInput) => {
@@ -44,6 +65,9 @@ export function SignupForm() {
       formData.append("lastName", data.lastName);
       formData.append("email", data.email);
       formData.append("password", data.password);
+      formData.append("tosAccepted", String(data.tosAccepted));
+      formData.append("privacyAccepted", String(data.privacyAccepted));
+      formData.append("communityAccepted", String(data.communityAccepted));
       formAction(formData);
     });
   };
@@ -172,7 +196,125 @@ export function SignupForm() {
           </p>
         </div>
 
-        <Button type="submit" className="w-full" disabled={isFormPending}>
+        <div className="space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="tosAccepted"
+                checked={tosAccepted}
+                onCheckedChange={(checked) => {
+                  setTosAccepted(checked === true);
+                  setValue("tosAccepted", checked === true, {
+                    shouldValidate: true,
+                  });
+                }}
+                disabled={isFormPending}
+              />
+              <div className="grid gap-1.5 leading-none">
+                <Label
+                  htmlFor="tosAccepted"
+                  className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  I accept the{" "}
+                  <Link
+                    href={documentUrls.tos}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline hover:no-underline"
+                  >
+                    Terms of Service
+                  </Link>
+                </Label>
+              </div>
+            </div>
+            {errors.tosAccepted && (
+              <p className="text-sm text-red-600">
+                {errors.tosAccepted.message}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="privacyAccepted"
+              checked={privacyAccepted}
+              onCheckedChange={(checked) => {
+                setPrivacyAccepted(checked === true);
+                setValue("privacyAccepted", checked === true, {
+                  shouldValidate: true,
+                });
+              }}
+              disabled={isFormPending}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor="privacyAccepted"
+                className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                I accept the{" "}
+                <Link
+                  href={documentUrls.privacy}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline hover:no-underline"
+                >
+                  Privacy Policy
+                </Link>
+              </Label>
+            </div>
+          </div>
+          {errors.privacyAccepted && (
+            <p className="text-sm text-red-600">
+              {errors.privacyAccepted.message}
+            </p>
+          )}
+
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="communityAccepted"
+              checked={communityAccepted}
+              onCheckedChange={(checked) => {
+                setCommunityAccepted(checked === true);
+                setValue("communityAccepted", checked === true, {
+                  shouldValidate: true,
+                });
+              }}
+              disabled={isFormPending}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor="communityAccepted"
+                className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                I accept the{" "}
+                <Link
+                  href={documentUrls.community}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline hover:no-underline"
+                >
+                  Community Guidelines
+                </Link>
+              </Label>
+            </div>
+          </div>
+          {errors.communityAccepted && (
+            <p className="text-sm text-red-600">
+              {errors.communityAccepted.message}
+            </p>
+          )}
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={
+            isFormPending ||
+            !tosAccepted ||
+            !privacyAccepted ||
+            !communityAccepted
+          }
+        >
           {isFormPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

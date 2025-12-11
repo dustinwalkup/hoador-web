@@ -57,6 +57,14 @@ export const user = pgTable("user", {
   addressVerified: boolean("address_verified").default(false).notNull(),
   lastLoginAt: timestamp("last_login_at"),
 
+  // ---- Legal document acceptance fields ----
+  tosVersion: varchar("tos_version", { length: 50 }),
+  tosAcceptedAt: timestamp("tos_accepted_at"),
+  privacyVersion: varchar("privacy_version", { length: 50 }),
+  privacyAcceptedAt: timestamp("privacy_accepted_at"),
+  communityVersion: varchar("community_version", { length: 50 }),
+  communityAcceptedAt: timestamp("community_accepted_at"),
+
   // ---- Timestamps ----
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")

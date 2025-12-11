@@ -2,86 +2,42 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { tryCatch } from "@walkup/walkup-utils";
-import { auth } from "@/services/better-auth";
-import { userDAL } from "@/dal";
 import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { userDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
-import { emailSignupSchema } from "../schemas/auth-schemas";
+import { getSession } from "../utils/session";
 
-type SignupResult = {
+type AcceptLegalDocumentsResult = {
   success: boolean;
   error?: string;
 };
 
-export async function signupAction(
-  prevState: SignupResult | null,
+export async function acceptLegalDocumentsAction(
+  prevState: AcceptLegalDocumentsResult | null,
   formData: FormData,
-): Promise<SignupResult> {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const firstName = formData.get("firstName") as string;
-  const lastName = formData.get("lastName") as string;
+): Promise<AcceptLegalDocumentsResult> {
   const tosAccepted = formData.get("tosAccepted") === "true";
   const privacyAccepted = formData.get("privacyAccepted") === "true";
   const communityAccepted = formData.get("communityAccepted") === "true";
 
-  // Validate form data
-  const signupData = {
-    email,
-    password,
-    firstName,
-    lastName,
-    tosAccepted,
-    privacyAccepted,
-    communityAccepted,
-  };
-
-  try {
-    emailSignupSchema.parse(signupData);
-  } catch (error) {
+  // Validate that all documents are accepted
+  if (!tosAccepted || !privacyAccepted || !communityAccepted) {
     return {
       success: false,
-      error: "Please check your information and try again.",
+      error: "You must accept all legal documents to continue.",
     };
   }
 
-  // Create account with Better Auth
-  const { data: authResult, error: authError } = await tryCatch(
-    auth.api.signUpEmail({
-      body: {
-        email,
-        password,
-        name: `${firstName} ${lastName}`,
-      },
-    }),
-  );
-
-  if (authError) {
-    console.error("Better Auth signup error:", authError);
-
-    if (authError.message?.includes("already exists")) {
-      return {
-        success: false,
-        error:
-          "An account with this email already exists. Please sign in instead.",
-      };
-    }
-
+  // Get current user session
+  const session = await getSession();
+  if (!session?.user) {
     return {
       success: false,
-      error: "Failed to create account. Please try again.",
+      error: "You must be logged in to accept legal documents.",
     };
   }
 
-  if (!authResult?.user) {
-    return {
-      success: false,
-      error: "Failed to create account. Please try again.",
-    };
-  }
-
-  const userId = authResult.user.id;
+  const userId = session.user.id;
 
   // Get current document versions
   const documentVersions = await LegalDocumentDAL.getAllCurrentVersions();
@@ -107,7 +63,7 @@ export async function signupAction(
         tosVersion.version,
         ipAddress,
         userAgent,
-        "email",
+        "oauth_google",
       ),
     );
   }
@@ -121,7 +77,7 @@ export async function signupAction(
         privacyVersion.version,
         ipAddress,
         userAgent,
-        "email",
+        "oauth_google",
       ),
     );
   }
@@ -135,7 +91,7 @@ export async function signupAction(
         communityVersion.version,
         ipAddress,
         userAgent,
-        "email",
+        "oauth_google",
       ),
     );
   }
@@ -153,7 +109,6 @@ export async function signupAction(
     communityAcceptedAt: new Date(),
   });
 
-  // Success! Better Auth handles user creation completely
-  // Redirect to verify email with email parameter
-  redirect(`/verify-email?email=${encodeURIComponent(email)}`);
+  // Redirect to join-code page (next step in onboarding)
+  redirect("/join-code");
 }

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { userDAL } from "@/dal";
 import { getSession } from "@/features/auth/utils/session";
+import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 export default async function GoogleSignupCallback() {
   // Get authenticated user session
@@ -10,6 +12,29 @@ export default async function GoogleSignupCallback() {
   }
 
   try {
+    // Check if user has accepted all legal documents
+    const [tosAccepted, privacyAccepted, communityAccepted] = await Promise.all(
+      [
+        LegalDocumentDAL.hasAcceptedCurrentVersion(
+          session.user.id,
+          LEGAL_DOCUMENT_IDS.TOS,
+        ),
+        LegalDocumentDAL.hasAcceptedCurrentVersion(
+          session.user.id,
+          LEGAL_DOCUMENT_IDS.PRIVACY,
+        ),
+        LegalDocumentDAL.hasAcceptedCurrentVersion(
+          session.user.id,
+          LEGAL_DOCUMENT_IDS.COMMUNITY,
+        ),
+      ],
+    );
+
+    // If not all documents are accepted, redirect to legal acceptance page
+    if (!tosAccepted || !privacyAccepted || !communityAccepted) {
+      redirect("/signup/google/legal-acceptance");
+    }
+
     // Fetch current user profile to check existing status
     const userProfile = await userDAL.getUserById(session.user.id);
     const currentStatus = userProfile.status;

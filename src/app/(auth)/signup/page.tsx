@@ -9,8 +9,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
+import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
-export default function SignupPage() {
+export default async function SignupPage() {
+  // Fetch current document URLs server-side
+  const documentVersions = await LegalDocumentDAL.getAllCurrentVersions();
+
+  const documentUrls = {
+    tos: documentVersions[LEGAL_DOCUMENT_IDS.TOS]?.url || "",
+    privacy: documentVersions[LEGAL_DOCUMENT_IDS.PRIVACY]?.url || "",
+    community: documentVersions[LEGAL_DOCUMENT_IDS.COMMUNITY]?.url || "",
+  };
+
   return (
     <AuthLayoutWrapper>
       <Card className="mx-auto w-full max-w-md">
@@ -21,7 +32,7 @@ export default function SignupPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SignupForm />
+          <SignupForm documentUrls={documentUrls} />
         </CardContent>
         <CardFooter className="flex flex-col items-center gap-4">
           <div className="text-muted-foreground text-center text-sm">

@@ -143,6 +143,12 @@ export class UserDAL extends BaseDAL {
         connectPayoutsEnabled: userData.connectPayoutsEnabled,
         idVerified: userData.idVerified,
         addressVerified: userData.addressVerified,
+        tosVersion: userData.tosVersion ?? null,
+        tosAcceptedAt: userData.tosAcceptedAt ?? null,
+        privacyVersion: userData.privacyVersion ?? null,
+        privacyAcceptedAt: userData.privacyAcceptedAt ?? null,
+        communityVersion: userData.communityVersion ?? null,
+        communityAcceptedAt: userData.communityAcceptedAt ?? null,
         createdAt: userData.createdAt,
         stats,
         preferences: userData.preferences,
@@ -192,6 +198,12 @@ export class UserDAL extends BaseDAL {
         firstName: userData.firstName,
         lastName: userData.lastName,
         userType: userData.userType,
+        tosVersion: userData.tosVersion ?? null,
+        tosAcceptedAt: userData.tosAcceptedAt ?? null,
+        privacyVersion: userData.privacyVersion ?? null,
+        privacyAcceptedAt: userData.privacyAcceptedAt ?? null,
+        communityVersion: userData.communityVersion ?? null,
+        communityAcceptedAt: userData.communityAcceptedAt ?? null,
         status: userData.status,
         phone: userData.phone ?? null,
         bio: userData.bio ?? null,
@@ -736,6 +748,12 @@ export class UserDAL extends BaseDAL {
         connectPayoutsEnabled: userData.connectPayoutsEnabled,
         idVerified: userData.idVerified,
         addressVerified: userData.addressVerified,
+        tosVersion: userData.tosVersion ?? null,
+        tosAcceptedAt: userData.tosAcceptedAt ?? null,
+        privacyVersion: userData.privacyVersion ?? null,
+        privacyAcceptedAt: userData.privacyAcceptedAt ?? null,
+        communityVersion: userData.communityVersion ?? null,
+        communityAcceptedAt: userData.communityAcceptedAt ?? null,
         createdAt: userData.createdAt,
         stats,
         preferences: userData.preferences,
@@ -772,6 +790,41 @@ export class UserDAL extends BaseDAL {
         .where(eq(user.id, userId));
     } catch (error) {
       this.handleError(error, "updateUserStatus");
+    }
+  }
+
+  /**
+   * Update legal document acceptances on user record
+   */
+  async updateLegalAcceptances(
+    userId: string,
+    acceptances: {
+      tosVersion?: string;
+      tosAcceptedAt?: Date;
+      privacyVersion?: string;
+      privacyAcceptedAt?: Date;
+      communityVersion?: string;
+      communityAcceptedAt?: Date;
+    },
+  ): Promise<void> {
+    try {
+      const auth = await requireAuth();
+
+      if (auth.id !== userId) {
+        throw new Error(
+          "Unauthorized: Cannot update other user's legal acceptances",
+        );
+      }
+
+      await this.db
+        .update(user)
+        .set({
+          ...acceptances,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId));
+    } catch (error) {
+      this.handleError(error, "updateLegalAcceptances");
     }
   }
 

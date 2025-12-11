@@ -109,6 +109,15 @@ export const emailSignupSchema = z.object({
   password: passwordSchema,
   firstName: nameSchema,
   lastName: nameSchema,
+  tosAccepted: z.boolean().refine((val) => val === true, {
+    message: "You must accept the Terms of Service",
+  }),
+  privacyAccepted: z.boolean().refine((val) => val === true, {
+    message: "You must accept the Privacy Policy",
+  }),
+  communityAccepted: z.boolean().refine((val) => val === true, {
+    message: "You must accept the Community Guidelines",
+  }),
 });
 
 /**
@@ -203,6 +212,9 @@ const fieldValidators: Record<EmailSignupFieldPath, z.ZodTypeAny> = {
   password: emailSignupSchema.shape.password,
   firstName: emailSignupSchema.shape.firstName,
   lastName: emailSignupSchema.shape.lastName,
+  tosAccepted: emailSignupSchema.shape.tosAccepted,
+  privacyAccepted: emailSignupSchema.shape.privacyAccepted,
+  communityAccepted: emailSignupSchema.shape.communityAccepted,
 };
 
 // ---------------------------

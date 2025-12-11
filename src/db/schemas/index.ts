@@ -9,6 +9,7 @@ import * as payments from "./payments.schema";
 import * as collections from "./collections.schema";
 import * as messages from "./messages.schema";
 import * as notifications from "./notifications.schema";
+import * as legalDocuments from "./legal-documents.schema";
 
 export const schema = {
   ...user,
@@ -19,4 +20,5 @@ export const schema = {
   ...collections,
   ...messages,
   ...notifications,
+  ...legalDocuments,
 };
