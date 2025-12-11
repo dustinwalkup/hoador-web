@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NotificationsPageContent } from "@/features/notifications/components/notifications-page-content";
 
 export const metadata = {

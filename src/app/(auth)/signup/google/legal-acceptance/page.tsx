@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { LegalDocumentDAL } from "@/dal/legal-document.dal";
 import { userDAL } from "@/dal";

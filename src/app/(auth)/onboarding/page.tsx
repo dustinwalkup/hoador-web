@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { CheckCircle } from "lucide-react";
 import Link from "next/link";
