@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { SignupForm } from "@/features/auth/components/signup-form";
 import {
