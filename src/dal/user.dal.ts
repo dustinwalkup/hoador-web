@@ -795,6 +795,7 @@ export class UserDAL extends BaseDAL {
 
   /**
    * Update legal document acceptances on user record
+   * Requires authentication - use updateLegalAcceptancesForSignup during signup flow
    */
   async updateLegalAcceptances(
     userId: string,
@@ -825,6 +826,34 @@ export class UserDAL extends BaseDAL {
         .where(eq(user.id, userId));
     } catch (error) {
       this.handleError(error, "updateLegalAcceptances");
+    }
+  }
+
+  /**
+   * Update legal document acceptances on user record during signup
+   * Does not require authentication - used during signup flow before session exists
+   */
+  async updateLegalAcceptancesForSignup(
+    userId: string,
+    acceptances: {
+      tosVersion?: string;
+      tosAcceptedAt?: Date;
+      privacyVersion?: string;
+      privacyAcceptedAt?: Date;
+      communityVersion?: string;
+      communityAcceptedAt?: Date;
+    },
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(user)
+        .set({
+          ...acceptances,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId));
+    } catch (error) {
+      this.handleError(error, "updateLegalAcceptancesForSignup");
     }
   }
 

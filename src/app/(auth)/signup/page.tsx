@@ -19,7 +19,6 @@ export default async function SignupPage() {
   const documentUrls = {
     tos: documentVersions[LEGAL_DOCUMENT_IDS.TOS]?.url || "",
     privacy: documentVersions[LEGAL_DOCUMENT_IDS.PRIVACY]?.url || "",
-    community: documentVersions[LEGAL_DOCUMENT_IDS.COMMUNITY]?.url || "",
   };
 
   return (

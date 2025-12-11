@@ -11,30 +11,25 @@ export default async function GoogleSignupCallback() {
     redirect("/login");
   }
 
+  // Check if user has accepted required legal documents
+  const [tosAccepted, privacyAccepted] = await Promise.all([
+    LegalDocumentDAL.hasAcceptedCurrentVersion(
+      session.user.id,
+      LEGAL_DOCUMENT_IDS.TOS,
+    ),
+    LegalDocumentDAL.hasAcceptedCurrentVersion(
+      session.user.id,
+      LEGAL_DOCUMENT_IDS.PRIVACY,
+    ),
+  ]);
+
+  // If required documents are not accepted, redirect to legal acceptance page
+  // Note: Community Guidelines is optional, so we don't check it here
+  if (!tosAccepted || !privacyAccepted) {
+    redirect("/signup/google/legal-acceptance");
+  }
+
   try {
-    // Check if user has accepted all legal documents
-    const [tosAccepted, privacyAccepted, communityAccepted] = await Promise.all(
-      [
-        LegalDocumentDAL.hasAcceptedCurrentVersion(
-          session.user.id,
-          LEGAL_DOCUMENT_IDS.TOS,
-        ),
-        LegalDocumentDAL.hasAcceptedCurrentVersion(
-          session.user.id,
-          LEGAL_DOCUMENT_IDS.PRIVACY,
-        ),
-        LegalDocumentDAL.hasAcceptedCurrentVersion(
-          session.user.id,
-          LEGAL_DOCUMENT_IDS.COMMUNITY,
-        ),
-      ],
-    );
-
-    // If not all documents are accepted, redirect to legal acceptance page
-    if (!tosAccepted || !privacyAccepted || !communityAccepted) {
-      redirect("/signup/google/legal-acceptance");
-    }
-
     // Fetch current user profile to check existing status
     const userProfile = await userDAL.getUserById(session.user.id);
     const currentStatus = userProfile.status;
@@ -68,7 +63,14 @@ export default async function GoogleSignupCallback() {
       redirect("/join-code");
     }
   } catch (error) {
-    console.error("Community association failed:", error);
-    redirect("/signup?error=community_failed");
+    // Check if this is a redirect error - if so, re-throw it
+    if (error && typeof error === "object" && "digest" in error) {
+      const redirectError = error as { digest?: string };
+      if (redirectError.digest?.startsWith("NEXT_REDIRECT")) {
+        throw error;
+      }
+    }
+    console.error("Error in Google signup callback:", error);
+    redirect("/signup?error=signup_failed");
   }
 }

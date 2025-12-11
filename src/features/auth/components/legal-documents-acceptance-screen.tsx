@@ -16,7 +16,6 @@ interface LegalDocumentsAcceptanceScreenProps {
   documentUrls: {
     tos: string;
     privacy: string;
-    community: string;
   };
 }
 
@@ -29,9 +28,7 @@ export function LegalDocumentsAcceptanceScreen({
   firstName,
   documentUrls,
 }: LegalDocumentsAcceptanceScreenProps) {
-  const [tosAccepted, setTosAccepted] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [communityAccepted, setCommunityAccepted] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const [isTransitionPending, startTransition] = useTransition();
 
   const [state, formAction, isPending] = useActionState<
@@ -42,27 +39,27 @@ export function LegalDocumentsAcceptanceScreen({
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!tosAccepted || !privacyAccepted || !communityAccepted) {
+    if (!legalAccepted) {
       return;
     }
 
     startTransition(() => {
       const formData = new FormData();
-      formData.append("tosAccepted", String(tosAccepted));
-      formData.append("privacyAccepted", String(privacyAccepted));
-      formData.append("communityAccepted", String(communityAccepted));
+      // Set both TOS and Privacy as accepted when legalAccepted is true
+      formData.append("tosAccepted", String(legalAccepted));
+      formData.append("privacyAccepted", String(legalAccepted));
       formAction(formData);
     });
   };
 
   const isFormPending = isPending || isTransitionPending;
-  const canSubmit = tosAccepted && privacyAccepted && communityAccepted;
+  const canSubmit = legalAccepted;
 
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold">Welcome, {firstName}</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-semibold">Welcome, {firstName}!</h1>
+        <p className="text-muted-foreground text-sm">
           Before continuing, please acknowledge the following:
         </p>
       </div>
@@ -77,17 +74,17 @@ export function LegalDocumentsAcceptanceScreen({
         <div className="space-y-4">
           <div className="flex items-start space-x-2">
             <Checkbox
-              id="tosAccepted"
-              checked={tosAccepted}
-              onCheckedChange={(checked) => setTosAccepted(checked === true)}
+              id="legalAccepted"
+              checked={legalAccepted}
+              onCheckedChange={(checked) => setLegalAccepted(checked === true)}
               disabled={isFormPending}
             />
             <div className="grid gap-1.5 leading-none">
               <Label
-                htmlFor="tosAccepted"
+                htmlFor="legalAccepted"
                 className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
-                I accept the{" "}
+                I agree to the{" "}
                 <Link
                   href={documentUrls.tos}
                   target="_blank"
@@ -95,26 +92,8 @@ export function LegalDocumentsAcceptanceScreen({
                   className="text-primary underline hover:no-underline"
                 >
                   Terms of Service
-                </Link>
-              </Label>
-            </div>
-          </div>
-
-          <div className="flex items-start space-x-2">
-            <Checkbox
-              id="privacyAccepted"
-              checked={privacyAccepted}
-              onCheckedChange={(checked) =>
-                setPrivacyAccepted(checked === true)
-              }
-              disabled={isFormPending}
-            />
-            <div className="grid gap-1.5 leading-none">
-              <Label
-                htmlFor="privacyAccepted"
-                className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                I accept the{" "}
+                </Link>{" "}
+                and{" "}
                 <Link
                   href={documentUrls.privacy}
                   target="_blank"
@@ -122,33 +101,6 @@ export function LegalDocumentsAcceptanceScreen({
                   className="text-primary underline hover:no-underline"
                 >
                   Privacy Policy
-                </Link>
-              </Label>
-            </div>
-          </div>
-
-          <div className="flex items-start space-x-2">
-            <Checkbox
-              id="communityAccepted"
-              checked={communityAccepted}
-              onCheckedChange={(checked) =>
-                setCommunityAccepted(checked === true)
-              }
-              disabled={isFormPending}
-            />
-            <div className="grid gap-1.5 leading-none">
-              <Label
-                htmlFor="communityAccepted"
-                className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                I accept the{" "}
-                <Link
-                  href={documentUrls.community}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline hover:no-underline"
-                >
-                  Community Guidelines
                 </Link>
               </Label>
             </div>

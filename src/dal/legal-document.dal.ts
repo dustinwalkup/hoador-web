@@ -323,6 +323,7 @@ export class LegalDocumentDAL extends BaseDAL {
 
   /**
    * Record a user's acceptance of a legal document
+   * Requires authentication - use recordAcceptanceForSignup during signup flow
    */
   static async recordAcceptance(
     userId: string,
@@ -352,6 +353,36 @@ export class LegalDocumentDAL extends BaseDAL {
 
     if (error) {
       console.error("Error recording legal acceptance:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Record a user's acceptance of a legal document during signup
+   * Does not require authentication - used during signup flow before session exists
+   */
+  static async recordAcceptanceForSignup(
+    userId: string,
+    documentId: LegalDocumentId,
+    version: string,
+    ipAddress: string | null,
+    userAgent: string | null,
+    method: string,
+  ): Promise<void> {
+    const { error } = await tryCatch(
+      db.insert(userLegalAcceptances).values({
+        userId,
+        documentId,
+        version,
+        ipAddress,
+        userAgent,
+        method,
+        acceptedAt: new Date(),
+      }),
+    );
+
+    if (error) {
+      console.error("Error recording legal acceptance during signup:", error);
       throw error;
     }
   }

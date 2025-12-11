@@ -24,7 +24,6 @@ interface SignupFormProps {
   documentUrls: {
     tos: string;
     privacy: string;
-    community: string;
   };
 }
 
@@ -37,9 +36,7 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
     success: false,
   });
 
-  const [tosAccepted, setTosAccepted] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [communityAccepted, setCommunityAccepted] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
 
   const {
     register,
@@ -52,10 +49,8 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
     mode: "onChange",
   });
 
-  // Watch acceptance values for form validation
-  watch("tosAccepted");
-  watch("privacyAccepted");
-  watch("communityAccepted");
+  // Watch acceptance value for form validation
+  watch("legalAccepted");
 
   // Handle form submission with client-side validation first
   const onSubmit = async (data: EmailSignupInput) => {
@@ -65,9 +60,7 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
       formData.append("lastName", data.lastName);
       formData.append("email", data.email);
       formData.append("password", data.password);
-      formData.append("tosAccepted", String(data.tosAccepted));
-      formData.append("privacyAccepted", String(data.privacyAccepted));
-      formData.append("communityAccepted", String(data.communityAccepted));
+      formData.append("legalAccepted", String(data.legalAccepted));
       formAction(formData);
     });
   };
@@ -197,50 +190,13 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
         </div>
 
         <div className="space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-start space-x-2">
-              <Checkbox
-                id="tosAccepted"
-                checked={tosAccepted}
-                onCheckedChange={(checked) => {
-                  setTosAccepted(checked === true);
-                  setValue("tosAccepted", checked === true, {
-                    shouldValidate: true,
-                  });
-                }}
-                disabled={isFormPending}
-              />
-              <div className="grid gap-1.5 leading-none">
-                <Label
-                  htmlFor="tosAccepted"
-                  className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  I accept the{" "}
-                  <Link
-                    href={documentUrls.tos}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline hover:no-underline"
-                  >
-                    Terms of Service
-                  </Link>
-                </Label>
-              </div>
-            </div>
-            {errors.tosAccepted && (
-              <p className="text-sm text-red-600">
-                {errors.tosAccepted.message}
-              </p>
-            )}
-          </div>
-
           <div className="flex items-start space-x-2">
             <Checkbox
-              id="privacyAccepted"
-              checked={privacyAccepted}
+              id="legalAccepted"
+              checked={legalAccepted}
               onCheckedChange={(checked) => {
-                setPrivacyAccepted(checked === true);
-                setValue("privacyAccepted", checked === true, {
+                setLegalAccepted(checked === true);
+                setValue("legalAccepted", checked === true, {
                   shouldValidate: true,
                 });
               }}
@@ -248,10 +204,19 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
             />
             <div className="grid gap-1.5 leading-none">
               <Label
-                htmlFor="privacyAccepted"
+                htmlFor="legalAccepted"
                 className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
-                I accept the{" "}
+                I agree to the{" "}
+                <Link
+                  href={documentUrls.tos}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline hover:no-underline"
+                >
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
                 <Link
                   href={documentUrls.privacy}
                   target="_blank"
@@ -260,47 +225,13 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
                 >
                   Privacy Policy
                 </Link>
+                .
               </Label>
             </div>
           </div>
-          {errors.privacyAccepted && (
+          {errors.legalAccepted && (
             <p className="text-sm text-red-600">
-              {errors.privacyAccepted.message}
-            </p>
-          )}
-
-          <div className="flex items-start space-x-2">
-            <Checkbox
-              id="communityAccepted"
-              checked={communityAccepted}
-              onCheckedChange={(checked) => {
-                setCommunityAccepted(checked === true);
-                setValue("communityAccepted", checked === true, {
-                  shouldValidate: true,
-                });
-              }}
-              disabled={isFormPending}
-            />
-            <div className="grid gap-1.5 leading-none">
-              <Label
-                htmlFor="communityAccepted"
-                className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                I accept the{" "}
-                <Link
-                  href={documentUrls.community}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline hover:no-underline"
-                >
-                  Community Guidelines
-                </Link>
-              </Label>
-            </div>
-          </div>
-          {errors.communityAccepted && (
-            <p className="text-sm text-red-600">
-              {errors.communityAccepted.message}
+              {errors.legalAccepted.message}
             </p>
           )}
         </div>
@@ -308,12 +239,7 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
         <Button
           type="submit"
           className="w-full"
-          disabled={
-            isFormPending ||
-            !tosAccepted ||
-            !privacyAccepted ||
-            !communityAccepted
-          }
+          disabled={isFormPending || !legalAccepted}
         >
           {isFormPending ? (
             <>

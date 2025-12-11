@@ -4,7 +4,7 @@ import { userDAL } from "@/dal";
 import { getSession } from "@/features/auth/utils/session";
 import { LegalDocumentsAcceptanceScreen } from "@/features/auth/components/legal-documents-acceptance-screen";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
 
 export default async function LegalAcceptancePage() {
@@ -16,21 +16,18 @@ export default async function LegalAcceptancePage() {
 
   const userId = session.user.id;
 
-  // Check if user has already accepted all documents
-  const [tosAccepted, privacyAccepted, communityAccepted] = await Promise.all([
+  // Check if user has already accepted required documents
+  const [tosAccepted, privacyAccepted] = await Promise.all([
     LegalDocumentDAL.hasAcceptedCurrentVersion(userId, LEGAL_DOCUMENT_IDS.TOS),
     LegalDocumentDAL.hasAcceptedCurrentVersion(
       userId,
       LEGAL_DOCUMENT_IDS.PRIVACY,
     ),
-    LegalDocumentDAL.hasAcceptedCurrentVersion(
-      userId,
-      LEGAL_DOCUMENT_IDS.COMMUNITY,
-    ),
   ]);
 
-  // If all documents are accepted, redirect to next step
-  if (tosAccepted && privacyAccepted && communityAccepted) {
+  // If required documents are accepted, redirect to next step
+  // Note: Community Guidelines is optional, so we don't check it here
+  if (tosAccepted && privacyAccepted) {
     redirect("/join-code");
   }
 
@@ -44,15 +41,11 @@ export default async function LegalAcceptancePage() {
   const documentUrls = {
     tos: documentVersions[LEGAL_DOCUMENT_IDS.TOS]?.url || "",
     privacy: documentVersions[LEGAL_DOCUMENT_IDS.PRIVACY]?.url || "",
-    community: documentVersions[LEGAL_DOCUMENT_IDS.COMMUNITY]?.url || "",
   };
 
   return (
     <AuthLayoutWrapper>
       <Card className="mx-auto w-full max-w-md">
-        <CardHeader className="pt-4">
-          <CardTitle className="text-2xl">Legal Documents</CardTitle>
-        </CardHeader>
         <CardContent>
           <LegalDocumentsAcceptanceScreen
             firstName={firstName}

@@ -29,6 +29,7 @@ const AUTH_ROUTES = [
 const VERIFICATION_CALLBACK_ROUTES = [
   "/signup/email/callback",
   "/signup/google/callback",
+  "/signup/google/legal-acceptance",
 ];
 
 // Define public API routes that should not be protected
@@ -151,8 +152,12 @@ export async function proxy(request: NextRequest) {
       // If email is verified, but user status is 'pending_verification', user created an account
       // with Google via the sign in method, big no no, redirect to google callback
       // to update the user status and redirect to join-code
+      // Allow access to legal acceptance page so users can accept documents
       if (user.status === "pending_verification") {
-        if (pathname !== "/signup/google/callback") {
+        if (
+          pathname !== "/signup/google/callback" &&
+          pathname !== "/signup/google/legal-acceptance"
+        ) {
           const redirectUrl = new URL("/signup/google/callback", request.url);
           return NextResponse.redirect(redirectUrl);
         }
