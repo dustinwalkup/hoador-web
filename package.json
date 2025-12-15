@@ -58,18 +58,18 @@
     "@tanstack/react-query-devtools": "^5.91.1",
     "@vercel/blob": "^2.0.0",
     "@walkup/walkup-utils": "^1.1.0",
-    "better-auth": "^1.4.6",
+    "better-auth": "^1.4.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "lucide-react": "^0.561.0",
-    "next": "^16.0.8",
+    "next": "^16.0.10",
     "next-themes": "^0.4.6",
-    "openai": "^6.10.0",
-    "react": "^19.2.1",
+    "openai": "^6.13.0",
+    "react": "^19.2.3",
     "react-day-picker": "^9.12.0",
-    "react-dom": "^19.2.1",
+    "react-dom": "^19.2.3",
     "react-hook-form": "^7.68.0",
     "resend": "^6.6.0",
     "sanitize-html": "^2.17.0",
@@ -77,15 +77,15 @@
     "sonner": "^2.0.7",
     "stripe": "^20.0.0",
     "tailwind-merge": "^3.4.0",
-    "zod": "^4.1.13"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.17",
+    "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
+    "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
     "@types/dompurify": "^3.2.0",
-    "@types/node": "^25.0.0",
+    "@types/node": "^25.0.2",
     "@types/pg": "^8.16.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -93,8 +93,8 @@
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.15",
     "drizzle-kit": "^0.31.8",
-    "eslint": "^9.39.1",
-    "eslint-config-next": "^16.0.8",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.0.10",
     "happy-dom": "^20.0.11",
     "husky": "^9.1.7",
     "jsdom": "^27.3.0",
@@ -102,7 +102,7 @@
     "pg": "^8.16.3",
     "prettier": "^3.7.4",
     "prettier-plugin-tailwindcss": "^0.7.2",
-    "tailwindcss": "^4.1.17",
+    "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5.9.3",
@@ -117,6 +117,6 @@
     ]
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   }
 }
