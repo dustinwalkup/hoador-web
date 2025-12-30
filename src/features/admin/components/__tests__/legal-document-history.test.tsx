@@ -85,8 +85,11 @@ describe("LegalDocumentHistory", () => {
       const publishedTexts = screen.getAllByText(/Published/);
       expect(publishedTexts).toHaveLength(mockDocumentVersions.length);
 
-      // Check for formatted dates (actual format: "Jan 31, 2024", "Jan 15, 2024")
-      const dateTexts = screen.getAllByText(/Jan \d{1,2}, 2024/);
+      // Check for formatted dates (format: "Jan 15, 2024", "Feb 1, 2024", etc.)
+      // Match any month abbreviation followed by day and year
+      const dateTexts = screen.getAllByText(
+        /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, 2024/,
+      );
       expect(dateTexts).toHaveLength(mockDocumentVersions.length);
     });
 

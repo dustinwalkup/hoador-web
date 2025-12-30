@@ -25,17 +25,19 @@ export const mockDocumentVersions: DocumentVersion[] = [
     id: LEGAL_DOCUMENT_IDS.TOS,
     version: "2.0",
     url: "https://blob.vercel.com/legal-documents/tos/1234567891-2.0.pdf",
-    publishedAt: new Date("2024-02-01"),
-    createdAt: new Date("2024-02-01"),
-    updatedAt: new Date("2024-02-01"),
+    // Use noon UTC to avoid timezone shifts when formatting dates
+    publishedAt: new Date(Date.UTC(2024, 1, 1, 12, 0, 0)),
+    createdAt: new Date(Date.UTC(2024, 1, 1, 12, 0, 0)),
+    updatedAt: new Date(Date.UTC(2024, 1, 1, 12, 0, 0)),
   },
   {
     id: LEGAL_DOCUMENT_IDS.TOS,
     version: "1.0",
     url: "https://blob.vercel.com/legal-documents/tos/1234567890-1.0.pdf",
-    publishedAt: new Date("2024-01-15"),
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
+    // Use noon UTC to avoid timezone shifts when formatting dates
+    publishedAt: new Date(Date.UTC(2024, 0, 15, 12, 0, 0)),
+    createdAt: new Date(Date.UTC(2024, 0, 15, 12, 0, 0)),
+    updatedAt: new Date(Date.UTC(2024, 0, 15, 12, 0, 0)),
   },
 ];
 

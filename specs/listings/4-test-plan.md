@@ -19,7 +19,7 @@ This test plan covers tool listing management including creation, updates, delet
 
 #### DAL Methods
 
-- [ ] `ListingDAL.createListing` - Create listing with authentication
+- [x] `ListingDAL.createListing` - Create listing with authentication
   - Happy path: Valid data, authenticated user, creates listing
   - Error: Unauthenticated user throws UnauthorizedError
   - Error: Invalid data throws ValidationError
@@ -27,39 +27,39 @@ This test plan covers tool listing management including creation, updates, delet
   - Edge case: Very long name/description
   - Edge case: Price validation (daily, weekly, monthly rates)
 
-- [ ] `ListingDAL.updateListing` - Update listing with authorization
+- [x] `ListingDAL.updateListing` - Update listing with authorization
   - Happy path: Owner updates their listing
   - Error: Non-owner cannot update (throws UnauthorizedError)
   - Error: Listing not found (throws NotFoundError)
   - Edge case: Partial updates (only some fields)
   - Edge case: Status changes during active rentals
 
-- [ ] `ListingDAL.deleteListing` - Delete listing with authorization
+- [x] `ListingDAL.deleteListing` - Delete listing with authorization
   - Happy path: Owner deletes their listing
   - Error: Non-owner cannot delete (throws UnauthorizedError)
   - Error: Listing not found (throws NotFoundError)
   - Edge case: Listing with active rentals (should prevent deletion)
   - Edge case: Soft delete vs hard delete
 
-- [ ] `ListingDAL.getById` - Retrieve single listing
+- [x] `ListingDAL.getById` - Retrieve single listing
   - Happy path: Returns listing by ID with images
   - Error: Listing not found returns null
   - Edge case: Deleted/archived listing handling
   - Edge case: Includes user favorites status
 
-- [ ] `ListingDAL.getAll` - Retrieve all listings with pagination
+- [x] `ListingDAL.getAll` - Retrieve all listings with pagination
   - Happy path: Returns paginated listings
   - Edge case: Empty result set
   - Edge case: Pagination boundaries
   - Edge case: Filtering by category, status, price range
 
-- [ ] `ListingDAL.updateListingStatus` - Update listing status
+- [x] `ListingDAL.updateListingStatus` - Update listing status
   - Happy path: Owner updates status (available, rented, maintenance, inactive)
   - Error: Non-owner cannot update status
   - Edge case: Status transitions validation
   - Edge case: Status change during active rental
 
-- [ ] `ListingDAL.searchListings` - Search listings with filters
+- [x] `ListingDAL.searchListings` - Search listings with filters
   - Happy path: Returns filtered search results
   - Edge case: Empty search query
   - Edge case: Multiple filter combinations
@@ -67,39 +67,39 @@ This test plan covers tool listing management including creation, updates, delet
 
 #### Server Actions
 
-- [ ] `createListing` - Create listing via form submission
+- [x] `createListing` - Create listing via form submission
   - Happy path: Valid FormData creates listing and revalidates path
   - Error: Invalid FormData returns error result
   - Error: DAL error returns user-friendly error message
   - Integration: Verifies revalidatePath called
   - Edge case: Image upload handling
 
-- [ ] `updateListing` - Update listing via form submission
+- [x] `updateListing` - Update listing via form submission
   - Happy path: Valid FormData updates listing
   - Error: Unauthorized access returns error
   - Error: Validation errors returned to user
   - Integration: Verifies revalidatePath called
 
-- [ ] `deleteListing` - Delete listing via server action
+- [x] `deleteListing` - Delete listing via server action
   - Happy path: Owner deletes listing successfully
   - Error: Unauthorized access returns error
   - Error: Listing with active rentals prevents deletion
   - Integration: Verifies revalidatePath called
 
-- [ ] `updateListingStatus` - Update listing status via server action
+- [x] `updateListingStatus` - Update listing status via server action
   - Happy path: Owner updates status successfully
   - Error: Unauthorized access returns error
   - Error: Invalid status transition returns error
   - Integration: Verifies revalidatePath called
 
-- [ ] `analyzeToolImage` - AI image analysis for tool detection
+- [x] `analyzeToolImage` - AI image analysis for tool detection
   - Happy path: Valid image analyzed, tool detected
   - Error: Invalid image format returns error
   - Error: No tool detected returns appropriate message
   - Edge case: Multiple tools in image
   - Edge case: Image processing failures
 
-- [ ] `uploadListingImage` - Upload listing image to blob storage
+- [x] `uploadListingImage` - Upload listing image to blob storage
   - Happy path: Image uploaded successfully, saved to database
   - Error: Invalid file type returns error
   - Error: File too large returns error
@@ -108,7 +108,7 @@ This test plan covers tool listing management including creation, updates, delet
 
 #### Components
 
-- [ ] `AddListingForm` - Form for creating listings
+- [x] `AddListingForm` - Form for creating listings
   - Rendering: All form sections visible (basic info, pricing, photos, pickup/delivery, additional details)
   - User interaction: Form submission triggers createListing action
   - Validation: Shows error messages for invalid inputs
@@ -117,51 +117,51 @@ This test plan covers tool listing management including creation, updates, delet
   - Multi-step form: Navigation between sections
   - Image upload: Handles image selection and preview
 
-- [ ] `BasicInformationSection` - Basic listing information form section
+- [x] `BasicInformationSection` - Basic listing information form section
   - Rendering: Name, description, category, condition fields
   - Validation: Required field validation
   - User interaction: Form field updates
 
-- [ ] `PricingSection` - Pricing information form section
+- [x] `PricingSection` - Pricing information form section
   - Rendering: Daily, weekly, monthly rate fields
   - Validation: Price validation (positive numbers, reasonable ranges)
   - User interaction: Price input updates
 
-- [ ] `PhotosSection` - Image upload form section
+- [x] `PhotosSection` - Image upload form section
   - Rendering: Image upload area, preview thumbnails
   - User interaction: Image selection, removal, reordering
   - Validation: Image count limits, file type validation
   - Loading state: Upload progress indicators
 
-- [ ] `PickupDeliverySection` - Pickup and delivery options form section
+- [x] `PickupDeliverySection` - Pickup and delivery options form section
   - Rendering: Pickup available, delivery available checkboxes
   - User interaction: Option selection updates form state
 
-- [ ] `AdditionalDetailsSection` - Additional listing details form section
+- [x] `AdditionalDetailsSection` - Additional listing details form section
   - Rendering: Additional fields (tags, notes, etc.)
   - User interaction: Field updates
 
-- [ ] `ListingDetailView` - Full listing details display
+- [x] `ListingDetailView` - Full listing details display
   - Rendering: Shows all listing information, images, owner info
   - User interaction: Edit button (if owner), favorite button, rent button
   - Edge case: Non-existent listing shows 404
   - Edge case: Missing images shows placeholder
   - Accessibility: Proper semantic HTML, ARIA labels
 
-- [ ] `StatusIconWithTooltip` - Status indicator with tooltip
+- [x] `StatusIconWithTooltip` - Status indicator with tooltip
   - Rendering: Correct icon for each status (available, rented, maintenance, inactive)
   - User interaction: Tooltip on hover
   - Accessibility: Proper ARIA attributes
   - Edge case: Unknown status handling
 
-- [ ] `ImageCarousel` - Image carousel for listing photos
+- [x] `ImageCarousel` - Image carousel for listing photos
   - Rendering: Displays listing images
   - User interaction: Navigation arrows, thumbnail selection
   - Edge case: Single image handling
   - Edge case: No images shows placeholder
   - Accessibility: Keyboard navigation
 
-- [ ] `FavoritesButton` - Add/remove listing from favorites
+- [x] `FavoritesButton` - Add/remove listing from favorites
   - Rendering: Shows favorite state (filled/outline heart icon)
   - User interaction: Click toggles favorite status
   - Loading state: Shows loading during API call
@@ -253,7 +253,7 @@ This test plan covers tool listing management including creation, updates, delet
 
 #### Utilities
 
-- [ ] `listing.schema.ts` - Zod validation schema
+- [x] `listing.schema.ts` - Zod validation schema
   - Valid: Accepts valid listing data
   - Invalid: Rejects invalid data with specific error messages
   - Edge cases: Boundary values (min/max lengths, prices)
@@ -611,21 +611,30 @@ Feature: Add Listing to Favorites
 ### Currently Tested
 
 - `ListingDAL` - Comprehensive tests in `src/dal/__tests__/listing.dal.test.ts`
-- `createListing` action - Tests in `src/features/listings/actions/__tests__/create-listing.test.ts`
-- `updateListing` action - Tests in `src/features/listings/actions/__tests__/update-listing.test.ts`
-- `updateListingStatus` action - Tests in `src/features/listings/actions/__tests__/update-listing-status.test.ts`
-- `deleteListing` action - Tests in `src/features/listings/actions/__tests__/delete-listing.test.ts`
-- `StatusIconWithTooltip` component - Comprehensive tests (30 tests)
-- `FavoritesButton` component - Comprehensive tests
-- `ImageCarousel` component - Tests exist
-- `ListingDetailView` component - Tests exist
+- **Server Actions** (All complete):
+  - `createListing` action - Tests in `src/features/listings/actions/__tests__/create-listing.test.ts`
+  - `updateListing` action - Tests in `src/features/listings/actions/__tests__/update-listing.test.ts`
+  - `updateListingStatus` action - Tests in `src/features/listings/actions/__tests__/update-listing-status.test.ts`
+  - `deleteListing` action - Tests in `src/features/listings/actions/__tests__/delete-listing.test.ts`
+  - `analyzeToolImage` action - Tests in `src/features/listings/actions/__tests__/analyze-tool-image.test.ts`
+  - `uploadListingImage` action - Tests in `src/features/listings/actions/__tests__/upload-listing-image.test.ts`
+- **Form Components** (All complete):
+  - `AddListingForm` component - Tests in `src/features/listings/components/__tests__/add-listing-form.test.tsx`
+  - `BasicInformationSection` - Tests in `src/features/listings/components/listing-form/__tests__/basic-information-section.test.tsx`
+  - `PricingSection` - Tests in `src/features/listings/components/listing-form/__tests__/pricing-section.test.tsx`
+  - `PhotosSection` - Tests in `src/features/listings/components/listing-form/__tests__/photos-section.test.tsx`
+  - `PickupDeliverySection` - Tests in `src/features/listings/components/listing-form/__tests__/pickup-delivery-section.test.tsx`
+  - `AdditionalDetailsSection` - Tests in `src/features/listings/components/listing-form/__tests__/additional-details-section.test.tsx`
+- **Display Components**:
+  - `StatusIconWithTooltip` component - Comprehensive tests (30 tests)
+  - `FavoritesButton` component - Comprehensive tests
+  - `ImageCarousel` component - Tests in `src/features/listings/components/__tests__/image-carousel.test.tsx`
+  - `ListingDetailView` component - Tests in `src/features/listings/components/__tests__/listing-detail-view.test.tsx`
+- **Utilities**:
+  - `listing.schema.ts` - Comprehensive tests in `src/features/listings/form-schema/__tests__/listing.schema.test.ts`
 
 ### Missing Test Coverage
 
-- `analyzeToolImage` action (no tests)
-- `uploadListingImage` action (no tests)
-- `AddListingForm` component (no tests)
-- Form section components (no tests)
 - `GarageClient` and garage page components (no tests)
 - `ExplorePageClient` and explore page components (no tests)
 - All hooks (no tests)

@@ -102,3 +102,62 @@ export const mockListingImages = [
     orderIndex: 1,
   },
 ];
+
+export const mockListingWithImages: ListingDetails = {
+  ...mockListing,
+  images: mockListingImages,
+};
+
+export const mockListingActive: ListingDetails = {
+  ...mockListing,
+  id: "listing-active",
+  status: "available",
+};
+
+export const mockListingInactive: ListingDetails = {
+  ...mockListing,
+  id: "listing-inactive",
+  status: "maintenance",
+};
+
+export const mockListingArchived: ListingDetails = {
+  ...mockListing,
+  id: "listing-archived",
+  status: "available",
+};
+
+export const mockCategories = [
+  {
+    id: "power-tools",
+    name: "Power Tools",
+    description: "Electric power tools",
+    icon: "drill",
+    isActive: true,
+    sortOrder: 1,
+    parentId: null,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "hand-tools",
+    name: "Hand Tools",
+    description: "Manual hand tools",
+    icon: "hammer",
+    isActive: true,
+    sortOrder: 2,
+    parentId: null,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "gardening",
+    name: "Gardening",
+    description: "Gardening tools and equipment",
+    icon: "shovel",
+    isActive: true,
+    sortOrder: 3,
+    parentId: null,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+];
