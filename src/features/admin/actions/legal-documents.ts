@@ -3,7 +3,7 @@ import { tryCatch } from "@walkup/walkup-utils";
 
 import { uploadToBlob } from "@/services/vercel-blob";
 import { requireAdmin } from "@/features/auth/utils/guards";
-import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import {
   LEGAL_DOCUMENT_IDS,
   type LegalDocumentId,
@@ -117,7 +117,7 @@ export async function uploadDocumentAction(
 
     // Create version record in database
     const { data: newVersion, error: dbError } = await tryCatch(
-      LegalDocumentDAL.createVersion(
+      legalDocumentDAL.createVersion(
         documentId as LegalDocumentId,
         version,
         blobResult.url,
@@ -183,7 +183,7 @@ export async function deleteVersionAction(
 
     // Delete version
     const { error: deleteError } = await tryCatch(
-      LegalDocumentDAL.deleteVersion(
+      legalDocumentDAL.deleteVersion(
         documentId as LegalDocumentId,
         version,
         blobPathname || undefined,

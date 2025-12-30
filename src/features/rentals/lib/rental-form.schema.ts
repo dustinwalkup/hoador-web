@@ -30,6 +30,15 @@ export const rentalFormSchema = z
     setupRequested: z.boolean(),
     message: z.string().optional(),
     paymentMethodId: z.string().optional(),
+    // Legal document acknowledgements - single checkbox controls all policies
+    rentalAgreementAccepted: z.boolean().refine((val) => val === true, {
+      message:
+        "You must accept the Rental Agreement and all policies to continue",
+    }),
+    cancellationRefundAcknowledged: z.boolean().optional(),
+    safetyDisclaimerAccepted: z.boolean().optional(),
+    damageLossLiabilityAccepted: z.boolean().optional(),
+    paymentPayoutAccepted: z.boolean().optional(),
   })
   .refine(
     (data) => !data.startDate || !data.endDate || data.endDate > data.startDate,

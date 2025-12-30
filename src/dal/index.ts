@@ -15,6 +15,6 @@ export const listingDAL = new ListingDAL();
 export const messagesDAL = new MessagesDAL();
 export const notificationsDAL = new NotificationDAL();
 
-// Note: LegalDocumentDAL is not exported from here to avoid circular dependency.
-// LegalDocumentDAL imports requireAuth from session.ts, which imports userDAL from this file.
-// Import LegalDocumentDAL directly from "@/dal/legal-document.dal" instead.
+// Note: legalDocumentDAL is not exported from here to avoid circular dependency.
+// legalDocumentDAL imports requireAuth from session.ts, which imports userDAL from this file.
+// Import legalDocumentDAL directly from "@/dal/legal-document.dal" instead.

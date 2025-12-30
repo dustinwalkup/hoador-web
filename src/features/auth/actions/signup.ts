@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { tryCatch } from "@walkup/walkup-utils";
 import { auth } from "@/services/better-auth";
 import { userDAL } from "@/dal";
-import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { emailSignupSchema } from "../schemas/auth-schemas";
 
@@ -91,7 +91,7 @@ export async function signupAction(
   if (legalDocumentsAccepted) {
     try {
       // Get current document versions
-      const documentVersions = await LegalDocumentDAL.getAllCurrentVersions();
+      const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
 
       // Get IP address and user agent from headers
       const headersList = await headers();
@@ -108,7 +108,7 @@ export async function signupAction(
       if (documentVersions[LEGAL_DOCUMENT_IDS.TOS]) {
         const tosVersion = documentVersions[LEGAL_DOCUMENT_IDS.TOS];
         acceptancePromises.push(
-          LegalDocumentDAL.recordAcceptanceForSignup(
+          legalDocumentDAL.recordAcceptanceForSignup(
             userId,
             LEGAL_DOCUMENT_IDS.TOS,
             tosVersion.version,
@@ -124,7 +124,7 @@ export async function signupAction(
       if (documentVersions[LEGAL_DOCUMENT_IDS.PRIVACY]) {
         const privacyVersion = documentVersions[LEGAL_DOCUMENT_IDS.PRIVACY];
         acceptancePromises.push(
-          LegalDocumentDAL.recordAcceptanceForSignup(
+          legalDocumentDAL.recordAcceptanceForSignup(
             userId,
             LEGAL_DOCUMENT_IDS.PRIVACY,
             privacyVersion.version,

@@ -32,6 +32,7 @@ export interface LegalAcceptance {
   userId: string;
   documentId: string;
   version: string;
+  rentalRequestId: string | null;
   acceptedAt: Date;
   ipAddress: string | null;
   userAgent: string | null;
@@ -47,7 +48,7 @@ export interface DocumentVersion {
   updatedAt: Date;
 }
 
-export class LegalDocumentDAL extends BaseDAL {
+export class legalDocumentDAL extends BaseDAL {
   /**
    * Get the latest published version of a specific document
    */
@@ -324,6 +325,7 @@ export class LegalDocumentDAL extends BaseDAL {
   /**
    * Record a user's acceptance of a legal document
    * Requires authentication - use recordAcceptanceForSignup during signup flow
+   * @param rentalRequestId Optional rental request ID to tie acceptance to specific rental
    */
   static async recordAcceptance(
     userId: string,
@@ -332,6 +334,7 @@ export class LegalDocumentDAL extends BaseDAL {
     ipAddress: string | null,
     userAgent: string | null,
     method: string,
+    rentalRequestId?: string,
   ): Promise<void> {
     // Verify authentication and that userId matches authenticated user
     const auth = await requireAuth();
@@ -344,6 +347,7 @@ export class LegalDocumentDAL extends BaseDAL {
         userId,
         documentId,
         version,
+        rentalRequestId: rentalRequestId || null,
         ipAddress,
         userAgent,
         method,
@@ -360,6 +364,7 @@ export class LegalDocumentDAL extends BaseDAL {
   /**
    * Record a user's acceptance of a legal document during signup
    * Does not require authentication - used during signup flow before session exists
+   * @param rentalRequestId Optional rental request ID to tie acceptance to specific rental
    */
   static async recordAcceptanceForSignup(
     userId: string,
@@ -368,12 +373,14 @@ export class LegalDocumentDAL extends BaseDAL {
     ipAddress: string | null,
     userAgent: string | null,
     method: string,
+    rentalRequestId?: string,
   ): Promise<void> {
     const { error } = await tryCatch(
       db.insert(userLegalAcceptances).values({
         userId,
         documentId,
         version,
+        rentalRequestId: rentalRequestId || null,
         ipAddress,
         userAgent,
         method,
@@ -457,6 +464,7 @@ export class LegalDocumentDAL extends BaseDAL {
         userId: acc.userId,
         documentId: acc.documentId,
         version: acc.version,
+        rentalRequestId: acc.rentalRequestId,
         acceptedAt: acc.acceptedAt,
         ipAddress: acc.ipAddress,
         userAgent: acc.userAgent,

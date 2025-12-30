@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import {
   LEGAL_DOCUMENT_IDS,
   LEGAL_DOCUMENT_CATEGORIES,
@@ -19,12 +19,12 @@ import { DocumentVersionCard } from "@/features/admin/components/document-versio
 
 export default async function LegalDocumentsPage() {
   // Fetch all current document versions
-  const currentVersions = await LegalDocumentDAL.getAllCurrentVersions();
+  const currentVersions = await legalDocumentDAL.getAllCurrentVersions();
 
   // Fetch version history for all documents
   const versionHistories = await Promise.all(
     Object.values(LEGAL_DOCUMENT_IDS).map(async (documentId) => {
-      const versions = await LegalDocumentDAL.getAllVersions(documentId);
+      const versions = await legalDocumentDAL.getAllVersions(documentId);
       return { documentId, versions };
     }),
   );

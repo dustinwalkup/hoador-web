@@ -17,6 +17,11 @@ export const createRentalRequestSchema = z
     message: z.string().optional(),
     paymentIntentId: z.string().optional(), // Stripe payment intent ID
     paymentMethodId: z.string().optional(), // Stripe payment method ID
+    // Legal document acknowledgements
+    rentalAgreementAccepted: z.boolean().optional(),
+    safetyDisclaimerAccepted: z.boolean().optional(),
+    damageLossLiabilityAccepted: z.boolean().optional(),
+    paymentPayoutAccepted: z.boolean().optional(),
   })
   .refine((data) => data.endDate > data.startDate, {
     message: "End date must be after start date",

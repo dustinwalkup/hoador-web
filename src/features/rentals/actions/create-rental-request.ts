@@ -1,12 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { tryCatch } from "@walkup/walkup-utils";
 import {
   createRentalRequestSchema,
   type CreateRentalRequestFormData,
 } from "../lib/form-schema";
 import { rentalDAL, userDAL } from "../../../dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 import { sendRentalRequestCreatedNotification } from "../notifications/rental-request-created";
 
 export async function createRentalRequest(
@@ -24,7 +28,25 @@ export async function createRentalRequest(
 
   const validatedData = validationResult.data;
 
-  // Create the rental request
+  // Get current user ID
+  const userIdResult = await getCurrentUserId();
+  if (!userIdResult) {
+    return {
+      error: "You must be logged in to create a rental request",
+    };
+  }
+  const userId: string = userIdResult;
+
+  // Get IP address and user agent from headers (needed for legal acceptance recording)
+  const headersList = await headers();
+  const ipAddress =
+    headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    headersList.get("x-real-ip") ||
+    headersList.get("cf-connecting-ip") ||
+    null;
+  const userAgent = headersList.get("user-agent") || null;
+
+  // Create the rental request first
   const { data: rentalRequest, error } = await tryCatch(
     rentalDAL.createRentalRequest(validatedData),
   );
@@ -43,6 +65,101 @@ export async function createRentalRequest(
 
   if (!rentalRequest) {
     return { error: "Failed to create rental request" };
+  }
+
+  // Record legal document acceptances AFTER rental request creation
+  // This ties the acceptances to the specific rental request for legal audit trail
+  if (
+    validatedData.rentalAgreementAccepted ||
+    validatedData.safetyDisclaimerAccepted ||
+    validatedData.damageLossLiabilityAccepted ||
+    validatedData.paymentPayoutAccepted
+  ) {
+    try {
+      // Get current document versions
+      const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
+
+      // Record acceptances for documents that were accepted
+      const acceptancePromises = [];
+
+      if (
+        validatedData.rentalAgreementAccepted &&
+        documentVersions[LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT]
+      ) {
+        const doc = documentVersions[LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT];
+        acceptancePromises.push(
+          legalDocumentDAL.recordAcceptance(
+            userId,
+            LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT,
+            doc.version,
+            ipAddress,
+            userAgent,
+            "rental_checkout",
+            rentalRequest.id, // Link to specific rental request
+          ),
+        );
+      }
+
+      if (
+        validatedData.safetyDisclaimerAccepted &&
+        documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]
+      ) {
+        const doc = documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER];
+        acceptancePromises.push(
+          legalDocumentDAL.recordAcceptance(
+            userId,
+            LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
+            doc.version,
+            ipAddress,
+            userAgent,
+            "rental_checkout",
+            rentalRequest.id, // Link to specific rental request
+          ),
+        );
+      }
+
+      if (
+        validatedData.damageLossLiabilityAccepted &&
+        documentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]
+      ) {
+        const doc = documentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY];
+        acceptancePromises.push(
+          legalDocumentDAL.recordAcceptance(
+            userId,
+            LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
+            doc.version,
+            ipAddress,
+            userAgent,
+            "rental_checkout",
+            rentalRequest.id, // Link to specific rental request
+          ),
+        );
+      }
+
+      if (
+        validatedData.paymentPayoutAccepted &&
+        documentVersions[LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS]
+      ) {
+        const doc = documentVersions[LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS];
+        acceptancePromises.push(
+          legalDocumentDAL.recordAcceptance(
+            userId,
+            LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS,
+            doc.version,
+            ipAddress,
+            userAgent,
+            "rental_checkout",
+            rentalRequest.id, // Link to specific rental request
+          ),
+        );
+      }
+
+      // Record all acceptances in parallel (don't block on failures)
+      await Promise.allSettled(acceptancePromises);
+    } catch (error) {
+      // Log error but don't fail the rental request creation
+      console.error("Error recording legal document acceptances:", error);
+    }
   }
 
   // Send notification to owner (don't block on notification failure)

@@ -11,12 +11,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
-import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 export default async function SignupPage() {
   // Fetch current document URLs server-side
-  const documentVersions = await LegalDocumentDAL.getAllCurrentVersions();
+  const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
 
   const documentUrls = {
     tos: documentVersions[LEGAL_DOCUMENT_IDS.TOS]?.url || "",

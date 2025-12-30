@@ -6,18 +6,19 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
-import { PaymentForm } from "@/features/payments/components/payment-form";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Form } from "@/components/ui/form";
-import { BackButton } from "@/components/back-button";
+import type { CurrentDocumentVersion } from "@/dal/legal-document.dal";
 import { type ListingDetails, type UserProfile } from "@/dal/types";
+import { PaymentForm } from "@/features/payments/components/payment-form";
 import { createRentalRequest } from "@/features/rentals/actions/create-rental-request";
 import {
   rentalFormSchema,
   type RentalFormData,
   validateDateRange,
 } from "@/features/rentals/lib/rental-form.schema";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Form } from "@/components/ui/form";
+import { BackButton } from "@/components/back-button";
 import { DateSelectionStep } from "./date-selection-step";
 import { ServicesStep } from "./services-step";
 import { SummaryStep } from "./summary-step";
@@ -29,6 +30,13 @@ interface RentListingPageContentProps {
   listing: ListingDetails;
   bookedDates: Array<{ startDate: Date; endDate: Date; reason?: string }>;
   currentUser: UserProfile;
+  legalDocuments: {
+    rentalAgreement?: CurrentDocumentVersion;
+    cancellationRefund?: CurrentDocumentVersion;
+    safetyDisclaimer?: CurrentDocumentVersion;
+    damageLossLiability?: CurrentDocumentVersion;
+    paymentPayout?: CurrentDocumentVersion;
+  };
 }
 
 type BookingStep = "dates" | "delivery" | "payment" | "summary";
@@ -37,6 +45,7 @@ export function RentListingPageContent({
   listing,
   bookedDates,
   currentUser,
+  legalDocuments,
 }: RentListingPageContentProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<BookingStep>("dates");
@@ -53,6 +62,12 @@ export function RentListingPageContent({
       setupRequested: false,
       message: "",
       paymentMethodId: "",
+      // Legal document acknowledgements - default to false
+      rentalAgreementAccepted: false,
+      cancellationRefundAcknowledged: false,
+      safetyDisclaimerAccepted: false,
+      damageLossLiabilityAccepted: false,
+      paymentPayoutAccepted: false,
     },
     mode: "onTouched",
   }) as ReturnType<typeof useForm<RentalFormData>>;
@@ -196,6 +211,15 @@ export function RentListingPageContent({
       return;
     }
 
+    // Validate all policies are accepted (single checkbox sets all fields)
+    if (!data.rentalAgreementAccepted) {
+      toast.error("Legal Agreement Required", {
+        description:
+          "You must accept the Rental Agreement and all policies to continue",
+      });
+      return;
+    }
+
     // Concatenate address fields into a single string for navigation
     const fullAddress =
       data.deliveryMethod === "delivery"
@@ -219,6 +243,11 @@ export function RentListingPageContent({
           : 0,
       message: data.message || undefined,
       paymentMethodId: data.paymentMethodId,
+      // Legal document acknowledgements
+      rentalAgreementAccepted: data.rentalAgreementAccepted,
+      safetyDisclaimerAccepted: data.safetyDisclaimerAccepted,
+      damageLossLiabilityAccepted: data.damageLossLiabilityAccepted || false,
+      paymentPayoutAccepted: data.paymentPayoutAccepted || false,
     });
 
     if (result.success) {
@@ -343,7 +372,10 @@ export function RentListingPageContent({
 
                     {/* Step 4: Summary */}
                     {currentStep === "summary" && (
-                      <SummaryStep pricing={pricing} />
+                      <SummaryStep
+                        pricing={pricing}
+                        legalDocuments={legalDocuments}
+                      />
                     )}
                   </CardContent>
                 </Card>

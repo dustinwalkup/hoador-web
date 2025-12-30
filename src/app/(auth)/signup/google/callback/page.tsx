@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { userDAL } from "@/dal";
 import { getSession } from "@/features/auth/utils/session";
-import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 export default async function GoogleSignupCallback() {
@@ -15,11 +15,11 @@ export default async function GoogleSignupCallback() {
 
   // Check if user has accepted required legal documents
   const [tosAccepted, privacyAccepted] = await Promise.all([
-    LegalDocumentDAL.hasAcceptedCurrentVersion(
+    legalDocumentDAL.hasAcceptedCurrentVersion(
       session.user.id,
       LEGAL_DOCUMENT_IDS.TOS,
     ),
-    LegalDocumentDAL.hasAcceptedCurrentVersion(
+    legalDocumentDAL.hasAcceptedCurrentVersion(
       session.user.id,
       LEGAL_DOCUMENT_IDS.PRIVACY,
     ),

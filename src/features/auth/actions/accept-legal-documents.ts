@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { userDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { getSession } from "../utils/session";
@@ -40,7 +40,7 @@ export async function acceptLegalDocumentsAction(
   const userId = session.user.id;
 
   // Get current document versions
-  const documentVersions = await LegalDocumentDAL.getAllCurrentVersions();
+  const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
 
   // Get IP address and user agent from headers
   const headersList = await headers();
@@ -58,7 +58,7 @@ export async function acceptLegalDocumentsAction(
     if (documentVersions[LEGAL_DOCUMENT_IDS.TOS]) {
       const tosVersion = documentVersions[LEGAL_DOCUMENT_IDS.TOS];
       acceptancePromises.push(
-        LegalDocumentDAL.recordAcceptance(
+        legalDocumentDAL.recordAcceptance(
           userId,
           LEGAL_DOCUMENT_IDS.TOS,
           tosVersion.version,
@@ -72,7 +72,7 @@ export async function acceptLegalDocumentsAction(
     if (documentVersions[LEGAL_DOCUMENT_IDS.PRIVACY]) {
       const privacyVersion = documentVersions[LEGAL_DOCUMENT_IDS.PRIVACY];
       acceptancePromises.push(
-        LegalDocumentDAL.recordAcceptance(
+        legalDocumentDAL.recordAcceptance(
           userId,
           LEGAL_DOCUMENT_IDS.PRIVACY,
           privacyVersion.version,

@@ -9,6 +9,7 @@ import {
 import { relations } from "drizzle-orm";
 
 import { user } from "./user.schema";
+import { rentalRequests } from "./rentals.schema";
 
 export type LegalDocumentDB = typeof legalDocuments.$inferSelect;
 export type NewLegalDocument = typeof legalDocuments.$inferInsert;
@@ -38,6 +39,10 @@ export const userLegalAcceptances = pgTable(
       .notNull(),
     documentId: text("document_id").notNull(), // References legal_documents.id
     version: varchar("version", { length: 50 }).notNull(), // Version accepted
+    rentalRequestId: uuid("rental_request_id").references(
+      () => rentalRequests.id,
+      { onDelete: "cascade" },
+    ), // Optional: links to specific rental request
     acceptedAt: timestamp("accepted_at").defaultNow().notNull(), // When accepted
     ipAddress: varchar("ip_address", { length: 45 }), // IP address at acceptance
     userAgent: text("user_agent"), // User agent at acceptance
@@ -53,6 +58,9 @@ export const userLegalAcceptances = pgTable(
       table.userId,
       table.documentId,
     ),
+    rentalRequestIdIdx: index(
+      "user_legal_acceptances_rental_request_id_idx",
+    ).on(table.rentalRequestId),
   }),
 );
 
@@ -70,6 +78,10 @@ export const userLegalAcceptancesRelations = relations(
     user: one(user, {
       fields: [userLegalAcceptances.userId],
       references: [user.id],
+    }),
+    rentalRequest: one(rentalRequests, {
+      fields: [userLegalAcceptances.rentalRequestId],
+      references: [rentalRequests.id],
     }),
   }),
 );

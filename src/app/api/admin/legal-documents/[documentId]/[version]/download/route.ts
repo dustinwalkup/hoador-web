@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { LegalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import {
   LEGAL_DOCUMENT_IDS,
   type LegalDocumentId,
@@ -23,7 +23,7 @@ export async function GET(
     }
 
     // Fetch document version
-    const documentVersion = await LegalDocumentDAL.getVersion(
+    const documentVersion = await legalDocumentDAL.getVersion(
       documentId as LegalDocumentId,
       version,
     );

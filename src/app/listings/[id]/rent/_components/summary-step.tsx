@@ -13,6 +13,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { formatDate } from "@/lib/utils/date.utils";
 import { type RentalFormData } from "@/features/rentals/lib/rental-form.schema";
+import type { CurrentDocumentVersion } from "@/dal/legal-document.dal";
+import { LegalDisclosures } from "./legal-disclosures";
 
 interface SummaryStepProps {
   pricing: {
@@ -23,9 +25,16 @@ interface SummaryStepProps {
     securityDeposit: number;
     total: number;
   };
+  legalDocuments: {
+    rentalAgreement?: CurrentDocumentVersion;
+    cancellationRefund?: CurrentDocumentVersion;
+    safetyDisclaimer?: CurrentDocumentVersion;
+    damageLossLiability?: CurrentDocumentVersion;
+    paymentPayout?: CurrentDocumentVersion;
+  };
 }
 
-export function SummaryStep({ pricing }: SummaryStepProps) {
+export function SummaryStep({ pricing, legalDocuments }: SummaryStepProps) {
   const form = useFormContext<RentalFormData>();
   const startDate = form.watch("startDate");
   const endDate = form.watch("endDate");
@@ -135,6 +144,11 @@ export function SummaryStep({ pricing }: SummaryStepProps) {
           />
         </div>
       </div>
+
+      <Separator />
+
+      {/* Legal Disclosures */}
+      <LegalDisclosures legalDocuments={legalDocuments} />
     </div>
   );
 }
