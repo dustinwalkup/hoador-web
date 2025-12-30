@@ -64,14 +64,6 @@ jobs:
           file: ./coverage/lcov.info
           fail_ci_if_error: false
 
-      - name: Publish test summary
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: Unit Tests
-          path: coverage/coverage-final.json
-          reporter: vitest
-
       - name: Upload HTML coverage report
         uses: actions/upload-artifact@v4
         with:

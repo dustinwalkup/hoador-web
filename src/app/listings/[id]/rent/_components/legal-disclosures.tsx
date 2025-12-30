@@ -222,7 +222,7 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
           >
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <policy.icon className="text-muted-foreground mt-0.5 h-5 w-5 flex-shrink-0" />
+                <policy.icon className="text-muted-foreground mt-0.5 h-5 w-5 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex items-center gap-2">
                     <h4 className="text-sm font-medium">{policy.title}</h4>
