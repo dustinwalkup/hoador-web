@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  uploadDocumentAction,
-  deleteVersionAction,
-} from "../legal-documents";
+import { uploadDocumentAction, deleteVersionAction } from "../legal-documents";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { requireAdmin } from "@/features/auth/utils/guards";
 import { uploadToBlob, deleteFromBlob } from "@/services/vercel-blob";
@@ -188,7 +185,8 @@ describe("uploadDocumentAction", () => {
       vi.mocked(requireAdmin).mockResolvedValue(adminUser as any);
       vi.mocked(validateVersionFormat).mockReturnValue({
         valid: false,
-        error: "Version must be in semantic format (e.g., '1.0', '2.1', '1.2.3')",
+        error:
+          "Version must be in semantic format (e.g., '1.0', '2.1', '1.2.3')",
       });
 
       const formData = createLegalDocumentFormData({
@@ -311,7 +309,9 @@ describe("uploadDocumentAction", () => {
       const result = await uploadDocumentAction(null, formData);
 
       // Assert
-      expect(result.error).toBe("Failed to upload file to storage: Invalid response");
+      expect(result.error).toBe(
+        "Failed to upload file to storage: Invalid response",
+      );
       expect(legalDocumentDAL.createVersion).not.toHaveBeenCalled();
     });
   });
@@ -523,7 +523,9 @@ describe("deleteVersionAction", () => {
         mockDocumentVersion,
       );
       vi.mocked(legalDocumentDAL.deleteVersion).mockRejectedValue(
-        new Error("Cannot delete the current version. Upload a new version first."),
+        new Error(
+          "Cannot delete the current version. Upload a new version first.",
+        ),
       );
 
       const formData = createDeleteVersionFormData({
@@ -595,4 +597,3 @@ describe("deleteVersionAction", () => {
     });
   });
 });
-

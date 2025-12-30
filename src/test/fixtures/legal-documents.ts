@@ -79,7 +79,11 @@ export function createMockPDFFile(
  */
 export function createMockLargePDFFile(): File {
   const largeContent = "x".repeat(11 * 1024 * 1024); // 11MB
-  return createMockPDFFile("large-document.pdf", 11 * 1024 * 1024, largeContent);
+  return createMockPDFFile(
+    "large-document.pdf",
+    11 * 1024 * 1024,
+    largeContent,
+  );
 }
 
 /**
@@ -97,4 +101,3 @@ export function createMockNonPDFFile(): File {
 export function createMockEmptyFile(): File {
   return createMockPDFFile("empty.pdf", 0, "");
 }
-

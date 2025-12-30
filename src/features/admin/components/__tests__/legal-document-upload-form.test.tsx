@@ -72,7 +72,10 @@ describe("LegalDocumentUploadForm", () => {
 
       const versionInput = screen.getByLabelText(/version/i);
       expect(versionInput).toBeInTheDocument();
-      expect(versionInput).toHaveAttribute("placeholder", "e.g., 1.0, 2.1, 1.2.3");
+      expect(versionInput).toHaveAttribute(
+        "placeholder",
+        "e.g., 1.0, 2.1, 1.2.3",
+      );
     });
 
     it("should render upload button", () => {
@@ -123,7 +126,9 @@ describe("LegalDocumentUploadForm", () => {
       const file = createMockPDFFile();
       await user.upload(fileInput, file);
 
-      const uploadButton = screen.getByRole("button", { name: /upload document/i });
+      const uploadButton = screen.getByRole("button", {
+        name: /upload document/i,
+      });
 
       // The button should be enabled when file is selected
       expect(uploadButton).not.toBeDisabled();
@@ -258,4 +263,3 @@ describe("LegalDocumentUploadForm", () => {
     });
   });
 });
-

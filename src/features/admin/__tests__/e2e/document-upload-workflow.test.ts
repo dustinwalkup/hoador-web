@@ -7,9 +7,7 @@ import {
   validatePDFFile,
   validateVersionFormat,
 } from "@/lib/utils/document-validation";
-import {
-  createLegalDocumentFormData,
-} from "@/test/utils/mock-legal-document-form-data";
+import { createLegalDocumentFormData } from "@/test/utils/mock-legal-document-form-data";
 import {
   mockCurrentDocumentVersion,
   mockDocumentVersions,
@@ -211,4 +209,3 @@ describe("Complete Document Upload Workflow", () => {
     }
   });
 });
-

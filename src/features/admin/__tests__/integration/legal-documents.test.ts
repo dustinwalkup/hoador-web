@@ -7,9 +7,7 @@ import {
   validatePDFFile,
   validateVersionFormat,
 } from "@/lib/utils/document-validation";
-import {
-  createLegalDocumentFormData,
-} from "@/test/utils/mock-legal-document-form-data";
+import { createLegalDocumentFormData } from "@/test/utils/mock-legal-document-form-data";
 import {
   mockCurrentDocumentVersion,
   mockDocumentVersions,
@@ -382,4 +380,3 @@ describe("Version Tracking Flow: Upload → Version Created → History Updated"
     // In a real scenario, getCurrentVersion would return the new version
   });
 });
-

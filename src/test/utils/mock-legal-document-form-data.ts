@@ -35,10 +35,8 @@ export function createDeleteVersionFormData(
     documentId: overrides?.documentId || LEGAL_DOCUMENT_IDS.TOS,
     version: overrides?.version || "1.0",
     blobPathname:
-      overrides?.blobPathname ||
-      "legal-documents/tos/1234567890-1.0.pdf",
+      overrides?.blobPathname || "legal-documents/tos/1234567890-1.0.pdf",
   });
 
   return formData;
 }
-
