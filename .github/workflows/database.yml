@@ -57,7 +57,6 @@ jobs:
     name: Push Schema
     runs-on: ubuntu-latest
     if: github.event.inputs.operation == 'push'
-    environment: development
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -68,14 +67,13 @@ jobs:
       - name: Push schema changes
         run: bun run db:push
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_DEV }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   # Seed database
   seed:
     name: Seed Database
     runs-on: ubuntu-latest
     if: github.event.inputs.operation == 'seed'
-    environment: development
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -86,4 +84,4 @@ jobs:
       - name: Seed database
         run: bun run seed
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_DEV }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
