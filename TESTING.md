@@ -218,6 +218,61 @@ vi.mock("./some-module");
 import { Component } from "./component";
 ```
 
+## Test Planning Methodology
+
+This project follows the EARS (Easy Approach to Requirements Syntax) methodology for test planning, integrated with BDD (Behavior-Driven Development) and TDD (Test-Driven Development) principles.
+
+### Test Plan Template
+
+For each feature, create a test plan following the template in [`docs/AI-test-plan-template.md`](../docs/AI-test-plan-template.md). The template provides:
+
+- **Requirements Traceability**: Map all tests to requirements from Phase 1
+- **Test Type Strategy**: Unit, integration, E2E, and BDD scenarios
+- **Framework Configuration**: Vitest setup, mocking strategies
+- **Coverage Goals**: 80%+ overall, layer-specific targets
+- **Test Scenarios**: Templates for DAL, server actions, components
+- **BDD Integration**: Gherkin scenarios for acceptance testing
+- **TDD Workflow**: Red-Green-Refactor cycle guidance
+
+### Creating a Feature Test Plan
+
+1. **During EARS Phase 4**: Create `specs/[feature-name]/4-test-plan.md`
+2. **Map to Requirements**: Reference requirements from `specs/[feature-name]/1-requirements.md`
+3. **Follow Template**: Use the test plan template structure
+4. **Include BDD Scenarios**: For complex business logic and user workflows
+5. **Define Coverage Goals**: Feature-specific targets based on criticality
+
+**Example**: See [`specs/example-feature/4-test-plan.md`](../specs/example-feature/4-test-plan.md) for a complete example.
+
+### Methodology References
+
+- **EARS Methodology**: [`.ai/AI-ears-methodology.md`](../.ai/AI-ears-methodology.md)
+- **BDD Methodology**: [`.ai/AI-bdd-methodology.md`](../.ai/AI-bdd-methodology.md)
+- **TDD Methodology**: [`.ai/AI-tdd-methodology.md`](../.ai/AI-tdd-methodology.md)
+- **Test Plan Template**: [`docs/AI-test-plan-template.md`](../docs/AI-test-plan-template.md)
+
+### When to Use Each Approach
+
+**TDD (Test-Driven Development)**:
+
+- Complex business logic (DAL methods, validations)
+- Core services and utilities
+- Algorithms and data transformations
+- Domain models with business rules
+
+**BDD (Behavior-Driven Development)**:
+
+- Complex business logic with rich domain rules
+- Features with multiple stakeholders needing alignment
+- Customer-facing features and user workflows
+- Ambiguous requirements needing clarification
+
+**EARS Test Planning**:
+
+- All features should have a test plan (Phase 4)
+- Maps tests to requirements for traceability
+- Ensures comprehensive coverage
+
 ## Resources
 
 - [Vitest Documentation](https://vitest.dev/)
