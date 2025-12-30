@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRentalRequest } from "../create-rental-request";
-import { rentalDAL, userDAL } from "@/dal";
+import { rentalDAL, userDAL, notificationsDAL } from "@/dal";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { headers } from "next/headers";
@@ -19,6 +19,9 @@ vi.mock("@/dal", () => ({
   },
   userDAL: {
     getUserById: vi.fn(),
+  },
+  notificationsDAL: {
+    create: vi.fn(),
   },
 }));
 
@@ -58,6 +61,17 @@ vi.mock("../notifications/rental-approved", () => ({
 describe("createRentalRequest", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock notificationsDAL.create to return a successful notification
+    vi.mocked(notificationsDAL.create).mockResolvedValue({
+      id: "notification-123",
+      userId: "user-123",
+      type: "rental_request_created",
+      title: "Test Notification",
+      message: "Test message",
+      read: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
   });
 
   it("should create rental request with valid data", async () => {

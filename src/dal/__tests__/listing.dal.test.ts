@@ -1,15 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { listingDAL } from "../index";
 import { UnauthorizedError, NotFoundError, ValidationError } from "../errors";
-import {
-  mockListing,
-  mockListingMinimal,
-  mockListingInvalid,
-} from "@/test/fixtures/listings";
-import {
-  mockGetCurrentUserId,
-  mockGetCurrentUserIdUnauthorized,
-} from "@/test/utils/mock-auth";
+import { mockListing } from "@/test/fixtures/listings";
 import * as sessionUtils from "@/features/auth/utils/session";
 import * as membershipUtils from "@/features/community/utils/membership";
 import { db } from "@/db/db";
@@ -342,9 +334,7 @@ describe("ListingDAL", () => {
       });
 
       // Mock select to return different chains based on call
-      let selectCallCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
-        selectCallCount++;
         return { from: mockFromImage } as any;
       });
 
@@ -744,8 +734,6 @@ describe("ListingDAL", () => {
       // Arrange
       const userId = "user-123";
       const status = "active" as const;
-      const filters = {};
-      const pagination = { page: 1, limit: 12 };
 
       // Mock select().from().where().orderBy() chain for getUserListings
       const mockOrderBy = vi.fn().mockResolvedValue([mockListing]);
@@ -794,8 +782,6 @@ describe("ListingDAL", () => {
       // Arrange
       const userId = "user-123";
       const status = "active" as const;
-      const filters = {};
-      const pagination = { page: 1, limit: 12 };
 
       // Mock select().from().where().orderBy() chain for getUserListings
       const mockOrderBy = vi.fn().mockResolvedValue([]);

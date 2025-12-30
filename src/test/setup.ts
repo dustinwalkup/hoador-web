@@ -13,6 +13,8 @@ const mockPrompt = vi.fn(() => {});
 // These errors occur when happy-dom tries to execute malicious scripts before DOMPurify removes them
 process.on("uncaughtException", (error) => {
   const errorMessage = error?.message || String(error || "");
+  const errorName = error?.name || "";
+
   // Suppress "alert is not defined" errors from XSS sanitization tests
   // These are expected - the scripts ARE being sanitized, but happy-dom executes them first
   if (
@@ -21,8 +23,42 @@ process.on("uncaughtException", (error) => {
   ) {
     return; // Suppress the error
   }
+
+  // Suppress DOMException errors from XSS sanitization tests
+  // These occur when happy-dom tries to fetch javascript: URLs before DOMPurify removes them
+  if (
+    errorName === "DOMException" ||
+    (errorName === "NotSupportedError" &&
+      (errorMessage.includes("Failed to fetch from") ||
+        errorMessage.includes("javascript:alert") ||
+        errorMessage.includes('URL scheme "javascript" is not supported')))
+  ) {
+    return; // Suppress the error
+  }
+
   // Re-throw other errors
   throw error;
+});
+
+// Handle unhandled promise rejections (some DOMException errors may come through this way)
+process.on("unhandledRejection", (reason) => {
+  const errorMessage =
+    reason instanceof Error ? reason.message : String(reason || "");
+  const errorName = reason instanceof Error ? reason.name : "";
+
+  // Suppress DOMException errors from XSS sanitization tests
+  if (
+    errorName === "DOMException" ||
+    errorName === "NotSupportedError" ||
+    errorMessage.includes("Failed to fetch from") ||
+    errorMessage.includes("javascript:alert") ||
+    errorMessage.includes('URL scheme "javascript" is not supported')
+  ) {
+    return; // Suppress the error
+  }
+
+  // Re-throw other rejections
+  throw reason;
 });
 
 // Set on window for happy-dom environment (must be synchronous)
@@ -49,6 +85,18 @@ if (typeof window !== "undefined") {
     ) {
       return true; // Suppress the error
     }
+
+    // Suppress DOMException errors from XSS sanitization tests
+    if (
+      error?.name === "DOMException" ||
+      error?.name === "NotSupportedError" ||
+      messageStr.includes("Failed to fetch from") ||
+      messageStr.includes("javascript:alert") ||
+      messageStr.includes('URL scheme "javascript" is not supported')
+    ) {
+      return true; // Suppress the error
+    }
+
     // Call original handler for other errors
     if (originalErrorHandler) {
       return originalErrorHandler.call(
@@ -62,6 +110,24 @@ if (typeof window !== "undefined") {
     }
     return false;
   };
+
+  // Also handle unhandled promise rejections (some errors may come through this way)
+  window.addEventListener("unhandledrejection", (event) => {
+    const error = event.reason;
+    const errorMessage = error?.message || String(error || "");
+    const errorName = error?.name || "";
+
+    // Suppress DOMException errors from XSS sanitization tests
+    if (
+      errorName === "DOMException" ||
+      errorName === "NotSupportedError" ||
+      errorMessage.includes("Failed to fetch from") ||
+      errorMessage.includes("javascript:alert") ||
+      errorMessage.includes('URL scheme "javascript" is not supported')
+    ) {
+      event.preventDefault(); // Suppress the error
+    }
+  });
 }
 // Also set on global for Node environments
 const globalWithBrowserAPIs = global as unknown as {
