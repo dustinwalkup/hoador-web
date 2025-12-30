@@ -230,7 +230,7 @@ export function createMockListing(
 }
 
 // Create mock user for testing
- 
+
 export function createMockUser(overrides: any = {}) {
   return {
     id: "user-123",
