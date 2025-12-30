@@ -18,15 +18,7 @@ export function FavoritesButton({
     const newState = !isFavorited;
     setIsFavorited(newState); // Optimistic update
 
-    startTransition(async () => {
-      try {
-        console.log("toggleFavorite", listingId, isFavorited);
-      } catch (error: unknown) {
-        console.error(error);
-        // Revert on error
-        setIsFavorited(isFavorited);
-      }
-    });
+    startTransition(async () => {});
   };
 
   return (

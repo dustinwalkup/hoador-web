@@ -13,6 +13,7 @@
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --coverage",
     "test:watch": "vitest --watch",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -26,7 +27,7 @@
     "db:seed:users": "./src/db/seeds/users.ts",
     "seed": "tsx src/db/seeds/seed.ts",
     "seed:user": "tsx src/db/seeds/existing-user.seed.ts",
-    "ci": "bun run type-check && bun run lint && bun run test:run && bun run build"
+    "ci": "bun run type-check && bun run lint && bun run test:ci && bun run build"
   },
   "dependencies": {
     "@faker-js/faker": "^10.1.0",

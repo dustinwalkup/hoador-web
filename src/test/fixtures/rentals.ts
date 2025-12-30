@@ -1,0 +1,133 @@
+import type {
+  BorrowedListing,
+  RentalRequestItem,
+  LendingRequestItem,
+  RentalDetails,
+} from "@/dal/rentals.dal";
+
+export const mockRentalRequest: RentalRequestItem = {
+  id: "rental-request-123",
+  listingId: "listing-123",
+  listingName: "Test Power Drill",
+  listingImageUrl: "https://example.com/image.jpg",
+  renterId: "user-456",
+  ownerId: "user-123",
+  ownerName: "John Doe",
+  startDate: new Date("2024-02-01"),
+  endDate: new Date("2024-02-05"),
+  totalDays: 4,
+  dailyRate: "15.00",
+  totalAmount: "60.00",
+  status: "pending",
+  createdAt: new Date("2024-01-15"),
+  deliveryRequested: false,
+  setupRequested: false,
+  message: "I need this for a weekend project",
+  conversationId: null,
+  canLeaveReview: false,
+};
+
+export const mockBorrowedListing: BorrowedListing = {
+  id: "rental-123",
+  listingId: "listing-123",
+  listingName: "Test Power Drill",
+  listingImageUrl: "https://example.com/image.jpg",
+  ownerId: "user-123",
+  ownerName: "John Doe",
+  startDate: new Date("2024-02-01"),
+  endDate: new Date("2024-02-05"),
+  totalAmount: "60.00",
+  status: "active",
+  dailyRate: "15.00",
+  conversationId: "conversation-123",
+  canLeaveReview: false,
+};
+
+export const mockLendingRequest: LendingRequestItem = {
+  id: "rental-request-123",
+  listingId: "listing-123",
+  listingName: "Test Power Drill",
+  listingImageUrl: "https://example.com/image.jpg",
+  renterId: "user-456",
+  renterName: "Jane Smith",
+  renterProfileImage: "https://example.com/jane.jpg",
+  renterRating: 4.5,
+  renterReviewCount: 10,
+  renterVerified: true,
+  startDate: new Date("2024-02-01"),
+  endDate: new Date("2024-02-05"),
+  totalDays: 4,
+  dailyRate: "15.00",
+  totalAmount: "60.00",
+  securityDeposit: "50.00",
+  status: "pending",
+  createdAt: new Date("2024-01-15"),
+  deliveryRequested: false,
+  deliveryAddress: null,
+  deliveryFee: "10.00",
+  setupRequested: false,
+  setupFee: undefined,
+  message: "I need this for a weekend project",
+  selectedWindow: null,
+  deniedAt: null,
+  denialReason: null,
+  approvedAt: null,
+  conversationId: null,
+};
+
+export const mockRentalDetails: RentalDetails = {
+  id: "rental-123",
+  type: "rental",
+  listingId: "listing-123",
+  listingName: "Test Power Drill",
+  listingImageUrl: "https://example.com/image.jpg",
+  renterId: "user-456",
+  renterName: "Jane Smith",
+  renterEmail: "jane@example.com",
+  renterProfileImage: "https://example.com/jane.jpg",
+  ownerId: "user-123",
+  ownerName: "John Doe",
+  ownerEmail: "john@example.com",
+  startDate: new Date("2024-02-01"),
+  endDate: new Date("2024-02-05"),
+  totalDays: 4,
+  dailyRate: "15.00",
+  totalAmount: "60.00",
+  securityDeposit: "50.00",
+  status: "active",
+  createdAt: new Date("2024-01-15"),
+  deliveryRequested: false,
+  deliveryAddress: undefined,
+  deliveryFee: "10.00",
+  setupRequested: false,
+  setupFee: undefined,
+  message: "I need this for a weekend project",
+  selectedWindow: undefined,
+  pickupInstructions: undefined,
+  returnInstructions: undefined,
+  deniedAt: undefined,
+  denialReason: undefined,
+  approvedAt: new Date("2024-01-20"),
+  actualStartDate: new Date("2024-02-01"),
+  actualEndDate: undefined,
+  currentUserId: "user-123",
+  conversationId: "conversation-123",
+  canLeaveReview: false,
+};
+
+export const mockRentalDates = {
+  startDate: new Date("2024-02-01"),
+  endDate: new Date("2024-02-05"),
+  totalDays: 4,
+};
+
+export const mockRentalDatesInvalid = {
+  startDate: new Date("2024-02-05"), // End before start
+  endDate: new Date("2024-02-01"),
+};
+
+export const mockRentalDatesPast = {
+  startDate: new Date("2023-01-01"), // Past date
+  endDate: new Date("2023-01-05"),
+};
+

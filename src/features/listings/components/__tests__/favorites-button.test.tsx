@@ -175,27 +175,7 @@ describe("FavoritesButton", () => {
     });
   });
 
-  describe("Console Logging", () => {
-    it("should log toggle favorite action", async () => {
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-      const user = userEvent.setup();
-
-      render(<FavoritesButton listingId={mockListingId} isFavorite={false} />);
-
-      const button = screen.getByRole("button");
-      await user.click(button);
-
-      await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
-          "toggleFavorite",
-          mockListingId,
-          false,
-        );
-      });
-
-      consoleSpy.mockRestore();
-    });
-  });
+  // Note: Console logging test removed - component doesn't log to console
 
   describe("Error Handling", () => {
     it("should handle errors gracefully", async () => {

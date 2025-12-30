@@ -10,7 +10,7 @@ on:
 
 # Environment variables available to all jobs
 env:
-  NODE_VERSION: "22"
+  NODE_VERSION: "24"
   BUN_VERSION: "latest"
 
 jobs:
@@ -37,7 +37,7 @@ jobs:
         run: bun run lint
 
       - name: Format check
-        run: bun run prettier --check .
+        run: bun run format:check
 
   # Job 2: Run Tests
   test:
@@ -55,17 +55,28 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Run tests
-        run: bun run test:run
-
-      - name: Generate coverage report
-        run: bun run test:coverage
+      - name: Run tests with coverage
+        run: bun run test:ci
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           file: ./coverage/lcov.info
           fail_ci_if_error: false
+
+      - name: Publish test summary
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Tests
+          path: coverage/coverage-final.json
+          reporter: vitest
+
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage/
 
   # Job 3: Build Application
   build:
