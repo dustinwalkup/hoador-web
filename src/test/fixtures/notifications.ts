@@ -41,4 +41,3 @@ export const mockNotificationTypes = [
   "message",
   "review_received",
 ] as const;
-

@@ -47,7 +47,9 @@ vi.mock("../notifications/rental-request-created", () => ({
 
 vi.mock("../notifications/rental-approved", () => ({
   sendRentalApprovedNotification: vi.fn().mockResolvedValue(undefined),
-  sendPaymentSucceededNotificationToRenter: vi.fn().mockResolvedValue(undefined),
+  sendPaymentSucceededNotificationToRenter: vi
+    .fn()
+    .mockResolvedValue(undefined),
   sendPaymentSucceededNotificationToOwner: vi.fn().mockResolvedValue(undefined),
   sendPaymentFailureNotificationToRenter: vi.fn().mockResolvedValue(undefined),
   sendPaymentFailureNotificationToOwner: vi.fn().mockResolvedValue(undefined),
@@ -66,7 +68,7 @@ describe("createRentalRequest", () => {
     startDate.setDate(startDate.getDate() + 1); // Tomorrow
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 5); // 5 days from now
-    
+
     const formData = {
       listingId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", // Valid UUID
       startDate,
@@ -85,8 +87,10 @@ describe("createRentalRequest", () => {
       get: vi.fn().mockReturnValue(null),
     } as any);
     // DAL method returns { id: string }, not the full object
-    vi.mocked(rentalDAL.createRentalRequest).mockResolvedValue({ id: mockRentalRequest.id });
-    
+    vi.mocked(rentalDAL.createRentalRequest).mockResolvedValue({
+      id: mockRentalRequest.id,
+    });
+
     // Mock legal document versions - need to return objects with version property
     vi.mocked(legalDocumentDAL.getAllCurrentVersions).mockResolvedValue({
       [LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT]: { version: 1 },
@@ -94,7 +98,7 @@ describe("createRentalRequest", () => {
       [LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]: { version: 1 },
       [LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS]: { version: 1 },
     } as any);
-    
+
     // Mock recordAcceptance to not throw
     vi.mocked(legalDocumentDAL.recordAcceptance).mockResolvedValue(undefined);
     const ownerId = "user-123";
@@ -154,7 +158,7 @@ describe("createRentalRequest", () => {
     startDate.setDate(startDate.getDate() + 1); // Tomorrow
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 5); // 5 days from now
-    
+
     const formData = {
       listingId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", // Valid UUID
       startDate,
@@ -173,7 +177,9 @@ describe("createRentalRequest", () => {
     // Assert
     expect(result).toHaveProperty("error");
     // Action returns "You must be logged in to create a rental request" when userId is null
-    expect(result.error).toBe("You must be logged in to create a rental request");
+    expect(result.error).toBe(
+      "You must be logged in to create a rental request",
+    );
     expect(rentalDAL.createRentalRequest).not.toHaveBeenCalled();
   });
 
@@ -185,7 +191,7 @@ describe("createRentalRequest", () => {
     startDate.setDate(startDate.getDate() + 1); // Tomorrow
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 5); // 5 days from now
-    
+
     const formData = {
       listingId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", // Valid UUID
       startDate,
@@ -212,4 +218,3 @@ describe("createRentalRequest", () => {
     expect(result.error).toBe("Date conflict");
   });
 });
-

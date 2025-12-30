@@ -27,7 +27,11 @@ export async function waitForQueryState(
 /**
  * Mocks React Query hooks
  */
-export function mockUseQuery<T>(data: T, isLoading = false, error: Error | null = null) {
+export function mockUseQuery<T>(
+  data: T,
+  isLoading = false,
+  error: Error | null = null,
+) {
   return {
     data: isLoading ? undefined : data,
     isLoading,
@@ -54,4 +58,3 @@ export function mockUseMutation<TData = unknown, TVariables = unknown>() {
     reset: vi.fn(),
   };
 }
-

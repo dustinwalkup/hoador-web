@@ -1,7 +1,9 @@
 /**
  * Creates a FormData object with the provided fields
  */
-export function createFormData(fields: Record<string, string | File>): FormData {
+export function createFormData(
+  fields: Record<string, string | File>,
+): FormData {
   const formData = new FormData();
   Object.entries(fields).forEach(([key, value]) => {
     formData.append(key, value);
@@ -12,7 +14,9 @@ export function createFormData(fields: Record<string, string | File>): FormData 
 /**
  * Creates a FormData object for listing creation
  */
-export function createListingFormData(overrides?: Partial<Record<string, string>>): FormData {
+export function createListingFormData(
+  overrides?: Partial<Record<string, string>>,
+): FormData {
   return createFormData({
     name: "Test Listing",
     description: "Test description",
@@ -52,4 +56,3 @@ export function createProfileUpdateFormData(
     ...overrides,
   });
 }
-

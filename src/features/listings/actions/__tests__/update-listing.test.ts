@@ -178,4 +178,3 @@ describe("updateListing", () => {
     expect(result.error).toBe("Listing not found");
   });
 });
-

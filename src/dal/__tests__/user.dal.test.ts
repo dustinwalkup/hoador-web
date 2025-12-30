@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { userDAL } from "../index";
 import { UserDAL } from "../user.dal";
 import { ConflictError, NotFoundError, ValidationError } from "../errors";
-import { mockUser, mockUserMinimal, mockUserInvalid, mockAddress } from "@/test/fixtures/users";
+import {
+  mockUser,
+  mockUserMinimal,
+  mockUserInvalid,
+  mockAddress,
+} from "@/test/fixtures/users";
 import { mockRequireAuth } from "@/test/utils/mock-auth";
 import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
@@ -76,7 +81,7 @@ describe("UserDAL", () => {
           ...mockUser,
           id: userData.id,
         } as any);
-      
+
       // Mock getUserStats which is called by getUserById
       // Uses select().from().leftJoin().where()
       const mockWhereStats = vi.fn().mockResolvedValue([
@@ -211,9 +216,9 @@ describe("UserDAL", () => {
         id: userId,
       } as any);
 
-      const mockReturning = vi.fn().mockResolvedValue([
-        { ...mockUser, ...updateData },
-      ]);
+      const mockReturning = vi
+        .fn()
+        .mockResolvedValue([{ ...mockUser, ...updateData }]);
       const mockWhere = vi.fn().mockReturnValue({
         returning: mockReturning,
       });
@@ -281,7 +286,7 @@ describe("UserDAL", () => {
       vi.mocked(db.insert).mockReturnValueOnce({
         values: mockAddressValues,
       } as any);
-      
+
       // Mock transaction
       const mockTransaction = vi.fn().mockImplementation(async (callback) => {
         const tx = {
@@ -292,7 +297,7 @@ describe("UserDAL", () => {
         return result;
       });
       vi.mocked(db.transaction).mockImplementation(mockTransaction);
-      
+
       // Mock getUserById which is called after transaction
       // Mock getUserStats which is called by getUserById
       const mockWhereStats = vi.fn().mockResolvedValue([
@@ -312,15 +317,18 @@ describe("UserDAL", () => {
       vi.mocked(db.select).mockReturnValue({
         from: mockFromStats,
       } as any);
-      
+
       // Mock getUserById call after transaction (getUserById calls findFirst)
       vi.mocked(db.query.user.findFirst).mockResolvedValueOnce(mockUser as any);
 
       // Act
-      const result = await userDAL.createUserWithAddress({
-        ...mockUserMinimal,
-        address: addressData,
-      } as any, "community-123");
+      const result = await userDAL.createUserWithAddress(
+        {
+          ...mockUserMinimal,
+          address: addressData,
+        } as any,
+        "community-123",
+      );
 
       // Assert
       expect(result).toBeDefined();
@@ -342,12 +350,14 @@ describe("UserDAL", () => {
 
       // Act & Assert
       await expect(
-        userDAL.createUserWithAddress({
-          ...mockUserMinimal,
-          address: invalidAddressData,
-        } as any, "community-123"),
+        userDAL.createUserWithAddress(
+          {
+            ...mockUserMinimal,
+            address: invalidAddressData,
+          } as any,
+          "community-123",
+        ),
       ).rejects.toThrow();
     });
   });
 });
-

@@ -194,7 +194,10 @@ describe("uploadListingImage", () => {
     const listingId = "listing-123";
     const orderIndex = 0;
 
-    const mockBlob = { url: "https://example.com/image.jpg", pathname: "listings/123/image.jpg" };
+    const mockBlob = {
+      url: "https://example.com/image.jpg",
+      pathname: "listings/123/image.jpg",
+    };
     const { uploadToBlob } = await import("@/services/vercel-blob");
     vi.mocked(uploadToBlob).mockResolvedValue(mockBlob);
 
@@ -206,12 +209,12 @@ describe("uploadListingImage", () => {
     };
 
     const { db } = await import("@/db/db");
-    
+
     const mockReturning = vi.fn().mockResolvedValue([mockImage]);
     const mockValues = vi.fn().mockReturnValue({
       returning: mockReturning,
     });
-    
+
     vi.mocked(db.insert).mockReturnValue({
       values: mockValues,
     } as any);
@@ -241,4 +244,3 @@ describe("uploadListingImage", () => {
     expect(result.error).toBe("Failed to upload image");
   });
 });
-

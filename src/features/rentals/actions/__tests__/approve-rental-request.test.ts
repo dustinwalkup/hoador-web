@@ -36,7 +36,9 @@ vi.mock("../notifications/payment-failure", () => ({
 }));
 
 vi.mock("../notifications/payment-succeeded", () => ({
-  sendPaymentSucceededNotificationToRenter: vi.fn().mockResolvedValue(undefined),
+  sendPaymentSucceededNotificationToRenter: vi
+    .fn()
+    .mockResolvedValue(undefined),
   sendPaymentSucceededNotificationToOwner: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -73,27 +75,33 @@ describe("approveRentalRequest", () => {
       endDate: new Date("2024-02-05"),
     };
 
-    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(mockRental as any);
+    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(
+      mockRental as any,
+    );
     vi.mocked(userDAL.getOrCreateStripeCustomerId).mockResolvedValue("cus_123");
     vi.mocked(userDAL.getConnectedAccountId).mockResolvedValue("acct_123");
     vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
 
-    const { chargeRentalPayment } = await import("@/services/stripe/rental-payments");
+    const { chargeRentalPayment } =
+      await import("@/services/stripe/rental-payments");
     vi.mocked(chargeRentalPayment).mockResolvedValue({
       id: "pi_123",
       status: "succeeded",
     } as any);
 
-    const { authorizeSecurityDeposit } = await import("@/services/stripe/rental-payments");
+    const { authorizeSecurityDeposit } =
+      await import("@/services/stripe/rental-payments");
     vi.mocked(authorizeSecurityDeposit).mockResolvedValue({
       id: "auth_123",
       status: "requires_capture",
     } as any);
 
-    vi.mocked(rentalDAL.updateRentalRequestPaymentStatus).mockResolvedValue(undefined);
+    vi.mocked(rentalDAL.updateRentalRequestPaymentStatus).mockResolvedValue(
+      undefined,
+    );
     // approveRentalRequest returns void, so mockResolvedValue(undefined) is correct
     vi.mocked(rentalDAL.approveRentalRequest).mockResolvedValue(undefined);
-    
+
     // Mock getUserById for both renter and owner (called in success notification handler)
     vi.mocked(userDAL.getUserById)
       .mockResolvedValueOnce({
@@ -139,7 +147,9 @@ describe("approveRentalRequest", () => {
       requestId,
     };
 
-    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(undefined as any);
+    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(
+      undefined as any,
+    );
 
     // Act
     const result = await approveRentalRequest(formData);
@@ -162,7 +172,9 @@ describe("approveRentalRequest", () => {
       paymentMethodId: null, // No payment method
     };
 
-    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(mockRental as any);
+    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(
+      mockRental as any,
+    );
 
     // Act
     const result = await approveRentalRequest(formData);
@@ -193,15 +205,21 @@ describe("approveRentalRequest", () => {
       securityDeposit: "50.00",
     };
 
-    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(mockRental as any);
-    vi.mocked(rentalDAL.updateRentalRequestPaymentStatus).mockResolvedValue(undefined);
+    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(
+      mockRental as any,
+    );
+    vi.mocked(rentalDAL.updateRentalRequestPaymentStatus).mockResolvedValue(
+      undefined,
+    );
     vi.mocked(userDAL.getOrCreateStripeCustomerId).mockResolvedValue("cus_123");
     vi.mocked(userDAL.getConnectedAccountId).mockResolvedValue("acct_123");
     vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
 
-    const { chargeRentalPayment, getPaymentErrorMessage, isRetryablePaymentError } = await import(
-      "@/services/stripe/rental-payments"
-    );
+    const {
+      chargeRentalPayment,
+      getPaymentErrorMessage,
+      isRetryablePaymentError,
+    } = await import("@/services/stripe/rental-payments");
     const paymentError = new Error("Card declined");
     vi.mocked(chargeRentalPayment).mockRejectedValue(paymentError);
     vi.mocked(getPaymentErrorMessage).mockReturnValue("Card declined");
@@ -231,4 +249,3 @@ describe("approveRentalRequest", () => {
     expect(result.error).toContain("Payment failed");
   });
 });
-

@@ -9,7 +9,10 @@ import {
   mockRentalDates,
   mockRentalDatesInvalid,
 } from "@/test/fixtures/rentals";
-import { mockGetCurrentUserId, mockGetCurrentUserIdUnauthorized } from "@/test/utils/mock-auth";
+import {
+  mockGetCurrentUserId,
+  mockGetCurrentUserIdUnauthorized,
+} from "@/test/utils/mock-auth";
 import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 
@@ -132,14 +135,14 @@ describe("RentalDAL", () => {
         endDate: new Date("2024-02-02"), // Only 1 day difference = 2 total days
         setupFee: 0,
       };
-      
+
       // Don't mock db.insert - validation should fail before reaching it
       // differenceInDays returns 1, totalDays = 1 + 1 = 2, which is < minimumRentalPeriod (5)
 
       // Act & Assert
-      await expect(
-        rentalDAL.createRentalRequest(invalidDates),
-      ).rejects.toThrow(/minimum.*rental.*period/i);
+      await expect(rentalDAL.createRentalRequest(invalidDates)).rejects.toThrow(
+        /minimum.*rental.*period/i,
+      );
     });
 
     it("should check for date conflicts", async () => {
@@ -160,11 +163,11 @@ describe("RentalDAL", () => {
       // Note: Date conflict checking is not currently implemented in createRentalRequest
       // This test is skipped until conflict checking is added
       // When implemented, it should check for overlapping dates with existing requests/rentals
-      
+
       // For now, the request will succeed even with conflicts
       vi.mocked(db.query.rentalRequests.findFirst).mockResolvedValue(undefined);
       vi.mocked(db.query.rentals.findFirst).mockResolvedValue(undefined);
-      
+
       const mockReturning = vi.fn().mockResolvedValue([mockRentalRequest]);
       const mockValues = vi.fn().mockReturnValue({
         returning: mockReturning,
@@ -216,7 +219,9 @@ describe("RentalDAL", () => {
       });
 
       // Mock select().from().where().orderBy().limit() for images
-      const mockLimit = vi.fn().mockResolvedValue([{ imageUrl: "https://example.com/image.jpg" }]);
+      const mockLimit = vi
+        .fn()
+        .mockResolvedValue([{ imageUrl: "https://example.com/image.jpg" }]);
       const mockOrderByImage = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -226,7 +231,7 @@ describe("RentalDAL", () => {
       const mockFromImage = vi.fn().mockReturnValue({
         where: mockWhereImage,
       });
-      
+
       // Mock select to return different chains based on call
       let callCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
@@ -281,13 +286,13 @@ describe("RentalDAL", () => {
       const mockFromSelect = vi.fn().mockReturnValue({
         where: mockWhereSelect,
       });
-      
+
       // Mock select().from().where() chain for conflict check
       const mockWhereConflict = vi.fn().mockResolvedValue([]);
       const mockFromConflict = vi.fn().mockReturnValue({
         where: mockWhereConflict,
       });
-      
+
       // Mock select to return different chains based on call
       let selectCallCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
@@ -301,9 +306,9 @@ describe("RentalDAL", () => {
         }
       });
 
-      const mockReturning = vi.fn().mockResolvedValue([
-        { ...mockRentalRequest, status: "approved" },
-      ]);
+      const mockReturning = vi
+        .fn()
+        .mockResolvedValue([{ ...mockRentalRequest, status: "approved" }]);
       const mockWhere = vi.fn().mockReturnValue({
         returning: mockReturning,
       });
@@ -331,10 +336,12 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        ownerId: "user-123", // Different owner
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          ownerId: "user-123", // Different owner
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -346,9 +353,9 @@ describe("RentalDAL", () => {
       } as any);
 
       // Act & Assert
-      await expect(
-        rentalDAL.approveRentalRequest(requestId),
-      ).rejects.toThrow(UnauthorizedError);
+      await expect(rentalDAL.approveRentalRequest(requestId)).rejects.toThrow(
+        UnauthorizedError,
+      );
     });
 
     it("should throw NotFoundError when request not found", async () => {
@@ -370,9 +377,9 @@ describe("RentalDAL", () => {
       } as any);
 
       // Act & Assert
-      await expect(
-        rentalDAL.approveRentalRequest(requestId),
-      ).rejects.toThrow(NotFoundError);
+      await expect(rentalDAL.approveRentalRequest(requestId)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should check for date conflicts before approving", async () => {
@@ -382,27 +389,31 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain for rental request check
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        ownerId: userId,
-        status: "pending",
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          ownerId: userId,
+          status: "pending",
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
       const mockFromSelect = vi.fn().mockReturnValue({
         where: mockWhereSelect,
       });
-      
+
       vi.mocked(db.select).mockReturnValue({
         from: mockFromSelect,
       } as any);
-      
+
       // Mock update and insert for approval
-      const mockReturning = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        status: "approved",
-      }]);
+      const mockReturning = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          status: "approved",
+        },
+      ]);
       const mockWhere = vi.fn().mockReturnValue({
         returning: mockReturning,
       });
@@ -412,8 +423,10 @@ describe("RentalDAL", () => {
       vi.mocked(db.update).mockReturnValue({
         set: mockSet,
       } as any);
-      
-      const mockInsertReturning = vi.fn().mockResolvedValue([{ id: "rental-123" }]);
+
+      const mockInsertReturning = vi
+        .fn()
+        .mockResolvedValue([{ id: "rental-123" }]);
       const mockInsertValues = vi.fn().mockReturnValue({
         returning: mockInsertReturning,
       });
@@ -452,11 +465,13 @@ describe("RentalDAL", () => {
       vi.mocked(db.select).mockReturnValue(mockSelect as any);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        ownerId: userId,
-        status: "pending",
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          ownerId: userId,
+          status: "pending",
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -467,9 +482,11 @@ describe("RentalDAL", () => {
         from: mockFromSelect,
       } as any);
 
-      const mockReturning = vi.fn().mockResolvedValue([
-        { ...mockRentalRequest, status: "denied", denialReason: reason },
-      ]);
+      const mockReturning = vi
+        .fn()
+        .mockResolvedValue([
+          { ...mockRentalRequest, status: "denied", denialReason: reason },
+        ]);
       const mockWhere = vi.fn().mockReturnValue({
         returning: mockReturning,
       });
@@ -496,10 +513,12 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        ownerId: "user-123", // Different owner
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          ownerId: "user-123", // Different owner
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -525,11 +544,13 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        renterId: userId,
-        status: "pending",
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          renterId: userId,
+          status: "pending",
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -540,9 +561,9 @@ describe("RentalDAL", () => {
         from: mockFromSelect,
       } as any);
 
-      const mockReturning = vi.fn().mockResolvedValue([
-        { ...mockRentalRequest, status: "cancelled" },
-      ]);
+      const mockReturning = vi
+        .fn()
+        .mockResolvedValue([{ ...mockRentalRequest, status: "cancelled" }]);
       const mockWhere = vi.fn().mockReturnValue({
         returning: mockReturning,
       });
@@ -568,10 +589,12 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        renterId: "user-456", // Different renter
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          renterId: "user-456", // Different renter
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -595,11 +618,13 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        renterId: userId,
-        status: "approved", // Cannot cancel approved
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          renterId: userId,
+          status: "approved", // Cannot cancel approved
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -627,7 +652,7 @@ describe("RentalDAL", () => {
       // The test mocks are complex because getRentalDetailsById makes many queries.
       // Instead, we'll verify the method throws NotFoundError when not found,
       // and test the positive case by mocking all the queries in sequence.
-      
+
       // Mock select().from().leftJoin().leftJoin().where().limit() chain for rental request
       const mockRentalRequestData = {
         ...mockRentalDetails,
@@ -637,29 +662,37 @@ describe("RentalDAL", () => {
         listingId: "listing-123",
         status: "pending",
       };
-      
+
       // Build the chain for the first query (rental requests with left joins)
       const mockLimit1 = vi.fn().mockResolvedValue([mockRentalRequestData]);
       const mockWhere1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
       const mockLeftJoin2 = vi.fn().mockReturnValue({ where: mockWhere1 });
-      const mockLeftJoin1 = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin2 });
+      const mockLeftJoin1 = vi
+        .fn()
+        .mockReturnValue({ leftJoin: mockLeftJoin2 });
       const mockFrom1 = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin1 });
-      
+
       // Build the chain for listing images query
-      const mockLimit2 = vi.fn().mockResolvedValue([{ imageUrl: "https://example.com/image.jpg" }]);
+      const mockLimit2 = vi
+        .fn()
+        .mockResolvedValue([{ imageUrl: "https://example.com/image.jpg" }]);
       const mockOrderBy2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
       const mockWhere2 = vi.fn().mockReturnValue({ orderBy: mockOrderBy2 });
       const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
-      
+
       // Build the chain for completed rentals query
       const mockWhere3 = vi.fn().mockResolvedValue([]);
       const mockFrom3 = vi.fn().mockReturnValue({ where: mockWhere3 });
-      
+
       // Build the chain for rental record check (for review status)
-      const mockLimit4 = vi.fn().mockResolvedValue([{ id: "rental-record-123", damageReported: false }]);
+      const mockLimit4 = vi
+        .fn()
+        .mockResolvedValue([
+          { id: "rental-record-123", damageReported: false },
+        ]);
       const mockWhere4 = vi.fn().mockReturnValue({ limit: mockLimit4 });
       const mockFrom4 = vi.fn().mockReturnValue({ where: mockWhere4 });
-      
+
       // Mock select to handle multiple calls in sequence
       let selectCallCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
@@ -674,10 +707,10 @@ describe("RentalDAL", () => {
           return { from: mockFrom4 } as any; // Rental record check
         }
       });
-      
+
       // Mock other queries using db.query
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({ 
-        id: "listing-123", 
+      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
+        id: "listing-123",
         name: "Test Listing",
         description: "Test description",
         brand: "TestBrand",
@@ -685,17 +718,17 @@ describe("RentalDAL", () => {
         condition: "good",
       } as any);
       vi.mocked(db.query.user.findFirst)
-        .mockResolvedValueOnce({ 
-          id: "user-456", 
-          firstName: "Jane", 
+        .mockResolvedValueOnce({
+          id: "user-456",
+          firstName: "Jane",
           lastName: "Smith",
           email: "jane@example.com",
           emailVerified: true,
           createdAt: new Date(),
         } as any) // Renter
-        .mockResolvedValueOnce({ 
-          id: userId, 
-          firstName: "John", 
+        .mockResolvedValueOnce({
+          id: userId,
+          firstName: "John",
           lastName: "Doe",
           email: "john@example.com",
           emailVerified: true,
@@ -718,7 +751,7 @@ describe("RentalDAL", () => {
 
       const userId = "user-123";
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-      
+
       // Mock select().from().leftJoin().leftJoin().where().limit() chain returning empty for rentalRequests query
       const mockLimit1 = vi.fn().mockResolvedValue([]);
       const mockWhere1 = vi.fn().mockReturnValue({
@@ -733,7 +766,7 @@ describe("RentalDAL", () => {
       const mockFrom1 = vi.fn().mockReturnValue({
         leftJoin: mockLeftJoin1_1,
       });
-      
+
       // Mock select().from().leftJoin().where().limit() chain returning empty for rentals query
       // This is the fallback query when rentalRequests query returns empty
       const mockLimit2 = vi.fn().mockResolvedValue([]);
@@ -746,7 +779,7 @@ describe("RentalDAL", () => {
       const mockFrom2 = vi.fn().mockReturnValue({
         leftJoin: mockLeftJoin2_2,
       });
-      
+
       // Mock select to handle multiple calls
       // getRentalDetailsById first queries rentalRequests, then if empty, queries rentals
       let selectCallCount = 0;
@@ -760,9 +793,9 @@ describe("RentalDAL", () => {
       });
 
       // Act & Assert
-      await expect(
-        rentalDAL.getRentalDetailsById(rentalId),
-      ).rejects.toThrow(NotFoundError);
+      await expect(rentalDAL.getRentalDetailsById(rentalId)).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 
@@ -774,11 +807,13 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        ownerId: userId,
-        status: "approved",
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          ownerId: userId,
+          status: "approved",
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -789,9 +824,9 @@ describe("RentalDAL", () => {
         from: mockFromSelect,
       } as any);
 
-      const mockReturning = vi.fn().mockResolvedValue([
-        { ...mockRentalDetails, status: "active" },
-      ]);
+      const mockReturning = vi
+        .fn()
+        .mockResolvedValue([{ ...mockRentalDetails, status: "active" }]);
       const mockWhere = vi.fn().mockReturnValue({
         returning: mockReturning,
       });
@@ -818,10 +853,12 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        ownerId: "user-123", // Different owner
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          ownerId: "user-123", // Different owner
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -847,11 +884,13 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        ownerId: userId,
-        status: "active",
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          ownerId: userId,
+          status: "active",
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -862,9 +901,9 @@ describe("RentalDAL", () => {
         from: mockFromSelect,
       } as any);
 
-      const mockReturning = vi.fn().mockResolvedValue([
-        { ...mockRentalDetails, status: "completed" },
-      ]);
+      const mockReturning = vi
+        .fn()
+        .mockResolvedValue([{ ...mockRentalDetails, status: "completed" }]);
       const mockWhere = vi.fn().mockReturnValue({
         returning: mockReturning,
       });
@@ -891,10 +930,12 @@ describe("RentalDAL", () => {
       vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([{
-        ...mockRentalRequest,
-        ownerId: "user-123", // Different owner
-      }]);
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          ownerId: "user-123", // Different owner
+        },
+      ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -912,4 +953,3 @@ describe("RentalDAL", () => {
     });
   });
 });
-

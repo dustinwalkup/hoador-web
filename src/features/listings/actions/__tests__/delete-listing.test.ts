@@ -66,4 +66,3 @@ describe("deleteListing", () => {
     expect(result.error).toBe("Listing not found");
   });
 });
-

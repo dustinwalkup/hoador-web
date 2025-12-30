@@ -255,10 +255,11 @@ describe("ListingDAL", () => {
     it("should include user-specific data when userId provided", async () => {
       // Arrange
       const listingId = "listing-123";
-      const userId = "user-123";
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue(
-        mockListing as any,
-      );
+      const userId = "user-456"; // Different from owner to test view count increment
+      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
+        ...mockListing,
+        ownerId: "user-123", // Owner ID different from userId
+      } as any);
 
       // Mock select().from() chain for images
       const mockOrderBy = vi.fn().mockResolvedValue([]);
@@ -275,11 +276,27 @@ describe("ListingDAL", () => {
       // Mock reviews query
       vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
 
+      // Mock userFavorites query
+      vi.mocked(db.query.userFavorites.findFirst).mockResolvedValue(undefined);
+
+      // Mock userAddresses query
+      vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue(undefined);
+
+      // Mock db.update() chain for view count increment
+      const mockWhereUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockSet = vi.fn().mockReturnValue({
+        where: mockWhereUpdate,
+      });
+      vi.mocked(db.update).mockReturnValue({
+        set: mockSet,
+      } as any);
+
       // Act
       await listingDAL.getListingById(listingId, userId);
 
       // Assert
       expect(db.query.listings.findFirst).toHaveBeenCalled();
+      expect(db.update).toHaveBeenCalled(); // View count should be incremented
     });
   });
 

@@ -6,7 +6,10 @@ import {
   mockMessage,
   mockConversationWithMessages,
 } from "@/test/fixtures/messages";
-import { mockGetCurrentUserId, mockGetCurrentUserIdUnauthorized } from "@/test/utils/mock-auth";
+import {
+  mockGetCurrentUserId,
+  mockGetCurrentUserIdUnauthorized,
+} from "@/test/utils/mock-auth";
 import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 
@@ -49,7 +52,10 @@ describe("MessagesDAL", () => {
       );
 
       // Act
-      const result = await messagesDAL.findOrCreateConversation(user1Id, user2Id);
+      const result = await messagesDAL.findOrCreateConversation(
+        user1Id,
+        user2Id,
+      );
 
       // Assert
       expect(result).toEqual(mockConversation);
@@ -73,7 +79,10 @@ describe("MessagesDAL", () => {
       } as any);
 
       // Act
-      const result = await messagesDAL.findOrCreateConversation(user1Id, user2Id);
+      const result = await messagesDAL.findOrCreateConversation(
+        user1Id,
+        user2Id,
+      );
 
       // Assert
       expect(result).toEqual(mockConversation);
@@ -119,7 +128,11 @@ describe("MessagesDAL", () => {
       } as any);
 
       // Act
-      const result = await messagesDAL.sendMessage(senderId, recipientId, content);
+      const result = await messagesDAL.sendMessage(
+        senderId,
+        recipientId,
+        content,
+      );
 
       // Assert
       expect(result).toEqual([mockMessage]);
@@ -319,7 +332,7 @@ describe("MessagesDAL", () => {
         user1Id: "user-123",
         user2Id: "user-456",
       } as any);
-      
+
       // Mock update to return empty array (user not participant, so updateData is empty)
       const mockReturning = vi.fn().mockResolvedValue([]);
       const mockWhere = vi.fn().mockReturnValue({
@@ -443,4 +456,3 @@ describe("MessagesDAL", () => {
     });
   });
 });
-

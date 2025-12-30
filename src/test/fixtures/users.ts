@@ -98,4 +98,3 @@ export const mockUserStats = {
   averageRating: 4.5,
   totalReviews: 8,
 };
-

@@ -1,7 +1,10 @@
 import { vi } from "vitest";
 import type { Mock } from "vitest";
 import { UnauthorizedError } from "@/dal/errors";
-import { mockSession, mockAdminSession as mockAdminSessionData } from "../fixtures/auth";
+import {
+  mockSession,
+  mockAdminSession as mockAdminSessionData,
+} from "../fixtures/auth";
 
 /**
  * Mocks getCurrentUserId to return a user ID
@@ -55,4 +58,3 @@ export function mockAdminSession(
 ): Mock {
   return vi.fn().mockResolvedValue(adminSession);
 }
-

@@ -130,4 +130,3 @@ export const mockRentalDatesPast = {
   startDate: new Date("2023-01-01"), // Past date
   endDate: new Date("2023-01-05"),
 };
-

@@ -48,4 +48,3 @@ export const mockReviewList = [
     comment: "Could be better",
   },
 ];
-
