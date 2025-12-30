@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { rentalDAL } from "@/dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalLayout } from "./rental-layout";
 import { RentalContent } from "./rental-content";
 
@@ -33,6 +35,29 @@ export async function RentalDetailsServer({
     viewContext = isRenter ? "renting" : "lending";
   }
 
+  // Fetch the rental agreement document that was accepted for this rental
+  // Fallback to current version if no acceptance found
+  let rentalAgreementUrl: string | undefined;
+  try {
+    const acceptance =
+      await legalDocumentDAL.getRentalAgreementAcceptance(rentalId);
+    if (acceptance) {
+      rentalAgreementUrl = acceptance.url;
+    } else {
+      // Fallback to current version if no acceptance found
+      const currentVersion = await legalDocumentDAL.getCurrentVersion(
+        LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT,
+      );
+      if (currentVersion) {
+        rentalAgreementUrl = currentVersion.url;
+      }
+    }
+  } catch (error) {
+    // If there's an error fetching, continue without the URL
+    // The button will be disabled
+    console.error("Error fetching rental agreement:", error);
+  }
+
   return (
     <RentalLayout
       rentalDetails={rentalDetails}
@@ -45,6 +70,7 @@ export async function RentalDetailsServer({
         viewContext={viewContext}
         isRenter={isRenter}
         isOwner={isOwner}
+        rentalAgreementUrl={rentalAgreementUrl}
       />
     </RentalLayout>
   );

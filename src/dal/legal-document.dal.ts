@@ -6,6 +6,7 @@ import {
   legalDocuments,
   userLegalAcceptances,
 } from "@/db/schemas/legal-documents.schema";
+import { rentalRequests } from "@/db/schemas/rentals.schema";
 import { BaseDAL } from "./base";
 import { UnauthorizedError } from "./errors";
 import { requireAuth } from "@/features/auth/utils/session";
@@ -472,6 +473,77 @@ export class legalDocumentDAL extends BaseDAL {
       }));
     } catch (error) {
       console.error("Error fetching user acceptances:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the rental agreement acceptance for a specific rental request
+   * Returns the document version and URL that was accepted at rental creation
+   * Requires authentication and ensures user can only access their own rentals
+   */
+  static async getRentalAgreementAcceptance(
+    rentalRequestId: string,
+  ): Promise<{ version: string; url: string } | null> {
+    try {
+      // Verify authentication
+      const auth = await requireAuth();
+
+      // First, verify the user has access to this rental (is either renter or owner)
+      const rentalRequest = await db
+        .select()
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, rentalRequestId))
+        .limit(1);
+
+      if (rentalRequest.length === 0) {
+        throw new UnauthorizedError("Rental request not found");
+      }
+
+      const request = rentalRequest[0];
+      if (request.renterId !== auth.id && request.ownerId !== auth.id) {
+        throw new UnauthorizedError(
+          "Cannot access rental agreement for this rental",
+        );
+      }
+
+      // Get the acceptance record for this rental request
+      const acceptances = await db
+        .select()
+        .from(userLegalAcceptances)
+        .where(
+          and(
+            eq(userLegalAcceptances.rentalRequestId, rentalRequestId),
+            eq(
+              userLegalAcceptances.documentId,
+              LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT,
+            ),
+          ),
+        )
+        .limit(1);
+
+      if (acceptances.length === 0) {
+        return null;
+      }
+
+      const acceptance = acceptances[0];
+
+      // Get the document version to retrieve the URL
+      const documentVersion = await this.getVersion(
+        LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT,
+        acceptance.version,
+      );
+
+      if (!documentVersion) {
+        return null;
+      }
+
+      return {
+        version: documentVersion.version,
+        url: documentVersion.url,
+      };
+    } catch (error) {
+      console.error("Error fetching rental agreement acceptance:", error);
       throw error;
     }
   }

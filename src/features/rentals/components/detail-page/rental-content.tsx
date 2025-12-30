@@ -15,6 +15,7 @@ interface RentalContentProps {
   viewContext: "renting" | "lending" | "auto";
   isRenter: boolean;
   isOwner: boolean;
+  rentalAgreementUrl?: string;
 }
 
 export function RentalContent({
@@ -22,6 +23,7 @@ export function RentalContent({
   viewContext,
   isRenter,
   isOwner,
+  rentalAgreementUrl,
 }: RentalContentProps) {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -56,6 +58,7 @@ export function RentalContent({
           viewContext={viewContext}
           isRenter={isRenter}
           isOwner={isOwner}
+          rentalAgreementUrl={rentalAgreementUrl}
         />
         <RentalProtection />
       </div>

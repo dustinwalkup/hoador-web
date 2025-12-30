@@ -9,7 +9,7 @@ import {
   Flag,
   Plus,
   Edit,
-  Download,
+  ExternalLink,
   PlayCircle,
   Star,
 } from "lucide-react";
@@ -31,12 +31,14 @@ interface RentalActionsProps {
   viewContext: "renting" | "lending" | "auto";
   isRenter: boolean;
   isOwner: boolean;
+  rentalAgreementUrl?: string;
 }
 
 export function RentalActions({
   rentalDetails,
   isRenter,
   isOwner,
+  rentalAgreementUrl,
 }: RentalActionsProps) {
   const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -63,6 +65,13 @@ export function RentalActions({
     now.setHours(0, 0, 0, 0);
     startDate.setHours(0, 0, 0, 0);
     return now >= startDate;
+  };
+
+  const handleDownloadRentalAgreement = () => {
+    if (rentalAgreementUrl) {
+      // Open in new tab - browser will handle PDF download/display
+      window.open(rentalAgreementUrl, "_blank", "noopener,noreferrer");
+    }
   };
 
   return (
@@ -178,9 +187,14 @@ export function RentalActions({
         )}
 
         {/* Common Actions */}
-        <Button variant="outline" className="w-full bg-transparent">
-          <Download className="mr-2 h-4 w-4" />
-          Download Contract
+        <Button
+          variant="outline"
+          className="w-full bg-transparent"
+          onClick={handleDownloadRentalAgreement}
+          disabled={!rentalAgreementUrl}
+        >
+          <ExternalLink className="mr-2 h-4 w-4" />
+          Rental Agreement
         </Button>
       </CardContent>
 
