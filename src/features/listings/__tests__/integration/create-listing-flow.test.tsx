@@ -79,8 +79,8 @@ describe("Create Listing Flow Integration", () => {
         categoryId: "power-tools",
         condition: "good" as const,
         dailyRate: 15.99,
-        weeklyRate: 50.00,
-        monthlyRate: 150.00,
+        weeklyRate: 50.0,
+        monthlyRate: 150.0,
         securityDeposit: 50,
         specifications: {},
         instructions: "Handle with care",
@@ -108,12 +108,12 @@ describe("Create Listing Flow Integration", () => {
           categoryId: "power-tools",
           condition: "good",
           dailyRate: 15.99,
-          weeklyRate: 50.00,
-          monthlyRate: 150.00,
+          weeklyRate: 50.0,
+          monthlyRate: 150.0,
           pickupAvailable: true,
           deliveryAvailable: false,
           ownerId: "user-123",
-        })
+        }),
       );
       expect(revalidatePath).toHaveBeenCalledWith("/dashboard/garage");
     });
@@ -126,7 +126,7 @@ describe("Create Listing Flow Integration", () => {
         description: "Test description",
         categoryId: "test-category",
         condition: "good" as const,
-        dailyRate: 5.00,
+        dailyRate: 5.0,
         securityDeposit: 10,
         specifications: {},
         minimumRentalPeriod: 1,
@@ -153,7 +153,7 @@ describe("Create Listing Flow Integration", () => {
         description: "Test description",
         categoryId: "test-category",
         condition: "good" as const,
-        dailyRate: 5.00,
+        dailyRate: 5.0,
         securityDeposit: 10,
         specifications: {},
         minimumRentalPeriod: 1,
@@ -196,11 +196,16 @@ describe("Create Listing Flow Integration", () => {
         categoryId: formData.get("categoryId") as string,
         condition: formData.get("condition") as string,
         dailyRate: parseFloat(formData.get("dailyRate") as string),
-        weeklyRate: formData.get("weeklyRate") ? parseFloat(formData.get("weeklyRate") as string) : undefined,
-        monthlyRate: formData.get("monthlyRate") ? parseFloat(formData.get("monthlyRate") as string) : undefined,
+        weeklyRate: formData.get("weeklyRate")
+          ? parseFloat(formData.get("weeklyRate") as string)
+          : undefined,
+        monthlyRate: formData.get("monthlyRate")
+          ? parseFloat(formData.get("monthlyRate") as string)
+          : undefined,
         pickupAvailable: formData.get("pickupAvailable") === "true",
         deliveryAvailable: formData.get("deliveryAvailable") === "true",
-        tags: (formData.get("tags") as string)?.split(",").filter(Boolean) || [],
+        tags:
+          (formData.get("tags") as string)?.split(",").filter(Boolean) || [],
       };
 
       expect(transformedData).toEqual({
@@ -208,9 +213,9 @@ describe("Create Listing Flow Integration", () => {
         description: "Heavy duty drill",
         categoryId: "power-tools",
         condition: "excellent",
-        dailyRate: 20.00,
-        weeklyRate: 100.00,
-        monthlyRate: 300.00,
+        dailyRate: 20.0,
+        weeklyRate: 100.0,
+        monthlyRate: 300.0,
         pickupAvailable: true,
         deliveryAvailable: true,
         tags: ["power", "drill", "heavy-duty"],

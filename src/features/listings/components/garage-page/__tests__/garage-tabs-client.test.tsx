@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { GarageTabsClient } from "../garage-tabs-client";
 
+// Create a global reference to the mock
+let mockTabs: any;
+
 // Mock Next.js navigation
 const mockRouter = {
   replace: vi.fn(),
@@ -22,9 +25,6 @@ vi.mock("@/features/listings/hooks/use-garage", () => ({
 }));
 
 // Mock shadcn Tabs components
-// Create a global reference to the mock
-let mockTabs: any;
-
 vi.mock("@/components/ui/tabs", () => {
   mockTabs = vi.fn(({ children, value, onValueChange, className }) => (
     <div data-testid="tabs" data-value={value} className={className}>
@@ -38,25 +38,25 @@ vi.mock("@/components/ui/tabs", () => {
 
   return {
     Tabs: mockTabs,
-  TabsList: vi.fn(({ children, className }) => (
-    <div data-testid="tabs-list" className={className}>
-      {children}
-    </div>
-  )),
-  TabsTrigger: vi.fn(({ children, value, onClick }) => (
-    <button
-      data-testid={`tabs-trigger-${value}`}
-      data-value={value}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  )),
-  TabsContent: vi.fn(({ children, value, className }) => (
-    <div data-testid={`tabs-content-${value}`} className={className}>
-      {children}
-    </div>
-  )),
+    TabsList: vi.fn(({ children, className }) => (
+      <div data-testid="tabs-list" className={className}>
+        {children}
+      </div>
+    )),
+    TabsTrigger: vi.fn(({ children, value, onClick }) => (
+      <button
+        data-testid={`tabs-trigger-${value}`}
+        data-value={value}
+        onClick={onClick}
+      >
+        {children}
+      </button>
+    )),
+    TabsContent: vi.fn(({ children, value, className }) => (
+      <div data-testid={`tabs-content-${value}`} className={className}>
+        {children}
+      </div>
+    )),
   };
 });
 
@@ -219,7 +219,9 @@ describe("GarageTabsClient", () => {
       render(<GarageTabsClient currentTab="inactive" />);
 
       // Get the onValueChange function that was passed to Tabs
-      const tabsCall = mockTabs.mock.calls.find((call: any) => call[0].onValueChange);
+      const tabsCall = mockTabs.mock.calls.find(
+        (call: any) => call[0].onValueChange,
+      );
       expect(tabsCall).toBeDefined();
       const handleTabChange = tabsCall![0].onValueChange;
 
@@ -237,7 +239,9 @@ describe("GarageTabsClient", () => {
       render(<GarageTabsClient currentTab="active" />);
 
       // Get the onValueChange function that was passed to Tabs
-      const tabsCall = mockTabs.mock.calls.find((call: any) => call[0].onValueChange);
+      const tabsCall = mockTabs.mock.calls.find(
+        (call: any) => call[0].onValueChange,
+      );
       expect(tabsCall).toBeDefined();
       const handleTabChange = tabsCall![0].onValueChange;
 
@@ -263,7 +267,9 @@ describe("GarageTabsClient", () => {
       render(<GarageTabsClient currentTab="active" />);
 
       // Get the onValueChange function that was passed to Tabs
-      const tabsCall = mockTabs.mock.calls.find((call: any) => call[0].onValueChange);
+      const tabsCall = mockTabs.mock.calls.find(
+        (call: any) => call[0].onValueChange,
+      );
       expect(tabsCall).toBeDefined();
       const handleTabChange = tabsCall![0].onValueChange;
 
@@ -294,7 +300,9 @@ describe("GarageTabsClient", () => {
       render(<GarageTabsClient currentTab="active" />);
 
       // Get the onValueChange function that was passed to Tabs
-      const tabsCall = mockTabs.mock.calls.find((call: any) => call[0].onValueChange);
+      const tabsCall = mockTabs.mock.calls.find(
+        (call: any) => call[0].onValueChange,
+      );
       expect(tabsCall).toBeDefined();
       const handleTabChange = tabsCall![0].onValueChange;
 
@@ -314,7 +322,9 @@ describe("GarageTabsClient", () => {
       render(<GarageTabsClient currentTab="active" />);
 
       // Get the onValueChange function that was passed to Tabs
-      const tabsCall = mockTabs.mock.calls.find((call: any) => call[0].onValueChange);
+      const tabsCall = mockTabs.mock.calls.find(
+        (call: any) => call[0].onValueChange,
+      );
       expect(tabsCall).toBeDefined();
       const handleTabChange = tabsCall![0].onValueChange;
 
@@ -390,7 +400,9 @@ describe("GarageTabsClient", () => {
       render(<GarageTabsClient currentTab="active" />);
 
       // Get the onValueChange function that was passed to Tabs
-      const tabsCall = mockTabs.mock.calls.find((call: any) => call[0].onValueChange);
+      const tabsCall = mockTabs.mock.calls.find(
+        (call: any) => call[0].onValueChange,
+      );
       expect(tabsCall).toBeDefined();
       const handleTabChange = tabsCall![0].onValueChange;
 
@@ -409,7 +421,9 @@ describe("GarageTabsClient", () => {
       render(<GarageTabsClient currentTab="active" />);
 
       // Get the onValueChange function that was passed to Tabs
-      const tabsCall = mockTabs.mock.calls.find((call: any) => call[0].onValueChange);
+      const tabsCall = mockTabs.mock.calls.find(
+        (call: any) => call[0].onValueChange,
+      );
       expect(tabsCall).toBeDefined();
       const handleTabChange = tabsCall![0].onValueChange;
 
