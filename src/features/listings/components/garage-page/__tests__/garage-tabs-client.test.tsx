@@ -2,31 +2,39 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { GarageTabsClient } from "../garage-tabs-client";
 
-// Create a global reference to the mock
-let mockTabs: any;
+// Use vi.hoisted to create mocks that are available during hoisting
+const { mockTabs, mockRouter, mockUseSearchParams, mockUseGarageFilters } =
+  vi.hoisted(() => ({
+    mockTabs: vi.fn(),
+    mockRouter: { replace: vi.fn() },
+    mockUseSearchParams: vi.fn(),
+    mockUseGarageFilters: vi.fn(),
+  }));
 
 // Mock Next.js navigation
-const mockRouter = {
-  replace: vi.fn(),
-};
-
-const mockUseSearchParams = vi.fn();
-
 vi.mock("next/navigation", () => ({
   useRouter: () => mockRouter,
   useSearchParams: () => mockUseSearchParams(),
 }));
 
 // Mock garage filters hook
-const mockUseGarageFilters = vi.fn();
-
 vi.mock("@/features/listings/hooks/use-garage", () => ({
   useGarageFilters: () => mockUseGarageFilters(),
 }));
 
 // Mock shadcn Tabs components
 vi.mock("@/components/ui/tabs", () => {
-  mockTabs = vi.fn(({ children, value, onValueChange, className }) => (
+  const TabsImpl = ({
+    children,
+    value,
+    onValueChange,
+    className,
+  }: {
+    children: React.ReactNode;
+    value: string;
+    onValueChange: (value: string) => void;
+    className?: string;
+  }) => (
     <div data-testid="tabs" data-value={value} className={className}>
       {/* Store onValueChange in a way we can access for testing */}
       <div data-testid="tabs-onValueChange" style={{ display: "none" }}>
@@ -34,7 +42,10 @@ vi.mock("@/components/ui/tabs", () => {
       </div>
       {children}
     </div>
-  ));
+  );
+
+  // Set the implementation on the hoisted mock
+  mockTabs.mockImplementation(TabsImpl);
 
   return {
     Tabs: mockTabs,
@@ -76,9 +87,6 @@ vi.mock("../garage-filters-client", () => ({
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGarageFilters } from "@/features/listings/hooks/use-garage";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-
-// Access the mocked Tabs function for testing
-const { Tabs: MockedTabs } = await import("@/components/ui/tabs");
 import { ActiveListings } from "../active-listings";
 import { InactiveListings } from "../inactive-listings";
 import { GarageFiltersClient } from "../garage-filters-client";
