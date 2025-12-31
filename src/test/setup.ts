@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
@@ -159,17 +160,74 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
-// Mock IntersectionObserver
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  disconnect: vi.fn(),
-  observe: vi.fn(),
-  takeRecords: vi.fn(() => []),
-  unobserve: vi.fn(),
-}));
+// Mock IntersectionObserver - must be done before any imports that use it
+// Use a class that properly implements the IntersectionObserver interface
+class MockIntersectionObserver {
+  root: Element | null = null;
+  rootMargin: string = "";
+  thresholds: ReadonlyArray<number> = [];
+  disconnect = vi.fn();
+  observe = vi.fn();
+  takeRecords = vi.fn(() => []);
+  unobserve = vi.fn();
 
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  disconnect: vi.fn(),
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-}));
+  constructor(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    callback: IntersectionObserverCallback,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    options?: IntersectionObserverInit,
+  ) {
+    // Constructor body
+  }
+}
+
+// Assign directly to global, window, and globalThis to ensure it's available everywhere
+
+(globalThis as any).IntersectionObserver = MockIntersectionObserver;
+
+if (typeof global !== "undefined")
+  (global as any).IntersectionObserver = MockIntersectionObserver;
+
+if (typeof window !== "undefined")
+  (window as any).IntersectionObserver = MockIntersectionObserver;
+
+// Mock ResizeObserver - must be a proper class constructor for @floating-ui/dom
+class MockResizeObserver {
+  disconnect = vi.fn();
+  observe = vi.fn();
+  unobserve = vi.fn();
+
+  constructor(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    callback: ResizeObserverCallback,
+  ) {
+    // Constructor body
+  }
+}
+
+// Assign directly to global, window, and globalThis to ensure it's available everywhere
+
+(globalThis as any).ResizeObserver = MockResizeObserver;
+
+if (typeof global !== "undefined")
+  (global as any).ResizeObserver = MockResizeObserver;
+
+if (typeof window !== "undefined")
+  (window as any).ResizeObserver = MockResizeObserver;
+
+// Mock hasPointerCapture for Radix UI components
+if (!HTMLElement.prototype.hasPointerCapture) {
+  HTMLElement.prototype.hasPointerCapture = function () {
+    return false;
+  };
+}
+if (!HTMLElement.prototype.setPointerCapture) {
+  HTMLElement.prototype.setPointerCapture = function () {
+    // Mock implementation
+  };
+}
+if (!HTMLElement.prototype.releasePointerCapture) {
+  HTMLElement.prototype.releasePointerCapture = function () {
+    // Mock implementation
+  };
+}
