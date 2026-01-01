@@ -17,11 +17,13 @@ interface RentalReviewsCardProps {
   >;
   isRenter: boolean;
   isOwner: boolean;
+  reviewPolicyUrl?: string;
 }
 
 export function RentalReviewsCard({
   rentalDetails,
   isRenter,
+  reviewPolicyUrl,
 }: RentalReviewsCardProps) {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const router = useRouter();
@@ -172,6 +174,7 @@ export function RentalReviewsCard({
         onSuccess={() => {
           router.refresh();
         }}
+        reviewPolicyUrl={reviewPolicyUrl}
       />
     </Card>
   );

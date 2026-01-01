@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Star, Loader2 } from "lucide-react";
+import { Star, Loader2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -23,6 +24,7 @@ interface LeaveReviewModalProps {
   listingName: string;
   onSuccess?: () => void;
   isRequestId?: boolean; // If true, rentalId is a requestId, otherwise it's a rentalId
+  reviewPolicyUrl?: string;
 }
 
 function StarRating({
@@ -67,6 +69,7 @@ export function LeaveReviewModal({
   listingName,
   onSuccess,
   isRequestId = true, // Default to true since we're usually passing requestId
+  reviewPolicyUrl,
 }: LeaveReviewModalProps) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -220,24 +223,41 @@ export function LeaveReviewModal({
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isPending}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isPending || rating === 0}>
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                "Submit Review"
-              )}
-            </Button>
+            <div className="flex w-full flex-col gap-2">
+              <div className="flex justify-between gap-2">
+                {reviewPolicyUrl && (
+                  <Link
+                    href={reviewPolicyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary inline-flex items-center gap-1 text-sm hover:underline"
+                  >
+                    Read review policy
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    disabled={isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isPending || rating === 0}>
+                    {isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      "Submit Review"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

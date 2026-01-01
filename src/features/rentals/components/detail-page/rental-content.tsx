@@ -16,6 +16,7 @@ interface RentalContentProps {
   isRenter: boolean;
   isOwner: boolean;
   rentalAgreementUrl?: string;
+  reviewPolicyUrl?: string;
 }
 
 export function RentalContent({
@@ -24,6 +25,7 @@ export function RentalContent({
   isRenter,
   isOwner,
   rentalAgreementUrl,
+  reviewPolicyUrl,
 }: RentalContentProps) {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -42,6 +44,7 @@ export function RentalContent({
             rentalDetails={rentalDetails}
             isRenter={isRenter}
             isOwner={isOwner}
+            reviewPolicyUrl={reviewPolicyUrl}
           />
         )}
       </div>
@@ -59,6 +62,7 @@ export function RentalContent({
           isRenter={isRenter}
           isOwner={isOwner}
           rentalAgreementUrl={rentalAgreementUrl}
+          reviewPolicyUrl={reviewPolicyUrl}
         />
         <RentalProtection />
       </div>

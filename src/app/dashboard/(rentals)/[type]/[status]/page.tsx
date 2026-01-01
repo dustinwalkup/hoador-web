@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalsClient } from "@/features/rentals/components/renting-lending/rentals-client";
 
 export const metadata = {
@@ -57,12 +59,27 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
     notFound();
   }
 
+  // Fetch the review policy document
+  let reviewPolicyUrl: string | undefined;
+  try {
+    const currentVersion = await legalDocumentDAL.getCurrentVersion(
+      LEGAL_DOCUMENT_IDS.REVIEW_POLICY,
+    );
+    if (currentVersion) {
+      reviewPolicyUrl = currentVersion.url;
+    }
+  } catch (error) {
+    // If there's an error fetching, continue without the URL
+    console.error("Error fetching review policy:", error);
+  }
+
   return (
     <div className="space-y-6">
       <Suspense fallback={<RentalsPageSkeleton />}>
         <RentalsClient
           initialType={type as "renting" | "lending"}
           initialStatus={status}
+          reviewPolicyUrl={reviewPolicyUrl}
         />
       </Suspense>
     </div>

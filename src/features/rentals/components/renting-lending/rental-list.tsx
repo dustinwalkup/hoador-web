@@ -19,6 +19,7 @@ import { RentalCard } from "./rental-card";
 interface RentalListProps {
   data: RentalRequestItem[] | BorrowedListing[];
   variant: "request" | "active";
+  reviewPolicyUrl?: string;
   emptyStateMessage?: string;
   emptyStateAction?: {
     label: string;
@@ -29,6 +30,7 @@ interface RentalListProps {
 export function RentalList({
   data,
   variant,
+  reviewPolicyUrl,
   emptyStateMessage,
   emptyStateAction,
 }: RentalListProps) {
@@ -158,7 +160,12 @@ export function RentalList({
         <>
           <div className="space-y-4">
             {paginatedData.map((item) => (
-              <RentalCard key={item.id} rental={item} variant={variant} />
+              <RentalCard
+                key={item.id}
+                rental={item}
+                variant={variant}
+                reviewPolicyUrl={reviewPolicyUrl}
+              />
             ))}
           </div>
 

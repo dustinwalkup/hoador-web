@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { RentingCard, LendingCard } from "./rental-card";
+import { RentingCard, LendingCard } from "./renting-card";
 import type {
   RentingRental,
   LendingRental,

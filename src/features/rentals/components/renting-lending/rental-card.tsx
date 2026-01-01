@@ -62,6 +62,7 @@ const getStatusColor = (status: string) => {
 interface RentalCardProps {
   rental: RentalRequestItem | BorrowedListing;
   variant: "request" | "active";
+  reviewPolicyUrl?: string;
 }
 
 // Type guard to check if rental is a request
@@ -71,7 +72,11 @@ function isRentalRequest(
   return "message" in rental || "denialReason" in rental;
 }
 
-export function RentalCard({ rental, variant }: RentalCardProps) {
+export function RentalCard({
+  rental,
+  variant,
+  reviewPolicyUrl,
+}: RentalCardProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -430,6 +435,7 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
             onSuccess={() => {
               router.refresh();
             }}
+            reviewPolicyUrl={reviewPolicyUrl}
           />
         )}
     </Card>

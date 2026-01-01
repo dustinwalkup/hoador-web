@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 interface RentalsClientProps {
   initialType: "renting" | "lending";
   initialStatus: string;
+  reviewPolicyUrl?: string;
 }
 
 const SCROLL_POSITION_KEY = "rentals-filter-scroll-position";
@@ -36,6 +37,7 @@ const SCROLL_POSITION_KEY = "rentals-filter-scroll-position";
 export function RentalsClient({
   initialType,
   initialStatus,
+  reviewPolicyUrl,
 }: RentalsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -195,6 +197,7 @@ export function RentalsClient({
         <RentalList
           data={data as RentalRequestItem[] | BorrowedListing[]}
           variant={isRequest ? "request" : "active"}
+          reviewPolicyUrl={reviewPolicyUrl}
           emptyStateMessage={
             activeStatus === "requests"
               ? "No pending requests."

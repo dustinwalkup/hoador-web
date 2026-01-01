@@ -32,6 +32,7 @@ interface RentalActionsProps {
   isRenter: boolean;
   isOwner: boolean;
   rentalAgreementUrl?: string;
+  reviewPolicyUrl?: string;
 }
 
 export function RentalActions({
@@ -39,6 +40,7 @@ export function RentalActions({
   isRenter,
   isOwner,
   rentalAgreementUrl,
+  reviewPolicyUrl,
 }: RentalActionsProps) {
   const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -264,6 +266,7 @@ export function RentalActions({
           rentalId={rentalDetails.id}
           listingName={rentalDetails.listingName}
           onSuccess={handleRentalStatusChanged}
+          reviewPolicyUrl={reviewPolicyUrl}
         />
       )}
     </Card>

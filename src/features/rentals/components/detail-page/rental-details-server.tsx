@@ -58,6 +58,20 @@ export async function RentalDetailsServer({
     console.error("Error fetching rental agreement:", error);
   }
 
+  // Fetch the review policy document
+  let reviewPolicyUrl: string | undefined;
+  try {
+    const currentVersion = await legalDocumentDAL.getCurrentVersion(
+      LEGAL_DOCUMENT_IDS.REVIEW_POLICY,
+    );
+    if (currentVersion) {
+      reviewPolicyUrl = currentVersion.url;
+    }
+  } catch (error) {
+    // If there's an error fetching, continue without the URL
+    console.error("Error fetching review policy:", error);
+  }
+
   return (
     <RentalLayout
       rentalDetails={rentalDetails}
@@ -71,6 +85,7 @@ export async function RentalDetailsServer({
         isRenter={isRenter}
         isOwner={isOwner}
         rentalAgreementUrl={rentalAgreementUrl}
+        reviewPolicyUrl={reviewPolicyUrl}
       />
     </RentalLayout>
   );
