@@ -60,7 +60,7 @@ describe("Complete Community Join Workflow (E2E)", () => {
     // Act - Execute complete workflow
     try {
       await joinCommunityAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
