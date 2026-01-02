@@ -45,7 +45,7 @@ export default function ListingCard({
   return (
     <Card className="group overflow-hidden pt-0 pb-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
       <div className="relative">
-        <div className="bg-muted aspect-[4/3] overflow-hidden">
+        <div className="bg-muted aspect-4/3 overflow-hidden">
           <Image
             src={imageUrl || "/images/placeholder.jpg"}
             alt={name}

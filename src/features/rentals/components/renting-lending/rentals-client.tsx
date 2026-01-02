@@ -280,10 +280,10 @@ export function RentalsClient({
         {/* Status Filters */}
         <div className="relative">
           {/* Left fade gradient */}
-          <div className="from-background pointer-events-none absolute top-0 -left-4 z-10 h-full w-8 bg-gradient-to-r to-transparent md:hidden" />
+          <div className="from-background pointer-events-none absolute top-0 -left-4 z-10 h-full w-8 bg-linear-to-r to-transparent md:hidden" />
 
           {/* Right fade gradient */}
-          <div className="from-background pointer-events-none absolute top-0 -right-4 z-10 h-full w-8 bg-gradient-to-l to-transparent md:hidden" />
+          <div className="from-background pointer-events-none absolute top-0 -right-4 z-10 h-full w-8 bg-linear-to-l to-transparent md:hidden" />
 
           {/* Scrollable container */}
           <div
