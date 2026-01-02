@@ -63,6 +63,7 @@ export function createMockFormData(): CreateListingFormDataClientType {
     deliveryRadius: 0,
     setupAvailable: false,
     setupFee: 0,
+    ownerPoliciesAcknowledged: true,
     images: [
       {
         file: new File([""], "drill.jpg", { type: "image/jpeg" }),
@@ -90,6 +91,7 @@ export function createMockMinimalFormData(): CreateListingFormDataClientType {
     deliveryRadius: 0,
     setupAvailable: false,
     setupFee: 0,
+    ownerPoliciesAcknowledged: true,
     images: [
       {
         file: new File([""], "hammer.jpg", { type: "image/jpeg" }),
@@ -116,6 +118,7 @@ export function createMockInvalidFormData(): CreateListingFormDataClientType {
     deliveryRadius: 0,
     setupAvailable: false,
     setupFee: 0,
+    ownerPoliciesAcknowledged: false, // Invalid: not acknowledged
     images: [], // Invalid: no images
   };
 }
@@ -254,7 +257,12 @@ export function createMockForm() {
   };
 
   const control = {
-    register: vi.fn(),
+    register: vi.fn((name: string) => ({
+      onChange: vi.fn(),
+      onBlur: vi.fn(),
+      ref: vi.fn(),
+      name,
+    })),
     unregister: vi.fn(),
     getFieldState: vi.fn(() => ({
       error: undefined,
@@ -263,11 +271,21 @@ export function createMockForm() {
       isTouched: false,
     })),
     _fields: {},
-    _formState: {},
+    _formState: {
+      errors: {},
+      isDirty: false,
+      dirtyFields: {},
+      touchedFields: {},
+      isSubmitted: false,
+      isSubmitting: false,
+      isValid: true,
+      isValidating: false,
+      submitCount: 0,
+    },
     _options: {},
     _subjects: mockSubjects,
     _defaultValues: {},
-    _formValues: {},
+    _formValues: { ownerPoliciesAcknowledged: false },
     _stateFlags: {
       action: false,
       mount: false,
@@ -282,7 +300,10 @@ export function createMockForm() {
       watchAll: false,
     },
     _state: {},
-    _getWatch: vi.fn(),
+    _getWatch: vi.fn((name?: string) => {
+      if (name === "ownerPoliciesAcknowledged") return false;
+      return undefined;
+    }),
     _updateValid: vi.fn(),
     _updateFieldArray: vi.fn(),
     _getFieldArray: vi.fn(),
@@ -317,7 +338,7 @@ export function createMockForm() {
       const formData = getValuesMock();
       handler(formData);
     }),
-    watch: vi.fn((callback?: (value: any, info?: any) => void) => {
+    watch: vi.fn(() => {
       // Return subscription object with unsubscribe
       return {
         unsubscribe: vi.fn(),

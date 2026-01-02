@@ -99,6 +99,7 @@ describe("useListingForm", () => {
           deliveryRadius: 0,
           setupAvailable: false,
           setupFee: 0,
+          ownerPoliciesAcknowledged: false,
         }),
         mode: "onTouched",
       });

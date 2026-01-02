@@ -5,6 +5,9 @@ import { getCurrentUserId } from "@/features/auth/utils/session";
 import { revalidatePath } from "next/cache";
 import { createListingFormData } from "@/test/utils/mock-form-data";
 import { mockListing } from "@/test/fixtures/listings";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+import { mockLegalDocuments } from "@/test/fixtures/auth";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -16,12 +19,23 @@ vi.mock("@/dal", () => ({
   },
 }));
 
+vi.mock("@/dal/legal-document.dal", () => ({
+  legalDocumentDAL: {
+    getAllCurrentVersions: vi.fn(),
+    recordAcceptance: vi.fn(),
+  },
+}));
+
 vi.mock("@/features/auth/utils/session", () => ({
   getCurrentUserId: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+}));
+
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
 vi.mock("@/services/vercel-blob", () => ({
@@ -35,8 +49,47 @@ vi.mock("@/db/db", () => ({
 }));
 
 describe("createListing", () => {
-  beforeEach(() => {
+  const mockOwnerDocuments = {
+    [LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]: {
+      id: LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
+      version: "1.0",
+      url: "https://example.com/damage-1.0.pdf",
+      publishedAt: new Date("2024-01-01"),
+    },
+    [LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]: {
+      id: LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS,
+      version: "1.0",
+      url: "https://example.com/condition-1.0.pdf",
+      publishedAt: new Date("2024-01-01"),
+    },
+    [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]: {
+      id: LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
+      version: "1.0",
+      url: "https://example.com/safety-1.0.pdf",
+      publishedAt: new Date("2024-01-01"),
+    },
+    [LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES]: {
+      id: LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES,
+      version: "1.0",
+      url: "https://example.com/content-1.0.pdf",
+      publishedAt: new Date("2024-01-01"),
+    },
+  };
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+
+    // Mock headers for IP and user agent
+    const { headers } = await import("next/headers");
+    const mockHeaders = new Headers();
+    mockHeaders.set("x-forwarded-for", "192.168.1.1");
+    mockHeaders.set("user-agent", "test-agent");
+    vi.mocked(headers).mockResolvedValue(mockHeaders as any);
+
+    vi.mocked(legalDocumentDAL.getAllCurrentVersions).mockResolvedValue(
+      mockOwnerDocuments as any,
+    );
+    vi.mocked(legalDocumentDAL.recordAcceptance).mockResolvedValue(undefined);
   });
 
   it("should create listing with valid form data", async () => {
@@ -73,6 +126,20 @@ describe("createListing", () => {
     expect(listingDAL.createListing).toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/garage");
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/listings");
+
+    // Verify legal document acceptances were recorded
+    expect(legalDocumentDAL.getAllCurrentVersions).toHaveBeenCalled();
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledTimes(4);
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
+      userId,
+      LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
+      "1.0",
+      "192.168.1.1",
+      "test-agent",
+      "listing_creation",
+      undefined, // rentalRequestId
+      mockListing.id, // listingId
+    );
   });
 
   it("should return error when validation fails", async () => {
@@ -184,6 +251,153 @@ describe("createListing", () => {
     // Assert
     expect(result).toHaveProperty("error");
     expect(result.error).toBe("Database error");
+    // Legal document acceptance should not be called if listing creation fails
+    expect(legalDocumentDAL.recordAcceptance).not.toHaveBeenCalled();
+  });
+
+  it("should record legal document acceptances after successful listing creation", async () => {
+    // Arrange
+    const userId = "user-123";
+    const formData = {
+      name: "Test Listing",
+      description: "Test description",
+      categoryId: "category-123",
+      condition: "good" as const,
+      dailyRate: 15.0,
+      securityDeposit: 0,
+      specifications: {},
+      minimumRentalPeriod: 1,
+      maximumRentalPeriod: 30,
+      deliveryMode: "pickup_only" as const,
+      deliveryFee: 0,
+      deliveryRadius: 0,
+      setupAvailable: false,
+      setupFee: 0,
+    };
+
+    vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+    vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
+    vi.mocked(listingDAL.createListing).mockResolvedValue(mockListing as any);
+
+    // Act
+    const result = await createListing(formData);
+
+    // Assert
+    expect(result).toEqual({ success: true, listingId: mockListing.id });
+    expect(legalDocumentDAL.getAllCurrentVersions).toHaveBeenCalled();
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledTimes(4);
+
+    // Verify all 4 documents are recorded with correct parameters
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
+      userId,
+      LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
+      "1.0",
+      "192.168.1.1",
+      "test-agent",
+      "listing_creation",
+      undefined,
+      mockListing.id,
+    );
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
+      userId,
+      LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS,
+      "1.0",
+      "192.168.1.1",
+      "test-agent",
+      "listing_creation",
+      undefined,
+      mockListing.id,
+    );
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
+      userId,
+      LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
+      "1.0",
+      "192.168.1.1",
+      "test-agent",
+      "listing_creation",
+      undefined,
+      mockListing.id,
+    );
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
+      userId,
+      LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES,
+      "1.0",
+      "192.168.1.1",
+      "test-agent",
+      "listing_creation",
+      undefined,
+      mockListing.id,
+    );
+  });
+
+  it("should handle legal document acceptance errors gracefully", async () => {
+    // Arrange
+    const userId = "user-123";
+    const formData = {
+      name: "Test Listing",
+      description: "Test description",
+      categoryId: "category-123",
+      condition: "good" as const,
+      dailyRate: 15.0,
+      securityDeposit: 0,
+      specifications: {},
+      minimumRentalPeriod: 1,
+      maximumRentalPeriod: 30,
+      deliveryMode: "pickup_only" as const,
+      deliveryFee: 0,
+      deliveryRadius: 0,
+      setupAvailable: false,
+      setupFee: 0,
+    };
+
+    vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+    vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
+    vi.mocked(listingDAL.createListing).mockResolvedValue(mockListing as any);
+    vi.mocked(legalDocumentDAL.recordAcceptance).mockRejectedValue(
+      new Error("Failed to record acceptance"),
+    );
+
+    // Act
+    const result = await createListing(formData);
+
+    // Assert - Listing should still be created even if acceptance recording fails
+    expect(result).toEqual({ success: true, listingId: mockListing.id });
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalled();
+  });
+
+  it("should handle missing document versions gracefully", async () => {
+    // Arrange
+    const userId = "user-123";
+    const formData = {
+      name: "Test Listing",
+      description: "Test description",
+      categoryId: "category-123",
+      condition: "good" as const,
+      dailyRate: 15.0,
+      securityDeposit: 0,
+      specifications: {},
+      minimumRentalPeriod: 1,
+      maximumRentalPeriod: 30,
+      deliveryMode: "pickup_only" as const,
+      deliveryFee: 0,
+      deliveryRadius: 0,
+      setupAvailable: false,
+      setupFee: 0,
+    };
+
+    vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+    vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
+    vi.mocked(listingDAL.createListing).mockResolvedValue(mockListing as any);
+    // Return empty object - no document versions
+    vi.mocked(legalDocumentDAL.getAllCurrentVersions).mockResolvedValue({});
+
+    // Act
+    const result = await createListing(formData);
+
+    // Assert - Listing should still be created
+    expect(result).toEqual({ success: true, listingId: mockListing.id });
+    // No acceptances should be recorded if documents don't exist
+    expect(legalDocumentDAL.recordAcceptance).not.toHaveBeenCalled();
   });
 });
 

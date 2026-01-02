@@ -32,6 +32,7 @@ export function useListingForm(
     deliveryRadius: 0,
     setupAvailable: false,
     setupFee: 0,
+    ownerPoliciesAcknowledged: false,
     ...initialValues,
   } as unknown as CreateListingFormDataClientType;
 

@@ -40,6 +40,7 @@ function mapListingToFormData(
     deliveryRadius: listing.deliveryRadius,
     setupAvailable: listing.setupAvailable,
     setupFee: listing.setupFee,
+    ownerPoliciesAcknowledged: true, // User already acknowledged when creating the listing
   };
 }
 
@@ -58,7 +59,10 @@ export default async function EditListingPage({
   const initialValues = mapListingToFormData(listing);
 
   async function onSubmit(
-    data: Omit<CreateListingFormDataClientType, "images">,
+    data: Omit<
+      CreateListingFormDataClientType,
+      "images" | "ownerPoliciesAcknowledged"
+    >,
   ) {
     "use server";
     // Call updateListing action

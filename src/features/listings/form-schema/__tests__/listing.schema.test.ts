@@ -853,6 +853,7 @@ describe("listing.schema.ts", () => {
         setupAvailable: false,
         setupFee: 0,
         images: [], // Empty array should fail
+        ownerPoliciesAcknowledged: true,
       };
 
       const result = createListingSchemaClient.safeParse(data);
@@ -860,6 +861,67 @@ describe("listing.schema.ts", () => {
       expect(result.error?.issues[0]?.message).toBe(
         "At least one image is required",
       );
+    });
+
+    it("should require ownerPoliciesAcknowledged to be true", () => {
+      const data: CreateListingFormDataClientType = {
+        name: "Drill",
+        description: "A drill",
+        categoryId: "power-tools",
+        condition: "good",
+        dailyRate: 15.0,
+        securityDeposit: 0,
+        specifications: {},
+        minimumRentalPeriod: 1,
+        maximumRentalPeriod: 30,
+        deliveryMode: "pickup_only",
+        deliveryFee: 0,
+        deliveryRadius: 0,
+        setupAvailable: false,
+        setupFee: 0,
+        images: [
+          {
+            file: new File([""], "drill.jpg"),
+            url: "https://example.com/drill.jpg",
+          },
+        ],
+        ownerPoliciesAcknowledged: false, // Should fail
+      };
+
+      const result = createListingSchemaClient.safeParse(data);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.message).toBe(
+        "You must acknowledge the Owner Policies to create a listing.",
+      );
+    });
+
+    it("should accept valid data with ownerPoliciesAcknowledged true", () => {
+      const data: CreateListingFormDataClientType = {
+        name: "Drill",
+        description: "A drill",
+        categoryId: "power-tools",
+        condition: "good",
+        dailyRate: 15.0,
+        securityDeposit: 0,
+        specifications: {},
+        minimumRentalPeriod: 1,
+        maximumRentalPeriod: 30,
+        deliveryMode: "pickup_only",
+        deliveryFee: 0,
+        deliveryRadius: 0,
+        setupAvailable: false,
+        setupFee: 0,
+        images: [
+          {
+            file: new File([""], "drill.jpg"),
+            url: "https://example.com/drill.jpg",
+          },
+        ],
+        ownerPoliciesAcknowledged: true,
+      };
+
+      const result = createListingSchemaClient.safeParse(data);
+      expect(result.success).toBe(true);
     });
 
     it("should accept valid images array", () => {
@@ -890,6 +952,7 @@ describe("listing.schema.ts", () => {
             orderIndex: 1,
           },
         ],
+        ownerPoliciesAcknowledged: true,
       };
 
       const result = createListingSchemaClient.safeParse(data);
@@ -909,6 +972,7 @@ describe("listing.schema.ts", () => {
             url: "https://example.com/drill.jpg",
           },
         ],
+        ownerPoliciesAcknowledged: true,
       };
 
       const result = createListingSchemaClient.safeParse(data);
@@ -932,6 +996,7 @@ describe("listing.schema.ts", () => {
             url: "https://example.com/drill.jpg",
           },
         ],
+        ownerPoliciesAcknowledged: true,
       };
 
       const result = createListingSchemaClient.safeParse(data);

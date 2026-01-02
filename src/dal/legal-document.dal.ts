@@ -34,6 +34,7 @@ export interface LegalAcceptance {
   documentId: string;
   version: string;
   rentalRequestId: string | null;
+  listingId: string | null;
   acceptedAt: Date;
   ipAddress: string | null;
   userAgent: string | null;
@@ -327,6 +328,7 @@ export class legalDocumentDAL extends BaseDAL {
    * Record a user's acceptance of a legal document
    * Requires authentication - use recordAcceptanceForSignup during signup flow
    * @param rentalRequestId Optional rental request ID to tie acceptance to specific rental
+   * @param listingId Optional listing ID to tie acceptance to specific listing
    */
   static async recordAcceptance(
     userId: string,
@@ -336,6 +338,7 @@ export class legalDocumentDAL extends BaseDAL {
     userAgent: string | null,
     method: string,
     rentalRequestId?: string,
+    listingId?: string,
   ): Promise<void> {
     // Verify authentication and that userId matches authenticated user
     const auth = await requireAuth();
@@ -349,6 +352,7 @@ export class legalDocumentDAL extends BaseDAL {
         documentId,
         version,
         rentalRequestId: rentalRequestId || null,
+        listingId: listingId || null,
         ipAddress,
         userAgent,
         method,
@@ -466,6 +470,7 @@ export class legalDocumentDAL extends BaseDAL {
         documentId: acc.documentId,
         version: acc.version,
         rentalRequestId: acc.rentalRequestId,
+        listingId: acc.listingId,
         acceptedAt: acc.acceptedAt,
         ipAddress: acc.ipAddress,
         userAgent: acc.userAgent,

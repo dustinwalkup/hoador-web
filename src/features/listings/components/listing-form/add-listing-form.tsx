@@ -21,6 +21,7 @@ import { PricingSection } from "./pricing-section";
 import { PhotosSection } from "./photos-section";
 import { PickupDeliverySection } from "./pickup-delivery-section";
 import { AdditionalDetailsSection } from "./additional-details-section";
+import { LegalDocumentAcknowledgments } from "./legal-document-acknowledgments";
 
 interface Category {
   id: string;
@@ -33,7 +34,10 @@ interface AddListingFormProps {
   categories: Category[];
   initialValues?: Partial<CreateListingFormDataClientType>;
   onSubmit?: (
-    data: Omit<CreateListingFormDataClientType, "images">,
+    data: Omit<
+      CreateListingFormDataClientType,
+      "images" | "ownerPoliciesAcknowledged"
+    >,
   ) => Promise<void | {
     error?: string;
     details?: unknown;
@@ -163,7 +167,9 @@ export function AddListingForm({
   const defaultOnSubmit = async (formData: CreateListingFormDataClientType) => {
     setIsSubmitting(true);
 
-    const { images, ...listingDataWithoutImages } = formData;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { images, ownerPoliciesAcknowledged, ...listingDataWithoutImages } =
+      formData;
 
     if (!images || images.length === 0) {
       toast.error("Please add at least one image.");
@@ -210,7 +216,12 @@ export function AddListingForm({
     if (onSubmit) {
       setIsSubmitting(true);
       try {
-        const { images, ...listingDataWithoutImages } = data;
+        const {
+          images,
+          ownerPoliciesAcknowledged,
+          ...listingDataWithoutImages
+        } = data;
+        void ownerPoliciesAcknowledged; // Explicitly unused - only needed for validation
 
         // For edit mode, check if we have any images (existing or new)
         if (isEdit) {
@@ -306,6 +317,8 @@ export function AddListingForm({
             removeSpecification={removeSpecification}
           />
         </div>
+
+        <LegalDocumentAcknowledgments control={control} />
 
         {/* Submit Button */}
         <div className="flex justify-end">

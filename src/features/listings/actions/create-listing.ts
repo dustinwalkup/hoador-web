@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { tryCatch } from "@walkup/walkup-utils";
 import { uploadToBlob } from "@/services/vercel-blob";
 
@@ -12,6 +13,8 @@ import { getCurrentUserId } from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
 import { listingDAL, userDAL } from "../../../dal";
+import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 // Separate action for uploading images
 export async function uploadListingImage(
@@ -94,6 +97,95 @@ export async function createListing(formData: CreateListingFormDataServerType) {
   // Create the listing
   if (!listing) {
     return { error: "Failed to create listing" };
+  }
+
+  // Record legal document acceptances for listing creation
+  try {
+    // Get IP address and user agent from headers
+    const headersList = await headers();
+    const ipAddress =
+      headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      headersList.get("x-real-ip") ||
+      headersList.get("cf-connecting-ip") ||
+      null;
+    const userAgent = headersList.get("user-agent") || null;
+
+    // Get current document versions
+    const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
+
+    // Record acceptance for each of the 4 owner policy documents
+    const acceptancePromises = [];
+
+    if (documentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]) {
+      const doc = documentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY];
+      acceptancePromises.push(
+        legalDocumentDAL.recordAcceptance(
+          userId,
+          LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
+          doc.version,
+          ipAddress,
+          userAgent,
+          "listing_creation",
+          undefined, // rentalRequestId
+          listing.id, // listingId
+        ),
+      );
+    }
+
+    if (documentVersions[LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]) {
+      const doc = documentVersions[LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS];
+      acceptancePromises.push(
+        legalDocumentDAL.recordAcceptance(
+          userId,
+          LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS,
+          doc.version,
+          ipAddress,
+          userAgent,
+          "listing_creation",
+          undefined, // rentalRequestId
+          listing.id, // listingId
+        ),
+      );
+    }
+
+    if (documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]) {
+      const doc = documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER];
+      acceptancePromises.push(
+        legalDocumentDAL.recordAcceptance(
+          userId,
+          LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
+          doc.version,
+          ipAddress,
+          userAgent,
+          "listing_creation",
+          undefined, // rentalRequestId
+          listing.id, // listingId
+        ),
+      );
+    }
+
+    if (documentVersions[LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES]) {
+      const doc = documentVersions[LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES];
+      acceptancePromises.push(
+        legalDocumentDAL.recordAcceptance(
+          userId,
+          LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES,
+          doc.version,
+          ipAddress,
+          userAgent,
+          "listing_creation",
+          undefined, // rentalRequestId
+          listing.id, // listingId
+        ),
+      );
+    }
+
+    // Record all acceptances in parallel
+    await Promise.all(acceptancePromises);
+  } catch (error) {
+    // Log error but don't fail listing creation
+    // The form validation already ensures the checkbox is checked
+    console.error("Error recording legal document acceptances:", error);
   }
 
   // Revalidate relevant paths

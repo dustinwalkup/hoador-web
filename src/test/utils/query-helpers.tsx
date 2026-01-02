@@ -44,7 +44,7 @@ export function mockUseQuery<T>(
 /**
  * Mocks React Query useMutation hook
  */
-export function mockUseMutation<TData = unknown, TVariables = unknown>() {
+export function mockUseMutation<TData = unknown>() {
   const mutate = vi.fn();
   const mutateAsync = vi.fn();
 

@@ -1,0 +1,3 @@
+ALTER TABLE "user_legal_acceptances" ADD COLUMN "listing_id" uuid;--> statement-breakpoint
+ALTER TABLE "user_legal_acceptances" ADD CONSTRAINT "user_legal_acceptances_listing_id_listings_id_fk" FOREIGN KEY ("listing_id") REFERENCES "public"."listings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "user_legal_acceptances_listing_id_idx" ON "user_legal_acceptances" USING btree ("listing_id");

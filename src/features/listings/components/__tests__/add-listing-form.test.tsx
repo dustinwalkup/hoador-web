@@ -87,6 +87,7 @@ describe("AddListingForm", () => {
       expect(screen.getByText("Photos")).toBeInTheDocument();
       expect(screen.getByText("Pickup & Delivery")).toBeInTheDocument();
       expect(screen.getByText("Additional Details")).toBeInTheDocument();
+      expect(screen.getByText("Owner Policies")).toBeInTheDocument();
     });
 
     it("should render form inputs and labels", () => {
@@ -377,6 +378,57 @@ describe("AddListingForm", () => {
         );
       });
       expect(mockOnSubmit).not.toHaveBeenCalled();
+    });
+
+    it("should show validation error when ownerPoliciesAcknowledged is false", async () => {
+      const { toast } = await import("sonner");
+      const toastErrorSpy = vi.mocked(toast.error);
+
+      const errorMessage =
+        "You must acknowledge the Owner Policies to create a listing.";
+
+      mockForm.formState.errors = {
+        ownerPoliciesAcknowledged: {
+          message: errorMessage,
+        },
+      };
+
+      // Update getFieldState to return the error
+      mockForm.getFieldState = vi.fn((name: string) => {
+        if (name === "ownerPoliciesAcknowledged") {
+          return {
+            error: {
+              message: errorMessage,
+            },
+            invalid: true,
+            isDirty: false,
+            isTouched: true,
+          };
+        }
+        return {
+          error: undefined,
+          invalid: false,
+          isDirty: false,
+          isTouched: false,
+        };
+      });
+
+      // Update control.getFieldState as well
+      mockForm.control.getFieldState = mockForm.getFieldState;
+
+      renderWithQueryClient(
+        <AddListingForm categories={mockCategories} onSubmit={mockOnSubmit} />,
+      );
+
+      const checkbox = screen.getByRole("checkbox", {
+        name: /I have read and agree to the Owner Policies/i,
+      });
+      expect(checkbox).toBeInTheDocument();
+
+      // Check that error message is displayed
+      expect(
+        screen.getByText(new RegExp(errorMessage, "i")),
+      ).toBeInTheDocument();
     });
   });
 

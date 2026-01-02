@@ -79,7 +79,7 @@ const withServiceValidation = <T extends z.ZodTypeAny>(schema: T) =>
       },
     );
 
-// Server schema = base + refinements
+// Server schema = base + refinements (without ownerPoliciesAcknowledged)
 export const createListingSchemaServer =
   withServiceValidation(baseListingSchema);
 
@@ -91,10 +91,13 @@ export const imageFileSchema = z.object({
   orderIndex: z.number().optional(),
 });
 
-// Client schema = base + images + service validation
+// Client schema = base + images + ownerPoliciesAcknowledged + service validation
 export const createListingSchemaClient = withServiceValidation(
   baseListingSchema.extend({
     images: z.array(imageFileSchema).min(1, "At least one image is required"),
+    ownerPoliciesAcknowledged: z.boolean().refine((val) => val === true, {
+      message: "You must acknowledge the Owner Policies to create a listing.",
+    }),
   }),
 );
 
