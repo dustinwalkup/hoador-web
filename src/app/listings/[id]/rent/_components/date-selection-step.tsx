@@ -174,9 +174,9 @@ export function DateSelectionStep({
             >
               <div className="flex items-start gap-2">
                 {validation.isValid ? (
-                  <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
+                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
                 ) : (
-                  <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
                 )}
                 <div className="flex-1">
                   <p

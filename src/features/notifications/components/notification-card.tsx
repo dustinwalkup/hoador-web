@@ -86,6 +86,7 @@ export function NotificationCard({
                     size="icon"
                     className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                     onClick={(e) => e.stopPropagation()}
+                    aria-label="Notification options"
                   >
                     <MoreVertical className="h-4 w-4" />
                     <span className="sr-only">Notification options</span>
