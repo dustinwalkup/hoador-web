@@ -17,11 +17,15 @@ vi.mock("sonner", () => ({
 }));
 
 // Mock useActionState
-type ActionState = { success: boolean; error?: string; message?: string } | null;
+type ActionState = {
+  success: boolean;
+  error?: string;
+  message?: string;
+} | null;
 const mockFormAction = vi.fn();
-const mockUseActionState = vi.fn<() => [ActionState, typeof mockFormAction, boolean]>(
-  () => [null, mockFormAction, false],
-);
+const mockUseActionState = vi.fn<
+  () => [ActionState, typeof mockFormAction, boolean]
+>(() => [null, mockFormAction, false]);
 
 vi.mock("react", async () => {
   const actual = await vi.importActual("react");

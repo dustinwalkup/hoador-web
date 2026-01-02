@@ -10,9 +10,9 @@ vi.mock("../actions/verify-email", () => ({
 // Mock useActionState
 type ActionState = { success: boolean; error?: string; message?: string };
 const mockFormAction = vi.fn();
-const mockUseActionState = vi.fn<() => [ActionState, typeof mockFormAction, boolean]>(
-  () => [{ success: false }, mockFormAction, false],
-);
+const mockUseActionState = vi.fn<
+  () => [ActionState, typeof mockFormAction, boolean]
+>(() => [{ success: false }, mockFormAction, false]);
 
 vi.mock("react", async () => {
   const actual = await vi.importActual("react");
