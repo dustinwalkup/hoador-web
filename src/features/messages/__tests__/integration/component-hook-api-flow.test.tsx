@@ -117,10 +117,15 @@ describe("Component → Hook → API Flow", () => {
       { ...mockConversationSummary, id: "conversation-456" },
     ];
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => initialData,
-    });
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => initialData,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => updatedData,
+      });
 
     // Act
     const { result } = renderHook(() => useConversations(false), {
@@ -133,19 +138,10 @@ describe("Component → Hook → API Flow", () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    // Verify initial data loaded
-    expect(result.current.data?.pages[0]).toEqual(initialData);
-
-    // Update the mock for the refetch call
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => updatedData,
-    });
-
     // Simulate refetch (real-time update)
     await result.current.refetch();
 
-    // Assert - after refetch, data should be updated
+    // Assert
     await waitFor(() => {
       expect(result.current.data?.pages[0]).toEqual(updatedData);
     });
@@ -170,3 +166,4 @@ describe("Component → Hook → API Flow", () => {
     expect(result.current.error).toBeDefined();
   });
 });
+

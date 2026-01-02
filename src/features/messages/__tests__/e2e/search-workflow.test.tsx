@@ -143,7 +143,9 @@ describe("Search Workflow (E2E)", () => {
     const allConversations = result.current.data?.pages[0] || [];
     const filteredByMessage = allConversations.filter(
       (conv) =>
-        conv.lastMessage?.content.toLowerCase().includes("available") || false,
+        conv.lastMessage?.content
+          .toLowerCase()
+          .includes("available") || false,
     );
 
     expect(filteredByMessage).toHaveLength(1);
@@ -199,16 +201,17 @@ describe("Search Workflow (E2E)", () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    // Assert - Case-insensitive search (both should find "Jane" regardless of case)
+    // Assert - Case-insensitive search
     const allConversations = result.current.data?.pages[0] || [];
     const filteredByLowercase = allConversations.filter((conv) =>
-      conv.otherUser.name.toLowerCase().includes("jane".toLowerCase()),
+      conv.otherUser.name.toLowerCase().includes("jane"),
     );
     const filteredByUppercase = allConversations.filter((conv) =>
-      conv.otherUser.name.toLowerCase().includes("JANE".toLowerCase()),
+      conv.otherUser.name.toLowerCase().includes("JANE"),
     );
 
     expect(filteredByLowercase).toHaveLength(1);
     expect(filteredByUppercase).toHaveLength(1);
   });
 });
+
