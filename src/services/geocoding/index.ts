@@ -5,7 +5,8 @@ export interface GeocodeResult {
 
 const API_KEY = process.env.OPENCAGE_API_KEY;
 
-if (!API_KEY) {
+// Allow tests to run without API key (key is set in vitest.config.mjs for test environment)
+if (!API_KEY && process.env.NODE_ENV !== "test") {
   throw new Error("OPENCAGE_API_KEY is not set");
 }
 

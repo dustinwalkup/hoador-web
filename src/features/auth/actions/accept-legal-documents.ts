@@ -39,19 +39,18 @@ export async function acceptLegalDocumentsAction(
 
   const userId = session.user.id;
 
-  // Get current document versions
-  const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
-
-  // Get IP address and user agent from headers
-  const headersList = await headers();
-  const ipAddress =
-    headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    headersList.get("x-real-ip") ||
-    headersList.get("cf-connecting-ip") ||
-    null;
-  const userAgent = headersList.get("user-agent") || null;
-
   try {
+    // Get current document versions
+    const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
+
+    // Get IP address and user agent from headers
+    const headersList = await headers();
+    const ipAddress =
+      headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      headersList.get("x-real-ip") ||
+      headersList.get("cf-connecting-ip") ||
+      null;
+    const userAgent = headersList.get("user-agent") || null;
     // Record legal document acceptances
     const acceptancePromises = [];
 

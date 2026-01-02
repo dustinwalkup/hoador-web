@@ -3,6 +3,15 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
+// Mock geocoding service globally to prevent API key errors
+vi.mock("@/services/geocoding", () => ({
+  geocodeAddress: vi.fn().mockResolvedValue({
+    lat: 37.7749,
+    lng: -122.4194,
+    formattedAddress: "San Francisco, CA",
+  }),
+}));
+
 // Mock alert and other browser APIs that might be called by malicious scripts
 // This prevents errors when testing XSS sanitization
 // Set up immediately (not in beforeAll) to catch async script execution in eval contexts
