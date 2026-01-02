@@ -117,15 +117,10 @@ describe("Component → Hook → API Flow", () => {
       { ...mockConversationSummary, id: "conversation-456" },
     ];
 
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => initialData,
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => updatedData,
-      });
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => initialData,
+    });
 
     // Act
     const { result } = renderHook(() => useConversations(false), {
@@ -136,6 +131,15 @@ describe("Component → Hook → API Flow", () => {
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
+    });
+
+    // Verify initial data
+    expect(result.current.data?.pages[0]).toEqual(initialData);
+
+    // Update mock for refetch
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => updatedData,
     });
 
     // Simulate refetch (real-time update)
@@ -166,4 +170,3 @@ describe("Component → Hook → API Flow", () => {
     expect(result.current.error).toBeDefined();
   });
 });
-
