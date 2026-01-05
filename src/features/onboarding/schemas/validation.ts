@@ -11,7 +11,7 @@ export const addressSchema = z.object({
   state: z
     .string()
     .length(2, "State must be 2 characters")
-    .regex(/^[A-Z]{2}$/, "State must be a valid 2-letter code (e.g., CA)")
+    .regex(/^[A-Z]{2}$/i, "State must be a valid 2-letter code (e.g., CA)")
     .transform((val) => val.toUpperCase()),
   zipCode: z
     .string()

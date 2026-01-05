@@ -226,7 +226,12 @@ export function OnboardingForm({
   // TODO: Add toast notifications when useToast is available
 
   return (
-    <form action={formAction} onSubmit={handleFormSubmit} className="space-y-6">
+    <form
+      action={formAction}
+      onSubmit={handleFormSubmit}
+      role="form"
+      className="space-y-6"
+    >
       {/* Profile Image Upload */}
       <div className="flex flex-col items-center space-y-2">
         <Label className="text-center">Profile Photo (Optional)</Label>

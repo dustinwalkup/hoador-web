@@ -80,3 +80,59 @@ This test plan covers user onboarding functionality including onboarding flow, p
 - All components (no tests)
 - Integration tests (none exist)
 - E2E tests (none exist)
+
+## BDD Scenarios
+
+```gherkin
+Feature: Complete Onboarding
+  As a newly registered user
+  I want to complete my profile during onboarding
+  So that I can use all platform features
+
+  Background:
+    Given I have signed up for an account
+    And I have verified my email
+    And I am redirected to the onboarding page
+
+  Scenario: Successfully complete onboarding with all fields
+    Given I am on the onboarding page
+    When I fill out my first name, last name, and phone number
+    And I enter my address
+    And I upload a profile image
+    And I agree to the terms of service
+    And I submit the form
+    Then my profile should be completed
+    And my user status should be "active"
+    And I should be redirected to the dashboard
+
+  Scenario: Complete onboarding without optional fields
+    Given I am on the onboarding page
+    When I fill out only required fields
+    And I agree to the terms of service
+    And I submit the form
+    Then my profile should be completed
+    And I should be redirected to the dashboard
+
+  Scenario: Onboarding fails with invalid data
+    Given I am on the onboarding page
+    When I enter invalid phone number
+    And I submit the form
+    Then I should see a validation error
+    And I should remain on the onboarding page
+
+  Scenario: Onboarding fails when terms not agreed
+    Given I am on the onboarding page
+    When I fill out all required fields
+    And I do not agree to the terms of service
+    And I submit the form
+    Then I should see a validation error
+    And I should remain on the onboarding page
+
+  Scenario: Onboarding completes even if address update fails
+    Given I am on the onboarding page
+    When I fill out all required fields including address
+    And I submit the form
+    And the address update fails
+    Then my profile should still be completed
+    And I should be redirected to the dashboard
+```
