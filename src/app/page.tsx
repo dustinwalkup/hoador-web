@@ -166,7 +166,7 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       {/* Header */}
-      <header className="bg-background/95 mobile-padding supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
+      <header className="bg-background/95 mobile-padding supports-backdrop-filter:bg-background/60sticky top-0 z-50 w-full border-b backdrop-blur">
         <div className="container mx-auto flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Image
@@ -194,7 +194,7 @@ export default function HomePage() {
 
       {/* Hero Section */}
       <FadeIn>
-        <section className="mobile-padding bg-[linear-gradient(to_bottom,theme(colors.background)_0%,theme(colors.skyBlue)_60%,theme(colors.skyBlue)_100%)] relative overflow-hidden pt-16 md:pt-24">
+        <section className="mobile-padding relative overflow-hidden bg-[linear-gradient(to_bottom,var(--color-background)_0%,var(--color-skyBlue)_60%,var(--color-skyBlue)_100%)] pt-16 md:pt-24">
           <div className="relative z-10 container mx-auto flex flex-col items-center justify-center">
             <div className="max-w-3xl text-center">
               <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
