@@ -2,13 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MessageUserButton } from "../message-user-button";
-import { mockUser1, mockUser2 } from "@/test/fixtures/messages";
+import { mockUser2 } from "@/test/fixtures/messages";
 
 // Mock the modal component
 vi.mock("../message-user-modal", () => ({
   MessageUserModal: ({
     open,
-    onOpenChange,
   }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;

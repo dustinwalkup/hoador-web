@@ -270,7 +270,7 @@ describe("NotificationCard", () => {
   describe("Accessibility", () => {
     it("should have proper ARIA attributes for dropdown trigger", async () => {
       // Arrange
-      const user = userEvent.setup();
+      userEvent.setup();
       render(
         <NotificationCard
           notification={mockNotification}

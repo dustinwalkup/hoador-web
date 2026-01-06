@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ExplorePageClient } from "../explore-page-client";
 
@@ -39,7 +39,6 @@ import { useSearchListings } from "@/features/listings/hooks/use-listings";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { ExplorePageFilters } from "@/features/listings/components/explore-page/explore-page-filters";
 import { ExplorePageContent } from "@/features/listings/components/explore-page/explore-page-content";
-import { ListingCardSkeleton } from "@/components/dashboard/listing-card-skeleton";
 
 describe("ExplorePageClient", () => {
   const mockFilters = {

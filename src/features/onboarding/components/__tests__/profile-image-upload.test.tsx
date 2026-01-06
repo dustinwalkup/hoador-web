@@ -25,6 +25,7 @@ vi.mock("sonner", () => ({
 
 // Mock Next.js Image
 vi.mock("next/image", () => ({
+  // eslint-disable-next-line @next/next/no-img-element
   default: ({ src, alt }: any) => <img src={src} alt={alt} />,
 }));
 
@@ -466,6 +467,9 @@ describe("ProfileImageUpload", () => {
     });
 
     it("should respect showToasts prop", async () => {
+      // Clear mocks to ensure clean state
+      vi.clearAllMocks();
+
       const { container } = render(
         <ProfileImageUpload
           onImageChange={mockOnImageChange}
@@ -473,6 +477,9 @@ describe("ProfileImageUpload", () => {
           showToasts={false}
         />,
       );
+
+      // Verify toast hasn't been called yet
+      expect(mockToastSuccess).not.toHaveBeenCalled();
 
       const file = new File(["test"], "test.jpg", { type: "image/jpeg" });
       const fileInput = container.querySelector(
@@ -485,9 +492,17 @@ describe("ProfileImageUpload", () => {
 
       fireEvent.change(fileInput, { target: { files: fileList } });
 
-      await waitFor(() => {
-        expect(mockUploadProfileImage).toHaveBeenCalled();
-      });
+      // Wait for upload to complete and onImageChange to be called
+      await waitFor(
+        () => {
+          expect(mockUploadProfileImage).toHaveBeenCalled();
+          expect(mockOnImageChange).toHaveBeenCalled();
+        },
+        { timeout: 3000 },
+      );
+
+      // Wait a tick for any pending async operations
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       // Toast should not be called when showToasts is false
       expect(mockToastSuccess).not.toHaveBeenCalled();

@@ -1,14 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { userDAL } from "../index";
 import { UserDAL } from "../user.dal";
-import { ConflictError, NotFoundError, ValidationError } from "../errors";
-import {
-  mockUser,
-  mockUserMinimal,
-  mockUserInvalid,
-  mockAddress,
-} from "@/test/fixtures/users";
-import { mockRequireAuth } from "@/test/utils/mock-auth";
+import { ConflictError, NotFoundError } from "../errors";
+import { mockUser, mockUserMinimal, mockAddress } from "@/test/fixtures/users";
 import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 

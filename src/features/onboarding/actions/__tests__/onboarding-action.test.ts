@@ -68,7 +68,7 @@ describe("onboardingAction", () => {
     // Act
     try {
       await onboardingAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws, but we mocked it so it won't throw
       // If it does throw, that's expected for Next.js redirects
     }
@@ -383,7 +383,7 @@ describe("onboardingAction", () => {
     // Act
     try {
       await onboardingAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -427,7 +427,7 @@ describe("onboardingAction", () => {
     // Act
     try {
       await onboardingAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -471,7 +471,7 @@ describe("onboardingAction", () => {
     // Act
     try {
       await onboardingAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

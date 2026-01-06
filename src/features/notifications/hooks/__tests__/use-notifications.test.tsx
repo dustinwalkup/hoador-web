@@ -9,10 +9,7 @@ import {
   useMarkAsRead,
   useToggleReadStatus,
 } from "../use-notifications";
-import {
-  mockNotifications,
-  mockNotificationsResponse,
-} from "@/test/fixtures/notifications";
+import { mockNotificationsResponse } from "@/test/fixtures/notifications";
 
 // Mock fetch
 const mockFetch = vi.fn();

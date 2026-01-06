@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { resendVerificationEmailAction } from "../../actions/verify-email";
-import { auth } from "@/services/better-auth";
 
 // Mock dependencies
 vi.mock("@/services/better-auth", () => ({

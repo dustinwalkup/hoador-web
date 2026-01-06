@@ -1,15 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { messagesDAL } from "../index";
-import { UnauthorizedError, NotFoundError } from "../errors";
-import {
-  mockConversation,
-  mockMessage,
-  mockConversationWithMessages,
-} from "@/test/fixtures/messages";
-import {
-  mockGetCurrentUserId,
-  mockGetCurrentUserIdUnauthorized,
-} from "@/test/utils/mock-auth";
+import { UnauthorizedError } from "../errors";
+import { mockConversation, mockMessage } from "@/test/fixtures/messages";
 import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 

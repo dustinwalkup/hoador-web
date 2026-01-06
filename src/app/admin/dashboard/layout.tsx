@@ -16,7 +16,7 @@ export default async function AdminDashboardLayout({
   let adminUser;
   try {
     adminUser = await requireAdmin();
-  } catch (error) {
+  } catch {
     redirect("/admin");
   }
 

@@ -93,7 +93,7 @@ describe("Complete User Signup Workflow (E2E)", () => {
     // Step 5: Verify email sent notification (Better Auth handles this)
     try {
       await signupAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

@@ -4,7 +4,6 @@ import { signupAction } from "../../actions/signup";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { userDAL } from "@/dal";
 import { mockLegalDocuments, mockSignupData } from "@/test/fixtures/auth";
-import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 // Mock dependencies
 vi.mock("@/dal/legal-document.dal", () => ({
@@ -99,7 +98,7 @@ describe("Legal Documents Flow Integration", () => {
     // Act - Step 1: Signup
     try {
       await signupAction(null, signupFormData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -132,7 +131,7 @@ describe("Legal Documents Flow Integration", () => {
     // Act - Step 2: Accept legal documents
     try {
       await acceptLegalDocumentsAction(null, acceptFormData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -189,7 +188,7 @@ describe("Legal Documents Flow Integration", () => {
     // Act
     try {
       await signupAction(null, signupFormData1);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -230,7 +229,7 @@ describe("Legal Documents Flow Integration", () => {
     // Act
     try {
       await signupAction(null, signupFormData2);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

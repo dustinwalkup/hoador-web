@@ -9,10 +9,7 @@ interface FavoritesButtonProps {
   isFavorite: boolean;
 }
 
-export function FavoritesButton({
-  listingId,
-  isFavorite,
-}: FavoritesButtonProps) {
+export function FavoritesButton({ isFavorite }: FavoritesButtonProps) {
   const [isFavorited, setIsFavorited] = useState(isFavorite);
   const [isPending, startTransition] = useTransition();
 

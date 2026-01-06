@@ -26,7 +26,7 @@ export function createMockDALMethodSequence<T>(
   ...values: T[]
 ): Mock<() => Promise<T>> {
   const mock = vi.fn();
-  values.forEach((value, index) => {
+  values.forEach((value) => {
     mock.mockResolvedValueOnce(value);
   });
   return mock;

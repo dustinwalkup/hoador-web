@@ -29,7 +29,7 @@ vi.mock("../../actions/create-listing", () => ({
     // Simulate authentication check
     try {
       await requireAuth();
-    } catch (error) {
+    } catch {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -43,7 +43,7 @@ vi.mock("../../actions/create-listing", () => ({
     // Call the mocked listingDAL
     try {
       await listingDAL.createListing(dataWithOwner);
-    } catch (error) {
+    } catch {
       return { success: false, error: "Database connection failed" };
     }
 

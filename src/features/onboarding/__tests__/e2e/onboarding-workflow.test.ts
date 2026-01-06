@@ -77,7 +77,7 @@ describe("Complete Onboarding Workflow (E2E)", () => {
     // Step 6: Verify onboarding completed
     try {
       await onboardingAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -165,7 +165,7 @@ describe("Complete Onboarding Workflow (E2E)", () => {
     // Step 6: User submits form again
     try {
       await onboardingAction(null, correctedFormData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -209,7 +209,7 @@ describe("Complete Onboarding Workflow (E2E)", () => {
     // Step 2: User submits form
     try {
       await onboardingAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

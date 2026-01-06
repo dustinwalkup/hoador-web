@@ -1,18 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { rentalDAL } from "../index";
-import { UnauthorizedError, NotFoundError, ValidationError } from "../errors";
-import {
-  mockRentalRequest,
-  mockBorrowedListing,
-  mockLendingRequest,
-  mockRentalDetails,
-  mockRentalDates,
-  mockRentalDatesInvalid,
-} from "@/test/fixtures/rentals";
-import {
-  mockGetCurrentUserId,
-  mockGetCurrentUserIdUnauthorized,
-} from "@/test/utils/mock-auth";
+import { UnauthorizedError, NotFoundError } from "../errors";
+import { mockRentalRequest, mockRentalDetails } from "@/test/fixtures/rentals";
 import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 

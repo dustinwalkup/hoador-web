@@ -1,15 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LegalDocumentUploadForm } from "../legal-document-upload-form";
-import { uploadDocumentAction } from "../../actions/legal-documents";
 import { validatePDFFile } from "@/lib/utils/document-validation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   createMockPDFFile,
   createMockLargePDFFile,
-  createMockNonPDFFile,
 } from "@/test/fixtures/legal-documents";
 
 // Mock dependencies

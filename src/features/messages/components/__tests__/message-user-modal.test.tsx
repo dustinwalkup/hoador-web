@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MessageUserModal } from "../message-user-modal";
-import { mockUser1, mockUser2 } from "@/test/fixtures/messages";
+import { mockUser2 } from "@/test/fixtures/messages";
 
 // Mock dependencies
 vi.mock("@/features/messages/actions/start-conversation", () => ({

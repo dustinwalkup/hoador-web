@@ -7,9 +7,6 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { mockRentalRequest } from "@/test/fixtures/rentals";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
-import type { DocumentVersionsMap } from "@/dal/legal-document.dal";
-import type { UserProfile } from "@/dal/types";
-import type { CreateRentalRequestFormData } from "../../lib/form-schema";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({

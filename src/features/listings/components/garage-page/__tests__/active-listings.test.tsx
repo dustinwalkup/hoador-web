@@ -55,9 +55,6 @@ vi.mock("@/features/listings/components/garage-page/garage-error", () => ({
 }));
 
 import { useActiveListings } from "@/features/listings/hooks/use-garage";
-import RentalCard from "@/components/dashboard/rental-card";
-import { GarageLoadingSkeleton } from "@/features/listings/components/garage-page/garage-loading-skeleton";
-import { GarageError } from "@/features/listings/components/garage-page/garage-error";
 
 describe("ActiveListings", () => {
   const mockFilters = {

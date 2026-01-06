@@ -60,7 +60,7 @@ describe("Password Reset Flow Integration", () => {
     // Act - Step 2
     try {
       await resetPasswordAction(null, formData2);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

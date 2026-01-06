@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { GarageTabsClient } from "../garage-tabs-client";
 
 // Use vi.hoisted to create mocks that are available during hoisting
@@ -84,8 +84,6 @@ vi.mock("../garage-filters-client", () => ({
   GarageFiltersClient: vi.fn(() => <div data-testid="garage-filters-client" />),
 }));
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useGarageFilters } from "@/features/listings/hooks/use-garage";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ActiveListings } from "../active-listings";
 import { InactiveListings } from "../inactive-listings";

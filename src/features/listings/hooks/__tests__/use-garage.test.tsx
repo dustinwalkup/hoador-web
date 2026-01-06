@@ -158,7 +158,7 @@ describe("useActiveListings", () => {
       json: async () => [],
     });
 
-    const { result } = renderHook(() => useActiveListings(filters), {
+    renderHook(() => useActiveListings(filters), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),
@@ -264,7 +264,7 @@ describe("useInactiveListings", () => {
       json: async () => [],
     });
 
-    const { result } = renderHook(() => useInactiveListings(filters), {
+    renderHook(() => useInactiveListings(filters), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),
@@ -327,7 +327,7 @@ describe("useArchivedListings", () => {
       json: async () => [],
     });
 
-    const { result } = renderHook(() => useArchivedListings(filters), {
+    renderHook(() => useArchivedListings(filters), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),

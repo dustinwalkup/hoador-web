@@ -46,8 +46,6 @@ vi.mock("@/components/dashboard/listing-card", () => ({
   ),
 }));
 
-import ListingCard from "@/components/dashboard/listing-card";
-
 describe("ExplorePageContent", () => {
   const mockListings: UserListing[] = [
     {

@@ -9,7 +9,8 @@ vi.mock("next/link", () => ({
 
 // Mock Next.js Image
 vi.mock("next/image", () => ({
-  default: (props: any) => <img {...props} />,
+  // eslint-disable-next-line @next/next/no-img-element
+  default: (props: any) => <img {...props} alt={props.alt || ""} />,
 }));
 
 // Mock lucide-react icons

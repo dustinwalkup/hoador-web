@@ -35,7 +35,6 @@ vi.mock("react", async () => {
   };
 });
 
-import { forgotPasswordAction } from "../../actions/forgot-password";
 import { toast } from "sonner";
 
 describe("ForgotPasswordForm", () => {

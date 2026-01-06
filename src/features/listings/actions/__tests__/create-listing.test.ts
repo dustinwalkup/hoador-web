@@ -3,11 +3,9 @@ import { createListing, uploadListingImage } from "../create-listing";
 import { listingDAL, userDAL } from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { revalidatePath } from "next/cache";
-import { createListingFormData } from "@/test/utils/mock-form-data";
 import { mockListing } from "@/test/fixtures/listings";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
-import { mockLegalDocuments } from "@/test/fixtures/auth";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({

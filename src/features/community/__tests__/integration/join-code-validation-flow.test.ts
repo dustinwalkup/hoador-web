@@ -5,7 +5,7 @@ import {
   mockCommunity,
   mockUserCommunityInfo,
 } from "@/test/fixtures/community";
-import { ValidationError, UnauthorizedError } from "@/dal/errors";
+import { ValidationError } from "@/dal/errors";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -31,8 +31,7 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
-import { communityDAL, userDAL } from "@/dal";
-import { requireAuth } from "@/features/auth/utils/session";
+import { communityDAL } from "@/dal";
 import { redirect } from "next/navigation";
 import { tryCatch } from "@walkup/walkup-utils";
 
@@ -57,7 +56,7 @@ describe("Join Code Validation Flow Integration", () => {
     // Act
     try {
       await joinCommunityAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

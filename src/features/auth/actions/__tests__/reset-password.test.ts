@@ -41,7 +41,7 @@ describe("resetPasswordAction", () => {
     // Act
     try {
       await resetPasswordAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

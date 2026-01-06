@@ -6,14 +6,11 @@ import {
   validateField,
   validateFields,
   type OnboardingData,
-  type AddressData,
 } from "../validation";
 import {
   mockOnboardingData,
   mockOnboardingDataMinimal,
-  mockOnboardingDataInvalid,
   mockAddressData,
-  mockAddressDataInvalid,
 } from "@/test/fixtures/onboarding";
 
 describe("onboardingSchema", () => {

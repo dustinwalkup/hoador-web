@@ -47,7 +47,6 @@ vi.mock("next/link", () => ({
   )),
 }));
 
-import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { GarageTabsClient } from "../garage-tabs-client";
 import { Button } from "@/components/ui/button";
@@ -225,7 +224,7 @@ describe("GarageClient", () => {
     it("should have proper semantic HTML structure", () => {
       mockUseSearchParams.mockReturnValue(new URLSearchParams());
 
-      const { container } = render(<GarageClient />);
+      render(<GarageClient />);
 
       // Should have proper heading structure
       const heading = screen.getByTestId("page-header-title");

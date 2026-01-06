@@ -81,7 +81,6 @@ describe("auth-schemas.ts", () => {
     });
 
     it("should accept emails at the 255 character limit", () => {
-      const validLongEmail = "a".repeat(245) + "@example.com"; // 245 + 11 = 256, but with @example.com it's close
       // Actually test with a valid length
       const result = emailSchema.safeParse("test@example.com");
       expect(result.success).toBe(true);

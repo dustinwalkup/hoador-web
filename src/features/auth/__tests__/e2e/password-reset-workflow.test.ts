@@ -68,7 +68,7 @@ describe("Complete Password Reset Workflow (E2E)", () => {
     // Step 7: User submits new password
     try {
       await resetPasswordAction(null, formData2);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

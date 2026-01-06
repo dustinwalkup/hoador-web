@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { FormProvider } from "react-hook-form";
 import { BasicInformationSection } from "../basic-information-section";
 import {
@@ -89,7 +89,7 @@ describe("BasicInformationSection", () => {
   });
 
   it("should render name input with placeholder", () => {
-    const { container } = render(
+    render(
       <FormProvider {...(mockForm as any)}>
         <BasicInformationSection
           control={mockForm.control as any}

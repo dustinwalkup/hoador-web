@@ -72,7 +72,7 @@ describe("Onboarding Flow Integration", () => {
     // Act
     try {
       await onboardingAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -182,7 +182,7 @@ describe("Onboarding Flow Integration", () => {
     // Act
     try {
       await onboardingAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -229,7 +229,7 @@ describe("Onboarding Flow Integration", () => {
     // Act
     try {
       await onboardingAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

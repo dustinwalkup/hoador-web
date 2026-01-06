@@ -121,7 +121,7 @@ export function getDocumentsByCategory(
   category: LegalDocumentCategory,
 ): LegalDocumentId[] {
   return Object.entries(LEGAL_DOCUMENT_METADATA)
-    .filter(([_, metadata]) => metadata.category === category)
+    .filter(([, metadata]) => metadata.category === category)
     .map(([id]) => id as LegalDocumentId);
 }
 

@@ -39,7 +39,6 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
-import { auth } from "@/services/better-auth";
 import { tryCatch } from "@walkup/walkup-utils";
 import { headers } from "next/headers";
 
@@ -87,7 +86,7 @@ describe("Signup Flow Integration", () => {
     // Act
     try {
       await signupAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -150,7 +149,7 @@ describe("Signup Flow Integration", () => {
     // Act
     try {
       await signupAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -212,7 +211,7 @@ describe("Signup Flow Integration", () => {
     // Act
     try {
       await signupAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

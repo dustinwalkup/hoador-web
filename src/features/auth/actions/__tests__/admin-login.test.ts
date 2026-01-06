@@ -23,7 +23,6 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
-import { auth } from "@/services/better-auth";
 import { getAdminUser } from "../../utils/admin-session";
 import { headers } from "next/headers";
 import { tryCatch } from "@walkup/walkup-utils";

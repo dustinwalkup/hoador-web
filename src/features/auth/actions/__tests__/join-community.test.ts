@@ -28,8 +28,6 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
-import { communityDAL, userDAL } from "@/dal";
-import { requireAuth } from "../../utils/session";
 import { redirect } from "next/navigation";
 import { tryCatch } from "@walkup/walkup-utils";
 
@@ -69,7 +67,7 @@ describe("joinCommunityAction", () => {
     // Act
     try {
       await joinCommunityAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -184,7 +182,7 @@ describe("joinCommunityAction", () => {
     // Act
     try {
       await joinCommunityAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 

@@ -3,7 +3,6 @@ import { signupAction } from "../signup";
 import { userDAL } from "@/dal";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { mockSignupData, mockLegalDocuments } from "@/test/fixtures/auth";
-import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -39,7 +38,6 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
-import { auth } from "@/services/better-auth";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { tryCatch } from "@walkup/walkup-utils";
@@ -89,7 +87,7 @@ describe("signupAction", () => {
     // Act
     try {
       await signupAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws, but we mocked it so it won't throw
       // If it does throw, that's expected for Next.js redirects
     }
@@ -139,7 +137,7 @@ describe("signupAction", () => {
     // Act
     try {
       await signupAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() may throw
     }
 
@@ -186,7 +184,7 @@ describe("signupAction", () => {
     // Act
     try {
       await signupAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() may throw
     }
 
@@ -394,7 +392,7 @@ describe("signupAction", () => {
     // Act
     try {
       await signupAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() may throw
     }
 

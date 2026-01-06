@@ -14,7 +14,6 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
-import { auth } from "@/services/better-auth";
 import { tryCatch } from "@walkup/walkup-utils";
 
 describe("forgotPasswordAction", () => {

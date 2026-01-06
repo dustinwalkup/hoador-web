@@ -1,18 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { useForm } from "react-hook-form";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import {
   createMockFormData,
-  createMockMinimalFormData,
   createMockCategories,
   createMockForm,
-  mockToast,
-  mockFetch,
   createMockRouter,
   renderWithQueryClient,
 } from "@/test/utils/listing-test-helpers";
 import { AddListingForm } from "../listing-form/add-listing-form";
-import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
 
 // Mock dependencies
 vi.mock("next/navigation", () => ({
@@ -382,7 +377,7 @@ describe("AddListingForm", () => {
 
     it("should show validation error when ownerPoliciesAcknowledged is false", async () => {
       const { toast } = await import("sonner");
-      const toastErrorSpy = vi.mocked(toast.error);
+      vi.mocked(toast.error);
 
       const errorMessage =
         "You must acknowledge the Owner Policies to create a listing.";

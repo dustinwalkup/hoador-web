@@ -103,12 +103,7 @@ vi.mock("next/link", () => ({
 }));
 
 import { useArchivedListings } from "@/features/listings/hooks/use-garage";
-import RentalCard from "@/components/dashboard/rental-card";
-import { GarageLoadingSkeleton } from "@/features/listings/components/garage-page/garage-loading-skeleton";
-import { GarageError } from "@/features/listings/components/garage-page/garage-error";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { capitalize } from "@/lib/utils";
 
 describe("ArchivedListings", () => {

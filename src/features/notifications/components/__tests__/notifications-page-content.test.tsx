@@ -377,7 +377,6 @@ describe("NotificationsPageContent", () => {
 
     it("should filter by type", async () => {
       // Arrange
-      const user = userEvent.setup();
       render(<NotificationsPageContent />);
 
       // Act - change type filter (this would involve opening a select)

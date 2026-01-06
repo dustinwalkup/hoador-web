@@ -1,11 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ExplorePageFilters } from "../explore-page-filters";
 
@@ -39,7 +33,6 @@ vi.mock("@/components/dashboard/category-button", () => ({
 
 import { useListingFilters } from "@/features/listings/hooks/use-url-state";
 import { useDebouncedSearch } from "@/hooks/use-debounced-search";
-import CategoryButton from "@/components/dashboard/category-button";
 
 describe("ExplorePageFilters", () => {
   const mockFilters = {

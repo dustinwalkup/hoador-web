@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { acceptLegalDocumentsAction } from "../accept-legal-documents";
 import { mockLegalDocuments } from "@/test/fixtures/auth";
-import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 // Mock dependencies
 vi.mock("@/dal/legal-document.dal", () => ({
@@ -74,7 +73,7 @@ describe("acceptLegalDocumentsAction", () => {
     // Act
     try {
       await acceptLegalDocumentsAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
@@ -193,7 +192,7 @@ describe("acceptLegalDocumentsAction", () => {
     // Act
     try {
       await acceptLegalDocumentsAction(null, formData);
-    } catch (error) {
+    } catch {
       // redirect() throws
     }
 
