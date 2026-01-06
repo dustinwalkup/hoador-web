@@ -35,28 +35,6 @@ interface PhotosSectionProps {
   isLoadingImages?: boolean;
 }
 
-// Helper to create object URL from file
-function createObjectUrlFromFile(file: File | undefined): string | null {
-  if (!file) return null;
-  try {
-    return URL.createObjectURL(file);
-  } catch (error) {
-    console.error("Failed to create object URL for image:", error);
-    return null;
-  }
-}
-
-// Helper to revoke object URL safely
-function revokeObjectUrl(url: string | null) {
-  if (url) {
-    try {
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Failed to revoke object URL:", error);
-    }
-  }
-}
-
 // Image component with smooth loading - manages its own object URL lifecycle
 function ListingImage({
   image,
@@ -69,69 +47,39 @@ function ListingImage({
   onLoad: () => void;
   onError: (index: number, e: React.SyntheticEvent<HTMLImageElement>) => void;
 }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Create object URL synchronously - lazy initializer runs once
-  const [objectUrl, setObjectUrl] = useState<string | null>(() =>
-    createObjectUrlFromFile(image.file),
-  );
-
-  // Track the file to detect changes and update URL
-  const prevFileRef = useRef<File | undefined>(image.file);
-
-  // Handle file changes - create new URL when file changes
-  if (image.file !== prevFileRef.current) {
-    // Revoke old URL
-    revokeObjectUrl(objectUrl);
-    // Create new URL
-    const newUrl = createObjectUrlFromFile(image.file);
-    setObjectUrl(newUrl);
-    prevFileRef.current = image.file;
-  }
-
-  // Cleanup on unmount only
   useEffect(() => {
+    if (!image.file) return;
+
+    const url = URL.createObjectURL(image.file);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setObjectUrl(url);
+
     return () => {
-      revokeObjectUrl(objectUrl);
+      URL.revokeObjectURL(url);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run cleanup on unmount
+  }, [image.file]);
 
-  const handleLoad = () => {
-    setIsLoaded(true);
-    onLoad();
-  };
+  const imageSrc =
+    image.file && objectUrl
+      ? objectUrl
+      : typeof image.url === "string"
+        ? image.url
+        : "";
 
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    setHasError(true);
-    onError(index, e);
-  };
-
-  // Determine image source
-  let imageSrc = "";
-  if (image.file && objectUrl) {
-    imageSrc = objectUrl;
-  } else if (
-    image.url &&
-    typeof image.url === "string" &&
-    image.url.trim() !== ""
-  ) {
-    imageSrc = image.url;
-  }
-
-  // Don't render if no valid image source
-  if (!imageSrc || imageSrc.trim() === "") {
+  if (!imageSrc) {
     return (
-      <div className="relative aspect-square w-full overflow-hidden rounded-lg border">
-        <Skeleton className="absolute inset-0 rounded-lg" />
+      <div className="relative aspect-square w-full rounded-lg border">
+        <Skeleton className="absolute inset-0" />
       </div>
     );
   }
 
   return (
     <div className="relative aspect-square w-full overflow-hidden rounded-lg border">
-      {/* Skeleton placeholder */}
       {!isLoaded && !hasError && (
         <Skeleton className="absolute inset-0 rounded-lg" />
       )}
@@ -140,17 +88,20 @@ function ListingImage({
         src={imageSrc}
         alt={`Listing image ${index + 1}`}
         fill
-        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
         unoptimized={!!image.file}
-        className={`object-cover transition-all duration-500 ease-in-out ${
-          isLoaded ? "scale-100 opacity-100" : "scale-95 opacity-0"
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+        className={`object-cover transition-all duration-300 ${
+          isLoaded ? "opacity-100" : "opacity-0"
         }`}
-        onLoad={handleLoad}
-        onError={handleError}
+        onLoad={() => {
+          setIsLoaded(true);
+          onLoad();
+        }}
+        onError={(e) => {
+          setHasError(true);
+          onError(index, e);
+        }}
       />
-
-      {/* Hover overlay */}
-      <div className="bg-opacity-0 group-hover:bg-opacity-20 absolute inset-0 rounded-lg transition-all duration-200" />
     </div>
   );
 }
