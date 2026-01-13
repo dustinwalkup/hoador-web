@@ -14,10 +14,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PWAInstallSection } from "./pwa-install-section";
 
 export function PreferencesTab() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>App Installation</CardTitle>
+          <CardDescription>
+            Install Hoador as an app on your device for quick access
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PWAInstallSection />
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Notification Preferences</CardTitle>
