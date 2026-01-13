@@ -396,10 +396,23 @@ export function captureInstallPrompt(): void {
     return;
   }
 
+  // Check if the event was already captured by the early script
+  if (window.__pwaDeferredPrompt) {
+    const promptEvent = window.__pwaDeferredPrompt;
+    deferredPrompt = promptEvent;
+    installPromptState.deferredPrompt = promptEvent;
+    installPromptState.isInstallable = true;
+    installPromptState.isInstalled = false;
+    notifyStateListeners();
+    // Mark listeners as added to prevent duplicate handling
+    eventListenersAdded = true;
+    return;
+  }
+
   // Mark that we're adding event listeners
   eventListenersAdded = true;
 
-  // Listen for beforeinstallprompt event
+  // Listen for beforeinstallprompt event (fallback if early script missed it)
   window.addEventListener("beforeinstallprompt", (e: Event) => {
     // Prevent the default install prompt
     e.preventDefault();
@@ -415,6 +428,18 @@ export function captureInstallPrompt(): void {
 
     notifyStateListeners();
   });
+
+  // Also listen for the custom event dispatched by the early script
+  window.addEventListener("pwa-beforeinstallprompt", ((e: CustomEvent) => {
+    const promptEvent = e.detail as BeforeInstallPromptEvent;
+    if (!deferredPrompt) {
+      deferredPrompt = promptEvent;
+      installPromptState.deferredPrompt = promptEvent;
+      installPromptState.isInstallable = true;
+      installPromptState.isInstalled = false;
+      notifyStateListeners();
+    }
+  }) as EventListener);
 
   // Listen for appinstalled event (user installed the app)
   window.addEventListener("appinstalled", () => {

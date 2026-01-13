@@ -124,5 +124,13 @@ export interface CacheStrategy {
 declare global {
   interface WindowEventMap {
     beforeinstallprompt: BeforeInstallPromptEvent;
+    "pwa-beforeinstallprompt": CustomEvent<BeforeInstallPromptEvent>;
+  }
+
+  interface Window {
+    /** Deferred prompt event captured by early script (set before React hydrates) */
+    __pwaDeferredPrompt?: BeforeInstallPromptEvent | null;
+    /** Flag indicating if the prompt was captured by early script */
+    __pwaPromptCaptured?: boolean;
   }
 }

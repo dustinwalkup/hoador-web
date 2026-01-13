@@ -74,6 +74,33 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Hoador" />
+        {/* Early PWA install prompt capture - must run before React hydrates */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                // Create a global storage for the deferred prompt event
+                if (!window.__pwaDeferredPrompt) {
+                  window.__pwaDeferredPrompt = null;
+                  window.__pwaPromptCaptured = false;
+                }
+                
+                // Capture the beforeinstallprompt event as early as possible
+                window.addEventListener('beforeinstallprompt', function(e) {
+                  e.preventDefault();
+                  // Store the event object in a global variable
+                  window.__pwaDeferredPrompt = e;
+                  window.__pwaPromptCaptured = true;
+                  
+                  // Dispatch a custom event so React code can be notified
+                  window.dispatchEvent(new CustomEvent('pwa-beforeinstallprompt', {
+                    detail: e
+                  }));
+                });
+              })();
+            `,
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
