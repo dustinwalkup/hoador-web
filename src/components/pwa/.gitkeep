@@ -1,0 +1,9 @@
+# PWA Components Directory
+# 
+# This directory will contain PWA React components:
+# - install-prompt.tsx
+# - offline-indicator.tsx
+# - update-notification.tsx
+# - pwa-provider.tsx
+# 
+# These components will be implemented in later phases of the PWA implementation.
