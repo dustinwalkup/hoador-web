@@ -1,0 +1,46 @@
+name: Vercel Preview Deployment
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  preview:
+    name: Build & Deploy Preview
+    runs-on: ubuntu-latest
+    steps:
+      # 1️⃣ Checkout the PR code
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # 2️⃣ Setup Bun (your runtime)
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      # 3️⃣ Install dependencies
+      - name: Install dependencies
+        run: bun install
+
+      # 4️⃣ Build the application
+      - name: Build application
+        run: bun run build
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ github.server_url }}/${{ github.repository }}
+          STRIPE_SECRET_KEY: sk_test_mock_key_for_build_only
+          DATABASE_URL: postgresql://mock:mock@localhost:5432/mock_db
+          OPENCAGE_API_KEY: mock_opencage_key_for_build
+          OPENAI_API_KEY: sk-mock_openai_key_for_build
+          SERP_API_KEY: mock_serp_key_for_build
+
+      # 5️⃣ Deploy to Vercel (Preview)
+      - name: Deploy to Vercel (Preview)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          github-comment: true
+          vercel-args: "" # Do NOT use --prod for PR previews
