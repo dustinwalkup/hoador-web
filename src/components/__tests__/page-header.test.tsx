@@ -46,7 +46,9 @@ describe("PageHeader", () => {
 
       // Assert
       expect(screen.getByText("Test Page")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Action" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Action" }),
+      ).toBeInTheDocument();
     });
 
     it("should apply custom className", () => {
