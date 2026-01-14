@@ -3,8 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import Footer from "@/components/footer";
 import { Providers } from "../components/providers";
-import { InstallPrompt } from "@/components/pwa/install-prompt";
-import { InstallPromptDebug } from "@/components/pwa/install-prompt-debug";
+import { InstallDirectionsBanner } from "@/components/pwa/install-directions-banner";
 import { OfflineIndicator } from "@/components/pwa/offline-indicator";
 import { UpdateNotification } from "@/components/pwa/update-notification";
 
@@ -75,33 +74,6 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Hoador" />
-        {/* Early PWA install prompt capture - must run before React hydrates */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                // Create a global storage for the deferred prompt event
-                if (!window.__pwaDeferredPrompt) {
-                  window.__pwaDeferredPrompt = null;
-                  window.__pwaPromptCaptured = false;
-                }
-                
-                // Capture the beforeinstallprompt event as early as possible
-                window.addEventListener('beforeinstallprompt', function(e) {
-                  e.preventDefault();
-                  // Store the event object in a global variable
-                  window.__pwaDeferredPrompt = e;
-                  window.__pwaPromptCaptured = true;
-                  
-                  // Dispatch a custom event so React code can be notified
-                  window.dispatchEvent(new CustomEvent('pwa-beforeinstallprompt', {
-                    detail: e
-                  }));
-                });
-              })();
-            `,
-          }}
-        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -117,8 +89,7 @@ export default function RootLayout({
             {children}
             <Footer />
             <UpdateNotification position="bottom" />
-            <InstallPrompt variant="banner" position="bottom" />
-            <InstallPromptDebug />
+            <InstallDirectionsBanner variant="banner" position="bottom" />
           </ThemeProvider>
         </Providers>
         <Toaster richColors />

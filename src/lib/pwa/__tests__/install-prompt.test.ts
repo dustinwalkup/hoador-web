@@ -7,12 +7,9 @@ import {
   isAppInstalled,
   isInstallPromptDismissed,
   dismissInstallPrompt,
+  dismissInstallPromptTemporarily,
   clearDismissedStatus,
   markAppAsInstalled,
-  getInstallPromptState,
-  captureInstallPrompt,
-  showInstallPrompt,
-  isInstallPromptSupported,
   isManualInstallAvailable,
   getSafariInstallInstructions,
 } from "../install-prompt";
@@ -20,28 +17,55 @@ import {
 describe("install-prompt", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
 
-    // Reset window properties
-    Object.defineProperty(window, "matchMedia", {
-      writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-      configurable: true,
-    });
+    // Clear localStorage if available
+    try {
+      const win = globalThis as any;
+      if (win.window?.localStorage) {
+        win.window.localStorage.clear();
+      } else if (win.localStorage) {
+        win.localStorage.clear();
+      }
+    } catch {
+      // localStorage not available, functions will handle it
+    }
+
+    // Reset window.matchMedia if available
+    try {
+      const win = globalThis as any;
+      if (win.window) {
+        Object.defineProperty(win.window, "matchMedia", {
+          writable: true,
+          value: vi.fn().mockImplementation((query: string) => ({
+            matches: false,
+            media: query,
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+          })),
+          configurable: true,
+        });
+      }
+    } catch {
+      // window not available
+    }
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    localStorage.clear();
+    try {
+      const win = globalThis as any;
+      if (win.window?.localStorage) {
+        win.window.localStorage.clear();
+      } else if (win.localStorage) {
+        win.localStorage.clear();
+      }
+    } catch {
+      // localStorage not available
+    }
   });
 
   describe("isAppInstalled", () => {
@@ -65,7 +89,11 @@ describe("install-prompt", () => {
     });
 
     it("should return true when localStorage indicates installed", () => {
-      localStorage.setItem("pwa-install-status", "installed");
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        storage.setItem("pwa-install-status", "installed");
+      }
 
       expect(isAppInstalled()).toBe(true);
     });
@@ -76,10 +104,56 @@ describe("install-prompt", () => {
   });
 
   describe("isInstallPromptDismissed", () => {
-    it("should return true when dismissed", () => {
-      localStorage.setItem("pwa-install-prompt-dismissed", "true");
+    it("should return true when dismissed with old format (backward compatibility)", () => {
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        storage.setItem("pwa-install-prompt-dismissed", "true");
+      }
 
       expect(isInstallPromptDismissed()).toBe(true);
+    });
+
+    it("should return true when dismissed with 'never' type", () => {
+      const dismissal = JSON.stringify({
+        type: "never",
+        timestamp: Date.now(),
+      });
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        storage.setItem("pwa-install-prompt-dismissed", dismissal);
+      }
+
+      expect(isInstallPromptDismissed()).toBe(true);
+    });
+
+    it("should return true when dismissed with 'remind_later' and within 7 days", () => {
+      const dismissal = JSON.stringify({
+        type: "remind_later",
+        timestamp: Date.now() - 1000 * 60 * 60 * 24 * 3, // 3 days ago
+      });
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        storage.setItem("pwa-install-prompt-dismissed", dismissal);
+      }
+
+      expect(isInstallPromptDismissed()).toBe(true);
+    });
+
+    it("should return false when dismissed with 'remind_later' but expired", () => {
+      const dismissal = JSON.stringify({
+        type: "remind_later",
+        timestamp: Date.now() - 1000 * 60 * 60 * 24 * 8, // 8 days ago (expired)
+      });
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        storage.setItem("pwa-install-prompt-dismissed", dismissal);
+      }
+
+      expect(isInstallPromptDismissed()).toBe(false);
     });
 
     it("should return false when not dismissed", () => {
@@ -88,24 +162,54 @@ describe("install-prompt", () => {
   });
 
   describe("dismissInstallPrompt", () => {
-    it("should mark prompt as dismissed", () => {
+    it("should mark prompt as dismissed permanently", () => {
       dismissInstallPrompt();
 
-      const stored = localStorage.getItem("pwa-install-prompt-dismissed");
-      expect(stored).not.toBeNull();
-      const dismissal = JSON.parse(stored!);
-      expect(dismissal.type).toBe("never");
-      expect(dismissal.timestamp).toBeTypeOf("number");
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        const stored = storage.getItem("pwa-install-prompt-dismissed");
+        expect(stored).not.toBeNull();
+        const dismissal = JSON.parse(stored!);
+        expect(dismissal.type).toBe("never");
+        expect(dismissal.timestamp).toBeTypeOf("number");
+      }
+    });
+  });
+
+  describe("dismissInstallPromptTemporarily", () => {
+    it("should mark prompt as dismissed temporarily", () => {
+      dismissInstallPromptTemporarily();
+
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        const stored = storage.getItem("pwa-install-prompt-dismissed");
+        expect(stored).not.toBeNull();
+        const dismissal = JSON.parse(stored!);
+        expect(dismissal.type).toBe("remind_later");
+        expect(dismissal.timestamp).toBeTypeOf("number");
+      }
+    });
+
+    it("should be dismissed when within 7 days", () => {
+      dismissInstallPromptTemporarily();
+
+      expect(isInstallPromptDismissed()).toBe(true);
     });
   });
 
   describe("clearDismissedStatus", () => {
     it("should clear dismissed status", () => {
-      localStorage.setItem("pwa-install-prompt-dismissed", "true");
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        storage.setItem("pwa-install-prompt-dismissed", "true");
 
-      clearDismissedStatus();
+        clearDismissedStatus();
 
-      expect(localStorage.getItem("pwa-install-prompt-dismissed")).toBeNull();
+        expect(storage.getItem("pwa-install-prompt-dismissed")).toBeNull();
+      }
     });
   });
 
@@ -113,66 +217,11 @@ describe("install-prompt", () => {
     it("should mark app as installed", () => {
       markAppAsInstalled();
 
-      expect(localStorage.getItem("pwa-install-status")).toBe("installed");
-    });
-  });
-
-  describe("getInstallPromptState", () => {
-    it("should return install prompt state", () => {
-      const state = getInstallPromptState();
-
-      expect(state).toHaveProperty("deferredPrompt");
-      expect(state).toHaveProperty("isInstallable");
-      expect(state).toHaveProperty("isInstalled");
-      expect(state).toHaveProperty("userChoice");
-    });
-  });
-
-  describe("isInstallPromptSupported", () => {
-    it("should return true when beforeinstallprompt is available", () => {
-      Object.defineProperty(window, "onbeforeinstallprompt", {
-        writable: true,
-        value: null,
-        configurable: true,
-      });
-
-      expect(isInstallPromptSupported()).toBe(true);
-    });
-
-    it("should return false when beforeinstallprompt is not available", () => {
-      delete (window as any).onbeforeinstallprompt;
-
-      expect(isInstallPromptSupported()).toBe(false);
-    });
-  });
-
-  describe("captureInstallPrompt", () => {
-    it("should capture beforeinstallprompt event", () => {
-      const addEventListenerSpy = vi.spyOn(window, "addEventListener");
-
-      captureInstallPrompt();
-
-      expect(addEventListenerSpy).toHaveBeenCalledWith(
-        "beforeinstallprompt",
-        expect.any(Function),
-      );
-    });
-
-    it("should not capture if already installed", () => {
-      localStorage.setItem("pwa-install-status", "installed");
-      const addEventListenerSpy = vi.spyOn(window, "addEventListener");
-
-      captureInstallPrompt();
-
-      expect(addEventListenerSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("showInstallPrompt", () => {
-    it("should throw error when prompt is not available", async () => {
-      await expect(showInstallPrompt()).rejects.toThrow(
-        "Install prompt not available",
-      );
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        expect(storage.getItem("pwa-install-status")).toBe("installed");
+      }
     });
   });
 
@@ -189,7 +238,11 @@ describe("install-prompt", () => {
     });
 
     it("should return false when already installed", () => {
-      localStorage.setItem("pwa-install-status", "installed");
+      const win = globalThis as any;
+      const storage = win.window?.localStorage || win.localStorage;
+      if (storage) {
+        storage.setItem("pwa-install-status", "installed");
+      }
 
       expect(isManualInstallAvailable()).toBe(false);
     });

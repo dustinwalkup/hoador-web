@@ -8,9 +8,7 @@
 
 "use client";
 
-import { useEffect } from "react";
 import { useServiceWorker } from "@/lib/pwa/use-service-worker";
-import { initializeInstallPrompt } from "@/lib/pwa/install-prompt";
 
 export interface PWAProviderProps {
   /** Children to render */
@@ -34,11 +32,6 @@ export function PWAProvider({ children, onUpdateAvailable }: PWAProviderProps) {
     checkForUpdates: true,
     onUpdateAvailable,
   });
-
-  // Initialize install prompt detection
-  useEffect(() => {
-    initializeInstallPrompt();
-  }, []);
 
   // Component doesn't render anything, just manages service worker registration
   return <>{children}</>;

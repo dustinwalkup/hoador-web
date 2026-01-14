@@ -28,38 +28,6 @@ export interface ServiceWorkerState {
 }
 
 /**
- * Before Install Prompt Event
- *
- * Custom event fired by the browser before showing the install prompt.
- * This allows the app to capture the prompt and show it at a custom time.
- */
-export interface BeforeInstallPromptEvent extends Event {
-  /** Prompt user to install the PWA */
-  prompt(): Promise<void>;
-  /** Result of the user's choice */
-  userChoice: Promise<{
-    outcome: "accepted" | "dismissed";
-    platform: string;
-  }>;
-}
-
-/**
- * Install Prompt State
- *
- * Represents the current state of the PWA installation prompt.
- */
-export interface InstallPromptState {
-  /** The deferred beforeinstallprompt event, or null if not captured */
-  deferredPrompt: BeforeInstallPromptEvent | null;
-  /** Whether the app meets installability criteria */
-  isInstallable: boolean;
-  /** Whether the app is already installed */
-  isInstalled: boolean;
-  /** User's choice when prompted to install */
-  userChoice: "accepted" | "dismissed" | null;
-}
-
-/**
  * Network Status
  *
  * Represents the current network connectivity status and information.
@@ -113,24 +81,4 @@ export interface CacheStrategy {
   networkTimeout?: number;
   /** Options for cache matching (e.g., ignore search params, ignore query) */
   matchOptions?: CacheQueryOptions;
-}
-
-/**
- * Extend Window interface to include BeforeInstallPromptEvent
- *
- * This allows TypeScript to recognize the beforeinstallprompt event
- * on the window object.
- */
-declare global {
-  interface WindowEventMap {
-    beforeinstallprompt: BeforeInstallPromptEvent;
-    "pwa-beforeinstallprompt": CustomEvent<BeforeInstallPromptEvent>;
-  }
-
-  interface Window {
-    /** Deferred prompt event captured by early script (set before React hydrates) */
-    __pwaDeferredPrompt?: BeforeInstallPromptEvent | null;
-    /** Flag indicating if the prompt was captured by early script */
-    __pwaPromptCaptured?: boolean;
-  }
 }

@@ -1,13 +1,10 @@
 /**
  * Install Prompt Utility
  *
- * Handles PWA installation prompts, including capturing the beforeinstallprompt
- * event and providing functions to trigger installation. Also includes install
- * status detection to determine if the app is already installed.
- * Includes Safari-specific handling for iOS and macOS.
+ * Simplified utility for PWA installation status detection and dismissal tracking.
+ * No longer handles beforeinstallprompt API - only provides installation detection
+ * and dismissal utilities.
  */
-
-import type { BeforeInstallPromptEvent, InstallPromptState } from "./types";
 
 /**
  * Browser detection result
@@ -30,7 +27,7 @@ interface BrowserInfo {
  *
  * @returns Browser information
  */
-function detectBrowser(): BrowserInfo {
+export function detectBrowser(): BrowserInfo {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return {
       name: "unknown",
@@ -89,7 +86,6 @@ const INSTALL_STATUS_KEY = "pwa-install-status";
  * Duration for "remind me later" dismissal (7 days in milliseconds)
  */
 const REMIND_LATER_DURATION = 7 * 24 * 60 * 60 * 1000;
-// const REMIND_LATER_DURATION = 0;
 
 /**
  * Dismissal data structure
@@ -98,36 +94,6 @@ interface DismissalData {
   type: "never" | "remind_later";
   timestamp: number;
 }
-
-/**
- * Module-level storage for deferred install prompt
- */
-let deferredPrompt: BeforeInstallPromptEvent | null = null;
-
-/**
- * Module-level storage for install prompt state
- */
-const installPromptState: InstallPromptState = {
-  deferredPrompt: null,
-  isInstallable: false,
-  isInstalled: false,
-  userChoice: null,
-};
-
-/**
- * Listeners for install prompt state changes
- */
-const stateListeners = new Set<(state: InstallPromptState) => void>();
-
-/**
- * Flag to track if initialization has been performed
- */
-let isInitialized = false;
-
-/**
- * Flag to track if event listeners have been added
- */
-let eventListenersAdded = false;
 
 /**
  * Check if running on a mobile device
@@ -317,216 +283,9 @@ export function markAppAsInstalled(): void {
 
   try {
     localStorage.setItem(INSTALL_STATUS_KEY, "installed");
-    installPromptState.isInstalled = true;
-    notifyStateListeners();
   } catch (error) {
     console.warn("[PWA] Failed to save installation status:", error);
   }
-}
-
-/**
- * Get the current install prompt state
- *
- * @returns Current install prompt state
- */
-export function getInstallPromptState(): InstallPromptState {
-  return { ...installPromptState };
-}
-
-/**
- * Subscribe to install prompt state changes
- *
- * @param listener - Callback function to call when state changes
- * @returns Unsubscribe function
- */
-export function subscribeToInstallPromptState(
-  listener: (state: InstallPromptState) => void,
-): () => void {
-  stateListeners.add(listener);
-
-  // Immediately call with current state
-  listener(getInstallPromptState());
-
-  // Return unsubscribe function
-  return () => {
-    stateListeners.delete(listener);
-  };
-}
-
-/**
- * Notify all state listeners of state changes
- */
-function notifyStateListeners(): void {
-  const currentState = getInstallPromptState();
-  stateListeners.forEach((listener) => {
-    try {
-      listener(currentState);
-    } catch (error) {
-      console.error("[PWA] Error in state listener:", error);
-    }
-  });
-}
-
-/**
- * Capture the beforeinstallprompt event
- *
- * This should be called once when the page loads to capture the
- * browser's install prompt event.
- */
-export function captureInstallPrompt(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  // Check if already captured
-  if (deferredPrompt !== null) {
-    return;
-  }
-
-  // Check if event listeners have already been added (prevent duplicates)
-  if (eventListenersAdded) {
-    return;
-  }
-
-  // Check if already installed
-  if (isAppInstalled()) {
-    installPromptState.isInstalled = true;
-    installPromptState.isInstallable = false;
-    notifyStateListeners();
-    return;
-  }
-
-  // Check if the event was already captured by the early script
-  if (window.__pwaDeferredPrompt) {
-    const promptEvent = window.__pwaDeferredPrompt;
-    deferredPrompt = promptEvent;
-    installPromptState.deferredPrompt = promptEvent;
-    installPromptState.isInstallable = true;
-    installPromptState.isInstalled = false;
-    notifyStateListeners();
-    // Mark listeners as added to prevent duplicate handling
-    eventListenersAdded = true;
-    return;
-  }
-
-  // Mark that we're adding event listeners
-  eventListenersAdded = true;
-
-  // Listen for beforeinstallprompt event (fallback if early script missed it)
-  window.addEventListener("beforeinstallprompt", (e: Event) => {
-    // Prevent the default install prompt
-    e.preventDefault();
-
-    // Store the event for later use
-    const promptEvent = e as BeforeInstallPromptEvent;
-    deferredPrompt = promptEvent;
-
-    // Update state
-    installPromptState.deferredPrompt = promptEvent;
-    installPromptState.isInstallable = true;
-    installPromptState.isInstalled = false;
-
-    notifyStateListeners();
-  });
-
-  // Also listen for the custom event dispatched by the early script
-  window.addEventListener("pwa-beforeinstallprompt", ((e: CustomEvent) => {
-    const promptEvent = e.detail as BeforeInstallPromptEvent;
-    if (!deferredPrompt) {
-      deferredPrompt = promptEvent;
-      installPromptState.deferredPrompt = promptEvent;
-      installPromptState.isInstallable = true;
-      installPromptState.isInstalled = false;
-      notifyStateListeners();
-    }
-  }) as EventListener);
-
-  // Listen for appinstalled event (user installed the app)
-  window.addEventListener("appinstalled", () => {
-    // Clear the deferred prompt
-    deferredPrompt = null;
-
-    // Update state
-    installPromptState.deferredPrompt = null;
-    installPromptState.isInstallable = false;
-    installPromptState.isInstalled = true;
-    installPromptState.userChoice = "accepted";
-
-    // Mark as installed in localStorage
-    markAppAsInstalled();
-
-    notifyStateListeners();
-  });
-}
-
-/**
- * Show the install prompt
- *
- * This triggers the browser's install prompt. The prompt must have been
- * captured first using captureInstallPrompt().
- *
- * @returns Promise that resolves with the user's choice
- */
-export async function showInstallPrompt(): Promise<{
-  outcome: "accepted" | "dismissed";
-  platform: string;
-}> {
-  if (!deferredPrompt) {
-    throw new Error(
-      "Install prompt not available. Make sure to call captureInstallPrompt() first.",
-    );
-  }
-
-  if (isAppInstalled()) {
-    throw new Error("App is already installed");
-  }
-
-  try {
-    // Show the install prompt
-    await deferredPrompt.prompt();
-
-    // Wait for user's choice
-    const choiceResult = await deferredPrompt.userChoice;
-
-    // Update state
-    installPromptState.userChoice = choiceResult.outcome;
-    installPromptState.isInstallable = false;
-    deferredPrompt = null;
-    installPromptState.deferredPrompt = null;
-
-    // If accepted, mark as installed
-    if (choiceResult.outcome === "accepted") {
-      markAppAsInstalled();
-    }
-
-    notifyStateListeners();
-
-    return choiceResult;
-  } catch (error) {
-    console.error("[PWA] Failed to show install prompt:", error);
-    throw error;
-  }
-}
-
-/**
- * Check if install prompt is supported in the current browser
- *
- * @returns Whether install prompt is supported
- */
-export function isInstallPromptSupported(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  // Safari (iOS and macOS) doesn't support beforeinstallprompt
-  // but supports manual installation
-  const browser = detectBrowser();
-  if (browser.name === "safari") {
-    return false; // Manual installation only
-  }
-
-  // Check for beforeinstallprompt event support
-  return "onbeforeinstallprompt" in window;
 }
 
 /**
@@ -585,34 +344,4 @@ export function getSafariInstallInstructions(): {
       "Follow the prompts to complete installation",
     ],
   };
-}
-
-/**
- * Initialize install prompt detection
- *
- * Call this once when the app loads to set up install prompt detection
- * and status checking.
- */
-export function initializeInstallPrompt(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  // Prevent multiple initializations
-  if (isInitialized) {
-    return;
-  }
-  isInitialized = true;
-
-  // Update installed status
-  installPromptState.isInstalled = isAppInstalled();
-
-  // Capture install prompt if not installed
-  if (!installPromptState.isInstalled) {
-    captureInstallPrompt();
-  } else {
-    installPromptState.isInstallable = false;
-  }
-
-  notifyStateListeners();
 }

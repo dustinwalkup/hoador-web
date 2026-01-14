@@ -26,7 +26,6 @@ vi.mock("@/lib/pwa/offline-queue", () => ({
 
 import { useServiceWorker } from "@/lib/pwa/use-service-worker";
 import { useNetworkStatus } from "@/lib/pwa/network-status";
-import { initializeInstallPrompt } from "@/lib/pwa/install-prompt";
 
 describe("PWAProvider", () => {
   beforeEach(() => {
@@ -105,7 +104,5 @@ describe("PWAProvider", () => {
     });
 
     render(<PWAProvider />);
-
-    expect(initializeInstallPrompt).toHaveBeenCalled();
   });
 });
