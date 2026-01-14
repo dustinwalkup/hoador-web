@@ -48,7 +48,7 @@ export default async function DashboardPage() {
 
       {/* Alerts section */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="!gap-4 border-red-200 bg-red-50 dark:bg-red-950/10">
+        <Card className="gap-4! border-red-200 bg-red-50 dark:bg-red-950/10">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-medium text-red-700 dark:text-red-400">
@@ -493,7 +493,7 @@ export default async function DashboardPage() {
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-start gap-3">
-                <div className="bg-primary/10 text-primary flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full">
+                <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div>
@@ -513,7 +513,7 @@ export default async function DashboardPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="bg-primary/10 text-primary flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full">
+                <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div>
@@ -530,7 +530,7 @@ export default async function DashboardPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="bg-primary/10 text-primary flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full">
+                <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div>

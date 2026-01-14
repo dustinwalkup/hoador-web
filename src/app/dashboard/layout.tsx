@@ -4,6 +4,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { redirect } from "next/navigation";
 import { ConditionalPadding } from "../../components/conditional-padding";
+import { PageHeaderProvider } from "@/contexts/page-header-context";
 
 export default async function DashboardLayout({
   children,
@@ -18,10 +19,12 @@ export default async function DashboardLayout({
     <SidebarProvider>
       <AuthenticatedSidebar user={user} variant="inset" />
       <SidebarInset>
-        <SiteHeader />
-        <div className="bg-muted/20">
-          <ConditionalPadding>{children}</ConditionalPadding>
-        </div>
+        <PageHeaderProvider>
+          <SiteHeader />
+          <div className="bg-muted/20">
+            <ConditionalPadding>{children}</ConditionalPadding>
+          </div>
+        </PageHeaderProvider>
       </SidebarInset>
     </SidebarProvider>
   );

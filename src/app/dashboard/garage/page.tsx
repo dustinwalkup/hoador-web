@@ -23,7 +23,7 @@ export default async function GaragePage() {
   ]);
 
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <OnboardingBanner
         hasListings={listingCount > 0}
         isOnboarded={isOnboarded}
