@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Footer from "@/components/footer";
 import { Providers } from "../components/providers";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { InstallPromptDebug } from "@/components/pwa/install-prompt-debug";
 import { OfflineIndicator } from "@/components/pwa/offline-indicator";
 import { UpdateNotification } from "@/components/pwa/update-notification";
 
@@ -117,6 +118,7 @@ export default function RootLayout({
             <Footer />
             <UpdateNotification position="bottom" />
             <InstallPrompt variant="banner" position="bottom" />
+            <InstallPromptDebug />
           </ThemeProvider>
         </Providers>
         <Toaster richColors />
