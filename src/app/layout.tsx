@@ -4,8 +4,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Footer from "@/components/footer";
 import { Providers } from "../components/providers";
 import { InstallDirectionsBanner } from "@/components/pwa/install-directions-banner";
-import { OfflineIndicator } from "@/components/pwa/offline-indicator";
-import { UpdateNotification } from "@/components/pwa/update-notification";
 
 import "./globals.css";
 import { Toaster } from "sonner";
@@ -52,7 +50,6 @@ export default function RootLayout({
           as="manifest"
           crossOrigin="anonymous"
         />
-        <link rel="preload" href="/sw.js" as="script" crossOrigin="anonymous" />
         {/* Icons */}
         <link
           rel="icon"
@@ -85,10 +82,8 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <OfflineIndicator position="top" />
             {children}
             <Footer />
-            <UpdateNotification position="bottom" />
             <InstallDirectionsBanner variant="banner" position="bottom" />
           </ThemeProvider>
         </Providers>

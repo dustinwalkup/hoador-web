@@ -1,16 +1,7 @@
 import { authClient } from "@/services/better-auth/client";
-import { clearServiceWorkerCache } from "@/lib/pwa/register-service-worker";
 
 export async function signOut(redirectTo?: string): Promise<void> {
   await authClient.signOut();
-
-  // Clear service worker cache to remove any cached sensitive data
-  try {
-    await clearServiceWorkerCache();
-  } catch (error) {
-    // Don't block logout if cache clearing fails
-    console.warn("[Auth] Failed to clear service worker cache:", error);
-  }
 
   // Small delay to ensure the signOut request is fully processed
   await new Promise((resolve) => setTimeout(resolve, 100));
