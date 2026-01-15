@@ -35,8 +35,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      style={{ backgroundColor: "#ffffff" }}
+    >
       <head>
+        {/* Theme color for PWA status bar */}
+        <meta name="theme-color" content="#4c9443" />
         {/* Resource hints for external domains */}
         {/* Note: Google Fonts preconnect is handled automatically by next/font/google */}
         {/* Preconnect to Vercel Blob storage for images */}
@@ -75,6 +81,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ backgroundColor: "#ffffff", margin: 0, padding: 0 }}
       >
         <Providers>
           <ThemeProvider
