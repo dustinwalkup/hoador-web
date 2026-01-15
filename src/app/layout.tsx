@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Footer from "@/components/footer";
 import { Providers } from "../components/providers";
 import { InstallDirectionsBanner } from "@/components/pwa/install-directions-banner";
+import { PwaAutoRefresh } from "@/components/pwa/pwa-auto-refresh";
 
 import "./globals.css";
 import { Toaster } from "sonner";
@@ -82,6 +83,7 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
+            <PwaAutoRefresh />
             {children}
             <Footer />
             <InstallDirectionsBanner variant="banner" position="bottom" />
