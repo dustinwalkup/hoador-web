@@ -45,7 +45,7 @@ export interface DashboardConstants {
 
 export const DASHBOARD_PAGE = {
   header: {
-    titleFor: (name: string) => `Welcome back, ${name}!!!`,
+    titleFor: (name: string) => `Welcome back, ${name}!`,
     description: "Here's what's happening with your listings and rentals.",
   },
   alerts: {
