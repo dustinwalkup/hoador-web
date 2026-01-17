@@ -170,3 +170,31 @@ export const HOME_PAGE: HomePageConstants = {
     buttonLabel: "Get started",
   },
 };
+
+// Structured data for SEO
+export const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://hoador.com/#organization",
+      name: "Hoador",
+      url: "https://hoador.com",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://hoador.com/hoador-logo.svg",
+      },
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://hoador.com/#website",
+      url: "https://hoador.com",
+      name: "Hoador",
+      description:
+        "Your neighborhood tool rental marketplace. Borrow tools from neighbors, save money, and build community.",
+      publisher: {
+        "@id": "https://hoador.com/#organization",
+      },
+    },
+  ],
+};
