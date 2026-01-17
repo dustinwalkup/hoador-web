@@ -14,7 +14,7 @@ export function GarageClient() {
   const currentTab = searchParams.get("tab") || "active";
 
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <PageHeader
         title="Garage"
         description="Manage your listings and rentals in one place"

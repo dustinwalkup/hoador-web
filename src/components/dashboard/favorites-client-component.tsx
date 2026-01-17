@@ -41,7 +41,7 @@ export default function FavoritesClientComponent() {
   ];
 
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Favorites</h1>

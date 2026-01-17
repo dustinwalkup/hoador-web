@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Skeleton className="h-8 w-32" />
@@ -28,7 +28,7 @@ export default function Loading() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="space-y-3">
-            <Skeleton className="aspect-[4/3] w-full" />
+            <Skeleton className="aspect-4/3 w-full" />
             <div className="flex items-center justify-between">
               <Skeleton className="h-6 w-1/2" />
               <Skeleton className="h-6 w-20" />

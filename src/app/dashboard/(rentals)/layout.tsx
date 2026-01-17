@@ -13,7 +13,7 @@ export default function RentalsLayout({
   const hideHeading = hideRentalHeader(pathname);
 
   return (
-    <div className={cn("container mx-auto", hideHeading ? "py-0" : "py-6")}>
+    <div className={cn("container mx-auto", hideHeading ? "py-0" : "pb-6")}>
       {!hideHeading && (
         <PageHeader
           title="Rentals"

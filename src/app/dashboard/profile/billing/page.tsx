@@ -17,7 +17,7 @@ export default async function BillingPage() {
     : false;
 
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <PageHeader
         title={PROFILE_TABS.title}
         description={PROFILE_TABS.description}

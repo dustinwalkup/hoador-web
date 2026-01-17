@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
-import { MobileHeader } from "./mobile-header";
 import { MailboxSearch } from "./mailbox-search";
 import { MailboxTabs } from "./mailbox-tabs";
 import { ConversationsList } from "./conversations-list";
@@ -147,11 +146,6 @@ export function MailboxClient({
       <div className="h-[calc(100vh-3.5rem)] w-full md:hidden">
         {!showMobileChat ? (
           <div className="flex h-full flex-col">
-            <MobileHeader
-              title="Mailbox"
-              description="Communicate with tool owners and borrowers"
-            />
-
             <MailboxSearch
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}

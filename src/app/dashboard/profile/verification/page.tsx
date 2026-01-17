@@ -24,7 +24,7 @@ export default async function VerificationPage() {
   const userId = await getCurrentUserId();
   if (!userId) {
     return (
-      <div className="container py-6">
+      <div className="container pb-6">
         <PageHeader
           title={PROFILE_TABS.title}
           description={PROFILE_TABS.description}
@@ -45,7 +45,7 @@ export default async function VerificationPage() {
   const user = await userDAL.getUserById(userId);
 
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <PageHeader
         title={PROFILE_TABS.title}
         description={PROFILE_TABS.description}

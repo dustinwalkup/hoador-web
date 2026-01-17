@@ -12,7 +12,7 @@ export default async function ExplorePage() {
   const user = await getCurrentUser();
 
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <PageHeader
         title="Explore Listings"
         description="Find listings available in your neighborhood"

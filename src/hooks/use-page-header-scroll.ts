@@ -46,6 +46,9 @@ export function usePageHeaderScroll(): UsePageHeaderScrollReturn {
   // Observer callback will update this asynchronously when intersection changes
   const [isPageHeaderVisible, setIsPageHeaderVisible] = useState(true);
 
+  // Track whether observer has fired at least once with stable layout data
+  const [hasObserverFired, setHasObserverFired] = useState(false);
+
   useEffect(() => {
     // If no context or no PageHeader, no observer needed
     if (!context || !pageHeaderRef) {
@@ -57,35 +60,49 @@ export function usePageHeaderScroll(): UsePageHeaderScrollReturn {
       return;
     }
 
-    // Intersection Observer configuration
-    // rootMargin: '-48px 0px 0px 0px' accounts for site header height (h-12 = 3rem = 48px)
-    // threshold: 0 triggers when any part of the element crosses the threshold
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // entry.isIntersecting is true when PageHeader is visible above the site header
-        // false when it has scrolled past the site header
-        // This callback is async, so it's safe to call setState here
-        setIsPageHeaderVisible(entry.isIntersecting);
-      },
-      {
-        root: null, // viewport
-        rootMargin: "-96px 0px 0px 0px", // Account for site header height
-        threshold: 0, // Trigger when any part crosses threshold
-      },
-    );
+    let observer: IntersectionObserver | null = null;
+    let rafId2: number | null = null;
 
-    observer.observe(element);
+    // Double RAF to ensure layout is truly stable before observing
+    // First RAF waits for current frame, second RAF waits for next paint
+    // This prevents flicker caused by incorrect intersection calculations
+    // during hydration or initial layout
+    const rafId1 = requestAnimationFrame(() => {
+      rafId2 = requestAnimationFrame(() => {
+        // Intersection Observer configuration
+        // rootMargin: '-96px 0px 0px 0px' accounts for site header height
+        // threshold: 0 triggers when any part of the element crosses the threshold
+        observer = new IntersectionObserver(
+          ([entry]) => {
+            // entry.isIntersecting is true when PageHeader is visible above the site header
+            // false when it has scrolled past the site header
+            setIsPageHeaderVisible(entry.isIntersecting);
+            setHasObserverFired(true);
+          },
+          {
+            root: null, // viewport
+            rootMargin: "-96px 0px 0px 0px", // Account for site header height
+            threshold: 0, // Trigger when any part crosses threshold
+          },
+        );
 
-    // Cleanup: disconnect observer on unmount
+        observer.observe(element);
+      });
+    });
+
+    // Cleanup: cancel RAFs, disconnect observer, and reset state on unmount/ref change
     return () => {
-      observer.disconnect();
+      cancelAnimationFrame(rafId1);
+      if (rafId2) cancelAnimationFrame(rafId2);
+      observer?.disconnect();
+      // Reset hasObserverFired so new PageHeader doesn't inherit old state
+      setHasObserverFired(false);
     };
   }, [context, pageHeaderRef]);
 
-  // Calculate shouldShowLabel (inverse of isPageHeaderVisible)
-  // When PageHeader is visible, label should be hidden (empty)
-  // When PageHeader is scrolled out of view, label should be shown
-  const shouldShowLabel = !isPageHeaderVisible;
+  // Only show label if observer has confirmed visibility state AND element is not visible
+  // This prevents flicker on initial load before observer has stable data
+  const shouldShowLabel = hasObserverFired && !isPageHeaderVisible;
 
   return {
     title,

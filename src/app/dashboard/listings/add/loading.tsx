@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AddListingLoading() {
   return (
-    <div className="container max-w-4xl py-6">
+    <div className="container max-w-4xl pb-6">
       <div className="mb-6">
         <Skeleton className="mb-4 h-10 w-20" />
         <div className="flex items-center justify-between">

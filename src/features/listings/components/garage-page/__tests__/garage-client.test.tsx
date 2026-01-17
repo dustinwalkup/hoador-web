@@ -69,7 +69,7 @@ describe("GarageClient", () => {
       const { container } = render(<GarageClient />);
 
       const containerElement = container.firstChild as HTMLElement;
-      expect(containerElement).toHaveClass("container py-6");
+      expect(containerElement).toHaveClass("container pb-6");
     });
 
     it("should render PageHeader with correct props", () => {

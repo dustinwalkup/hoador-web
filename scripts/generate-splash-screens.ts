@@ -154,7 +154,7 @@ async function generateSplashScreens() {
       logoBuffer = readFileSync(svgPath);
       console.log("Using SVG logo directly");
     }
-  } catch (error) {
+  } catch {
     console.warn("Could not load logo, generating splash screens without logo");
   }
 

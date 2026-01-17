@@ -46,7 +46,7 @@ export default async function ProfilePage() {
   ]);
 
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <PageHeader
         title={PROFILE_TABS.title}
         description={PROFILE_TABS.description}

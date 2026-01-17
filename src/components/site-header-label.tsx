@@ -18,6 +18,10 @@ export function SiteHeaderLabel() {
   const pathname = usePathname();
   const { title, shouldShowLabel } = usePageHeaderScroll();
 
+  // Track pathname we've settled for (PageHeader had time to register)
+  // This prevents navLabel from flickering before PageHeader registers
+  const [settledPathname, setSettledPathname] = useState<string | null>(null);
+
   // Check for reduced motion preference
   // Use lazy initializer to check media query without calling setState in effect
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
@@ -27,6 +31,15 @@ export function SiteHeaderLabel() {
     }
     return false;
   });
+
+  // Set settled state after delay, resets automatically when pathname changes
+  useEffect(() => {
+    const timeout = setTimeout(() => setSettledPathname(pathname), 100);
+    return () => clearTimeout(timeout);
+  }, [pathname]);
+
+  // Derived state: settled only when settledPathname matches current pathname
+  const hasSettled = settledPathname === pathname;
 
   useEffect(() => {
     // Listen for changes to reduced motion preference
@@ -49,14 +62,17 @@ export function SiteHeaderLabel() {
 
   // Determine what label to display
   // If PageHeader exists and should show: use PageHeader title
-  // If PageHeader exists but shouldn't show: empty (non-breaking space for layout)
-  // If no PageHeader: use nav-based label
+  // If PageHeader exists but shouldn't show: empty
+  // If no PageHeader AND settled: use nav-based label
+  // If no PageHeader AND not settled: show nothing (wait for potential PageHeader)
   const displayLabel =
     title && shouldShowLabel
       ? title
       : title
         ? null // PageHeader exists but is visible, so label should be empty
-        : navLabel; // No PageHeader, fall back to nav-based label
+        : hasSettled
+          ? navLabel // No PageHeader after settling, fall back to nav-based label
+          : null; // Still waiting for PageHeader to potentially register
 
   // Transition duration: 250ms (within 200-300ms requirement)
   // Use instant transition when reduced motion is preferred

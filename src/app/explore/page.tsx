@@ -38,7 +38,7 @@ export default async function PublicExplorePage({
   }
 
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <PageHeader
         title="Explore Tools"
         description="Find tools available in your neighborhood"

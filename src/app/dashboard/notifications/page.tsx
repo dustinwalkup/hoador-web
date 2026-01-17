@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function NotificationsPage() {
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto pb-6">
       <NotificationsPageContent />
     </div>
   );

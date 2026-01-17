@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, act } from "@testing-library/react";
 import { SiteHeaderLabel } from "../site-header-label";
 import { usePageHeaderScroll } from "@/hooks/use-page-header-scroll";
 
@@ -25,12 +25,17 @@ vi.mock("@/features/notifications/components/notification-bell", () => ({
 describe("SiteHeaderLabel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
     // Default mock: no PageHeader, should fall back to nav label
     mockUsePageHeaderScroll.mockReturnValue({
       title: null,
       isPageHeaderVisible: true,
       shouldShowLabel: false,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("Label Display Logic", () => {
@@ -80,6 +85,11 @@ describe("SiteHeaderLabel", () => {
 
       // Act
       render(<SiteHeaderLabel />);
+
+      // Advance past the 100ms settling delay
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
 
       // Assert
       const heading = screen.getByRole("heading", { level: 1 });

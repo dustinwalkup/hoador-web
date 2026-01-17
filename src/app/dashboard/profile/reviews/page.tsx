@@ -42,7 +42,7 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
   const userId = await getCurrentUserId();
   if (!userId) {
     return (
-      <div className="container py-6">
+      <div className="container pb-6">
         <PageHeader
           title={PROFILE_TABS.title}
           description={PROFILE_TABS.description}
@@ -96,7 +96,7 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
   const totalPages = Math.ceil(totalCount / limit);
 
   return (
-    <div className="container py-6">
+    <div className="container pb-6">
       <PageHeader
         title={PROFILE_TABS.title}
         description={PROFILE_TABS.description}
