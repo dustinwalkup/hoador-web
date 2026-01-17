@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { Coins, Home } from "lucide-react";
 
@@ -8,6 +8,7 @@ import CategoryCard from "@/components/category-card";
 import FeatureCard from "@/components/feature-card";
 import FadeIn from "@/components/fade-in";
 import AnimatedSection from "@/components/animated-section";
+import { Logo } from "@/components/logo";
 import { HOME_PAGE } from "@/constants/home";
 
 // Ensure static generation
@@ -169,12 +170,12 @@ export default function HomePage() {
       <header className="bg-background/95 mobile-padding supports-backdrop-filter:bg-background/60sticky top-0 z-50 w-full border-b backdrop-blur">
         <div className="container mx-auto flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/hoador-logo.svg"
-              alt="Hoador Logo"
+            <Logo
               width={100}
               height={40}
               className="h-6 w-auto"
+              absolutePosition="-right-14!"
+              showBetaTag
               priority
             />
           </Link>

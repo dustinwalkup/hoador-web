@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 import Link from "next/link";
+import { Logo } from "@/components/logo";
 
 export function AuthLayoutWrapper({
   children,
@@ -13,12 +13,12 @@ export function AuthLayoutWrapper({
     <div className="bg-muted/40 flex min-h-screen flex-col items-center justify-center p-4 py-12">
       <div className={cn("w-full max-w-md", isOnboarding && "max-w-3xl")}>
         <Link href="/" className="mb-8 flex justify-center">
-          <Image
-            src="/hoador-logo.svg"
-            alt="Hoador"
+          <Logo
             width={120}
             height={40}
+            absolutePosition="-right-14!"
             className="h-10 w-auto"
+            showBetaTag
           />
         </Link>
         {children}

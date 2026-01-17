@@ -69,7 +69,7 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
             <Link href="/admin/dashboard">
               <SidebarMenuButton
                 asChild
-                className="data-[slot=sidebar-menu-button]:!p-1.5"
+                className="data-[slot=sidebar-menu-button]:p-1.5!"
               >
                 <div className="relative flex flex-col items-center gap-2">
                   <Image
@@ -105,7 +105,7 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                     tooltip={item.title}
                     isActive={isActive}
                   >
-                    {item.icon && <item.icon className="!size-5" />}
+                    {item.icon && <item.icon className="size-5!" />}
                     <span>{item.title}</span>
                   </SidebarMenuButton>
                 </Link>

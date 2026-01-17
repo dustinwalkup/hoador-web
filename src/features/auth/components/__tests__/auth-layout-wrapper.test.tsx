@@ -41,7 +41,7 @@ describe("AuthLayoutWrapper", () => {
     );
 
     // Assert
-    const logo = screen.getByAltText("Hoador");
+    const logo = screen.getByAltText("Hoador Logo");
     expect(logo).toBeInTheDocument();
     expect(logo.closest("a")).toHaveAttribute("href", "/");
   });

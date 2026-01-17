@@ -1,59 +1,15 @@
-import Image from "next/image";
-import Link from "next/link";
-import { ExternalLink } from "lucide-react";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { tryCatch } from "@walkup/walkup-utils";
+import { cn } from "@/lib/utils";
 import {
   LEGAL_DOCUMENT_IDS,
   getDocumentName,
+  type LegalDocumentId,
 } from "@/constants/legal-documents";
-import { tryCatch } from "@walkup/walkup-utils";
+import { FooterLink, FooterSection } from "./footer-components";
+import { Logo } from "../logo";
 
 const COPYRIGHT = `© ${new Date().getFullYear()} Hoador, Inc. All rights reserved`;
-
-interface FooterLinkProps {
-  href: string;
-  children: React.ReactNode;
-  isExternal?: boolean;
-}
-
-function FooterLink({ href, children, isExternal = false }: FooterLinkProps) {
-  if (isExternal) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
-      >
-        {children}
-        <ExternalLink className="h-3 w-3" />
-      </a>
-    );
-  }
-
-  return (
-    <Link
-      href={href}
-      className="text-muted-foreground hover:text-foreground text-sm transition-colors"
-    >
-      {children}
-    </Link>
-  );
-}
-
-interface FooterSectionProps {
-  title: string;
-  children: React.ReactNode;
-}
-
-function FooterSection({ title, children }: FooterSectionProps) {
-  return (
-    <div className="space-y-3">
-      <h3 className="text-foreground text-sm font-semibold">{title}</h3>
-      <ul className="space-y-2">{children}</ul>
-    </div>
-  );
-}
 
 export default async function Footer() {
   // Fetch all current legal document versions
@@ -67,19 +23,28 @@ export default async function Footer() {
 
   const documents = documentVersions || {};
 
-  // Helper function to get document URL safely
-  const getDocumentUrl = (documentId: string) => {
-    return documents[documentId]?.url;
+  // Create a serializable map of documentId -> url
+  const documentUrls: Record<string, string> = {};
+  for (const [documentId, document] of Object.entries(documents)) {
+    if (document?.url) {
+      documentUrls[documentId] = document.url;
+    }
+  }
+
+  // Helper functions in the client component
+  const hasDocument = (documentId: string) => {
+    return !!documentUrls?.[documentId];
   };
 
-  // Helper function to check if document exists
-  const hasDocument = (documentId: string) => {
-    return !!getDocumentUrl(documentId);
+  const getDocumentUrl = (documentId: string) => {
+    return documentUrls?.[documentId];
   };
 
   return (
     <footer className="bg-muted/40 border-t">
-      <div className="mobile-padding container mx-auto py-8 md:max-w-none md:pl-64">
+      <div
+        className={cn("mobile-padding container mx-auto py-8 md:max-w-[73%]")}
+      >
         {/* Links Grid */}
         <div className="mb-8 grid grid-cols-1 gap-8 md:grid-cols-3">
           {/* Legal Section */}
@@ -90,7 +55,7 @@ export default async function Footer() {
                   href={getDocumentUrl(LEGAL_DOCUMENT_IDS.TOS)!}
                   isExternal
                 >
-                  {getDocumentName(LEGAL_DOCUMENT_IDS.TOS)}
+                  {getDocumentName(LEGAL_DOCUMENT_IDS.TOS as LegalDocumentId)}
                 </FooterLink>
               </li>
             )}
@@ -100,7 +65,9 @@ export default async function Footer() {
                   href={getDocumentUrl(LEGAL_DOCUMENT_IDS.PRIVACY)!}
                   isExternal
                 >
-                  {getDocumentName(LEGAL_DOCUMENT_IDS.PRIVACY)}
+                  {getDocumentName(
+                    LEGAL_DOCUMENT_IDS.PRIVACY as LegalDocumentId,
+                  )}
                 </FooterLink>
               </li>
             )}
@@ -110,7 +77,9 @@ export default async function Footer() {
                   href={getDocumentUrl(LEGAL_DOCUMENT_IDS.COMMUNITY)!}
                   isExternal
                 >
-                  {getDocumentName(LEGAL_DOCUMENT_IDS.COMMUNITY)}
+                  {getDocumentName(
+                    LEGAL_DOCUMENT_IDS.COMMUNITY as LegalDocumentId,
+                  )}
                 </FooterLink>
               </li>
             )}
@@ -124,7 +93,9 @@ export default async function Footer() {
                   href={getDocumentUrl(LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND)!}
                   isExternal
                 >
-                  {getDocumentName(LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND)}
+                  {getDocumentName(
+                    LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND as LegalDocumentId,
+                  )}
                 </FooterLink>
               </li>
             )}
@@ -156,7 +127,9 @@ export default async function Footer() {
                   href={getDocumentUrl(LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS)!}
                   isExternal
                 >
-                  Payments & Fees
+                  {getDocumentName(
+                    LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS as LegalDocumentId,
+                  )}
                 </FooterLink>
               </li>
             )}
@@ -174,13 +147,13 @@ export default async function Footer() {
         </div>
 
         {/* Logo and Copyright */}
-        <div className="flex flex-col items-center justify-center gap-4 border-t pt-8 md:flex-row md:justify-center md:gap-6">
-          <Image
-            src="/hoador-logo.svg"
-            alt="Hoador logo"
+        <div className="flex flex-col items-center justify-center gap-4 border-t pt-8 md:justify-center md:gap-6">
+          <Logo
             width={120}
             height={40}
+            absolutePosition="-right-14!"
             className="h-8 w-auto"
+            showBetaTag
           />
           <p className="text-muted-foreground text-sm">{COPYRIGHT}</p>
         </div>

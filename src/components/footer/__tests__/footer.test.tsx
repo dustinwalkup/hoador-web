@@ -22,6 +22,21 @@ vi.mock("next/image", () => ({
   ),
 }));
 
+// Mock Logo component
+vi.mock("@/components/logo", () => ({
+  Logo: (props: any) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/hoador-logo.svg"
+      alt={props.alt || "Hoador Logo"}
+      width={props.width}
+      height={props.height}
+      className={props.className}
+      data-testid="logo"
+    />
+  ),
+}));
+
 // Mock lucide-react icons
 vi.mock("lucide-react", () => ({
   ExternalLink: () => <span data-testid="external-link-icon" />,
@@ -114,7 +129,7 @@ describe("Footer", () => {
 
       render(await Footer());
 
-      const logo = screen.getByAltText("Hoador logo");
+      const logo = screen.getByAltText("Hoador Logo");
       expect(logo).toBeInTheDocument();
       expect(logo).toHaveAttribute("src", "/hoador-logo.svg");
 
@@ -150,7 +165,7 @@ describe("Footer", () => {
       ).toBeInTheDocument();
       expect(screen.getByText("Safety Guidelines")).toBeInTheDocument();
       expect(screen.getByText("Damage & Liability")).toBeInTheDocument();
-      expect(screen.getByText("Payments & Fees")).toBeInTheDocument();
+      expect(screen.getByText("Payments & Payouts Policy")).toBeInTheDocument();
     });
 
     it("should render support links", async () => {
@@ -337,7 +352,7 @@ describe("Footer", () => {
       expect(grid).toHaveClass("grid-cols-1", "md:grid-cols-3");
     });
 
-    it("should have desktop padding for sidebar", async () => {
+    it("should have correct container classes", async () => {
       vi.mocked(tryCatch).mockResolvedValue({
         data: mockDocumentVersions,
         error: null,
@@ -349,7 +364,7 @@ describe("Footer", () => {
         ".mobile-padding.container.mx-auto",
       );
       expect(innerDiv).toBeInTheDocument();
-      expect(innerDiv).toHaveClass("md:pl-64");
+      expect(innerDiv).toHaveClass("md:max-w-[73%]");
     });
   });
 
@@ -404,7 +419,7 @@ describe("Footer", () => {
       expect(screen.getByText("Damage & Liability")).toBeInTheDocument();
     });
 
-    it("should display 'Payments & Fees' for payments payouts document", async () => {
+    it("should display 'Payments & Payouts Policy' for payments payouts document", async () => {
       vi.mocked(tryCatch).mockResolvedValue({
         data: {
           [LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS]:
@@ -415,7 +430,7 @@ describe("Footer", () => {
 
       render(await Footer());
 
-      expect(screen.getByText("Payments & Fees")).toBeInTheDocument();
+      expect(screen.getByText("Payments & Payouts Policy")).toBeInTheDocument();
     });
   });
 

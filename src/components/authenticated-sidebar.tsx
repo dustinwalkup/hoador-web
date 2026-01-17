@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 
 // import { NavDocuments } from "@/components/nav-documents";
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { UserProfile } from "@/dal/types";
 import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
+import { Logo } from "@/components/logo";
 import { NavMain } from "./nav-main";
 
 interface AuthenticatedSidebarProps extends React.ComponentProps<
@@ -38,15 +38,13 @@ export function AuthenticatedSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <Link href="/">
-              <SidebarMenuButton
-                asChild
-                className="data-[slot=sidebar-menu-button]:!p-1.5"
-              >
-                <Image
-                  src="/hoador-logo.svg"
-                  alt="Hoador Logo"
-                  width={177}
-                  height={36}
+              <SidebarMenuButton asChild className="p-0">
+                <Logo
+                  width={100}
+                  height={20}
+                  showBetaTag
+                  betaTagPosition="right"
+                  className="h-5! w-auto"
                 />
               </SidebarMenuButton>
             </Link>

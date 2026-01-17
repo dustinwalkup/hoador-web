@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
-import Footer from "@/components/footer";
+import Footer from "@/components/footer/footer";
 import { Providers } from "../components/providers";
 import { InstallDirectionsBanner } from "@/components/pwa/install-directions-banner";
 import { PwaAutoRefresh } from "@/components/pwa/pwa-auto-refresh";
