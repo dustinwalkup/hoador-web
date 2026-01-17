@@ -44,6 +44,7 @@ export function AuthenticatedSidebar({
                   height={20}
                   showBetaTag
                   betaTagPosition="right"
+                  absolutePosition="right-6 md:right-0!"
                   className="h-5! w-auto"
                 />
               </SidebarMenuButton>
