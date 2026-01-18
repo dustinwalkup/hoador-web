@@ -15,7 +15,7 @@ export function HomeHeader() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.1, ease: [0.25, 0.4, 0.25, 1] }}
       className={cn(
-        "mobile-padding fixed top-0 z-50 w-full border-b transition-all duration-300",
+        "mobile-padding fixed top-0 z-50 w-full border-b pt-1! transition-all duration-30 md:pt-8!",
         "supports-backdrop-filter:bg-background/40 bg-transparent backdrop-blur",
       )}
     >
