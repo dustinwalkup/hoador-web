@@ -13,7 +13,11 @@ export default function HomeHeader() {
     <motion.header
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0.001 }}
-      style={{ transform: "translateZ(0)" }}
+      style={{
+        willChange: "transform, opacity",
+        backfaceVisibility: "hidden",
+        WebkitBackfaceVisibility: "hidden",
+      }}
       transition={{ duration: 0.6, delay: 0.1, ease: [0.25, 0.4, 0.25, 1] }}
       className={cn(
         "mobile-padding fixed top-0 z-50 w-full border-b pt-2! transition-all duration-30",
@@ -34,7 +38,11 @@ export default function HomeHeader() {
         <motion.div
           className="flex items-center gap-4"
           initial={{ opacity: 0, x: 20 }}
-          style={{ transform: "translateZ(0)" }}
+          style={{
+            willChange: "transform, opacity",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+          }}
           animate={{ opacity: 1, x: 0.001 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
