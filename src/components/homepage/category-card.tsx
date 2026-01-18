@@ -19,7 +19,7 @@ export default function CategoryCard({
 }: CategoryCardProps) {
   return (
     <motion.div
-      className="group bg-card flex flex-grow flex-col rounded-xl border p-6 shadow-sm"
+      className="group bg-card flex grow flex-col rounded-xl border p-6 shadow-sm"
       whileHover={{
         y: -8,
         boxShadow: "0 20px 40px -15px rgba(0, 0, 0, 0.1)",

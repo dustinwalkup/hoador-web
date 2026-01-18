@@ -8,6 +8,7 @@ import { LegalDocumentsAcceptanceScreen } from "@/features/auth/components/legal
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { Card, CardContent } from "@/components/ui/card";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
+import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
 
 export default async function LegalAcceptancePage() {
   // Get authenticated user session
@@ -47,14 +48,16 @@ export default async function LegalAcceptancePage() {
 
   return (
     <AuthLayoutWrapper>
-      <Card className="mx-auto w-full max-w-md">
-        <CardContent>
-          <LegalDocumentsAcceptanceScreen
-            firstName={firstName}
-            documentUrls={documentUrls}
-          />
-        </CardContent>
-      </Card>
+      <AnimatedAuthCard delay={100}>
+        <Card className="mx-auto w-full max-w-md">
+          <CardContent>
+            <LegalDocumentsAcceptanceScreen
+              firstName={firstName}
+              documentUrls={documentUrls}
+            />
+          </CardContent>
+        </Card>
+      </AnimatedAuthCard>
     </AuthLayoutWrapper>
   );
 }

@@ -32,7 +32,7 @@ export function PublicSidebar({
             <Link href="/">
               <SidebarMenuButton
                 asChild
-                className="data-[slot=sidebar-menu-button]:!p-1.5"
+                className="data-[slot=sidebar-menu-button]:p-1.5!"
               >
                 <Image
                   src="/hoador-logo.svg"

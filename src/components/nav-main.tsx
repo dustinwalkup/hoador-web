@@ -59,7 +59,7 @@ export function NavMain() {
                         tooltip={item.title}
                         isActive={hasActiveChild}
                       >
-                        {item.icon && <item.icon className="!size-5" />}
+                        {item.icon && <item.icon className="size-5!" />}
                         <span>{item.title}</span>
                         <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                       </SidebarMenuButton>
@@ -114,14 +114,14 @@ export function NavMain() {
             const hasUnread = isMailbox && unreadCount > 0;
 
             return (
-              <SidebarMenuItem key={item.title} className="!cursor-pointer">
+              <SidebarMenuItem key={item.title} className="cursor-pointer!">
                 <Link href={item.url!} passHref>
                   <SidebarMenuButton
                     size="lg"
                     tooltip={item.title}
                     isActive={isActive}
                   >
-                    {item.icon && <item.icon className="!size-5" />}
+                    {item.icon && <item.icon className="size-5!" />}
                     <span>{item.title}</span>
                     {hasUnread && (
                       <Badge

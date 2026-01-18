@@ -7,6 +7,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { OnboardingForm } from "@/features/onboarding/components/onboarding-form";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
+import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
 import { communityDAL } from "@/dal";
 import {
   Card,
@@ -29,36 +30,38 @@ export default async function OnboardingPage() {
 
   return (
     <AuthLayoutWrapper isOnboarding>
-      <Card>
-        <CardHeader>
-          <div className="mb-2 flex items-center justify-center gap-2">
-            <CheckCircle className="text-primary h-5 w-5" />
-            <span className="text-primary text-sm font-medium">
-              {communityName}
-            </span>
-          </div>
-          <CardTitle className="text-2xl">Complete Your Profile</CardTitle>
-          <CardDescription>
-            Enter your information to finish setting up your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <OnboardingForm
-            profileImageUrl={user.image || ""}
-            userFirstName={userFirstName || ""}
-            userLastName={userLastName || ""}
-          />
-        </CardContent>
+      <AnimatedAuthCard delay={100}>
+        <Card>
+          <CardHeader>
+            <div className="mb-2 flex items-center justify-center gap-2">
+              <CheckCircle className="text-primary h-5 w-5" />
+              <span className="text-primary text-sm font-medium">
+                {communityName}
+              </span>
+            </div>
+            <CardTitle className="text-2xl">Complete Your Profile</CardTitle>
+            <CardDescription>
+              Enter your information to finish setting up your account
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OnboardingForm
+              profileImageUrl={user.image || ""}
+              userFirstName={userFirstName || ""}
+              userLastName={userLastName || ""}
+            />
+          </CardContent>
 
-        <CardFooter className="flex flex-col items-center gap-4">
-          <div className="text-muted-foreground text-center text-sm">
-            Need help?{" "}
-            <Link href="/support" className="text-primary hover:underline">
-              Contact support
-            </Link>
-          </div>
-        </CardFooter>
-      </Card>
+          <CardFooter className="flex flex-col items-center gap-4">
+            <div className="text-muted-foreground text-center text-sm">
+              Need help?{" "}
+              <Link href="/support" className="text-primary hover:underline">
+                Contact support
+              </Link>
+            </div>
+          </CardFooter>
+        </Card>
+      </AnimatedAuthCard>
     </AuthLayoutWrapper>
   );
 }
