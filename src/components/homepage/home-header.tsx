@@ -12,7 +12,7 @@ export default function HomeHeader() {
   return (
     <motion.header
       initial={{ opacity: 0, y: -12 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: 1, y: 0.001 }}
       style={{ transform: "translateZ(0)" }}
       transition={{ duration: 0.6, delay: 0.1, ease: [0.25, 0.4, 0.25, 1] }}
       className={cn(
@@ -35,7 +35,7 @@ export default function HomeHeader() {
           className="flex items-center gap-4"
           initial={{ opacity: 0, x: 20 }}
           style={{ transform: "translateZ(0)" }}
-          animate={{ opacity: 1, x: 0 }}
+          animate={{ opacity: 1, x: 0.001 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
           <Link
