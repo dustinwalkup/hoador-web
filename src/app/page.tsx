@@ -4,15 +4,17 @@ import type { Metadata } from "next";
 import { Coins, Home } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import CategoryCard from "@/components/category-card";
-import FeatureCard from "@/components/feature-card";
-import FadeIn from "@/components/fade-in";
-import AnimatedSection from "@/components/animated-section";
-import { HomeHeader } from "@/components/home-header";
+import {
+  AnimatedSection,
+  HomeHeader,
+  FadeIn,
+  FeatureCard,
+  CategoryCard,
+} from "@/components/homepage/";
 import { HOME_PAGE, structuredData } from "@/constants/home";
 import StaggeredChildren, {
   StaggeredItem,
-} from "@/components/staggered-children";
+} from "@/components/homepage/staggered-children";
 
 // Base URL - Update this with your production domain
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://hoador.com";

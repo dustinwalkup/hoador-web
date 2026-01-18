@@ -8,7 +8,7 @@ import { HOME_PAGE } from "@/constants/home";
 
 const { header } = HOME_PAGE;
 
-export function HomeHeader() {
+export default function HomeHeader() {
   return (
     <motion.header
       initial={{ opacity: 0, y: -12 }}
