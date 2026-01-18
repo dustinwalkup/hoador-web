@@ -4,7 +4,7 @@ import { MailboxClient } from "@/features/messages/components/mailbox-client";
 import { messagesDAL } from "@/dal";
 
 export const metadata = {
-  title: "Mailbox | Hoador",
+  title: "Mailbox",
   description: "View and manage your messages",
 };
 

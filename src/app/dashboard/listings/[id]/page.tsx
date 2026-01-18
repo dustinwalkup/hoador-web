@@ -5,7 +5,7 @@ import { ListingDetailView } from "@/features/listings/components/listing-detail
 import { listingDAL } from "@/dal";
 
 export const metadata = {
-  title: "Listing Details | Hoador",
+  title: "Listing Details",
   description: "View detailed information about this listing",
 };
 

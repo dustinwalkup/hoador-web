@@ -31,7 +31,7 @@ import { ScrollToTop } from "@/components/scroll-to-top";
 const { header, alerts, pendingRequests } = DASHBOARD_PAGE;
 
 export const metadata = {
-  title: "Dashboard | Hoador",
+  title: "Dashboard",
   description: "Manage your rentals, listings, and community connections",
 };
 

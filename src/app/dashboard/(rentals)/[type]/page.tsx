@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { redirect, notFound } from "next/navigation";
 
 export const metadata = {
-  title: "Rentals | Hoador",
+  title: "Rentals",
   description: "Manage your rentals and lending activities",
 };
 

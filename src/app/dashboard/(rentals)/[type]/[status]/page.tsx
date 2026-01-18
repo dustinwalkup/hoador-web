@@ -6,7 +6,7 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalsClient } from "@/features/rentals/components/renting-lending/rentals-client";
 
 export const metadata = {
-  title: "Rentals | Hoador",
+  title: "Rentals",
   description: "View and manage your rental requests and active rentals",
 };
 

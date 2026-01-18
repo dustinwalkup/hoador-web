@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { ProfileTabs, SecurityTab } from "@/features/users/components/profile";
 
 export const metadata = {
-  title: "Security | Hoador",
+  title: "Security",
   description: "Manage your password and security settings",
 };
 

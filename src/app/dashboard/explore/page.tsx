@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/features/auth/utils/session";
 import { ExplorePageClient } from "@/features/listings/components/explore-page/explore-page-client";
 
 export const metadata = {
-  title: "Explore | Hoador",
+  title: "Explore",
   description: "Find listings available in your neighborhood",
 };
 

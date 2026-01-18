@@ -25,7 +25,7 @@ import {
 import { formatDistanceToNow } from "@/lib/utils/date.utils";
 
 export const metadata = {
-  title: "Reviews | Hoador",
+  title: "Reviews",
   description: "View your reviews and ratings from the community",
 };
 

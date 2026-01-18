@@ -18,7 +18,7 @@ import { getCurrentUser } from "@/features/auth/utils/session";
 import { rentalDAL } from "@/dal";
 
 export const metadata = {
-  title: "Rental Confirmation | Hoador",
+  title: "Rental Confirmation",
   description: "Your rental request confirmation details",
 };
 

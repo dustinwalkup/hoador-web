@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import FavoritesClientComponent from "@/components/dashboard/favorites-client-component";
 
 export const metadata = {
-  title: "Favorites | Hoador",
+  title: "Favorites",
   description: "Your saved and favorited listings",
 };
 

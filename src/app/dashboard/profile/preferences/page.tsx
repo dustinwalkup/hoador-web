@@ -7,7 +7,7 @@ import {
 } from "@/features/users/components/profile";
 
 export const metadata = {
-  title: "Preferences | Hoador",
+  title: "Preferences",
   description: "Customize your notification and app preferences",
 };
 

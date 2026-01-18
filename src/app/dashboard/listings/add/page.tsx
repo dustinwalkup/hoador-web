@@ -4,7 +4,7 @@ import { AddListingForm } from "@/features/listings/components/listing-form/add-
 import { BackButton } from "@/components/back-button";
 
 export const metadata = {
-  title: "Add Listing | Hoador",
+  title: "Add Listing",
   description: "List your tool to start earning money from your garage",
 };
 

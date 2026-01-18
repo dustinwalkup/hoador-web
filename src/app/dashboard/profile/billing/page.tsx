@@ -6,7 +6,7 @@ import { userDAL } from "@/dal";
 import { ProfileTabs, BillingTab } from "@/features/users/components/profile";
 
 export const metadata = {
-  title: "Billing | Hoador",
+  title: "Billing",
   description: "Manage your payment methods and billing information",
 };
 

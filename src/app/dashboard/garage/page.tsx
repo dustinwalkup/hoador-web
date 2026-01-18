@@ -6,7 +6,7 @@ import { GarageClient } from "@/features/listings/components/garage-page/garage-
 import { OnboardingBanner } from "@/features/users/components/onboarding-banner";
 
 export const metadata = {
-  title: "Garage | Hoador",
+  title: "Garage",
   description: "Manage your tool listings and inventory",
 };
 

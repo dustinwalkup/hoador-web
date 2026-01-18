@@ -31,7 +31,7 @@ import { ProfileTabs } from "../../../features/users/components/profile/profile-
 import { ProfileForm } from "../../../features/users/components/profile/profile-form";
 
 export const metadata = {
-  title: "Profile | Hoador",
+  title: "Profile",
   description: "Manage your profile and account settings",
 };
 

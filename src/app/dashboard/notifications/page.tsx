@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NotificationsPageContent } from "@/features/notifications/components/notifications-page-content";
 
 export const metadata = {
-  title: "Notifications | Hoador",
+  title: "Notifications",
   description: "View and manage your notifications",
 };
 

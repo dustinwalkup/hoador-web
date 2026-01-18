@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 
 export const metadata = {
-  title: "Verification | Hoador",
+  title: "Verification",
   description: "Verify your identity and build trust in the community",
 };
 
