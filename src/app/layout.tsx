@@ -20,13 +20,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.hoador.com"),
   title: {
     default: "Hoador",
     template: "%s | Hoador",
   },
   description:
     "Your neighborhood tool rental marketplace. Borrow tools from neighbors, save money, and build community.",
-  keywords: ["tool rental", "neighborhood marketplace", "community sharing"],
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: "/favicon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -116,20 +124,7 @@ export default function RootLayout({
           href="/splash/apple-splash-2048-2732.png"
           media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)"
         />
-        {/* Icons */}
-        <link
-          rel="icon"
-          type="image/png"
-          href="/favicon-96x96.png"
-          sizes="96x96"
-        />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="shortcut icon" href="/favicon.ico" />
-        <link
-          rel="apple-touch-icon"
-          sizes="180x180"
-          href="/apple-touch-icon.png"
-        />
+
         <link rel="manifest" href="/site.webmanifest" />
         {/* PWA capability meta tags */}
         <meta name="mobile-web-app-capable" content="yes" />
