@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { Suspense } from "react";
 import { MailboxClient } from "@/features/messages/components/mailbox-client";
+import { MailboxSkeleton } from "@/features/messages/components/mailbox-skeleton";
 import { messagesDAL } from "@/dal";
 
 export const metadata = {
@@ -18,7 +19,7 @@ export default async function MailboxPage() {
   const allConversations = [...inboxConversations, ...archivedConversations];
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<MailboxSkeleton />}>
       <MailboxClient conversations={allConversations} />
     </Suspense>
   );
