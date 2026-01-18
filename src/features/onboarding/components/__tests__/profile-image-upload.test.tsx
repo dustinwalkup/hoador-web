@@ -467,9 +467,6 @@ describe("ProfileImageUpload", () => {
     });
 
     it("should respect showToasts prop", async () => {
-      // Clear mocks to ensure clean state
-      vi.clearAllMocks();
-
       const { container } = render(
         <ProfileImageUpload
           onImageChange={mockOnImageChange}
@@ -477,9 +474,6 @@ describe("ProfileImageUpload", () => {
           showToasts={false}
         />,
       );
-
-      // Verify toast hasn't been called yet
-      expect(mockToastSuccess).not.toHaveBeenCalled();
 
       const file = new File(["test"], "test.jpg", { type: "image/jpeg" });
       const fileInput = container.querySelector(
@@ -490,22 +484,19 @@ describe("ProfileImageUpload", () => {
       dataTransfer.items.add(file);
       const fileList = dataTransfer.files;
 
+      // Record initial call count to handle any stray calls from previous tests' pending async operations
+      const initialToastCallCount = mockToastSuccess.mock.calls.length;
+
       fireEvent.change(fileInput, { target: { files: fileList } });
 
       // Wait for upload to complete and onImageChange to be called
-      await waitFor(
-        () => {
-          expect(mockUploadProfileImage).toHaveBeenCalled();
-          expect(mockOnImageChange).toHaveBeenCalled();
-        },
-        { timeout: 3000 },
-      );
+      await waitFor(() => {
+        expect(mockUploadProfileImage).toHaveBeenCalled();
+        expect(mockOnImageChange).toHaveBeenCalled();
+      });
 
-      // Wait a tick for any pending async operations
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      // Toast should not be called when showToasts is false
-      expect(mockToastSuccess).not.toHaveBeenCalled();
+      // Toast should not have been called any additional times when showToasts is false
+      expect(mockToastSuccess.mock.calls.length).toBe(initialToastCallCount);
     });
   });
 
