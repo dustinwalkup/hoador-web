@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
+import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
@@ -25,25 +26,27 @@ export default async function SignupPage() {
 
   return (
     <AuthLayoutWrapper>
-      <Card className="mx-auto w-full max-w-md">
-        <CardHeader className="pt-4">
-          <CardTitle className="text-2xl">Create an account</CardTitle>
-          <CardDescription>
-            Enter your details to get started with Hoador
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SignupForm documentUrls={documentUrls} />
-        </CardContent>
-        <CardFooter className="flex flex-col items-center gap-4">
-          <div className="text-muted-foreground text-center text-sm">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline">
-              Log in
-            </Link>
-          </div>
-        </CardFooter>
-      </Card>
+      <AnimatedAuthCard delay={100}>
+        <Card className="mx-auto w-full max-w-md">
+          <CardHeader className="pt-4">
+            <CardTitle className="text-2xl">Create an account</CardTitle>
+            <CardDescription>
+              Enter your details to get started with Hoador
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SignupForm documentUrls={documentUrls} />
+          </CardContent>
+          <CardFooter className="flex flex-col items-center gap-4">
+            <div className="text-muted-foreground text-center text-sm">
+              Already have an account?{" "}
+              <Link href="/login" className="text-primary hover:underline">
+                Log in
+              </Link>
+            </div>
+          </CardFooter>
+        </Card>
+      </AnimatedAuthCard>
     </AuthLayoutWrapper>
   );
 }

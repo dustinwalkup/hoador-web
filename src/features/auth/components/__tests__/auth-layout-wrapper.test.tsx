@@ -20,6 +20,31 @@ vi.mock("next/image", () => ({
   ),
 }));
 
+// Mock framer-motion
+vi.mock("framer-motion", () => ({
+  motion: {
+    div: ({
+      children,
+      className,
+      initial,
+      animate,
+      transition,
+      ...props
+    }: any) => (
+      <div
+        className={className}
+        data-testid="animated-logo-wrapper"
+        data-initial={JSON.stringify(initial)}
+        data-animate={JSON.stringify(animate)}
+        data-transition={JSON.stringify(transition)}
+        {...props}
+      >
+        {children}
+      </div>
+    ),
+  },
+}));
+
 describe("AuthLayoutWrapper", () => {
   it("should render children content", () => {
     // Arrange
@@ -86,5 +111,46 @@ describe("AuthLayoutWrapper", () => {
     expect(container.querySelector(".flex-col")).toBeInTheDocument();
     expect(container.querySelector(".items-center")).toBeInTheDocument();
     expect(container.querySelector(".justify-center")).toBeInTheDocument();
+  });
+
+  it("should animate logo with framer-motion", () => {
+    // Arrange & Act
+    const { container } = render(
+      <AuthLayoutWrapper>
+        <div>Content</div>
+      </AuthLayoutWrapper>,
+    );
+
+    // Assert
+    const animatedWrapper = container.querySelector(
+      '[data-testid="animated-logo-wrapper"]',
+    );
+    expect(animatedWrapper).toBeInTheDocument();
+
+    const initial = JSON.parse(
+      animatedWrapper?.getAttribute("data-initial") || "{}",
+    );
+    const animate = JSON.parse(
+      animatedWrapper?.getAttribute("data-animate") || "{}",
+    );
+    const transition = JSON.parse(
+      animatedWrapper?.getAttribute("data-transition") || "{}",
+    );
+
+    expect(initial).toEqual({
+      opacity: 0,
+      y: 20,
+      scale: 0.95,
+    });
+    expect(animate).toEqual({
+      opacity: 1,
+      y: 0,
+      scale: 1,
+    });
+    expect(transition).toMatchObject({
+      duration: 0.6,
+      delay: 0.1,
+      ease: [0.25, 0.4, 0.25, 1],
+    });
   });
 });
