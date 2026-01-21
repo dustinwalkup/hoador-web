@@ -254,7 +254,7 @@ export default async function DashboardPage() {
                   This Month
                 </p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">$87.50</span>
+                  <span className="text-2xl font-bold">$387.50</span>
                 </div>
               </div>
               <div className="flex items-center gap-1 text-xs text-green-600">
