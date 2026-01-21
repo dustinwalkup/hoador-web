@@ -177,23 +177,23 @@ export const structuredData = {
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://hoador.com/#organization",
+      "@id": "https://www.hoador.com/#organization",
       name: "Hoador",
-      url: "https://hoador.com",
+      url: "https://www.hoador.com",
       logo: {
         "@type": "ImageObject",
-        url: "https://hoador.com/hoador-logo.svg",
+        url: "https://www.hoador.com/hoador-logo.svg",
       },
     },
     {
       "@type": "WebSite",
-      "@id": "https://hoador.com/#website",
-      url: "https://hoador.com",
+      "@id": "https://www.hoador.com/#website",
+      url: "https://www.hoador.com",
       name: "Hoador",
       description:
         "Your neighborhood tool rental marketplace. Borrow tools from neighbors, save money, and build community.",
       publisher: {
-        "@id": "https://hoador.com/#organization",
+        "@id": "https://www.hoador.com/#organization",
       },
     },
   ],

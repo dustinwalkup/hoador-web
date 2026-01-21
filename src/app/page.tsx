@@ -17,7 +17,7 @@ import StaggeredChildren, {
 } from "@/components/homepage/staggered-children";
 
 // Base URL - Update this with your production domain
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://hoador.com";
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hoador.com";
 
 const { hero, valueProp, community, howItWorks, cta } = HOME_PAGE;
 
