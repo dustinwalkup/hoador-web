@@ -3,13 +3,25 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
+      // Vercel Blob
       {
         protocol: "https",
         hostname: "picsum.photos",
         port: "",
         pathname: "/**",
       },
-      // Vercel Blob
+      {
+        protocol: "https",
+        hostname: "cdn.jsdelivr.net",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+        port: "",
+        pathname: "/**",
+      },
       {
         protocol: "https",
         hostname: "hvom5mpictiugrk9.public.blob.vercel-storage.com",
@@ -44,11 +56,12 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js requires unsafe-eval in dev
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect-js.stripe.com", // Next.js requires unsafe-eval in dev, Stripe Connect
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: https: blob:",
               "connect-src 'self' https:",
+              "frame-src 'self' https://js.stripe.com https://connect-js.stripe.com https://hooks.stripe.com", // Stripe Connect embedded components
               "worker-src 'self' blob:", // Allow service worker
               "manifest-src 'self'",
               "frame-ancestors 'none'",
