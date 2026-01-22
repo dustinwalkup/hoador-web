@@ -323,7 +323,7 @@ export function ListingDetailView({
                   href={`/listings/${listing.id}/rent`}
                 >
                   <Calendar className="mr-2 h-4 w-4" />
-                  Rent Tool
+                  Rent Item
                 </Link>
               </Button>
             )}

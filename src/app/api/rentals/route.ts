@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
     // This ties the acceptances to the specific rental request for legal audit trail
     if (
       validatedData.rentalAgreementAccepted ||
+      validatedData.cancellationRefundAcknowledged ||
       validatedData.safetyLiabilityPackageAccepted ||
       validatedData.paymentPayoutAccepted
     ) {
@@ -106,6 +107,24 @@ export async function POST(request: NextRequest) {
             legalDocumentDAL.recordAcceptance(
               currentUserId,
               LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT,
+              doc.version,
+              ipAddress,
+              userAgent,
+              "rental_checkout",
+              rentalRequest.id, // Link to specific rental request
+            ),
+          );
+        }
+
+        if (
+          validatedData.cancellationRefundAcknowledged &&
+          documentVersions[LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND]
+        ) {
+          const doc = documentVersions[LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND];
+          acceptancePromises.push(
+            legalDocumentDAL.recordAcceptance(
+              currentUserId,
+              LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND,
               doc.version,
               ipAddress,
               userAgent,

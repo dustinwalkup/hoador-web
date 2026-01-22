@@ -87,6 +87,7 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
   // Handler to set all policy fields when checkbox is toggled
   const handlePoliciesAccepted = (checked: boolean) => {
     form.setValue("rentalAgreementAccepted", checked);
+    form.setValue("cancellationRefundAcknowledged", checked);
     form.setValue("safetyLiabilityPackageAccepted", checked);
     form.setValue("paymentPayoutAccepted", checked);
   };
