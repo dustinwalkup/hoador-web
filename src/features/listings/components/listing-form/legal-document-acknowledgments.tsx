@@ -33,8 +33,8 @@ const DOCUMENT_PDF_MAP: Record<string, string> = {
   [LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]:
     "/documents/listing-condition-standards.pdf",
   [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]: "/documents/safety-disclaimer.pdf",
-  [LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES]:
-    "/documents/ip-listing-content-rules.pdf",
+  [LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]:
+    "/documents/prohibited-items-and-listing-content-policy.pdf",
 };
 
 // Document summaries (placeholders)
@@ -45,8 +45,8 @@ const DOCUMENT_SUMMARIES: Record<string, string> = {
     "This document defines the condition categories (excellent, good, fair, poor) and the standards your tools must meet. It includes inspection requirements and condition reporting guidelines.",
   [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]:
     "This disclaimer covers safety responsibilities, proper tool usage, and liability limitations. It outlines what safety information you must provide to renters.",
-  [LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES]:
-    "These rules govern what content is allowed in listings, including prohibited items, accurate descriptions, and intellectual property requirements.",
+  [LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]:
+    "This policy outlines prohibited items that cannot be listed on the platform and the rules governing listing content, including accurate descriptions and intellectual property requirements.",
 };
 
 // Document IDs in order
@@ -54,7 +54,7 @@ const DOCUMENT_IDS = [
   LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
   LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS,
   LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
-  LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES,
+  LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
 ] as const;
 
 interface LegalDocumentAcknowledgmentsProps {
@@ -107,7 +107,7 @@ export function LegalDocumentAcknowledgments({
   control,
 }: LegalDocumentAcknowledgmentsProps) {
   const documentNames = DOCUMENT_IDS.map(
-    (id) => LEGAL_DOCUMENT_METADATA[id].name,
+    (id) => LEGAL_DOCUMENT_METADATA[id]?.name || id,
   );
 
   return (
@@ -122,6 +122,7 @@ export function LegalDocumentAcknowledgments({
       <ul className="space-y-2">
         {DOCUMENT_IDS.map((documentId) => {
           const metadata = LEGAL_DOCUMENT_METADATA[documentId];
+          if (!metadata) return null;
           const summary = DOCUMENT_SUMMARIES[documentId];
           const pdfUrl = DOCUMENT_PDF_MAP[documentId];
 

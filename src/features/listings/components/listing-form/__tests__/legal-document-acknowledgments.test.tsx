@@ -39,23 +39,27 @@ describe("LegalDocumentAcknowledgments", () => {
 
     expect(
       screen.getAllByText(
-        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY].name,
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]?.name ||
+          "",
       ).length,
     ).toBeGreaterThanOrEqual(1);
     expect(
       screen.getAllByText(
         LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]
-          .name,
+          ?.name || "",
       ).length,
     ).toBeGreaterThanOrEqual(1);
     expect(
       screen.getAllByText(
-        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER].name,
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]?.name ||
+          "",
       ).length,
     ).toBeGreaterThanOrEqual(1);
     expect(
       screen.getAllByText(
-        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES].name,
+        LEGAL_DOCUMENT_METADATA[
+          LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT
+        ]?.name || "",
       ).length,
     ).toBeGreaterThanOrEqual(1);
   });
@@ -96,8 +100,9 @@ describe("LegalDocumentAcknowledgments", () => {
     );
 
     const damagePolicyButton = screen.getAllByRole("button", {
-      name: LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]
-        .name,
+      name:
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]
+          ?.name || "",
     })[0];
     fireEvent.click(damagePolicyButton);
 
@@ -119,8 +124,9 @@ describe("LegalDocumentAcknowledgments", () => {
     );
 
     const toolConditionButton = screen.getAllByRole("button", {
-      name: LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]
-        .name,
+      name:
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]
+          ?.name || "",
     })[0];
     fireEvent.click(toolConditionButton);
 
@@ -140,7 +146,9 @@ describe("LegalDocumentAcknowledgments", () => {
 
     // Find the button by its role and accessible name
     const safetyButton = screen.getAllByRole("button", {
-      name: LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER].name,
+      name:
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]?.name ||
+        "",
     })[0];
 
     expect(safetyButton).toBeInTheDocument();
@@ -273,7 +281,9 @@ describe("LegalDocumentAcknowledgments", () => {
     ).toBe(true);
     expect(
       pdfLinks.some((link) =>
-        link.getAttribute("href")?.includes("ip-listing-content-rules"),
+        link
+          .getAttribute("href")
+          ?.includes("prohibited-items-and-listing-content-policy"),
       ),
     ).toBe(true);
   });

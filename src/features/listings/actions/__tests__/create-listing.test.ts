@@ -66,10 +66,10 @@ describe("createListing", () => {
       url: "https://example.com/safety-1.0.pdf",
       publishedAt: new Date("2024-01-01"),
     },
-    [LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES]: {
-      id: LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES,
+    [LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]: {
+      id: LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
       version: "1.0",
-      url: "https://example.com/content-1.0.pdf",
+      url: "https://example.com/prohibited-items-and-listing-content-1.0.pdf",
       publishedAt: new Date("2024-01-01"),
     },
   };
@@ -318,7 +318,7 @@ describe("createListing", () => {
     );
     expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
       userId,
-      LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES,
+      LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
       "1.0",
       "192.168.1.1",
       "test-agent",

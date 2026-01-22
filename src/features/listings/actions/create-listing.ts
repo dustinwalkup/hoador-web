@@ -164,12 +164,15 @@ export async function createListing(formData: CreateListingFormDataServerType) {
       );
     }
 
-    if (documentVersions[LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES]) {
-      const doc = documentVersions[LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES];
+    if (
+      documentVersions[LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]
+    ) {
+      const doc =
+        documentVersions[LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT];
       acceptancePromises.push(
         legalDocumentDAL.recordAcceptance(
           userId,
-          LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES,
+          LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
           doc.version,
           ipAddress,
           userAgent,

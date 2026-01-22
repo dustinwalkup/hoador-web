@@ -25,6 +25,7 @@ export const LEGAL_DOCUMENT_IDS = {
   // Governance
   PROHIBITED_ITEMS: "prohibited_items",
   LISTING_CONTENT_RULES: "listing_content_rules",
+  PROHIBITED_ITEMS_AND_LISTING_CONTENT: "prohibited_items_and_listing_content",
 } as const;
 
 export type LegalDocumentId =
@@ -46,10 +47,10 @@ export type LegalDocumentCategory =
 
 /**
  * Document metadata including display name and category
+ * Only documents with metadata will appear in the admin UI
  */
-export const LEGAL_DOCUMENT_METADATA: Record<
-  LegalDocumentId,
-  { name: string; category: LegalDocumentCategory }
+export const LEGAL_DOCUMENT_METADATA: Partial<
+  Record<LegalDocumentId, { name: string; category: LegalDocumentCategory }>
 > = {
   // Core Legal
   [LEGAL_DOCUMENT_IDS.TOS]: {
@@ -104,12 +105,8 @@ export const LEGAL_DOCUMENT_METADATA: Record<
   },
 
   // Governance
-  [LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS]: {
-    name: "Prohibited Items Policy",
-    category: LEGAL_DOCUMENT_CATEGORIES.GOVERNANCE,
-  },
-  [LEGAL_DOCUMENT_IDS.LISTING_CONTENT_RULES]: {
-    name: "Listing Content Rules",
+  [LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]: {
+    name: "Prohibited Items and Listing Content Policy",
     category: LEGAL_DOCUMENT_CATEGORIES.GOVERNANCE,
   },
 };

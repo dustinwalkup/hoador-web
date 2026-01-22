@@ -133,6 +133,24 @@ export default async function Footer() {
                 </FooterLink>
               </li>
             )}
+            {hasDocument(
+              LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
+            ) && (
+              <li>
+                <FooterLink
+                  href={
+                    getDocumentUrl(
+                      LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
+                    )!
+                  }
+                  isExternal
+                >
+                  {getDocumentName(
+                    LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT as LegalDocumentId,
+                  )}
+                </FooterLink>
+              </li>
+            )}
           </FooterSection>
 
           {/* Support Section */}

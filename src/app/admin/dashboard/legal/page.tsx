@@ -59,12 +59,18 @@ export default async function LegalDocumentsPage() {
       {/* Documents by Category */}
       {Object.values(LEGAL_DOCUMENT_CATEGORIES).map((category) => {
         const documentIds = getDocumentsByCategory(category);
-        const documents = documentIds.map((id) => ({
-          id,
-          metadata: LEGAL_DOCUMENT_METADATA[id],
-          currentVersion: currentVersions[id] || null,
-          versions: versionHistoryMap.get(id) || [],
-        }));
+        const documents = documentIds
+          .map((id) => {
+            const metadata = LEGAL_DOCUMENT_METADATA[id];
+            if (!metadata) return null;
+            return {
+              id,
+              metadata,
+              currentVersion: currentVersions[id] || null,
+              versions: versionHistoryMap.get(id) || [],
+            };
+          })
+          .filter((doc): doc is NonNullable<typeof doc> => doc !== null);
 
         return (
           <Card key={category}>
