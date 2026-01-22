@@ -5,6 +5,7 @@ import {
   timestamp,
   uuid,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -18,17 +19,23 @@ export type UserLegalAcceptanceDB = typeof userLegalAcceptances.$inferSelect;
 export type NewUserLegalAcceptance = typeof userLegalAcceptances.$inferInsert;
 
 // Legal documents table - tracks document versions
-export const legalDocuments = pgTable("legal_documents", {
-  id: text("id").primaryKey(), // Document slug (e.g., 'tos', 'privacy', 'community')
-  version: varchar("version", { length: 50 }).notNull(), // Version identifier (e.g., '1.0', '2.0')
-  publishedAt: timestamp("published_at").notNull(), // When this version was published
-  url: varchar("url", { length: 500 }).notNull(), // Blob storage URL for the document PDF
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+export const legalDocuments = pgTable(
+  "legal_documents",
+  {
+    id: text("id").notNull(), // Document slug (e.g., 'tos', 'privacy', 'community')
+    version: varchar("version", { length: 50 }).notNull(), // Version identifier (e.g., '1.0', '2.0')
+    publishedAt: timestamp("published_at").notNull(), // When this version was published
+    url: varchar("url", { length: 500 }).notNull(), // Blob storage URL for the document PDF
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.id, table.version] }),
+  }),
+);
 
 // User legal acceptances table - audit trail for all acceptances
 export const userLegalAcceptances = pgTable(
