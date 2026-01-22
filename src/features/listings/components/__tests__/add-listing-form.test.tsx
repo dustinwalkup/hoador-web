@@ -31,9 +31,9 @@ vi.mock("@/features/listings/hooks/use-listing-images", () => ({
   useListingImages: vi.fn(),
 }));
 
-vi.mock("@/features/listings/actions/create-listing", () => ({
-  createListing: vi.fn(),
-  uploadListingImage: vi.fn(),
+vi.mock("@/features/listings/hooks/use-listing-mutations", () => ({
+  useCreateListing: vi.fn(),
+  useUpdateListing: vi.fn(),
 }));
 
 describe("AddListingForm", () => {
@@ -41,6 +41,8 @@ describe("AddListingForm", () => {
   const mockOnSubmit = vi.fn();
   let mockForm: any;
   let mockImagesHook: any;
+  let mockCreateListingMutation: any;
+  let mockUpdateListingMutation: any;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -61,14 +63,39 @@ describe("AddListingForm", () => {
       isLoading: false,
     };
 
+    // Mock React Query mutations
+    mockCreateListingMutation = {
+      mutateAsync: vi.fn(),
+      mutate: vi.fn(),
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
+      data: null,
+    };
+
+    mockUpdateListingMutation = {
+      mutateAsync: vi.fn(),
+      mutate: vi.fn(),
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
+      data: null,
+    };
+
     // Set up mocks
     const { useListingForm } =
       await import("@/features/listings/hooks/use-listing-form");
     const { useListingImages } =
       await import("@/features/listings/hooks/use-listing-images");
+    const { useCreateListing, useUpdateListing } =
+      await import("@/features/listings/hooks/use-listing-mutations");
 
     vi.mocked(useListingForm).mockReturnValue(mockForm);
     vi.mocked(useListingImages).mockReturnValue(mockImagesHook);
+    vi.mocked(useCreateListing).mockReturnValue(mockCreateListingMutation);
+    vi.mocked(useUpdateListing).mockReturnValue(mockUpdateListingMutation);
   });
 
   describe("Component Structure", () => {
@@ -111,7 +138,48 @@ describe("AddListingForm", () => {
   });
 
   describe("Form Submission", () => {
-    it("should call onSubmit when form is valid", async () => {
+    it("should create listing using React Query mutation when no onSubmit provided", async () => {
+      mockCreateListingMutation.mutateAsync.mockResolvedValue({
+        success: true,
+        listingId: "listing-123",
+      });
+
+      // Provide images so form can submit - update getValues implementation
+      mockForm._updateGetValues((field?: string) => {
+        if (field === "images") {
+          return [{ file: new File([], "test.jpg"), url: "blob:test" }];
+        }
+        if (field === "specifications") return {};
+        if (!field) {
+          return {
+            ...createMockFormData(),
+            images: [{ file: new File([], "test.jpg"), url: "blob:test" }],
+          };
+        }
+        return createMockFormData();
+      });
+
+      // Mock fetch for image upload
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true }),
+      });
+
+      renderWithQueryClient(
+        <AddListingForm categories={mockCategories} />,
+      );
+
+      const submitButton = screen.getByRole("button", {
+        name: /add listing/i,
+      });
+      fireEvent.click(submitButton);
+
+      await waitFor(() => {
+        expect(mockCreateListingMutation.mutateAsync).toHaveBeenCalled();
+      });
+    });
+
+    it("should call onSubmit when form is valid and onSubmit provided", async () => {
       mockOnSubmit.mockResolvedValue({
         success: true,
         listingId: "listing-123",
@@ -231,9 +299,8 @@ describe("AddListingForm", () => {
     });
 
     it("should show loading state during submission", async () => {
-      mockOnSubmit.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 100)),
-      );
+      // Set pending to true to simulate loading state
+      mockCreateListingMutation.isPending = true;
 
       // Provide images so form can submit - update getValues implementation
       mockForm._updateGetValues((field?: string) => {
@@ -250,28 +317,17 @@ describe("AddListingForm", () => {
         return createMockFormData();
       });
 
-      // Mock formState.isSubmitting to be true
-      mockForm.formState.isSubmitting = true;
-
       renderWithQueryClient(
-        <AddListingForm categories={mockCategories} onSubmit={mockOnSubmit} />,
+        <AddListingForm categories={mockCategories} />,
       );
 
-      // Mock fetch for image upload
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true }),
-      });
-
+      // When pending, button text changes to "Adding Listing..." and is disabled
       const submitButton = screen.getByRole("button", {
-        name: /add listing/i,
+        name: /adding listing/i,
       });
-      fireEvent.click(submitButton);
 
-      // Button should be disabled during submission
-      await waitFor(() => {
-        expect(submitButton).toBeDisabled();
-      });
+      expect(submitButton).toBeDisabled();
+      expect(submitButton).toHaveTextContent("Adding Listing...");
     });
   });
 
@@ -297,6 +353,73 @@ describe("AddListingForm", () => {
       );
 
       expect(mockImagesHook.loadImages).toHaveBeenCalled();
+    });
+
+    it("should use updateListing mutation in edit mode", async () => {
+      mockUpdateListingMutation.mutateAsync.mockResolvedValue({
+        success: true,
+        listingId: "listing-123",
+      });
+
+      mockImagesHook.images = [
+        {
+          id: "image-1",
+          imageUrl: "https://example.com/image1.jpg",
+          orderIndex: 0,
+        },
+      ];
+
+      // Ensure form has no errors
+      mockForm.formState.errors = {};
+
+      // Provide images so form can submit
+      mockForm._updateGetValues((field?: string) => {
+        if (field === "images") {
+          return [{ id: "image-1", url: "https://example.com/image1.jpg" }];
+        }
+        if (field === "specifications") return {};
+        if (!field) {
+          return {
+            ...createMockFormData(),
+            images: [{ id: "image-1", url: "https://example.com/image1.jpg" }],
+          };
+        }
+        return createMockFormData();
+      });
+
+      // Mock fetch for image upload
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true }),
+      });
+
+      // Mock router
+      const { useRouter } = await import("next/navigation");
+      const routerMock = createMockRouter();
+      vi.mocked(useRouter).mockReturnValue(routerMock);
+
+      renderWithQueryClient(
+        <AddListingForm
+          categories={mockCategories}
+          isEdit={true}
+          listingId="listing-123"
+          onSubmit={mockOnSubmit} // Provide onSubmit to trigger edit mode mutation path
+        />,
+      );
+
+      const submitButton = screen.getByRole("button", {
+        name: /save changes/i,
+      });
+      fireEvent.click(submitButton);
+
+      await waitFor(() => {
+        expect(mockUpdateListingMutation.mutateAsync).toHaveBeenCalledWith({
+          listingId: "listing-123",
+          data: expect.objectContaining({
+            name: expect.any(String),
+          }),
+        });
+      });
     });
 
     it("should allow editing without new images if existing images present", async () => {

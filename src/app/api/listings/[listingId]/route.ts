@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { tryCatch } from "@walkup/walkup-utils";
 import { uploadToBlob } from "@/services/vercel-blob";
 import { eq, max } from "drizzle-orm";
-import { tryCatch } from "@walkup/walkup-utils";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
@@ -10,9 +10,22 @@ import {
   validateImageForProcessing,
   getImageMetadata,
 } from "@/lib/image/server";
+import {
+  handleApiError,
+  parseFormData,
+  requireAuthResponse,
+  getCurrentUserId,
+} from "@/lib/api/route-helpers";
+import {
+  createListingSchemaServer,
+  type CreateListingFormDataServerType,
+} from "@/features/listings/form-schema/listing.schema";
 import { listingDAL } from "@/dal";
-import { getCurrentUserId } from "@/features/auth/utils/session";
 
+/**
+ * POST /api/listings/[listingId]
+ * Upload a listing image
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ listingId: string }> },
@@ -105,6 +118,85 @@ export async function POST(
   }
 }
 
+/**
+ * PATCH /api/listings/[listingId]
+ * Update a listing
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ listingId: string }> },
+) {
+  try {
+    // Check authentication
+    const authError = await requireAuthResponse();
+    if (authError) return authError;
+
+    const { listingId } = await params;
+
+    // Validate listingId
+    if (!listingId || listingId === "") {
+      return NextResponse.json(
+        { error: "Listing ID is required" },
+        { status: 400 },
+      );
+    }
+
+    // Get current user ID
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: "Unauthorized: User not authenticated" },
+        { status: 401 },
+      );
+    }
+
+    // Parse request body
+    const body = await parseFormData(request);
+
+    // Validate form data
+    const validationResult = createListingSchemaServer.safeParse(body);
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          details: validationResult.error.flatten(),
+        },
+        { status: 400 },
+      );
+    }
+
+    const validatedData = validationResult.data as CreateListingFormDataServerType;
+
+    // Update the listing (DAL handles ownership validation)
+    const { data: listing, error } = await tryCatch(
+      listingDAL.updateListing(listingId, validatedData),
+    );
+
+    if (error) {
+      return handleApiError(error);
+    }
+
+    if (!listing) {
+      return NextResponse.json(
+        { error: "Failed to update listing" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      listingId: listing.id,
+    });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+/**
+ * DELETE /api/listings/[listingId]
+ * Delete a listing
+ */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ listingId: string }> },

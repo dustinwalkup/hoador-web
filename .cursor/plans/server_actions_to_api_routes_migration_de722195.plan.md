@@ -187,11 +187,15 @@ Middleware (`proxy.ts`) handles authentication and route protection before reque
   - Validate with `createListingSchemaServer`
   - Check Stripe onboarding status
   - Record 4 legal document acceptances (IP/user agent tracking)
+  - **New listings automatically get `approvalStatus: "pending_review"`** (handled by DAL)
+  - **New listings start with `status: "inactive"`** until approved by admin
   - Return `{ success: true, listingId: string }` or `{ error: string }`
 
 - **PATCH `/api/listings/[listingId]`** - Update listing
   - Validate ownership via DAL
   - Validate with `createListingSchemaServer`
+  - **Rejected listings**: Any edit resubmits for review (`approvalStatus: "pending_review"`)
+  - **Approved listings**: Significant edits require re-review (`approvalStatus: "pending_review"`)
   - Return `{ success: true, listingId: string }` or `{ error: string }`
 
 - **PATCH `/api/listings/[listingId]/status`** - Update listing status
@@ -432,6 +436,22 @@ Middleware (`proxy.ts`) handles authentication and route protection before reque
   - Delete version from database and blob storage
   - Return `{ success: true }` or `{ error: string }`
 
+- **POST `/api/admin/listings/[listingId]/approve`** - Approve listing (already exists)
+  - Require admin authentication
+  - Update `approvalStatus` to `"approved"`
+  - Set `status` to `"available"` if currently `"inactive"`
+  - Set `reviewedBy` and `reviewedAt` fields
+  - Send approval notification to listing owner
+  - Return `{ success: true }` or `{ error: string }`
+
+- **POST `/api/admin/listings/[listingId]/reject`** - Reject listing (already exists)
+  - Require admin authentication
+  - Validate rejection reason is provided
+  - Update `approvalStatus` to `"rejected"`
+  - Set `rejectionReason`, `reviewedBy`, and `reviewedAt` fields
+  - Send rejection notification to listing owner
+  - Return `{ success: true }` or `{ error: string }`
+
 #### 9.2 Create React Query Hooks for Admin
 
 - Create `src/features/admin/hooks/use-admin-mutations.ts`:
@@ -521,44 +541,58 @@ export function useCreateResource() {
 
 ## Special Considerations
 
-### 1. Legal Document Acceptance Tracking
+### 1. Listing Approval Workflow
+
+- **New Listings**: Automatically set to `approvalStatus: "pending_review"` and `status: "inactive"` when created
+- **Listing Visibility**: Only listings with `approvalStatus: "approved"` appear in public search results
+- **Edit Behavior**:
+  - Rejected listings: Any edit resubmits for review (`approvalStatus: "pending_review"`)
+  - Approved listings: Significant edits require re-review (`approvalStatus: "pending_review"`)
+- **Admin Review**: Admin panel approves/rejects listings via existing admin API routes
+- **Notifications**: Listing owners receive notifications when listings are approved or rejected
+- **Component Updates**:
+  - `AddListingForm` shows review notice for new listings
+  - `RentalCard` displays `ApprovalStatusBadge` for pending/rejected listings
+  - Listing management respects approval status
+
+### 2. Legal Document Acceptance Tracking
 
 - Extract IP address and user agent in API routes using `getClientIP()` and `getUserAgent()`
 - Pass to DAL methods for recording acceptances
 - Maintain audit trail for legal compliance
 
-### 2. Payment Processing
+### 3. Payment Processing
 
 - Keep Stripe payment logic in API routes (server-side only)
 - Handle retry logic for network errors
 - Return detailed error messages for payment failures
 - Update payment status in database
 
-### 3. Notifications
+### 4. Notifications
 
 - Keep notification sending in API routes (non-blocking)
 - Use `Promise.allSettled()` for multiple notifications
 - Log errors but don't fail the operation
 
-### 4. Redirect Handling
+### 5. Redirect Handling
 
 - Return redirect URLs in API responses: `{ success: true, redirect: "/path" }`
 - Handle redirects in React Query `onSuccess` callbacks
 - Use `router.push()` for client-side navigation
 
-### 5. FormData vs JSON
+### 6. FormData vs JSON
 
 - Support both FormData and JSON in API routes
 - Use `parseFormData()` helper to normalize input
 - Validate with Zod schemas
 
-### 6. Cache Invalidation
+### 7. Cache Invalidation
 
 - Replace `revalidatePath()` with `queryClient.invalidateQueries()`
 - Invalidate related queries (e.g., listing updates invalidate garage queries)
 - Use query key factories for consistent invalidation
 
-### 7. Error Handling
+### 8. Error Handling
 
 - Use consistent error response format: `{ error: string }`
 - Include validation errors: `{ error: string, details?: ValidationError }`

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { analyzeToolImageAction } from "@/features/listings/actions/analyze-tool-image";
+import { useAnalyzeToolImage } from "@/features/listings/hooks/use-listing-mutations";
 import {
   X,
   Search,
@@ -90,6 +90,7 @@ export default function TestImageUploadPage() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const analyzeToolImageMutation = useAnalyzeToolImage();
 
   const [toolMatchResult, setToolMatchResult] =
     useState<ToolMatchResult | null>(null);
@@ -268,7 +269,7 @@ export default function TestImageUploadPage() {
       );
 
       console.log("Starting analysis for images:", selectedImages.length);
-      const result = await analyzeToolImageAction(imageDataUrls);
+      const result = await analyzeToolImageMutation.mutateAsync(imageDataUrls);
       console.log("Analysis result:", result);
 
       if (!result.success) {

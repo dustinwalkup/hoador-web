@@ -4,14 +4,16 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Info } from "lucide-react";
-import { tryCatch } from "@walkup/walkup-utils";
 
 import type {
   CreateListingFormDataClientType,
   ImageFile,
 } from "@/features/listings/form-schema/listing.schema";
 import { useListingForm } from "@/features/listings/hooks/use-listing-form";
-import { createListing } from "@/features/listings/actions/create-listing";
+import {
+  useCreateListing,
+  useUpdateListing,
+} from "@/features/listings/hooks/use-listing-mutations";
 import { useListingImages } from "@/features/listings/hooks/use-listing-images";
 
 import { Button } from "@/components/ui/button";
@@ -58,6 +60,8 @@ export function AddListingForm({
 }: AddListingFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const createListingMutation = useCreateListing();
+  const updateListingMutation = useUpdateListing();
 
   // Use listing images hook for editing existing listings
   const {
@@ -173,36 +177,82 @@ export function AddListingForm({
     const { images, ownerPoliciesAcknowledged, ...listingDataWithoutImages } =
       formData;
 
-    if (!images || images.length === 0) {
-      toast.error("Please add at least one image.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Create listing without images
-    const { data, error } = await tryCatch(
-      createListing(listingDataWithoutImages),
-    );
-
-    if (error || !data?.listingId) {
-      toast.error("An unexpected error occurred. Please try again.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    const newListingId = data.listingId;
-
-    // Upload images to blob and save to db
     try {
-      await uploadImages(images, newListingId);
-      toast.success("Listing and images uploaded successfully!");
-      reset();
-      router.push("/dashboard/garage");
-    } catch (uploadError) {
-      console.error("Error uploading images", uploadError);
-      toast.error("Error uploading one or more images.");
+      // Handle edit mode
+      if (isEdit && listingId) {
+        // For edit mode, check if we have any images (existing or new)
+        const hasExistingImages = existingImages.length > 0;
+        const hasNewImages = images.some((img: ImageFile) => img.file);
+
+        if (!hasExistingImages && !hasNewImages) {
+          toast.error("Please add at least one image.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Update listing using React Query mutation
+        await updateListingMutation.mutateAsync({
+          listingId,
+          data: listingDataWithoutImages,
+        });
+
+        // Delete removed existing images
+        await deleteRemovedImages(images);
+
+        // Upload new images if any
+        const newImages = images.filter((img: ImageFile) => img.file);
+        if (newImages.length > 0) {
+          try {
+            await uploadImages(newImages, listingId);
+            toast.success("Listing and images updated successfully!");
+          } catch (uploadError) {
+            console.error("Error uploading images", uploadError);
+            toast.error("Error uploading one or more images.");
+          }
+        }
+
+        router.push("/dashboard/garage");
+      } else {
+        // Create new listing
+        if (!images || images.length === 0) {
+          toast.error("Please add at least one image.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Create listing without images using React Query mutation
+        const result = await createListingMutation.mutateAsync(
+          listingDataWithoutImages,
+        );
+
+        if (!result?.listingId) {
+          toast.error("An unexpected error occurred. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        const newListingId = result.listingId;
+
+        // Upload images to blob and save to db
+        try {
+          await uploadImages(images, newListingId);
+          toast.success("Listing and images uploaded successfully!");
+          reset();
+          router.push("/dashboard/garage");
+        } catch (uploadError) {
+          console.error("Error uploading images", uploadError);
+          toast.error("Error uploading one or more images.");
+        }
+      }
+    } catch (error) {
+      // Error is already handled by the mutation hook's onError
+      console.error(
+        isEdit ? "Error updating listing:" : "Error creating listing:",
+        error,
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const handleFormSubmit = async (data: CreateListingFormDataClientType) => {
@@ -244,35 +294,47 @@ export function AddListingForm({
           }
         }
 
-        const result = await onSubmit(listingDataWithoutImages);
-
-        if (result?.error) {
-          toast.error(
-            result.error || "Failed to save listing. Please try again.",
-          );
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Handle image operations for edit mode
+        // Use React Query mutation for edit mode
         if (isEdit && listingId) {
-          // Delete removed existing images
-          await deleteRemovedImages(images);
+          try {
+            await updateListingMutation.mutateAsync({
+              listingId,
+              data: listingDataWithoutImages,
+            });
 
-          // Upload new images if any
-          const newImages = images.filter((img: ImageFile) => img.file);
-          if (newImages.length > 0) {
-            try {
-              await uploadImages(newImages, listingId);
-              toast.success("Listing and images updated successfully!");
-            } catch (uploadError) {
-              console.error("Error uploading images", uploadError);
-              toast.error("Error uploading one or more images.");
+            // Delete removed existing images
+            await deleteRemovedImages(images);
+
+            // Upload new images if any
+            const newImages = images.filter((img: ImageFile) => img.file);
+            if (newImages.length > 0) {
+              try {
+                await uploadImages(newImages, listingId);
+                toast.success("Listing and images updated successfully!");
+              } catch (uploadError) {
+                console.error("Error uploading images", uploadError);
+                toast.error("Error uploading one or more images.");
+              }
             }
-          } else {
-            toast.success("Listing updated successfully!");
+            // Success message is handled by the mutation hook
+
+            router.push("/dashboard/garage");
+          } catch (error) {
+            // Error is already handled by the mutation hook's onError
+            console.error("Error updating listing:", error);
           }
         } else {
+          // For new listings, use the onSubmit callback if provided
+          const result = await onSubmit(listingDataWithoutImages);
+
+          if (result?.error) {
+            toast.error(
+              result.error || "Failed to save listing. Please try again.",
+            );
+            setIsSubmitting(false);
+            return;
+          }
+
           // For new listings, upload all images
           try {
             await uploadImages(images, result?.listingId || listingId!);
@@ -281,9 +343,9 @@ export function AddListingForm({
             console.error("Error uploading images", uploadError);
             toast.error("Error uploading one or more images.");
           }
-        }
 
-        router.push("/dashboard/garage");
+          router.push("/dashboard/garage");
+        }
       } catch (error) {
         setIsSubmitting(false);
         toast.error("An unexpected error occurred. Please try again.");
@@ -337,11 +399,18 @@ export function AddListingForm({
         <div className="flex justify-end">
           <Button
             type="submit"
-            disabled={isSubmitting || isLoadingImages}
+            disabled={
+              isSubmitting ||
+              isLoadingImages ||
+              createListingMutation.isPending ||
+              updateListingMutation.isPending
+            }
             size="lg"
             className="w-full sm:w-auto"
           >
-            {isSubmitting
+            {isSubmitting ||
+            createListingMutation.isPending ||
+            updateListingMutation.isPending
               ? isEdit
                 ? "Saving..."
                 : "Adding Listing..."

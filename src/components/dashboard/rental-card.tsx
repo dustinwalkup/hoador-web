@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { updateListingStatus } from "@/features/listings/actions/update-listing-status";
+import { useUpdateListingStatus } from "@/features/listings/hooks/use-listing-mutations";
 import { ApprovalStatusBadge } from "@/features/listings/components/listing-status-badge";
 
 import ListingManagementModal from "./listing-management-modal";
@@ -111,15 +111,20 @@ export default function RentalCard({
   rejectionReason,
   listingData,
 }: RentalCardProps) {
+  const updateListingStatusMutation = useUpdateListingStatus();
+
   const handleListingUpdate = async (data: {
     status: "available" | "maintenance" | "inactive";
   }) => {
-    const result = await updateListingStatus(id, data);
-
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Listing status updated successfully");
+    try {
+      await updateListingStatusMutation.mutateAsync({
+        listingId: id,
+        status: data.status,
+      });
+      // Success message is handled by the mutation hook
+    } catch (error) {
+      // Error is already handled by the mutation hook's onError
+      console.error("Error updating listing status:", error);
     }
   };
 

@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 
 import { listingDAL } from "@/dal";
-import { updateListing } from "@/features/listings/actions/update-listing";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import type { ListingDetails } from "@/dal/types";
 import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
@@ -58,17 +57,6 @@ export default async function EditListingPage({
 
   const initialValues = mapListingToFormData(listing);
 
-  async function onSubmit(
-    data: Omit<
-      CreateListingFormDataClientType,
-      "images" | "ownerPoliciesAcknowledged"
-    >,
-  ) {
-    "use server";
-    // Call updateListing action
-    return updateListing(id, data);
-  }
-
   return (
     <>
       <div className="mb-6">
@@ -83,7 +71,6 @@ export default async function EditListingPage({
       <AddListingForm
         categories={categories}
         initialValues={initialValues}
-        onSubmit={onSubmit}
         isEdit
         listingId={id}
       />
