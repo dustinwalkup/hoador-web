@@ -1,13 +1,12 @@
 "use client";
 
-import { JSX, useTransition, useState } from "react";
+import { JSX, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Edit3, Save, X, Check } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { toast } from "sonner";
 import { z } from "zod";
 
-import { updateUserProfileAndAddress } from "@/features/users/actions/update-user-profile";
+import { useUpdateUserProfile } from "@/features/users/hooks/use-profile-mutations";
 import { PROFILE_OVERVIEW, US_STATES } from "@/constants/profile";
 
 import {
@@ -109,7 +108,7 @@ const PhoneInput = ({ value, onChange, onBlur, ...props }: PhoneInputProps) => {
 
 export function ProfileForm({ user }: { user: UserProfile }) {
   const [editMode, setEditMode] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const updateProfile = useUpdateUserProfile();
 
   const form = useForm<FormData>({
     resolver: zodResolver(ProfileFormSchema),
@@ -129,14 +128,10 @@ export function ProfileForm({ user }: { user: UserProfile }) {
   });
 
   const handleSubmit = (data: FormData) => {
-    startTransition(async () => {
-      const res = await updateUserProfileAndAddress(data);
-      if ("error" in res) {
-        toast.error(res.error);
-      } else {
-        toast.success("Profile updated");
+    updateProfile.mutate(data, {
+      onSuccess: () => {
         setEditMode(false);
-      }
+      },
     });
   };
 
@@ -208,7 +203,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                 type="submit"
                 variant="ghost"
                 aria-label="Save"
-                disabled={isPending}
+                disabled={updateProfile.isPending}
                 onClick={(e) => {
                   e.preventDefault();
                   form.handleSubmit(handleSubmit)();
@@ -517,11 +512,11 @@ export function ProfileForm({ user }: { user: UserProfile }) {
                 >
                   <button
                     type="submit"
-                    disabled={isPending}
+                    disabled={updateProfile.isPending}
                     className="bg-primary border-primary/20 hover:bg-primary focus-visible:ring-primary hover:border-primary inline-flex h-9 items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium text-white transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                   >
                     <Save className="h-4 w-4 transition-transform duration-300 ease-in-out" />
-                    {isPending ? "Saving..." : "Save Changes"}
+                    {updateProfile.isPending ? "Saving..." : "Save Changes"}
                   </button>
                   <Button
                     type="button"
