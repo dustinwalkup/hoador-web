@@ -125,8 +125,7 @@ describe("route-helpers", () => {
     it("should return null when user is authenticated", async () => {
       vi.mocked(getCurrentUserId).mockResolvedValue("user-123");
 
-      const request = new NextRequest("http://localhost:3000/api/test");
-      const result = await requireAuthResponse(request);
+      const result = await requireAuthResponse();
 
       expect(result).toBeNull();
     });
@@ -134,8 +133,7 @@ describe("route-helpers", () => {
     it("should return 401 response when user is not authenticated", async () => {
       vi.mocked(getCurrentUserId).mockResolvedValue(null);
 
-      const request = new NextRequest("http://localhost:3000/api/test");
-      const result = await requireAuthResponse(request);
+      const result = await requireAuthResponse();
 
       expect(result).not.toBeNull();
       expect(result?.status).toBe(401);
@@ -152,8 +150,7 @@ describe("route-helpers", () => {
         userType: "admin",
       } as any);
 
-      const request = new NextRequest("http://localhost:3000/api/admin/test");
-      const result = await requireAdminResponse(request);
+      const result = await requireAdminResponse();
 
       expect(result).toBeNull();
     });
@@ -163,8 +160,7 @@ describe("route-helpers", () => {
         new Error("Admin privileges required"),
       );
 
-      const request = new NextRequest("http://localhost:3000/api/admin/test");
-      const result = await requireAdminResponse(request);
+      const result = await requireAdminResponse();
 
       expect(result).not.toBeNull();
       expect(result?.status).toBe(403);
@@ -178,8 +174,7 @@ describe("route-helpers", () => {
         new Error("Authentication required"),
       );
 
-      const request = new NextRequest("http://localhost:3000/api/admin/test");
-      const result = await requireAdminResponse(request);
+      const result = await requireAdminResponse();
 
       expect(result).not.toBeNull();
       expect(result?.status).toBe(401);

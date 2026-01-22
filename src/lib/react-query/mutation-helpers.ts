@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient, type UseMutationOptions } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationOptions,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { QueryKey } from "@tanstack/react-query";
 
@@ -51,7 +55,7 @@ export function invalidateQueries(
 /**
  * Create a mutation hook with standard error and success handling
  * Provides consistent patterns for all mutations
- * 
+ *
  * @example
  * ```ts
  * const mutation = useCreateMutation({
@@ -61,7 +65,11 @@ export function invalidateQueries(
  * });
  * ```
  */
-export function useCreateMutation<TData = unknown, TVariables = unknown, TError = Error>({
+export function useCreateMutation<
+  TData = unknown,
+  TVariables = unknown,
+  TError = Error,
+>({
   mutationFn,
   onSuccess,
   onError,
@@ -84,7 +92,8 @@ export function useCreateMutation<TData = unknown, TVariables = unknown, TError 
 
   return useMutation({
     mutationFn,
-    onSuccess: async (data, variables, context) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onSuccess: async (data, variables, _context) => {
       // Invalidate queries if provided
       if (invalidateQueryKeys) {
         invalidateQueryKeys.forEach((key) => {
@@ -102,7 +111,8 @@ export function useCreateMutation<TData = unknown, TVariables = unknown, TError 
         await onSuccess(data, variables);
       }
     },
-    onError: async (error, variables, context) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onError: async (error, variables, _context) => {
       // Show error message - use custom errorMessage if provided, otherwise use error's message
       if (errorMessage) {
         handleMutationError(error, errorMessage);
@@ -122,7 +132,7 @@ export function useCreateMutation<TData = unknown, TVariables = unknown, TError 
 /**
  * Create a mutation hook factory for common patterns
  * Returns a hook that can be used with shared configuration
- * 
+ *
  * @example
  * ```ts
  * const useCreateResource = createMutationFactory({
@@ -130,12 +140,15 @@ export function useCreateMutation<TData = unknown, TVariables = unknown, TError 
  *   invalidateQueryKeys: [['resources']],
  *   defaultSuccessMessage: 'Resource created',
  * });
- * 
+ *
  * // In component:
  * const mutation = useCreateResource();
  * ```
  */
-export function createMutationFactory<TData = unknown, TVariables = unknown>(config: {
+export function createMutationFactory<
+  TData = unknown,
+  TVariables = unknown,
+>(config: {
   mutationFn: (variables: TVariables) => Promise<TData>;
   invalidateQueryKeys?: QueryKey[];
   defaultSuccessMessage?: string;
@@ -164,7 +177,8 @@ export function createMutationFactory<TData = unknown, TVariables = unknown>(con
         });
 
         // Show success message
-        const successMsg = options?.successMessage || config.defaultSuccessMessage;
+        const successMsg =
+          options?.successMessage || config.defaultSuccessMessage;
         if (successMsg) {
           handleMutationSuccess(successMsg);
         }

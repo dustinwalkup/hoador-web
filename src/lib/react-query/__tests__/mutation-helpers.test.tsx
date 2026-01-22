@@ -187,7 +187,7 @@ describe("mutation-helpers", () => {
       await act(async () => {
         try {
           await result.current.mutateAsync({ name: "Test" });
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -247,10 +247,7 @@ describe("mutation-helpers", () => {
         await result.current.mutateAsync({ name: "Test" });
       });
 
-      expect(onSuccess).toHaveBeenCalledWith(
-        { id: "123" },
-        { name: "Test" },
-      );
+      expect(onSuccess).toHaveBeenCalledWith({ id: "123" }, { name: "Test" });
     });
 
     it("should call custom onError callback", async () => {
@@ -275,7 +272,7 @@ describe("mutation-helpers", () => {
       await act(async () => {
         try {
           await result.current.mutateAsync({ name: "Test" });
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -303,7 +300,7 @@ describe("mutation-helpers", () => {
       await act(async () => {
         try {
           await result.current.mutateAsync({ name: "Test" });
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -399,7 +396,7 @@ describe("mutation-helpers", () => {
       await act(async () => {
         try {
           await result.current.mutateAsync({ name: "Test" });
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -466,10 +463,7 @@ describe("mutation-helpers", () => {
         await result.current.mutateAsync({ name: "Test" });
       });
 
-      expect(onSuccess).toHaveBeenCalledWith(
-        { id: "123" },
-        { name: "Test" },
-      );
+      expect(onSuccess).toHaveBeenCalledWith({ id: "123" }, { name: "Test" });
     });
 
     it("should call custom onError callback", async () => {
@@ -497,7 +491,7 @@ describe("mutation-helpers", () => {
       await act(async () => {
         try {
           await result.current.mutateAsync({ name: "Test" });
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });

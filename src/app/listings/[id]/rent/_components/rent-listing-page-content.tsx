@@ -33,8 +33,7 @@ interface RentListingPageContentProps {
   legalDocuments: {
     rentalAgreement?: CurrentDocumentVersion;
     cancellationRefund?: CurrentDocumentVersion;
-    safetyDisclaimer?: CurrentDocumentVersion;
-    damageLossLiability?: CurrentDocumentVersion;
+    safetyLiabilityPackage?: CurrentDocumentVersion;
     paymentPayout?: CurrentDocumentVersion;
   };
 }
@@ -65,8 +64,7 @@ export function RentListingPageContent({
       // Legal document acknowledgements - default to false
       rentalAgreementAccepted: false,
       cancellationRefundAcknowledged: false,
-      safetyDisclaimerAccepted: false,
-      damageLossLiabilityAccepted: false,
+      safetyLiabilityPackageAccepted: false,
       paymentPayoutAccepted: false,
     },
     mode: "onTouched",
@@ -245,8 +243,8 @@ export function RentListingPageContent({
       paymentMethodId: data.paymentMethodId,
       // Legal document acknowledgements
       rentalAgreementAccepted: data.rentalAgreementAccepted,
-      safetyDisclaimerAccepted: data.safetyDisclaimerAccepted,
-      damageLossLiabilityAccepted: data.damageLossLiabilityAccepted || false,
+      safetyLiabilityPackageAccepted:
+        data.safetyLiabilityPackageAccepted || false,
       paymentPayoutAccepted: data.paymentPayoutAccepted || false,
     });
 

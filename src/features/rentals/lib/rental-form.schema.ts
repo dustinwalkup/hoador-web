@@ -36,8 +36,7 @@ export const rentalFormSchema = z
         "You must accept the Rental Agreement and all policies to continue",
     }),
     cancellationRefundAcknowledged: z.boolean().optional(),
-    safetyDisclaimerAccepted: z.boolean().optional(),
-    damageLossLiabilityAccepted: z.boolean().optional(),
+    safetyLiabilityPackageAccepted: z.boolean().optional(),
     paymentPayoutAccepted: z.boolean().optional(),
   })
   .refine(

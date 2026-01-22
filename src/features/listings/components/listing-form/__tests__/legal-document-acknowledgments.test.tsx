@@ -30,7 +30,7 @@ describe("LegalDocumentAcknowledgments", () => {
     ).toBeInTheDocument();
   });
 
-  it("should render all 4 document links", () => {
+  it("should render all 2 document links", () => {
     render(
       <FormProvider {...mockForm}>
         <LegalDocumentAcknowledgments control={mockForm.control} />
@@ -39,20 +39,8 @@ describe("LegalDocumentAcknowledgments", () => {
 
     expect(
       screen.getAllByText(
-        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]?.name ||
-          "",
-      ).length,
-    ).toBeGreaterThanOrEqual(1);
-    expect(
-      screen.getAllByText(
-        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]
           ?.name || "",
-      ).length,
-    ).toBeGreaterThanOrEqual(1);
-    expect(
-      screen.getAllByText(
-        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]?.name ||
-          "",
       ).length,
     ).toBeGreaterThanOrEqual(1);
     expect(
@@ -89,7 +77,7 @@ describe("LegalDocumentAcknowledgments", () => {
 
     // Check that policy names are clickable links
     const policyLinks = screen.getAllByRole("link");
-    expect(policyLinks.length).toBeGreaterThanOrEqual(4); // At least 4 PDF links
+    expect(policyLinks.length).toBeGreaterThanOrEqual(2); // At least 2 PDF links
   });
 
   it("should open modal when document link is clicked", async () => {
@@ -99,16 +87,16 @@ describe("LegalDocumentAcknowledgments", () => {
       </FormProvider>,
     );
 
-    const damagePolicyButton = screen.getAllByRole("button", {
+    const safetyLiabilityButton = screen.getAllByRole("button", {
       name:
-        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]
           ?.name || "",
     })[0];
-    fireEvent.click(damagePolicyButton);
+    fireEvent.click(safetyLiabilityButton);
 
     await waitFor(() => {
       expect(
-        screen.getByText(/This policy outlines your responsibilities/i),
+        screen.getByText(/This comprehensive package combines/i),
       ).toBeInTheDocument();
     });
 
@@ -123,16 +111,16 @@ describe("LegalDocumentAcknowledgments", () => {
       </FormProvider>,
     );
 
-    const toolConditionButton = screen.getAllByRole("button", {
+    const safetyLiabilityButton = screen.getAllByRole("button", {
       name:
-        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]
           ?.name || "",
     })[0];
-    fireEvent.click(toolConditionButton);
+    fireEvent.click(safetyLiabilityButton);
 
     await waitFor(() => {
       expect(
-        screen.getByText(/This document defines the condition categories/i),
+        screen.getByText(/This comprehensive package combines/i),
       ).toBeInTheDocument();
     });
   });
@@ -145,21 +133,21 @@ describe("LegalDocumentAcknowledgments", () => {
     );
 
     // Find the button by its role and accessible name
-    const safetyButton = screen.getAllByRole("button", {
+    const safetyLiabilityButton = screen.getAllByRole("button", {
       name:
-        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]?.name ||
-        "",
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]
+          ?.name || "",
     })[0];
 
-    expect(safetyButton).toBeInTheDocument();
-    fireEvent.click(safetyButton);
+    expect(safetyLiabilityButton).toBeInTheDocument();
+    fireEvent.click(safetyLiabilityButton);
 
     await waitFor(() => {
       const pdfLink = screen.getByText(/View full document/i);
       expect(pdfLink).toBeInTheDocument();
       expect(pdfLink.closest("a")).toHaveAttribute(
         "href",
-        "/documents/safety-disclaimer.pdf",
+        "/documents/safety-and-liability-package.pdf",
       );
       expect(pdfLink.closest("a")).toHaveAttribute("target", "_blank");
       expect(pdfLink.closest("a")).toHaveAttribute(
@@ -247,7 +235,7 @@ describe("LegalDocumentAcknowledgments", () => {
     expect(list).toBeInTheDocument();
 
     const listItems = list?.querySelectorAll("li");
-    expect(listItems?.length).toBe(4);
+    expect(listItems?.length).toBe(2);
   });
 
   it("should have correct PDF links for each document", () => {
@@ -263,20 +251,10 @@ describe("LegalDocumentAcknowledgments", () => {
       link.getAttribute("href")?.startsWith("/documents/"),
     );
 
-    expect(pdfLinks.length).toBeGreaterThanOrEqual(4);
+    expect(pdfLinks.length).toBeGreaterThanOrEqual(2);
     expect(
       pdfLinks.some((link) =>
-        link.getAttribute("href")?.includes("damage-lost-and-liability-policy"),
-      ),
-    ).toBe(true);
-    expect(
-      pdfLinks.some((link) =>
-        link.getAttribute("href")?.includes("listing-condition-standards"),
-      ),
-    ).toBe(true);
-    expect(
-      pdfLinks.some((link) =>
-        link.getAttribute("href")?.includes("safety-disclaimer"),
+        link.getAttribute("href")?.includes("safety-and-liability-package"),
       ),
     ).toBe(true);
     expect(

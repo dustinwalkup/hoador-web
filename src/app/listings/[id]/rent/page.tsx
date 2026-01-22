@@ -42,9 +42,8 @@ export default async function RentListingPage({
     rentalAgreement: documentVersions[LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT],
     cancellationRefund:
       documentVersions[LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND],
-    safetyDisclaimer: documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER],
-    damageLossLiability:
-      documentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY],
+    safetyLiabilityPackage:
+      documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE],
     paymentPayout: documentVersions[LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS],
   };
 

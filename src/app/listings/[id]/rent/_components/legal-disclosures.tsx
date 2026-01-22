@@ -7,7 +7,6 @@ import {
   ExternalLink,
   FileText,
   Shield,
-  AlertTriangle,
   CreditCard,
   XCircle,
 } from "lucide-react";
@@ -38,8 +37,7 @@ interface LegalDisclosuresProps {
   legalDocuments: {
     rentalAgreement?: CurrentDocumentVersion;
     cancellationRefund?: CurrentDocumentVersion;
-    safetyDisclaimer?: CurrentDocumentVersion;
-    damageLossLiability?: CurrentDocumentVersion;
+    safetyLiabilityPackage?: CurrentDocumentVersion;
     paymentPayout?: CurrentDocumentVersion;
   };
 }
@@ -55,31 +53,22 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
       title: "Cancellation & Refund",
       document: legalDocuments.cancellationRefund,
       highlights: [
-        "Full refund if cancelled 48+ hours before",
-        "50% refund if cancelled 24-48 hours before",
-        "No refund if cancelled within 24 hours",
+        "Full refund of rental cost (minus non-refundable platform fees)",
+        "Partial refund (pro-rated by time remaining)",
+        "No refund; deposit or rental fee may be forfeited",
       ],
     },
     {
       id: "safety",
-      icon: AlertTriangle,
-      title: "Safety Disclaimer",
-      document: legalDocuments.safetyDisclaimer,
-      highlights: [
-        "You assume all risk when using tools",
-        "Follow all manufacturer instructions",
-        "Platform not liable for personal injury",
-      ],
-    },
-    {
-      id: "damage",
       icon: Shield,
-      title: "Damage & Liability",
-      document: legalDocuments.damageLossLiability,
+      title: "Safety and Liability Package",
+      document: legalDocuments.safetyLiabilityPackage,
       highlights: [
-        "You're responsible for damage beyond normal wear",
-        "Security deposit covers minor damages",
-        "Lost or stolen tools charged at replacement cost",
+        "Users assume all risks when using tools",
+        "Renters responsible for damage, loss, or theft (except normal wear)",
+        "Deposits may be deducted for damages or loss",
+        "Follow manufacturer instructions and safety guidelines",
+        "Lost or stolen items charged at fair market replacement cost",
       ],
     },
     {
@@ -88,9 +77,9 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
       title: "Payment & Payout",
       document: legalDocuments.paymentPayout,
       highlights: [
-        "Card authorized at booking, charged after pickup",
-        "Security deposit held until return",
-        "Refunds processed within 5-7 business days",
+        "Payments are charged or authorized when a booking occurs",
+        "Funds captured after rental/service begins or ends",
+        "Deposits released after a defined holding period",
       ],
     },
   ];
@@ -98,8 +87,7 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
   // Handler to set all policy fields when checkbox is toggled
   const handlePoliciesAccepted = (checked: boolean) => {
     form.setValue("rentalAgreementAccepted", checked);
-    form.setValue("safetyDisclaimerAccepted", checked);
-    form.setValue("damageLossLiabilityAccepted", checked);
+    form.setValue("safetyLiabilityPackageAccepted", checked);
     form.setValue("paymentPayoutAccepted", checked);
   };
 
@@ -124,10 +112,9 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
               </DialogHeader>
 
               <Tabs defaultValue="cancellation" className="mt-4">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="cancellation">Cancellation</TabsTrigger>
-                  <TabsTrigger value="safety">Safety</TabsTrigger>
-                  <TabsTrigger value="damage">Damage</TabsTrigger>
+                  <TabsTrigger value="safety">Safety & Liability</TabsTrigger>
                   <TabsTrigger value="payment">Payment</TabsTrigger>
                 </TabsList>
 
@@ -200,27 +187,15 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
           </Dialog>
         </div>
       </div>
-      {legalDocuments.rentalAgreement?.url && (
-        <Link
-          href={legalDocuments.rentalAgreement.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary inline-flex w-full items-center justify-center gap-1 text-sm hover:underline"
-        >
-          <FileText className="h-4 w-4" />
-          Rental Agreement
-          <ExternalLink className="h-3 w-3" />
-        </Link>
-      )}
 
       {/* Compact Policy Cards */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1">
         {policies.map((policy) => (
           <Card
             key={policy.id}
-            className="hover:border-primary/50 transition-colors"
+            className="hover:border-primary/50 border-none shadow-none transition-colors"
           >
-            <CardContent className="p-4">
+            <CardContent className="">
               <div className="flex items-start gap-3">
                 <policy.icon className="text-muted-foreground mt-0.5 h-5 w-5 shrink-0" />
                 <div className="min-w-0 flex-1">
@@ -273,9 +248,22 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
                     I agree to the Rental Agreement and all policies
                   </FormLabel>
                   <p className="text-muted-foreground text-xs">
-                    By checking this box, you agree to the Rental Agreement,
-                    Cancellation & Refund Policy, Safety Disclaimer, Damage &
-                    Liability Policy, and Payment & Payout Policy
+                    By checking this box, you agree to the{" "}
+                    {legalDocuments.rentalAgreement?.url ? (
+                      <Link
+                        href={legalDocuments.rentalAgreement.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary inline-flex items-center gap-1 text-xs hover:underline"
+                      >
+                        Rental Agreement
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    ) : (
+                      "Rental Agreement"
+                    )}
+                    , Cancellation & Refund Policy, Safety and Liability
+                    Package, and Payment & Payout Policy
                   </p>
                   <FormMessage />
                 </div>

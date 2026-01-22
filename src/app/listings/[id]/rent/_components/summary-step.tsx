@@ -28,8 +28,7 @@ interface SummaryStepProps {
   legalDocuments: {
     rentalAgreement?: CurrentDocumentVersion;
     cancellationRefund?: CurrentDocumentVersion;
-    safetyDisclaimer?: CurrentDocumentVersion;
-    damageLossLiability?: CurrentDocumentVersion;
+    safetyLiabilityPackage?: CurrentDocumentVersion;
     paymentPayout?: CurrentDocumentVersion;
   };
 }

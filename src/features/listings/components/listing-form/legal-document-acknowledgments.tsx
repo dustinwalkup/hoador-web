@@ -28,32 +28,23 @@ import type { CreateListingFormDataClientType } from "@/features/listings/form-s
 
 // Map document IDs to PDF filenames
 const DOCUMENT_PDF_MAP: Record<string, string> = {
-  [LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]:
-    "/documents/damage-lost-and-liability-policy.pdf",
-  [LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]:
-    "/documents/listing-condition-standards.pdf",
-  [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]: "/documents/safety-disclaimer.pdf",
+  [LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]:
+    "/documents/safety-and-liability-package.pdf",
   [LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]:
     "/documents/prohibited-items-and-listing-content-policy.pdf",
 };
 
 // Document summaries (placeholders)
 const DOCUMENT_SUMMARIES: Record<string, string> = {
-  [LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]:
-    "This policy outlines your responsibilities as a tool owner, including liability for damages, loss coverage, and insurance requirements. It details how disputes are handled and what protections are available.",
-  [LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]:
-    "This document defines the condition categories (excellent, good, fair, poor) and the standards your tools must meet. It includes inspection requirements and condition reporting guidelines.",
-  [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]:
-    "This disclaimer covers safety responsibilities, proper tool usage, and liability limitations. It outlines what safety information you must provide to renters.",
+  [LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]:
+    "This comprehensive package combines safety responsibilities, tool condition standards, and liability policies. It covers your responsibilities as a tool owner, including liability for damages, loss coverage, tool condition requirements, safety information you must provide to renters, and how disputes are handled.",
   [LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]:
     "This policy outlines prohibited items that cannot be listed on the platform and the rules governing listing content, including accurate descriptions and intellectual property requirements.",
 };
 
 // Document IDs in order
 const DOCUMENT_IDS = [
-  LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
-  LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS,
-  LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
+  LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
   LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
 ] as const;
 

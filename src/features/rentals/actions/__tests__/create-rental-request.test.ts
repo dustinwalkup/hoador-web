@@ -88,8 +88,7 @@ describe("createRentalRequest", () => {
       setupRequested: false,
       setupFee: 0,
       rentalAgreementAccepted: true,
-      safetyDisclaimerAccepted: true,
-      damageLossLiabilityAccepted: true,
+      safetyLiabilityPackageAccepted: true,
       paymentPayoutAccepted: true,
     };
 
@@ -105,8 +104,7 @@ describe("createRentalRequest", () => {
     // Mock legal document versions - need to return objects with version property
     vi.mocked(legalDocumentDAL.getAllCurrentVersions).mockResolvedValue({
       [LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT]: { version: 1 },
-      [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]: { version: 1 },
-      [LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]: { version: 1 },
+      [LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]: { version: 1 },
       [LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS]: { version: 1 },
     } as any);
 

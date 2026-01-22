@@ -9,9 +9,13 @@ export const LEGAL_DOCUMENT_IDS = {
   PAYMENTS_PAYOUTS: "payments_payouts",
 
   // Safety / Liability
+  // @deprecated - Use SAFETY_LIABILITY_PACKAGE instead. Kept for backward compatibility with existing acceptance records.
   DAMAGE_LOSS_LIABILITY: "damage_loss_liability",
+  // @deprecated - Use SAFETY_LIABILITY_PACKAGE instead. Kept for backward compatibility with existing acceptance records.
   TOOL_CONDITION_STANDARDS: "tool_condition_standards",
+  // @deprecated - Use SAFETY_LIABILITY_PACKAGE instead. Kept for backward compatibility with existing acceptance records.
   SAFETY_DISCLAIMER: "safety_disclaimer",
+  SAFETY_LIABILITY_PACKAGE: "safety_liability_package",
 
   // Community
   COMMUNITY: "community",
@@ -67,16 +71,8 @@ export const LEGAL_DOCUMENT_METADATA: Partial<
   },
 
   // Safety / Liability
-  [LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]: {
-    name: "Damage, Loss & Liability Policy",
-    category: LEGAL_DOCUMENT_CATEGORIES.SAFETY_LIABILITY,
-  },
-  [LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]: {
-    name: "Tool Condition Standards",
-    category: LEGAL_DOCUMENT_CATEGORIES.SAFETY_LIABILITY,
-  },
-  [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]: {
-    name: "Safety Disclaimer",
+  [LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]: {
+    name: "Safety and Liability Package",
     category: LEGAL_DOCUMENT_CATEGORIES.SAFETY_LIABILITY,
   },
 

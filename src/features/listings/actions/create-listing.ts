@@ -113,47 +113,15 @@ export async function createListing(formData: CreateListingFormDataServerType) {
     // Get current document versions
     const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
 
-    // Record acceptance for each of the 4 owner policy documents
+    // Record acceptance for each of the owner policy documents
     const acceptancePromises = [];
 
-    if (documentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]) {
-      const doc = documentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY];
+    if (documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]) {
+      const doc = documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE];
       acceptancePromises.push(
         legalDocumentDAL.recordAcceptance(
           userId,
-          LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
-          doc.version,
-          ipAddress,
-          userAgent,
-          "listing_creation",
-          undefined, // rentalRequestId
-          listing.id, // listingId
-        ),
-      );
-    }
-
-    if (documentVersions[LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]) {
-      const doc = documentVersions[LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS];
-      acceptancePromises.push(
-        legalDocumentDAL.recordAcceptance(
-          userId,
-          LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS,
-          doc.version,
-          ipAddress,
-          userAgent,
-          "listing_creation",
-          undefined, // rentalRequestId
-          listing.id, // listingId
-        ),
-      );
-    }
-
-    if (documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]) {
-      const doc = documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER];
-      acceptancePromises.push(
-        legalDocumentDAL.recordAcceptance(
-          userId,
-          LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
+          LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
           doc.version,
           ipAddress,
           userAgent,
@@ -168,7 +136,9 @@ export async function createListing(formData: CreateListingFormDataServerType) {
       documentVersions[LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]
     ) {
       const doc =
-        documentVersions[LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT];
+        documentVersions[
+          LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT
+        ];
       acceptancePromises.push(
         legalDocumentDAL.recordAcceptance(
           userId,

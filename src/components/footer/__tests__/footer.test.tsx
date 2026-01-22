@@ -82,16 +82,10 @@ describe("Footer", () => {
       url: "https://example.com/cancellation.pdf",
       publishedAt: new Date("2024-01-01"),
     },
-    [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]: {
-      id: LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
+    [LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]: {
+      id: LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
       version: "1.0",
-      url: "https://example.com/safety.pdf",
-      publishedAt: new Date("2024-01-01"),
-    },
-    [LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]: {
-      id: LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
-      version: "1.0",
-      url: "https://example.com/damage.pdf",
+      url: "https://example.com/safety-liability-package.pdf",
       publishedAt: new Date("2024-01-01"),
     },
     [LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS]: {
@@ -163,8 +157,9 @@ describe("Footer", () => {
       expect(
         screen.getByText("Cancellation & Refund Policy"),
       ).toBeInTheDocument();
-      expect(screen.getByText("Safety Guidelines")).toBeInTheDocument();
-      expect(screen.getByText("Damage & Liability")).toBeInTheDocument();
+      expect(
+        screen.getByText("Safety and Liability Package"),
+      ).toBeInTheDocument();
       expect(screen.getByText("Payments & Payouts Policy")).toBeInTheDocument();
     });
 
@@ -253,8 +248,8 @@ describe("Footer", () => {
 
       // Count external link icons - should match number of document links
       const externalIcons = screen.getAllByTestId("external-link-icon");
-      // We have 7 document links + 2 support links (no icons) = 7 icons
-      expect(externalIcons.length).toBe(7);
+      // We have 6 document links + 2 support links (no icons) = 6 icons
+      expect(externalIcons.length).toBe(6);
     });
 
     it("should not render external link icon for support links", async () => {
@@ -389,34 +384,20 @@ describe("Footer", () => {
       expect(screen.getByText("Community Guidelines")).toBeInTheDocument();
     });
 
-    it("should display 'Safety Guidelines' for safety disclaimer document", async () => {
+    it("should display 'Safety and Liability Package' for safety liability package document", async () => {
       vi.mocked(tryCatch).mockResolvedValue({
         data: {
-          [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]:
-            mockDocumentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER],
+          [LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]:
+            mockDocumentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE],
         },
         error: null,
       });
 
       render(await Footer());
 
-      // Should display as "Safety Guidelines" not "Safety Disclaimer"
-      expect(screen.getByText("Safety Guidelines")).toBeInTheDocument();
-      expect(screen.queryByText("Safety Disclaimer")).not.toBeInTheDocument();
-    });
-
-    it("should display 'Damage & Liability' for damage loss liability document", async () => {
-      vi.mocked(tryCatch).mockResolvedValue({
-        data: {
-          [LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]:
-            mockDocumentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY],
-        },
-        error: null,
-      });
-
-      render(await Footer());
-
-      expect(screen.getByText("Damage & Liability")).toBeInTheDocument();
+      expect(
+        screen.getByText("Safety and Liability Package"),
+      ).toBeInTheDocument();
     });
 
     it("should display 'Payments & Payouts Policy' for payments payouts document", async () => {

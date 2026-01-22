@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUserId, requireAuth, getCurrentUser } from "@/features/auth/utils/session";
+import {
+  getCurrentUserId,
+  requireAuth,
+  getCurrentUser,
+} from "@/features/auth/utils/session";
 import { requireAdmin } from "@/features/auth/utils/guards";
 import { getClientIP, getUserAgent } from "@/lib/utils/request-context";
 import {
@@ -62,17 +66,14 @@ export function handleApiError(
   if (error instanceof Error) {
     // Check for common error patterns
     if (error.message.includes("not found")) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: error.message }, { status: 404 });
     }
 
-    if (error.message.includes("Unauthorized") || error.message.includes("Authentication")) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 401 },
-      );
+    if (
+      error.message.includes("Unauthorized") ||
+      error.message.includes("Authentication")
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
     return NextResponse.json(
@@ -92,9 +93,9 @@ export function handleApiError(
  * Require authentication in API routes
  * Returns NextResponse with 401 if not authenticated, otherwise returns null
  */
-export async function requireAuthResponse(
-  request: NextRequest,
-): Promise<NextResponse<{ error: string }> | null> {
+export async function requireAuthResponse(): Promise<NextResponse<{
+  error: string;
+}> | null> {
   const userId = await getCurrentUserId();
   if (!userId) {
     return NextResponse.json(
@@ -109,9 +110,9 @@ export async function requireAuthResponse(
  * Require admin privileges in API routes
  * Returns NextResponse with 403 if not admin, otherwise returns null
  */
-export async function requireAdminResponse(
-  request: NextRequest,
-): Promise<NextResponse<{ error: string }> | null> {
+export async function requireAdminResponse(): Promise<NextResponse<{
+  error: string;
+}> | null> {
   try {
     await requireAdmin();
     return null;
@@ -143,13 +144,16 @@ export async function parseFormData(
   if (contentType.includes("application/json")) {
     try {
       return await request.json();
-    } catch (error) {
+    } catch {
       throw new ValidationError("Invalid JSON in request body");
     }
   }
 
   // Handle FormData requests
-  if (contentType.includes("multipart/form-data") || contentType.includes("application/x-www-form-urlencoded")) {
+  if (
+    contentType.includes("multipart/form-data") ||
+    contentType.includes("application/x-www-form-urlencoded")
+  ) {
     const formData = await request.formData();
     const result: Record<string, unknown> = {};
 

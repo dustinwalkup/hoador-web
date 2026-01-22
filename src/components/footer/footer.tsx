@@ -99,25 +99,17 @@ export default async function Footer() {
                 </FooterLink>
               </li>
             )}
-            {hasDocument(LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER) && (
-              <li>
-                <FooterLink
-                  href={getDocumentUrl(LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER)!}
-                  isExternal
-                >
-                  Safety Guidelines
-                </FooterLink>
-              </li>
-            )}
-            {hasDocument(LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY) && (
+            {hasDocument(LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE) && (
               <li>
                 <FooterLink
                   href={
-                    getDocumentUrl(LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY)!
+                    getDocumentUrl(LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE)!
                   }
                   isExternal
                 >
-                  Damage & Liability
+                  {getDocumentName(
+                    LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE as LegalDocumentId,
+                  )}
                 </FooterLink>
               </li>
             )}

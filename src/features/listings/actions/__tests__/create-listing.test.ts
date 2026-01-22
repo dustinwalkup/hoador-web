@@ -48,22 +48,10 @@ vi.mock("@/db/db", () => ({
 
 describe("createListing", () => {
   const mockOwnerDocuments = {
-    [LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]: {
-      id: LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
+    [LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]: {
+      id: LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
       version: "1.0",
-      url: "https://example.com/damage-1.0.pdf",
-      publishedAt: new Date("2024-01-01"),
-    },
-    [LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS]: {
-      id: LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS,
-      version: "1.0",
-      url: "https://example.com/condition-1.0.pdf",
-      publishedAt: new Date("2024-01-01"),
-    },
-    [LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]: {
-      id: LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
-      version: "1.0",
-      url: "https://example.com/safety-1.0.pdf",
+      url: "https://example.com/safety-and-liability-package-1.0.pdf",
       publishedAt: new Date("2024-01-01"),
     },
     [LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]: {
@@ -127,10 +115,10 @@ describe("createListing", () => {
 
     // Verify legal document acceptances were recorded
     expect(legalDocumentDAL.getAllCurrentVersions).toHaveBeenCalled();
-    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledTimes(4);
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledTimes(2);
     expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
       userId,
-      LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
+      LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
       "1.0",
       "192.168.1.1",
       "test-agent",
@@ -283,32 +271,12 @@ describe("createListing", () => {
     // Assert
     expect(result).toEqual({ success: true, listingId: mockListing.id });
     expect(legalDocumentDAL.getAllCurrentVersions).toHaveBeenCalled();
-    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledTimes(4);
+    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledTimes(2);
 
-    // Verify all 4 documents are recorded with correct parameters
+    // Verify both documents are recorded with correct parameters
     expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
       userId,
-      LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
-      "1.0",
-      "192.168.1.1",
-      "test-agent",
-      "listing_creation",
-      undefined,
-      mockListing.id,
-    );
-    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
-      userId,
-      LEGAL_DOCUMENT_IDS.TOOL_CONDITION_STANDARDS,
-      "1.0",
-      "192.168.1.1",
-      "test-agent",
-      "listing_creation",
-      undefined,
-      mockListing.id,
-    );
-    expect(legalDocumentDAL.recordAcceptance).toHaveBeenCalledWith(
-      userId,
-      LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
+      LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
       "1.0",
       "192.168.1.1",
       "test-agent",

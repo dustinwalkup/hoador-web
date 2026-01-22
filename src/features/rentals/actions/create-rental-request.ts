@@ -71,8 +71,7 @@ export async function createRentalRequest(
   // This ties the acceptances to the specific rental request for legal audit trail
   if (
     validatedData.rentalAgreementAccepted ||
-    validatedData.safetyDisclaimerAccepted ||
-    validatedData.damageLossLiabilityAccepted ||
+    validatedData.safetyLiabilityPackageAccepted ||
     validatedData.paymentPayoutAccepted
   ) {
     try {
@@ -101,32 +100,15 @@ export async function createRentalRequest(
       }
 
       if (
-        validatedData.safetyDisclaimerAccepted &&
-        documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER]
+        validatedData.safetyLiabilityPackageAccepted &&
+        documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]
       ) {
-        const doc = documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER];
+        const doc =
+          documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE];
         acceptancePromises.push(
           legalDocumentDAL.recordAcceptance(
             userId,
-            LEGAL_DOCUMENT_IDS.SAFETY_DISCLAIMER,
-            doc.version,
-            ipAddress,
-            userAgent,
-            "rental_checkout",
-            rentalRequest.id, // Link to specific rental request
-          ),
-        );
-      }
-
-      if (
-        validatedData.damageLossLiabilityAccepted &&
-        documentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY]
-      ) {
-        const doc = documentVersions[LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY];
-        acceptancePromises.push(
-          legalDocumentDAL.recordAcceptance(
-            userId,
-            LEGAL_DOCUMENT_IDS.DAMAGE_LOSS_LIABILITY,
+            LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
             doc.version,
             ipAddress,
             userAgent,
