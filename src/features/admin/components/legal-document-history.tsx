@@ -1,8 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { Download, Trash2, Calendar, FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,7 +16,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import type { LegalDocumentId } from "@/constants/legal-documents";
-import { deleteVersionAction } from "../actions/legal-documents";
+import { useDeleteDocumentVersion } from "../hooks/use-admin-mutations";
+import { toast } from "sonner";
 
 interface DocumentVersion {
   id: string;
@@ -43,35 +41,32 @@ export function LegalDocumentHistory({
   currentVersion,
   onDelete,
 }: LegalDocumentHistoryProps) {
-  const [deletingVersion, setDeletingVersion] = useState<string | null>(null);
-  const router = useRouter();
+  const deleteMutation = useDeleteDocumentVersion();
 
   const handleDownload = (url: string) => {
     window.open(url, "_blank");
   };
 
   const handleDelete = async (version: string, blobPathname?: string) => {
-    setDeletingVersion(version);
-
-    const formData = new FormData();
-    formData.append("documentId", documentId);
-    formData.append("version", version);
-    if (blobPathname) {
-      formData.append("blobPathname", blobPathname);
-    }
-
-    const result = await deleteVersionAction(null, formData);
-
-    setDeletingVersion(null);
-
-    if (result.success) {
-      toast.success(`Version ${version} deleted successfully`);
-      if (onDelete) {
-        onDelete();
-      }
-      router.refresh();
-    } else {
-      toast.error(result.error || "Failed to delete version");
+    try {
+      await deleteMutation.mutateAsync(
+        {
+          documentId,
+          version,
+          blobPathname,
+        },
+        {
+          onSuccess: () => {
+            toast.success(`Version ${version} deleted successfully`);
+            if (onDelete) {
+              onDelete();
+            }
+          },
+        },
+      );
+    } catch (error) {
+      // Error is already handled by the mutation hook
+      console.error("Failed to delete version:", error);
     }
   };
 
@@ -138,7 +133,7 @@ export function LegalDocumentHistory({
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={deletingVersion === version.version}
+                      disabled={deleteMutation.isPending}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete
