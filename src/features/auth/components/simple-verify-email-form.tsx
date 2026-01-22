@@ -1,22 +1,31 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Mail, Loader2, CheckCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { resendVerificationEmailAction } from "../actions/verify-email";
+import { useResendVerification } from "../hooks/use-auth-mutations";
 
 interface SimpleVerifyEmailFormProps {
   email: string;
 }
 
 export function SimpleVerifyEmailForm({ email }: SimpleVerifyEmailFormProps) {
-  const [state, formAction, isPending] = useActionState(
-    resendVerificationEmailAction,
-    { success: false },
-  );
+  const [showSuccess, setShowSuccess] = useState(false);
+  const mutation = useResendVerification();
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setShowSuccess(false);
+    try {
+      await mutation.mutateAsync({ email });
+      setShowSuccess(true);
+    } catch {
+      // Error is handled by the mutation hook
+    }
+  };
 
   return (
     <>
@@ -35,16 +44,22 @@ export function SimpleVerifyEmailForm({ email }: SimpleVerifyEmailFormProps) {
 
       <div className="space-y-6">
         <div className="mt-4 space-y-4">
-          {state?.error && (
+          {mutation.isError && (
             <Alert variant="destructive">
-              <AlertDescription>{state.error}</AlertDescription>
+              <AlertDescription>
+                {mutation.error instanceof Error
+                  ? mutation.error.message
+                  : "Failed to send verification email"}
+              </AlertDescription>
             </Alert>
           )}
 
-          {state?.success && state?.message && (
+          {showSuccess && (
             <Alert className="bg-primary/5 border-primary/50 border">
               <CheckCircle className="text-primary! h-4 w-4" />
-              <AlertDescription>{state.message}</AlertDescription>
+              <AlertDescription>
+                Verification email sent! Please check your inbox.
+              </AlertDescription>
             </Alert>
           )}
 
@@ -61,15 +76,14 @@ export function SimpleVerifyEmailForm({ email }: SimpleVerifyEmailFormProps) {
               </p>
             </div>
 
-            <form action={formAction} noValidate>
-              <input type="hidden" name="email" value={email} />
+            <form onSubmit={handleSubmit} noValidate>
               <Button
                 type="submit"
                 variant="outline"
-                disabled={isPending}
+                disabled={mutation.isPending}
                 className="w-full"
               >
-                {isPending ? (
+                {mutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Sending...
