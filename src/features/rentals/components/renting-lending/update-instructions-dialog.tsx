@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Edit, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 
-import { updateRentalInstructions } from "@/features/rentals/actions/update-rental-instructions";
+import { useUpdateRentalInstructions } from "@/features/rentals/hooks/use-rental-mutations";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +41,8 @@ export function UpdateInstructionsDialog({
   const [returnInstructions, setReturnInstructions] = useState(
     currentReturnInstructions || "",
   );
-  const [isPending, startTransition] = useTransition();
+
+  const updateMutation = useUpdateRentalInstructions();
 
   // Update local state when dialog opens with new values
   const handleOpenChange = (newOpen: boolean) => {
@@ -54,35 +54,19 @@ export function UpdateInstructionsDialog({
   };
 
   const handleUpdate = async () => {
-    startTransition(async () => {
-      try {
-        const result = await updateRentalInstructions({
-          rentalId,
-          pickupInstructions: pickupInstructions || undefined,
-          returnInstructions: returnInstructions || undefined,
-        });
+    try {
+      await updateMutation.mutateAsync({
+        rentalId,
+        pickupInstructions: pickupInstructions || undefined,
+        returnInstructions: returnInstructions || undefined,
+      });
 
-        if (result.success) {
-          // Close dialog and trigger success callback
-          onOpenChange(false);
-          onSuccess?.();
-          toast.success("Instructions updated successfully!", {
-            description:
-              "The renter has been notified of the updated instructions.",
-          });
-        } else {
-          toast.error("Failed to update instructions", {
-            description: result.error || "Please try again.",
-          });
-        }
-      } catch (error) {
-        // Show error toast if the action fails
-        console.error("Failed to update instructions", error);
-        toast.error("Failed to update instructions", {
-          description: "An unexpected error occurred. Please try again.",
-        });
-      }
-    });
+      // Close dialog and trigger success callback
+      onOpenChange(false);
+      onSuccess?.();
+    } catch {
+      // Error toast is already shown by the mutation hook
+    }
   };
 
   return (
@@ -129,12 +113,16 @@ export function UpdateInstructionsDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isPending}
+            disabled={updateMutation.isPending}
           >
             Cancel
           </Button>
-          <Button type="button" onClick={handleUpdate} disabled={isPending}>
-            {isPending ? (
+          <Button
+            type="button"
+            onClick={handleUpdate}
+            disabled={updateMutation.isPending}
+          >
+            {updateMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Updating...
