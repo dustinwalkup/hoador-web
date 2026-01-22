@@ -3,26 +3,11 @@ import { tryCatch } from "@walkup/walkup-utils";
 import { messagesDAL } from "@/dal";
 import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ conversationId: string }> },
-) {
-  const { conversationId } = await params;
-
-  const { data, error } = await tryCatch(
-    (async () => {
-      return await messagesDAL.getConversationDetails(conversationId);
-    })(),
-  );
-
-  if (error) {
-    return handleApiError(error);
-  }
-
-  return Response.json(data);
-}
-
-export async function DELETE(
+/**
+ * POST /api/messages/conversations/[conversationId]/archive
+ * Archive a conversation
+ */
+export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
@@ -31,8 +16,8 @@ export async function DELETE(
     if (authError) return authError;
 
     const { conversationId } = await params;
-    const { error } = await tryCatch(
-      messagesDAL.deleteConversation(conversationId),
+    const { data, error } = await tryCatch(
+      messagesDAL.archiveConversation(conversationId),
     );
 
     if (error) {
@@ -41,6 +26,7 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
+      data: data[0],
     });
   } catch (error) {
     return handleApiError(error);

@@ -8,34 +8,31 @@ import {
   parseFormData,
 } from "@/lib/api/route-helpers";
 
-const startConversationSchema = z.object({
-  recipientId: z.string().min(1, "Recipient ID is required"),
-  listingId: z.string().min(1, "Listing ID is required"),
-  listingName: z.string().min(1, "Listing name is required"),
-  message: z
+const sendMessageSchema = z.object({
+  content: z
     .string()
-    .min(10, "Message must be at least 10 characters")
+    .min(1, "Message content is required")
     .max(5000, "Message must be less than 5000 characters"),
 });
 
 /**
- * POST /api/messages/conversations
- * Start a new conversation with a user
+ * POST /api/messages/conversations/[conversationId]/messages
+ * Send a message in a conversation
  */
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ conversationId: string }> },
+) {
   try {
     const authError = await requireAuthResponse();
     if (authError) return authError;
 
+    const { conversationId } = await params;
     const body = await parseFormData(request);
-    const validated = startConversationSchema.parse(body);
+    const validated = sendMessageSchema.parse(body);
 
     const { data, error } = await tryCatch(
-      messagesDAL.sendMessageToUser(
-        validated.recipientId,
-        validated.message,
-        validated.listingId,
-      ),
+      messagesDAL.sendMessageInConversation(conversationId, validated.content),
     );
 
     if (error) {
@@ -44,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      conversationId: data.conversationId,
+      data,
     });
   } catch (error) {
     return handleApiError(error);
