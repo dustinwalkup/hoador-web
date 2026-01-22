@@ -27,6 +27,7 @@ import {
 import ActivityFeed from "@/components/dashboard/activity-feed";
 import { PageHeader } from "@/components/page-header";
 import { ScrollToTop } from "@/components/scroll-to-top";
+import { PendingReviewWidget } from "@/features/listings/components/dashboard/pending-review-widget";
 
 const { header, alerts, pendingRequests } = DASHBOARD_PAGE;
 
@@ -48,6 +49,7 @@ export default async function DashboardPage() {
 
       {/* Alerts section */}
       <div className="grid gap-4 lg:grid-cols-2">
+        <PendingReviewWidget />
         <Card className="gap-4! border-red-200 bg-red-50 dark:bg-red-950/10">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">

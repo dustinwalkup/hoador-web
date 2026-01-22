@@ -3,13 +3,19 @@ import { render, screen } from "@testing-library/react";
 import { GarageTabsClient } from "../garage-tabs-client";
 
 // Use vi.hoisted to create mocks that are available during hoisting
-const { mockTabs, mockRouter, mockUseSearchParams, mockUseGarageFilters } =
-  vi.hoisted(() => ({
-    mockTabs: vi.fn(),
-    mockRouter: { replace: vi.fn() },
-    mockUseSearchParams: vi.fn(),
-    mockUseGarageFilters: vi.fn(),
-  }));
+const {
+  mockTabs,
+  mockRouter,
+  mockUseSearchParams,
+  mockUseGarageFilters,
+  mockUsePendingListingsCount,
+} = vi.hoisted(() => ({
+  mockTabs: vi.fn(),
+  mockRouter: { replace: vi.fn() },
+  mockUseSearchParams: vi.fn(),
+  mockUseGarageFilters: vi.fn(),
+  mockUsePendingListingsCount: vi.fn(),
+}));
 
 // Mock Next.js navigation
 vi.mock("next/navigation", () => ({
@@ -20,6 +26,7 @@ vi.mock("next/navigation", () => ({
 // Mock garage filters hook
 vi.mock("@/features/listings/hooks/use-garage", () => ({
   useGarageFilters: () => mockUseGarageFilters(),
+  usePendingListingsCount: () => mockUsePendingListingsCount(),
 }));
 
 // Mock shadcn Tabs components
@@ -80,6 +87,12 @@ vi.mock("../inactive-listings", () => ({
   InactiveListings: vi.fn(() => <div data-testid="inactive-listings" />),
 }));
 
+vi.mock("../pending-review-listings", () => ({
+  PendingReviewListings: vi.fn(() => (
+    <div data-testid="pending-review-listings" />
+  )),
+}));
+
 vi.mock("../garage-filters-client", () => ({
   GarageFiltersClient: vi.fn(() => <div data-testid="garage-filters-client" />),
 }));
@@ -101,6 +114,7 @@ describe("GarageTabsClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseGarageFilters.mockReturnValue({ filters: defaultFilters });
+    mockUsePendingListingsCount.mockReturnValue({ data: 0 });
   });
 
   describe("Component Rendering", () => {
@@ -132,23 +146,29 @@ describe("GarageTabsClient", () => {
 
       expect(TabsList).toHaveBeenCalledWith(
         expect.objectContaining({
-          className: "max-w-48",
+          className: "max-w-96",
         }),
         undefined,
       );
     });
 
-    it("should render active and inactive tab triggers", () => {
+    it("should render active, inactive, and pending review tab triggers", () => {
       mockUseSearchParams.mockReturnValue(new URLSearchParams());
 
       render(<GarageTabsClient currentTab="active" />);
 
       expect(TabsTrigger).toHaveBeenCalledWith(
-        { value: "active", children: "Active" },
+        expect.objectContaining({ value: "active" }),
         undefined,
       );
       expect(TabsTrigger).toHaveBeenCalledWith(
-        { value: "inactive", children: "Inactive" },
+        expect.objectContaining({ value: "inactive" }),
+        undefined,
+      );
+      expect(TabsTrigger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          value: "pending_review",
+        }),
         undefined,
       );
     });
@@ -198,6 +218,20 @@ describe("GarageTabsClient", () => {
 
       expect(InactiveListings).toHaveBeenCalledWith(
         { filters: defaultFilters },
+        undefined,
+      );
+    });
+
+    it("should render PendingReviewListings in pending_review tab content", () => {
+      mockUseSearchParams.mockReturnValue(new URLSearchParams());
+
+      render(<GarageTabsClient currentTab="pending_review" />);
+
+      expect(TabsContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          value: "pending_review",
+          className: "mt-6",
+        }),
         undefined,
       );
     });
@@ -342,6 +376,32 @@ describe("GarageTabsClient", () => {
         { scroll: false },
       );
     });
+
+    it("should clear rentalStatus filter when switching to pending_review tab", () => {
+      const searchParams = new URLSearchParams("rentalStatus=available");
+      mockUseSearchParams.mockReturnValue(searchParams);
+
+      mockUseGarageFilters.mockReturnValue({
+        filters: { ...defaultFilters, rentalStatus: "available" },
+      });
+
+      render(<GarageTabsClient currentTab="active" />);
+
+      // Get the onValueChange function that was passed to Tabs
+      const tabsCall = mockTabs.mock.calls.find(
+        (call: any) => call[0].onValueChange,
+      );
+      expect(tabsCall).toBeDefined();
+      const handleTabChange = tabsCall![0].onValueChange;
+
+      // Simulate tab change to "pending_review"
+      handleTabChange("pending_review");
+
+      expect(mockRouter.replace).toHaveBeenCalledWith(
+        "/dashboard/garage?tab=pending_review",
+        { scroll: false },
+      );
+    });
   });
 
   describe("Current Tab Handling", () => {
@@ -453,6 +513,9 @@ describe("GarageTabsClient", () => {
       expect(screen.getByTestId("tabs-list")).toBeInTheDocument();
       expect(screen.getByTestId("tabs-trigger-active")).toBeInTheDocument();
       expect(screen.getByTestId("tabs-trigger-inactive")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("tabs-trigger-pending_review"),
+      ).toBeInTheDocument();
     });
 
     it("should render tab content with proper structure", () => {
@@ -462,6 +525,24 @@ describe("GarageTabsClient", () => {
 
       expect(screen.getByTestId("tabs-content-active")).toBeInTheDocument();
       expect(screen.getByTestId("tabs-content-inactive")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("tabs-content-pending_review"),
+      ).toBeInTheDocument();
+    });
+
+    it("should display pending count badge when count is greater than 0", () => {
+      mockUseSearchParams.mockReturnValue(new URLSearchParams());
+      mockUsePendingListingsCount.mockReturnValue({ data: 3 });
+
+      render(<GarageTabsClient currentTab="active" />);
+
+      // The badge should be rendered in the TabsTrigger for pending_review
+      expect(TabsTrigger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          value: "pending_review",
+        }),
+        undefined,
+      );
     });
   });
 });

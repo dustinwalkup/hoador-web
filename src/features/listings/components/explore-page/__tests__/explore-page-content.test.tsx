@@ -82,6 +82,10 @@ describe("ExplorePageContent", () => {
       viewCount: 0,
       favoriteCount: 0,
       specifications: { power: "20V MAX" },
+      approvalStatus: "approved",
+      rejectionReason: null,
+      reviewedBy: null,
+      reviewedAt: null,
     },
     {
       id: "listing-2",
@@ -117,6 +121,10 @@ describe("ExplorePageContent", () => {
       viewCount: 0,
       favoriteCount: 0,
       specifications: { weight: "16 oz" },
+      approvalStatus: "approved",
+      rejectionReason: null,
+      reviewedBy: null,
+      reviewedAt: null,
     },
   ];
 

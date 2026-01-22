@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import type { UserListing } from "@/dal/listing.dal";
@@ -24,6 +24,8 @@ export const garageKeys = {
   archived: () => [...garageKeys.all, "archived"] as const,
   archivedWithFilters: (filters: GarageListingFilters) =>
     [...garageKeys.archived(), filters] as const,
+  pendingReview: () => [...garageKeys.all, "pendingReview"] as const,
+  pendingCount: () => [...garageKeys.all, "pendingCount"] as const,
   categories: () => [...garageKeys.all, "categories"] as const,
 };
 
@@ -103,6 +105,45 @@ export function useArchivedListings(filters: GarageListingFilters = {}) {
       return await response.json();
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - rarely changes
+    refetchOnWindowFocus: false,
+  });
+}
+
+// Pending review listings hook
+export function usePendingReviewListings() {
+  return useQuery({
+    queryKey: garageKeys.pendingReview(),
+    queryFn: async (): Promise<UserListing[]> => {
+      const response = await fetch("/api/garage/pending-review");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.error || "Failed to fetch pending review listings",
+        );
+      }
+      return await response.json();
+    },
+    staleTime: 30 * 1000, // 30 seconds - may change when admin reviews
+    refetchOnWindowFocus: false,
+  });
+}
+
+// Pending listings count hook
+export function usePendingListingsCount() {
+  return useQuery({
+    queryKey: garageKeys.pendingCount(),
+    queryFn: async (): Promise<number> => {
+      const response = await fetch("/api/garage/pending-count");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.error || "Failed to fetch pending listings count",
+        );
+      }
+      const data = await response.json();
+      return data.count || 0;
+    },
+    staleTime: 30 * 1000, // 30 seconds
     refetchOnWindowFocus: false,
   });
 }
@@ -286,4 +327,31 @@ export function useGarageCacheInvalidation() {
     invalidateArchivedListings,
     invalidateAllGarage,
   };
+}
+
+/**
+ * Delete a listing mutation hook
+ * Automatically invalidates all garage queries on success
+ */
+export function useDeleteListing() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (listingId: string) => {
+      const response = await fetch(`/api/listings/${listingId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete listing");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate all garage queries to refresh all tabs (including pending review)
+      queryClient.invalidateQueries({ queryKey: garageKeys.all });
+    },
+  });
 }

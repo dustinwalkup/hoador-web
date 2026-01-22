@@ -21,14 +21,17 @@ import {
   type ListingSearchFilters,
   type PaginationOptions,
   type PaginatedResult,
+  type PendingReviewListing,
+  type ReviewedListing,
 } from "./types";
 import { schema } from "@/db/schemas";
 import { getCurrentUserId } from "@/features/auth/utils/session";
+import { requireAdmin, isAdmin } from "@/features/auth/utils/guards";
 import {
   getCurrentUserCommunityId,
   requireCommunityMembership,
 } from "@/features/community/utils/membership";
-import { NotFoundError, UnauthorizedError } from "./errors";
+import { NotFoundError, UnauthorizedError, ValidationError } from "./errors";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
 const {
@@ -40,6 +43,7 @@ const {
   listingImages,
   user,
   userAddresses,
+  rentals,
 } = schema;
 
 type ListingDb = typeof listings.$inferSelect;
@@ -110,6 +114,8 @@ export type UserListing = Omit<
   reviewCount: number;
   firstImageUrl: string | null;
   distanceMiles?: number;
+  approvalStatus?: "pending_review" | "approved" | "rejected";
+  rejectionReason?: string | null;
 };
 
 export interface GarageListingFilters {
@@ -289,6 +295,8 @@ export class ListingDAL extends BaseDAL {
           deliveryRadius: listingData.deliveryRadius || 0,
           setupAvailable: listingData.setupAvailable ?? false,
           setupFee: (listingData.setupFee || 0).toString(),
+          status: "inactive", // New listings start as inactive until approved
+          approvalStatus: "pending_review", // New listings require admin approval
         })
         .returning();
       return listing;
@@ -509,15 +517,65 @@ export class ListingDAL extends BaseDAL {
         throw new UnauthorizedError("Authentication required");
       }
 
-      // Verify ownership and community membership
-      const listing = await this.db.query.listings.findFirst({
+      // Verify ownership and get current listing state
+      const currentListing = await this.db.query.listings.findFirst({
         where: and(eq(listings.id, id), eq(listings.ownerId, userId)),
-        columns: { ownerId: true, communityId: true },
+        columns: {
+          ownerId: true,
+          communityId: true,
+          approvalStatus: true,
+          name: true,
+          description: true,
+          categoryId: true,
+          condition: true,
+          dailyRate: true,
+          weeklyRate: true,
+          monthlyRate: true,
+        },
       });
 
-      if (!listing) {
+      if (!currentListing) {
         throw new NotFoundError("Listing not found or access denied");
       }
+
+      // Get current images for comparison
+      const currentImagesData = await this.db
+        .select({
+          id: listingImages.id,
+          imageUrl: listingImages.imageUrl,
+          orderIndex: listingImages.orderIndex,
+        })
+        .from(listingImages)
+        .where(eq(listingImages.listingId, id))
+        .orderBy(listingImages.orderIndex);
+
+      // Map to ensure orderIndex is always a number
+      const currentImages = currentImagesData.map((img) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        orderIndex: img.orderIndex || 0,
+      }));
+
+      // Check if significant changes were made
+      const hasSignificantChanges = this.hasSignificantChanges(
+        {
+          name: currentListing.name,
+          description: currentListing.description,
+          categoryId: currentListing.categoryId,
+          condition: currentListing.condition,
+          dailyRate: Number(currentListing.dailyRate),
+          weeklyRate: currentListing.weeklyRate
+            ? Number(currentListing.weeklyRate)
+            : undefined,
+          monthlyRate: currentListing.monthlyRate
+            ? Number(currentListing.monthlyRate)
+            : undefined,
+        },
+        updates,
+        currentImages,
+        // New images would need to be passed if available, but for now we'll check based on updates
+        undefined,
+      );
 
       // Sanitize text fields if provided
       if (updates.name !== undefined) {
@@ -553,6 +611,27 @@ export class ListingDAL extends BaseDAL {
         ...updates,
         updatedAt: new Date(),
       };
+
+      // Handle approval status reset based on listing state:
+      // - Approved listings: significant edits require re-review
+      // - Rejected listings: ANY edit resubmits for review (owner is fixing issues)
+      if (currentListing.approvalStatus === "rejected") {
+        // Rejected listings reset to pending_review on any edit
+        // This allows owners to fix issues and resubmit
+        updateData.approvalStatus = "pending_review";
+        updateData.reviewedBy = null;
+        updateData.reviewedAt = null;
+        updateData.rejectionReason = null;
+      } else if (
+        hasSignificantChanges &&
+        currentListing.approvalStatus === "approved"
+      ) {
+        // Approved listings only reset on significant changes
+        updateData.approvalStatus = "pending_review";
+        updateData.reviewedBy = null;
+        updateData.reviewedAt = null;
+        updateData.rejectionReason = null;
+      }
       if (updates.dailyRate !== undefined)
         updateData.dailyRate = updates.dailyRate.toString();
       if (updates.weeklyRate !== undefined)
@@ -703,6 +782,19 @@ export class ListingDAL extends BaseDAL {
         eq(listings.isActive, true),
         eq(listings.communityId, userCommunityId), // Only show listings from user's community
       ];
+
+      // Filter by approval status based on user type
+      // Only approved listings should appear in search results
+      // Users can see their own pending listings in garage, but not in search
+      // Admins can see all listings regardless of approval status
+      const userIsAdmin = await isAdmin();
+
+      // Only apply approval status filter if user is not admin
+      if (!userIsAdmin) {
+        // All non-admin users (including listing owners) only see approved listings in search
+        whereConditions.push(eq(listings.approvalStatus, "approved"));
+      }
+      // Admins can see all listings, so no approval status filter needed
 
       // Text search
       if (filters.query) {
@@ -1074,6 +1166,7 @@ export class ListingDAL extends BaseDAL {
       const baseConditions = [
         eq(listings.ownerId, userId),
         eq(listings.isActive, true),
+        eq(listings.approvalStatus, "approved"),
         or(eq(listings.status, "available"), eq(listings.status, "rented")),
       ];
 
@@ -1116,6 +1209,7 @@ export class ListingDAL extends BaseDAL {
       const baseConditions = [
         eq(listings.ownerId, userId),
         eq(listings.isActive, true),
+        eq(listings.approvalStatus, "approved"),
         or(eq(listings.status, "maintenance"), eq(listings.status, "inactive")),
       ];
 
@@ -1404,6 +1498,623 @@ export class ListingDAL extends BaseDAL {
     } catch (error) {
       this.handleError(error, "getListingCategories");
     }
+  }
+
+  /**
+   * Get pending reviews for admin approval
+   * Requires admin authentication
+   */
+  async getPendingReviews(
+    pagination: PaginationOptions,
+  ): Promise<PaginatedResult<PendingReviewListing>> {
+    try {
+      // Require admin authentication
+      await requireAdmin();
+
+      this.validatePagination(pagination.page, pagination.limit);
+      const offset = (pagination.page - 1) * pagination.limit;
+
+      // Get total count
+      const [{ total }] = await this.db
+        .select({ total: count() })
+        .from(listings)
+        .where(eq(listings.approvalStatus, "pending_review"));
+
+      // Get listings with owner context
+      const pendingListings = await this.db
+        .select({
+          listing: listings,
+          owner: {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            profileImageUrl: user.profileImageUrl,
+            isVerified: user.emailVerified,
+            createdAt: user.createdAt,
+          },
+          category: {
+            id: listingCategories.id,
+            name: listingCategories.name,
+            icon: listingCategories.icon,
+          },
+        })
+        .from(listings)
+        .innerJoin(user, eq(listings.ownerId, user.id))
+        .innerJoin(
+          listingCategories,
+          eq(listings.categoryId, listingCategories.id),
+        )
+        .where(eq(listings.approvalStatus, "pending_review"))
+        .orderBy(asc(listings.createdAt))
+        .limit(pagination.limit)
+        .offset(offset);
+
+      // Get images for all listings
+      const listingIds = pendingListings.map((item) => item.listing.id);
+      const allImages =
+        listingIds.length > 0
+          ? await this.db
+              .select({
+                id: listingImages.id,
+                listingId: listingImages.listingId,
+                imageUrl: listingImages.imageUrl,
+                orderIndex: listingImages.orderIndex,
+              })
+              .from(listingImages)
+              .where(inArray(listingImages.listingId, listingIds))
+              .orderBy(listingImages.orderIndex)
+          : [];
+
+      // Group images by listing ID (filter out any null listingIds)
+      const imagesByListing = new Map<string, typeof allImages>();
+      for (const image of allImages) {
+        if (!image.listingId) continue; // Skip images with null listingId (shouldn't happen, but type safety)
+        if (!imagesByListing.has(image.listingId)) {
+          imagesByListing.set(image.listingId, []);
+        }
+        imagesByListing.get(image.listingId)!.push(image);
+      }
+
+      // Get other listings count and rental history for each owner
+      const ownerIds = [
+        ...new Set(pendingListings.map((item) => item.owner.id)),
+      ];
+      const ownerStats = await Promise.all(
+        ownerIds.map(async (ownerId) => {
+          // Count other listings (excluding current listing if found)
+          const currentListingId = pendingListings.find(
+            (p) => p.owner.id === ownerId,
+          )?.listing.id;
+          const allListingsResult = await this.db
+            .select({ count: count() })
+            .from(listings)
+            .where(eq(listings.ownerId, ownerId));
+          const allListingsCount = Number(allListingsResult[0]?.count || 0);
+          // Subtract 1 if current listing is included in count
+          const otherListingsCount = currentListingId
+            ? Math.max(0, allListingsCount - 1)
+            : allListingsCount;
+
+          // Get rental history (total rentals, average rating)
+          const rentalHistoryResult = await this.db
+            .select({
+              totalRentals: count(rentals.id),
+              averageRating: sql<number>`COALESCE(AVG(${reviews.rating}), 0)`,
+            })
+            .from(rentals)
+            .leftJoin(reviews, eq(reviews.rentalId, rentals.id))
+            .where(eq(rentals.ownerId, ownerId));
+
+          const totalRentals = Number(
+            rentalHistoryResult[0]?.totalRentals || 0,
+          );
+          const averageRating =
+            Math.round(
+              Number(rentalHistoryResult[0]?.averageRating || 0) * 10,
+            ) / 10;
+
+          return {
+            ownerId,
+            otherListingsCount,
+            rentalHistory: {
+              totalRentals,
+              averageRating,
+            },
+          };
+        }),
+      );
+
+      const statsByOwner = new Map(
+        ownerStats.map((stat) => [stat.ownerId, stat]),
+      );
+
+      // Transform to PendingReviewListing format
+      const transformed: PendingReviewListing[] = pendingListings.map(
+        (item) => {
+          const stats = statsByOwner.get(item.owner.id)!;
+          const listingImages = imagesByListing.get(item.listing.id) || [];
+
+          return {
+            id: item.listing.id,
+            name: item.listing.name,
+            description: item.listing.description,
+            brand: item.listing.brand || undefined,
+            model: item.listing.model || undefined,
+            condition: item.listing.condition,
+            dailyRate: Number(item.listing.dailyRate),
+            weeklyRate: item.listing.weeklyRate
+              ? Number(item.listing.weeklyRate)
+              : undefined,
+            monthlyRate: item.listing.monthlyRate
+              ? Number(item.listing.monthlyRate)
+              : undefined,
+            securityDeposit: Number(item.listing.securityDeposit),
+            deliveryFee: Number(item.listing.deliveryFee),
+            setupFee: Number(item.listing.setupFee),
+            category: {
+              id: item.category.id,
+              name: item.category.name,
+              icon: item.category.icon || undefined,
+            },
+            images: listingImages.map((img) => ({
+              id: img.id,
+              imageUrl: img.imageUrl,
+              orderIndex: img.orderIndex || 0,
+            })),
+            createdAt: item.listing.createdAt,
+            updatedAt: item.listing.updatedAt,
+            owner: {
+              id: item.owner.id,
+              firstName: item.owner.firstName || "",
+              lastName: item.owner.lastName || "",
+              email: item.owner.email,
+              profileImageUrl: item.owner.profileImageUrl || undefined,
+              isVerified: item.owner.isVerified || false,
+              createdAt: item.owner.createdAt,
+              otherListingsCount: stats.otherListingsCount,
+              rentalHistory: stats.rentalHistory,
+            },
+          };
+        },
+      );
+
+      return this.createPaginatedResult(
+        transformed,
+        total,
+        pagination.page,
+        pagination.limit,
+      );
+    } catch (error) {
+      this.handleError(error, "getPendingReviews");
+    }
+  }
+
+  /**
+   * Get review history (approved/rejected listings)
+   * Requires admin authentication
+   */
+  async getReviewHistory(
+    status: "approved" | "rejected" | "all",
+    pagination: PaginationOptions,
+  ): Promise<PaginatedResult<ReviewedListing>> {
+    try {
+      // Require admin authentication
+      await requireAdmin();
+
+      this.validatePagination(pagination.page, pagination.limit);
+      const offset = (pagination.page - 1) * pagination.limit;
+
+      // Build where conditions for approval status
+      const statusConditions = [];
+      if (status === "approved") {
+        statusConditions.push(eq(listings.approvalStatus, "approved"));
+      } else if (status === "rejected") {
+        statusConditions.push(eq(listings.approvalStatus, "rejected"));
+      }
+      // "all" means no status filter
+
+      // Get total count
+      const [{ total }] = await this.db
+        .select({ total: count() })
+        .from(listings)
+        .where(
+          statusConditions.length > 0
+            ? and(...statusConditions)
+            : inArray(listings.approvalStatus, ["approved", "rejected"]),
+        );
+
+      // Get listings with owner context (reviewer will be fetched separately)
+      const reviewedListings = await this.db
+        .select({
+          listing: listings,
+          owner: {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            profileImageUrl: user.profileImageUrl,
+            isVerified: user.emailVerified,
+            createdAt: user.createdAt,
+          },
+          category: {
+            id: listingCategories.id,
+            name: listingCategories.name,
+            icon: listingCategories.icon,
+          },
+        })
+        .from(listings)
+        .innerJoin(user, eq(listings.ownerId, user.id))
+        .innerJoin(
+          listingCategories,
+          eq(listings.categoryId, listingCategories.id),
+        )
+        .where(
+          statusConditions.length > 0
+            ? and(...statusConditions)
+            : inArray(listings.approvalStatus, ["approved", "rejected"]),
+        )
+        .orderBy(
+          // Use COALESCE to handle null reviewedAt values
+          sql`COALESCE(${listings.reviewedAt}, ${listings.createdAt}) DESC`,
+        )
+        .limit(pagination.limit)
+        .offset(offset);
+
+      // Get images for all listings
+      const listingIds = reviewedListings.map((item) => item.listing.id);
+      const allImages =
+        listingIds.length > 0
+          ? await this.db
+              .select({
+                id: listingImages.id,
+                listingId: listingImages.listingId,
+                imageUrl: listingImages.imageUrl,
+                orderIndex: listingImages.orderIndex,
+              })
+              .from(listingImages)
+              .where(inArray(listingImages.listingId, listingIds))
+              .orderBy(listingImages.orderIndex)
+          : [];
+
+      // Group images by listing ID (filter out any null listingIds)
+      const imagesByListing = new Map<string, typeof allImages>();
+      for (const image of allImages) {
+        if (!image.listingId) continue; // Skip images with null listingId (shouldn't happen, but type safety)
+        if (!imagesByListing.has(image.listingId)) {
+          imagesByListing.set(image.listingId, []);
+        }
+        imagesByListing.get(image.listingId)!.push(image);
+      }
+
+      // Get owner stats (same as getPendingReviews)
+      const ownerIds = [
+        ...new Set(reviewedListings.map((item) => item.owner.id)),
+      ];
+      const ownerStats = await Promise.all(
+        ownerIds.map(async (ownerId) => {
+          const otherListingsResult = await this.db
+            .select({ count: count() })
+            .from(listings)
+            .where(eq(listings.ownerId, ownerId));
+          const otherListingsCount =
+            Number(otherListingsResult[0]?.count || 0) - 1;
+
+          const rentalHistoryResult = await this.db
+            .select({
+              totalRentals: count(rentals.id),
+              averageRating: sql<number>`COALESCE(AVG(${reviews.rating}), 0)`,
+            })
+            .from(rentals)
+            .leftJoin(reviews, eq(reviews.rentalId, rentals.id))
+            .where(eq(rentals.ownerId, ownerId));
+
+          const totalRentals = Number(
+            rentalHistoryResult[0]?.totalRentals || 0,
+          );
+          const averageRating =
+            Math.round(
+              Number(rentalHistoryResult[0]?.averageRating || 0) * 10,
+            ) / 10;
+
+          return {
+            ownerId,
+            otherListingsCount,
+            rentalHistory: {
+              totalRentals,
+              averageRating,
+            },
+          };
+        }),
+      );
+
+      const statsByOwner = new Map(
+        ownerStats.map((stat) => [stat.ownerId, stat]),
+      );
+
+      // Get reviewer details separately (using query builder for JOIN)
+      const reviewerIds = reviewedListings
+        .map((item) => item.listing.reviewedBy)
+        .filter((id): id is string => !!id);
+      const reviewers =
+        reviewerIds.length > 0
+          ? await this.db
+              .select({
+                id: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                profileImageUrl: user.profileImageUrl,
+              })
+              .from(user)
+              .where(inArray(user.id, reviewerIds))
+          : [];
+      const reviewersMap = new Map(reviewers.map((r) => [r.id, r]));
+
+      // Transform to ReviewedListing format
+      const transformed: ReviewedListing[] = reviewedListings.map((item) => {
+        const stats = statsByOwner.get(item.owner.id)!;
+        const listingImages = imagesByListing.get(item.listing.id) || [];
+        const reviewer = item.listing.reviewedBy
+          ? reviewersMap.get(item.listing.reviewedBy) || null
+          : null;
+
+        return {
+          id: item.listing.id,
+          name: item.listing.name,
+          description: item.listing.description,
+          brand: item.listing.brand || undefined,
+          model: item.listing.model || undefined,
+          condition: item.listing.condition,
+          dailyRate: Number(item.listing.dailyRate),
+          weeklyRate: item.listing.weeklyRate
+            ? Number(item.listing.weeklyRate)
+            : undefined,
+          monthlyRate: item.listing.monthlyRate
+            ? Number(item.listing.monthlyRate)
+            : undefined,
+          securityDeposit: Number(item.listing.securityDeposit),
+          deliveryFee: Number(item.listing.deliveryFee),
+          setupFee: Number(item.listing.setupFee),
+          category: {
+            id: item.category.id,
+            name: item.category.name,
+            icon: item.category.icon || undefined,
+          },
+          images: listingImages.map((img) => ({
+            id: img.id,
+            imageUrl: img.imageUrl,
+            orderIndex: img.orderIndex || 0,
+          })),
+          createdAt: item.listing.createdAt,
+          updatedAt: item.listing.updatedAt,
+          owner: {
+            id: item.owner.id,
+            firstName: item.owner.firstName || "",
+            lastName: item.owner.lastName || "",
+            email: item.owner.email,
+            profileImageUrl: item.owner.profileImageUrl || undefined,
+            isVerified: item.owner.isVerified || false,
+            createdAt: item.owner.createdAt,
+            otherListingsCount: stats.otherListingsCount,
+            rentalHistory: stats.rentalHistory,
+          },
+          approvalStatus: item.listing.approvalStatus as
+            | "approved"
+            | "rejected",
+          rejectionReason: item.listing.rejectionReason || undefined,
+          reviewedBy: reviewer
+            ? {
+                id: reviewer.id,
+                firstName: reviewer.firstName || "",
+                lastName: reviewer.lastName || "",
+                profileImageUrl: reviewer.profileImageUrl || undefined,
+              }
+            : null,
+          reviewedAt: item.listing.reviewedAt || null,
+        };
+      });
+
+      return this.createPaginatedResult(
+        transformed,
+        total,
+        pagination.page,
+        pagination.limit,
+      );
+    } catch (error) {
+      this.handleError(error, "getReviewHistory");
+    }
+  }
+
+  /**
+   * Update approval status for a listing
+   * Requires admin authentication
+   * Uses optimistic locking to prevent concurrent reviews (WHERE clause check)
+   */
+  async updateApprovalStatus(
+    listingId: string,
+    status: "approved" | "rejected",
+    rejectionReason?: string,
+  ): Promise<void> {
+    try {
+      // Require admin authentication
+      const adminUser = await requireAdmin();
+
+      // First, check if listing exists and is still pending
+      const [listing] = await this.db
+        .select()
+        .from(listings)
+        .where(eq(listings.id, listingId));
+
+      if (!listing) {
+        throw new NotFoundError("Listing", listingId);
+      }
+
+      // Check if already reviewed
+      if (listing.approvalStatus !== "pending_review") {
+        throw new ValidationError("Listing has already been reviewed");
+      }
+
+      // Prepare update data
+      const updateData: {
+        approvalStatus: "approved" | "rejected";
+        reviewedBy: string;
+        reviewedAt: Date;
+        rejectionReason?: string | null;
+        status?: "available" | "inactive" | "maintenance" | "rented";
+      } = {
+        approvalStatus: status,
+        reviewedBy: adminUser.id,
+        reviewedAt: new Date(),
+      };
+
+      // Handle rejection reason
+      if (status === "rejected") {
+        if (!rejectionReason || rejectionReason.trim().length === 0) {
+          throw new ValidationError(
+            "Rejection reason is required for rejections",
+          );
+        }
+        updateData.rejectionReason = rejectionReason;
+      } else {
+        // Clear rejection reason on approval
+        updateData.rejectionReason = null;
+        // When approving, set status to "available" if it's currently "inactive"
+        if (listing.status === "inactive") {
+          updateData.status = "available";
+        }
+      }
+
+      // Update listing with optimistic locking: only update if still pending_review
+      // This prevents concurrent reviews - if another admin already reviewed it,
+      // the WHERE clause will match 0 rows and the update won't happen
+      const result = await this.db
+        .update(listings)
+        .set(updateData)
+        .where(
+          and(
+            eq(listings.id, listingId),
+            eq(listings.approvalStatus, "pending_review"),
+          ),
+        )
+        .returning({ id: listings.id });
+
+      // Check if update actually happened (optimistic lock check)
+      if (result.length === 0) {
+        throw new ValidationError(
+          "Listing has already been reviewed by another admin",
+        );
+      }
+    } catch (error) {
+      this.handleError(error, "updateApprovalStatus");
+    }
+  }
+
+  /**
+   * Count pending reviews
+   * Requires admin authentication
+   */
+  async countPendingReviews(): Promise<number> {
+    try {
+      // Require admin authentication
+      await requireAdmin();
+
+      const [{ count: total }] = await this.db
+        .select({ count: count() })
+        .from(listings)
+        .where(eq(listings.approvalStatus, "pending_review"));
+
+      return Number(total || 0);
+    } catch (error) {
+      this.handleError(error, "countPendingReviews");
+    }
+  }
+
+  /**
+   * Get user listings by approval status
+   * Used for Garage "Pending Review" tab
+   */
+  async getUserListingsByApprovalStatus(
+    approvalStatus: "pending_review" | "rejected",
+  ): Promise<UserListing[]> {
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      // Use the same helper method as other garage methods for consistency
+      return this._getUserListingsWithConditions([
+        eq(listings.ownerId, userId),
+        eq(listings.approvalStatus, approvalStatus),
+      ]);
+    } catch (error) {
+      this.handleError(error, "getUserListingsByApprovalStatus");
+    }
+  }
+
+  /**
+   * Check if listing has significant changes
+   * Compares old and new listing data
+   */
+  private hasSignificantChanges(
+    oldListing: CreateListingDTO | UpdateListingDTO,
+    newListing: CreateListingDTO | UpdateListingDTO,
+    oldImages?: Array<{ id: string; imageUrl: string; orderIndex: number }>,
+    newImages?: Array<{ id: string; imageUrl: string; orderIndex: number }>,
+  ): boolean {
+    // Check significant fields
+    const significantFields: Array<keyof CreateListingDTO> = [
+      "name",
+      "description",
+      "categoryId",
+      "condition",
+    ];
+
+    for (const field of significantFields) {
+      if (
+        oldListing[field] !== undefined &&
+        newListing[field] !== undefined &&
+        oldListing[field] !== newListing[field]
+      ) {
+        return true;
+      }
+    }
+
+    // Check pricing fields
+    const pricingFields: Array<keyof CreateListingDTO> = [
+      "dailyRate",
+      "weeklyRate",
+      "monthlyRate",
+    ];
+
+    for (const field of pricingFields) {
+      if (
+        oldListing[field] !== undefined &&
+        newListing[field] !== undefined &&
+        oldListing[field] !== newListing[field]
+      ) {
+        return true;
+      }
+    }
+
+    // Check image changes (count or order)
+    if (oldImages && newImages) {
+      if (oldImages.length !== newImages.length) {
+        return true;
+      }
+
+      // Check if order changed or any images differ
+      for (let i = 0; i < oldImages.length; i++) {
+        if (
+          oldImages[i].orderIndex !== newImages[i]?.orderIndex ||
+          oldImages[i].imageUrl !== newImages[i]?.imageUrl
+        ) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   // async toggleListingFavorite(userId: string, listingId: string): Promise<boolean> {

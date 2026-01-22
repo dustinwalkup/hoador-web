@@ -9,6 +9,7 @@ import {
   HelpCircle,
   Users,
   Settings,
+  ClipboardCheck,
 } from "lucide-react";
 
 import {
@@ -20,8 +21,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 import { UserProfile } from "@/dal/types";
 import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
+import { usePendingReviewCount } from "@/features/admin/hooks/use-pending-review-count";
 import { NavUser } from "./nav-user";
 
 interface AdminSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -33,6 +36,11 @@ const adminNavItems = [
     title: "Dashboard",
     url: "/admin/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Listing Review",
+    url: "/admin/dashboard/listings/review",
+    icon: ClipboardCheck,
   },
   {
     title: "Legal Documents",
@@ -60,6 +68,7 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
   // Auto-close mobile sidebar on navigation
   useMobileSidebarClose();
   const pathname = usePathname();
+  const { data: pendingCount = 0 } = usePendingReviewCount();
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -97,6 +106,11 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                 ? pathname === item.url
                 : pathname === item.url || pathname.startsWith(item.url + "/");
 
+            // Check if this is the Listing Review item and has pending reviews
+            const isListingReview =
+              item.url === "/admin/dashboard/listings/review";
+            const hasPendingReviews = isListingReview && pendingCount > 0;
+
             return (
               <SidebarMenuItem key={item.title}>
                 <Link href={item.url}>
@@ -107,6 +121,14 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                   >
                     {item.icon && <item.icon className="size-5!" />}
                     <span>{item.title}</span>
+                    {hasPendingReviews && (
+                      <Badge
+                        variant="destructive"
+                        className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                      >
+                        {pendingCount > 99 ? "99+" : pendingCount}
+                      </Badge>
+                    )}
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>

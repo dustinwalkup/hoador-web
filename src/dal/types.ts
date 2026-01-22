@@ -203,6 +203,8 @@ export interface ListingDetails {
   averageRating: number;
   reviewCount: number;
   isFavorited?: boolean;
+  approvalStatus?: "pending_review" | "approved" | "rejected";
+  rejectionReason?: string | null;
   createdAt: Date;
   updatedAt: Date;
   images: Array<{
@@ -322,4 +324,58 @@ export interface ConversationDetails {
   }>;
   unread: boolean;
   archived: boolean;
+}
+
+// Review-related types for listing approval workflow
+export interface PendingReviewListing {
+  id: string;
+  name: string;
+  description: string;
+  brand?: string;
+  model?: string;
+  condition: string;
+  dailyRate: number;
+  weeklyRate?: number;
+  monthlyRate?: number;
+  securityDeposit: number;
+  deliveryFee: number;
+  setupFee: number;
+  category: {
+    id: string;
+    name: string;
+    icon?: string;
+  };
+  images: Array<{
+    id: string;
+    imageUrl: string;
+    orderIndex: number;
+  }>;
+  createdAt: Date;
+  updatedAt: Date;
+  owner: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    profileImageUrl?: string;
+    isVerified: boolean;
+    createdAt: Date;
+    otherListingsCount: number;
+    rentalHistory: {
+      totalRentals: number;
+      averageRating: number;
+    };
+  };
+}
+
+export interface ReviewedListing extends PendingReviewListing {
+  approvalStatus: "approved" | "rejected";
+  rejectionReason?: string;
+  reviewedBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    profileImageUrl?: string;
+  } | null;
+  reviewedAt: Date | null;
 }

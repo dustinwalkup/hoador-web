@@ -2,13 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { listingDAL } from "../index";
 import { UnauthorizedError, NotFoundError, ValidationError } from "../errors";
 import { mockListing } from "@/test/fixtures/listings";
+import { mockAdminUser } from "@/test/fixtures/users";
 import * as sessionUtils from "@/features/auth/utils/session";
 import * as membershipUtils from "@/features/community/utils/membership";
+import * as guardsUtils from "@/features/auth/utils/guards";
 import { db } from "@/db/db";
 
 // Mock dependencies
 vi.mock("@/features/auth/utils/session");
 vi.mock("@/features/community/utils/membership");
+vi.mock("@/features/auth/utils/guards");
 vi.mock("@/db/db", () => ({
   db: {
     insert: vi.fn(),
@@ -26,10 +29,14 @@ vi.mock("@/db/db", () => ({
       userFavorites: {
         findFirst: vi.fn(),
       },
+      user: {
+        findFirst: vi.fn(),
+      },
     },
     update: vi.fn(),
     delete: vi.fn(),
     select: vi.fn(),
+    transaction: vi.fn(),
   },
 }));
 
@@ -822,6 +829,640 @@ describe("ListingDAL", () => {
       // getUserListings returns UserListing[] directly
       expect(Array.isArray(result)).toBe(true);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("getPendingReviews", () => {
+    const mockPagination = { page: 1, limit: 10 };
+
+    beforeEach(() => {
+      vi.mocked(guardsUtils.requireAdmin).mockResolvedValue(mockAdminUser);
+    });
+
+    it("should return pending reviews when admin is authenticated", async () => {
+      // Arrange
+      const mockCountResult = [{ total: 5 }];
+      const mockListingsResult = [
+        {
+          listing: {
+            id: "listing-1",
+            name: "Test Listing",
+            approvalStatus: "pending_review",
+            createdAt: new Date("2024-01-01"),
+          },
+          owner: {
+            id: "user-1",
+            firstName: "John",
+            lastName: "Doe",
+            email: "john@example.com",
+            profileImageUrl: null,
+            isVerified: true,
+            createdAt: new Date("2024-01-01"),
+          },
+          category: {
+            id: "cat-1",
+            name: "Tools",
+            icon: null,
+          },
+        },
+      ];
+
+      const mockCountFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(mockCountResult),
+      });
+      const mockListingsFrom = vi.fn().mockReturnValue({
+        innerJoin: vi.fn().mockReturnValue({
+          innerJoin: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockReturnValue({
+                  offset: vi.fn().mockResolvedValue(mockListingsResult),
+                }),
+              }),
+            }),
+          }),
+        }),
+      });
+
+      let selectCallCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          return { from: mockCountFrom } as any;
+        }
+        return { from: mockListingsFrom } as any;
+      });
+
+      // Mock images query - db.query.listings is already defined in the mock, just ensure it exists
+      // The mock is already set up in the vi.mock at the top
+
+      // Mock other queries
+      const mockImageFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue([]),
+        }),
+      });
+
+      vi.mocked(db.select).mockImplementation(() => {
+        if (selectCallCount <= 2) {
+          return {
+            from: selectCallCount === 1 ? mockCountFrom : mockListingsFrom,
+          } as any;
+        }
+        return { from: mockImageFrom } as any;
+      });
+
+      // Mock rental history queries - needs from().leftJoin().where()
+      const mockRentalHistoryFrom = vi.fn().mockReturnValue({
+        leftJoin: vi.fn().mockReturnValue({
+          where: vi
+            .fn()
+            .mockResolvedValue([{ totalRentals: 0, averageRating: 0 }]),
+        }),
+      });
+
+      // Mock other listings count query
+      const mockOtherListingsFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+      });
+
+      // Complete mock implementation with all query types
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          return { from: mockCountFrom } as any; // Total count
+        } else if (selectCallCount === 2) {
+          return { from: mockListingsFrom } as any; // Listings query
+        } else if (selectCallCount === 3) {
+          return { from: mockImageFrom } as any; // Images query
+        } else if (selectCallCount % 2 === 0) {
+          return { from: mockOtherListingsFrom } as any; // Other listings count
+        } else {
+          return { from: mockRentalHistoryFrom } as any; // Rental history
+        }
+      });
+
+      // Act
+      const result = await listingDAL.getPendingReviews(mockPagination);
+
+      // Assert
+      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
+      expect(result.pagination.total).toBe(5);
+    });
+
+    it("should throw UnauthorizedError when not admin", async () => {
+      // Arrange
+      vi.mocked(guardsUtils.requireAdmin).mockRejectedValue(
+        new UnauthorizedError("Admin access required"),
+      );
+
+      // Act & Assert
+      await expect(
+        listingDAL.getPendingReviews(mockPagination),
+      ).rejects.toThrow(UnauthorizedError);
+    });
+  });
+
+  describe("getReviewHistory", () => {
+    const mockPagination = { page: 1, limit: 10 };
+
+    beforeEach(() => {
+      vi.mocked(guardsUtils.requireAdmin).mockResolvedValue(mockAdminUser);
+    });
+
+    it("should return approved listings when status is 'approved'", async () => {
+      // Arrange
+      const mockCountResult = [{ total: 3 }];
+      const mockListingsResult = [
+        {
+          listing: {
+            id: "listing-1",
+            approvalStatus: "approved",
+            reviewedAt: new Date("2024-01-02"),
+          },
+          owner: {
+            id: "user-1",
+            firstName: "John",
+            lastName: "Doe",
+            email: "john@example.com",
+            profileImageUrl: null,
+            isVerified: true,
+            createdAt: new Date("2024-01-01"),
+          },
+          category: {
+            id: "cat-1",
+            name: "Tools",
+            icon: null,
+          },
+        },
+      ];
+
+      const mockCountFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(mockCountResult),
+      });
+      const mockListingsFrom = vi.fn().mockReturnValue({
+        innerJoin: vi.fn().mockReturnValue({
+          innerJoin: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockReturnValue({
+                  offset: vi.fn().mockResolvedValue(mockListingsResult),
+                }),
+              }),
+            }),
+          }),
+        }),
+      });
+
+      // Mock images query
+      const mockImageFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Mock other listings count query
+      const mockOtherListingsFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+      });
+
+      // Mock rental history query - from().leftJoin().where()
+      const mockRentalHistoryFrom = vi.fn().mockReturnValue({
+        leftJoin: vi.fn().mockReturnValue({
+          where: vi
+            .fn()
+            .mockResolvedValue([{ totalRentals: 0, averageRating: 0 }]),
+        }),
+      });
+
+      let selectCallCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          return { from: mockCountFrom } as any; // Total count
+        } else if (selectCallCount === 2) {
+          return { from: mockListingsFrom } as any; // Listings query
+        } else if (selectCallCount === 3) {
+          return { from: mockImageFrom } as any; // Images query
+        } else if (selectCallCount % 2 === 0) {
+          return { from: mockOtherListingsFrom } as any; // Other listings count
+        } else {
+          return { from: mockRentalHistoryFrom } as any; // Rental history
+        }
+      });
+
+      // Mock reviewer query
+      vi.mocked(db.query.user.findFirst).mockResolvedValue({
+        id: "admin-123",
+        firstName: "Admin",
+        lastName: "User",
+        profileImageUrl: null,
+      } as any);
+
+      // Act
+      const result = await listingDAL.getReviewHistory(
+        "approved",
+        mockPagination,
+      );
+
+      // Assert
+      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
+      expect(result.pagination.total).toBe(3);
+    });
+
+    it("should return all reviewed listings when status is 'all'", async () => {
+      // Arrange
+      const mockCountResult = [{ total: 5 }];
+      const mockCountFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(mockCountResult),
+      });
+
+      const mockListingsFrom = vi.fn().mockReturnValue({
+        innerJoin: vi.fn().mockReturnValue({
+          innerJoin: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockReturnValue({
+                  offset: vi.fn().mockResolvedValue([]),
+                }),
+              }),
+            }),
+          }),
+        }),
+      });
+
+      // Mock images query
+      const mockImageFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Mock other listings count query
+      const mockOtherListingsFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+      });
+
+      // Mock rental history query - from().leftJoin().where()
+      const mockRentalHistoryFrom = vi.fn().mockReturnValue({
+        leftJoin: vi.fn().mockReturnValue({
+          where: vi
+            .fn()
+            .mockResolvedValue([{ totalRentals: 0, averageRating: 0 }]),
+        }),
+      });
+
+      let selectCallCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          return { from: mockCountFrom } as any; // Total count
+        } else if (selectCallCount === 2) {
+          return { from: mockListingsFrom } as any; // Listings query
+        } else if (selectCallCount === 3) {
+          return { from: mockImageFrom } as any; // Images query
+        } else if (selectCallCount % 2 === 0) {
+          return { from: mockOtherListingsFrom } as any; // Other listings count
+        } else {
+          return { from: mockRentalHistoryFrom } as any; // Rental history
+        }
+      });
+
+      // Mock reviewer query
+      vi.mocked(db.query.user.findFirst).mockResolvedValue(undefined);
+
+      // Act
+      const result = await listingDAL.getReviewHistory("all", mockPagination);
+
+      // Assert
+      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
+      expect(result.pagination.total).toBe(5);
+    });
+  });
+
+  describe("updateApprovalStatus", () => {
+    beforeEach(() => {
+      vi.mocked(guardsUtils.requireAdmin).mockResolvedValue(mockAdminUser);
+    });
+
+    it("should approve listing when admin is authenticated and listing is pending", async () => {
+      // Arrange
+      const listingId = "listing-approve-123";
+      const mockListing = {
+        id: listingId,
+        approvalStatus: "pending_review" as const,
+        status: "inactive" as const,
+      };
+
+      // Mock select query (to check listing exists)
+      const mockSelectFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([mockListing]),
+      });
+
+      // Mock update query (to update listing)
+      const mockUpdateSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: listingId }]),
+        }),
+      });
+
+      let selectCallCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        return { from: mockSelectFrom } as any;
+      });
+
+      vi.mocked(db.update).mockReturnValue({
+        set: mockUpdateSet,
+      } as any);
+
+      // Act
+      await listingDAL.updateApprovalStatus(listingId, "approved");
+
+      // Assert
+      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
+      expect(db.select).toHaveBeenCalled();
+      expect(db.update).toHaveBeenCalled();
+    });
+
+    it("should reject listing with reason when admin is authenticated", async () => {
+      // Arrange
+      const listingId = "listing-reject-123";
+      const mockListing = {
+        id: listingId,
+        approvalStatus: "pending_review" as const,
+        status: "inactive" as const,
+      };
+      const rejectionReason = "Listing does not meet quality standards";
+
+      // Mock select query (to check listing exists)
+      const mockSelectFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([mockListing]),
+      });
+
+      // Mock update query (to update listing)
+      const mockUpdateSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: listingId }]),
+        }),
+      });
+
+      vi.mocked(db.select).mockReturnValue({ from: mockSelectFrom } as any);
+      vi.mocked(db.update).mockReturnValue({
+        set: mockUpdateSet,
+      } as any);
+
+      // Act
+      await listingDAL.updateApprovalStatus(
+        listingId,
+        "rejected",
+        rejectionReason,
+      );
+
+      // Assert
+      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
+      expect(db.select).toHaveBeenCalled();
+      expect(db.update).toHaveBeenCalled();
+    });
+
+    it("should throw ValidationError when listing is already reviewed", async () => {
+      // Arrange
+      const listingId = "listing-reviewed-123";
+      const mockListing = {
+        id: listingId,
+        approvalStatus: "approved" as const, // Already reviewed
+        status: "available" as const,
+      };
+
+      // Mock select query (to check listing exists)
+      const mockSelectFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([mockListing]),
+      });
+
+      vi.mocked(db.select).mockReturnValue({ from: mockSelectFrom } as any);
+
+      // Act & Assert
+      await expect(
+        listingDAL.updateApprovalStatus(listingId, "approved"),
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it("should throw NotFoundError when listing does not exist", async () => {
+      // Arrange
+      const listingId = "listing-notfound-123";
+
+      // Mock select query (to check listing exists - returns empty array)
+      const mockSelectFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]), // No listing found
+      });
+
+      vi.mocked(db.select).mockReturnValue({ from: mockSelectFrom } as any);
+
+      // Act & Assert
+      await expect(
+        listingDAL.updateApprovalStatus(listingId, "approved"),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("should throw UnauthorizedError when not admin", async () => {
+      // Arrange
+      const listingId = "listing-unauthorized-123";
+      vi.mocked(guardsUtils.requireAdmin).mockRejectedValue(
+        new UnauthorizedError("Admin access required"),
+      );
+
+      // Act & Assert
+      await expect(
+        listingDAL.updateApprovalStatus(listingId, "approved"),
+      ).rejects.toThrow(UnauthorizedError);
+    });
+  });
+
+  describe("countPendingReviews", () => {
+    beforeEach(() => {
+      vi.mocked(guardsUtils.requireAdmin).mockResolvedValue(mockAdminUser);
+    });
+
+    it("should return count of pending reviews when admin is authenticated", async () => {
+      // Arrange
+      const mockCountResult = [{ count: 5 }];
+      const mockFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(mockCountResult),
+      });
+
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      // Act
+      const result = await listingDAL.countPendingReviews();
+
+      // Assert
+      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
+      expect(result).toBe(5);
+    });
+
+    it("should return 0 when no pending reviews", async () => {
+      // Arrange
+      const mockCountResult = [{ count: 0 }];
+      const mockFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(mockCountResult),
+      });
+
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      // Act
+      const result = await listingDAL.countPendingReviews();
+
+      // Assert
+      expect(result).toBe(0);
+    });
+
+    it("should throw UnauthorizedError when not admin", async () => {
+      // Arrange
+      vi.mocked(guardsUtils.requireAdmin).mockRejectedValue(
+        new UnauthorizedError("Admin access required"),
+      );
+
+      // Act & Assert
+      await expect(listingDAL.countPendingReviews()).rejects.toThrow(
+        UnauthorizedError,
+      );
+    });
+  });
+
+  describe("getUserListingsByApprovalStatus", () => {
+    const userId = "user-123";
+
+    beforeEach(() => {
+      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
+    });
+
+    it("should return user listings with pending_review status", async () => {
+      // Arrange
+      const mockListings = [
+        {
+          id: "listing-pending-1",
+          ownerId: userId,
+          approvalStatus: "pending_review",
+          createdAt: new Date("2024-01-01"),
+          dailyRate: "15.00",
+          weeklyRate: "90.00",
+          monthlyRate: "300.00",
+          securityDeposit: "50.00",
+          deliveryFee: "10.00",
+          setupFee: "0.00",
+        },
+      ];
+
+      // Mock the main listings query
+      const mockOrderBy = vi.fn().mockResolvedValue(mockListings);
+      const mockWhere = vi.fn().mockReturnValue({
+        orderBy: mockOrderBy,
+      });
+      const mockFrom = vi.fn().mockReturnValue({
+        where: mockWhere,
+      });
+
+      // Mock the reviews query (called for each listing)
+      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+
+      // Mock the images query (called for each listing)
+      const mockImageLimit = vi.fn().mockResolvedValue([]);
+      const mockImageWhere = vi.fn().mockReturnValue({
+        limit: mockImageLimit,
+      });
+      const mockImageFrom = vi.fn().mockReturnValue({
+        where: mockImageWhere,
+      });
+
+      let selectCallCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          // First call: main listings query
+          return { from: mockFrom } as any;
+        } else {
+          // Subsequent calls: image queries (one per listing)
+          return { from: mockImageFrom } as any;
+        }
+      });
+
+      // Act
+      const result =
+        await listingDAL.getUserListingsByApprovalStatus("pending_review");
+
+      // Assert
+      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
+      expect(result).toHaveLength(1);
+      expect(result[0].approvalStatus).toBe("pending_review");
+    });
+
+    it("should return user listings with rejected status", async () => {
+      // Arrange
+      const mockListings = [
+        {
+          id: "listing-rejected-1",
+          ownerId: userId,
+          approvalStatus: "rejected",
+          createdAt: new Date("2024-01-01"),
+          dailyRate: "15.00",
+          weeklyRate: "90.00",
+          monthlyRate: "300.00",
+          securityDeposit: "50.00",
+          deliveryFee: "10.00",
+          setupFee: "0.00",
+        },
+      ];
+
+      // Mock the main listings query
+      const mockOrderBy = vi.fn().mockResolvedValue(mockListings);
+      const mockWhere = vi.fn().mockReturnValue({
+        orderBy: mockOrderBy,
+      });
+      const mockFrom = vi.fn().mockReturnValue({
+        where: mockWhere,
+      });
+
+      // Mock the reviews query (called for each listing)
+      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+
+      // Mock the images query (called for each listing)
+      const mockImageLimit = vi.fn().mockResolvedValue([]);
+      const mockImageWhere = vi.fn().mockReturnValue({
+        limit: mockImageLimit,
+      });
+      const mockImageFrom = vi.fn().mockReturnValue({
+        where: mockImageWhere,
+      });
+
+      let selectCallCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          // First call: main listings query
+          return { from: mockFrom } as any;
+        } else {
+          // Subsequent calls: image queries (one per listing)
+          return { from: mockImageFrom } as any;
+        }
+      });
+
+      // Act
+      const result =
+        await listingDAL.getUserListingsByApprovalStatus("rejected");
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result[0].approvalStatus).toBe("rejected");
+    });
+
+    it("should throw UnauthorizedError when user not authenticated", async () => {
+      // Arrange
+      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(
+        listingDAL.getUserListingsByApprovalStatus("pending_review"),
+      ).rejects.toThrow(UnauthorizedError);
     });
   });
 });

@@ -195,6 +195,10 @@ export const mockGarageListingActive: UserListing = {
   reviewCount: 10,
   viewCount: 0,
   favoriteCount: 0,
+  approvalStatus: "approved",
+  rejectionReason: null,
+  reviewedBy: null,
+  reviewedAt: null,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
 };

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import { updateListingStatus } from "@/features/listings/actions/update-listing-status";
+import { ApprovalStatusBadge } from "@/features/listings/components/listing-status-badge";
 
 import ListingManagementModal from "./listing-management-modal";
 import { capitalize } from "@/lib/utils";
@@ -31,6 +32,8 @@ interface RentalCardProps {
   owner?: string;
   borrower?: string;
   availability?: string;
+  approvalStatus?: "pending_review" | "approved" | "rejected";
+  rejectionReason?: string;
   listingData?: {
     id: string;
     name: string;
@@ -104,6 +107,8 @@ export default function RentalCard({
   owner,
   borrower,
   availability,
+  approvalStatus,
+  rejectionReason,
   listingData,
 }: RentalCardProps) {
   const handleListingUpdate = async (data: {
@@ -126,7 +131,7 @@ export default function RentalCard({
 
   return (
     <Card className="overflow-hidden pt-0 pb-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
-      <div className="bg-muted relative aspect-[4/3] overflow-hidden">
+      <div className="bg-muted relative aspect-4/3 overflow-hidden">
         <Image
           src={imageUrl || "/images/placeholder.jpg"}
           alt={name}
@@ -155,14 +160,16 @@ export default function RentalCard({
       <CardContent className="p-4">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="truncate font-medium">{name}</h3>
-          {(status || availability) && (
+          {approvalStatus ? (
+            <ApprovalStatusBadge approvalStatus={approvalStatus} />
+          ) : status || availability ? (
             <Badge
               variant={badgeConfig.variant}
               className={`block text-xs ${badgeConfig.className}`}
             >
               {capitalize(availability || status)}
             </Badge>
-          )}
+          ) : null}
         </div>
 
         {(owner || borrower) && (
@@ -180,6 +187,13 @@ export default function RentalCard({
         )}
 
         <div className="text-primary mb-3 font-medium">{price}</div>
+
+        {rejectionReason && (
+          <div className="mb-3 rounded-md bg-red-50 p-2 text-xs text-red-800 dark:bg-red-900/20 dark:text-red-400">
+            <p className="font-medium">Rejection Reason:</p>
+            <p>{rejectionReason}</p>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           {cardType === "borrowing" && (
@@ -202,6 +216,7 @@ export default function RentalCard({
                 <ListingManagementModal
                   listing={listingData}
                   onSave={handleListingUpdate}
+                  approvalStatus={approvalStatus}
                   trigger={
                     <Button
                       size="sm"

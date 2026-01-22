@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { deleteListing } from "@/features/listings/actions/delete-listing";
+import { useDeleteListing } from "@/features/listings/hooks/use-garage";
 import { toast } from "sonner";
 
 const listingManagementSchema = z.object({
@@ -66,17 +66,19 @@ interface ListingManagementModalProps {
   };
   onSave: (data: ListingManagementFormData) => Promise<void>;
   trigger?: React.ReactNode;
+  approvalStatus?: "pending_review" | "approved" | "rejected";
 }
 
 export default function ListingManagementModal({
   listing,
   onSave,
   trigger,
+  approvalStatus,
 }: ListingManagementModalProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const deleteListingMutation = useDeleteListing();
 
   const form = useForm<ListingManagementFormData>({
     resolver: zodResolver(listingManagementSchema),
@@ -98,22 +100,15 @@ export default function ListingManagementModal({
   };
 
   const handleDelete = async () => {
-    setIsDeleting(true);
     try {
-      const result = await deleteListing(listing.id);
-
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success("Listing deleted successfully");
-        setOpen(false);
-      }
-    } catch (error) {
-      console.error("Failed to delete listing:", error);
-      toast.error("Failed to delete listing");
-    } finally {
-      setIsDeleting(false);
+      await deleteListingMutation.mutateAsync(listing.id);
+      toast.success("Listing deleted successfully");
+      setOpen(false);
       setShowDeleteConfirm(false);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete listing";
+      toast.error(errorMessage);
     }
   };
 
@@ -160,6 +155,7 @@ export default function ListingManagementModal({
   const currentStatus = form.watch("status");
   const statusInfo = getStatusInfo(currentStatus);
   const StatusIcon = statusInfo.icon;
+  const isApproved = !approvalStatus || approvalStatus === "approved";
 
   // If listing is currently rented, show a message instead of form
   if (listing.status === "rented") {
@@ -222,7 +218,7 @@ export default function ListingManagementModal({
                         variant="outline"
                         size="sm"
                         onClick={() => setShowDeleteConfirm(false)}
-                        disabled={isDeleting}
+                        disabled={deleteListingMutation.isPending}
                       >
                         Cancel
                       </Button>
@@ -231,9 +227,11 @@ export default function ListingManagementModal({
                         variant="destructive"
                         size="sm"
                         onClick={handleDelete}
-                        disabled={isDeleting}
+                        disabled={deleteListingMutation.isPending}
                       >
-                        {isDeleting ? "Deleting..." : "Delete listing"}
+                        {deleteListingMutation.isPending
+                          ? "Deleting..."
+                          : "Delete listing"}
                       </Button>
                     </div>
                   </div>
@@ -304,6 +302,7 @@ export default function ListingManagementModal({
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
+                      disabled={!isApproved}
                     >
                       <FormControl>
                         <SelectTrigger className="w-full">
@@ -335,6 +334,12 @@ export default function ListingManagementModal({
                   </FormItem>
                 )}
               />
+              {!isApproved && (
+                <p className="text-muted-foreground text-sm">
+                  Status changes are not available until the listing is
+                  approved.
+                </p>
+              )}
             </div>
 
             <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
@@ -343,11 +348,13 @@ export default function ListingManagementModal({
                   type="button"
                   variant="destructive"
                   onClick={() => setShowDeleteConfirm(true)}
-                  disabled={isLoading}
+                  disabled={isLoading || deleteListingMutation.isPending}
                   className="w-full sm:w-auto"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {isDeleting ? "Deleting..." : "Delete listing"}
+                  {deleteListingMutation.isPending
+                    ? "Deleting..."
+                    : "Delete listing"}
                 </Button>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -359,7 +366,7 @@ export default function ListingManagementModal({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading}>
+                <Button type="submit" disabled={isLoading || !isApproved}>
                   {isLoading ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
@@ -383,15 +390,17 @@ export default function ListingManagementModal({
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isLoading}>
+                  <AlertDialogCancel disabled={deleteListingMutation.isPending}>
                     Cancel
                   </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleDelete}
                     className="bg-red-600 hover:bg-red-700"
-                    disabled={isLoading}
+                    disabled={deleteListingMutation.isPending}
                   >
-                    {isLoading ? "Deleting..." : "Delete Listing"}
+                    {deleteListingMutation.isPending
+                      ? "Deleting..."
+                      : "Delete Listing"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

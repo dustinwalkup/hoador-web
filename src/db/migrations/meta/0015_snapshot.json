@@ -1,5 +1,5 @@
 {
-  "id": "47d0b41f-c3b5-4cfa-8933-e0def94b414d",
+  "id": "41e8de13-1c3b-4cd2-a3ac-b0428feff379",
   "prevId": "be07aa3e-96b4-468c-b52e-98596500c538",
   "version": "7",
   "dialect": "postgresql",
@@ -568,7 +568,7 @@
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "version": {
@@ -606,12 +606,7 @@
       },
       "indexes": {},
       "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "legal_documents_id_version_pk": {
-          "name": "legal_documents_id_version_pk",
-          "columns": ["id", "version"]
-        }
-      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -1280,6 +1275,32 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "approval_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending_review'"
+        },
+        "rejection_reason": {
+          "name": "rejection_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewed_by": {
+          "name": "reviewed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewed_at": {
+          "name": "reviewed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1393,6 +1414,57 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "listings_approval_status_idx": {
+          "name": "listings_approval_status_idx",
+          "columns": [
+            {
+              "expression": "approval_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "listings_status_approval_status_idx": {
+          "name": "listings_status_approval_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "approval_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "listings_reviewed_at_idx": {
+          "name": "listings_reviewed_at_idx",
+          "columns": [
+            {
+              "expression": "reviewed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1421,6 +1493,15 @@
           "columnsFrom": ["category_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "listings_reviewed_by_user_id_fk": {
+          "name": "listings_reviewed_by_user_id_fk",
+          "tableFrom": "listings",
+          "tableTo": "user",
+          "columnsFrom": ["reviewed_by"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -3813,6 +3894,11 @@
     }
   },
   "enums": {
+    "public.approval_status": {
+      "name": "approval_status",
+      "schema": "public",
+      "values": ["pending_review", "approved", "rejected"]
+    },
     "public.listing_status": {
       "name": "listing_status",
       "schema": "public",
@@ -3840,6 +3926,8 @@
         "payment_refunded",
         "review_received",
         "message_received",
+        "listing_approved",
+        "listing_rejected",
         "system"
       ]
     },

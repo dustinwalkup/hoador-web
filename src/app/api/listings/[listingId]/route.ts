@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToBlob } from "@/services/vercel-blob";
 import { eq, max } from "drizzle-orm";
+import { tryCatch } from "@walkup/walkup-utils";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
@@ -9,6 +10,8 @@ import {
   validateImageForProcessing,
   getImageMetadata,
 } from "@/lib/image/server";
+import { listingDAL } from "@/dal";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 
 export async function POST(
   request: NextRequest,
@@ -99,5 +102,67 @@ export async function POST(
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ listingId: string }> },
+) {
+  try {
+    const { listingId } = await params;
+
+    // Validate listingId exists and is a valid UUID
+    if (!listingId || listingId === "") {
+      return NextResponse.json(
+        { error: "Listing ID is required" },
+        { status: 400 },
+      );
+    }
+
+    // Check authentication
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
+    // Delete the listing (DAL handles authorization internally)
+    const result = await tryCatch(listingDAL.deleteListing(listingId));
+
+    if (result.error) {
+      console.error("Error deleting listing:", result.error);
+      if (result.error instanceof Error) {
+        // Check if it's an authorization error
+        if (
+          result.error.message.includes("not found") ||
+          result.error.message.includes("access denied") ||
+          result.error.message.includes("Unauthorized")
+        ) {
+          return NextResponse.json(
+            { error: result.error.message },
+            { status: 403 },
+          );
+        }
+        return NextResponse.json(
+          { error: result.error.message },
+          { status: 500 },
+        );
+      }
+      return NextResponse.json(
+        { error: "An unexpected error occurred while deleting the listing" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete listing API error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete listing" },
+      { status: 500 },
+    );
   }
 }

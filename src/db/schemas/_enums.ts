@@ -41,6 +41,12 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "refunded",
 ]);
 
+export const approvalStatusEnum = pgEnum("approval_status", [
+  "pending_review",
+  "approved",
+  "rejected",
+]);
+
 export const notificationTypeEnum = pgEnum("notification_type", [
   "rental_request_created",
   "rental_approved",
@@ -55,6 +61,8 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "payment_refunded",
   "review_received",
   "message_received",
+  "listing_approved",
+  "listing_rejected",
   "system",
 ]);
 

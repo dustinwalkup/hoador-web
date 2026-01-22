@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Info } from "lucide-react";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import type {
@@ -15,6 +16,7 @@ import { useListingImages } from "@/features/listings/hooks/use-listing-images";
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { BasicInformationSection } from "./basic-information-section";
 import { PricingSection } from "./pricing-section";
@@ -319,6 +321,17 @@ export function AddListingForm({
         </div>
 
         <LegalDocumentAcknowledgments control={control} />
+
+        {/* Review Notice */}
+        {!isEdit && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Your listing will be reviewed by an admin before being published.
+              You&apos;ll receive a notification once it&apos;s approved.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Submit Button */}
         <div className="flex justify-end">

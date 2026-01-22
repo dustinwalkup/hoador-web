@@ -18,6 +18,7 @@ import { rentalRequests, rentals, reviews } from "./rentals.schema";
 import { collectionItems, userFavorites } from "./collections.schema";
 import { communities } from "./communities.schema";
 import { relations } from "drizzle-orm";
+import { approvalStatusEnum } from "./_enums";
 
 export const listingConditionEnum = pgEnum("listing_condition", [
   "new",
@@ -110,6 +111,15 @@ export const listings = pgTable(
     favoriteCount: integer("favorite_count").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    // Approval fields
+    approvalStatus: approvalStatusEnum("approval_status")
+      .default("pending_review")
+      .notNull(),
+    rejectionReason: text("rejection_reason"),
+    reviewedBy: text("reviewed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at"),
   },
   (table) => ({
     ownerIdIdx: index("listings_owner_id_idx").on(table.ownerId),
@@ -122,6 +132,14 @@ export const listings = pgTable(
       table.communityId,
       table.status,
     ),
+    approvalStatusIdx: index("listings_approval_status_idx").on(
+      table.approvalStatus,
+    ),
+    statusApprovalStatusIdx: index("listings_status_approval_status_idx").on(
+      table.status,
+      table.approvalStatus,
+    ),
+    reviewedAtIdx: index("listings_reviewed_at_idx").on(table.reviewedAt),
   }),
 );
 
@@ -180,6 +198,11 @@ export const listingsRelations = relations(listings, ({ one, many }) => ({
   owner: one(user, {
     fields: [listings.ownerId],
     references: [user.id],
+  }),
+  reviewer: one(user, {
+    fields: [listings.reviewedBy],
+    references: [user.id],
+    relationName: "reviewer",
   }),
   community: one(communities, {
     fields: [listings.communityId],
