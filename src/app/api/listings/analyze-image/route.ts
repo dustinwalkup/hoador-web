@@ -4,10 +4,7 @@ import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
 import { z } from "zod";
 
 const analyzeImageSchema = z.object({
-  imageUrls: z.union([
-    z.string(),
-    z.array(z.string()),
-  ]),
+  imageUrls: z.union([z.string(), z.array(z.string())]),
 });
 
 /**

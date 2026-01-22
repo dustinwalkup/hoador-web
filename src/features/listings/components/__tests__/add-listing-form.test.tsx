@@ -165,9 +165,7 @@ describe("AddListingForm", () => {
         json: vi.fn().mockResolvedValue({ success: true }),
       });
 
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
         name: /add listing/i,
@@ -317,9 +315,7 @@ describe("AddListingForm", () => {
         return createMockFormData();
       });
 
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       // When pending, button text changes to "Adding Listing..." and is disabled
       const submitButton = screen.getByRole("button", {

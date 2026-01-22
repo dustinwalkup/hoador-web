@@ -6,7 +6,6 @@ import {
 import { listingDAL } from "@/dal";
 import { requireAdmin } from "@/features/auth/utils/guards";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
-import { revalidatePath } from "next/cache";
 import { db } from "@/db/db";
 import { mockListing } from "@/test/fixtures/listings";
 import { mockAdminUser } from "@/test/fixtures/users";

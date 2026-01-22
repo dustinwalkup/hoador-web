@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createListing } from "../../actions/create-listing";
 import { listingDAL } from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { sendNotification } from "@/features/notifications/utils/send-notification";

@@ -451,7 +451,10 @@ describe("useUpdateListingStatus", () => {
     for (const status of statuses) {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ success: true, listing: { id: "listing-123", status } }),
+        json: async () => ({
+          success: true,
+          listing: { id: "listing-123", status },
+        }),
       });
 
       const { result } = renderHook(() => useUpdateListingStatus(), {

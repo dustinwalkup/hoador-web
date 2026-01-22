@@ -166,7 +166,8 @@ export async function PATCH(
       );
     }
 
-    const validatedData = validationResult.data as CreateListingFormDataServerType;
+    const validatedData =
+      validationResult.data as CreateListingFormDataServerType;
 
     // Update the listing (DAL handles ownership validation)
     const { data: listing, error } = await tryCatch(

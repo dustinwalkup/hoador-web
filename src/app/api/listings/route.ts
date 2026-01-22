@@ -51,7 +51,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validatedData = validationResult.data as CreateListingFormDataServerType;
+    const validatedData =
+      validationResult.data as CreateListingFormDataServerType;
 
     // Check if user has completed Stripe Connect onboarding
     const { data: isOnboarded, error: onboardingError } = await tryCatch(
@@ -97,7 +98,8 @@ export async function POST(request: NextRequest) {
       const acceptancePromises = [];
 
       if (documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]) {
-        const doc = documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE];
+        const doc =
+          documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE];
         acceptancePromises.push(
           legalDocumentDAL.recordAcceptance(
             currentUserId,
@@ -113,7 +115,9 @@ export async function POST(request: NextRequest) {
       }
 
       if (
-        documentVersions[LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT]
+        documentVersions[
+          LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT
+        ]
       ) {
         const doc =
           documentVersions[

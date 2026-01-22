@@ -1,16 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
-import type {
-  CreateListingFormDataServerType,
-} from "../form-schema/listing.schema";
+import type { CreateListingFormDataServerType } from "../form-schema/listing.schema";
 
 /**
  * Hook for creating a new listing
  */
 export function useCreateListing() {
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   return useCreateMutation({
     mutationFn: async (data: CreateListingFormDataServerType) => {
@@ -28,11 +24,7 @@ export function useCreateListing() {
       return response.json();
     },
     successMessage: "Listing created successfully",
-    invalidateQueryKeys: [
-      ["listings"],
-      ["garage"],
-      ["listing-details"],
-    ],
+    invalidateQueryKeys: [["listings"], ["garage"], ["listing-details"]],
     onSuccess: (data) => {
       // Invalidate specific listing query if listingId is returned
       if (data.listingId) {
@@ -72,11 +64,7 @@ export function useUpdateListing() {
       return response.json();
     },
     successMessage: "Listing updated successfully",
-    invalidateQueryKeys: [
-      ["listings"],
-      ["garage"],
-      ["listing-details"],
-    ],
+    invalidateQueryKeys: [["listings"], ["garage"], ["listing-details"]],
     onSuccess: (data, variables) => {
       // Invalidate specific listing query
       queryClient.invalidateQueries({

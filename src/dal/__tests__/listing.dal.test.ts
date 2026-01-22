@@ -1166,9 +1166,7 @@ describe("ListingDAL", () => {
         }),
       });
 
-      let selectCallCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
-        selectCallCount++;
         return { from: mockSelectFrom } as any;
       });
 

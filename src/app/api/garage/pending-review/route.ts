@@ -1,11 +1,10 @@
-import { NextRequest } from "next/server";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { listingDAL } from "@/dal";
 import { db } from "@/db/db";
 import { listings } from "@/db/schemas/listings.schema";
 import { eq } from "drizzle-orm";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const userId = await getCurrentUserId();
 

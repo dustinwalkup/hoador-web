@@ -24,7 +24,6 @@ import { isAdmin } from "@/features/auth/utils/guards";
 describe("Approval Visibility Integration", () => {
   const listingId = "listing-123";
   const ownerId = "owner-123";
-  const otherUserId = "other-user-123";
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -35,12 +34,6 @@ describe("Approval Visibility Integration", () => {
       // Arrange
       vi.mocked(getCurrentUserId).mockResolvedValue(null); // No user (public)
       vi.mocked(isAdmin).mockResolvedValue(false);
-
-      const pendingListing = {
-        ...mockListing,
-        id: listingId,
-        approvalStatus: "pending_review",
-      };
 
       const approvedListing = {
         ...mockListing,
@@ -80,12 +73,6 @@ describe("Approval Visibility Integration", () => {
       // Arrange
       vi.mocked(getCurrentUserId).mockResolvedValue(null);
       vi.mocked(isAdmin).mockResolvedValue(false);
-
-      const rejectedListing = {
-        ...mockListing,
-        id: listingId,
-        approvalStatus: "rejected",
-      };
 
       const approvedListing = {
         ...mockListing,
