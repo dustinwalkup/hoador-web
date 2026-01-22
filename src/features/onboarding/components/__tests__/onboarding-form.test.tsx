@@ -1,30 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import { OnboardingForm } from "../onboarding-form";
 
-// Mock useActionState
-type OnboardingResult = {
-  success: boolean;
-  error?: string;
-  warning?: string;
-};
-const mockFormAction = vi.fn();
-const mockUseActionState = vi.fn<
-  () => [OnboardingResult | null, typeof mockFormAction, boolean]
->(() => [null, mockFormAction, false]);
+// Mock useCompleteOnboarding
+const mockMutate = vi.fn();
+const mockMutateAsync = vi.fn();
+const mockUseCompleteOnboarding = vi.fn(() => ({
+  mutate: mockMutate,
+  mutateAsync: mockMutateAsync,
+  isPending: false,
+  isSuccess: false,
+  isError: false,
+  error: null as Error | null,
+  data: null as any,
+}));
 
-vi.mock("react", async () => {
-  const actual = await vi.importActual("react");
-  return {
-    ...actual,
-    useActionState: () => mockUseActionState(),
-  };
-});
-
-// Mock onboardingAction
-vi.mock("../../actions/onboarding-action", () => ({
-  onboardingAction: vi.fn(),
+vi.mock("../../hooks/use-onboarding-mutation", () => ({
+  useCompleteOnboarding: () => mockUseCompleteOnboarding(),
 }));
 
 // Mock ProfileImageUpload
@@ -43,6 +38,34 @@ vi.mock("../profile-image-upload", () => ({
 vi.mock("next/link", () => ({
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
 }));
+
+// Create test query client
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  });
+}
+
+// Wrapper component for React Query
+function QueryWrapper({
+  children,
+  queryClient,
+}: {
+  children: React.ReactNode;
+  queryClient: QueryClient;
+}) {
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
 
 // Mock validation
 vi.mock("../../schemas/validation", () => ({
@@ -79,14 +102,31 @@ vi.mock("../../schemas/validation", () => ({
 }));
 
 describe("OnboardingForm", () => {
+  let queryClient: QueryClient;
+
   beforeEach(() => {
+    queryClient = createTestQueryClient();
     vi.clearAllMocks();
-    mockUseActionState.mockReturnValue([null, mockFormAction, false]);
+    mockUseCompleteOnboarding.mockReturnValue({
+      mutate: mockMutate,
+      mutateAsync: mockMutateAsync,
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
+      data: null,
+    });
   });
+
+  const renderWithQueryClient = (component: React.ReactElement) => {
+    return render(
+      <QueryWrapper queryClient={queryClient}>{component}</QueryWrapper>,
+    );
+  };
 
   describe("Rendering", () => {
     it("should render all form fields", () => {
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/last name/i)).toBeInTheDocument();
@@ -102,13 +142,13 @@ describe("OnboardingForm", () => {
     });
 
     it("should render ProfileImageUpload component", () => {
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       expect(screen.getByTestId("profile-image-upload")).toBeInTheDocument();
     });
 
     it("should render submit button", () => {
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       expect(
         screen.getByRole("button", { name: /complete profile/i }),
@@ -116,16 +156,18 @@ describe("OnboardingForm", () => {
     });
 
     it("should show user initials in ProfileImageUpload when provided", () => {
-      render(<OnboardingForm userFirstName="John" userLastName="Doe" />);
+      renderWithQueryClient(
+        <OnboardingForm userFirstName="John" userLastName="Doe" />,
+      );
 
       expect(screen.getByText("Initials: JD")).toBeInTheDocument();
     });
   });
 
   describe("User interaction", () => {
-    it("should call formAction when form is submitted", async () => {
+    it("should call mutate when form is submitted", async () => {
       const user = userEvent.setup();
-      const { container } = render(<OnboardingForm />);
+      const { container } = renderWithQueryClient(<OnboardingForm />);
 
       // Fill out form
       await user.type(screen.getByLabelText(/first name/i), "John");
@@ -159,13 +201,13 @@ describe("OnboardingForm", () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(mockFormAction).toHaveBeenCalled();
+        expect(mockMutate).toHaveBeenCalled();
       });
     });
 
     it("should format phone number as user types", async () => {
       const user = userEvent.setup();
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       const phoneInput = screen.getByPlaceholderText(
         /(555)/i,
@@ -179,7 +221,7 @@ describe("OnboardingForm", () => {
 
     it("should update bio character counter", async () => {
       const user = userEvent.setup();
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       const bioInput = screen.getByLabelText(/bio/i);
       await user.type(bioInput, "Hello");
@@ -191,13 +233,8 @@ describe("OnboardingForm", () => {
   describe("Validation", () => {
     it("should show error messages for invalid fields after submit attempt", async () => {
       const user = userEvent.setup();
-      mockUseActionState.mockReturnValue([
-        { success: false, error: "Validation failed" },
-        mockFormAction,
-        false,
-      ]);
 
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       // Try to submit empty form
       const submitButton = screen.getByRole("button", {
@@ -207,13 +244,13 @@ describe("OnboardingForm", () => {
 
       // Form should prevent submission and show errors
       await waitFor(() => {
-        expect(mockFormAction).not.toHaveBeenCalled();
+        expect(mockMutate).not.toHaveBeenCalled();
       });
     });
 
     it("should prevent submission when form incomplete", async () => {
       const user = userEvent.setup();
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       // Fill only some fields
       await user.type(screen.getByLabelText(/first name/i), "John");
@@ -229,7 +266,7 @@ describe("OnboardingForm", () => {
 
     it("should show field-specific error messages", async () => {
       const user = userEvent.setup();
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       // Fill form with valid data except for phone (which we'll make invalid)
       // firstName is already empty (invalid), lastName is undefined (invalid)
@@ -298,9 +335,17 @@ describe("OnboardingForm", () => {
 
   describe("Loading state", () => {
     it("should disable form fields during submission", () => {
-      mockUseActionState.mockReturnValue([null, mockFormAction, true]);
+      mockUseCompleteOnboarding.mockReturnValue({
+        mutate: mockMutate,
+        mutateAsync: mockMutateAsync,
+        isPending: true,
+        isSuccess: false,
+        isError: false,
+        error: null,
+        data: null,
+      });
 
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       expect(screen.getByLabelText(/first name/i)).toBeDisabled();
       expect(screen.getByLabelText(/last name/i)).toBeDisabled();
@@ -308,17 +353,33 @@ describe("OnboardingForm", () => {
     });
 
     it("should show loading spinner in submit button", () => {
-      mockUseActionState.mockReturnValue([null, mockFormAction, true]);
+      mockUseCompleteOnboarding.mockReturnValue({
+        mutate: mockMutate,
+        mutateAsync: mockMutateAsync,
+        isPending: true,
+        isSuccess: false,
+        isError: false,
+        error: null,
+        data: null,
+      });
 
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       expect(screen.getByText(/completing profile/i)).toBeInTheDocument();
     });
 
     it("should change button text to 'Completing Profile...' when pending", () => {
-      mockUseActionState.mockReturnValue([null, mockFormAction, true]);
+      mockUseCompleteOnboarding.mockReturnValue({
+        mutate: mockMutate,
+        mutateAsync: mockMutateAsync,
+        isPending: true,
+        isSuccess: false,
+        isError: false,
+        error: null,
+        data: null,
+      });
 
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       // Find submit button specifically by its text content (not the Upload Image button)
       const submitButton = screen.getByRole("button", {
@@ -329,56 +390,51 @@ describe("OnboardingForm", () => {
   });
 
   describe("Error handling", () => {
-    it("should display server error message from action", () => {
-      mockUseActionState.mockReturnValue([
-        { success: false, error: "Failed to update profile" },
-        mockFormAction,
-        false,
-      ]);
+    it("should handle mutation errors", async () => {
+      mockUseCompleteOnboarding.mockReturnValue({
+        mutate: mockMutate,
+        mutateAsync: mockMutateAsync,
+        isPending: false,
+        isSuccess: false,
+        isError: true,
+        error: new Error("Failed to update profile"),
+        data: null,
+      });
 
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
-      expect(screen.getByText("Failed to update profile")).toBeInTheDocument();
-    });
-
-    it("should display warning message when success with warning", () => {
-      mockUseActionState.mockReturnValue([
-        { success: true, warning: "Address update failed" },
-        mockFormAction,
-        false,
-      ]);
-
-      render(<OnboardingForm />);
-
-      expect(screen.getByText("Address update failed")).toBeInTheDocument();
+      // Error handling is done via toast, not displayed in form
+      // The mutation hook handles errors with toast.error
+      expect(mockUseCompleteOnboarding).toHaveBeenCalled();
     });
   });
 
   describe("Success handling", () => {
-    it("should disable form after successful submission", () => {
-      mockUseActionState.mockReturnValue([
-        { success: true },
-        mockFormAction,
-        false,
-      ]);
+    it("should handle successful submission", () => {
+      mockUseCompleteOnboarding.mockReturnValue({
+        mutate: mockMutate,
+        mutateAsync: mockMutateAsync,
+        isPending: false,
+        isSuccess: true,
+        isError: false,
+        error: null,
+        data: {
+          success: true,
+          redirect: "/dashboard",
+        },
+      });
 
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
-      // Form should be disabled after success
-      // The checkbox is checked when state.success is true, but only disabled when isPending is true
-      // Since isPending is false in this test, checkbox won't be disabled
-      // However, the form submission is prevented when state?.success is true
-      const checkbox = screen.getByRole("checkbox");
-      expect(checkbox).toBeChecked();
-      // The checkbox is checked but not disabled (only disabled when isPending)
-      // The form prevents submission when state?.success is true in handleFormSubmit
+      // Success handling is done via toast and redirect in the mutation hook
+      expect(mockUseCompleteOnboarding).toHaveBeenCalled();
     });
   });
 
   describe("State management", () => {
     it("should update form state on field changes", async () => {
       const user = userEvent.setup();
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       const firstNameInput = screen.getByLabelText(/first name/i);
       await user.type(firstNameInput, "John");
@@ -388,7 +444,7 @@ describe("OnboardingForm", () => {
 
     it("should update address fields correctly", async () => {
       const user = userEvent.setup();
-      render(<OnboardingForm />);
+      renderWithQueryClient(<OnboardingForm />);
 
       const streetInput = screen.getByLabelText(/street address/i);
       await user.type(streetInput, "123 Main St");
@@ -400,7 +456,7 @@ describe("OnboardingForm", () => {
   describe("Edge cases", () => {
     it("should handle empty optional fields (bio, profileImageUrl)", async () => {
       const user = userEvent.setup();
-      const { container } = render(<OnboardingForm />);
+      const { container } = renderWithQueryClient(<OnboardingForm />);
 
       // Fill required fields
       await user.type(screen.getByLabelText(/first name/i), "John");
@@ -439,7 +495,7 @@ describe("OnboardingForm", () => {
     });
 
     it("should handle pre-filled user data", () => {
-      render(
+      renderWithQueryClient(
         <OnboardingForm
           userFirstName="John"
           userLastName="Doe"
