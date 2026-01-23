@@ -58,15 +58,36 @@ export async function POST(
 
     const validatedData = parseResult.data;
 
+    // Get current user ID for authorization
+    const { getCurrentUserId } = await import("@/features/auth/utils/session");
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
     // Fetch rental request details
     const { data: rentalRequest, error: fetchError } = await tryCatch(
-      rentalDAL.getRentalRequestById(rentalId),
+      rentalDAL.getRentalRequestById(rentalId, currentUserId),
     );
 
     if (fetchError || !rentalRequest) {
       return NextResponse.json(
         { error: fetchError?.message || "Rental request not found" },
         { status: 404 },
+      );
+    }
+
+    // Authorization check: only owner can approve
+    if (rentalRequest.ownerId !== currentUserId) {
+      return NextResponse.json(
+        {
+          error:
+            "Forbidden: Only the listing owner can approve rental requests",
+        },
+        { status: 403 },
       );
     }
 
@@ -307,7 +328,7 @@ export async function POST(
 
     // Now approve the rental request with payment IDs
     const { error: approvalError } = await tryCatch(
-      rentalDAL.approveRentalRequest(rentalId, {
+      rentalDAL.approveRentalRequest(rentalId, currentUserId, {
         pickupInstructions: validatedData.pickupInstructions,
         returnInstructions: validatedData.returnInstructions,
         rentalPaymentIntentId: rentalPaymentIntent.id,

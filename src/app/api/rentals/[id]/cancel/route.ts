@@ -31,13 +31,21 @@ export async function POST(
 
     // Fetch rental request details before canceling (for notification)
     const { data: rentalRequest, error: fetchError } = await tryCatch(
-      rentalDAL.getRentalRequestById(rentalId),
+      rentalDAL.getRentalRequestById(rentalId, currentUserId),
     );
 
     if (fetchError || !rentalRequest) {
       return NextResponse.json(
         { error: fetchError?.message || "Rental request not found" },
         { status: 404 },
+      );
+    }
+
+    // Authorization check: only renter can cancel
+    if (rentalRequest.renterId !== currentUserId) {
+      return NextResponse.json(
+        { error: "Forbidden: Only the renter can cancel rental requests" },
+        { status: 403 },
       );
     }
 

@@ -22,7 +22,7 @@ export async function RentalDetailsServer({
   }
   const { userId } = auth;
 
-  const rentalDetails = await rentalDAL.getRentalDetailsById(rentalId);
+  const rentalDetails = await rentalDAL.getRentalDetailsById(rentalId, userId);
 
   if (!rentalDetails) {
     notFound();

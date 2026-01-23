@@ -24,7 +24,7 @@ export default async function RentListingPage({
   // Fetch listing details, booked dates, and legal documents in parallel
   const [listing, bookedDates, documentVersions] = await Promise.all([
     listingDAL.getListingById(id, currentUser.id),
-    rentalDAL.getBookedDatesForListing(id),
+    rentalDAL.getBookedDatesForListing(id, currentUser.id),
     legalDocumentDAL.getAllCurrentVersions(),
   ]);
 

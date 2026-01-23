@@ -7,7 +7,7 @@ import {
   createRentalRequestSchema,
   type CreateRentalRequestFormData,
 } from "../lib/form-schema";
-import { rentalDAL, userDAL } from "../../../dal";
+import { rentalDAL, userDAL, listingDAL } from "../../../dal";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { getCurrentUserId } from "@/features/auth/utils/session";
@@ -37,6 +37,20 @@ export async function createRentalRequest(
   }
   const userId: string = userIdResult;
 
+  // Verify ownership - prevent users from renting their own listings
+  const listing = await listingDAL.getListingById(validatedData.listingId);
+  if (!listing) {
+    return {
+      error: "Listing not found",
+    };
+  }
+
+  if (listing.owner.id === userId) {
+    return {
+      error: "Cannot rent your own listing",
+    };
+  }
+
   // Get IP address and user agent from headers (needed for legal acceptance recording)
   const headersList = await headers();
   const ipAddress =
@@ -48,7 +62,7 @@ export async function createRentalRequest(
 
   // Create the rental request first
   const { data: rentalRequest, error } = await tryCatch(
-    rentalDAL.createRentalRequest(validatedData),
+    rentalDAL.createRentalRequest(validatedData, userId),
   );
 
   if (error) {
@@ -147,7 +161,7 @@ export async function createRentalRequest(
   // Send notification to owner (don't block on notification failure)
   try {
     const { data: fullRequest } = await tryCatch(
-      rentalDAL.getRentalRequestById(rentalRequest.id),
+      rentalDAL.getRentalRequestById(rentalRequest.id, userId),
     );
 
     if (fullRequest) {

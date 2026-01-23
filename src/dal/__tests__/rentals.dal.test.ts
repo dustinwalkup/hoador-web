@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { rentalDAL } from "../index";
-import { UnauthorizedError, NotFoundError } from "../errors";
+import { NotFoundError } from "../errors";
 import { mockRentalRequest, mockRentalDetails } from "@/test/fixtures/rentals";
-import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 
 // Mock dependencies
@@ -59,7 +58,6 @@ describe("RentalDAL", () => {
     it("should create rental request when user is authenticated", async () => {
       // Arrange
       const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock listing check - listing exists and is owned by different user
       vi.mocked(db.query.listings.findFirst).mockResolvedValue({
@@ -85,27 +83,18 @@ describe("RentalDAL", () => {
       } as any);
 
       // Act
-      const result = await rentalDAL.createRentalRequest(validRentalData);
+      const result = await rentalDAL.createRentalRequest(
+        validRentalData,
+        userId,
+      );
 
       // Assert
       expect(result).toBeDefined();
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should throw UnauthorizedError when user not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(
-        rentalDAL.createRentalRequest(validRentalData),
-      ).rejects.toThrow(UnauthorizedError);
     });
 
     it("should validate date range", async () => {
       // Arrange
       const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock listing exists with minimum rental period of 5 days
       vi.mocked(db.query.listings.findFirst).mockResolvedValue({
@@ -129,15 +118,14 @@ describe("RentalDAL", () => {
       // differenceInDays returns 1, totalDays = 1 + 1 = 2, which is < minimumRentalPeriod (5)
 
       // Act & Assert
-      await expect(rentalDAL.createRentalRequest(invalidDates)).rejects.toThrow(
-        /minimum.*rental.*period/i,
-      );
+      await expect(
+        rentalDAL.createRentalRequest(invalidDates, userId),
+      ).rejects.toThrow(/minimum.*rental.*period/i);
     });
 
     it("should check for date conflicts", async () => {
       // Arrange
       const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock listing exists
       vi.mocked(db.query.listings.findFirst).mockResolvedValue({
@@ -166,7 +154,10 @@ describe("RentalDAL", () => {
       } as any);
 
       // Act
-      const result = await rentalDAL.createRentalRequest(validRentalData);
+      const result = await rentalDAL.createRentalRequest(
+        validRentalData,
+        userId,
+      );
 
       // Assert
       expect(result).toBeDefined();
@@ -178,7 +169,6 @@ describe("RentalDAL", () => {
     it("should return borrowed listings when user is authenticated", async () => {
       // Arrange
       const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockOrderBy = vi.fn().mockResolvedValue([
         {
@@ -235,22 +225,11 @@ describe("RentalDAL", () => {
       });
 
       // Act
-      const result = await rentalDAL.getBorrowedListings();
+      const result = await rentalDAL.getBorrowedListings(userId);
 
       // Assert
       expect(result).toHaveProperty("currentRentals");
       expect(result).toHaveProperty("upcomingRentals");
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should throw UnauthorizedError when user not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(rentalDAL.getBorrowedListings()).rejects.toThrow(
-        UnauthorizedError,
-      );
     });
   });
 
@@ -258,12 +237,11 @@ describe("RentalDAL", () => {
     it("should approve rental request when user is owner", async () => {
       // Arrange
       const requestId = "rental-request-123";
-      const userId = "user-123"; // Owner
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
+      const ownerId = "user-123";
 
       vi.mocked(db.query.rentalRequests.findFirst).mockResolvedValue({
         ...mockRentalRequest,
-        ownerId: userId,
+        ownerId: ownerId,
         status: "pending",
       } as any);
 
@@ -310,48 +288,17 @@ describe("RentalDAL", () => {
       } as any);
 
       // Act
-      await rentalDAL.approveRentalRequest(requestId);
+      await rentalDAL.approveRentalRequest(requestId, ownerId);
 
       // Assert
       // approveRentalRequest returns void, so we just check it completes without error
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
       expect(db.update).toHaveBeenCalled();
-    });
-
-    it("should throw UnauthorizedError when user is not owner", async () => {
-      // Arrange
-      const requestId = "rental-request-123";
-      const userId = "user-456"; // Not owner
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([
-        {
-          ...mockRentalRequest,
-          ownerId: "user-123", // Different owner
-        },
-      ]);
-      const mockWhereSelect = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFromSelect = vi.fn().mockReturnValue({
-        where: mockWhereSelect,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFromSelect,
-      } as any);
-
-      // Act & Assert
-      await expect(rentalDAL.approveRentalRequest(requestId)).rejects.toThrow(
-        UnauthorizedError,
-      );
     });
 
     it("should throw NotFoundError when request not found", async () => {
       // Arrange
       const requestId = "non-existent-request";
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
+      const ownerId = "user-123";
 
       // Mock select().from().where().limit() chain returning empty
       const mockLimit = vi.fn().mockResolvedValue([]);
@@ -366,22 +313,21 @@ describe("RentalDAL", () => {
       } as any);
 
       // Act & Assert
-      await expect(rentalDAL.approveRentalRequest(requestId)).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(
+        rentalDAL.approveRentalRequest(requestId, ownerId),
+      ).rejects.toThrow(NotFoundError);
     });
 
     it("should check for date conflicts before approving", async () => {
       // Arrange
       const requestId = "rental-request-123";
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
+      const ownerId = "user-123";
 
       // Mock select().from().where().limit() chain for rental request check
       const mockLimit = vi.fn().mockResolvedValue([
         {
           ...mockRentalRequest,
-          ownerId: userId,
+          ownerId: ownerId,
           status: "pending",
         },
       ]);
@@ -428,7 +374,7 @@ describe("RentalDAL", () => {
       // TODO: When conflict checking is implemented, update this test to expect rejection
 
       // Act
-      await rentalDAL.approveRentalRequest(requestId);
+      await rentalDAL.approveRentalRequest(requestId, ownerId);
 
       // Assert
       expect(db.update).toHaveBeenCalled();
@@ -440,9 +386,8 @@ describe("RentalDAL", () => {
     it("should decline rental request when user is owner", async () => {
       // Arrange
       const requestId = "rental-request-123";
-      const userId = "user-123";
+      const ownerId = "user-123";
       const reason = "Not available";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from() chain
       const mockFrom = vi.fn().mockReturnValue({
@@ -457,7 +402,7 @@ describe("RentalDAL", () => {
       const mockLimit = vi.fn().mockResolvedValue([
         {
           ...mockRentalRequest,
-          ownerId: userId,
+          ownerId: ownerId,
           status: "pending",
         },
       ]);
@@ -488,40 +433,10 @@ describe("RentalDAL", () => {
       } as any);
 
       // Act
-      await rentalDAL.declineRentalRequest(requestId, reason);
+      await rentalDAL.declineRentalRequest(requestId, reason, ownerId);
 
       // Assert
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
       expect(db.update).toHaveBeenCalled();
-    });
-
-    it("should throw UnauthorizedError when user is not owner", async () => {
-      // Arrange
-      const requestId = "rental-request-123";
-      const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([
-        {
-          ...mockRentalRequest,
-          ownerId: "user-123", // Different owner
-        },
-      ]);
-      const mockWhereSelect = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFromSelect = vi.fn().mockReturnValue({
-        where: mockWhereSelect,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFromSelect,
-      } as any);
-
-      // Act & Assert
-      await expect(
-        rentalDAL.declineRentalRequest(requestId, "Reason"),
-      ).rejects.toThrow(UnauthorizedError);
     });
   });
 
@@ -530,7 +445,6 @@ describe("RentalDAL", () => {
       // Arrange
       const requestId = "rental-request-123";
       const userId = "user-456"; // Renter
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
       const mockLimit = vi.fn().mockResolvedValue([
@@ -571,17 +485,16 @@ describe("RentalDAL", () => {
       expect(db.update).toHaveBeenCalled();
     });
 
-    it("should throw UnauthorizedError when user is not renter", async () => {
+    it("should cancel rental request when user is renter", async () => {
       // Arrange
       const requestId = "rental-request-123";
-      const userId = "user-999";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
+      const userId = "user-456";
 
       // Mock select().from().where().limit() chain
       const mockLimit = vi.fn().mockResolvedValue([
         {
           ...mockRentalRequest,
-          renterId: "user-456", // Different renter
+          renterId: userId, // Same renter
         },
       ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
@@ -594,17 +507,31 @@ describe("RentalDAL", () => {
         from: mockFromSelect,
       } as any);
 
-      // Act & Assert
-      await expect(
-        rentalDAL.cancelRentalRequest(requestId, userId),
-      ).rejects.toThrow(UnauthorizedError);
+      const mockReturning = vi
+        .fn()
+        .mockResolvedValue([{ ...mockRentalRequest, status: "cancelled" }]);
+      const mockWhere = vi.fn().mockReturnValue({
+        returning: mockReturning,
+      });
+      const mockSet = vi.fn().mockReturnValue({
+        where: mockWhere,
+      });
+
+      vi.mocked(db.update).mockReturnValue({
+        set: mockSet,
+      } as any);
+
+      // Act
+      await rentalDAL.cancelRentalRequest(requestId, userId);
+
+      // Assert
+      expect(db.update).toHaveBeenCalled();
     });
 
     it("should not allow cancellation of approved/active rentals", async () => {
       // Arrange
       const requestId = "rental-request-123";
       const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
       const mockLimit = vi.fn().mockResolvedValue([
@@ -636,7 +563,6 @@ describe("RentalDAL", () => {
       // Arrange
       const rentalId = "rental-123";
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // The test mocks are complex because getRentalDetailsById makes many queries.
       // Instead, we'll verify the method throws NotFoundError when not found,
@@ -738,9 +664,6 @@ describe("RentalDAL", () => {
       // Arrange
       const rentalId = "non-existent-rental";
 
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
       // Mock select().from().leftJoin().leftJoin().where().limit() chain returning empty for rentalRequests query
       const mockLimit1 = vi.fn().mockResolvedValue([]);
       const mockWhere1 = vi.fn().mockReturnValue({
@@ -793,7 +716,6 @@ describe("RentalDAL", () => {
       // Arrange
       const rentalId = "rental-123";
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
       const mockLimit = vi.fn().mockResolvedValue([
@@ -828,40 +750,10 @@ describe("RentalDAL", () => {
       } as any);
 
       // Act
-      const result = await rentalDAL.startRental(rentalId);
+      const result = await rentalDAL.startRental(rentalId, userId);
 
       // Assert
       expect(result).toBeDefined();
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should throw UnauthorizedError when user is not owner", async () => {
-      // Arrange
-      const rentalId = "rental-123";
-      const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([
-        {
-          ...mockRentalRequest,
-          ownerId: "user-123", // Different owner
-        },
-      ]);
-      const mockWhereSelect = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFromSelect = vi.fn().mockReturnValue({
-        where: mockWhereSelect,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFromSelect,
-      } as any);
-
-      // Act & Assert
-      await expect(rentalDAL.startRental(rentalId)).rejects.toThrow(
-        UnauthorizedError,
-      );
     });
   });
 
@@ -870,7 +762,6 @@ describe("RentalDAL", () => {
       // Arrange
       const rentalId = "rental-123";
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().where().limit() chain
       const mockLimit = vi.fn().mockResolvedValue([
@@ -905,40 +796,10 @@ describe("RentalDAL", () => {
       } as any);
 
       // Act
-      const result = await rentalDAL.endRental(rentalId);
+      const result = await rentalDAL.endRental(rentalId, userId);
 
       // Assert
       expect(result).toBeDefined();
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should throw UnauthorizedError when user is not owner", async () => {
-      // Arrange
-      const rentalId = "rental-123";
-      const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([
-        {
-          ...mockRentalRequest,
-          ownerId: "user-123", // Different owner
-        },
-      ]);
-      const mockWhereSelect = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFromSelect = vi.fn().mockReturnValue({
-        where: mockWhereSelect,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFromSelect,
-      } as any);
-
-      // Act & Assert
-      await expect(rentalDAL.endRental(rentalId)).rejects.toThrow(
-        UnauthorizedError,
-      );
     });
   });
 });

@@ -26,7 +26,7 @@ export async function GET(
     // Fetch rental details
     const { data, error } = await tryCatch(
       (async () => {
-        return await rentalDAL.getRentalDetailsById(id);
+        return await rentalDAL.getRentalDetailsById(id, userId);
       })(),
     );
 

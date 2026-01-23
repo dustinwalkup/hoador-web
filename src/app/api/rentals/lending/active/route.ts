@@ -12,9 +12,19 @@ export async function GET() {
     const authError = await requireAuthResponse();
     if (authError) return authError;
 
+    // Get current user ID
+    const { getCurrentUserId } = await import("@/features/auth/utils/session");
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return Response.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
     const { data, error } = await tryCatch(
       (async () => {
-        return await rentalDAL.getLendingRentalsByStatus("active");
+        return await rentalDAL.getLendingRentalsByStatus("active", userId);
       })(),
     );
 

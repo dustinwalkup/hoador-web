@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
-import { rentalDAL, userDAL } from "@/dal";
+import { rentalDAL, userDAL, listingDAL } from "@/dal";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import {
   handleApiError,
@@ -63,13 +63,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify ownership - prevent users from renting their own listings
+    const listing = await listingDAL.getListingById(validatedData.listingId);
+    if (!listing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    if (listing.owner.id === currentUserId) {
+      return NextResponse.json(
+        { error: "Cannot rent your own listing" },
+        { status: 403 },
+      );
+    }
+
     // Get IP address and user agent for legal acceptance recording
     const ipAddress = getClientIP(request);
     const userAgent = getUserAgent(request);
 
     // Create the rental request
     const { data: rentalRequest, error } = await tryCatch(
-      rentalDAL.createRentalRequest(validatedData),
+      rentalDAL.createRentalRequest(validatedData, currentUserId),
     );
 
     if (error) {
@@ -182,7 +195,7 @@ export async function POST(request: NextRequest) {
     // Send notification to owner (don't block on notification failure)
     try {
       const { data: fullRequest } = await tryCatch(
-        rentalDAL.getRentalRequestById(rentalRequest.id),
+        rentalDAL.getRentalRequestById(rentalRequest.id, currentUserId),
       );
 
       if (fullRequest) {

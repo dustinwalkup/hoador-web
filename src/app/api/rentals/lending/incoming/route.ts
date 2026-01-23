@@ -9,6 +9,16 @@ export async function GET(request: NextRequest) {
     const authError = await requireAuthResponse();
     if (authError) return authError;
 
+    // Get current user ID
+    const { getCurrentUserId } = await import("@/features/auth/utils/session");
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return Response.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const status =
       (searchParams.get("status") as
@@ -21,9 +31,9 @@ export async function GET(request: NextRequest) {
     const { data, error } = await tryCatch(
       (async () => {
         if (status === "active" || status === "completed") {
-          return await rentalDAL.getLendingRentalsByStatus(status);
+          return await rentalDAL.getLendingRentalsByStatus(status, userId);
         }
-        return await rentalDAL.getLendingRequestsByStatus(status);
+        return await rentalDAL.getLendingRequestsByStatus(status, userId);
       })(),
     );
 

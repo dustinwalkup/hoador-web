@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRentalRequest } from "../create-rental-request";
-import { rentalDAL, userDAL, notificationsDAL } from "@/dal";
+import { rentalDAL, userDAL, notificationsDAL, listingDAL } from "@/dal";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { headers } from "next/headers";
@@ -19,6 +19,9 @@ vi.mock("@/dal", () => ({
   },
   notificationsDAL: {
     create: vi.fn(),
+  },
+  listingDAL: {
+    getListingById: vi.fn(),
   },
 }));
 
@@ -96,6 +99,14 @@ describe("createRentalRequest", () => {
     vi.mocked(headers).mockResolvedValue({
       get: vi.fn().mockReturnValue(null),
     } as any);
+
+    // Mock listing check - listing exists and is owned by different user
+    const ownerId = "user-123";
+    vi.mocked(listingDAL.getListingById).mockResolvedValue({
+      id: formData.listingId,
+      owner: { id: ownerId }, // Different from userId
+    } as any);
+
     // DAL method returns { id: string }, not the full object
     vi.mocked(rentalDAL.createRentalRequest).mockResolvedValue({
       id: mockRentalRequest.id,
@@ -110,7 +121,6 @@ describe("createRentalRequest", () => {
 
     // Mock recordAcceptance to not throw
     vi.mocked(legalDocumentDAL.recordAcceptance).mockResolvedValue(undefined);
-    const ownerId = "user-123";
     vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue({
       ...mockRentalRequest,
       ownerId,
@@ -214,6 +224,14 @@ describe("createRentalRequest", () => {
     vi.mocked(headers).mockResolvedValue({
       get: vi.fn().mockReturnValue(null),
     } as any);
+
+    // Mock listing check - listing exists and is owned by different user
+    const ownerId = "user-123";
+    vi.mocked(listingDAL.getListingById).mockResolvedValue({
+      id: formData.listingId,
+      owner: { id: ownerId }, // Different from userId
+    } as any);
+
     const error = new Error("Date conflict");
     // Mock DAL to throw error
     vi.mocked(rentalDAL.createRentalRequest).mockRejectedValue(error);

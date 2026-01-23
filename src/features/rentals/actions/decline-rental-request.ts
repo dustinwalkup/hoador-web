@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { rentalDAL, userDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 import { sendRentalDeniedNotification } from "../notifications/rental-denied";
 
 const declineRequestSchema = z.object({
@@ -26,9 +27,18 @@ export async function declineRentalRequest(
 
   const validatedData = parseResult.data;
 
+  // Get current user ID for authorization
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return {
+      success: false,
+      error: "Authentication required",
+    };
+  }
+
   // Fetch rental request details before declining (for notification)
   const { data: rentalRequest, error: fetchError } = await tryCatch(
-    rentalDAL.getRentalRequestById(validatedData.requestId),
+    rentalDAL.getRentalRequestById(validatedData.requestId, userId),
   );
 
   if (fetchError || !rentalRequest) {
@@ -38,10 +48,19 @@ export async function declineRentalRequest(
     };
   }
 
+  // Authorization check: only owner can decline
+  if (rentalRequest.ownerId !== userId) {
+    return {
+      success: false,
+      error: "Forbidden: Only the listing owner can decline rental requests",
+    };
+  }
+
   const { error } = await tryCatch(
     rentalDAL.declineRentalRequest(
       validatedData.requestId,
       validatedData.denialReason,
+      userId,
     ),
   );
 
