@@ -3,6 +3,7 @@ import {
   getCurrentUserId,
   requireAuth,
   getCurrentUser,
+  getAuthenticatedUser,
 } from "@/features/auth/utils/session";
 import { requireAdmin } from "@/features/auth/utils/guards";
 import { getClientIP, getUserAgent } from "@/lib/utils/request-context";
@@ -216,3 +217,25 @@ export { requireAuth };
  * Throws error if not admin (use requireAdminResponse for API routes)
  */
 export { requireAdmin };
+
+/**
+ * Get authenticated user with admin check for API routes
+ * Returns NextResponse with 401 if not authenticated, otherwise returns user data
+ */
+export async function getAuthenticatedUserResponse(): Promise<
+  | NextResponse<{ error: string }>
+  | {
+      user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+      userId: string;
+      isAdmin: boolean;
+    }
+> {
+  const result = await getAuthenticatedUser();
+  if (!result) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 },
+    );
+  }
+  return result;
+}

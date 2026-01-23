@@ -406,7 +406,7 @@ describe("ListingDetailView", () => {
     it("should display Rent Tool button for non-owner", () => {
       render(<ListingDetailView listing={mockListing} isOwner={false} />);
 
-      const rentButton = screen.getByRole("link", { name: /rent tool/i });
+      const rentButton = screen.getByRole("link", { name: /rent item/i });
       expect(rentButton).toBeInTheDocument();
       expect(rentButton).toHaveAttribute("href", "/listings/listing-123/rent");
     });
@@ -608,7 +608,7 @@ describe("ListingDetailView", () => {
       );
 
       expect(
-        screen.getByRole("link", { name: /rent tool/i }),
+        screen.getByRole("link", { name: /rent item/i }),
       ).toBeInTheDocument();
 
       rerender(<ListingDetailView listing={mockListing} isOwner={true} />);

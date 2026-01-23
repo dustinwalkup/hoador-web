@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import { declineRentalRequest } from "@/features/rentals/actions";
+import { useDeclineRentalRequest } from "@/features/rentals/hooks/use-rental-mutations";
 
 interface DeclineRequestDialogProps {
   open: boolean;
@@ -36,7 +36,8 @@ export function DeclineRequestDialog({
   onSuccess,
 }: DeclineRequestDialogProps) {
   const [reason, setReason] = useState("");
-  const [isPending, startTransition] = useTransition();
+
+  const declineMutation = useDeclineRentalRequest();
 
   const handleDecline = async () => {
     if (!reason.trim()) {
@@ -44,36 +45,19 @@ export function DeclineRequestDialog({
       return;
     }
 
-    // Show optimistic toast immediately
-    toast.success("Request declined successfully!", {
-      description: "The renter has been notified.",
-    });
+    try {
+      await declineMutation.mutateAsync({
+        rentalId: requestId,
+        denialReason: reason,
+      });
 
-    startTransition(async () => {
-      try {
-        const result = await declineRentalRequest({
-          requestId,
-          denialReason: reason,
-        });
-
-        if (result.success) {
-          // Close dialog and trigger success callback
-          onOpenChange(false);
-          setReason("");
-          onSuccess?.();
-        } else {
-          // Show error toast if the action fails
-          toast.error("Failed to decline request", {
-            description: result.error || "Please try again.",
-          });
-        }
-      } catch {
-        // Show error toast if the action fails
-        toast.error("Failed to decline request", {
-          description: "Please try again.",
-        });
-      }
-    });
+      // Close dialog and trigger success callback
+      onOpenChange(false);
+      setReason("");
+      onSuccess?.();
+    } catch {
+      // Error toast is already shown by the mutation hook
+    }
   };
 
   return (
@@ -107,17 +91,17 @@ export function DeclineRequestDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isPending}
+            disabled={declineMutation.isPending}
           >
             Cancel
           </Button>
           <Button
             type="button"
             onClick={handleDecline}
-            disabled={isPending || !reason.trim()}
+            disabled={declineMutation.isPending || !reason.trim()}
             className="bg-red-600 hover:bg-red-700"
           >
-            {isPending ? (
+            {declineMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Declining...

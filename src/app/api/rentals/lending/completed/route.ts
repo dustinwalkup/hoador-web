@@ -1,20 +1,25 @@
 import { rentalDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
+import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
 
 export async function GET() {
-  const { data, error } = await tryCatch(
-    (async () => {
-      return await rentalDAL.getLendingRentalsByStatus("completed");
-    })(),
-  );
+  try {
+    // Check authentication
+    const authError = await requireAuthResponse();
+    if (authError) return authError;
 
-  if (error) {
-    console.error("Error fetching completed lending:", error);
-    return Response.json(
-      { error: error.message || "Failed to fetch completed lending" },
-      { status: 500 },
+    const { data, error } = await tryCatch(
+      (async () => {
+        return await rentalDAL.getLendingRentalsByStatus("completed");
+      })(),
     );
-  }
 
-  return Response.json({ data, status: "success" });
+    if (error) {
+      return handleApiError(error);
+    }
+
+    return Response.json({ data, status: "success" });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }

@@ -5,8 +5,15 @@ import {
   getCurrentUserId,
   requireVerifiedUser,
   getSession,
+  getAuthenticatedUser,
+  requireAuthenticatedUser,
 } from "../session";
-import { mockVerifiedUser, mockUnverifiedUser } from "@/test/fixtures/auth";
+import {
+  mockVerifiedUser,
+  mockUnverifiedUser,
+  mockAdminUser,
+  mockSuperAdminUser,
+} from "@/test/fixtures/auth";
 
 // Mock dependencies
 vi.mock("@/services/better-auth", () => ({
@@ -305,6 +312,164 @@ describe("session.ts", () => {
       expect(result).toBeNull();
       expect(consoleErrorSpy).toHaveBeenCalled();
       consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe("getAuthenticatedUser", () => {
+    it("should return user data with isAdmin false for standard user", async () => {
+      // Arrange
+      const mockHeaders = new Headers();
+      vi.mocked(headers).mockResolvedValue(mockHeaders);
+      vi.mocked(auth.api.getSession).mockResolvedValue({
+        user: {
+          id: "user-123",
+          email: "test@example.com",
+        },
+      } as any);
+      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
+        mockVerifiedUser,
+      );
+
+      // Act
+      const result = await getAuthenticatedUser();
+
+      // Assert
+      expect(result).not.toBeNull();
+      expect(result?.user).toEqual(mockVerifiedUser);
+      expect(result?.userId).toBe("verified-user-123");
+      expect(result?.isAdmin).toBe(false);
+    });
+
+    it("should return user data with isAdmin true for admin user", async () => {
+      // Arrange
+      const mockHeaders = new Headers();
+      vi.mocked(headers).mockResolvedValue(mockHeaders);
+      vi.mocked(auth.api.getSession).mockResolvedValue({
+        user: {
+          id: "admin-123",
+          email: "admin@example.com",
+        },
+      } as any);
+      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(mockAdminUser);
+
+      // Act
+      const result = await getAuthenticatedUser();
+
+      // Assert
+      expect(result).not.toBeNull();
+      expect(result?.user).toEqual(mockAdminUser);
+      expect(result?.userId).toBe("admin-user-123");
+      expect(result?.isAdmin).toBe(true);
+    });
+
+    it("should return user data with isAdmin true for superadmin user", async () => {
+      // Arrange
+      const mockHeaders = new Headers();
+      vi.mocked(headers).mockResolvedValue(mockHeaders);
+      vi.mocked(auth.api.getSession).mockResolvedValue({
+        user: {
+          id: "superadmin-123",
+          email: "superadmin@example.com",
+        },
+      } as any);
+      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
+        mockSuperAdminUser,
+      );
+
+      // Act
+      const result = await getAuthenticatedUser();
+
+      // Assert
+      expect(result).not.toBeNull();
+      expect(result?.user).toEqual(mockSuperAdminUser);
+      expect(result?.userId).toBe("superadmin-user-123");
+      expect(result?.isAdmin).toBe(true);
+    });
+
+    it("should return null when user is not authenticated", async () => {
+      // Arrange
+      const mockHeaders = new Headers();
+      vi.mocked(headers).mockResolvedValue(mockHeaders);
+      vi.mocked(auth.api.getSession).mockResolvedValue(null);
+
+      // Act
+      const result = await getAuthenticatedUser();
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it("should return null when session.user does not exist", async () => {
+      // Arrange
+      const mockHeaders = new Headers();
+      vi.mocked(headers).mockResolvedValue(mockHeaders);
+      vi.mocked(auth.api.getSession).mockResolvedValue({
+        user: null,
+      } as any);
+
+      // Act
+      const result = await getAuthenticatedUser();
+
+      // Assert
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("requireAuthenticatedUser", () => {
+    it("should return user data when authenticated", async () => {
+      // Arrange
+      const mockHeaders = new Headers();
+      vi.mocked(headers).mockResolvedValue(mockHeaders);
+      vi.mocked(auth.api.getSession).mockResolvedValue({
+        user: {
+          id: "user-123",
+          email: "test@example.com",
+        },
+      } as any);
+      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
+        mockVerifiedUser,
+      );
+
+      // Act
+      const result = await requireAuthenticatedUser();
+
+      // Assert
+      expect(result.user).toEqual(mockVerifiedUser);
+      expect(result.userId).toBe("verified-user-123");
+      expect(result.isAdmin).toBe(false);
+    });
+
+    it("should return admin data when user is admin", async () => {
+      // Arrange
+      const mockHeaders = new Headers();
+      vi.mocked(headers).mockResolvedValue(mockHeaders);
+      vi.mocked(auth.api.getSession).mockResolvedValue({
+        user: {
+          id: "admin-123",
+          email: "admin@example.com",
+        },
+      } as any);
+      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(mockAdminUser);
+
+      // Act
+      const result = await requireAuthenticatedUser();
+
+      // Assert
+      expect(result.user).toEqual(mockAdminUser);
+      expect(result.userId).toBe("admin-user-123");
+      expect(result.isAdmin).toBe(true);
+    });
+
+    it("should throw error when not authenticated", async () => {
+      // Arrange
+      const mockHeaders = new Headers();
+      vi.mocked(headers).mockResolvedValue(mockHeaders);
+      vi.mocked(auth.api.getSession).mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(requireAuthenticatedUser()).rejects.toThrow(
+        "Authentication required",
+      );
     });
   });
 });

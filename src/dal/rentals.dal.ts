@@ -15,7 +15,7 @@ import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BaseDAL } from "./base";
 import { UnauthorizedError, NotFoundError } from "./errors";
-import { reviewDAL } from "./index";
+import { ReviewDAL } from "./review.dal";
 
 export interface BorrowedListing {
   id: string;
@@ -1488,6 +1488,7 @@ export class RentalDAL extends BaseDAL {
 
         if (rentalRecord[0]) {
           // Get full review if it exists
+          const reviewDAL = new ReviewDAL();
           const { data: reviewResult } = await tryCatch(
             reviewDAL.getReviewByRentalId(rentalRecord[0].id),
           );
@@ -1738,6 +1739,7 @@ export class RentalDAL extends BaseDAL {
         : undefined;
 
       // Get full review if it exists
+      const reviewDAL = new ReviewDAL();
       let hasReview = false;
       let canLeaveReview = false;
       let reviewData = null;

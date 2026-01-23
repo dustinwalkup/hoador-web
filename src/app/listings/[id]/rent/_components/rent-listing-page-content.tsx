@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import type { CurrentDocumentVersion } from "@/dal/legal-document.dal";
 import { type ListingDetails, type UserProfile } from "@/dal/types";
 import { PaymentForm } from "@/features/payments/components/payment-form";
-import { createRentalRequest } from "@/features/rentals/actions/create-rental-request";
+import { useCreateRentalRequest } from "@/features/rentals/hooks/use-rental-mutations";
 import {
   rentalFormSchema,
   type RentalFormData,
@@ -48,6 +48,7 @@ export function RentListingPageContent({
 }: RentListingPageContentProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<BookingStep>("dates");
+  const createRentalMutation = useCreateRentalRequest();
 
   const form = useForm<RentalFormData>({
     resolver: zodResolver(rentalFormSchema),
@@ -224,40 +225,43 @@ export function RentListingPageContent({
         ? `${data.deliveryStreet}, ${data.deliveryCity}, ${data.deliveryState} ${data.deliveryZip}`
         : undefined;
 
-    const result = await createRentalRequest({
-      listingId: listing.id,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      deliveryRequested: data.deliveryMethod === "delivery",
-      deliveryAddress: fullAddress,
-      deliveryInstructions:
-        data.deliveryMethod === "delivery" && data.deliveryInstructions?.trim()
-          ? data.deliveryInstructions.trim()
-          : undefined,
-      setupRequested: data.setupRequested && data.deliveryMethod === "delivery",
-      setupFee:
-        data.setupRequested && data.deliveryMethod === "delivery"
-          ? listing.setupFee
-          : 0,
-      message: data.message || undefined,
-      paymentMethodId: data.paymentMethodId,
-      // Legal document acknowledgements
-      rentalAgreementAccepted: data.rentalAgreementAccepted,
-      safetyLiabilityPackageAccepted:
-        data.safetyLiabilityPackageAccepted || false,
-      paymentPayoutAccepted: data.paymentPayoutAccepted || false,
-    });
+    try {
+      const result = await createRentalMutation.mutateAsync({
+        listingId: listing.id,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        deliveryRequested: data.deliveryMethod === "delivery",
+        deliveryAddress: fullAddress,
+        deliveryInstructions:
+          data.deliveryMethod === "delivery" &&
+          data.deliveryInstructions?.trim()
+            ? data.deliveryInstructions.trim()
+            : undefined,
+        setupRequested:
+          data.setupRequested && data.deliveryMethod === "delivery",
+        setupFee:
+          data.setupRequested && data.deliveryMethod === "delivery"
+            ? listing.setupFee
+            : 0,
+        message: data.message || undefined,
+        paymentMethodId: data.paymentMethodId,
+        // Legal document acknowledgements
+        rentalAgreementAccepted: data.rentalAgreementAccepted,
+        cancellationRefundAcknowledged:
+          data.cancellationRefundAcknowledged || false,
+        safetyLiabilityPackageAccepted:
+          data.safetyLiabilityPackageAccepted || false,
+        paymentPayoutAccepted: data.paymentPayoutAccepted || false,
+      });
 
-    if (result.success) {
-      toast.success("Request Submitted!", {
-        description: `Your request has been sent to ${listing.owner.firstName}. Check your messages after approval to coordinate logistics.`,
-      });
+      // Success toast is handled by the mutation hook
       // Redirect to the confirmation page with the request ID
-      router.push(`/dashboard/rental/${result.requestId}?view=renting`);
-    } else {
-      toast.error("Rental Request Failed", {
-        description: result.error || "Please try again",
-      });
+      if (result.requestId) {
+        router.push(`/dashboard/rental/${result.requestId}?view=renting`);
+      }
+    } catch {
+      // Error toast is already shown by the mutation hook
+      // But we can add additional handling if needed
     }
   };
 
