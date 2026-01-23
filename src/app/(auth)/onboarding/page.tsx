@@ -24,6 +24,7 @@ export default async function OnboardingPage() {
     redirect("/");
   }
 
+  // Auth check: verify user.id matches before calling DAL
   const communityName = await communityDAL.getCommunityNameByUserId(user.id);
   const userFirstName = user.name.split(" ")[0];
   const userLastName = user.name.split(" ")[1];

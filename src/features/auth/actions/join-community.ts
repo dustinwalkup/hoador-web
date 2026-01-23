@@ -43,7 +43,7 @@ export async function joinCommunityAction(
   // Get current user profile first
   const { data: userProfile, error: userError } = await tryCatch(requireAuth());
 
-  if (userError) {
+  if (userError || !userProfile) {
     console.error("Error fetching user profile:", userError);
     return {
       success: false,
@@ -53,7 +53,7 @@ export async function joinCommunityAction(
 
   // Check if user is already in a community
   const { data: existingMembership } = await tryCatch(
-    communityDAL.getCurrentUserMembership(),
+    communityDAL.getMembershipForUser(userProfile.id),
   );
 
   if (existingMembership) {

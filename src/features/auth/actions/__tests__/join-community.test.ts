@@ -7,7 +7,7 @@ import { ValidationError, UnauthorizedError } from "@/dal/errors";
 // Mock dependencies
 vi.mock("@/dal", () => ({
   communityDAL: {
-    getCurrentUserMembership: vi.fn(),
+    getMembershipForUser: vi.fn(),
     validateJoinCodeForSignup: vi.fn(),
     joinCommunityForNewUser: vi.fn(),
   },
@@ -59,7 +59,7 @@ describe("joinCommunityAction", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({ data: mockCommunity, error: null }) // validateJoinCodeForSignup
       .mockResolvedValueOnce({ data: mockCommunityInfo, error: null }) // joinCommunityForNewUser
       .mockResolvedValueOnce({ data: undefined, error: null }); // updateUserStatus
@@ -94,7 +94,7 @@ describe("joinCommunityAction", () => {
     const formData = new FormData();
     formData.append("joinCode", mockJoinCode);
 
-    vi.mocked(tryCatch).mockResolvedValue({
+    vi.mocked(tryCatch).mockResolvedValueOnce({
       data: null,
       error: new Error("Authentication required"),
     } as any);
@@ -121,7 +121,7 @@ describe("joinCommunityAction", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: { id: "membership-123" }, error: null }); // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: { id: "membership-123" }, error: null }); // getMembershipForUser
 
     // Act
     const result = await joinCommunityAction(null, formData);
@@ -139,7 +139,7 @@ describe("joinCommunityAction", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({ data: null, error: null }); // validateJoinCodeForSignup returns null (invalid code)
 
     // Act
@@ -174,7 +174,7 @@ describe("joinCommunityAction", () => {
     // Join code should be trimmed, case-insensitive matching handled by DAL
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({ data: mockCommunity, error: null }) // validateJoinCodeForSignup
       .mockResolvedValueOnce({ data: mockCommunityInfo, error: null }) // joinCommunityForNewUser
       .mockResolvedValueOnce({ data: undefined, error: null }); // updateUserStatus
@@ -203,7 +203,7 @@ describe("joinCommunityAction", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({ data: mockCommunity, error: null }) // validateJoinCodeForSignup
       .mockResolvedValueOnce({
         data: null,
@@ -237,7 +237,7 @@ describe("joinCommunityAction", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({ data: mockCommunity, error: null }) // validateJoinCodeForSignup
       .mockResolvedValueOnce({
         data: null,

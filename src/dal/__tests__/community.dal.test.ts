@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { communityDAL } from "../index";
-import { NotFoundError, ValidationError, UnauthorizedError } from "../errors";
+import { NotFoundError, ValidationError,   } from "../errors";
 import {
   mockCommunity,
   mockCommunityWithStats,
@@ -8,7 +8,6 @@ import {
   mockUserCommunityInfo,
   mockJoinCode,
 } from "@/test/fixtures/community";
-import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 
 // Mock dependencies
@@ -986,105 +985,10 @@ describe("CommunityDAL", () => {
     });
   });
 
-  describe("getCurrentUserMembership", () => {
-    it("should return membership when authenticated user has one", async () => {
-      // Arrange
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      const mockLimit = vi.fn().mockResolvedValue([
-        {
-          membership: mockCommunityMembership,
-          community: mockCommunity,
-        },
-      ]);
-      const mockWhere = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockInnerJoin = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      const mockFrom = vi.fn().mockReturnValue({
-        innerJoin: mockInnerJoin,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFrom,
-      } as any);
-
-      // Act
-      const result = await communityDAL.getCurrentUserMembership();
-
-      // Assert
-      expect(result).toEqual(mockUserCommunityInfo);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should throw UnauthorizedError when not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(communityDAL.getCurrentUserMembership()).rejects.toThrow(
-        UnauthorizedError,
-      );
-    });
-
-    it("should return null when user has no membership", async () => {
-      // Arrange
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      const mockLimit = vi.fn().mockResolvedValue([]);
-      const mockWhere = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockInnerJoin = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      const mockFrom = vi.fn().mockReturnValue({
-        innerJoin: mockInnerJoin,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFrom,
-      } as any);
-
-      // Act
-      const result = await communityDAL.getCurrentUserMembership();
-
-      // Assert
-      expect(result).toBeNull();
-    });
-
-    it("should handle database errors", async () => {
-      // Arrange
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      const dbError = new Error("Database connection failed");
-      const mockLimit = vi.fn().mockRejectedValue(dbError);
-      const mockWhere = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockInnerJoin = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      const mockFrom = vi.fn().mockReturnValue({
-        innerJoin: mockInnerJoin,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFrom,
-      } as any);
-
-      // Act & Assert
-      await expect(communityDAL.getCurrentUserMembership()).rejects.toThrow();
-    });
-  });
-
   describe("joinCommunityByCode", () => {
     it("should join community with valid join code", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock getCommunityByJoinCode
       const mockLimit = vi.fn().mockResolvedValue([mockCommunity]);
@@ -1151,26 +1055,18 @@ describe("CommunityDAL", () => {
         } as any);
 
       // Act
-      const result = await communityDAL.joinCommunityByCode(mockJoinCode);
+      const result = await communityDAL.joinCommunityByCode(
+        mockJoinCode,
+        userId,
+      );
 
       // Assert
       expect(result).toEqual(mockUserCommunityInfo);
     });
 
-    it("should throw UnauthorizedError when not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(
-        communityDAL.joinCommunityByCode(mockJoinCode),
-      ).rejects.toThrow(UnauthorizedError);
-    });
-
     it("should throw NotFoundError for invalid join code", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockLimit = vi.fn().mockResolvedValue([]);
       const mockWhere = vi.fn().mockReturnValue({
@@ -1185,14 +1081,13 @@ describe("CommunityDAL", () => {
 
       // Act & Assert
       await expect(
-        communityDAL.joinCommunityByCode("INVALID123"),
+        communityDAL.joinCommunityByCode("INVALID123", userId),
       ).rejects.toThrow(NotFoundError);
     });
 
     it("should throw ValidationError when already member of community", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockLimit = vi.fn().mockResolvedValue([mockCommunity]);
       const mockWhere = vi.fn().mockReturnValue({
@@ -1229,14 +1124,13 @@ describe("CommunityDAL", () => {
 
       // Act & Assert
       await expect(
-        communityDAL.joinCommunityByCode(mockJoinCode),
+        communityDAL.joinCommunityByCode(mockJoinCode, userId),
       ).rejects.toThrow(ValidationError);
     });
 
     it("should handle database errors", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const dbError = new Error("Database connection failed");
       const mockLimit = vi.fn().mockRejectedValue(dbError);
@@ -1252,7 +1146,7 @@ describe("CommunityDAL", () => {
 
       // Act & Assert
       await expect(
-        communityDAL.joinCommunityByCode(mockJoinCode),
+        communityDAL.joinCommunityByCode(mockJoinCode, userId),
       ).rejects.toThrow();
     });
   });
@@ -1369,7 +1263,6 @@ describe("CommunityDAL", () => {
     it("should leave current community successfully", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock getMembershipForUser
       const mockLimit = vi.fn().mockResolvedValue([
@@ -1404,26 +1297,15 @@ describe("CommunityDAL", () => {
       } as any);
 
       // Act
-      await communityDAL.leaveCommunity();
+      await communityDAL.leaveCommunity(userId);
 
       // Assert
       expect(db.delete).toHaveBeenCalled();
     });
 
-    it("should throw UnauthorizedError when not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(communityDAL.leaveCommunity()).rejects.toThrow(
-        UnauthorizedError,
-      );
-    });
-
     it("should throw NotFoundError when not a member", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockLimit = vi.fn().mockResolvedValue([]);
       const mockWhere = vi.fn().mockReturnValue({
@@ -1440,7 +1322,7 @@ describe("CommunityDAL", () => {
       } as any);
 
       // Act & Assert
-      await expect(communityDAL.leaveCommunity()).rejects.toThrow(
+      await expect(communityDAL.leaveCommunity(userId)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -1448,7 +1330,6 @@ describe("CommunityDAL", () => {
     it("should handle database errors", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const dbError = new Error("Database connection failed");
       const mockLimit = vi.fn().mockRejectedValue(dbError);
@@ -1466,7 +1347,7 @@ describe("CommunityDAL", () => {
       } as any);
 
       // Act & Assert
-      await expect(communityDAL.leaveCommunity()).rejects.toThrow();
+      await expect(communityDAL.leaveCommunity(userId)).rejects.toThrow();
     });
   });
 
@@ -1548,97 +1429,6 @@ describe("CommunityDAL", () => {
     });
   });
 
-  describe("isCurrentUserMemberOfCommunity", () => {
-    it("should return true when current user is member", async () => {
-      // Arrange
-      const userId = "user-123";
-      const communityId = "community-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      const mockLimit = vi.fn().mockResolvedValue([{ id: "membership-123" }]);
-      const mockWhere = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFrom = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFrom,
-      } as any);
-
-      // Act
-      const result =
-        await communityDAL.isCurrentUserMemberOfCommunity(communityId);
-
-      // Assert
-      expect(result).toBe(true);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should return false when not authenticated", async () => {
-      // Arrange
-      const communityId = "community-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act
-      const result =
-        await communityDAL.isCurrentUserMemberOfCommunity(communityId);
-
-      // Assert
-      expect(result).toBe(false);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should return false when not member", async () => {
-      // Arrange
-      const userId = "user-123";
-      const communityId = "community-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      const mockLimit = vi.fn().mockResolvedValue([]);
-      const mockWhere = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFrom = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFrom,
-      } as any);
-
-      // Act
-      const result =
-        await communityDAL.isCurrentUserMemberOfCommunity(communityId);
-
-      // Assert
-      expect(result).toBe(false);
-    });
-
-    it("should handle database errors", async () => {
-      // Arrange
-      const userId = "user-123";
-      const communityId = "community-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      const dbError = new Error("Database connection failed");
-      const mockLimit = vi.fn().mockRejectedValue(dbError);
-      const mockWhere = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFrom = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFrom,
-      } as any);
-
-      // Act & Assert
-      await expect(
-        communityDAL.isCurrentUserMemberOfCommunity(communityId),
-      ).rejects.toThrow();
-    });
-  });
-
   describe("getUserCommunityId", () => {
     it("should return community ID when user has membership", async () => {
       // Arrange
@@ -1716,107 +1506,10 @@ describe("CommunityDAL", () => {
     });
   });
 
-  describe("getCurrentUserCommunityId", () => {
-    it("should return community ID when authenticated user has membership", async () => {
-      // Arrange
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      const mockLimit = vi.fn().mockResolvedValue([
-        {
-          membership: mockCommunityMembership,
-          community: mockCommunity,
-        },
-      ]);
-      const mockWhere = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockInnerJoin = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      const mockFrom = vi.fn().mockReturnValue({
-        innerJoin: mockInnerJoin,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFrom,
-      } as any);
-
-      // Act
-      const result = await communityDAL.getCurrentUserCommunityId();
-
-      // Assert
-      expect(result).toBe(mockCommunity.id);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should return null when not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act
-      const result = await communityDAL.getCurrentUserCommunityId();
-
-      // Assert
-      expect(result).toBeNull();
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should return null when user has no membership", async () => {
-      // Arrange
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      const mockLimit = vi.fn().mockResolvedValue([]);
-      const mockWhere = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockInnerJoin = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      const mockFrom = vi.fn().mockReturnValue({
-        innerJoin: mockInnerJoin,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFrom,
-      } as any);
-
-      // Act
-      const result = await communityDAL.getCurrentUserCommunityId();
-
-      // Assert
-      expect(result).toBeNull();
-    });
-
-    it("should handle database errors", async () => {
-      // Arrange
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
-      const dbError = new Error("Database connection failed");
-      const mockLimit = vi.fn().mockRejectedValue(dbError);
-      const mockWhere = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockInnerJoin = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      const mockFrom = vi.fn().mockReturnValue({
-        innerJoin: mockInnerJoin,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFrom,
-      } as any);
-
-      // Act & Assert
-      await expect(communityDAL.getCurrentUserCommunityId()).rejects.toThrow();
-    });
-  });
-
   describe("requireUserCommunityMembership", () => {
     it("should return membership when user has one", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockLimit = vi.fn().mockResolvedValue([
         {
@@ -1838,27 +1531,15 @@ describe("CommunityDAL", () => {
       } as any);
 
       // Act
-      const result = await communityDAL.requireUserCommunityMembership();
+      const result = await communityDAL.requireUserCommunityMembership(userId);
 
       // Assert
       expect(result).toEqual(mockUserCommunityInfo);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
     });
 
-    it("should throw UnauthorizedError when not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(
-        communityDAL.requireUserCommunityMembership(),
-      ).rejects.toThrow(UnauthorizedError);
-    });
-
-    it("should throw UnauthorizedError when not a member", async () => {
+    it("should throw ValidationError when not a member", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockLimit = vi.fn().mockResolvedValue([]);
       const mockWhere = vi.fn().mockReturnValue({
@@ -1876,14 +1557,13 @@ describe("CommunityDAL", () => {
 
       // Act & Assert
       await expect(
-        communityDAL.requireUserCommunityMembership(),
-      ).rejects.toThrow(UnauthorizedError);
+        communityDAL.requireUserCommunityMembership(userId),
+      ).rejects.toThrow(ValidationError);
     });
 
     it("should handle database errors", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const dbError = new Error("Database connection failed");
       const mockLimit = vi.fn().mockRejectedValue(dbError);
@@ -1902,7 +1582,7 @@ describe("CommunityDAL", () => {
 
       // Act & Assert
       await expect(
-        communityDAL.requireUserCommunityMembership(),
+        communityDAL.requireUserCommunityMembership(userId),
       ).rejects.toThrow();
     });
   });

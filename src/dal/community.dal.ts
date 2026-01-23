@@ -13,8 +13,7 @@ import {
 } from "@/db/schemas/communities.schema";
 import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
-import { getCurrentUserId, requireAuth } from "@/features/auth/utils/session";
-import { UnauthorizedError, ValidationError, NotFoundError } from "./errors";
+import { ValidationError, NotFoundError } from "./errors";
 import type { PaginatedResult } from "./types";
 
 export class CommunityDAL extends BaseDAL {
@@ -43,11 +42,6 @@ export class CommunityDAL extends BaseDAL {
    * Get community name by user id
    */
   async getCommunityNameByUserId(userId: string): Promise<string | null> {
-    const auth = await requireAuth();
-    if (!auth || auth.id !== userId) {
-      throw new UnauthorizedError("Unauthorized");
-    }
-
     try {
       const [result] = await this.db
         .select({
@@ -453,22 +447,6 @@ export class CommunityDAL extends BaseDAL {
   }
 
   /**
-   * Get current user's membership
-   */
-  async getCurrentUserMembership(): Promise<UserCommunityInfo | null> {
-    try {
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
-      return this.getMembershipForUser(userId);
-    } catch (error) {
-      this.handleError(error, "getCurrentUserMembership");
-    }
-  }
-
-  /**
    * List members of a community with pagination
    */
   async listMembers(
@@ -566,14 +544,9 @@ export class CommunityDAL extends BaseDAL {
    */
   async joinCommunityByCode(
     joinCode: string,
-    userId?: string,
+    userId: string,
   ): Promise<UserCommunityInfo> {
     try {
-      const userIdToUse = userId || (await getCurrentUserId());
-      if (!userIdToUse) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       // Find community by join code
       const community = await this.getCommunityByJoinCode(joinCode);
       if (!community) {
@@ -581,17 +554,13 @@ export class CommunityDAL extends BaseDAL {
       }
 
       // Check if user is already a member of any community
-      const existingMembership = await this.getMembershipForUser(userIdToUse);
+      const existingMembership = await this.getMembershipForUser(userId);
       if (existingMembership) {
         throw new ValidationError("User is already a member of a community");
       }
 
       // Add user as member
-      const membership = await this.addMember(
-        userIdToUse,
-        community.id,
-        "member",
-      );
+      const membership = await this.addMember(userId, community.id, "member");
 
       return {
         membership,
@@ -634,19 +603,14 @@ export class CommunityDAL extends BaseDAL {
   /**
    * Leave current community
    */
-  async leaveCommunity(userId?: string): Promise<void> {
+  async leaveCommunity(userId: string): Promise<void> {
     try {
-      const userIdToUse = userId || (await getCurrentUserId());
-      if (!userIdToUse) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
-      const membership = await this.getMembershipForUser(userIdToUse);
+      const membership = await this.getMembershipForUser(userId);
       if (!membership) {
         throw new NotFoundError("User is not a member of any community");
       }
 
-      await this.removeMember(userIdToUse, membership.membership.communityId);
+      await this.removeMember(userId, membership.membership.communityId);
     } catch (error) {
       this.handleError(error, "leaveCommunity");
     }
@@ -682,22 +646,6 @@ export class CommunityDAL extends BaseDAL {
   }
 
   /**
-   * Check if current user is member of a specific community
-   */
-  async isCurrentUserMemberOfCommunity(communityId: string): Promise<boolean> {
-    try {
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        return false;
-      }
-
-      return this.isUserMemberOfCommunity(userId, communityId);
-    } catch (error) {
-      this.handleError(error, "isCurrentUserMemberOfCommunity");
-    }
-  }
-
-  /**
    * Get user's community ID (helper for other DALs)
    */
   async getUserCommunityId(userId: string): Promise<string | null> {
@@ -710,36 +658,15 @@ export class CommunityDAL extends BaseDAL {
   }
 
   /**
-   * Get current user's community ID (helper for other DALs)
-   */
-  async getCurrentUserCommunityId(): Promise<string | null> {
-    try {
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        return null;
-      }
-
-      return this.getUserCommunityId(userId);
-    } catch (error) {
-      this.handleError(error, "getCurrentUserCommunityId");
-    }
-  }
-
-  /**
    * Require user to be member of a community (throws if not)
    */
   async requireUserCommunityMembership(
-    userId?: string,
+    userId: string,
   ): Promise<UserCommunityInfo> {
     try {
-      const userIdToUse = userId || (await getCurrentUserId());
-      if (!userIdToUse) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
-      const membership = await this.getMembershipForUser(userIdToUse);
+      const membership = await this.getMembershipForUser(userId);
       if (!membership) {
-        throw new UnauthorizedError("User must be a member of a community");
+        throw new ValidationError("User must be a member of a community");
       }
 
       return membership;
