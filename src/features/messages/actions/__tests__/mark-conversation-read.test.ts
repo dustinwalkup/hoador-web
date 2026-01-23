@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { markConversationAsReadAction } from "../mark-conversation-read";
 import { messagesDAL } from "@/dal";
-import { mockConversation } from "@/test/fixtures/messages";
+import { mockConversation, mockUser1 } from "@/test/fixtures/messages";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -18,12 +18,22 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
+vi.mock("@/features/auth/utils/session", () => ({
+  requireAuthenticatedUser: vi.fn(),
+}));
+
 import { tryCatch } from "@walkup/walkup-utils";
 import { revalidatePath } from "next/cache";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 describe("markConversationAsReadAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuthenticatedUser).mockResolvedValue({
+      user: mockUser1 as any,
+      userId: mockUser1.id,
+      isAdmin: false,
+    });
   });
 
   it("should mark conversation as read successfully", async () => {
@@ -42,7 +52,7 @@ describe("markConversationAsReadAction", () => {
     expect(result.success).toBe(true);
     expect(result.data).toEqual([mockConversation]);
     expect(tryCatch).toHaveBeenCalledWith(
-      messagesDAL.markConversationAsRead(conversationId),
+      messagesDAL.markConversationAsRead(conversationId, mockUser1.id),
     );
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/mailbox", "layout");
   });

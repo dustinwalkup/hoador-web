@@ -1,26 +1,39 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { messagesDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
+import {
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
-  const { conversationId } = await params;
+  try {
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId } = authResult;
 
-  const { data, error } = await tryCatch(
-    (async () => {
-      return await messagesDAL.getConversationDetails(conversationId);
-    })(),
-  );
+    const { conversationId } = await params;
 
-  if (error) {
-    console.error("Error fetching conversation details:", error);
-    return Response.json(
-      { error: error.message || "Failed to fetch conversation details" },
-      { status: 500 },
+    const { data, error } = await tryCatch(
+      messagesDAL.getConversationDetails(conversationId, userId),
     );
-  }
 
-  return Response.json(data);
+    if (error) {
+      console.error("Error fetching conversation details:", error);
+      return NextResponse.json(
+        { error: error.message || "Failed to fetch conversation details" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
+    return handleApiError(error);
+  }
 }

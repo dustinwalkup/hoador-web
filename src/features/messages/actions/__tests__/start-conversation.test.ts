@@ -14,11 +14,21 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
+vi.mock("@/features/auth/utils/session", () => ({
+  requireAuthenticatedUser: vi.fn(),
+}));
+
 import { tryCatch } from "@walkup/walkup-utils";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 describe("startConversationAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuthenticatedUser).mockResolvedValue({
+      user: mockUser1 as any,
+      userId: mockUser1.id,
+      isAdmin: false,
+    });
   });
 
   it("should create conversation and send initial message successfully", async () => {
@@ -50,7 +60,12 @@ describe("startConversationAction", () => {
     expect(result.success).toBe(true);
     expect(result.conversationId).toBe("conversation-123");
     expect(tryCatch).toHaveBeenCalledWith(
-      messagesDAL.sendMessageToUser(recipientId, message, listingId),
+      messagesDAL.sendMessageToUser(
+        mockUser1.id,
+        recipientId,
+        message,
+        listingId,
+      ),
     );
   });
 
