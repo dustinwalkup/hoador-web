@@ -7,14 +7,14 @@ import {
 import {
   handleApiError,
   parseFormData,
-  requireAuthResponse,
+  getAuthenticatedUserResponse,
   getClientIP,
   getUserAgent,
-  getCurrentUserId,
 } from "@/lib/api/route-helpers";
 import { listingDAL, userDAL } from "@/dal";
 import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+import { requireCommunityMembership } from "@/features/community/utils/membership";
 
 /**
  * POST /api/listings
@@ -23,17 +23,11 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
-    const authError = await requireAuthResponse();
-    if (authError) return authError;
-
-    // Get current user ID
-    const currentUserId = await getCurrentUserId();
-    if (!currentUserId) {
-      return NextResponse.json(
-        { error: "Unauthorized: User not authenticated" },
-        { status: 401 },
-      );
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { userId: currentUserId } = authResult;
 
     // Parse request body
     const body = await parseFormData(request);
@@ -69,9 +63,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get user's community membership
+    const userCommunityInfo = await requireCommunityMembership();
+    if (!userCommunityInfo) {
+      return NextResponse.json(
+        { error: "User must be a member of a community" },
+        { status: 400 },
+      );
+    }
+
     // Create the listing
     const { data: listing, error } = await tryCatch(
-      listingDAL.createListing(validatedData),
+      listingDAL.createListing(
+        validatedData,
+        currentUserId,
+        userCommunityInfo.community.id,
+      ),
     );
 
     if (error) {

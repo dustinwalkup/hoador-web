@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { listingDAL } from "../index";
-import { UnauthorizedError, NotFoundError, ValidationError } from "../errors";
+import { NotFoundError, ValidationError } from "../errors";
 import { mockListing } from "@/test/fixtures/listings";
-import { mockAdminUser } from "@/test/fixtures/users";
-import * as sessionUtils from "@/features/auth/utils/session";
-import * as membershipUtils from "@/features/community/utils/membership";
-import * as guardsUtils from "@/features/auth/utils/guards";
 import { db } from "@/db/db";
 
 // Mock dependencies
@@ -61,10 +57,7 @@ describe("ListingDAL", () => {
     it("should create listing when user is authenticated", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-      vi.mocked(membershipUtils.requireCommunityMembership).mockResolvedValue({
-        community: { id: "community-123" },
-      } as any);
+      const communityId = "community-123";
 
       const mockReturning = vi.fn().mockResolvedValue([mockListing]);
       const mockValues = vi.fn().mockReturnValue({
@@ -76,33 +69,24 @@ describe("ListingDAL", () => {
       } as any);
 
       // Act
-      const result = await listingDAL.createListing(validListingData);
+      const result = await listingDAL.createListing(
+        validListingData,
+        userId,
+        communityId,
+      );
 
       // Assert
       expect(result).toEqual(mockListing);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-      expect(membershipUtils.requireCommunityMembership).toHaveBeenCalled();
       expect(db.insert).toHaveBeenCalled();
     });
 
-    it("should throw UnauthorizedError when user not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(listingDAL.createListing(validListingData)).rejects.toThrow(
-        UnauthorizedError,
-      );
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
+    // Note: Auth checks are now done at the caller level (API routes/server actions)
+    // The DAL no longer performs authentication, so this test is no longer applicable
 
     it("should sanitize text fields", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-      vi.mocked(membershipUtils.requireCommunityMembership).mockResolvedValue({
-        community: { id: "community-123" },
-      } as any);
+      const communityId = "community-123";
 
       const listingDataWithUnsafeContent = {
         ...validListingData,
@@ -120,7 +104,11 @@ describe("ListingDAL", () => {
       } as any);
 
       // Act
-      await listingDAL.createListing(listingDataWithUnsafeContent);
+      await listingDAL.createListing(
+        listingDataWithUnsafeContent,
+        userId,
+        communityId,
+      );
 
       // Assert
       expect(mockValues).toHaveBeenCalled();
@@ -132,10 +120,7 @@ describe("ListingDAL", () => {
     it("should handle database errors", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-      vi.mocked(membershipUtils.requireCommunityMembership).mockResolvedValue({
-        community: { id: "community-123" },
-      } as any);
+      const communityId = "community-123";
 
       const dbError = new Error("Database connection failed");
       (dbError as any).code = "ECONNREFUSED";
@@ -151,7 +136,7 @@ describe("ListingDAL", () => {
 
       // Act & Assert
       await expect(
-        listingDAL.createListing(validListingData),
+        listingDAL.createListing(validListingData, userId, communityId),
       ).rejects.toThrow();
     });
   });
@@ -310,7 +295,6 @@ describe("ListingDAL", () => {
       // Arrange
       const listingId = "listing-123";
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
       vi.mocked(db.query.listings.findFirst).mockResolvedValue({
         ...mockListing,
         ownerId: userId,
@@ -383,41 +367,29 @@ describe("ListingDAL", () => {
         .mockResolvedValueOnce(updatedRawListing as any);
 
       // Act
-      const result = await listingDAL.updateListing(listingId, updateData);
+      const result = await listingDAL.updateListing(
+        listingId,
+        updateData,
+        userId,
+      );
 
       // Assert
       expect(result.name).toBe(updateData.name);
       expect(result.description).toBe(updateData.description);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
     });
 
-    it("should throw UnauthorizedError when user is not owner", async () => {
-      // Arrange
-      const listingId = "listing-123";
-      const userId = "user-456"; // Different user
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-      // Mock the ownership check query - returns null because userId doesn't match ownerId
-      // The query uses: and(eq(listings.id, id), eq(listings.ownerId, userId))
-      // So if userId is "user-456" but ownerId is "user-123", the query returns null
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue(undefined);
-
-      // Act & Assert
-      // Note: Implementation throws NotFoundError for security (doesn't leak that listing exists)
-      await expect(
-        listingDAL.updateListing(listingId, updateData),
-      ).rejects.toThrow(NotFoundError);
-    });
+    // Note: Ownership checks are now done at the caller level (API routes/server actions)
+    // The DAL no longer performs ownership verification, so this test is no longer applicable
 
     it("should throw NotFoundError when listing not found", async () => {
       // Arrange
       const listingId = "non-existent-listing";
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
       vi.mocked(db.query.listings.findFirst).mockResolvedValue(undefined);
 
       // Act & Assert
       await expect(
-        listingDAL.updateListing(listingId, updateData),
+        listingDAL.updateListing(listingId, updateData, userId),
       ).rejects.toThrow(NotFoundError);
     });
   });
@@ -426,13 +398,7 @@ describe("ListingDAL", () => {
     it("should update status when user is owner", async () => {
       // Arrange
       const listingId = "listing-123";
-      const userId = "user-123";
       const newStatus = "rented" as const;
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        ...mockListing,
-        ownerId: userId,
-      } as any);
 
       const mockReturning = vi
         .fn()
@@ -455,33 +421,14 @@ describe("ListingDAL", () => {
       expect(result.status).toBe(newStatus);
     });
 
-    it("should throw UnauthorizedError when user is not owner", async () => {
-      // Arrange
-      const listingId = "listing-123";
-      const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        ...mockListing,
-        ownerId: "user-123",
-      } as any);
-
-      // Act & Assert
-      await expect(
-        listingDAL.updateListingStatus(listingId, "rented"),
-      ).rejects.toThrow(UnauthorizedError);
-    });
+    // Note: Ownership checks are now done at the caller level (API routes/server actions)
+    // The DAL no longer performs ownership verification, so this test is no longer applicable
   });
 
   describe("deleteListing", () => {
     it("should soft delete listing when user is owner", async () => {
       // Arrange
       const listingId = "listing-123";
-      const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        ...mockListing,
-        ownerId: userId,
-      } as any);
 
       const mockReturning = vi
         .fn()
@@ -498,38 +445,11 @@ describe("ListingDAL", () => {
       await listingDAL.deleteListing(listingId);
 
       // Assert
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
       expect(db.delete).toHaveBeenCalled();
     });
 
-    it("should throw UnauthorizedError when user is not owner", async () => {
-      // Arrange
-      const listingId = "listing-123";
-      const userId = "user-456";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-      // Mock the ownership check query - returns listing but with different ownerId
-      // The delete method checks if listing exists, then checks ownership in delete query
-      // But the delete query uses: .where(eq(listings.id, id)) without ownerId check
-      // So we need to mock the findFirst to return null OR mock delete to return empty array
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        ownerId: "user-123", // Different owner
-      } as any);
-
-      // Mock delete to return empty array (simulating no rows deleted)
-      const mockReturning = vi.fn().mockResolvedValue([]);
-      const mockWhere = vi.fn().mockReturnValue({
-        returning: mockReturning,
-      });
-      vi.mocked(db.delete).mockReturnValue({
-        where: mockWhere,
-      } as any);
-
-      // Act & Assert
-      // Note: Implementation throws NotFoundError when delete returns empty array
-      await expect(listingDAL.deleteListing(listingId)).rejects.toThrow(
-        NotFoundError,
-      );
-    });
+    // Note: Ownership checks are now done at the caller level (API routes/server actions)
+    // The DAL no longer performs ownership verification, so this test is no longer applicable
   });
 
   describe("searchListings", () => {
@@ -542,11 +462,6 @@ describe("ListingDAL", () => {
         maxPrice: 50,
       };
       const pagination = { page: 1, limit: 12 };
-
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue("user-123");
-      vi.mocked(membershipUtils.getCurrentUserCommunityId).mockResolvedValue(
-        "community-123",
-      );
 
       // Mock getUserPrimaryAddress
       vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue({
@@ -634,7 +549,13 @@ describe("ListingDAL", () => {
       });
 
       // Act
-      const result = await listingDAL.searchListings(filters, pagination);
+      const result = await listingDAL.searchListings(
+        filters,
+        pagination,
+        "user-123",
+        "community-123",
+        false,
+      );
 
       // Assert
       expect(result).toHaveProperty("data");
@@ -647,11 +568,6 @@ describe("ListingDAL", () => {
       // Arrange
       const filters = { query: "nonexistent" };
       const pagination = { page: 1, limit: 12 };
-
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue("user-123");
-      vi.mocked(membershipUtils.getCurrentUserCommunityId).mockResolvedValue(
-        "community-123",
-      );
 
       // Mock getUserPrimaryAddress
       vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue({
@@ -717,7 +633,13 @@ describe("ListingDAL", () => {
       });
 
       // Act
-      const result = await listingDAL.searchListings(filters, pagination);
+      const result = await listingDAL.searchListings(
+        filters,
+        pagination,
+        "user-123",
+        "community-123",
+        false,
+      );
 
       // Assert
       expect(result.data).toEqual([]);
@@ -731,7 +653,13 @@ describe("ListingDAL", () => {
 
       // Act & Assert
       await expect(
-        listingDAL.searchListings(filters, invalidPagination),
+        listingDAL.searchListings(
+          filters,
+          invalidPagination,
+          "user-123",
+          "community-123",
+          false,
+        ),
       ).rejects.toThrow(ValidationError);
     });
   });
@@ -834,10 +762,6 @@ describe("ListingDAL", () => {
 
   describe("getPendingReviews", () => {
     const mockPagination = { page: 1, limit: 10 };
-
-    beforeEach(() => {
-      vi.mocked(guardsUtils.requireAdmin).mockResolvedValue(mockAdminUser);
-    });
 
     it("should return pending reviews when admin is authenticated", async () => {
       // Arrange
@@ -943,32 +867,21 @@ describe("ListingDAL", () => {
       });
 
       // Act
-      const result = await listingDAL.getPendingReviews(mockPagination);
+      const result = await listingDAL.getPendingReviews(
+        mockPagination,
+        "admin-user-123",
+      );
 
       // Assert
-      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
       expect(result.pagination.total).toBe(5);
     });
 
-    it("should throw UnauthorizedError when not admin", async () => {
-      // Arrange
-      vi.mocked(guardsUtils.requireAdmin).mockRejectedValue(
-        new UnauthorizedError("Admin access required"),
-      );
-
-      // Act & Assert
-      await expect(
-        listingDAL.getPendingReviews(mockPagination),
-      ).rejects.toThrow(UnauthorizedError);
-    });
+    // Note: Auth checks are now done at the caller level (API routes/server actions)
+    // The DAL no longer performs authentication, so this test is no longer applicable
   });
 
   describe("getReviewHistory", () => {
     const mockPagination = { page: 1, limit: 10 };
-
-    beforeEach(() => {
-      vi.mocked(guardsUtils.requireAdmin).mockResolvedValue(mockAdminUser);
-    });
 
     it("should return approved listings when status is 'approved'", async () => {
       // Arrange
@@ -1066,7 +979,6 @@ describe("ListingDAL", () => {
       );
 
       // Assert
-      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
       expect(result.pagination.total).toBe(3);
     });
 
@@ -1135,16 +1047,11 @@ describe("ListingDAL", () => {
       const result = await listingDAL.getReviewHistory("all", mockPagination);
 
       // Assert
-      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
       expect(result.pagination.total).toBe(5);
     });
   });
 
   describe("updateApprovalStatus", () => {
-    beforeEach(() => {
-      vi.mocked(guardsUtils.requireAdmin).mockResolvedValue(mockAdminUser);
-    });
-
     it("should approve listing when admin is authenticated and listing is pending", async () => {
       // Arrange
       const listingId = "listing-approve-123";
@@ -1175,10 +1082,13 @@ describe("ListingDAL", () => {
       } as any);
 
       // Act
-      await listingDAL.updateApprovalStatus(listingId, "approved");
+      await listingDAL.updateApprovalStatus(
+        listingId,
+        "approved",
+        "admin-user-123",
+      );
 
       // Assert
-      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
       expect(db.select).toHaveBeenCalled();
       expect(db.update).toHaveBeenCalled();
     });
@@ -1214,11 +1124,11 @@ describe("ListingDAL", () => {
       await listingDAL.updateApprovalStatus(
         listingId,
         "rejected",
+        "admin-user-123",
         rejectionReason,
       );
 
       // Assert
-      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
       expect(db.select).toHaveBeenCalled();
       expect(db.update).toHaveBeenCalled();
     });
@@ -1241,7 +1151,11 @@ describe("ListingDAL", () => {
 
       // Act & Assert
       await expect(
-        listingDAL.updateApprovalStatus(listingId, "approved"),
+        listingDAL.updateApprovalStatus(
+          listingId,
+          "approved",
+          "admin-user-123",
+        ),
       ).rejects.toThrow(ValidationError);
     });
 
@@ -1258,30 +1172,20 @@ describe("ListingDAL", () => {
 
       // Act & Assert
       await expect(
-        listingDAL.updateApprovalStatus(listingId, "approved"),
+        listingDAL.updateApprovalStatus(
+          listingId,
+          "approved",
+          "admin-user-123",
+        ),
       ).rejects.toThrow(NotFoundError);
     });
 
-    it("should throw UnauthorizedError when not admin", async () => {
-      // Arrange
-      const listingId = "listing-unauthorized-123";
-      vi.mocked(guardsUtils.requireAdmin).mockRejectedValue(
-        new UnauthorizedError("Admin access required"),
-      );
-
-      // Act & Assert
-      await expect(
-        listingDAL.updateApprovalStatus(listingId, "approved"),
-      ).rejects.toThrow(UnauthorizedError);
-    });
+    // Note: Auth checks are now done at the caller level (API routes/server actions)
+    // The DAL no longer performs authentication, so this test is no longer applicable
   });
 
   describe("countPendingReviews", () => {
-    beforeEach(() => {
-      vi.mocked(guardsUtils.requireAdmin).mockResolvedValue(mockAdminUser);
-    });
-
-    it("should return count of pending reviews when admin is authenticated", async () => {
+    it("should return count of pending reviews", async () => {
       // Arrange
       const mockCountResult = [{ count: 5 }];
       const mockFrom = vi.fn().mockReturnValue({
@@ -1294,7 +1198,6 @@ describe("ListingDAL", () => {
       const result = await listingDAL.countPendingReviews();
 
       // Assert
-      expect(guardsUtils.requireAdmin).toHaveBeenCalled();
       expect(result).toBe(5);
     });
 
@@ -1313,26 +1216,10 @@ describe("ListingDAL", () => {
       // Assert
       expect(result).toBe(0);
     });
-
-    it("should throw UnauthorizedError when not admin", async () => {
-      // Arrange
-      vi.mocked(guardsUtils.requireAdmin).mockRejectedValue(
-        new UnauthorizedError("Admin access required"),
-      );
-
-      // Act & Assert
-      await expect(listingDAL.countPendingReviews()).rejects.toThrow(
-        UnauthorizedError,
-      );
-    });
   });
 
   describe("getUserListingsByApprovalStatus", () => {
     const userId = "user-123";
-
-    beforeEach(() => {
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-    });
 
     it("should return user listings with pending_review status", async () => {
       // Arrange
@@ -1385,11 +1272,12 @@ describe("ListingDAL", () => {
       });
 
       // Act
-      const result =
-        await listingDAL.getUserListingsByApprovalStatus("pending_review");
+      const result = await listingDAL.getUserListingsByApprovalStatus(
+        "pending_review",
+        userId,
+      );
 
       // Assert
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
       expect(result).toHaveLength(1);
       expect(result[0].approvalStatus).toBe("pending_review");
     });
@@ -1445,22 +1333,14 @@ describe("ListingDAL", () => {
       });
 
       // Act
-      const result =
-        await listingDAL.getUserListingsByApprovalStatus("rejected");
+      const result = await listingDAL.getUserListingsByApprovalStatus(
+        "rejected",
+        userId,
+      );
 
       // Assert
       expect(result).toHaveLength(1);
       expect(result[0].approvalStatus).toBe("rejected");
-    });
-
-    it("should throw UnauthorizedError when user not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(
-        listingDAL.getUserListingsByApprovalStatus("pending_review"),
-      ).rejects.toThrow(UnauthorizedError);
     });
   });
 });

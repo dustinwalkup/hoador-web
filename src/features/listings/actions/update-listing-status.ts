@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { tryCatch } from "@walkup/walkup-utils";
 import { z } from "zod";
 import { listingDAL } from "../../../dal";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 
 const updateListingStatusSchema = z.object({
   status: z.enum(["available", "maintenance", "inactive"]),
@@ -26,6 +27,22 @@ export async function updateListingStatus(
   }
 
   const validatedData = validationResult.data;
+
+  // Get current user ID
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return { error: "Unauthorized: User not authenticated" };
+  }
+
+  // Verify ownership before updating
+  const existingListing = await listingDAL.getListingById(listingId);
+  if (!existingListing) {
+    return { error: "Listing not found" };
+  }
+
+  if (existingListing.owner.id !== userId) {
+    return { error: "Forbidden: You can only update your own listings" };
+  }
 
   // Update the listing status
   const { data: listing, error } = await tryCatch(
