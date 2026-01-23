@@ -38,7 +38,8 @@ export function useCreateRentalRequest() {
 
       return response.json();
     },
-    successMessage: "Rental request submitted successfully! The owner will be notified and you'll receive an update soon.",
+    successMessage:
+      "Rental request submitted successfully! The owner will be notified and you'll receive an update soon.",
     invalidateQueryKeys: [
       rentalKeys.all,
       rentalKeys.renting(),

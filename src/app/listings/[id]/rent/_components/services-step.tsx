@@ -315,7 +315,7 @@ export function ServicesStep({
                       ? "Setup service not available for this listing"
                       : deliveryMethod === "pickup"
                         ? "Setup service requires delivery option"
-                        : `Have ${ownerName} set up the tool for you at your location`}
+                        : `Have ${ownerName} set up the item for you at your location`}
                   </p>
                 </div>
               </div>

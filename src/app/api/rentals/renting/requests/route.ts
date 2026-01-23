@@ -1,26 +1,31 @@
 import { NextRequest } from "next/server";
 import { rentalDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
+import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const status =
-    (searchParams.get("status") as "pending" | "approved" | "denied") ||
-    "pending";
+  try {
+    // Check authentication
+    const authError = await requireAuthResponse();
+    if (authError) return authError;
 
-  const { data, error } = await tryCatch(
-    (async () => {
-      return await rentalDAL.getRentalRequestsByStatus(status);
-    })(),
-  );
+    const searchParams = request.nextUrl.searchParams;
+    const status =
+      (searchParams.get("status") as "pending" | "approved" | "denied") ||
+      "pending";
 
-  if (error) {
-    console.error("Error fetching renting requests:", error);
-    return Response.json(
-      { error: error.message || "Failed to fetch renting requests" },
-      { status: 500 },
+    const { data, error } = await tryCatch(
+      (async () => {
+        return await rentalDAL.getRentalRequestsByStatus(status);
+      })(),
     );
-  }
 
-  return Response.json({ data, status: "success" });
+    if (error) {
+      return handleApiError(error);
+    }
+
+    return Response.json({ data, status: "success" });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }

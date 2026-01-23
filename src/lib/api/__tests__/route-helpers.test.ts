@@ -5,6 +5,7 @@ import {
   requireAuthResponse,
   requireAdminResponse,
   parseFormData,
+  getAuthenticatedUserResponse,
 } from "../route-helpers";
 import {
   UnauthorizedError,
@@ -13,19 +14,24 @@ import {
   ConflictError,
   DALError,
 } from "@/dal/errors";
+import { mockVerifiedUser, mockAdminUser } from "@/test/fixtures/auth";
 
 // Mock the auth utilities
 vi.mock("@/features/auth/utils/session", () => ({
   getCurrentUserId: vi.fn(),
   getCurrentUser: vi.fn(),
   requireAuth: vi.fn(),
+  getAuthenticatedUser: vi.fn(),
 }));
 
 vi.mock("@/features/auth/utils/guards", () => ({
   requireAdmin: vi.fn(),
 }));
 
-import { getCurrentUserId } from "@/features/auth/utils/session";
+import {
+  getCurrentUserId,
+  getAuthenticatedUser,
+} from "@/features/auth/utils/session";
 import { requireAdmin } from "@/features/auth/utils/guards";
 
 describe("route-helpers", () => {
@@ -323,6 +329,56 @@ describe("route-helpers", () => {
       const result = await parseFormData(request);
 
       expect(result).toEqual({});
+    });
+  });
+
+  describe("getAuthenticatedUserResponse", () => {
+    it("should return user data when authenticated", async () => {
+      vi.mocked(getAuthenticatedUser).mockResolvedValue({
+        user: mockVerifiedUser,
+        userId: "verified-user-123",
+        isAdmin: false,
+      });
+
+      const result = await getAuthenticatedUserResponse();
+
+      expect(result).not.toBeInstanceOf(Response);
+      if (!(result instanceof Response)) {
+        expect(result.user).toEqual(mockVerifiedUser);
+        expect(result.userId).toBe("verified-user-123");
+        expect(result.isAdmin).toBe(false);
+      }
+    });
+
+    it("should return user data with isAdmin true for admin user", async () => {
+      vi.mocked(getAuthenticatedUser).mockResolvedValue({
+        user: mockAdminUser,
+        userId: "admin-user-123",
+        isAdmin: true,
+      });
+
+      const result = await getAuthenticatedUserResponse();
+
+      expect(result).not.toBeInstanceOf(Response);
+      if (!(result instanceof Response)) {
+        expect(result.user).toEqual(mockAdminUser);
+        expect(result.userId).toBe("admin-user-123");
+        expect(result.isAdmin).toBe(true);
+      }
+    });
+
+    it("should return 401 response when user is not authenticated", async () => {
+      vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
+
+      const result = await getAuthenticatedUserResponse();
+
+      expect(result).toBeInstanceOf(NextResponse);
+      if (result instanceof NextResponse) {
+        expect(result.status).toBe(401);
+
+        const json = await result.json();
+        expect(json.error).toBe("Authentication required");
+      }
     });
   });
 });
