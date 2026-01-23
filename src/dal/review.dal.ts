@@ -2,7 +2,6 @@ import { eq, desc, count, inArray } from "drizzle-orm";
 import { reviews, rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
-import { getCurrentUserId } from "@/features/auth/utils/session";
 import { BaseDAL } from "./base";
 import {
   UnauthorizedError,
@@ -167,12 +166,7 @@ export class ReviewDAL extends BaseDAL {
     });
   }
 
-  async getUserReviewsSummary() {
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
+  async getUserReviewsSummary(userId: string) {
     const [summary, distribution, recentReviews] = await Promise.all([
       this.getSummaryForUser(userId),
       this.getRatingDistribution(userId),
@@ -366,20 +360,18 @@ export class ReviewDAL extends BaseDAL {
    * Create a review for a completed rental
    * Accepts either rentalId (rentals.id) or requestId (rental_requests.id)
    */
-  async createReview(data: {
-    rentalId?: string;
-    requestId?: string;
-    rating: number;
-    comment: string;
-    accuracyRating?: number;
-    listingConditionRating?: number;
-    ownerCommunicationRating?: number;
-  }) {
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      throw new UnauthorizedError("Authentication required");
-    }
-
+  async createReview(
+    userId: string,
+    data: {
+      rentalId?: string;
+      requestId?: string;
+      rating: number;
+      comment: string;
+      accuracyRating?: number;
+      listingConditionRating?: number;
+      ownerCommunicationRating?: number;
+    },
+  ) {
     // Validate rating
     if (data.rating < 1 || data.rating > 5) {
       throw new ValidationError("Rating must be between 1 and 5");
