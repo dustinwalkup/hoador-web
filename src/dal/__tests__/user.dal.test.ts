@@ -192,7 +192,7 @@ describe("UserDAL", () => {
   });
 
   describe("updateCurrentUser", () => {
-    it("should update profile when user is authenticated", async () => {
+    it("should update profile when userId is provided", async () => {
       // Arrange
       const userId = "user-123";
       const updateData = {
@@ -200,10 +200,6 @@ describe("UserDAL", () => {
         lastName: "Name",
         phone: "5559876543",
       };
-
-      vi.mocked(sessionUtils.requireAuth).mockResolvedValue({
-        id: userId,
-      } as any);
 
       vi.mocked(db.query.user.findFirst).mockResolvedValue({
         ...mockUser,
@@ -231,11 +227,12 @@ describe("UserDAL", () => {
       } as any);
 
       // Act
-      const result = await userDAL.updateCurrentUser(updateData);
+      const result = await userDAL.updateCurrentUser(userId, updateData);
 
       // Assert
       expect(result).toBeDefined();
-      expect(sessionUtils.requireAuth).toHaveBeenCalled();
+      expect(mockSet).toHaveBeenCalledWith(expect.objectContaining(updateData));
+      expect(mockWhere).toHaveBeenCalled();
     });
   });
 
