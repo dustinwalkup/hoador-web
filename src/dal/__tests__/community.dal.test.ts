@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { communityDAL } from "../index";
-import { NotFoundError, ValidationError,   } from "../errors";
+import { NotFoundError, ValidationError } from "../errors";
 import {
   mockCommunity,
   mockCommunityWithStats,

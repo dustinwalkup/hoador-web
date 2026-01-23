@@ -8,14 +8,11 @@ import {
 } from "@/db/schemas/legal-documents.schema";
 import { rentalRequests } from "@/db/schemas/rentals.schema";
 import { BaseDAL } from "./base";
-import { UnauthorizedError } from "./errors";
-import { requireAuth } from "@/features/auth/utils/session";
 import {
   type LegalDocumentId,
   LEGAL_DOCUMENT_IDS,
 } from "@/constants/legal-documents";
 import { deleteFromBlob } from "@/services/vercel-blob";
-import { requireAdmin } from "@/features/auth/utils/guards";
 
 export interface CurrentDocumentVersion {
   id: string;
@@ -220,9 +217,6 @@ export class legalDocumentDAL extends BaseDAL {
     version: string,
     url: string,
   ): Promise<CurrentDocumentVersion> {
-    // Require admin privileges
-    await requireAdmin();
-
     if (!this.validateDocumentId(documentId)) {
       throw new Error(`Invalid document ID: ${documentId}`);
     }
@@ -262,9 +256,6 @@ export class legalDocumentDAL extends BaseDAL {
     version: string,
     blobPathname?: string,
   ): Promise<void> {
-    // Require admin privileges
-    await requireAdmin();
-
     if (!this.validateDocumentId(documentId)) {
       throw new Error(`Invalid document ID: ${documentId}`);
     }
@@ -340,12 +331,6 @@ export class legalDocumentDAL extends BaseDAL {
     rentalRequestId?: string,
     listingId?: string,
   ): Promise<void> {
-    // Verify authentication and that userId matches authenticated user
-    const auth = await requireAuth();
-    if (auth.id !== userId) {
-      throw new UnauthorizedError("Cannot record acceptance for another user");
-    }
-
     const { error } = await tryCatch(
       db.insert(userLegalAcceptances).values({
         userId,
@@ -407,14 +392,6 @@ export class legalDocumentDAL extends BaseDAL {
     documentId: LegalDocumentId,
   ): Promise<boolean> {
     try {
-      // Verify authentication and that userId matches authenticated user
-      const auth = await requireAuth();
-      if (auth.id !== userId) {
-        throw new UnauthorizedError(
-          "Cannot check acceptance status for another user",
-        );
-      }
-
       // Get current version
       const currentVersion = await this.getCurrentVersion(documentId);
 
@@ -450,14 +427,6 @@ export class legalDocumentDAL extends BaseDAL {
    */
   static async getUserAcceptances(userId: string): Promise<LegalAcceptance[]> {
     try {
-      // Verify authentication and that userId matches authenticated user
-      const auth = await requireAuth();
-      if (auth.id !== userId) {
-        throw new UnauthorizedError(
-          "Cannot fetch acceptances for another user",
-        );
-      }
-
       const acceptances = await db
         .select()
         .from(userLegalAcceptances)
@@ -485,16 +454,13 @@ export class legalDocumentDAL extends BaseDAL {
   /**
    * Get the rental agreement acceptance for a specific rental request
    * Returns the document version and URL that was accepted at rental creation
-   * Requires authentication and ensures user can only access their own rentals
    */
   static async getRentalAgreementAcceptance(
     rentalRequestId: string,
+    userId: string,
   ): Promise<{ version: string; url: string } | null> {
     try {
-      // Verify authentication
-      const auth = await requireAuth();
-
-      // First, verify the user has access to this rental (is either renter or owner)
+      // Verify the rental request exists
       const rentalRequest = await db
         .select()
         .from(rentalRequests)
@@ -502,14 +468,13 @@ export class legalDocumentDAL extends BaseDAL {
         .limit(1);
 
       if (rentalRequest.length === 0) {
-        throw new UnauthorizedError("Rental request not found");
+        return null;
       }
 
       const request = rentalRequest[0];
-      if (request.renterId !== auth.id && request.ownerId !== auth.id) {
-        throw new UnauthorizedError(
-          "Cannot access rental agreement for this rental",
-        );
+      // Verify user has access to this rental (is either renter or owner)
+      if (request.renterId !== userId && request.ownerId !== userId) {
+        return null;
       }
 
       // Get the acceptance record for this rental request
