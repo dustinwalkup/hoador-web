@@ -17,6 +17,9 @@ import { BaseDAL } from "./base";
 import { UnauthorizedError, NotFoundError } from "./errors";
 import { ReviewDAL } from "./review.dal";
 
+// Create a single instance at module level to reuse across methods
+const reviewDALInstance = new ReviewDAL();
+
 export interface BorrowedListing {
   id: string;
   listingId: string;
@@ -1488,9 +1491,8 @@ export class RentalDAL extends BaseDAL {
 
         if (rentalRecord[0]) {
           // Get full review if it exists
-          const reviewDAL = new ReviewDAL();
           const { data: reviewResult } = await tryCatch(
-            reviewDAL.getReviewByRentalId(rentalRecord[0].id),
+            reviewDALInstance.getReviewByRentalId(rentalRecord[0].id),
           );
 
           hasReview = !!reviewResult;
@@ -1739,13 +1741,12 @@ export class RentalDAL extends BaseDAL {
         : undefined;
 
       // Get full review if it exists
-      const reviewDAL = new ReviewDAL();
       let hasReview = false;
       let canLeaveReview = false;
       let reviewData = null;
 
       const { data: reviewResult } = await tryCatch(
-        reviewDAL.getReviewByRentalId(rentalData.id),
+        reviewDALInstance.getReviewByRentalId(rentalData.id),
       );
 
       hasReview = !!reviewResult;
