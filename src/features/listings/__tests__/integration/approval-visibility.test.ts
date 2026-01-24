@@ -57,6 +57,9 @@ describe("Approval Visibility Integration", () => {
       const result = await listingDAL.searchListings(
         {},
         { page: 1, limit: 12 },
+        null as any,
+        "community-1",
+        false,
       );
 
       // Assert
@@ -96,6 +99,9 @@ describe("Approval Visibility Integration", () => {
       const result = await listingDAL.searchListings(
         {},
         { page: 1, limit: 12 },
+        null as any,
+        "community-1",
+        false,
       );
 
       // Assert
@@ -136,6 +142,9 @@ describe("Approval Visibility Integration", () => {
       const result = await listingDAL.searchListings(
         {},
         { page: 1, limit: 12 },
+        null as any,
+        "community-1",
+        false,
       );
 
       // Assert
@@ -177,6 +186,8 @@ describe("Approval Visibility Integration", () => {
         {},
         { page: 1, limit: 12 },
         ownerId,
+        "community-1",
+        false,
       );
 
       // Assert
@@ -216,6 +227,8 @@ describe("Approval Visibility Integration", () => {
         {},
         { page: 1, limit: 12 },
         ownerId,
+        "community-1",
+        false,
       );
 
       // Assert
@@ -265,6 +278,8 @@ describe("Approval Visibility Integration", () => {
         {},
         { page: 1, limit: 12 },
         "admin-123",
+        "community-1",
+        true,
       );
 
       // Assert
@@ -309,12 +324,18 @@ describe("Approval Visibility Integration", () => {
       const result = await listingDAL.searchListings(
         { query: "drill" },
         { page: 1, limit: 12 },
+        null as any,
+        "community-1",
+        false,
       );
 
       // Assert
       expect(listingDAL.searchListings).toHaveBeenCalledWith(
         { query: "drill" },
         { page: 1, limit: 12 },
+        null as any,
+        "community-1",
+        false,
       );
       expect(result.data).toHaveLength(1);
       expect(result.data[0].approvalStatus).toBe("approved");

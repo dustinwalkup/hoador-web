@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { sendMessageAction } from "@/features/messages/actions/send-message";
 import { messagesDAL } from "@/dal";
-import { mockMessage } from "@/test/fixtures/messages";
+import { mockMessage, mockUser1 } from "@/test/fixtures/messages";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -14,11 +14,21 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
+vi.mock("@/features/auth/utils/session", () => ({
+  requireAuthenticatedUser: vi.fn(),
+}));
+
 import { tryCatch } from "@walkup/walkup-utils";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 describe("Message Sending Flow: Component → Action → DAL → Database", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuthenticatedUser).mockResolvedValue({
+      user: mockUser1 as any,
+      userId: mockUser1.id,
+      isAdmin: false,
+    });
   });
 
   it("should complete full flow: User sends message → action validates → DAL sends message → database stores message", async () => {
@@ -38,10 +48,15 @@ describe("Message Sending Flow: Component → Action → DAL → Database", () =
     expect(result.success).toBe(true);
     expect(result.data).toEqual(mockMessage);
     expect(tryCatch).toHaveBeenCalledWith(
-      messagesDAL.sendMessageInConversation(conversationId, content),
+      messagesDAL.sendMessageInConversation(
+        conversationId,
+        mockUser1.id,
+        content,
+      ),
     );
     expect(messagesDAL.sendMessageInConversation).toHaveBeenCalledWith(
       conversationId,
+      mockUser1.id,
       content,
     );
   });
@@ -69,6 +84,7 @@ describe("Message Sending Flow: Component → Action → DAL → Database", () =
     expect(result.data?.content).not.toContain("<script>");
     expect(messagesDAL.sendMessageInConversation).toHaveBeenCalledWith(
       conversationId,
+      mockUser1.id,
       unsafeContent, // DAL should handle sanitization
     );
   });

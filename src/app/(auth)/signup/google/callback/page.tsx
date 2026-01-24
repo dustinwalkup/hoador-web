@@ -1,9 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import { userDAL } from "@/dal";
+import { userDAL, legalDocumentDAL } from "@/dal";
 import { getSession } from "@/features/auth/utils/session";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 export default async function GoogleSignupCallback() {

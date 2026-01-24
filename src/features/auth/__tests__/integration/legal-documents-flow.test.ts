@@ -1,19 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { acceptLegalDocumentsAction } from "../../actions/accept-legal-documents";
 import { signupAction } from "../../actions/signup";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
-import { userDAL } from "@/dal";
+import { legalDocumentDAL, userDAL } from "@/dal";
 import { mockLegalDocuments, mockSignupData } from "@/test/fixtures/auth";
 
 // Mock dependencies
-vi.mock("@/dal/legal-document.dal", () => ({
-  legalDocumentDAL: {
-    getAllCurrentVersions: vi.fn(),
-    recordAcceptance: vi.fn(),
-    recordAcceptanceForSignup: vi.fn(),
-  },
-}));
-
 vi.mock("@/dal", () => ({
   userDAL: {
     updateLegalAcceptances: vi.fn(),
@@ -21,6 +12,11 @@ vi.mock("@/dal", () => ({
     getUserById: vi.fn(),
     updateUserStatus: vi.fn(),
     updateUserProfilePhoto: vi.fn(),
+  },
+  legalDocumentDAL: {
+    getAllCurrentVersions: vi.fn(),
+    recordAcceptance: vi.fn(),
+    recordAcceptanceForSignup: vi.fn(),
   },
 }));
 

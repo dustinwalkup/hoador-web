@@ -56,9 +56,17 @@ export async function approveListingAction(
       };
     }
 
+    // Get admin user ID
+    const adminUser = await requireAdmin();
+    if (!adminUser) {
+      return {
+        error: "Admin privileges required",
+      };
+    }
+
     // Update approval status
     const { error: updateError } = await tryCatch(
-      listingDAL.updateApprovalStatus(listingId, "approved"),
+      listingDAL.updateApprovalStatus(listingId, "approved", adminUser.id),
     );
 
     if (updateError) {
@@ -132,7 +140,12 @@ export async function rejectListingAction(
 ): Promise<RejectListingState> {
   try {
     // Require admin authentication
-    await requireAdmin();
+    const adminUser = await requireAdmin();
+    if (!adminUser) {
+      return {
+        error: "Admin privileges required",
+      };
+    }
 
     // Validate rejection reason
     const validationResult = rejectionReasonSchema.safeParse(rejectionReason);
@@ -168,7 +181,12 @@ export async function rejectListingAction(
 
     // Update approval status
     const { error: updateError } = await tryCatch(
-      listingDAL.updateApprovalStatus(listingId, "rejected", sanitizedReason),
+      listingDAL.updateApprovalStatus(
+        listingId,
+        "rejected",
+        adminUser.id,
+        sanitizedReason,
+      ),
     );
 
     if (updateError) {

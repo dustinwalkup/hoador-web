@@ -4,8 +4,7 @@ import { z } from "zod";
 import {
   handleApiError,
   parseFormData,
-  requireAuthResponse,
-  getCurrentUserId,
+  getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
 
@@ -23,8 +22,11 @@ export async function PATCH(
 ) {
   try {
     // Check authentication
-    const authError = await requireAuthResponse();
-    if (authError) return authError;
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId: currentUserId } = authResult;
 
     const { listingId } = await params;
 
@@ -33,15 +35,6 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Listing ID is required" },
         { status: 400 },
-      );
-    }
-
-    // Get current user ID
-    const currentUserId = await getCurrentUserId();
-    if (!currentUserId) {
-      return NextResponse.json(
-        { error: "Unauthorized: User not authenticated" },
-        { status: 401 },
       );
     }
 
@@ -63,7 +56,20 @@ export async function PATCH(
 
     const { status } = validationResult.data;
 
-    // Update the listing status (DAL handles ownership validation)
+    // Verify ownership before updating
+    const existingListing = await listingDAL.getListingById(listingId);
+    if (!existingListing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    if (existingListing.owner.id !== currentUserId) {
+      return NextResponse.json(
+        { error: "Forbidden: You can only update your own listings" },
+        { status: 403 },
+      );
+    }
+
+    // Update the listing status
     const { data: listing, error } = await tryCatch(
       listingDAL.updateListingStatus(listingId, status),
     );

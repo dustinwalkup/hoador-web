@@ -1,25 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
-import { tryCatch } from "@walkup/walkup-utils";
 import { messagesDAL } from "@/dal";
-import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
+import { tryCatch } from "@walkup/walkup-utils";
+import {
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
-  const { conversationId } = await params;
+  try {
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId } = authResult;
 
-  const { data, error } = await tryCatch(
-    (async () => {
-      return await messagesDAL.getConversationDetails(conversationId);
-    })(),
-  );
+    const { conversationId } = await params;
 
-  if (error) {
+    const { data, error } = await tryCatch(
+      messagesDAL.getConversationDetails(conversationId, userId),
+    );
+
+    if (error) {
+      console.error("Error fetching conversation details:", error);
+      return NextResponse.json(
+        { error: error.message || "Failed to fetch conversation details" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
     return handleApiError(error);
   }
-
-  return Response.json(data);
 }
 
 export async function DELETE(
@@ -27,12 +43,16 @@ export async function DELETE(
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
   try {
-    const authError = await requireAuthResponse();
-    if (authError) return authError;
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId } = authResult;
 
     const { conversationId } = await params;
     const { error } = await tryCatch(
-      messagesDAL.deleteConversation(conversationId),
+      messagesDAL.deleteConversation(conversationId, userId),
     );
 
     if (error) {

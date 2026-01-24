@@ -9,6 +9,7 @@ import { mockListing } from "@/test/fixtures/listings";
 vi.mock("@/dal", () => ({
   listingDAL: {
     updateListing: vi.fn(),
+    getListingById: vi.fn(),
   },
 }));
 
@@ -47,6 +48,10 @@ describe("updateListing", () => {
     };
 
     vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+    vi.mocked(listingDAL.getListingById).mockResolvedValue({
+      ...mockListing,
+      owner: { id: userId },
+    } as any);
     vi.mocked(listingDAL.updateListing).mockResolvedValue({
       ...mockListing,
       ...formData,
@@ -58,7 +63,12 @@ describe("updateListing", () => {
     // Assert
     expect(result).toEqual({ success: true, listingId });
     expect(getCurrentUserId).toHaveBeenCalled();
-    expect(listingDAL.updateListing).toHaveBeenCalledWith(listingId, formData);
+    expect(listingDAL.getListingById).toHaveBeenCalledWith(listingId);
+    expect(listingDAL.updateListing).toHaveBeenCalledWith(
+      listingId,
+      formData,
+      userId,
+    );
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/garage");
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/listings");
   });
@@ -132,8 +142,12 @@ describe("updateListing", () => {
     };
 
     vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+    vi.mocked(listingDAL.getListingById).mockResolvedValue({
+      ...mockListing,
+      owner: { id: userId },
+    } as any);
     vi.mocked(listingDAL.updateListing).mockRejectedValue(
-      new Error("Unauthorized: Not the owner"),
+      new Error("Database error"),
     );
 
     // Act
@@ -141,7 +155,7 @@ describe("updateListing", () => {
 
     // Assert
     expect(result).toHaveProperty("error");
-    expect(result.error).toBe("Unauthorized: Not the owner");
+    expect(result.error).toBe("Database error");
   });
 
   it("should return error when listing not found", async () => {
@@ -166,9 +180,7 @@ describe("updateListing", () => {
     };
 
     vi.mocked(getCurrentUserId).mockResolvedValue(userId);
-    vi.mocked(listingDAL.updateListing).mockRejectedValue(
-      new Error("Listing not found"),
-    );
+    vi.mocked(listingDAL.getListingById).mockResolvedValue(null as any);
 
     // Act
     const result = await updateListing(listingId, formData);
@@ -176,5 +188,7 @@ describe("updateListing", () => {
     // Assert
     expect(result).toHaveProperty("error");
     expect(result.error).toBe("Listing not found");
+    expect(listingDAL.getListingById).toHaveBeenCalledWith(listingId);
+    expect(listingDAL.updateListing).not.toHaveBeenCalled();
   });
 });

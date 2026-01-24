@@ -1,7 +1,4 @@
-import type {
-  CurrentDocumentVersion,
-  DocumentVersion,
-} from "@/dal/legal-document.dal";
+import type { CurrentDocumentVersion, DocumentVersion } from "@/dal/types";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 export const mockCurrentDocumentVersion: CurrentDocumentVersion = {

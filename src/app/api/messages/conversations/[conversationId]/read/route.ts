@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { messagesDAL } from "@/dal";
-import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
+import {
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
 
 /**
  * POST /api/messages/conversations/[conversationId]/read
@@ -12,12 +15,16 @@ export async function POST(
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
   try {
-    const authError = await requireAuthResponse();
-    if (authError) return authError;
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId } = authResult;
 
     const { conversationId } = await params;
     const { data, error } = await tryCatch(
-      messagesDAL.markConversationAsRead(conversationId),
+      messagesDAL.markConversationAsRead(conversationId, userId),
     );
 
     if (error) {

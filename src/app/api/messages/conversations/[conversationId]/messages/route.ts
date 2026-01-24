@@ -3,8 +3,8 @@ import { z } from "zod";
 import { tryCatch } from "@walkup/walkup-utils";
 import { messagesDAL } from "@/dal";
 import {
+  getAuthenticatedUserResponse,
   handleApiError,
-  requireAuthResponse,
   parseFormData,
 } from "@/lib/api/route-helpers";
 
@@ -24,15 +24,23 @@ export async function POST(
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
   try {
-    const authError = await requireAuthResponse();
-    if (authError) return authError;
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId } = authResult;
 
     const { conversationId } = await params;
     const body = await parseFormData(request);
     const validated = sendMessageSchema.parse(body);
 
     const { data, error } = await tryCatch(
-      messagesDAL.sendMessageInConversation(conversationId, validated.content),
+      messagesDAL.sendMessageInConversation(
+        conversationId,
+        userId,
+        validated.content,
+      ),
     );
 
     if (error) {

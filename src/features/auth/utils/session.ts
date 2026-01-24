@@ -1,7 +1,6 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { auth } from "@/services/better-auth";
-import { userDAL } from "@/dal";
 
 /**
  * Get current user from Better Auth session
@@ -15,6 +14,11 @@ export const getCurrentUser = async () => {
     if (!session?.user) {
       return null;
     }
+
+    // Lazy import userDAL to avoid circular dependency
+    // (rentals.dal.ts imports getCurrentUserId from this file,
+    // and dal/index.ts imports rentals.dal.ts, creating a cycle)
+    const { userDAL } = await import("@/dal");
 
     // Get full user profile from our DAL
     const userProfile = await userDAL.getUserByEmailForAuth(session.user.email);
@@ -69,3 +73,39 @@ export const getSession = cache(async (requestHeaders?: Headers) => {
     return null;
   }
 });
+
+/**
+ * Get authenticated user with admin status
+ * Returns null if not authenticated, otherwise returns user data with admin flag
+ * Use this in server components and server actions
+ */
+export async function getAuthenticatedUser(): Promise<{
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+  userId: string;
+  isAdmin: boolean;
+} | null> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return null;
+  }
+
+  const isAdmin = user.userType === "admin" || user.userType === "superadmin";
+  return { user, userId: user.id, isAdmin };
+}
+
+/**
+ * Require authenticated user with admin status
+ * Throws if not authenticated, otherwise returns user data with admin flag
+ * Use this in server components and server actions when auth is required
+ */
+export async function requireAuthenticatedUser(): Promise<{
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+  userId: string;
+  isAdmin: boolean;
+}> {
+  const result = await getAuthenticatedUser();
+  if (!result) {
+    throw new Error("Authentication required");
+  }
+  return result;
+}

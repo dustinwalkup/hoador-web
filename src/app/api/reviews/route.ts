@@ -1,10 +1,21 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { reviewDAL } from "@/dal";
 import { reviewSchema } from "@/features/reviews/schemas/review-schema";
+import {
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
 
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate user
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId } = authResult;
+
     const body = await request.json();
 
     // Validate request body - allow either rentalId or requestId
@@ -21,18 +32,12 @@ export async function POST(request: NextRequest) {
 
     // Create review
     const { data: review, error } = await tryCatch(
-      reviewDAL.createReview(reviewData),
+      reviewDAL.createReview(userId, reviewData),
     );
 
     if (error) {
       console.error("Error creating review:", error);
-      return Response.json(
-        {
-          error:
-            error instanceof Error ? error.message : "Failed to create review",
-        },
-        { status: 400 },
-      );
+      return handleApiError(error);
     }
 
     return Response.json(
@@ -44,15 +49,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("Error in POST /api/reviews:", error);
-    return Response.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred",
-      },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }
 

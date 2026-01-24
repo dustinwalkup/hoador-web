@@ -1,13 +1,29 @@
-import { NextRequest } from "next/server";
-import { getCurrentUserId } from "@/features/auth/utils/session";
+import { NextRequest, NextResponse } from "next/server";
 import { listingDAL } from "@/dal";
 import type { ListingSearchFilters } from "@/dal/types";
 import { sanitizeSearchQuery } from "@/lib/utils/sanitize";
+import { getCurrentUserCommunityId } from "@/features/community/utils/membership";
+import { getAuthenticatedUserResponse } from "@/lib/api/route-helpers";
 
 export async function GET(request: NextRequest) {
   try {
+    // Check authentication
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId, isAdmin: userIsAdmin } = authResult;
+
     const searchParams = request.nextUrl.searchParams;
-    const userId = await getCurrentUserId();
+
+    // Get user's community ID
+    const communityId = await getCurrentUserCommunityId();
+    if (!communityId) {
+      return NextResponse.json(
+        { error: "User must be a member of a community" },
+        { status: 400 },
+      );
+    }
 
     // Parse and sanitize search parameters
     const rawQuery = searchParams.get("q");
@@ -48,7 +64,9 @@ export async function GET(request: NextRequest) {
     const searchResults = await listingDAL.searchListings(
       filters,
       pagination,
-      userId || undefined,
+      userId,
+      communityId,
+      userIsAdmin,
     );
 
     return Response.json(searchResults);

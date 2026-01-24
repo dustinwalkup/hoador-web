@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { tryCatch } from "@walkup/walkup-utils";
 import { auth } from "@/services/better-auth";
-import { userDAL } from "@/dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { userDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { emailSignupSchema } from "../schemas/auth-schemas";
 
