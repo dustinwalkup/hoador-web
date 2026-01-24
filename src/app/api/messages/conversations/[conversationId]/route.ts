@@ -37,3 +37,32 @@ export async function GET(
     return handleApiError(error);
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ conversationId: string }> },
+) {
+  try {
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId } = authResult;
+
+    const { conversationId } = await params;
+    const { error } = await tryCatch(
+      messagesDAL.deleteConversation(conversationId, userId),
+    );
+
+    if (error) {
+      return handleApiError(error);
+    }
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}

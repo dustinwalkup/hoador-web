@@ -108,6 +108,14 @@ export function MailboxClient({
     router.replace("/dashboard/mailbox", { scroll: false });
   };
 
+  const handleTabChange = (tab: "inbox" | "archived") => {
+    // Clear selected conversation when switching tabs
+    setSelectedConversationId(null);
+    setShowMobileChat(false);
+    router.replace("/dashboard/mailbox", { scroll: false });
+    setActiveTab(tab);
+  };
+
   return (
     <div className="flex h-[calc(100vh-5rem)] bg-white md:h-[calc(100vh-3.5rem)]">
       {/* Desktop Layout */}
@@ -119,7 +127,7 @@ export function MailboxClient({
             onSearchChange={setSearchQuery}
           />
 
-          <MailboxTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <MailboxTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
           <ConversationsList
             conversationsData={conversationsData}
@@ -151,7 +159,7 @@ export function MailboxClient({
               onSearchChange={setSearchQuery}
             />
 
-            <MailboxTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            <MailboxTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
             <ConversationsList
               conversationsData={conversationsData}
