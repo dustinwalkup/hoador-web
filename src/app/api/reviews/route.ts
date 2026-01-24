@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       return handleApiError(error);
     }
 
-    return Response.json(
+    return NextResponse.json(
       {
         success: true,
         reviewId: review?.id,
@@ -92,12 +92,18 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    // Authenticate user
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const rentalId = searchParams.get("rentalId");
     const requestId = searchParams.get("requestId");
 
     if (!rentalId && !requestId) {
-      return Response.json(
+      return NextResponse.json(
         { error: "rentalId or requestId query parameter is required" },
         { status: 400 },
       );
@@ -110,39 +116,11 @@ export async function GET(request: NextRequest) {
     );
 
     if (error) {
-      console.error("Error fetching review:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to fetch review";
-
-      // Log full error details for debugging
-      console.error("Full error details:", {
-        message: errorMessage,
-        error,
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
-      return Response.json(
-        {
-          success: false,
-          error: errorMessage,
-        },
-        { status: 500 },
-      );
+      return handleApiError(error);
     }
 
-    return Response.json({
-      review: review || null,
-    });
+    return NextResponse.json({ review: review || null });
   } catch (error) {
-    console.error("Error in GET /api/reviews:", error);
-    return Response.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred",
-      },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }
