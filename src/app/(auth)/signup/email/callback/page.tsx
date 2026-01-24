@@ -1,8 +1,13 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { userDAL } from "@/dal";
 import { getSession } from "@/features/auth/utils/session";
+
+export const metadata: Metadata = {
+  title: "Loading",
+};
 
 export default async function EmailSignupCallback({
   searchParams,

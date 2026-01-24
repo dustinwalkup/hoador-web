@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Mail } from "lucide-react";
@@ -13,6 +14,10 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
+
+export const metadata: Metadata = {
+  title: "Verify Email",
+};
 
 interface VerifyEmailPageProps {
   searchParams: Promise<{ email?: string }>;

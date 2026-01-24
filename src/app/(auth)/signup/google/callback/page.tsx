@@ -1,9 +1,14 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { userDAL, legalDocumentDAL } from "@/dal";
 import { getSession } from "@/features/auth/utils/session";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+
+export const metadata: Metadata = {
+  title: "Loading",
+};
 
 export default async function GoogleSignupCallback() {
   // Get authenticated user session

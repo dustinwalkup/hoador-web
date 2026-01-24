@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CheckCircle } from "lucide-react";
 import Link from "next/link";
@@ -17,6 +18,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+export const metadata: Metadata = {
+  title: "Complete Profile",
+};
 
 export default async function OnboardingPage() {
   const user = await getCurrentUser();

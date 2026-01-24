@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { legalDocumentDAL, userDAL } from "@/dal";
 import { getSession } from "@/features/auth/utils/session";
@@ -8,6 +9,10 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { Card, CardContent } from "@/components/ui/card";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
 import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
+
+export const metadata: Metadata = {
+  title: "Accept Terms",
+};
 
 export default async function LegalAcceptancePage() {
   // Get authenticated user session
