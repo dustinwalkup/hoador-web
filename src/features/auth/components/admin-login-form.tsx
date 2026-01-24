@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useActionState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -12,14 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { loginSchema, type LoginData } from "../schemas/auth-schemas";
-import { adminLoginAction } from "../actions/admin-login";
+import { useAdminLogin } from "../hooks/use-auth-mutations";
 
 export function AdminLoginForm() {
   const [showPassword, setShowPassword] = useState(false);
-  const [isTransitionPending, startTransition] = useState(false);
   const router = useRouter();
-
-  const [state, formAction, isPending] = useActionState(adminLoginAction, null);
+  const mutation = useAdminLogin();
 
   const {
     register,
@@ -32,28 +29,33 @@ export function AdminLoginForm() {
 
   // Handle form submission
   const onSubmit = async (data: LoginData) => {
-    startTransition(true);
-    const formData = new FormData();
-    formData.append("email", data.email);
-    formData.append("password", data.password);
-    formAction(formData);
+    try {
+      await mutation.mutateAsync({
+        email: data.email,
+        password: data.password,
+      });
+    } catch {
+      // Error is handled by the mutation hook
+    }
   };
 
   // Redirect on success
   useEffect(() => {
-    if (state?.success) {
+    if (mutation.isSuccess) {
       router.push("/admin/dashboard");
     }
-  }, [state?.success, router]);
-
-  const isLoading = isPending || isTransitionPending;
+  }, [mutation.isSuccess, router]);
 
   return (
     <div className="space-y-6">
       {/* Error Alert */}
-      {state?.error && (
+      {mutation.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{state.error}</AlertDescription>
+          <AlertDescription>
+            {mutation.error instanceof Error
+              ? mutation.error.message
+              : "Failed to login"}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -65,7 +67,7 @@ export function AdminLoginForm() {
             id="email"
             type="email"
             placeholder="admin@example.com"
-            disabled={isLoading}
+            disabled={mutation.isPending}
             {...register("email")}
           />
           {errors.email && (
@@ -80,14 +82,14 @@ export function AdminLoginForm() {
               id="password"
               type={showPassword ? "text" : "password"}
               placeholder="Enter your password"
-              disabled={isLoading}
+              disabled={mutation.isPending}
               {...register("password")}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              disabled={isLoading}
+              disabled={mutation.isPending}
             >
               {showPassword ? (
                 <EyeOff className="h-4 w-4" />
@@ -101,8 +103,8 @@ export function AdminLoginForm() {
           )}
         </div>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? (
+        <Button type="submit" className="w-full" disabled={mutation.isPending}>
+          {mutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Signing in...
