@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createListing, uploadListingImage } from "../create-listing";
-import { listingDAL, userDAL } from "@/dal";
+import { listingDAL, userDAL, legalDocumentDAL } from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { revalidatePath } from "next/cache";
 import { mockListing } from "@/test/fixtures/listings";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { requireCommunityMembership } from "@/features/community/utils/membership";
 
@@ -19,9 +18,6 @@ vi.mock("@/dal", () => ({
   communityDAL: {
     requireUserCommunityMembership: vi.fn(),
   },
-}));
-
-vi.mock("@/dal/legal-document.dal", () => ({
   legalDocumentDAL: {
     getAllCurrentVersions: vi.fn(),
     recordAcceptance: vi.fn(),

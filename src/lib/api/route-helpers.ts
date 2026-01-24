@@ -12,8 +12,21 @@ import {
   NotFoundError,
   ValidationError,
   ConflictError,
-  UnauthorizedError,
 } from "@/dal/errors";
+
+/**
+ * Error class for unauthorized access at the API layer
+ * This is NOT a DAL error - it's used for auth failures in API routes
+ */
+export class UnauthorizedError extends Error {
+  public code = "UNAUTHORIZED";
+  public statusCode = 401;
+
+  constructor(message = "Unauthorized") {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
+}
 
 /**
  * Handle API errors consistently

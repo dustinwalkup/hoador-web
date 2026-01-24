@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { uploadDocumentAction, deleteVersionAction } from "../legal-documents";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal";
 import { requireAdmin } from "@/features/auth/utils/guards";
 import { uploadToBlob, deleteFromBlob } from "@/services/vercel-blob";
 import {
@@ -22,7 +22,7 @@ import {
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 // Mock dependencies
-vi.mock("@/dal/legal-document.dal", () => ({
+vi.mock("@/dal", () => ({
   legalDocumentDAL: {
     createVersion: vi.fn(),
     deleteVersion: vi.fn(),

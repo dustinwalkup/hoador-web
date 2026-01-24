@@ -11,10 +11,7 @@ import {
 } from "@/components/ui/collapsible";
 import { LegalDocumentHistory } from "./legal-document-history";
 import type { LegalDocumentId } from "@/constants/legal-documents";
-import type {
-  CurrentDocumentVersion,
-  DocumentVersion,
-} from "@/dal/legal-document.dal";
+import type { CurrentDocumentVersion, DocumentVersion } from "@/dal/types";
 
 interface DocumentVersionCardProps {
   documentId: LegalDocumentId;

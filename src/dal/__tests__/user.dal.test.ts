@@ -3,11 +3,9 @@ import { userDAL } from "../index";
 import { UserDAL } from "../user.dal";
 import { ConflictError, NotFoundError } from "../errors";
 import { mockUser, mockUserMinimal, mockAddress } from "@/test/fixtures/users";
-import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 
 // Mock dependencies
-vi.mock("@/features/auth/utils/session");
 vi.mock("@/db/db", () => ({
   db: {
     query: {
@@ -239,17 +237,12 @@ describe("UserDAL", () => {
   describe("createUserWithAddress", () => {
     it("should create address with geocoding", async () => {
       // Arrange
-      const userId = "user-123";
       const addressData = {
         street: "123 Main St",
         city: "San Francisco",
         state: "CA",
         zipCode: "94102",
       };
-
-      vi.mocked(sessionUtils.requireAuth).mockResolvedValue({
-        id: userId,
-      } as any);
 
       // Mock user doesn't exist check (first call checks if user exists, should return undefined)
       vi.mocked(db.query.user.findFirst).mockResolvedValueOnce(undefined);
@@ -334,10 +327,6 @@ describe("UserDAL", () => {
         state: "CA",
         zipCode: "94102",
       };
-
-      vi.mocked(sessionUtils.requireAuth).mockResolvedValue({
-        id: "user-123",
-      } as any);
 
       // Act & Assert
       await expect(

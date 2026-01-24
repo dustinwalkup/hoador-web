@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRentalRequest } from "../create-rental-request";
-import { rentalDAL, userDAL, notificationsDAL, listingDAL } from "@/dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import {
+  rentalDAL,
+  userDAL,
+  notificationsDAL,
+  listingDAL,
+  legalDocumentDAL,
+} from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -23,9 +28,6 @@ vi.mock("@/dal", () => ({
   listingDAL: {
     getListingById: vi.fn(),
   },
-}));
-
-vi.mock("@/dal/legal-document.dal", () => ({
   legalDocumentDAL: {
     getAllCurrentVersions: vi.fn(),
     recordAcceptance: vi.fn(),

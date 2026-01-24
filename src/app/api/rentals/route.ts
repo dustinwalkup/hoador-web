@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
-import { rentalDAL, userDAL, listingDAL } from "@/dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { rentalDAL, userDAL, listingDAL, legalDocumentDAL } from "@/dal";
 import {
   handleApiError,
   parseFormData,

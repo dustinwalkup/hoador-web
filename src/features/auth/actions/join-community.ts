@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { tryCatch } from "@walkup/walkup-utils";
 import { communityDAL, userDAL } from "@/dal";
-import { ValidationError, UnauthorizedError } from "@/dal/errors";
+import { ValidationError } from "@/dal/errors";
+import { UnauthorizedError } from "@/lib/api/route-helpers";
 import { joinCodeSchema } from "../schemas/auth-schemas";
 import { requireAuth } from "../utils/session";
 

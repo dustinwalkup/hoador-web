@@ -12,8 +12,7 @@ import {
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
-import { listingDAL, userDAL } from "../../../dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { listingDAL, userDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { requireCommunityMembership } from "@/features/community/utils/membership";
 

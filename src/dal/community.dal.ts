@@ -255,9 +255,6 @@ export class CommunityDAL extends BaseDAL {
     data: Omit<NewCommunity, "id" | "createdAt" | "updatedAt">,
   ): Promise<Community> {
     try {
-      // For now, no auth check since no one can create communities yet
-      // In the future: await requireAuth() and check admin permissions
-
       if (!data.name?.trim()) {
         throw new ValidationError("Community name is required");
       }

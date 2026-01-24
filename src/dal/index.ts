@@ -5,6 +5,7 @@ import { ListingDAL } from "./listing.dal";
 import { MessagesDAL } from "./messages.dal";
 import { CommunityDAL } from "./community.dal";
 import { NotificationDAL } from "./notifications.dal";
+import { LegalDocumentDAL } from "./legal-document.dal";
 
 // Create singleton instances
 export const userDAL = new UserDAL();
@@ -14,7 +15,4 @@ export const rentalDAL = new RentalDAL();
 export const listingDAL = new ListingDAL();
 export const messagesDAL = new MessagesDAL();
 export const notificationsDAL = new NotificationDAL();
-
-// Note: legalDocumentDAL is not exported from here to avoid circular dependency.
-// legalDocumentDAL imports requireAuth from session.ts, which imports userDAL from this file.
-// Import legalDocumentDAL directly from "@/dal/legal-document.dal" instead.
+export const legalDocumentDAL = new LegalDocumentDAL();

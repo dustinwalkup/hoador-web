@@ -3,12 +3,7 @@ import { reviews, rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
 import { BaseDAL } from "./base";
-import {
-  UnauthorizedError,
-  NotFoundError,
-  ValidationError,
-  ConflictError,
-} from "./errors";
+import { NotFoundError, ValidationError, ConflictError } from "./errors";
 import { tryCatch } from "@walkup/walkup-utils";
 
 export class ReviewDAL extends BaseDAL {
@@ -448,7 +443,7 @@ export class ReviewDAL extends BaseDAL {
 
     // Verify user is the renter
     if (rental.renterId !== userId) {
-      throw new UnauthorizedError("Only the renter can leave a review");
+      throw new ValidationError("Only the renter can leave a review");
     }
 
     // Check if review already exists

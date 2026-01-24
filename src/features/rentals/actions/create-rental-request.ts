@@ -7,8 +7,7 @@ import {
   createRentalRequestSchema,
   type CreateRentalRequestFormData,
 } from "../lib/form-schema";
-import { rentalDAL, userDAL, listingDAL } from "../../../dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { rentalDAL, userDAL, listingDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { sendRentalRequestCreatedNotification } from "../notifications/rental-request-created";

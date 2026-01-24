@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { joinCommunityAction } from "../join-community";
 import { mockVerifiedUser } from "@/test/fixtures/auth";
 import { mockJoinCode } from "@/test/fixtures/auth";
-import { ValidationError, UnauthorizedError } from "@/dal/errors";
+import { ValidationError } from "@/dal/errors";
+import { UnauthorizedError } from "@/lib/api/route-helpers";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({

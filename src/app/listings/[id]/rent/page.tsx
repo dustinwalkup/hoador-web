@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
-import { listingDAL, rentalDAL } from "@/dal";
+import { listingDAL, rentalDAL, legalDocumentDAL } from "@/dal";
 import { getCurrentUser } from "@/features/auth/utils/session";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentListingPageContent } from "./_components/rent-listing-page-content";
 

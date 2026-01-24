@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
 import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 export default async function SignupPage() {

@@ -11,8 +11,7 @@ import {
   getClientIP,
   getUserAgent,
 } from "@/lib/api/route-helpers";
-import { listingDAL, userDAL } from "@/dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { listingDAL, userDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { requireCommunityMembership } from "@/features/community/utils/membership";
 

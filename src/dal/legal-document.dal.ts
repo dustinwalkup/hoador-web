@@ -1,7 +1,6 @@
 import { desc, eq, and } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
-import { db } from "@/db/db";
 import {
   legalDocuments,
   userLegalAcceptances,
@@ -13,49 +12,22 @@ import {
   LEGAL_DOCUMENT_IDS,
 } from "@/constants/legal-documents";
 import { deleteFromBlob } from "@/services/vercel-blob";
+import type {
+  CurrentDocumentVersion,
+  DocumentVersionsMap,
+  LegalAcceptance,
+  DocumentVersion,
+} from "./types";
 
-export interface CurrentDocumentVersion {
-  id: string;
-  version: string;
-  url: string;
-  publishedAt: Date;
-}
-
-export interface DocumentVersionsMap {
-  [documentId: string]: CurrentDocumentVersion;
-}
-
-export interface LegalAcceptance {
-  id: string;
-  userId: string;
-  documentId: string;
-  version: string;
-  rentalRequestId: string | null;
-  listingId: string | null;
-  acceptedAt: Date;
-  ipAddress: string | null;
-  userAgent: string | null;
-  method: string;
-}
-
-export interface DocumentVersion {
-  id: string;
-  version: string;
-  url: string;
-  publishedAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export class legalDocumentDAL extends BaseDAL {
+export class LegalDocumentDAL extends BaseDAL {
   /**
    * Get the latest published version of a specific document
    */
-  static async getCurrentVersion(
+  async getCurrentVersion(
     documentId: LegalDocumentId,
   ): Promise<CurrentDocumentVersion | null> {
     try {
-      const documents = await db
+      const documents = await this.db
         .select()
         .from(legalDocuments)
         .where(eq(legalDocuments.id, documentId))
@@ -84,9 +56,9 @@ export class legalDocumentDAL extends BaseDAL {
    * Get all current document versions
    * Returns a map of documentId -> current version info
    */
-  static async getAllCurrentVersions(): Promise<DocumentVersionsMap> {
+  async getAllCurrentVersions(): Promise<DocumentVersionsMap> {
     try {
-      const allDocuments = await db
+      const allDocuments = await this.db
         .select()
         .from(legalDocuments)
         .orderBy(desc(legalDocuments.publishedAt));
@@ -119,7 +91,7 @@ export class legalDocumentDAL extends BaseDAL {
   /**
    * Validate document ID against known document IDs
    */
-  private static validateDocumentId(
+  private validateDocumentId(
     documentId: string,
   ): documentId is LegalDocumentId {
     return Object.values(LEGAL_DOCUMENT_IDS).includes(
@@ -130,7 +102,7 @@ export class legalDocumentDAL extends BaseDAL {
   /**
    * Get all versions of a specific document (not just current)
    */
-  static async getAllVersions(
+  async getAllVersions(
     documentId: LegalDocumentId,
   ): Promise<DocumentVersion[]> {
     try {
@@ -138,7 +110,7 @@ export class legalDocumentDAL extends BaseDAL {
         throw new Error(`Invalid document ID: ${documentId}`);
       }
 
-      const versions = await db
+      const versions = await this.db
         .select()
         .from(legalDocuments)
         .where(eq(legalDocuments.id, documentId))
@@ -161,7 +133,7 @@ export class legalDocumentDAL extends BaseDAL {
   /**
    * Get version history for a document (sorted by publishedAt, newest first)
    */
-  static async getVersionHistory(
+  async getVersionHistory(
     documentId: LegalDocumentId,
   ): Promise<DocumentVersion[]> {
     return this.getAllVersions(documentId);
@@ -170,7 +142,7 @@ export class legalDocumentDAL extends BaseDAL {
   /**
    * Get a specific version of a document
    */
-  static async getVersion(
+  async getVersion(
     documentId: LegalDocumentId,
     version: string,
   ): Promise<DocumentVersion | null> {
@@ -179,7 +151,7 @@ export class legalDocumentDAL extends BaseDAL {
         throw new Error(`Invalid document ID: ${documentId}`);
       }
 
-      const versions = await db
+      const versions = await this.db
         .select()
         .from(legalDocuments)
         .where(
@@ -212,7 +184,7 @@ export class legalDocumentDAL extends BaseDAL {
   /**
    * Create a new document version (admin method)
    */
-  static async createVersion(
+  async createVersion(
     documentId: LegalDocumentId,
     version: string,
     url: string,
@@ -222,7 +194,7 @@ export class legalDocumentDAL extends BaseDAL {
     }
 
     const { data, error } = await tryCatch(
-      db
+      this.db
         .insert(legalDocuments)
         .values({
           id: documentId,
@@ -251,7 +223,7 @@ export class legalDocumentDAL extends BaseDAL {
    * Delete a document version (admin method)
    * Only allows deletion of non-current versions
    */
-  static async deleteVersion(
+  async deleteVersion(
     documentId: LegalDocumentId,
     version: string,
     blobPathname?: string,
@@ -289,7 +261,7 @@ export class legalDocumentDAL extends BaseDAL {
 
     // Delete from database
     const { error: dbError } = await tryCatch(
-      db
+      this.db
         .delete(legalDocuments)
         .where(
           and(
@@ -317,11 +289,10 @@ export class legalDocumentDAL extends BaseDAL {
 
   /**
    * Record a user's acceptance of a legal document
-   * Requires authentication - use recordAcceptanceForSignup during signup flow
    * @param rentalRequestId Optional rental request ID to tie acceptance to specific rental
    * @param listingId Optional listing ID to tie acceptance to specific listing
    */
-  static async recordAcceptance(
+  async recordAcceptance(
     userId: string,
     documentId: LegalDocumentId,
     version: string,
@@ -332,7 +303,7 @@ export class legalDocumentDAL extends BaseDAL {
     listingId?: string,
   ): Promise<void> {
     const { error } = await tryCatch(
-      db.insert(userLegalAcceptances).values({
+      this.db.insert(userLegalAcceptances).values({
         userId,
         documentId,
         version,
@@ -356,7 +327,7 @@ export class legalDocumentDAL extends BaseDAL {
    * Does not require authentication - used during signup flow before session exists
    * @param rentalRequestId Optional rental request ID to tie acceptance to specific rental
    */
-  static async recordAcceptanceForSignup(
+  async recordAcceptanceForSignup(
     userId: string,
     documentId: LegalDocumentId,
     version: string,
@@ -366,7 +337,7 @@ export class legalDocumentDAL extends BaseDAL {
     rentalRequestId?: string,
   ): Promise<void> {
     const { error } = await tryCatch(
-      db.insert(userLegalAcceptances).values({
+      this.db.insert(userLegalAcceptances).values({
         userId,
         documentId,
         version,
@@ -387,7 +358,7 @@ export class legalDocumentDAL extends BaseDAL {
   /**
    * Check if user has accepted the current version of a document
    */
-  static async hasAcceptedCurrentVersion(
+  async hasAcceptedCurrentVersion(
     userId: string,
     documentId: LegalDocumentId,
   ): Promise<boolean> {
@@ -401,7 +372,7 @@ export class legalDocumentDAL extends BaseDAL {
       }
 
       // Check if user has accepted this specific version
-      const acceptances = await db
+      const acceptances = await this.db
         .select()
         .from(userLegalAcceptances)
         .where(
@@ -425,9 +396,9 @@ export class legalDocumentDAL extends BaseDAL {
   /**
    * Get all acceptances for a user
    */
-  static async getUserAcceptances(userId: string): Promise<LegalAcceptance[]> {
+  async getUserAcceptances(userId: string): Promise<LegalAcceptance[]> {
     try {
-      const acceptances = await db
+      const acceptances = await this.db
         .select()
         .from(userLegalAcceptances)
         .where(eq(userLegalAcceptances.userId, userId))
@@ -455,13 +426,13 @@ export class legalDocumentDAL extends BaseDAL {
    * Get the rental agreement acceptance for a specific rental request
    * Returns the document version and URL that was accepted at rental creation
    */
-  static async getRentalAgreementAcceptance(
+  async getRentalAgreementAcceptance(
     rentalRequestId: string,
     userId: string,
   ): Promise<{ version: string; url: string } | null> {
     try {
       // Verify the rental request exists
-      const rentalRequest = await db
+      const rentalRequest = await this.db
         .select()
         .from(rentalRequests)
         .where(eq(rentalRequests.id, rentalRequestId))
@@ -478,7 +449,7 @@ export class legalDocumentDAL extends BaseDAL {
       }
 
       // Get the acceptance record for this rental request
-      const acceptances = await db
+      const acceptances = await this.db
         .select()
         .from(userLegalAcceptances)
         .where(

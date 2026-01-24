@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { rentalDAL } from "@/dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { rentalDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalLayout } from "./rental-layout";
 import { RentalContent } from "./rental-content";

@@ -6,7 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
-import type { CurrentDocumentVersion } from "@/dal/legal-document.dal";
+import type { CurrentDocumentVersion } from "@/dal/types";
 import { type ListingDetails, type UserProfile } from "@/dal/types";
 import { PaymentForm } from "@/features/payments/components/payment-form";
 import { useCreateRentalRequest } from "@/features/rentals/hooks/use-rental-mutations";

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { signupAction } from "../../actions/signup";
-import { userDAL } from "@/dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { userDAL, legalDocumentDAL } from "@/dal";
 import { mockSignupData, mockLegalDocuments } from "@/test/fixtures/auth";
 
 // Mock all dependencies for E2E test
@@ -9,9 +8,6 @@ vi.mock("@/dal", () => ({
   userDAL: {
     updateLegalAcceptancesForSignup: vi.fn(),
   },
-}));
-
-vi.mock("@/dal/legal-document.dal", () => ({
   legalDocumentDAL: {
     getAllCurrentVersions: vi.fn(),
     recordAcceptanceForSignup: vi.fn(),
