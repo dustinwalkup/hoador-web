@@ -2,8 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
-import { userDAL } from "@/dal";
+import { legalDocumentDAL, userDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { getSession } from "../utils/session";
 

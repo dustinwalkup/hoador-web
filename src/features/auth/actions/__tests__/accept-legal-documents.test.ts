@@ -3,19 +3,16 @@ import { acceptLegalDocumentsAction } from "../accept-legal-documents";
 import { mockLegalDocuments } from "@/test/fixtures/auth";
 
 // Mock dependencies
-vi.mock("@/dal/legal-document.dal", () => ({
-  legalDocumentDAL: {
-    getAllCurrentVersions: vi.fn(),
-    recordAcceptance: vi.fn(),
-  },
-}));
-
 vi.mock("@/dal", () => ({
   userDAL: {
     updateLegalAcceptances: vi.fn(),
     getUserById: vi.fn(),
     updateUserStatus: vi.fn(),
     updateUserProfilePhoto: vi.fn(),
+  },
+  legalDocumentDAL: {
+    getAllCurrentVersions: vi.fn(),
+    recordAcceptance: vi.fn(),
   },
 }));
 
@@ -31,8 +28,7 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(),
 }));
 
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
-import { userDAL } from "@/dal";
+import { legalDocumentDAL, userDAL } from "@/dal";
 import { getSession } from "../../utils/session";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";

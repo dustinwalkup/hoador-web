@@ -98,7 +98,8 @@ describe("useCreateRentalRequest", () => {
   const mockSuccessResponse = {
     success: true,
     requestId: "rental-123",
-    message: "Rental request submitted successfully!",
+    message:
+      "Rental request submitted successfully! The owner will be notified and you'll receive an update soon.",
   };
 
   it("should create rental request successfully", async () => {
@@ -122,7 +123,7 @@ describe("useCreateRentalRequest", () => {
         body: expect.stringContaining('"listingId":"listing-123"'),
       });
       expect(toast.success).toHaveBeenCalledWith(
-        "Rental request submitted successfully!",
+        "Rental request submitted successfully! The owner will be notified and you'll receive an update soon.",
         expect.objectContaining({ duration: 3000 }),
       );
     });

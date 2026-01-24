@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { reviewDAL } from "@/dal";
 import {
@@ -6,9 +6,9 @@ import {
   type ReviewFormData,
 } from "@/features/reviews/schemas/review-schema";
 import {
+  getAuthenticatedUserResponse,
   handleApiError,
   parseFormData,
-  requireAuthResponse,
 } from "@/lib/api/route-helpers";
 
 /**
@@ -17,11 +17,12 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const authError = await requireAuthResponse();
-    if (authError) {
-      return authError;
+    // Authenticate user
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { userId } = authResult;
 
     // Parse FormData or JSON
     const body = await parseFormData(request);
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     // Create review
     const { data: review, error } = await tryCatch(
-      reviewDAL.createReview(reviewData),
+      reviewDAL.createReview(userId, reviewData),
     );
 
     if (error) {

@@ -19,11 +19,41 @@ export async function POST(
     if (authError) return authError;
 
     const { id: rentalId } = await params;
+
+    // Get current user ID for authorization
+    const { getCurrentUserId } = await import("@/features/auth/utils/session");
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
+    // Fetch rental request to verify ownership
     const rentalDAL = new RentalDAL();
+    const { data: rentalRequest, error: fetchError } = await tryCatch(
+      rentalDAL.getRentalRequestById(rentalId, currentUserId),
+    );
+
+    if (fetchError || !rentalRequest) {
+      return NextResponse.json(
+        { error: fetchError?.message || "Rental request not found" },
+        { status: 404 },
+      );
+    }
+
+    // Authorization check: only owner can end rentals
+    if (rentalRequest.ownerId !== currentUserId) {
+      return NextResponse.json(
+        { error: "Forbidden: Only the listing owner can end rentals" },
+        { status: 403 },
+      );
+    }
 
     // End the rental and get details for notification
     const { data: result, error } = await tryCatch(
-      rentalDAL.endRental(rentalId),
+      rentalDAL.endRental(rentalId, currentUserId),
     );
 
     if (error) {

@@ -42,9 +42,19 @@ export async function POST(
 
     const validatedData = parseResult.data;
 
+    // Get current user ID for authorization
+    const { getCurrentUserId } = await import("@/features/auth/utils/session");
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
     // Fetch rental request details before declining (for notification)
     const { data: rentalRequest, error: fetchError } = await tryCatch(
-      rentalDAL.getRentalRequestById(rentalId),
+      rentalDAL.getRentalRequestById(rentalId, currentUserId),
     );
 
     if (fetchError || !rentalRequest) {
@@ -54,8 +64,23 @@ export async function POST(
       );
     }
 
+    // Authorization check: only owner can decline
+    if (rentalRequest.ownerId !== currentUserId) {
+      return NextResponse.json(
+        {
+          error:
+            "Forbidden: Only the listing owner can decline rental requests",
+        },
+        { status: 403 },
+      );
+    }
+
     const { error } = await tryCatch(
-      rentalDAL.declineRentalRequest(rentalId, validatedData.denialReason),
+      rentalDAL.declineRentalRequest(
+        rentalId,
+        validatedData.denialReason,
+        currentUserId,
+      ),
     );
 
     if (error) {

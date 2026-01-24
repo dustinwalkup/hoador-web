@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { deleteConversationAction } from "../delete-conversation";
 import { messagesDAL } from "@/dal";
+import { mockUser1 } from "@/test/fixtures/messages";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -17,12 +18,22 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
+vi.mock("@/features/auth/utils/session", () => ({
+  requireAuthenticatedUser: vi.fn(),
+}));
+
 import { tryCatch } from "@walkup/walkup-utils";
 import { revalidatePath } from "next/cache";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 describe("deleteConversationAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuthenticatedUser).mockResolvedValue({
+      user: mockUser1 as any,
+      userId: mockUser1.id,
+      isAdmin: false,
+    });
   });
 
   it("should delete conversation successfully", async () => {
@@ -40,7 +51,7 @@ describe("deleteConversationAction", () => {
     // Assert
     expect(result.success).toBe(true);
     expect(tryCatch).toHaveBeenCalledWith(
-      messagesDAL.deleteConversation(conversationId),
+      messagesDAL.deleteConversation(conversationId, mockUser1.id),
     );
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/mailbox");
   });

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { rentalDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 import { sendInstructionsUpdatedNotification } from "../notifications/instructions-updated";
 
 const updateInstructionsSchema = z.object({
@@ -27,11 +28,41 @@ export async function updateRentalInstructions(
 
   const validatedData = parseResult.data;
 
+  // Get current user ID for authorization
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return {
+      success: false,
+      error: "Authentication required",
+    };
+  }
+
+  // Fetch rental request to verify ownership
+  const { data: rentalRequest, error: fetchError } = await tryCatch(
+    rentalDAL.getRentalRequestById(validatedData.rentalId, userId),
+  );
+
+  if (fetchError || !rentalRequest) {
+    return {
+      success: false,
+      error: fetchError?.message || "Rental request not found",
+    };
+  }
+
+  // Authorization check: only owner can update instructions
+  if (rentalRequest.ownerId !== userId) {
+    return {
+      success: false,
+      error: "Forbidden: Only the listing owner can update rental instructions",
+    };
+  }
+
   // Update instructions via DAL
   const { data: rentalData, error: updateError } = await tryCatch(
     (async () => {
       return await rentalDAL.updateRentalInstructions(
         validatedData.rentalId,
+        userId,
         validatedData.pickupInstructions,
         validatedData.returnInstructions,
       );

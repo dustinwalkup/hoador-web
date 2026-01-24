@@ -379,3 +379,37 @@ export interface ReviewedListing extends PendingReviewListing {
   } | null;
   reviewedAt: Date | null;
 }
+
+// Legal Document types
+export interface CurrentDocumentVersion {
+  id: string;
+  version: string;
+  url: string;
+  publishedAt: Date;
+}
+
+export interface DocumentVersionsMap {
+  [documentId: string]: CurrentDocumentVersion;
+}
+
+export interface LegalAcceptance {
+  id: string;
+  userId: string;
+  documentId: string;
+  version: string;
+  rentalRequestId: string | null;
+  listingId: string | null;
+  acceptedAt: Date;
+  ipAddress: string | null;
+  userAgent: string | null;
+  method: string;
+}
+
+export interface DocumentVersion {
+  id: string;
+  version: string;
+  url: string;
+  publishedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}

@@ -10,12 +10,14 @@ import {
 import { user, userAddresses } from "@/db/schemas/user.schema";
 import { conversations } from "@/db/schemas/messages.schema";
 import { type CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
-import { getCurrentUserId } from "@/features/auth/utils/session";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BaseDAL } from "./base";
-import { UnauthorizedError, NotFoundError } from "./errors";
-import { reviewDAL } from "./index";
+import { NotFoundError } from "./errors";
+import { ReviewDAL } from "./review.dal";
+
+// Create a single instance at module level to reuse across methods
+const reviewDALInstance = new ReviewDAL();
 
 export interface BorrowedListing {
   id: string;
@@ -300,14 +302,8 @@ export class RentalDAL extends BaseDAL {
     return result.length;
   }
 
-  async getBorrowedListings(): Promise<BorrowedListingsData> {
+  async getBorrowedListings(userId: string): Promise<BorrowedListingsData> {
     try {
-      // Get current user ID
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       const now = new Date();
 
       // Get all active and approved rentals for the user
@@ -383,15 +379,10 @@ export class RentalDAL extends BaseDAL {
 
   async createRentalRequest(
     formData: CreateRentalRequestFormData,
+    userId: string,
   ): Promise<{ id: string }> {
     try {
-      // Get current user ID
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
-      // Get listing details to calculate pricing and validate ownership
+      // Get listing details to calculate pricing
       const listing = await this.db.query.listings.findFirst({
         where: eq(listings.id, formData.listingId),
         with: {
@@ -405,11 +396,6 @@ export class RentalDAL extends BaseDAL {
 
       if (!listing) {
         throw new NotFoundError("Listing", formData.listingId);
-      }
-
-      // Prevent users from renting their own listings
-      if (listing.ownerId === userId) {
-        throw new Error("Cannot rent your own listing");
       }
 
       // Calculate rental period and pricing
@@ -487,7 +473,11 @@ export class RentalDAL extends BaseDAL {
     }
   }
 
-  async getRentalRequestById(requestId: string): Promise<{
+  async getRentalRequestById(
+    requestId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _userId?: string,
+  ): Promise<{
     id: string;
     listingId: string;
     listingName: string;
@@ -511,12 +501,6 @@ export class RentalDAL extends BaseDAL {
     createdAt: Date;
   }> {
     try {
-      // Get current user ID for security check
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       // Get rental request with related data
       const rentalRequest = await this.db
         .select({
@@ -553,11 +537,6 @@ export class RentalDAL extends BaseDAL {
 
       const request = rentalRequest[0];
 
-      // Security check: only the renter or owner can view the request
-      if (request.renterId !== userId && request.ownerId !== userId) {
-        throw new UnauthorizedError("Access denied to this rental request");
-      }
-
       // Get listing image
       const [firstImage] = await this.db
         .select({ imageUrl: listingImages.imageUrl })
@@ -584,14 +563,9 @@ export class RentalDAL extends BaseDAL {
       | "cancelled"
       | "overdue"
       | "denied",
+    renterId: string,
   ): Promise<RentalRequestItem[]> {
     try {
-      // Get current user ID
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       // Get rental requests with related data
       const requests = await this.db
         .select({
@@ -625,17 +599,17 @@ export class RentalDAL extends BaseDAL {
           and(
             eq(
               conversations.user1Id,
-              sql`LEAST(${userId}, ${rentalRequests.ownerId})`,
+              sql`LEAST(${renterId}, ${rentalRequests.ownerId})`,
             ),
             eq(
               conversations.user2Id,
-              sql`GREATEST(${userId}, ${rentalRequests.ownerId})`,
+              sql`GREATEST(${renterId}, ${rentalRequests.ownerId})`,
             ),
           ),
         )
         .where(
           and(
-            eq(rentalRequests.renterId, userId),
+            eq(rentalRequests.renterId, renterId),
             eq(rentalRequests.status, status),
           ),
         )
@@ -677,14 +651,9 @@ export class RentalDAL extends BaseDAL {
       | "cancelled"
       | "overdue"
       | "denied",
+    ownerId: string,
   ): Promise<LendingRequestItem[]> {
     try {
-      // Get current user ID
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       // Get rental requests where current user is the owner
       const requests = await this.db
         .select({
@@ -721,17 +690,17 @@ export class RentalDAL extends BaseDAL {
           and(
             eq(
               conversations.user1Id,
-              sql`LEAST(${userId}, ${rentalRequests.renterId})`,
+              sql`LEAST(${ownerId}, ${rentalRequests.renterId})`,
             ),
             eq(
               conversations.user2Id,
-              sql`GREATEST(${userId}, ${rentalRequests.renterId})`,
+              sql`GREATEST(${ownerId}, ${rentalRequests.renterId})`,
             ),
           ),
         )
         .where(
           and(
-            eq(rentalRequests.ownerId, userId),
+            eq(rentalRequests.ownerId, ownerId),
             eq(rentalRequests.status, status),
           ),
         )
@@ -777,14 +746,9 @@ export class RentalDAL extends BaseDAL {
       | "cancelled"
       | "overdue"
       | "denied",
+    renterId: string,
   ): Promise<BorrowedListing[]> {
     try {
-      // Get current user ID
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       // Get rentals with related data
       const rentalsList = await this.db
         .select({
@@ -811,17 +775,17 @@ export class RentalDAL extends BaseDAL {
           and(
             eq(
               conversations.user1Id,
-              sql`LEAST(${userId}, ${rentalRequests.ownerId})`,
+              sql`LEAST(${renterId}, ${rentalRequests.ownerId})`,
             ),
             eq(
               conversations.user2Id,
-              sql`GREATEST(${userId}, ${rentalRequests.ownerId})`,
+              sql`GREATEST(${renterId}, ${rentalRequests.ownerId})`,
             ),
           ),
         )
         .where(
           and(
-            eq(rentalRequests.renterId, userId),
+            eq(rentalRequests.renterId, renterId),
             eq(rentalRequests.status, status),
           ),
         )
@@ -906,14 +870,9 @@ export class RentalDAL extends BaseDAL {
       | "cancelled"
       | "overdue"
       | "denied",
+    ownerId: string,
   ): Promise<LendingRequestItem[]> {
     try {
-      // Get current user ID
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       // Get rentals where current user is the owner
       const rentalsList = await this.db
         .select({
@@ -950,17 +909,17 @@ export class RentalDAL extends BaseDAL {
           and(
             eq(
               conversations.user1Id,
-              sql`LEAST(${userId}, ${rentalRequests.renterId})`,
+              sql`LEAST(${ownerId}, ${rentalRequests.renterId})`,
             ),
             eq(
               conversations.user2Id,
-              sql`GREATEST(${userId}, ${rentalRequests.renterId})`,
+              sql`GREATEST(${ownerId}, ${rentalRequests.renterId})`,
             ),
           ),
         )
         .where(
           and(
-            eq(rentalRequests.ownerId, userId),
+            eq(rentalRequests.ownerId, ownerId),
             eq(rentalRequests.status, status),
           ),
         )
@@ -1001,9 +960,13 @@ export class RentalDAL extends BaseDAL {
    * Cancel a rental request
    * Only the renter can cancel their own pending requests
    */
-  async cancelRentalRequest(requestId: string, userId: string): Promise<void> {
+  async cancelRentalRequest(
+    requestId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _userId: string,
+  ): Promise<void> {
     try {
-      // First, verify the request exists and belongs to the user
+      // First, verify the request exists
       const request = await this.db
         .select({
           id: rentalRequests.id,
@@ -1016,12 +979,6 @@ export class RentalDAL extends BaseDAL {
 
       if (!request.length) {
         throw new NotFoundError("Rental request not found");
-      }
-
-      if (request[0].renterId !== userId) {
-        throw new UnauthorizedError(
-          "You can only cancel your own rental requests",
-        );
       }
 
       if (request[0].status !== "pending") {
@@ -1078,6 +1035,7 @@ export class RentalDAL extends BaseDAL {
    */
   async approveRentalRequest(
     requestId: string,
+    _ownerId: string,
     options?: {
       pickupInstructions?: string;
       returnInstructions?: string;
@@ -1087,13 +1045,7 @@ export class RentalDAL extends BaseDAL {
     },
   ): Promise<void> {
     try {
-      // Get current user ID and verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
-      // Get the rental request and verify ownership
+      // Get the rental request
       const [request] = await this.db
         .select()
         .from(rentalRequests)
@@ -1102,13 +1054,6 @@ export class RentalDAL extends BaseDAL {
 
       if (!request) {
         throw new NotFoundError("Rental request not found");
-      }
-
-      // Verify that the current user is the owner of the listing
-      if (request.ownerId !== userId) {
-        throw new UnauthorizedError(
-          "Only the listing owner can approve rental requests",
-        );
       }
 
       if (request.status !== "pending") {
@@ -1161,15 +1106,11 @@ export class RentalDAL extends BaseDAL {
   async declineRentalRequest(
     requestId: string,
     denialReason: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _ownerId: string,
   ): Promise<void> {
     try {
-      // Get current user ID and verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
-      // Get the rental request and verify ownership
+      // Get the rental request
       const [request] = await this.db
         .select()
         .from(rentalRequests)
@@ -1178,13 +1119,6 @@ export class RentalDAL extends BaseDAL {
 
       if (!request) {
         throw new NotFoundError("Rental request not found");
-      }
-
-      // Verify that the current user is the owner of the listing
-      if (request.ownerId !== userId) {
-        throw new UnauthorizedError(
-          "Only the listing owner can decline rental requests",
-        );
       }
 
       if (request.status !== "pending") {
@@ -1212,6 +1146,7 @@ export class RentalDAL extends BaseDAL {
    */
   async updateRentalInstructions(
     rentalRequestId: string,
+    ownerId: string,
     pickupInstructions?: string,
     returnInstructions?: string,
   ): Promise<{
@@ -1228,13 +1163,7 @@ export class RentalDAL extends BaseDAL {
     listingName: string;
   }> {
     try {
-      // Get current user ID and verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
-      // Get the rental request to verify ownership and status
+      // Get the rental request to verify status
       const [rentalRequest] = await this.db
         .select({
           id: rentalRequests.id,
@@ -1249,13 +1178,6 @@ export class RentalDAL extends BaseDAL {
 
       if (!rentalRequest) {
         throw new NotFoundError("Rental not found");
-      }
-
-      // Verify that the current user is the owner of the listing
-      if (rentalRequest.ownerId !== userId) {
-        throw new UnauthorizedError(
-          "Only the listing owner can update rental instructions",
-        );
       }
 
       // Verify status from rental_requests
@@ -1340,14 +1262,11 @@ export class RentalDAL extends BaseDAL {
    * Get rental details by ID
    * This method handles both rental requests and actual rentals
    */
-  async getRentalDetailsById(rentalId: string): Promise<RentalDetails> {
+  async getRentalDetailsById(
+    rentalId: string,
+    userId?: string,
+  ): Promise<RentalDetails> {
     try {
-      // Get current user ID for security check
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       // First try to find as a rental request
       const rentalRequest = await this.db
         .select({
@@ -1400,11 +1319,6 @@ export class RentalDAL extends BaseDAL {
 
       if (rentalRequest.length > 0) {
         const request = rentalRequest[0];
-
-        // Security check: only the renter or owner can view the request
-        if (request.renterId !== userId && request.ownerId !== userId) {
-          throw new UnauthorizedError("Access denied to this rental request");
-        }
 
         // Get listing details
         const listing = await this.db.query.listings.findFirst({
@@ -1489,7 +1403,7 @@ export class RentalDAL extends BaseDAL {
         if (rentalRecord[0]) {
           // Get full review if it exists
           const { data: reviewResult } = await tryCatch(
-            reviewDAL.getReviewByRentalId(rentalRecord[0].id),
+            reviewDALInstance.getReviewByRentalId(rentalRecord[0].id),
           );
 
           hasReview = !!reviewResult;
@@ -1521,6 +1435,7 @@ export class RentalDAL extends BaseDAL {
           // - No existing review
           // - User is renter
           canLeaveReview =
+            userId !== undefined &&
             request.status === "completed" &&
             !rentalRecord[0].damageReported &&
             !hasReview &&
@@ -1589,7 +1504,7 @@ export class RentalDAL extends BaseDAL {
           denialReason: request.denialReason || undefined,
           actualStartDate: request.actualStartDate || undefined,
           actualEndDate: request.actualEndDate || undefined,
-          currentUserId: userId,
+          currentUserId: userId || "",
           conversationId: request.conversationId || null,
           hasReview,
           canLeaveReview,
@@ -1645,11 +1560,6 @@ export class RentalDAL extends BaseDAL {
       }
 
       const rentalData = rental[0];
-
-      // Security check: only the renter or owner can view the rental
-      if (rentalData.renterId !== userId && rentalData.ownerId !== userId) {
-        throw new UnauthorizedError("Access denied to this rental");
-      }
 
       // Get the associated request for additional details
       const request = await this.db
@@ -1743,7 +1653,7 @@ export class RentalDAL extends BaseDAL {
       let reviewData = null;
 
       const { data: reviewResult } = await tryCatch(
-        reviewDAL.getReviewByRentalId(rentalData.id),
+        reviewDALInstance.getReviewByRentalId(rentalData.id),
       );
 
       hasReview = !!reviewResult;
@@ -1775,6 +1685,7 @@ export class RentalDAL extends BaseDAL {
       // - No existing review
       // - User is renter
       canLeaveReview =
+        userId !== undefined &&
         request[0]?.status === "completed" &&
         !rentalData.damageReported &&
         !hasReview &&
@@ -1845,7 +1756,7 @@ export class RentalDAL extends BaseDAL {
         extensionApproved: rentalData.extensionApproved || false,
         status: request[0]?.status || "approved",
         createdAt: rentalData.createdAt,
-        currentUserId: userId,
+        currentUserId: userId || "",
         conversationId: rentalData.conversationId || null,
         hasReview,
         canLeaveReview,
@@ -1858,14 +1769,10 @@ export class RentalDAL extends BaseDAL {
 
   async getBookedDatesForListing(
     listingId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _userId?: string,
   ): Promise<Array<{ startDate: Date; endDate: Date; reason?: string }>> {
     try {
-      // Check authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       // Get booked rentals (approved/active)
       const bookedRentals = await this.db
         .select({
@@ -1920,7 +1827,11 @@ export class RentalDAL extends BaseDAL {
    * Start a rental
    * Only the owner can start their approved rentals on or after the start date
    */
-  async startRental(rentalId: string): Promise<{
+  async startRental(
+    rentalId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _ownerId: string,
+  ): Promise<{
     rental: {
       id: string;
       ownerId: string;
@@ -1934,13 +1845,7 @@ export class RentalDAL extends BaseDAL {
     listingName: string;
   }> {
     try {
-      // Get current user ID and verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
-      // Get the rental request to verify ownership and status
+      // Get the rental request to verify status
       const [request] = await this.db
         .select({
           id: rentalRequests.id,
@@ -1956,11 +1861,6 @@ export class RentalDAL extends BaseDAL {
 
       if (!request) {
         throw new NotFoundError("Rental request not found");
-      }
-
-      // Verify that the current user is the owner of the listing
-      if (request.ownerId !== userId) {
-        throw new UnauthorizedError("Only the listing owner can start rentals");
       }
 
       // Verify that the rental is in approved status
@@ -2061,7 +1961,11 @@ export class RentalDAL extends BaseDAL {
    * End a rental
    * Only the owner can end their active rentals
    */
-  async endRental(rentalId: string): Promise<{
+  async endRental(
+    rentalId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _ownerId: string,
+  ): Promise<{
     rental: {
       id: string;
       ownerId: string;
@@ -2075,13 +1979,7 @@ export class RentalDAL extends BaseDAL {
     listingName: string;
   }> {
     try {
-      // Get current user ID and verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
-      // Get the rental request to verify ownership and status
+      // Get the rental request to verify status
       const [request] = await this.db
         .select({
           id: rentalRequests.id,
@@ -2096,11 +1994,6 @@ export class RentalDAL extends BaseDAL {
 
       if (!request) {
         throw new NotFoundError("Rental request not found");
-      }
-
-      // Verify that the current user is the owner of the listing
-      if (request.ownerId !== userId) {
-        throw new UnauthorizedError("Only the listing owner can end rentals");
       }
 
       // Verify that the rental is in active status

@@ -3,10 +3,13 @@
 import { tryCatch } from "@walkup/walkup-utils";
 import { revalidatePath } from "next/cache";
 import { messagesDAL } from "@/dal";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 export async function deleteConversationAction(conversationId: string) {
+  const { userId } = await requireAuthenticatedUser();
+
   const { data, error } = await tryCatch(
-    messagesDAL.deleteConversation(conversationId),
+    messagesDAL.deleteConversation(conversationId, userId),
   );
 
   if (error) {

@@ -1,16 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { notificationsDAL } from "../index";
-import { ValidationError, UnauthorizedError, DALError } from "../errors";
+import { ValidationError, DALError } from "../errors";
 import {
   mockNotificationDbRecord,
   mockNotificationWithUser,
   mockNotificationsWithUser,
 } from "@/test/fixtures/notifications";
-import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 
 // Mock dependencies
-vi.mock("@/features/auth/utils/session");
 vi.mock("@/db/db", () => {
   const mockSelect = vi.fn();
   return {
@@ -188,7 +186,6 @@ describe("NotificationDAL", () => {
     it("should return paginated notifications for authenticated user", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockCountResult = [{ value: 2 }];
 
@@ -220,7 +217,7 @@ describe("NotificationDAL", () => {
         .mockReturnValueOnce(mockNotificationsSelect as any);
 
       // Act
-      const result = await notificationsDAL.getUserNotifications({
+      const result = await notificationsDAL.getUserNotifications(userId, {
         page: 1,
         limit: 20,
       });
@@ -229,23 +226,11 @@ describe("NotificationDAL", () => {
       expect(result.data).toEqual(mockNotificationsWithUser);
       expect(result.pagination.page).toBe(1);
       expect(result.pagination.limit).toBe(20);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should throw UnauthorizedError when user not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(notificationsDAL.getUserNotifications()).rejects.toThrow(
-        UnauthorizedError,
-      );
     });
 
     it("should filter by unreadOnly", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockCountResult = [{ value: 1 }];
 
@@ -276,16 +261,15 @@ describe("NotificationDAL", () => {
         .mockReturnValueOnce(mockSelectNotifications as any);
 
       // Act
-      await notificationsDAL.getUserNotifications({ unreadOnly: true });
+      await notificationsDAL.getUserNotifications(userId, { unreadOnly: true });
 
       // Assert
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
+      expect(db.select).toHaveBeenCalled();
     });
 
     it("should handle empty result set", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockCountResult = [{ value: 0 }];
 
@@ -318,7 +302,7 @@ describe("NotificationDAL", () => {
         .mockReturnValueOnce(mockSelectNotifications as any);
 
       // Act
-      const result = await notificationsDAL.getUserNotifications();
+      const result = await notificationsDAL.getUserNotifications(userId);
 
       // Assert
       expect(result.data).toEqual([]);
@@ -328,7 +312,6 @@ describe("NotificationDAL", () => {
     it("should handle pagination correctly", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockCountResult = [{ value: 50 }];
 
@@ -368,7 +351,7 @@ describe("NotificationDAL", () => {
         .mockReturnValueOnce(mockSelectNotifications as any);
 
       // Act
-      const result = await notificationsDAL.getUserNotifications({
+      const result = await notificationsDAL.getUserNotifications(userId, {
         page: 2,
         limit: 20,
       });
@@ -388,8 +371,6 @@ describe("NotificationDAL", () => {
       const userId = "user-123";
       const notificationId = "notification-123";
 
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
       const mockReturning = vi
         .fn()
         .mockResolvedValue([mockNotificationDbRecord]);
@@ -405,11 +386,10 @@ describe("NotificationDAL", () => {
       } as any);
 
       // Act
-      const result = await notificationsDAL.markAsRead(notificationId);
+      const result = await notificationsDAL.markAsRead(notificationId, userId);
 
       // Assert
       expect(result).toEqual(mockNotificationDbRecord);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
       expect(db.update).toHaveBeenCalled();
     });
 
@@ -417,8 +397,6 @@ describe("NotificationDAL", () => {
       // Arrange
       const userId = "user-123";
       const notificationId = "notification-not-found";
-
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockReturning = vi.fn().mockResolvedValue([]);
       const mockWhere = vi.fn().mockReturnValue({
@@ -433,19 +411,9 @@ describe("NotificationDAL", () => {
       } as any);
 
       // Act & Assert
-      await expect(notificationsDAL.markAsRead(notificationId)).rejects.toThrow(
-        DALError,
-      );
-    });
-
-    it("should throw UnauthorizedError when user not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
       await expect(
-        notificationsDAL.markAsRead("notification-123"),
-      ).rejects.toThrow(UnauthorizedError);
+        notificationsDAL.markAsRead(notificationId, userId),
+      ).rejects.toThrow(DALError);
     });
   });
 
@@ -454,8 +422,6 @@ describe("NotificationDAL", () => {
       // Arrange
       const userId = "user-123";
 
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
       const mockWhere = vi.fn().mockReturnValue({
         set: vi.fn().mockResolvedValue(undefined),
       });
@@ -467,11 +433,10 @@ describe("NotificationDAL", () => {
       } as any);
 
       // Act
-      const result = await notificationsDAL.markAllAsRead();
+      const result = await notificationsDAL.markAllAsRead(userId);
 
       // Assert
       expect(result).toEqual({ success: true });
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
       expect(db.update).toHaveBeenCalled();
     });
 
@@ -479,8 +444,6 @@ describe("NotificationDAL", () => {
       // Arrange
       const userId = "user-123";
 
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
-
       const mockWhere = vi.fn().mockReturnValue({
         set: vi.fn().mockResolvedValue(undefined),
       });
@@ -492,20 +455,10 @@ describe("NotificationDAL", () => {
       } as any);
 
       // Act
-      const result = await notificationsDAL.markAllAsRead();
+      const result = await notificationsDAL.markAllAsRead(userId);
 
       // Assert
       expect(result).toEqual({ success: true });
-    });
-
-    it("should throw UnauthorizedError when user not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(notificationsDAL.markAllAsRead()).rejects.toThrow(
-        UnauthorizedError,
-      );
     });
   });
 
@@ -513,7 +466,6 @@ describe("NotificationDAL", () => {
     it("should return correct unread count", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockCountResult = [{ value: 5 }];
       const mockSelect = {
@@ -527,17 +479,15 @@ describe("NotificationDAL", () => {
       vi.mocked(db.select).mockReturnValueOnce(mockSelect as any);
 
       // Act
-      const result = await notificationsDAL.getUnreadCount();
+      const result = await notificationsDAL.getUnreadCount(userId);
 
       // Assert
       expect(result).toBe(5);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
     });
 
     it("should return zero when no unread notifications", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       const mockCountResult = [{ value: 0 }];
       const mockSelect = {
@@ -551,20 +501,10 @@ describe("NotificationDAL", () => {
       vi.mocked(db.select).mockReturnValueOnce(mockSelect as any);
 
       // Act
-      const result = await notificationsDAL.getUnreadCount();
+      const result = await notificationsDAL.getUnreadCount(userId);
 
       // Assert
       expect(result).toBe(0);
-    });
-
-    it("should throw UnauthorizedError when user not authenticated", async () => {
-      // Arrange
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(notificationsDAL.getUnreadCount()).rejects.toThrow(
-        UnauthorizedError,
-      );
     });
   });
 });

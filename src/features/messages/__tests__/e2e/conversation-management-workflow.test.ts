@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { archiveConversationAction } from "@/features/messages/actions/archive-conversation";
 import { unarchiveConversationAction } from "@/features/messages/actions/unarchive-conversation";
 import { messagesDAL } from "@/dal";
-import { mockConversation } from "@/test/fixtures/messages";
+import { mockConversation, mockUser1 } from "@/test/fixtures/messages";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -20,11 +20,21 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
+vi.mock("@/features/auth/utils/session", () => ({
+  requireAuthenticatedUser: vi.fn(),
+}));
+
 import { tryCatch } from "@walkup/walkup-utils";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 describe("Conversation Management Workflow (E2E)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuthenticatedUser).mockResolvedValue({
+      user: mockUser1 as any,
+      userId: mockUser1.id,
+      isAdmin: false,
+    });
   });
 
   it("should complete full workflow: User archives conversation → conversation moved to archived tab → user unarchives → conversation moved back to inbox", async () => {
@@ -41,6 +51,7 @@ describe("Conversation Management Workflow (E2E)", () => {
     expect(archiveResult.success).toBe(true);
     expect(messagesDAL.archiveConversation).toHaveBeenCalledWith(
       conversationId,
+      mockUser1.id,
     );
 
     // Step 2: Verify conversation moved to archived tab
@@ -58,6 +69,7 @@ describe("Conversation Management Workflow (E2E)", () => {
     expect(unarchiveResult.success).toBe(true);
     expect(messagesDAL.unarchiveConversation).toHaveBeenCalledWith(
       conversationId,
+      mockUser1.id,
     );
 
     // Step 4: Verify conversation moved back to inbox

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { tryCatch } from "@walkup/walkup-utils";
+import {
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
 import { notificationsDAL } from "@/dal";
 
 /**
@@ -7,17 +10,18 @@ import { notificationsDAL } from "@/dal";
  * Get unread notification count for the authenticated user
  */
 export async function GET() {
-  const { data: count, error } = await tryCatch(
-    notificationsDAL.getUnreadCount(),
-  );
+  try {
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId } = authResult;
 
-  if (error) {
-    console.error("Failed to fetch unread count:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to fetch unread count" },
-      { status: error.message?.includes("Authentication") ? 401 : 500 },
-    );
+    const count = await notificationsDAL.getUnreadCount(userId);
+
+    return NextResponse.json({ count });
+  } catch (error) {
+    return handleApiError(error);
   }
-
-  return NextResponse.json({ count });
 }

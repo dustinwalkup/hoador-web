@@ -6,7 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
-import type { CurrentDocumentVersion } from "@/dal/legal-document.dal";
+import type { CurrentDocumentVersion } from "@/dal/types";
 import { type ListingDetails, type UserProfile } from "@/dal/types";
 import { PaymentForm } from "@/features/payments/components/payment-form";
 import { useCreateRentalRequest } from "@/features/rentals/hooks/use-rental-mutations";
@@ -247,16 +247,15 @@ export function RentListingPageContent({
         paymentMethodId: data.paymentMethodId,
         // Legal document acknowledgements
         rentalAgreementAccepted: data.rentalAgreementAccepted,
+        cancellationRefundAcknowledged:
+          data.cancellationRefundAcknowledged || false,
         safetyLiabilityPackageAccepted:
           data.safetyLiabilityPackageAccepted || false,
         paymentPayoutAccepted: data.paymentPayoutAccepted || false,
       });
 
-      toast.success("Request Submitted!", {
-        description: `Your request has been sent to ${listing.owner.firstName}. Check your messages after approval to coordinate logistics.`,
-      });
+      // Success toast is handled by the mutation hook
       // Redirect to the confirmation page with the request ID
-      // The hook already handles navigation, but we can also do it here for clarity
       if (result.requestId) {
         router.push(`/dashboard/rental/${result.requestId}?view=renting`);
       }

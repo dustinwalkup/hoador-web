@@ -9,7 +9,7 @@ import {
 // Mock dependencies
 vi.mock("@/dal", () => ({
   communityDAL: {
-    getCurrentUserMembership: vi.fn(),
+    getMembershipForUser: vi.fn(),
     validateJoinCodeForSignup: vi.fn(),
     joinCommunityForNewUser: vi.fn(),
   },
@@ -52,7 +52,7 @@ describe("Complete Community Join Workflow (E2E)", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth - Step 1: Authentication
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership - Step 2: Check existing membership (none)
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser - Step 2: Check existing membership (none)
       .mockResolvedValueOnce({ data: mockCommunity, error: null }) // validateJoinCodeForSignup - Step 3: Validate join code
       .mockResolvedValueOnce({ data: mockUserCommunityInfo, error: null }) // joinCommunityForNewUser - Step 4: Grant membership
       .mockResolvedValueOnce({ data: undefined, error: null }); // updateUserStatus - Step 5: Update user status
@@ -71,7 +71,9 @@ describe("Complete Community Join Workflow (E2E)", () => {
     expect(requireAuth).toHaveBeenCalled();
 
     // Step 2: Verify existing membership check
-    expect(communityDAL.getCurrentUserMembership).toHaveBeenCalled();
+    expect(communityDAL.getMembershipForUser).toHaveBeenCalledWith(
+      mockVerifiedUser.id,
+    );
 
     // Step 3: Verify join code validation
     expect(communityDAL.validateJoinCodeForSignup).toHaveBeenCalledWith(
@@ -112,7 +114,7 @@ describe("Complete Community Join Workflow (E2E)", () => {
     // Assert - Workflow stops at authentication
     expect(result.success).toBe(false);
     expect(result.error).toBe("Authentication required. Please log in again.");
-    expect(communityDAL.getCurrentUserMembership).not.toHaveBeenCalled();
+    expect(communityDAL.getMembershipForUser).not.toHaveBeenCalled();
     expect(communityDAL.validateJoinCodeForSignup).not.toHaveBeenCalled();
     expect(communityDAL.joinCommunityForNewUser).not.toHaveBeenCalled();
     expect(redirect).not.toHaveBeenCalled();
@@ -128,7 +130,7 @@ describe("Complete Community Join Workflow (E2E)", () => {
     // Step 2: User already has membership
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: mockUserCommunityInfo, error: null }); // getCurrentUserMembership (existing)
+      .mockResolvedValueOnce({ data: mockUserCommunityInfo, error: null }); // getMembershipForUser (existing)
 
     // Act
     const result = await joinCommunityAction(null, formData);
@@ -136,7 +138,9 @@ describe("Complete Community Join Workflow (E2E)", () => {
     // Assert - Workflow stops at membership check
     expect(result.success).toBe(false);
     expect(result.error).toContain("already a member of a community");
-    expect(communityDAL.getCurrentUserMembership).toHaveBeenCalled();
+    expect(communityDAL.getMembershipForUser).toHaveBeenCalledWith(
+      mockVerifiedUser.id,
+    );
     expect(communityDAL.validateJoinCodeForSignup).not.toHaveBeenCalled();
     expect(communityDAL.joinCommunityForNewUser).not.toHaveBeenCalled();
     expect(redirect).not.toHaveBeenCalled();
@@ -150,7 +154,7 @@ describe("Complete Community Join Workflow (E2E)", () => {
     // Step 2: Join code validation fails
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({ data: null, error: null }); // validateJoinCodeForSignup returns null (invalid)
 
     // Act
@@ -174,7 +178,7 @@ describe("Complete Community Join Workflow (E2E)", () => {
     // Step 2: Join community operation fails
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({ data: mockCommunity, error: null }) // validateJoinCodeForSignup
       .mockResolvedValueOnce({
         data: null,

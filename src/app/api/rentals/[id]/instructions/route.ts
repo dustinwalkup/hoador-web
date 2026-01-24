@@ -43,10 +43,44 @@ export async function PATCH(
 
     const validatedData = parseResult.data;
 
+    // Get current user ID for authorization
+    const { getCurrentUserId } = await import("@/features/auth/utils/session");
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
+    // Fetch rental request to verify ownership
+    const { data: rentalRequest, error: fetchError } = await tryCatch(
+      rentalDAL.getRentalRequestById(rentalId, currentUserId),
+    );
+
+    if (fetchError || !rentalRequest) {
+      return NextResponse.json(
+        { error: fetchError?.message || "Rental request not found" },
+        { status: 404 },
+      );
+    }
+
+    // Authorization check: only owner can update instructions
+    if (rentalRequest.ownerId !== currentUserId) {
+      return NextResponse.json(
+        {
+          error:
+            "Forbidden: Only the listing owner can update rental instructions",
+        },
+        { status: 403 },
+      );
+    }
+
     // Update instructions via DAL
     const { data: rentalData, error: updateError } = await tryCatch(
       rentalDAL.updateRentalInstructions(
         rentalId,
+        currentUserId,
         validatedData.pickupInstructions,
         validatedData.returnInstructions,
       ),

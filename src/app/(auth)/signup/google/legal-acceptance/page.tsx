@@ -1,8 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
-import { userDAL } from "@/dal";
+import { legalDocumentDAL, userDAL } from "@/dal";
 import { getSession } from "@/features/auth/utils/session";
 import { LegalDocumentsAcceptanceScreen } from "@/features/auth/components/legal-documents-acceptance-screen";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";

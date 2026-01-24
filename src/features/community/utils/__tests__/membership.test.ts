@@ -11,7 +11,7 @@ vi.mock("@/dal", () => ({
   communityDAL: {
     getMembershipForUser: vi.fn(),
     requireUserCommunityMembership: vi.fn(),
-    getCurrentUserCommunityId: vi.fn(),
+    getUserCommunityId: vi.fn(),
   },
 }));
 
@@ -166,46 +166,53 @@ describe("membership.ts", () => {
   describe("getCurrentUserCommunityId", () => {
     it("should return community ID when user has membership", async () => {
       // Arrange
+      const userId = "user-123";
       const communityId = "community-123";
-      vi.mocked(communityDAL.getCurrentUserCommunityId).mockResolvedValue(
-        communityId,
-      );
+      vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+      vi.mocked(communityDAL.getUserCommunityId).mockResolvedValue(communityId);
 
       // Act
       const result = await getCurrentUserCommunityId();
 
       // Assert
       expect(result).toBe(communityId);
-      expect(communityDAL.getCurrentUserCommunityId).toHaveBeenCalled();
+      expect(getCurrentUserId).toHaveBeenCalled();
+      expect(communityDAL.getUserCommunityId).toHaveBeenCalledWith(userId);
     });
 
     it("should return null when user not authenticated", async () => {
       // Arrange
-      vi.mocked(communityDAL.getCurrentUserCommunityId).mockResolvedValue(null);
+      vi.mocked(getCurrentUserId).mockResolvedValue(null);
 
       // Act
       const result = await getCurrentUserCommunityId();
 
       // Assert
       expect(result).toBeNull();
-      expect(communityDAL.getCurrentUserCommunityId).toHaveBeenCalled();
+      expect(getCurrentUserId).toHaveBeenCalled();
+      expect(communityDAL.getUserCommunityId).not.toHaveBeenCalled();
     });
 
     it("should return null when user has no membership", async () => {
       // Arrange
-      vi.mocked(communityDAL.getCurrentUserCommunityId).mockResolvedValue(null);
+      const userId = "user-123";
+      vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+      vi.mocked(communityDAL.getUserCommunityId).mockResolvedValue(null);
 
       // Act
       const result = await getCurrentUserCommunityId();
 
       // Assert
       expect(result).toBeNull();
-      expect(communityDAL.getCurrentUserCommunityId).toHaveBeenCalled();
+      expect(getCurrentUserId).toHaveBeenCalled();
+      expect(communityDAL.getUserCommunityId).toHaveBeenCalledWith(userId);
     });
 
     it("should handle DAL errors gracefully", async () => {
       // Arrange
-      vi.mocked(communityDAL.getCurrentUserCommunityId).mockRejectedValue(
+      const userId = "user-123";
+      vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+      vi.mocked(communityDAL.getUserCommunityId).mockRejectedValue(
         new Error("Database error"),
       );
 
@@ -213,7 +220,8 @@ describe("membership.ts", () => {
       await expect(getCurrentUserCommunityId()).rejects.toThrow(
         "Database error",
       );
-      expect(communityDAL.getCurrentUserCommunityId).toHaveBeenCalled();
+      expect(getCurrentUserId).toHaveBeenCalled();
+      expect(communityDAL.getUserCommunityId).toHaveBeenCalledWith(userId);
     });
   });
 });

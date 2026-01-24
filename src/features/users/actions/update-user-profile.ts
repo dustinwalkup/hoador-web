@@ -32,6 +32,11 @@ export async function updateUserProfileAndAddress(formData: unknown) {
 
   const { address, ...userFields } = result.data;
 
+  // Authorization check: users can only update their own profile
+  if (user?.id !== userId) {
+    return { error: "Forbidden: You can only update your own profile" };
+  }
+
   try {
     await Promise.all([
       userDAL.updateUser(userId, userFields),

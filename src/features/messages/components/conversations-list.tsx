@@ -1,15 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
 import { useMemo, useCallback } from "react";
 import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { usePrefetchConversation } from "@/features/messages/hooks/use-conversations";
-import { markConversationAsReadAction } from "@/features/messages/actions/mark-conversation-read";
+import { useMarkConversationRead } from "@/features/messages/hooks/use-message-mutations";
 import { ConversationSummary } from "@/dal/types";
 import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
 
@@ -37,9 +35,9 @@ export function ConversationsList({
   onConversationClick,
   onLoadMore,
 }: ConversationsListProps) {
-  const [, startTransition] = useTransition();
   const prefetchConversation = usePrefetchConversation();
   const queryClient = useQueryClient();
+  const markConversationReadMutation = useMarkConversationRead();
 
   // Flatten conversations from all pages
   const allConversations = useMemo(() => {
@@ -133,47 +131,24 @@ export function ConversationsList({
       // Immediate optimistic update
       onConversationClick(conversationId);
 
-      // If the conversation was unread, update the cache optimistically
+      // If the conversation was unread, mark as read in background
       if (wasUnread) {
-        updateConversationCache(conversationId, false);
-      }
-
-      // Mark as read in background
-      startTransition(async () => {
-        try {
-          const result = await markConversationAsReadAction(conversationId);
-
-          if (!result.success) {
-            // If the server action failed, revert the optimistic update
-            if (wasUnread) {
+        markConversationReadMutation.mutate(
+          { conversationId },
+          {
+            onError: () => {
+              // Revert optimistic update on error
               updateConversationCache(conversationId, true);
-            }
-
-            console.error("Failed to mark conversation as read:", result.error);
-            toast.error("Failed to mark conversation as read");
-          } else {
-            // Invalidate unread count to update the badge
-            queryClient.invalidateQueries({
-              queryKey: ["messages", "unread-count"],
-            });
-          }
-        } catch (error) {
-          // If there's an error, revert the optimistic update
-          if (wasUnread) {
-            updateConversationCache(conversationId, true);
-          }
-
-          console.error("Failed to mark conversation as read:", error);
-          toast.error("Failed to mark conversation as read");
-        }
-      });
+            },
+          },
+        );
+      }
     },
     [
       onConversationClick,
-      startTransition,
       allConversations,
+      markConversationReadMutation,
       updateConversationCache,
-      queryClient,
     ],
   );
 

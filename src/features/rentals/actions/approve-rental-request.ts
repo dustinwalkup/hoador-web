@@ -42,10 +42,23 @@ export async function approveRentalRequest(
 
   const validatedData = parseResult.data;
 
+  // Get current user ID for authorization
+  const { getCurrentUserId } = await import("@/features/auth/utils/session");
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return {
+      success: false,
+      error: "Authentication required",
+    };
+  }
+
   // Fetch rental request details
   const { data: rentalRequest, error: fetchError } = await tryCatch(
     (async () => {
-      return await rentalDAL.getRentalRequestById(validatedData.requestId);
+      return await rentalDAL.getRentalRequestById(
+        validatedData.requestId,
+        userId,
+      );
     })(),
   );
 
@@ -53,6 +66,14 @@ export async function approveRentalRequest(
     return {
       success: false,
       error: fetchError?.message || "Rental request not found",
+    };
+  }
+
+  // Authorization check: only owner can approve
+  if (rentalRequest.ownerId !== userId) {
+    return {
+      success: false,
+      error: "Forbidden: Only the listing owner can approve rental requests",
     };
   }
 
@@ -299,13 +320,17 @@ export async function approveRentalRequest(
   // Now approve the rental request with payment IDs
   const { error: approvalError } = await tryCatch(
     (async () => {
-      return await rentalDAL.approveRentalRequest(validatedData.requestId, {
-        pickupInstructions: validatedData.pickupInstructions,
-        returnInstructions: validatedData.returnInstructions,
-        rentalPaymentIntentId: rentalPaymentIntent.id,
-        securityDepositAuthId: securityDepositAuthId,
-        applicationFeeAmount: applicationFeeAmount.toString(),
-      });
+      return await rentalDAL.approveRentalRequest(
+        validatedData.requestId,
+        userId,
+        {
+          pickupInstructions: validatedData.pickupInstructions,
+          returnInstructions: validatedData.returnInstructions,
+          rentalPaymentIntentId: rentalPaymentIntent.id,
+          securityDepositAuthId: securityDepositAuthId,
+          applicationFeeAmount: applicationFeeAmount.toString(),
+        },
+      );
     })(),
   );
 
