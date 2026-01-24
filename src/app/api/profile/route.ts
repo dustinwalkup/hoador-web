@@ -5,8 +5,7 @@ import { userDAL } from "@/dal";
 import {
   handleApiError,
   parseFormData,
-  requireAuthResponse,
-  getCurrentUserId,
+  getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
 
 const UpdateUserProfileSchema = z.object({
@@ -29,18 +28,12 @@ const UpdateUserProfileSchema = z.object({
  */
 export async function PATCH(request: NextRequest) {
   try {
-    // Check authentication
-    const authError = await requireAuthResponse();
-    if (authError) return authError;
-
-    // Get current user ID
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      return NextResponse.json(
-        { error: "Unauthorized: User not authenticated" },
-        { status: 401 },
-      );
+    // Authenticate - ALWAYS use getAuthenticatedUserResponse()
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { userId } = authResult;
 
     // Parse request body
     const body = await parseFormData(request);

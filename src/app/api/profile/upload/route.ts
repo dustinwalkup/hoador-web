@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToBlob, deleteFromBlob } from "@/services/vercel-blob";
-import { getCurrentUser } from "@/features/auth/utils/session";
+import {
+  handleApiError,
+  getAuthenticatedUserResponse,
+} from "@/lib/api/route-helpers";
 import {
   processImageForUpload,
   validateImageForProcessing,
   getImageMetadata,
 } from "@/lib/image/server";
 
+/**
+ * POST /api/profile/upload
+ * Upload a profile image
+ */
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Authenticate - ALWAYS use getAuthenticatedUserResponse()
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { user } = authResult;
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -102,20 +110,16 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Profile image upload error:", error);
-    return NextResponse.json(
-      { error: "Failed to upload profile image" },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Check authentication
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Authenticate - ALWAYS use getAuthenticatedUserResponse()
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
 
     const { searchParams } = new URL(request.url);
@@ -143,10 +147,6 @@ export async function DELETE(request: NextRequest) {
       message: "Profile image deleted successfully",
     });
   } catch (error) {
-    console.error("Profile image deletion error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete profile image" },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }
