@@ -1,22 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import { LegalDocumentHistory } from "../legal-document-history";
-import { deleteVersionAction } from "../../actions/legal-documents";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { mockDocumentVersions } from "@/test/fixtures/legal-documents";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
-// Mock dependencies
-vi.mock("../../actions/legal-documents", () => ({
-  deleteVersionAction: vi.fn(),
-}));
+// Mock fetch
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
-vi.mock("next/navigation", () => ({
-  useRouter: vi.fn(),
-}));
-
+// Mock toast
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
@@ -24,35 +20,64 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// Create test query client
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  });
+}
+
+// Wrapper component for React Query
+function QueryWrapper({
+  children,
+  queryClient,
+}: {
+  children: React.ReactNode;
+  queryClient: QueryClient;
+}) {
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
+
 // Mock window.open
 const mockWindowOpen = vi.fn();
 window.open = mockWindowOpen;
 
 describe("LegalDocumentHistory", () => {
-  const mockRouter = {
-    refresh: vi.fn(),
-    push: vi.fn(),
-    replace: vi.fn(),
-    prefetch: vi.fn(),
-    back: vi.fn(),
-    pathname: "/admin/dashboard/legal",
-    query: {},
-    asPath: "/admin/dashboard/legal",
-  };
+  let queryClient: QueryClient;
 
   beforeEach(() => {
+    queryClient = createTestQueryClient();
     vi.clearAllMocks();
-    vi.mocked(useRouter).mockReturnValue(mockRouter as any);
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+  });
+
+  afterEach(() => {
+    queryClient.clear();
   });
 
   describe("Rendering", () => {
     it("should render list of document versions", () => {
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText("Version 2.0")).toBeInTheDocument();
@@ -61,11 +86,13 @@ describe("LegalDocumentHistory", () => {
 
     it("should render version number for each version", () => {
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText("Version 2.0")).toBeInTheDocument();
@@ -74,11 +101,13 @@ describe("LegalDocumentHistory", () => {
 
     it("should render published date for each version", () => {
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       // Published dates should be rendered for each version
@@ -95,11 +124,13 @@ describe("LegalDocumentHistory", () => {
 
     it("should render 'Current' badge for current version", () => {
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const currentBadges = screen.getAllByText("Current");
@@ -108,11 +139,13 @@ describe("LegalDocumentHistory", () => {
 
     it("should render download button for each version", () => {
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const downloadButtons = screen.getAllByRole("button", {
@@ -123,11 +156,13 @@ describe("LegalDocumentHistory", () => {
 
     it("should render delete button for non-current versions", () => {
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       // Version 1.0 is not current, so should have delete button
@@ -137,11 +172,13 @@ describe("LegalDocumentHistory", () => {
 
     it("should not render delete button for current version", () => {
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       // Find all delete buttons
@@ -154,11 +191,13 @@ describe("LegalDocumentHistory", () => {
 
     it("should show empty state message when no versions", () => {
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={[]}
-          currentVersion=""
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={[]}
+            currentVersion=""
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText("No versions found")).toBeInTheDocument();
@@ -169,11 +208,13 @@ describe("LegalDocumentHistory", () => {
     it("should open document URL when download button is clicked", async () => {
       const user = userEvent.setup();
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const downloadButtons = screen.getAllByRole("button", {
@@ -190,11 +231,13 @@ describe("LegalDocumentHistory", () => {
     it("should show confirmation dialog when delete button is clicked", async () => {
       const user = userEvent.setup();
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
@@ -205,18 +248,21 @@ describe("LegalDocumentHistory", () => {
       ).toBeInTheDocument();
     });
 
-    it("should call delete action when delete is confirmed", async () => {
+    it("should call delete mutation when delete is confirmed", async () => {
       const user = userEvent.setup();
-      vi.mocked(deleteVersionAction).mockResolvedValue({
-        success: true,
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
       });
 
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
@@ -227,18 +273,25 @@ describe("LegalDocumentHistory", () => {
       await user.click(confirmButton);
 
       await waitFor(() => {
-        expect(deleteVersionAction).toHaveBeenCalled();
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining("/api/admin/legal-documents/"),
+          expect.objectContaining({
+            method: "DELETE",
+          }),
+        );
       });
     });
 
     it("should close dialog without action when cancel is clicked", async () => {
       const user = userEvent.setup();
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
@@ -249,27 +302,27 @@ describe("LegalDocumentHistory", () => {
       await user.click(cancelButton);
 
       await waitFor(() => {
-        expect(deleteVersionAction).not.toHaveBeenCalled();
+        expect(mockFetch).not.toHaveBeenCalled();
       });
     });
 
     it("should show loading state during delete", async () => {
       const user = userEvent.setup();
-      vi.mocked(deleteVersionAction).mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(() => {
-              resolve({ success: true });
-            }, 100);
-          }),
-      );
+      let resolvePromise: (value: any) => void;
+      const pendingPromise = new Promise((resolve) => {
+        resolvePromise = resolve;
+      });
+
+      mockFetch.mockReturnValue(pendingPromise);
 
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
@@ -284,6 +337,12 @@ describe("LegalDocumentHistory", () => {
         expect(deleteButtons[0]).toBeDisabled();
       });
 
+      // Resolve the promise
+      resolvePromise!({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
       await clickPromise;
     });
   });
@@ -291,16 +350,19 @@ describe("LegalDocumentHistory", () => {
   describe("Success/Error Handling", () => {
     it("should show success toast on successful delete", async () => {
       const user = userEvent.setup();
-      vi.mocked(deleteVersionAction).mockResolvedValue({
-        success: true,
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
       });
 
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
@@ -318,16 +380,20 @@ describe("LegalDocumentHistory", () => {
 
     it("should show error toast on delete failure", async () => {
       const user = userEvent.setup();
-      vi.mocked(deleteVersionAction).mockResolvedValue({
-        error: "Failed to delete version",
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: "Failed to delete version" }),
       });
 
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
@@ -337,24 +403,30 @@ describe("LegalDocumentHistory", () => {
       await user.click(confirmButton);
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Failed to delete version");
+        expect(toast.error).toHaveBeenCalledWith(
+          "Failed to delete version",
+          expect.objectContaining({ duration: 5000 }),
+        );
       });
     });
 
     it("should call onDelete callback when provided", async () => {
       const user = userEvent.setup();
       const onDelete = vi.fn();
-      vi.mocked(deleteVersionAction).mockResolvedValue({
-        success: true,
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
       });
 
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-          onDelete={onDelete}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+            onDelete={onDelete}
+          />
+        </QueryWrapper>,
       );
 
       const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
@@ -368,18 +440,23 @@ describe("LegalDocumentHistory", () => {
       });
     });
 
-    it("should refresh router on successful delete", async () => {
+    it("should invalidate queries on successful delete", async () => {
       const user = userEvent.setup();
-      vi.mocked(deleteVersionAction).mockResolvedValue({
-        success: true,
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
       });
 
+      const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={mockDocumentVersions}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={mockDocumentVersions}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
@@ -389,7 +466,9 @@ describe("LegalDocumentHistory", () => {
       await user.click(confirmButton);
 
       await waitFor(() => {
-        expect(mockRouter.refresh).toHaveBeenCalled();
+        expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+          queryKey: ["admin", "legal-documents"],
+        });
       });
     });
   });
@@ -397,11 +476,13 @@ describe("LegalDocumentHistory", () => {
   describe("Edge Cases", () => {
     it("should handle empty versions array", () => {
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={[]}
-          currentVersion=""
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={[]}
+            currentVersion=""
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText("No versions found")).toBeInTheDocument();
@@ -409,8 +490,9 @@ describe("LegalDocumentHistory", () => {
 
     it("should handle missing blob pathname", async () => {
       const user = userEvent.setup();
-      vi.mocked(deleteVersionAction).mockResolvedValue({
-        success: true,
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true }),
       });
 
       const versionsWithoutPathname = [
@@ -422,11 +504,13 @@ describe("LegalDocumentHistory", () => {
       ];
 
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={versionsWithoutPathname}
-          currentVersion="2.0" // Different from the version we're testing
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={versionsWithoutPathname}
+            currentVersion="2.0" // Different from the version we're testing
+          />
+        </QueryWrapper>,
       );
 
       const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
@@ -438,7 +522,7 @@ describe("LegalDocumentHistory", () => {
       await user.click(confirmButton);
 
       await waitFor(() => {
-        expect(deleteVersionAction).toHaveBeenCalled();
+        expect(mockFetch).toHaveBeenCalled();
       });
     });
 
@@ -451,11 +535,13 @@ describe("LegalDocumentHistory", () => {
       ];
 
       render(
-        <LegalDocumentHistory
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          versions={versionsWithInvalidUrl}
-          currentVersion="2.0"
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <LegalDocumentHistory
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            versions={versionsWithInvalidUrl}
+            currentVersion="2.0"
+          />
+        </QueryWrapper>,
       );
 
       // Should still render the version

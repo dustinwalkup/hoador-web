@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { ListingReviewTabs } from "@/features/admin/components/listing-review/listing-review-tabs";
 
 export const metadata = {
-  title: "Listing Review | Admin Dashboard",
+  title: "Admin - Listing Review",
   description: "Review and approve listings submitted by users",
 };
 

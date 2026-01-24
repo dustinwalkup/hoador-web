@@ -19,6 +19,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { HelpCircle, Search } from "lucide-react";
 
+export const metadata = {
+  title: "Admin - Support Items",
+  description: "Manage support tickets and customer inquiries",
+};
+
 // Mock data - will be replaced with real data later
 const mockSupportTickets = [
   {

@@ -17,6 +17,11 @@ import {
 import { LegalDocumentUploadForm } from "@/features/admin/components/legal-document-upload-form";
 import { DocumentVersionCard } from "@/features/admin/components/document-version-card";
 
+export const metadata = {
+  title: "Admin - Legal Documents",
+  description: "Manage legal documents and policies",
+};
+
 export default async function LegalDocumentsPage() {
   // Fetch all current document versions
   const currentVersions = await legalDocumentDAL.getAllCurrentVersions();

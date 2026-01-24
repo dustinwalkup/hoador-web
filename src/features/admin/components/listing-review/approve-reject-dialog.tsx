@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -16,11 +15,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  approveListingAction,
-  rejectListingAction,
-} from "@/features/admin/actions/listing-review";
-import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+  useApproveListing,
+  useRejectListing,
+} from "@/features/admin/hooks/use-admin-mutations";
+import { toast } from "sonner";
 
 interface ApproveRejectDialogProps {
   listingId: string;
@@ -39,9 +37,11 @@ export function ApproveRejectDialog({
 }: ApproveRejectDialogProps) {
   const [rejectionReason, setRejectionReason] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const queryClient = useQueryClient();
-  const router = useRouter();
+
+  const approveMutation = useApproveListing();
+  const rejectMutation = useRejectListing();
+
+  const isPending = approveMutation.isPending || rejectMutation.isPending;
 
   const handleClose = () => {
     if (!isPending) {
@@ -76,55 +76,36 @@ export function ApproveRejectDialog({
       setValidationError(null);
     }
 
-    startTransition(async () => {
-      try {
-        let result;
-        if (action === "approve") {
-          result = await approveListingAction(listingId);
-        } else {
-          result = await rejectListingAction(listingId, rejectionReason.trim());
-        }
-
-        if (result.success) {
-          // Invalidate queries to refresh the queue
-          queryClient.invalidateQueries({
-            queryKey: ["admin", "pending-reviews"],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["admin", "review-history"],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["admin", "pending-review-count"],
-          });
-
-          // Refresh server-side cache
-          router.refresh();
-
-          // Close dialog and show success message
-          handleClose();
-          toast.success(
-            action === "approve"
-              ? "Listing approved successfully!"
-              : "Listing rejected successfully!",
-            {
-              description:
-                action === "approve"
-                  ? `"${listingName}" has been approved and is now live. The owner has been notified.`
-                  : `"${listingName}" has been rejected. The owner has been notified with the reason.`,
-            },
-          );
-        } else {
-          toast.error(`Failed to ${action} listing`, {
-            description: result.error || "Please try again.",
-          });
-        }
-      } catch (error) {
-        console.error(`Failed to ${action} listing:`, error);
-        toast.error(`Failed to ${action} listing`, {
-          description: "An unexpected error occurred. Please try again.",
+    try {
+      if (action === "approve") {
+        await approveMutation.mutateAsync(listingId, {
+          onSuccess: () => {
+            handleClose();
+            toast.success("Listing approved successfully!", {
+              description: `"${listingName}" has been approved and is now live. The owner has been notified.`,
+            });
+          },
         });
+      } else {
+        await rejectMutation.mutateAsync(
+          {
+            listingId,
+            rejectionReason: rejectionReason.trim(),
+          },
+          {
+            onSuccess: () => {
+              handleClose();
+              toast.success("Listing rejected successfully!", {
+                description: `"${listingName}" has been rejected. The owner has been notified with the reason.`,
+              });
+            },
+          },
+        );
       }
-    });
+    } catch (error) {
+      // Error is already handled by the mutation hook
+      console.error(`Failed to ${action} listing:`, error);
+    }
   };
 
   return (

@@ -11,6 +11,11 @@ import {
 } from "@/components/ui/card";
 import { AdminLoginForm } from "@/features/auth/components/admin-login-form";
 
+export const metadata = {
+  title: "Admin - Login",
+  description: "Sign in to access the admin panel",
+};
+
 export default async function AdminLoginPage() {
   // Check if user is already admin
   const adminUser = await getAdminUser();

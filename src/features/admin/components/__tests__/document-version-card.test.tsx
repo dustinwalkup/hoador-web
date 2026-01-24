@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import { DocumentVersionCard } from "../document-version-card";
 import {
   mockCurrentDocumentVersion,
@@ -8,41 +10,75 @@ import {
 } from "@/test/fixtures/legal-documents";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
-// Mock useRouter for LegalDocumentHistory component
-vi.mock("next/navigation", () => ({
-  useRouter: vi.fn(() => ({
-    refresh: vi.fn(),
-    push: vi.fn(),
-    replace: vi.fn(),
-    prefetch: vi.fn(),
-    back: vi.fn(),
-  })),
-}));
+// Mock fetch
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 // Mock window.open
 const mockWindowOpen = vi.fn();
 window.open = mockWindowOpen;
 
+// Create test query client
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  });
+}
+
+// Wrapper component for React Query
+function QueryWrapper({
+  children,
+  queryClient,
+}: {
+  children: React.ReactNode;
+  queryClient: QueryClient;
+}) {
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
+
 describe("DocumentVersionCard", () => {
+  let queryClient: QueryClient;
+
   const mockMetadata = {
     name: "Terms of Service",
     category: "Core Legal",
   };
 
   beforeEach(() => {
+    queryClient = createTestQueryClient();
     vi.clearAllMocks();
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+  });
+
+  afterEach(() => {
+    queryClient.clear();
   });
 
   describe("Rendering", () => {
     it("should render document name and metadata", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText("Terms of Service")).toBeInTheDocument();
@@ -50,13 +86,15 @@ describe("DocumentVersionCard", () => {
 
     it("should render current version information", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText(/v1\.0/i)).toBeInTheDocument();
@@ -64,13 +102,15 @@ describe("DocumentVersionCard", () => {
 
     it("should render published date", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       // Published date should be rendered (formatted with toLocaleDateString)
@@ -79,13 +119,15 @@ describe("DocumentVersionCard", () => {
 
     it("should render published badge when published", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText("Published")).toBeInTheDocument();
@@ -93,13 +135,15 @@ describe("DocumentVersionCard", () => {
 
     it("should render 'Not Published' badge when not published", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={false}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={false}
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText("Not Published")).toBeInTheDocument();
@@ -107,13 +151,15 @@ describe("DocumentVersionCard", () => {
 
     it("should render view button for current version", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByRole("button", { name: /view/i })).toBeInTheDocument();
@@ -121,13 +167,15 @@ describe("DocumentVersionCard", () => {
 
     it("should render history button when versions exist", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       expect(
@@ -137,13 +185,15 @@ describe("DocumentVersionCard", () => {
 
     it("should show 'No version published' when no current version", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={null}
-          versions={[]}
-          isPublished={false}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={null}
+            versions={[]}
+            isPublished={false}
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText("No version published")).toBeInTheDocument();
@@ -154,13 +204,15 @@ describe("DocumentVersionCard", () => {
     it("should open document in new tab when view button is clicked", async () => {
       const user = userEvent.setup();
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       const viewButton = screen.getByRole("button", { name: /view/i });
@@ -175,13 +227,15 @@ describe("DocumentVersionCard", () => {
     it("should expand history when history button is clicked", async () => {
       const user = userEvent.setup();
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       const historyButton = screen.getByRole("button", { name: /history/i });
@@ -203,13 +257,15 @@ describe("DocumentVersionCard", () => {
     it("should collapse history when history button is clicked again", async () => {
       const user = userEvent.setup();
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       const historyButton = screen.getByRole("button", { name: /history/i });
@@ -226,13 +282,15 @@ describe("DocumentVersionCard", () => {
     it("should show version list when history is expanded", async () => {
       const user = userEvent.setup();
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       const historyButton = screen.getByRole("button", { name: /history/i });
@@ -249,13 +307,15 @@ describe("DocumentVersionCard", () => {
   describe("Edge Cases", () => {
     it("should handle empty versions array", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={mockCurrentDocumentVersion}
-          versions={[]}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={mockCurrentDocumentVersion}
+            versions={[]}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       // Should not render history button when no versions
@@ -266,13 +326,15 @@ describe("DocumentVersionCard", () => {
 
     it("should handle null current version", () => {
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={null}
-          versions={mockDocumentVersions}
-          isPublished={false}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={null}
+            versions={mockDocumentVersions}
+            isPublished={false}
+          />
+        </QueryWrapper>,
       );
 
       expect(screen.getByText("No version published")).toBeInTheDocument();
@@ -290,13 +352,15 @@ describe("DocumentVersionCard", () => {
       };
 
       render(
-        <DocumentVersionCard
-          documentId={LEGAL_DOCUMENT_IDS.TOS}
-          metadata={mockMetadata}
-          currentVersion={currentVersion}
-          versions={mockDocumentVersions}
-          isPublished={true}
-        />,
+        <QueryWrapper queryClient={queryClient}>
+          <DocumentVersionCard
+            documentId={LEGAL_DOCUMENT_IDS.TOS}
+            metadata={mockMetadata}
+            currentVersion={currentVersion}
+            versions={mockDocumentVersions}
+            isPublished={true}
+          />
+        </QueryWrapper>,
       );
 
       const historyButton = screen.getByRole("button", { name: /history/i });

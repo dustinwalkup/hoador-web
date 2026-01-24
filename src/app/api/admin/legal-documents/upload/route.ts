@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/features/auth/utils/guards";
+import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
 import { uploadToBlob } from "@/services/vercel-blob";
 import { validatePDFFile } from "@/lib/utils/document-validation";
 import {
@@ -7,10 +7,17 @@ import {
   type LegalDocumentId,
 } from "@/constants/legal-documents";
 
+/**
+ * POST /api/admin/legal-documents/upload
+ * Upload a new legal document version
+ */
 export async function POST(request: NextRequest) {
   try {
     // Require admin privileges
-    await requireAdmin();
+    const adminError = await requireAdminResponse();
+    if (adminError) {
+      return adminError;
+    }
 
     // Parse form data
     const formData = await request.formData();
@@ -71,18 +78,6 @@ export async function POST(request: NextRequest) {
       size: file.size,
     });
   } catch (error) {
-    console.error("Legal document upload error:", error);
-
-    if (error instanceof Error && error.message.includes("Admin privileges")) {
-      return NextResponse.json(
-        { error: "Admin privileges required" },
-        { status: 403 },
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Failed to upload document" },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }
