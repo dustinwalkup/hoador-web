@@ -27,7 +27,7 @@
     "db:seed:users": "./src/db/seeds/users.ts",
     "seed": "tsx src/db/seeds/seed.ts",
     "seed:user": "tsx src/db/seeds/existing-user.seed.ts",
-    "check-all": "bun run type-check && bun run lint && bun run format && bun run test",
+    "check-all": "bun run format && bun run test:run && bun run lint && bun run type-check",
     "check-all:save": "bun run type-check && bun run lint && bun run format && bun run test 2>&1 | tee check-results.txt",
     "ci": "bun run type-check && bun run lint && bun run test:ci && bun run build"
   },
