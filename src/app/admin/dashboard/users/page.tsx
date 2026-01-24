@@ -19,6 +19,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Users, Search } from "lucide-react";
 
+export const metadata = {
+  title: "Admin - User Management",
+  description: "Manage users and their accounts",
+};
+
 // Mock data - will be replaced with real data later
 const mockUsers = [
   {

@@ -18,7 +18,7 @@ import {
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { documentId: string; version: string } },
+  { params }: { params: Promise<{ documentId: string; version: string }> },
 ) {
   try {
     // Require admin authentication
@@ -27,7 +27,7 @@ export async function DELETE(
       return adminError;
     }
 
-    const { documentId, version } = params;
+    const { documentId, version } = await params;
 
     // Validate document ID
     if (

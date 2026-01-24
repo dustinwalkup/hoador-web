@@ -9,6 +9,11 @@ import {
 } from "@/components/ui/card";
 import { Users, Package, MessageSquare, Activity } from "lucide-react";
 
+export const metadata = {
+  title: "Admin - Dashboard",
+  description: "Overview of platform metrics and recent activity",
+};
+
 // Mock data - will be replaced with real data later
 const mockMetrics = {
   totalUsers: 1250,

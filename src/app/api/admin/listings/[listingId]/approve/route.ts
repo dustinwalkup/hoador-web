@@ -18,7 +18,7 @@ import { eq } from "drizzle-orm";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { listingId: string } },
+  { params }: { params: Promise<{ listingId: string }> },
 ) {
   try {
     // Require admin authentication
@@ -27,7 +27,7 @@ export async function POST(
       return adminError;
     }
 
-    const { listingId } = params;
+    const { listingId } = await params;
 
     // Get listing details before updating (to get owner info for notification)
     const listing = await listingDAL.getListingById(listingId);

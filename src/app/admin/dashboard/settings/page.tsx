@@ -13,6 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Settings } from "lucide-react";
 
+export const metadata = {
+  title: "Admin - Settings",
+  description: "Configure system settings and preferences",
+};
+
 export default function AdminSettingsPage() {
   return (
     <div className="space-y-6">
