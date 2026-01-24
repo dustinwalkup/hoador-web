@@ -37,7 +37,12 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
 
     const { data, error } = await tryCatch(
-      messagesDAL.getUserConversationsPaginated(userId, archived, offset, limit),
+      messagesDAL.getUserConversationsPaginated(
+        userId,
+        archived,
+        offset,
+        limit,
+      ),
     );
 
     if (error) {
