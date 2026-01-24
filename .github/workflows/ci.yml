@@ -92,13 +92,14 @@ jobs:
         env:
           # Add any build-time environment variables here
           NEXT_PUBLIC_APP_URL: ${{ github.server_url }}/${{ github.repository }}
-          # Mock Stripe key for build (not used in production)
-          STRIPE_SECRET_KEY: sk_test_mock_key_for_build_only
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
+          # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
 
-          DATABASE_URL: postgresql://mock:mock@localhost:5432/mock_db
-          OPENCAGE_API_KEY: mock_opencage_key_for_build
-          OPENAI_API_KEY: sk-mock_openai_key_for_build
-          SERP_API_KEY: mock_serp_key_for_build
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6

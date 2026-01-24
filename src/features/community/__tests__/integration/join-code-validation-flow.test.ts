@@ -10,7 +10,7 @@ import { ValidationError } from "@/dal/errors";
 // Mock dependencies
 vi.mock("@/dal", () => ({
   communityDAL: {
-    getCurrentUserMembership: vi.fn(),
+    getMembershipForUser: vi.fn(),
     validateJoinCodeForSignup: vi.fn(),
     joinCommunityForNewUser: vi.fn(),
   },
@@ -48,7 +48,7 @@ describe("Join Code Validation Flow Integration", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership (no existing membership)
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser (no existing membership)
       .mockResolvedValueOnce({ data: mockCommunity, error: null }) // validateJoinCodeForSignup
       .mockResolvedValueOnce({ data: mockUserCommunityInfo, error: null }) // joinCommunityForNewUser
       .mockResolvedValueOnce({ data: undefined, error: null }); // updateUserStatus
@@ -65,7 +65,9 @@ describe("Join Code Validation Flow Integration", () => {
     expect(redirect).toHaveBeenCalledWith("/onboarding");
 
     // Verify DAL methods were called with correct parameters
-    expect(communityDAL.getCurrentUserMembership).toHaveBeenCalled();
+    expect(communityDAL.getMembershipForUser).toHaveBeenCalledWith(
+      mockVerifiedUser.id,
+    );
     expect(communityDAL.validateJoinCodeForSignup).toHaveBeenCalledWith(
       mockJoinCode.trim(),
     );
@@ -83,7 +85,7 @@ describe("Join Code Validation Flow Integration", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({ data: null, error: null }); // validateJoinCodeForSignup returns null (invalid code)
 
     // Act
@@ -106,7 +108,7 @@ describe("Join Code Validation Flow Integration", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: mockUserCommunityInfo, error: null }); // getCurrentUserMembership (existing membership)
+      .mockResolvedValueOnce({ data: mockUserCommunityInfo, error: null }); // getMembershipForUser (existing membership)
 
     // Act
     const result = await joinCommunityAction(null, formData);
@@ -114,7 +116,9 @@ describe("Join Code Validation Flow Integration", () => {
     // Assert
     expect(result.success).toBe(false);
     expect(result.error).toContain("already a member of a community");
-    expect(communityDAL.getCurrentUserMembership).toHaveBeenCalled();
+    expect(communityDAL.getMembershipForUser).toHaveBeenCalledWith(
+      mockVerifiedUser.id,
+    );
     expect(communityDAL.validateJoinCodeForSignup).not.toHaveBeenCalled();
     expect(communityDAL.joinCommunityForNewUser).not.toHaveBeenCalled();
   });
@@ -140,7 +144,7 @@ describe("Join Code Validation Flow Integration", () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe("Authentication required. Please log in again.");
     expect(consoleErrorSpy).toHaveBeenCalled();
-    expect(communityDAL.getCurrentUserMembership).not.toHaveBeenCalled();
+    expect(communityDAL.getMembershipForUser).not.toHaveBeenCalled();
     expect(communityDAL.validateJoinCodeForSignup).not.toHaveBeenCalled();
     expect(communityDAL.joinCommunityForNewUser).not.toHaveBeenCalled();
 
@@ -155,7 +159,7 @@ describe("Join Code Validation Flow Integration", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({
         data: null,
         error: new ValidationError("Join code validation failed"),
@@ -188,7 +192,7 @@ describe("Join Code Validation Flow Integration", () => {
     // Use sequential mocks for each tryCatch call in order
     vi.mocked(tryCatch)
       .mockResolvedValueOnce({ data: mockVerifiedUser, error: null }) // requireAuth
-      .mockResolvedValueOnce({ data: null, error: null }) // getCurrentUserMembership
+      .mockResolvedValueOnce({ data: null, error: null }) // getMembershipForUser
       .mockResolvedValueOnce({ data: mockCommunity, error: null }) // validateJoinCodeForSignup
       .mockResolvedValueOnce({
         data: null,

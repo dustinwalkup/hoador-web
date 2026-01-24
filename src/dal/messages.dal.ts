@@ -2,9 +2,7 @@ import { and, eq, desc, asc, or, sql, isNull, gt, ne } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import { conversations, messages } from "@/db/schemas/messages.schema";
-import { getCurrentUserId } from "@/features/auth/utils/session";
 import { BaseDAL } from "./base";
-import { UnauthorizedError } from "./errors";
 import { ConversationSummary, ConversationDetails } from "./types";
 import { sanitizeMessageContent } from "@/lib/utils/sanitize";
 
@@ -85,22 +83,18 @@ export class MessagesDAL extends BaseDAL {
   }
 
   async sendMessageToUser(
+    senderId: string,
     recipientId: string,
     content: string,
     listingId?: string,
   ): Promise<{ conversationId: string; messageId: string }> {
     const { data, error } = await tryCatch(
       (async () => {
-        const currentUserId = await getCurrentUserId();
-        if (!currentUserId) {
-          throw new UnauthorizedError("User not authenticated");
-        }
-
         // Sanitize and validate message content
         const sanitizedContent = sanitizeMessageContent(content);
 
         const conversation = await this.findOrCreateConversation(
-          currentUserId,
+          senderId,
           recipientId,
         );
 
@@ -108,7 +102,7 @@ export class MessagesDAL extends BaseDAL {
           .insert(messages)
           .values({
             conversationId: conversation.id,
-            senderId: currentUserId,
+            senderId,
             content: sanitizedContent,
             listingId, // Store listing reference for context
           })
@@ -135,38 +129,35 @@ export class MessagesDAL extends BaseDAL {
   }
 
   async getUserConversations(
+    userId: string,
     archived?: boolean,
   ): Promise<ConversationSummary[]> {
-    return this.getUserConversationsPaginated(archived, 0, 1000); // Default to get all for backward compatibility
+    return this.getUserConversationsPaginated(userId, archived, 0, 1000); // Default to get all for backward compatibility
   }
 
   async getUserConversationsPaginated(
+    userId: string,
     archived?: boolean,
     offset: number = 0,
     limit: number = 20,
   ): Promise<ConversationSummary[]> {
     const { data, error } = await tryCatch(
       (async () => {
-        const currentUserId = await getCurrentUserId();
-        if (!currentUserId) {
-          throw new UnauthorizedError("User not authenticated");
-        }
-
         const userConversations = await this.db.query.conversations.findMany({
           where: and(
             or(
-              eq(conversations.user1Id, currentUserId),
-              eq(conversations.user2Id, currentUserId),
+              eq(conversations.user1Id, userId),
+              eq(conversations.user2Id, userId),
             ),
             // Filter by archived status if specified
             archived !== undefined
               ? or(
                   and(
-                    eq(conversations.user1Id, currentUserId),
+                    eq(conversations.user1Id, userId),
                     eq(conversations.user1Archived, archived),
                   ),
                   and(
-                    eq(conversations.user2Id, currentUserId),
+                    eq(conversations.user2Id, userId),
                     eq(conversations.user2Archived, archived),
                   ),
                 )
@@ -208,21 +199,21 @@ export class MessagesDAL extends BaseDAL {
 
         return userConversations.map((conversation) => {
           const otherUser =
-            conversation.user1.id === currentUserId
+            conversation.user1.id === userId
               ? conversation.user2
               : conversation.user1;
 
           const lastMessage = conversation.messages[0];
           const isUnread =
-            conversation.user1.id === currentUserId
+            conversation.user1.id === userId
               ? conversation.user1LastReadAt === null ||
                 (lastMessage &&
                   conversation.user1LastReadAt < lastMessage.createdAt &&
-                  lastMessage.senderId !== currentUserId) // Don't mark as unread if we sent the last message
+                  lastMessage.senderId !== userId) // Don't mark as unread if we sent the last message
               : conversation.user2LastReadAt === null ||
                 (lastMessage &&
                   conversation.user2LastReadAt < lastMessage.createdAt &&
-                  lastMessage.senderId !== currentUserId); // Don't mark as unread if we sent the last message
+                  lastMessage.senderId !== userId); // Don't mark as unread if we sent the last message
 
           return {
             id: conversation.id,
@@ -242,7 +233,7 @@ export class MessagesDAL extends BaseDAL {
             unread: isUnread,
             lastMessageAt: conversation.lastMessageAt,
             archived:
-              conversation.user1.id === currentUserId
+              conversation.user1.id === userId
                 ? conversation.user1Archived
                 : conversation.user2Archived,
           };
@@ -259,22 +250,19 @@ export class MessagesDAL extends BaseDAL {
 
   async getConversationDetails(
     conversationId: string,
+    userId: string,
   ): Promise<ConversationDetails> {
     const { data, error } = await tryCatch(
       (async () => {
         console.log("Getting conversation details for:", conversationId);
-        const currentUserId = await getCurrentUserId();
-        console.log("Current user ID:", currentUserId);
-        if (!currentUserId) {
-          throw new UnauthorizedError("User not authenticated");
-        }
+        console.log("Current user ID:", userId);
 
         const conversation = await this.db.query.conversations.findFirst({
           where: and(
             eq(conversations.id, conversationId),
             or(
-              eq(conversations.user1Id, currentUserId),
-              eq(conversations.user2Id, currentUserId),
+              eq(conversations.user1Id, userId),
+              eq(conversations.user2Id, userId),
             ),
           ),
           with: {
@@ -318,22 +306,22 @@ export class MessagesDAL extends BaseDAL {
         }
 
         const otherUser =
-          conversation.user1.id === currentUserId
+          conversation.user1.id === userId
             ? conversation.user2
             : conversation.user1;
 
         const lastMessage =
           conversation.messages[conversation.messages.length - 1];
         const isUnread =
-          conversation.user1.id === currentUserId
+          conversation.user1.id === userId
             ? conversation.user1LastReadAt === null ||
               (lastMessage &&
                 conversation.user1LastReadAt < lastMessage.createdAt &&
-                lastMessage.senderId !== currentUserId)
+                lastMessage.senderId !== userId)
             : conversation.user2LastReadAt === null ||
               (lastMessage &&
                 conversation.user2LastReadAt < lastMessage.createdAt &&
-                lastMessage.senderId !== currentUserId);
+                lastMessage.senderId !== userId);
 
         return {
           id: conversation.id,
@@ -347,7 +335,7 @@ export class MessagesDAL extends BaseDAL {
             id: message.id,
             content: message.content,
             time: message.createdAt,
-            sender: (message.senderId === currentUserId ? "me" : "them") as
+            sender: (message.senderId === userId ? "me" : "them") as
               | "me"
               | "them",
             senderName: `${message.sender.firstName} ${message.sender.lastName}`,
@@ -356,7 +344,7 @@ export class MessagesDAL extends BaseDAL {
           })),
           unread: isUnread,
           archived:
-            conversation.user1.id === currentUserId
+            conversation.user1.id === userId
               ? conversation.user1Archived
               : conversation.user2Archived,
         };
@@ -373,14 +361,10 @@ export class MessagesDAL extends BaseDAL {
 
   async markConversationAsRead(
     conversationId: string,
+    userId: string,
   ): Promise<ConversationDb[]> {
     const { data, error } = await tryCatch(
       (async () => {
-        const currentUserId = await getCurrentUserId();
-        if (!currentUserId) {
-          throw new UnauthorizedError("User not authenticated");
-        }
-
         const conversation = await this.db.query.conversations.findFirst({
           where: eq(conversations.id, conversationId),
         });
@@ -391,9 +375,9 @@ export class MessagesDAL extends BaseDAL {
 
         const updateData: { user1LastReadAt?: Date; user2LastReadAt?: Date } =
           {};
-        if (conversation.user1Id === currentUserId) {
+        if (conversation.user1Id === userId) {
           updateData.user1LastReadAt = new Date();
-        } else if (conversation.user2Id === currentUserId) {
+        } else if (conversation.user2Id === userId) {
           updateData.user2LastReadAt = new Date();
         }
 
@@ -414,14 +398,10 @@ export class MessagesDAL extends BaseDAL {
 
   async markConversationAsUnread(
     conversationId: string,
+    userId: string,
   ): Promise<ConversationDb[]> {
     const { data, error } = await tryCatch(
       (async () => {
-        const currentUserId = await getCurrentUserId();
-        if (!currentUserId) {
-          throw new UnauthorizedError("User not authenticated");
-        }
-
         const conversation = await this.db.query.conversations.findFirst({
           where: eq(conversations.id, conversationId),
         });
@@ -436,9 +416,9 @@ export class MessagesDAL extends BaseDAL {
           user2LastReadAt?: ReturnType<typeof sql>;
         } = {};
 
-        if (conversation.user1Id === currentUserId) {
+        if (conversation.user1Id === userId) {
           updateData.user1LastReadAt = sql`NULL`;
-        } else if (conversation.user2Id === currentUserId) {
+        } else if (conversation.user2Id === userId) {
           updateData.user2LastReadAt = sql`NULL`;
         }
 
@@ -464,16 +444,12 @@ export class MessagesDAL extends BaseDAL {
 
   async sendMessageInConversation(
     conversationId: string,
+    senderId: string,
     content: string,
     rentalId?: string,
   ): Promise<MessageDb> {
     const { data, error } = await tryCatch(
       (async () => {
-        const currentUserId = await getCurrentUserId();
-        if (!currentUserId) {
-          throw new UnauthorizedError("User not authenticated");
-        }
-
         // Sanitize and validate message content
         const sanitizedContent = sanitizeMessageContent(content);
 
@@ -482,8 +458,8 @@ export class MessagesDAL extends BaseDAL {
           where: and(
             eq(conversations.id, conversationId),
             or(
-              eq(conversations.user1Id, currentUserId),
-              eq(conversations.user2Id, currentUserId),
+              eq(conversations.user1Id, senderId),
+              eq(conversations.user2Id, senderId),
             ),
           ),
         });
@@ -492,11 +468,22 @@ export class MessagesDAL extends BaseDAL {
           throw new Error("Conversation not found or access denied");
         }
 
+        // Check if sender has archived this conversation
+        const senderHasArchived =
+          (conversation.user1Id === senderId && conversation.user1Archived) ||
+          (conversation.user2Id === senderId && conversation.user2Archived);
+
+        if (senderHasArchived) {
+          throw new Error(
+            "Cannot send messages to an archived conversation. Please unarchive to continue.",
+          );
+        }
+
         const [message] = await this.db
           .insert(messages)
           .values({
             conversationId,
-            senderId: currentUserId,
+            senderId,
             content: sanitizedContent,
             rentalId,
           })
@@ -521,15 +508,11 @@ export class MessagesDAL extends BaseDAL {
 
   async archiveConversation(
     conversationId: string,
+    userId: string,
     archived: boolean = true,
   ): Promise<ConversationDb[]> {
     const { data, error } = await tryCatch(
       (async () => {
-        const currentUserId = await getCurrentUserId();
-        if (!currentUserId) {
-          throw new UnauthorizedError("User not authenticated");
-        }
-
         const conversation = await this.db.query.conversations.findFirst({
           where: eq(conversations.id, conversationId),
         });
@@ -540,9 +523,9 @@ export class MessagesDAL extends BaseDAL {
 
         const updateData: { user1Archived?: boolean; user2Archived?: boolean } =
           {};
-        if (conversation.user1Id === currentUserId) {
+        if (conversation.user1Id === userId) {
           updateData.user1Archived = archived;
-        } else if (conversation.user2Id === currentUserId) {
+        } else if (conversation.user2Id === userId) {
           updateData.user2Archived = archived;
         }
 
@@ -563,25 +546,24 @@ export class MessagesDAL extends BaseDAL {
 
   async unarchiveConversation(
     conversationId: string,
+    userId: string,
   ): Promise<ConversationDb[]> {
-    return this.archiveConversation(conversationId, false);
+    return this.archiveConversation(conversationId, userId, false);
   }
 
-  async deleteConversation(conversationId: string): Promise<void> {
+  async deleteConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
     const { error } = await tryCatch(
       (async () => {
-        const currentUserId = await getCurrentUserId();
-        if (!currentUserId) {
-          throw new UnauthorizedError("User not authenticated");
-        }
-
         // Verify user is part of conversation
         const conversation = await this.db.query.conversations.findFirst({
           where: and(
             eq(conversations.id, conversationId),
             or(
-              eq(conversations.user1Id, currentUserId),
-              eq(conversations.user2Id, currentUserId),
+              eq(conversations.user1Id, userId),
+              eq(conversations.user2Id, userId),
             ),
           ),
         });
@@ -606,14 +588,9 @@ export class MessagesDAL extends BaseDAL {
    * Get total unread message count for the current user
    * Counts all unread messages across all non-archived conversations
    */
-  async getUnreadMessageCount(): Promise<number> {
+  async getUnreadMessageCount(userId: string): Promise<number> {
     const { data, error } = await tryCatch(
       (async () => {
-        const currentUserId = await getCurrentUserId();
-        if (!currentUserId) {
-          throw new UnauthorizedError("User not authenticated");
-        }
-
         // Use SQL to efficiently count unread messages
         // We need to count messages where:
         // 1. The conversation belongs to the current user
@@ -632,27 +609,27 @@ export class MessagesDAL extends BaseDAL {
             and(
               // Conversation involves the current user
               or(
-                eq(conversations.user1Id, currentUserId),
-                eq(conversations.user2Id, currentUserId),
+                eq(conversations.user1Id, userId),
+                eq(conversations.user2Id, userId),
               ),
               // Exclude archived conversations
               or(
                 and(
-                  eq(conversations.user1Id, currentUserId),
+                  eq(conversations.user1Id, userId),
                   eq(conversations.user1Archived, false),
                 ),
                 and(
-                  eq(conversations.user2Id, currentUserId),
+                  eq(conversations.user2Id, userId),
                   eq(conversations.user2Archived, false),
                 ),
               ),
               // Message was sent by the other user (not current user)
-              ne(messages.senderId, currentUserId),
+              ne(messages.senderId, userId),
               // Message is unread: either never read, or created after last read
               or(
                 // User1 case: never read or message after last read
                 and(
-                  eq(conversations.user1Id, currentUserId),
+                  eq(conversations.user1Id, userId),
                   or(
                     isNull(conversations.user1LastReadAt),
                     gt(messages.createdAt, conversations.user1LastReadAt),
@@ -660,7 +637,7 @@ export class MessagesDAL extends BaseDAL {
                 ),
                 // User2 case: never read or message after last read
                 and(
-                  eq(conversations.user2Id, currentUserId),
+                  eq(conversations.user2Id, userId),
                   or(
                     isNull(conversations.user2LastReadAt),
                     gt(messages.createdAt, conversations.user2LastReadAt),

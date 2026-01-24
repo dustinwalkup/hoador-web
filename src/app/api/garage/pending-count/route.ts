@@ -1,21 +1,20 @@
-import { getCurrentUserId } from "@/features/auth/utils/session";
+import { NextResponse } from "next/server";
+import { getAuthenticatedUserResponse } from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
 
 export async function GET() {
   try {
-    const userId = await getCurrentUserId();
-
-    if (!userId) {
-      return Response.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
+    // Check authentication
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { userId } = authResult;
 
     // Get count of pending and rejected listings
     const [pendingListings, rejectedListings] = await Promise.all([
-      listingDAL.getUserListingsByApprovalStatus("pending_review"),
-      listingDAL.getUserListingsByApprovalStatus("rejected"),
+      listingDAL.getUserListingsByApprovalStatus("pending_review", userId),
+      listingDAL.getUserListingsByApprovalStatus("rejected", userId),
     ]);
 
     const count = pendingListings.length + rejectedListings.length;

@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import type { Mock } from "vitest";
-import { UnauthorizedError } from "@/dal/errors";
+import { UnauthorizedError } from "@/lib/api/route-helpers";
 import {
   mockSession,
   mockAdminSession as mockAdminSessionData,

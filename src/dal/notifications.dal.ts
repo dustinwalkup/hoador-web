@@ -1,8 +1,7 @@
 import { desc, eq, and, count, lt, sql } from "drizzle-orm";
 import { notifications } from "@/db/schemas/notifications.schema";
 import { user } from "@/db/schemas/user.schema";
-import { getCurrentUserId } from "@/features/auth/utils/session";
-import { DALError, ValidationError, UnauthorizedError } from "./errors";
+import { DALError, ValidationError } from "./errors";
 import { BaseDAL } from "./base";
 import type { PaginatedResult } from "./types";
 
@@ -69,6 +68,7 @@ export class NotificationDAL extends BaseDAL {
    * Get paginated notifications for a user
    */
   async getUserNotifications(
+    userId: string,
     options: {
       page?: number;
       limit?: number;
@@ -78,12 +78,6 @@ export class NotificationDAL extends BaseDAL {
     } = {},
   ): Promise<PaginatedResult<NotificationWithUser>> {
     try {
-      // Verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       const page = options.page || 1;
       const limit = options.limit || 20;
       this.validatePagination(page, limit);
@@ -151,14 +145,8 @@ export class NotificationDAL extends BaseDAL {
   /**
    * Get unread notification count for a user
    */
-  async getUnreadCount(): Promise<number> {
+  async getUnreadCount(userId: string): Promise<number> {
     try {
-      // Verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       const [{ value }] = await this.db
         .select({ value: count() })
         .from(notifications)
@@ -178,14 +166,8 @@ export class NotificationDAL extends BaseDAL {
   /**
    * Mark a notification as read
    */
-  async markAsRead(notificationId: string) {
+  async markAsRead(notificationId: string, userId: string) {
     try {
-      // Verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       const [notification] = await this.db
         .update(notifications)
         .set({
@@ -217,14 +199,8 @@ export class NotificationDAL extends BaseDAL {
   /**
    * Mark all notifications as read for a user
    */
-  async markAllAsRead() {
+  async markAllAsRead(userId: string) {
     try {
-      // Verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       await this.db
         .update(notifications)
         .set({
@@ -247,14 +223,12 @@ export class NotificationDAL extends BaseDAL {
   /**
    * Toggle notification read status
    */
-  async toggleReadStatus(notificationId: string, isRead: boolean) {
+  async toggleReadStatus(
+    notificationId: string,
+    userId: string,
+    isRead: boolean,
+  ) {
     try {
-      // Verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       const [notification] = await this.db
         .update(notifications)
         .set({
@@ -286,14 +260,8 @@ export class NotificationDAL extends BaseDAL {
   /**
    * Delete a notification
    */
-  async deleteNotification(notificationId: string) {
+  async deleteNotification(notificationId: string, userId: string) {
     try {
-      // Verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       const [notification] = await this.db
         .delete(notifications)
         .where(
@@ -321,14 +289,8 @@ export class NotificationDAL extends BaseDAL {
   /**
    * Get a single notification by ID
    */
-  async getById(notificationId: string) {
+  async getById(notificationId: string, userId: string) {
     try {
-      // Verify authentication
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new UnauthorizedError("Authentication required");
-      }
-
       const notification = await this.db.query.notifications.findFirst({
         where: and(
           eq(notifications.id, notificationId),

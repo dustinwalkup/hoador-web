@@ -32,6 +32,19 @@ export default defineConfig({
       OPENCAGE_API_KEY: "test-dummy-api-key-for-vitest",
       RESEND_API_KEY: "test-dummy-resend-api-key",
     },
+    // Explicit pool configuration to prevent worker crashes
+    pool: "threads",
+    poolOptions: {
+      threads: {
+        singleThread: false,
+        isolate: true,
+        // Limit concurrent workers to prevent memory exhaustion
+        maxThreads: 4,
+        minThreads: 1,
+      },
+    },
+    // Increase test timeout for slower tests
+    testTimeout: 10000,
     // Note: Uncaught exceptions from XSS sanitization tests are handled in src/test/setup.ts
     // via process.on('uncaughtException'). These occur when happy-dom tries to execute
     // malicious scripts in eval contexts before DOMPurify removes them.

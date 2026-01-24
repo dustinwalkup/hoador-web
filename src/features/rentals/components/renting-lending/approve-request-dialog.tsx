@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import { approveRentalRequest } from "@/features/rentals/actions/approve-rental-request";
+import { useApproveRentalRequest } from "@/features/rentals/hooks/use-rental-mutations";
 interface ApproveRequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,54 +38,42 @@ export function ApproveRequestDialog({
 }: ApproveRequestDialogProps) {
   const [pickupInstructions, setPickupInstructions] = useState("");
   const [returnInstructions, setReturnInstructions] = useState("");
-  const [isPending, startTransition] = useTransition();
+
+  const approveMutation = useApproveRentalRequest();
 
   const handleApprove = async () => {
-    startTransition(async () => {
-      try {
-        const result = await approveRentalRequest({
-          requestId,
-          pickupInstructions:
-            deliveryRequested === true
-              ? undefined
-              : pickupInstructions || undefined,
-          returnInstructions:
-            deliveryRequested === true
-              ? undefined
-              : returnInstructions || undefined,
-        });
+    try {
+      await approveMutation.mutateAsync({
+        rentalId: requestId,
+        pickupInstructions:
+          deliveryRequested === true
+            ? undefined
+            : pickupInstructions || undefined,
+        returnInstructions:
+          deliveryRequested === true
+            ? undefined
+            : returnInstructions || undefined,
+      });
 
-        if (result.success) {
-          // Close dialog and trigger success callback
-          onOpenChange(false);
-          setPickupInstructions("");
-          setReturnInstructions("");
-          onSuccess?.();
-          toast.success("Request approved successfully!", {
-            description:
-              "Payment has been processed and the renter has been notified.",
-          });
-        } else {
-          // Check if it's a payment failure
-          if (result.paymentFailed) {
-            toast.error("Payment Failed", {
-              description: result.error || "Payment could not be processed.",
-              duration: 10000, // Longer duration for important message
-            });
-            // Keep dialog open so owner can see the instructions
-          } else {
-            toast.error("Failed to approve request", {
-              description: result.error || "Please try again.",
-            });
-          }
-        }
-      } catch {
-        // Show error toast if the action fails
-        toast.error("Failed to approve request", {
-          description: "An unexpected error occurred. Please try again.",
+      // Close dialog and trigger success callback
+      onOpenChange(false);
+      setPickupInstructions("");
+      setReturnInstructions("");
+      onSuccess?.();
+    } catch (error) {
+      // Check if it's a payment failure
+      if ((error as Error & { paymentFailed?: boolean }).paymentFailed) {
+        toast.error("Payment Failed", {
+          description:
+            error instanceof Error
+              ? error.message
+              : "Payment could not be processed.",
+          duration: 10000, // Longer duration for important message
         });
+        // Keep dialog open so owner can see the instructions
       }
-    });
+      // Error toast is already shown by the mutation hook
+    }
   };
 
   return (
@@ -135,12 +123,16 @@ export function ApproveRequestDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isPending}
+            disabled={approveMutation.isPending}
           >
             Cancel
           </Button>
-          <Button type="button" onClick={handleApprove} disabled={isPending}>
-            {isPending ? (
+          <Button
+            type="button"
+            onClick={handleApprove}
+            disabled={approveMutation.isPending}
+          >
+            {approveMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing Payment...

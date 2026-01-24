@@ -1,33 +1,48 @@
 import { NextRequest } from "next/server";
 import { rentalDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
+import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const status =
-    (searchParams.get("status") as
-      | "pending"
-      | "approved"
-      | "denied"
-      | "active"
-      | "completed") || "pending";
+  try {
+    // Check authentication
+    const authError = await requireAuthResponse();
+    if (authError) return authError;
 
-  const { data, error } = await tryCatch(
-    (async () => {
-      if (status === "active" || status === "completed") {
-        return await rentalDAL.getLendingRentalsByStatus(status);
-      }
-      return await rentalDAL.getLendingRequestsByStatus(status);
-    })(),
-  );
+    // Get current user ID
+    const { getCurrentUserId } = await import("@/features/auth/utils/session");
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return Response.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
 
-  if (error) {
-    console.error("Error fetching lending requests:", error);
-    return Response.json(
-      { error: error.message || "Failed to fetch lending requests" },
-      { status: 500 },
+    const searchParams = request.nextUrl.searchParams;
+    const status =
+      (searchParams.get("status") as
+        | "pending"
+        | "approved"
+        | "denied"
+        | "active"
+        | "completed") || "pending";
+
+    const { data, error } = await tryCatch(
+      (async () => {
+        if (status === "active" || status === "completed") {
+          return await rentalDAL.getLendingRentalsByStatus(status, userId);
+        }
+        return await rentalDAL.getLendingRequestsByStatus(status, userId);
+      })(),
     );
-  }
 
-  return Response.json({ data, status: "success" });
+    if (error) {
+      return handleApiError(error);
+    }
+
+    return Response.json({ data, status: "success" });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
