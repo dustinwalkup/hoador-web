@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   MoreHorizontal,
@@ -36,7 +35,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 import {
@@ -47,7 +45,6 @@ import {
   useDeleteConversation,
 } from "@/features/messages/hooks/use-message-mutations";
 import { useConversationDetails } from "@/features/messages/hooks/use-conversations";
-import { ConversationDetails, ConversationSummary } from "@/dal/types";
 
 interface ChatAreaProps {
   conversationId: string | null;
@@ -63,7 +60,6 @@ export function ChatArea({
   const [newMessage, setNewMessage] = useState("");
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const queryClient = useQueryClient();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const scrolledConversationRef = useRef<string | null>(null);
   const previousMessageCountRef = useRef<number>(0);
@@ -125,107 +121,11 @@ export function ChatArea({
     const messageContent = newMessage.trim();
     setNewMessage("");
 
-    // Add optimistic message directly to the cache
-    const optimisticMessage = {
-      id: `temp-${Date.now()}`,
+    // Just call the mutation - hook handles optimistic updates
+    sendMessageMutation.mutate({
+      conversationId: selectedConversation.id,
       content: messageContent,
-      time: new Date(),
-      sender: "me" as const,
-      senderName: "You",
-    };
-
-    queryClient.setQueryData(
-      ["conversation-details", conversationId],
-      (oldData: ConversationDetails | undefined) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          messages: [...oldData.messages, optimisticMessage],
-        };
-      },
-    );
-
-    try {
-      const result = await sendMessageMutation.mutateAsync({
-        conversationId: selectedConversation.id,
-        content: messageContent,
-      });
-
-      if (result.success && result.data) {
-        // Transform the raw message to match ConversationDetails format
-        const realMessage = {
-          id: (result.data as { id: string }).id,
-          content: (result.data as { content: string }).content,
-          time: (result.data as { createdAt?: Date }).createdAt || new Date(),
-          sender: "me" as const,
-          senderName: "You",
-        };
-
-        // Update the conversation cache by replacing the optimistic message with the real one
-        // This prevents flickering by maintaining the same position
-        queryClient.setQueryData(
-          ["conversation-details", conversationId],
-          (oldData: ConversationDetails | undefined) => {
-            if (!oldData) return oldData;
-
-            // Find and replace the optimistic message instead of removing and re-adding
-            const updatedMessages = oldData.messages.map((msg) =>
-              msg.id.startsWith("temp-") ? realMessage : msg,
-            );
-
-            return {
-              ...oldData,
-              messages: updatedMessages,
-              unread: false, // Mark as read since we just sent a message
-            };
-          },
-        );
-
-        // Also update the conversations list to show the latest message
-        queryClient.setQueryData(
-          ["conversations", false], // false for non-archived conversations
-          (oldData: { pages: ConversationSummary[][] } | undefined) => {
-            if (!oldData?.pages) return oldData;
-
-            return {
-              ...oldData,
-              pages: oldData.pages.map((page) =>
-                page.map((conv) =>
-                  conv.id === conversationId
-                    ? {
-                        ...conv,
-                        lastMessage: {
-                          content: realMessage.content,
-                          time: realMessage.time,
-                          senderId: (result.data as { senderId: string })
-                            .senderId,
-                        },
-                        lastMessageAt: realMessage.time,
-                        unread: false, // Mark as read since we just sent a message
-                      }
-                    : conv,
-                ),
-              ),
-            };
-          },
-        );
-      }
-    } catch {
-      // Error is handled by the mutation hook
-      // Revert optimistic update on error
-      queryClient.setQueryData(
-        ["conversation-details", conversationId],
-        (oldData: ConversationDetails | undefined) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            messages: oldData.messages.filter(
-              (msg) => !msg.id.startsWith("temp-"),
-            ),
-          };
-        },
-      );
-    }
+    });
   };
 
   const handleMarkUnread = () => {
@@ -242,6 +142,7 @@ export function ChatArea({
       {
         onSuccess: () => {
           setIsArchiveDialogOpen(false);
+          onBackToConversations();
         },
       },
     );
@@ -255,6 +156,7 @@ export function ChatArea({
       {
         onSuccess: () => {
           setIsArchiveDialogOpen(false);
+          onBackToConversations();
         },
       },
     );
@@ -391,110 +293,89 @@ export function ChatArea({
                     Mark Unread
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-
-                  {/* Archive Action with Confirmation */}
-                  <AlertDialog
-                    open={isArchiveDialogOpen}
-                    onOpenChange={setIsArchiveDialogOpen}
+                  <DropdownMenuItem
+                    onSelect={() => setIsArchiveDialogOpen(true)}
                   >
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                        <Archive className="mr-2 h-4 w-4" />
-                        Archive
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Archive Conversation
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to archive this conversation? It
-                          will be moved to your archived conversations and can
-                          be restored later.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleArchive}>
-                          Archive
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    <Archive className="mr-2 h-4 w-4" />
+                    Archive
+                  </DropdownMenuItem>
                 </>
               ) : (
-                <>
-                  {/* Unarchive Action with Confirmation */}
-                  <AlertDialog
-                    open={isArchiveDialogOpen}
-                    onOpenChange={setIsArchiveDialogOpen}
-                  >
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                        <Archive className="mr-2 h-4 w-4" />
-                        Unarchive
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Unarchive Conversation
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to unarchive this conversation?
-                          It will be moved back to your conversations list.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleUnarchive}>
-                          Unarchive
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
+                <DropdownMenuItem onSelect={() => setIsArchiveDialogOpen(true)}>
+                  <Archive className="mr-2 h-4 w-4" />
+                  Unarchive
+                </DropdownMenuItem>
               )}
 
               <DropdownMenuSeparator />
 
-              {/* Delete Action with Confirmation */}
-              <AlertDialog
-                open={isDeleteDialogOpen}
-                onOpenChange={setIsDeleteDialogOpen}
+              <DropdownMenuItem
+                onSelect={() => setIsDeleteDialogOpen(true)}
+                className="text-red-600 focus:text-red-600"
               >
-                <AlertDialogTrigger asChild>
-                  <DropdownMenuItem
-                    onSelect={(e) => e.preventDefault()}
-                    className="text-red-600 focus:text-red-600"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete this conversation? This
-                      action cannot be undone and all messages will be
-                      permanently removed.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDelete}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Archive/Unarchive Confirmation Dialog */}
+          <AlertDialog
+            open={isArchiveDialogOpen}
+            onOpenChange={setIsArchiveDialogOpen}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {selectedConversation.archived
+                    ? "Unarchive Conversation"
+                    : "Archive Conversation"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {selectedConversation.archived
+                    ? "Are you sure you want to unarchive this conversation? It will be moved back to your conversations list."
+                    : "Are you sure you want to archive this conversation? It will be moved to your archived conversations and can be restored later."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={
+                    selectedConversation.archived
+                      ? handleUnarchive
+                      : handleArchive
+                  }
+                >
+                  {selectedConversation.archived ? "Unarchive" : "Archive"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Delete Confirmation Dialog */}
+          <AlertDialog
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this conversation? This action
+                  cannot be undone and all messages will be permanently removed.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -545,7 +426,11 @@ export function ChatArea({
                       {sanitizeForDisplay(message.content)}
                     </p>
                   </div>
-                  <p className="mt-1 text-right text-xs text-gray-500">
+                  <p
+                    className={`mt-1 text-xs text-gray-500 ${
+                      message.sender === "me" ? "text-right" : "text-left"
+                    }`}
+                  >
                     {formatDate(message.time)}
                   </p>
                 </div>
@@ -555,40 +440,59 @@ export function ChatArea({
         </div>
       </div>
 
-      {/* Message Input */}
-      <div className="border-t border-gray-200 p-4">
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              // TODO: Implement file upload functionality
-              toast.info("File upload coming soon!");
-            }}
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-          <Input
-            placeholder="Type your message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-            className="flex-1"
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={sendMessageMutation.isPending || !newMessage.trim()}
-            className="bg-primary"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+      {/* Message Input or Archived Banner */}
+      {selectedConversation.archived ? (
+        <div className="border-t border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Archive className="h-4 w-4" />
+              <span>This conversation is archived. Unarchive to reply.</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsArchiveDialogOpen(true)}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              Unarchive
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="border-t border-gray-200 p-4">
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                // TODO: Implement file upload functionality
+                toast.info("File upload coming soon!");
+              }}
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <Input
+              placeholder="Type your message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={sendMessageMutation.isPending || !newMessage.trim()}
+              className="bg-primary"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

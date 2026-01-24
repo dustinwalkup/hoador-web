@@ -333,9 +333,6 @@ describe("useSendMessage", () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ["conversation-details"],
-      });
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
         queryKey: ["conversations", false],
       });
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({

@@ -468,6 +468,17 @@ export class MessagesDAL extends BaseDAL {
           throw new Error("Conversation not found or access denied");
         }
 
+        // Check if sender has archived this conversation
+        const senderHasArchived =
+          (conversation.user1Id === senderId && conversation.user1Archived) ||
+          (conversation.user2Id === senderId && conversation.user2Archived);
+
+        if (senderHasArchived) {
+          throw new Error(
+            "Cannot send messages to an archived conversation. Please unarchive to continue.",
+          );
+        }
+
         const [message] = await this.db
           .insert(messages)
           .values({

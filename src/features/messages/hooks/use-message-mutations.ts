@@ -1,5 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
+import { toast } from "sonner";
 import type { ConversationDetails, ConversationSummary } from "@/dal/types";
 
 interface StartConversationData {
@@ -68,9 +69,11 @@ export function useStartConversation() {
 export function useSendMessage() {
   const queryClient = useQueryClient();
 
-  return useCreateMutation<
+  return useMutation<
     SendMessageResponse,
-    SendMessageData & { conversationId: string }
+    Error,
+    SendMessageData & { conversationId: string },
+    { previousData?: ConversationDetails | undefined }
   >({
     mutationFn: async ({ conversationId, content }) => {
       const response = await fetch(
@@ -89,42 +92,124 @@ export function useSendMessage() {
 
       return response.json();
     },
-    invalidateQueryKeys: [
-      ["conversation-details"],
-      ["conversations", false],
-      ["messages", "unread-count"],
-    ],
+    // BEFORE mutation: Add optimistic message
+    onMutate: async (variables) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: ["conversation-details", variables.conversationId],
+      });
+
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData<ConversationDetails>([
+        "conversation-details",
+        variables.conversationId,
+      ]);
+
+      // Optimistically add message
+      if (previousData) {
+        const optimisticMessage = {
+          id: `temp-${Date.now()}`,
+          content: variables.content,
+          time: new Date(),
+          sender: "me" as const,
+          senderName: "You",
+          listingId: null,
+          listingName: null,
+        };
+
+        queryClient.setQueryData<ConversationDetails>(
+          ["conversation-details", variables.conversationId],
+          {
+            ...previousData,
+            messages: [...previousData.messages, optimisticMessage],
+          },
+        );
+      }
+
+      // Return context for rollback
+      return { previousData };
+    },
+    // ON ERROR: Rollback to previous state
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(
+          ["conversation-details", variables.conversationId],
+          context.previousData,
+        );
+      }
+      toast.error(err.message || "Failed to send message", {
+        duration: 5000,
+      });
+    },
+    // ON SUCCESS: Replace temp message with real one
     onSuccess: (data, variables) => {
-      // Optimistically update conversation details
+      if (!data.data) return;
+
+      const newMessage = data.data as {
+        id: string;
+        content: string;
+        createdAt: Date;
+        senderId: string;
+      };
+
       queryClient.setQueryData<ConversationDetails>(
         ["conversation-details", variables.conversationId],
         (oldData) => {
-          if (!oldData || !data.data) return oldData;
+          if (!oldData) return oldData;
 
-          const newMessage = data.data as {
-            id: string;
-            content: string;
-            createdAt: Date;
-            senderId: string;
-          };
+          // Replace temp message with real one
+          const updatedMessages = oldData.messages.map((msg) =>
+            msg.id.startsWith("temp-")
+              ? {
+                  id: newMessage.id,
+                  content: newMessage.content,
+                  time: newMessage.createdAt,
+                  sender: "me" as const,
+                  senderName: "You",
+                  listingId: null,
+                  listingName: null,
+                }
+              : msg,
+          );
 
+          return { ...oldData, messages: updatedMessages, unread: false };
+        },
+      );
+
+      // Update conversations list with latest message
+      queryClient.setQueryData<{ pages: ConversationSummary[][] }>(
+        ["conversations", false],
+        (oldData) => {
+          if (!oldData?.pages) return oldData;
           return {
             ...oldData,
-            messages: [
-              ...oldData.messages,
-              {
-                id: newMessage.id,
-                content: newMessage.content,
-                time: newMessage.createdAt,
-                sender: "me" as const,
-                senderName: "", // Will be filled by refetch
-                listingId: null,
-                listingName: null,
-              },
-            ],
+            pages: oldData.pages.map((page) =>
+              page.map((conv) =>
+                conv.id === variables.conversationId
+                  ? {
+                      ...conv,
+                      lastMessage: {
+                        content: newMessage.content,
+                        time: newMessage.createdAt,
+                        senderId: newMessage.senderId,
+                      },
+                      lastMessageAt: newMessage.createdAt,
+                      unread: false,
+                    }
+                  : conv,
+              ),
+            ),
           };
         },
       );
+
+      // Invalidate queries for background refresh
+      queryClient.invalidateQueries({
+        queryKey: ["conversations", false],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["messages", "unread-count"],
+      });
     },
   });
 }

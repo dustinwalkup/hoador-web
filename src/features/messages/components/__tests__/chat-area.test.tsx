@@ -67,14 +67,14 @@ function QueryWrapper({
 describe("ChatArea", () => {
   const mockOnBackToConversations = vi.fn();
   let queryClient: QueryClient;
-  const mockSendMessageMutateAsync = vi.fn();
+  const mockSendMessageMutate = vi.fn();
 
   beforeEach(() => {
     queryClient = createTestQueryClient();
     vi.clearAllMocks();
     vi.mocked(useSendMessage).mockReturnValue({
-      mutateAsync: mockSendMessageMutateAsync,
-      mutate: vi.fn(),
+      mutateAsync: vi.fn(),
+      mutate: mockSendMessageMutate,
       reset: vi.fn(),
       isPending: false,
       isSuccess: false,
@@ -167,15 +167,7 @@ describe("ChatArea", () => {
       isError: false,
     } as any);
 
-    mockSendMessageMutateAsync.mockResolvedValue({
-      success: true,
-      data: {
-        id: "message-new",
-        content: "New message",
-        createdAt: new Date(),
-        senderId: "user-123",
-      },
-    });
+    // mutate is fire-and-forget, no need to mock resolved value
 
     const { container } = render(
       <QueryWrapper queryClient={queryClient}>
@@ -197,7 +189,7 @@ describe("ChatArea", () => {
 
     // Assert
     await waitFor(() => {
-      expect(mockSendMessageMutateAsync).toHaveBeenCalledWith({
+      expect(mockSendMessageMutate).toHaveBeenCalledWith({
         conversationId: "conversation-123",
         content: "New message",
       });
@@ -214,8 +206,8 @@ describe("ChatArea", () => {
 
     // Simulate loading state (isPending: true)
     vi.mocked(useSendMessage).mockReturnValue({
-      mutateAsync: mockSendMessageMutateAsync,
-      mutate: vi.fn(),
+      mutateAsync: vi.fn(),
+      mutate: mockSendMessageMutate,
       reset: vi.fn(),
       isPending: true,
       isSuccess: false,
