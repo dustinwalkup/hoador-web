@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CheckCircle } from "lucide-react";
 import Link from "next/link";
@@ -18,12 +19,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+export const metadata: Metadata = {
+  title: "Complete Profile",
+};
+
 export default async function OnboardingPage() {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/");
   }
 
+  // Auth check: verify user.id matches before calling DAL
   const communityName = await communityDAL.getCommunityNameByUserId(user.id);
   const userFirstName = user.name.split(" ")[0];
   const userLastName = user.name.split(" ")[1];

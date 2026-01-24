@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useActionState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { resetPasswordAction } from "../actions/reset-password";
+import { useResetPassword } from "../hooks/use-auth-mutations";
 import { passwordSchema } from "../schemas/password";
 
 export function ResetPasswordForm() {
@@ -17,19 +16,7 @@ export function ResetPasswordForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [state, formAction, isPending] = useActionState(
-    resetPasswordAction,
-    null,
-  );
-
-  // Handle error states
-  useEffect(() => {
-    if (state?.error) {
-      toast.error("Reset Failed", {
-        description: state.error,
-      });
-    }
-  }, [state]);
+  const mutation = useResetPassword();
 
   // Show error if no token
   if (!token) {
@@ -67,11 +54,20 @@ export function ResetPasswordForm() {
   const passwordsMatch = password === confirmPassword;
   const isFormValid = isPasswordValid && passwordsMatch;
 
-  return (
-    <form action={formAction} className="space-y-4">
-      {/* Hidden token field */}
-      <input type="hidden" name="token" value={token} />
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!token || !isFormValid) {
+      return;
+    }
+    try {
+      await mutation.mutateAsync({ token, password });
+    } catch {
+      // Error is handled by the mutation hook
+    }
+  };
 
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
       {/* New Password */}
       <div className="space-y-2">
         <Label htmlFor="password">New Password</Label>
@@ -83,7 +79,7 @@ export function ResetPasswordForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            disabled={isPending}
+            disabled={mutation.isPending}
             placeholder="Enter your new password"
           />
           <Button
@@ -139,7 +135,7 @@ export function ResetPasswordForm() {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
-          disabled={isPending}
+          disabled={mutation.isPending}
           placeholder="Confirm your new password"
         />
         {confirmPassword && !passwordsMatch && (
@@ -151,9 +147,9 @@ export function ResetPasswordForm() {
       <Button
         type="submit"
         className="w-full"
-        disabled={!isFormValid || isPending}
+        disabled={!isFormValid || mutation.isPending}
       >
-        {isPending ? (
+        {mutation.isPending ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Resetting Password...

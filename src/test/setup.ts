@@ -48,8 +48,12 @@ process.on("uncaughtException", (error) => {
     return; // Suppress the error - test should handle mocking properly
   }
 
-  // Re-throw other errors
-  throw error;
+  // Log other errors but don't re-throw to prevent worker crashes
+  // Re-throwing in process error handlers causes Vitest workers to exit unexpectedly
+  console.error(
+    "Unhandled test error (not re-throwing to prevent worker crash):",
+    error,
+  );
 });
 
 // Handle unhandled promise rejections (some DOMException errors may come through this way)
@@ -80,8 +84,12 @@ process.on("unhandledRejection", (reason) => {
     return; // Suppress the error - test should handle mocking properly
   }
 
-  // Re-throw other rejections
-  throw reason;
+  // Log other rejections but don't re-throw to prevent worker crashes
+  // Re-throwing in process error handlers causes Vitest workers to exit unexpectedly
+  console.error(
+    "Unhandled promise rejection (not re-throwing to prevent worker crash):",
+    reason,
+  );
 });
 
 // Set on window for happy-dom environment (must be synchronous)

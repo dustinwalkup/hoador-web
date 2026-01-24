@@ -3,10 +3,13 @@
 import { tryCatch } from "@walkup/walkup-utils";
 import { revalidatePath } from "next/cache";
 import { messagesDAL } from "@/dal";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 export async function markConversationAsReadAction(conversationId: string) {
+  const { userId } = await requireAuthenticatedUser();
+
   const { data, error } = await tryCatch(
-    messagesDAL.markConversationAsRead(conversationId),
+    messagesDAL.markConversationAsRead(conversationId, userId),
   );
 
   if (error) {

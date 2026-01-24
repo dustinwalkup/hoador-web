@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { userDAL } from "@/dal";
+import { getCurrentUser } from "@/features/auth/utils/session";
 
 interface UpdateProfileImageResult {
   success: boolean;
@@ -12,7 +13,15 @@ export async function updateProfileImageAction(
   profileImageUrl: string,
 ): Promise<UpdateProfileImageResult> {
   try {
-    await userDAL.updateCurrentUser({ profileImageUrl });
+    const user = await getCurrentUser();
+    if (!user) {
+      return {
+        success: false,
+        error: "You must be logged in to update your profile image.",
+      };
+    }
+
+    await userDAL.updateCurrentUser(user.id, { profileImageUrl });
 
     // Revalidate the profile page to show updated image
     revalidatePath("/dashboard/profile");

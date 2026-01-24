@@ -31,7 +31,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { RentalFormData } from "@/features/rentals/lib/rental-form.schema";
-import type { CurrentDocumentVersion } from "@/dal/legal-document.dal";
+import type { CurrentDocumentVersion } from "@/dal/types";
 
 interface LegalDisclosuresProps {
   legalDocuments: {
@@ -87,6 +87,7 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
   // Handler to set all policy fields when checkbox is toggled
   const handlePoliciesAccepted = (checked: boolean) => {
     form.setValue("rentalAgreementAccepted", checked);
+    form.setValue("cancellationRefundAcknowledged", checked);
     form.setValue("safetyLiabilityPackageAccepted", checked);
     form.setValue("paymentPayoutAccepted", checked);
   };

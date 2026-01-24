@@ -75,7 +75,11 @@ describe("Complete Listing Approval User Flow (E2E)", () => {
       createdListing as any,
     );
 
-    const createResult = await listingDAL.createListing(listingData);
+    const createResult = await listingDAL.createListing(
+      listingData,
+      userId,
+      "community-1",
+    );
     expect(createResult.id).toBe(listingId);
     expect(createResult.approvalStatus).toBe("pending_review");
 
@@ -107,8 +111,10 @@ describe("Complete Listing Approval User Flow (E2E)", () => {
       },
     ] as any);
 
-    const pendingListings =
-      await listingDAL.getUserListingsByApprovalStatus("pending_review");
+    const pendingListings = await listingDAL.getUserListingsByApprovalStatus(
+      "pending_review",
+      userId,
+    );
     expect(pendingListings).toHaveLength(1);
     expect(pendingListings[0].id).toBe(listingId);
     expect(pendingListings[0].approvalStatus).toBe("pending_review");
@@ -165,6 +171,7 @@ describe("Complete Listing Approval User Flow (E2E)", () => {
     const updatedListing = await listingDAL.updateListing(
       listingId,
       updatedListingData,
+      userId,
     );
     expect(updatedListing.approvalStatus).toBe("pending_review");
     expect(updatedListing.rejectionReason).toBeNull();
@@ -175,7 +182,7 @@ describe("Complete Listing Approval User Flow (E2E)", () => {
     ] as any);
 
     const pendingCount = (
-      await listingDAL.getUserListingsByApprovalStatus("pending_review")
+      await listingDAL.getUserListingsByApprovalStatus("pending_review", userId)
     ).length;
     expect(pendingCount).toBeGreaterThan(0);
   });
@@ -210,7 +217,11 @@ describe("Complete Listing Approval User Flow (E2E)", () => {
       createdListing as any,
     );
 
-    const result = await listingDAL.createListing(listingData);
+    const result = await listingDAL.createListing(
+      listingData,
+      userId,
+      "community-1",
+    );
 
     // Verify listing is created with pending_review status
     expect(result.approvalStatus).toBe("pending_review");

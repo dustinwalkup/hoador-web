@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { sendMessageAction } from "@/features/messages/actions/send-message";
 import { markConversationAsReadAction } from "@/features/messages/actions/mark-conversation-read";
 import { messagesDAL } from "@/dal";
-import { mockMessage, mockConversation } from "@/test/fixtures/messages";
+import {
+  mockMessage,
+  mockConversation,
+  mockUser1,
+} from "@/test/fixtures/messages";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -20,11 +24,21 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
+vi.mock("@/features/auth/utils/session", () => ({
+  requireAuthenticatedUser: vi.fn(),
+}));
+
 import { tryCatch } from "@walkup/walkup-utils";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 describe("Complete Messaging Workflow (E2E)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuthenticatedUser).mockResolvedValue({
+      user: mockUser1 as any,
+      userId: mockUser1.id,
+      isAdmin: false,
+    });
   });
 
   it("should complete full messaging workflow: User opens conversation → sends multiple messages → messages appear in order → marks read → unread count decreases", async () => {
@@ -43,6 +57,7 @@ describe("Complete Messaging Workflow (E2E)", () => {
     expect(result1.success).toBe(true);
     expect(messagesDAL.sendMessageInConversation).toHaveBeenCalledWith(
       conversationId,
+      mockUser1.id,
       message1,
     );
 
@@ -58,6 +73,7 @@ describe("Complete Messaging Workflow (E2E)", () => {
     expect(result2.success).toBe(true);
     expect(messagesDAL.sendMessageInConversation).toHaveBeenCalledWith(
       conversationId,
+      mockUser1.id,
       message2,
     );
 
@@ -80,6 +96,7 @@ describe("Complete Messaging Workflow (E2E)", () => {
     expect(readResult.success).toBe(true);
     expect(messagesDAL.markConversationAsRead).toHaveBeenCalledWith(
       conversationId,
+      mockUser1.id,
     );
 
     // Step 7: Verify unread count decreases

@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic";
-
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SignupForm } from "@/features/auth/components/signup-form";
+
 import {
   Card,
   CardContent,
@@ -12,8 +13,12 @@ import {
 } from "@/components/ui/card";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
 import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+
+export const metadata: Metadata = {
+  title: "Sign Up",
+};
 
 export default async function SignupPage() {
   // Fetch current document URLs server-side

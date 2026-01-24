@@ -4,29 +4,20 @@ import userEvent from "@testing-library/user-event";
 import { ChatArea } from "../chat-area";
 import { mockConversationDetails } from "@/test/fixtures/messages";
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
+
 // Mock dependencies
 vi.mock("@/features/messages/hooks/use-conversations", () => ({
   useConversationDetails: vi.fn(),
 }));
 
-vi.mock("@/features/messages/actions/send-message", () => ({
-  sendMessageAction: vi.fn(),
-}));
-
-vi.mock("@/features/messages/actions/mark-conversation-unread", () => ({
-  markConversationUnreadAction: vi.fn(),
-}));
-
-vi.mock("@/features/messages/actions/archive-conversation", () => ({
-  archiveConversationAction: vi.fn(),
-}));
-
-vi.mock("@/features/messages/actions/unarchive-conversation", () => ({
-  unarchiveConversationAction: vi.fn(),
-}));
-
-vi.mock("@/features/messages/actions/delete-conversation", () => ({
-  deleteConversationAction: vi.fn(),
+vi.mock("@/features/messages/hooks/use-message-mutations", () => ({
+  useSendMessage: vi.fn(),
+  useMarkConversationUnread: vi.fn(),
+  useArchiveConversation: vi.fn(),
+  useUnarchiveConversation: vi.fn(),
+  useDeleteConversation: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -36,21 +27,86 @@ vi.mock("sonner", () => ({
   },
 }));
 
-vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: vi.fn(() => ({
-    setQueryData: vi.fn(),
-    invalidateQueries: vi.fn(),
-  })),
-}));
-
 import { useConversationDetails } from "@/features/messages/hooks/use-conversations";
-import { sendMessageAction } from "@/features/messages/actions/send-message";
+import {
+  useSendMessage,
+  useMarkConversationUnread,
+  useArchiveConversation,
+  useUnarchiveConversation,
+  useDeleteConversation,
+} from "@/features/messages/hooks/use-message-mutations";
+
+// Create test query client
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  });
+}
+
+// Wrapper component for React Query
+function QueryWrapper({
+  children,
+  queryClient,
+}: {
+  children: React.ReactNode;
+  queryClient: QueryClient;
+}) {
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
 
 describe("ChatArea", () => {
   const mockOnBackToConversations = vi.fn();
+  let queryClient: QueryClient;
+  const mockSendMessageMutate = vi.fn();
 
   beforeEach(() => {
+    queryClient = createTestQueryClient();
     vi.clearAllMocks();
+    vi.mocked(useSendMessage).mockReturnValue({
+      mutateAsync: vi.fn(),
+      mutate: mockSendMessageMutate,
+      reset: vi.fn(),
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
+      data: undefined,
+      status: "idle",
+    } as any);
+    vi.mocked(useMarkConversationUnread).mockReturnValue({
+      mutateAsync: vi.fn(),
+      mutate: vi.fn(),
+      reset: vi.fn(),
+      isPending: false,
+    } as any);
+    vi.mocked(useArchiveConversation).mockReturnValue({
+      mutateAsync: vi.fn(),
+      mutate: vi.fn(),
+      reset: vi.fn(),
+      isPending: false,
+    } as any);
+    vi.mocked(useUnarchiveConversation).mockReturnValue({
+      mutateAsync: vi.fn(),
+      mutate: vi.fn(),
+      reset: vi.fn(),
+      isPending: false,
+    } as any);
+    vi.mocked(useDeleteConversation).mockReturnValue({
+      mutateAsync: vi.fn(),
+      mutate: vi.fn(),
+      reset: vi.fn(),
+      isPending: false,
+    } as any);
   });
 
   it("should render messages list", () => {
@@ -63,10 +119,12 @@ describe("ChatArea", () => {
 
     // Act
     render(
-      <ChatArea
-        conversationId="conversation-123"
-        onBackToConversations={mockOnBackToConversations}
-      />,
+      <QueryWrapper queryClient={queryClient}>
+        <ChatArea
+          conversationId="conversation-123"
+          onBackToConversations={mockOnBackToConversations}
+        />
+      </QueryWrapper>,
     );
 
     // Assert
@@ -86,10 +144,12 @@ describe("ChatArea", () => {
 
     // Act
     render(
-      <ChatArea
-        conversationId="conversation-123"
-        onBackToConversations={mockOnBackToConversations}
-      />,
+      <QueryWrapper queryClient={queryClient}>
+        <ChatArea
+          conversationId="conversation-123"
+          onBackToConversations={mockOnBackToConversations}
+        />
+      </QueryWrapper>,
     );
 
     // Assert
@@ -107,26 +167,15 @@ describe("ChatArea", () => {
       isError: false,
     } as any);
 
-    vi.mocked(sendMessageAction).mockResolvedValue({
-      success: true,
-      data: {
-        id: "message-new",
-        conversationId: "conversation-123",
-        senderId: "user-123",
-        content: "New message",
-        status: "sent" as const,
-        listingId: null,
-        rentalId: null,
-        createdAt: new Date(),
-        editedAt: null,
-      },
-    });
+    // mutate is fire-and-forget, no need to mock resolved value
 
     const { container } = render(
-      <ChatArea
-        conversationId="conversation-123"
-        onBackToConversations={mockOnBackToConversations}
-      />,
+      <QueryWrapper queryClient={queryClient}>
+        <ChatArea
+          conversationId="conversation-123"
+          onBackToConversations={mockOnBackToConversations}
+        />
+      </QueryWrapper>,
     );
 
     // Act
@@ -140,47 +189,48 @@ describe("ChatArea", () => {
 
     // Assert
     await waitFor(() => {
-      expect(sendMessageAction).toHaveBeenCalledWith(
-        "conversation-123",
-        "New message",
-      );
+      expect(mockSendMessageMutate).toHaveBeenCalledWith({
+        conversationId: "conversation-123",
+        content: "New message",
+      });
     });
   });
 
-  it("should show loading state during message send", async () => {
+  it("should show loading state during message send", () => {
     // Arrange
-    const user = userEvent.setup();
     vi.mocked(useConversationDetails).mockReturnValue({
       data: mockConversationDetails,
       isLoading: false,
       isError: false,
     } as any);
 
-    vi.mocked(sendMessageAction).mockImplementation(
-      () => new Promise(() => {}), // Never resolves
-    );
+    // Simulate loading state (isPending: true)
+    vi.mocked(useSendMessage).mockReturnValue({
+      mutateAsync: vi.fn(),
+      mutate: mockSendMessageMutate,
+      reset: vi.fn(),
+      isPending: true,
+      isSuccess: false,
+      isError: false,
+      error: null,
+      data: undefined,
+      status: "pending",
+    } as any);
 
     const { container } = render(
-      <ChatArea
-        conversationId="conversation-123"
-        onBackToConversations={mockOnBackToConversations}
-      />,
+      <QueryWrapper queryClient={queryClient}>
+        <ChatArea
+          conversationId="conversation-123"
+          onBackToConversations={mockOnBackToConversations}
+        />
+      </QueryWrapper>,
     );
 
-    // Act
-    const input = screen.getByPlaceholderText(/type your message/i);
-    await user.type(input, "New message");
-    // Find the send button by its icon (button has no accessible name)
+    // Assert - Button should be disabled when isPending is true
     const sendIcon = container.querySelector("svg.lucide-send");
     const sendButton = sendIcon?.closest("button");
     expect(sendButton).toBeInTheDocument();
-    await user.click(sendButton!);
-
-    // Assert - After clicking, the send action is in progress
-    // The component should show loading state (button may be disabled or show spinner)
-    await waitFor(() => {
-      expect(sendMessageAction).toHaveBeenCalled();
-    });
+    expect(sendButton).toBeDisabled();
   });
 
   it("should show loading state when conversation is loading", () => {
@@ -193,10 +243,12 @@ describe("ChatArea", () => {
 
     // Act
     const { container } = render(
-      <ChatArea
-        conversationId="conversation-123"
-        onBackToConversations={mockOnBackToConversations}
-      />,
+      <QueryWrapper queryClient={queryClient}>
+        <ChatArea
+          conversationId="conversation-123"
+          onBackToConversations={mockOnBackToConversations}
+        />
+      </QueryWrapper>,
     );
 
     // Assert
@@ -215,10 +267,12 @@ describe("ChatArea", () => {
 
     // Act
     render(
-      <ChatArea
-        conversationId={null}
-        onBackToConversations={mockOnBackToConversations}
-      />,
+      <QueryWrapper queryClient={queryClient}>
+        <ChatArea
+          conversationId={null}
+          onBackToConversations={mockOnBackToConversations}
+        />
+      </QueryWrapper>,
     );
 
     // Assert
@@ -253,10 +307,12 @@ describe("ChatArea", () => {
 
     // Act
     render(
-      <ChatArea
-        conversationId="conversation-123"
-        onBackToConversations={mockOnBackToConversations}
-      />,
+      <QueryWrapper queryClient={queryClient}>
+        <ChatArea
+          conversationId="conversation-123"
+          onBackToConversations={mockOnBackToConversations}
+        />
+      </QueryWrapper>,
     );
 
     // Assert

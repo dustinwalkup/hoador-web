@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal";
 import {
   LEGAL_DOCUMENT_IDS,
   type LegalDocumentId,

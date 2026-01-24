@@ -1,6 +1,5 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Users } from "lucide-react";
@@ -10,14 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { joinCommunityAction } from "../actions/join-community";
+import { useJoinCommunity } from "../hooks/use-auth-mutations";
 import { joinCodeSchema, type JoinCodeData } from "../schemas/auth-schemas";
 
 export function JoinCodeForm() {
-  const [isTransitionPending, startTransition] = useTransition();
-  const [state, formAction, isPending] = useActionState(joinCommunityAction, {
-    success: false,
-  });
+  const mutation = useJoinCommunity();
 
   const {
     register,
@@ -40,22 +36,25 @@ export function JoinCodeForm() {
 
   // Handle form submission with client-side validation first
   const onSubmit = async (data: JoinCodeData) => {
-    // Create FormData and call the server action
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.append("joinCode", data.joinCode);
-      formAction(formData);
-    });
+    try {
+      await mutation.mutateAsync({ joinCode: data.joinCode });
+    } catch {
+      // Error is handled by the mutation hook
+    }
   };
 
   return (
     <>
       <div className="space-y-6">
         <div className="space-y-4">
-          {/* Server-side error */}
-          {state?.error && (
+          {/* Error */}
+          {mutation.isError && (
             <Alert variant="destructive">
-              <AlertDescription>{state.error}</AlertDescription>
+              <AlertDescription>
+                {mutation.error instanceof Error
+                  ? mutation.error.message
+                  : "Failed to join community"}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -72,7 +71,7 @@ export function JoinCodeForm() {
                 value={joinCodeValue || ""}
                 onChange={handleJoinCodeChange}
                 placeholder="Enter your join code"
-                disabled={isPending || isTransitionPending}
+                disabled={mutation.isPending}
                 className={cn(
                   "text-center font-mono text-lg tracking-wider uppercase",
                   errors.joinCode && "border-red-500",
@@ -93,8 +92,12 @@ export function JoinCodeForm() {
               </p>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? (
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={mutation.isPending}
+            >
+              {mutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Joining community...

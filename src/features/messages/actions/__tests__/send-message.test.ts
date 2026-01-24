@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { sendMessageAction } from "../send-message";
 import { messagesDAL } from "@/dal";
-import { mockMessage } from "@/test/fixtures/messages";
+import { mockMessage, mockUser1 } from "@/test/fixtures/messages";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -14,11 +14,21 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
+vi.mock("@/features/auth/utils/session", () => ({
+  requireAuthenticatedUser: vi.fn(),
+}));
+
 import { tryCatch } from "@walkup/walkup-utils";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 describe("sendMessageAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuthenticatedUser).mockResolvedValue({
+      user: mockUser1 as any,
+      userId: mockUser1.id,
+      isAdmin: false,
+    });
   });
 
   it("should send message successfully", async () => {
@@ -38,7 +48,11 @@ describe("sendMessageAction", () => {
     expect(result.success).toBe(true);
     expect(result.data).toEqual(mockMessage);
     expect(tryCatch).toHaveBeenCalledWith(
-      messagesDAL.sendMessageInConversation(conversationId, content),
+      messagesDAL.sendMessageInConversation(
+        conversationId,
+        mockUser1.id,
+        content,
+      ),
     );
   });
 
