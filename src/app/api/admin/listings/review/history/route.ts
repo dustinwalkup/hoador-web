@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/features/auth/utils/guards";
+import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
 
 /**
@@ -10,7 +10,10 @@ import { listingDAL } from "@/dal";
 export async function GET(request: NextRequest) {
   try {
     // Require admin authentication
-    await requireAdmin();
+    const adminError = await requireAdminResponse();
+    if (adminError) {
+      return adminError;
+    }
 
     // Parse status filter and pagination parameters from query string
     const searchParams = request.nextUrl.searchParams;
@@ -28,31 +31,6 @@ export async function GET(request: NextRequest) {
     // Return JSON response with paginated results
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Review history API error:", error);
-
-    // Handle authentication errors
-    if (error instanceof Error && error.message.includes("Admin privileges")) {
-      return NextResponse.json(
-        { error: "Admin privileges required" },
-        { status: 403 },
-      );
-    }
-
-    // Handle validation errors
-    if (
-      error instanceof Error &&
-      (error.message.includes("Page") || error.message.includes("Limit"))
-    ) {
-      return NextResponse.json(
-        { error: error.message || "Invalid pagination parameters" },
-        { status: 400 },
-      );
-    }
-
-    // Handle other errors
-    return NextResponse.json(
-      { error: "Failed to fetch review history" },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }

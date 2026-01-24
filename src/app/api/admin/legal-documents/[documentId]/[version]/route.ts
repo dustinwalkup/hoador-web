@@ -6,7 +6,7 @@ import {
   handleApiError,
   parseFormData,
 } from "@/lib/api/route-helpers";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal";
 import {
   LEGAL_DOCUMENT_IDS,
   type LegalDocumentId,

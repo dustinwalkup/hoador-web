@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { handleApiError } from "@/lib/api/route-helpers";
 import { legalDocumentDAL } from "@/dal";
 import {
   LEGAL_DOCUMENT_IDS,
   type LegalDocumentId,
 } from "@/constants/legal-documents";
 
+/**
+ * GET /api/admin/legal-documents/[documentId]/[version]/download
+ * Download a legal document version
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ documentId: string; version: string }> },
@@ -38,10 +43,6 @@ export async function GET(
     // Redirect to blob URL (public access)
     return NextResponse.redirect(documentVersion.url);
   } catch (error) {
-    console.error("Legal document download error:", error);
-    return NextResponse.json(
-      { error: "Failed to download document" },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }

@@ -5,6 +5,7 @@ import {
   requireAdminResponse,
   handleApiError,
   parseFormData,
+  getCurrentUserId,
 } from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
@@ -85,9 +86,23 @@ export async function POST(
       );
     }
 
+    // Get admin ID
+    const adminId = await getCurrentUserId();
+    if (!adminId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
     // Update approval status
     const { error: updateError } = await tryCatch(
-      listingDAL.updateApprovalStatus(listingId, "rejected", sanitizedReason),
+      listingDAL.updateApprovalStatus(
+        listingId,
+        "rejected",
+        adminId,
+        sanitizedReason,
+      ),
     );
 
     if (updateError) {

@@ -1,5 +1,4 @@
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
-import type { QueryKey } from "@tanstack/react-query";
 
 /**
  * Approve a listing

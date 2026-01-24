@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
-import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
+import {
+  requireAdminResponse,
+  handleApiError,
+  getCurrentUserId,
+} from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import {
@@ -10,7 +15,6 @@ import {
 } from "@/features/notifications/utils/email-templates";
 import { db } from "@/db/db";
 import { user } from "@/db/schemas/user.schema";
-import { eq } from "drizzle-orm";
 
 /**
  * Approve a listing
@@ -53,9 +57,18 @@ export async function POST(
       );
     }
 
+    // Get admin ID
+    const adminId = await getCurrentUserId();
+    if (!adminId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
     // Update approval status
     const { error: updateError } = await tryCatch(
-      listingDAL.updateApprovalStatus(listingId, "approved"),
+      listingDAL.updateApprovalStatus(listingId, "approved", adminId),
     );
 
     if (updateError) {
