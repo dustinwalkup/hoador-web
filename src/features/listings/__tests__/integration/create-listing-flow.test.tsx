@@ -42,7 +42,7 @@ vi.mock("../../actions/create-listing", () => ({
 
     // Call the mocked listingDAL
     try {
-      await listingDAL.createListing(dataWithOwner);
+      await listingDAL.createListing(dataWithOwner, "user-123", "community-1");
     } catch {
       return { success: false, error: "Database connection failed" };
     }
@@ -114,6 +114,8 @@ describe("Create Listing Flow Integration", () => {
           deliveryAvailable: false,
           ownerId: "user-123",
         }),
+        "user-123",
+        "community-1",
       );
       expect(revalidatePath).toHaveBeenCalledWith("/dashboard/garage");
     });

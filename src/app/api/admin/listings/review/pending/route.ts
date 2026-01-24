@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/features/auth/utils/guards";
+import {
+  requireAdminResponse,
+  getAuthenticatedUserResponse,
+} from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
 
 /**
@@ -10,7 +13,17 @@ import { listingDAL } from "@/dal";
 export async function GET(request: NextRequest) {
   try {
     // Require admin authentication
-    await requireAdmin();
+    const adminCheck = await requireAdminResponse();
+    if (adminCheck) {
+      return adminCheck; // Returns 401 or 403
+    }
+
+    // Get authenticated user (we know they're admin at this point)
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId: adminUserId } = authResult;
 
     // Parse pagination parameters from query string
     const searchParams = request.nextUrl.searchParams;
@@ -19,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     // Call DAL method with pagination
     const pagination = { page, limit };
-    const result = await listingDAL.getPendingReviews(pagination);
+    const result = await listingDAL.getPendingReviews(pagination, adminUserId);
 
     // Return JSON response with paginated results
     return NextResponse.json(result);

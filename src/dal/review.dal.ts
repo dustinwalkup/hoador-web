@@ -2,14 +2,8 @@ import { eq, desc, count, inArray } from "drizzle-orm";
 import { reviews, rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
-import { getCurrentUserId } from "@/features/auth/utils/session";
 import { BaseDAL } from "./base";
-import {
-  UnauthorizedError,
-  NotFoundError,
-  ValidationError,
-  ConflictError,
-} from "./errors";
+import { NotFoundError, ValidationError, ConflictError } from "./errors";
 import { tryCatch } from "@walkup/walkup-utils";
 
 export class ReviewDAL extends BaseDAL {
@@ -167,12 +161,7 @@ export class ReviewDAL extends BaseDAL {
     });
   }
 
-  async getUserReviewsSummary() {
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
+  async getUserReviewsSummary(userId: string) {
     const [summary, distribution, recentReviews] = await Promise.all([
       this.getSummaryForUser(userId),
       this.getRatingDistribution(userId),
@@ -366,20 +355,18 @@ export class ReviewDAL extends BaseDAL {
    * Create a review for a completed rental
    * Accepts either rentalId (rentals.id) or requestId (rental_requests.id)
    */
-  async createReview(data: {
-    rentalId?: string;
-    requestId?: string;
-    rating: number;
-    comment: string;
-    accuracyRating?: number;
-    listingConditionRating?: number;
-    ownerCommunicationRating?: number;
-  }) {
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      throw new UnauthorizedError("Authentication required");
-    }
-
+  async createReview(
+    userId: string,
+    data: {
+      rentalId?: string;
+      requestId?: string;
+      rating: number;
+      comment: string;
+      accuracyRating?: number;
+      listingConditionRating?: number;
+      ownerCommunicationRating?: number;
+    },
+  ) {
     // Validate rating
     if (data.rating < 1 || data.rating > 5) {
       throw new ValidationError("Rating must be between 1 and 5");
@@ -456,7 +443,7 @@ export class ReviewDAL extends BaseDAL {
 
     // Verify user is the renter
     if (rental.renterId !== userId) {
-      throw new UnauthorizedError("Only the renter can leave a review");
+      throw new ValidationError("Only the renter can leave a review");
     }
 
     // Check if review already exists

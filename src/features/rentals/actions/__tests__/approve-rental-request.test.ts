@@ -3,6 +3,7 @@ import { approveRentalRequest } from "../approve-rental-request";
 import { rentalDAL, userDAL } from "@/dal";
 import { revalidatePath } from "next/cache";
 import { mockRentalRequest } from "@/test/fixtures/rentals";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -17,6 +18,10 @@ vi.mock("@/dal", () => ({
     isConnectOnboardingComplete: vi.fn(),
     getUserById: vi.fn(),
   },
+}));
+
+vi.mock("@/features/auth/utils/session", () => ({
+  getCurrentUserId: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
@@ -54,11 +59,15 @@ describe("approveRentalRequest", () => {
   it("should approve rental request with valid data", async () => {
     // Arrange
     const requestId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+    const userId = "user-123";
     const formData = {
       requestId,
       pickupInstructions: "Pick up at front door",
       returnInstructions: "Return to same location",
     };
+
+    // Mock authentication
+    vi.mocked(getCurrentUserId).mockResolvedValue(userId);
 
     // Mock rental must have all required properties used by the action
     const mockRental = {
@@ -66,7 +75,7 @@ describe("approveRentalRequest", () => {
       id: requestId,
       paymentMethodId: "pm_123",
       renterId: "user-456",
-      ownerId: "user-123",
+      ownerId: userId, // Must match userId for authorization
       listingId: "listing-123",
       listingName: "Test Power Drill",
       totalAmount: "60.00",
@@ -143,9 +152,13 @@ describe("approveRentalRequest", () => {
   it("should return error when rental request not found", async () => {
     // Arrange
     const requestId = "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22";
+    const userId = "user-123";
     const formData = {
       requestId,
     };
+
+    // Mock authentication
+    vi.mocked(getCurrentUserId).mockResolvedValue(userId);
 
     vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(
       undefined as any,
@@ -162,14 +175,19 @@ describe("approveRentalRequest", () => {
   it("should return error when payment method not available", async () => {
     // Arrange
     const requestId = "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33";
+    const userId = "user-123";
     const formData = {
       requestId,
     };
+
+    // Mock authentication
+    vi.mocked(getCurrentUserId).mockResolvedValue(userId);
 
     const mockRental = {
       ...mockRentalRequest,
       id: requestId,
       paymentMethodId: null, // No payment method
+      ownerId: userId, // Must match userId for authorization
     };
 
     vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue(
@@ -188,9 +206,13 @@ describe("approveRentalRequest", () => {
   it("should return error when payment fails", async () => {
     // Arrange
     const requestId = "d0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44";
+    const userId = "user-123";
     const formData = {
       requestId,
     };
+
+    // Mock authentication
+    vi.mocked(getCurrentUserId).mockResolvedValue(userId);
 
     // Mock rental must have all required properties used by the action
     const mockRental = {
@@ -198,7 +220,7 @@ describe("approveRentalRequest", () => {
       id: requestId,
       paymentMethodId: "pm_123",
       renterId: "user-456",
-      ownerId: "user-123",
+      ownerId: userId, // Must match userId for authorization
       listingId: "listing-123",
       listingName: "Test Power Drill",
       totalAmount: "60.00",

@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import { useActionState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -15,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { signupAction } from "../actions/signup";
+import { useSignup } from "../hooks/use-auth-mutations";
 import {
   emailSignupSchema,
   type EmailSignupInput,
@@ -32,11 +31,7 @@ interface SignupFormProps {
 export function SignupForm({ documentUrls }: SignupFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isTransitionPending, startTransition] = useTransition();
-
-  const [state, formAction, isPending] = useActionState(signupAction, {
-    success: false,
-  });
+  const mutation = useSignup();
 
   const [legalAccepted, setLegalAccepted] = useState(false);
 
@@ -56,15 +51,17 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
 
   // Handle form submission with client-side validation first
   const onSubmit = async (data: EmailSignupInput) => {
-    startTransition(() => {
-      const formData = new FormData();
-      formData.append("firstName", data.firstName);
-      formData.append("lastName", data.lastName);
-      formData.append("email", data.email);
-      formData.append("password", data.password);
-      formData.append("legalAccepted", String(data.legalAccepted));
-      formAction(formData);
-    });
+    try {
+      await mutation.mutateAsync({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        legalAccepted: data.legalAccepted,
+      });
+    } catch {
+      // Error is handled by the mutation hook
+    }
   };
 
   const handleGoogleSignup = async () => {
@@ -81,7 +78,7 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
     }
   };
 
-  const isFormPending = isPending || isTransitionPending;
+  const isFormPending = mutation.isPending;
 
   return (
     <motion.div
@@ -137,14 +134,18 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
       </AnimatedFormField>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-        {state?.error && (
+        {mutation.isError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
             <Alert variant="destructive">
-              <AlertDescription>{state.error}</AlertDescription>
+              <AlertDescription>
+                {mutation.error instanceof Error
+                  ? mutation.error.message
+                  : "Failed to create account"}
+              </AlertDescription>
             </Alert>
           </motion.div>
         )}

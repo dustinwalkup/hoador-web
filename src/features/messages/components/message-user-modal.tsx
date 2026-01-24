@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle, Loader2, MessageCircle } from "lucide-react";
 
@@ -14,8 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { startConversationAction } from "@/features/messages/actions/start-conversation";
+import { useStartConversation } from "@/features/messages/hooks/use-message-mutations";
 
 interface MessageUserModalProps {
   open: boolean;
@@ -46,11 +45,10 @@ export function MessageUserModal({
   listingName,
   existingConversationId,
 }: MessageUserModalProps) {
-  const [, startTransition] = useTransition();
+  const startConversationMutation = useStartConversation();
   const [formState, setFormState] = useState<FormState>("idle");
   const [message, setMessage] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(
     existingConversationId || null,
   );
@@ -75,25 +73,26 @@ export function MessageUserModal({
 
     // Clear errors
     setValidationError(null);
-    setSubmitError(null);
     setFormState("sending");
 
-    startTransition(async () => {
-      const result = await startConversationAction(
+    try {
+      const result = await startConversationMutation.mutateAsync({
         recipientId,
         listingId,
         listingName,
         message,
-      );
+      });
 
       if (result.success && result.conversationId) {
         setConversationId(result.conversationId);
         setFormState("success");
       } else {
-        setSubmitError(result.error || "Failed to send message");
         setFormState("idle");
       }
-    });
+    } catch {
+      // Error is handled by the mutation hook
+      setFormState("idle");
+    }
   };
 
   const handleClose = () => {
@@ -101,7 +100,6 @@ export function MessageUserModal({
     setFormState("idle");
     setMessage("");
     setValidationError(null);
-    setSubmitError(null);
     setConversationId(existingConversationId || null);
     onOpenChange(false);
   };
@@ -172,12 +170,6 @@ export function MessageUserModal({
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {submitError && (
-                <Alert variant="destructive">
-                  <AlertDescription>{submitError}</AlertDescription>
-                </Alert>
-              )}
-
               <div className="space-y-2">
                 <Label htmlFor="message">Your Message</Label>
                 <Textarea
@@ -186,7 +178,10 @@ export function MessageUserModal({
                   onChange={(e) => handleMessageChange(e.target.value)}
                   placeholder="Type your message here..."
                   rows={6}
-                  disabled={formState === "sending"}
+                  disabled={
+                    formState === "sending" ||
+                    startConversationMutation.isPending
+                  }
                   className={validationError ? "border-red-500" : ""}
                 />
                 {validationError && (
@@ -197,10 +192,14 @@ export function MessageUserModal({
               <div className="flex gap-3">
                 <Button
                   type="submit"
-                  disabled={formState === "sending"}
+                  disabled={
+                    formState === "sending" ||
+                    startConversationMutation.isPending
+                  }
                   className="flex-1"
                 >
-                  {formState === "sending" ? (
+                  {formState === "sending" ||
+                  startConversationMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Sending...
@@ -213,7 +212,10 @@ export function MessageUserModal({
                   type="button"
                   variant="outline"
                   onClick={handleClose}
-                  disabled={formState === "sending"}
+                  disabled={
+                    formState === "sending" ||
+                    startConversationMutation.isPending
+                  }
                   className="flex-1"
                 >
                   Cancel

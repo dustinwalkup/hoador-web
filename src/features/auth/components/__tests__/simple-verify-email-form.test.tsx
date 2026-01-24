@@ -1,26 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { SimpleVerifyEmailForm } from "../simple-verify-email-form";
 
-// Mock server action
-vi.mock("../actions/verify-email", () => ({
-  resendVerificationEmailAction: vi.fn(),
+// Create a mock mutation object that can be modified between tests
+let mockMutationState = {
+  mutateAsync: vi.fn(),
+  isPending: false,
+  isError: false,
+  error: null as Error | null,
+};
+
+// Mock next/navigation
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+    prefetch: vi.fn(),
+  }),
 }));
 
-// Mock useActionState
-type ActionState = { success: boolean; error?: string; message?: string };
-const mockFormAction = vi.fn();
-const mockUseActionState = vi.fn<
-  () => [ActionState, typeof mockFormAction, boolean]
->(() => [{ success: false }, mockFormAction, false]);
+// Mock the useResendVerification hook - return the mutable state object
+vi.mock("../../hooks/use-auth-mutations", () => ({
+  useResendVerification: () => mockMutationState,
+}));
 
-vi.mock("react", async () => {
-  const actual = await vi.importActual("react");
-  return {
-    ...actual,
-    useActionState: () => mockUseActionState(),
-  };
-});
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { SimpleVerifyEmailForm } from "../simple-verify-email-form";
+import { renderWithQueryClient } from "@/test/utils/render-helpers";
 
 // Mock Next.js Link
 vi.mock("next/link", () => ({
@@ -43,11 +51,13 @@ vi.mock("lucide-react", () => ({
 describe("SimpleVerifyEmailForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseActionState.mockReturnValue([
-      { success: false },
-      mockFormAction,
-      false,
-    ]);
+    // Reset mutation state to default
+    mockMutationState = {
+      mutateAsync: vi.fn().mockResolvedValue({}),
+      isPending: false,
+      isError: false,
+      error: null,
+    };
   });
 
   it("should render email verification header", () => {
@@ -55,7 +65,7 @@ describe("SimpleVerifyEmailForm", () => {
     const email = "test@example.com";
 
     // Act
-    render(<SimpleVerifyEmailForm email={email} />);
+    renderWithQueryClient(<SimpleVerifyEmailForm email={email} />);
 
     // Assert
     expect(screen.getByText(/check your email/i)).toBeInTheDocument();
@@ -67,7 +77,7 @@ describe("SimpleVerifyEmailForm", () => {
     const email = "test@example.com";
 
     // Act
-    render(<SimpleVerifyEmailForm email={email} />);
+    renderWithQueryClient(<SimpleVerifyEmailForm email={email} />);
 
     // Assert
     expect(
@@ -75,65 +85,81 @@ describe("SimpleVerifyEmailForm", () => {
     ).toBeInTheDocument();
   });
 
-  it("should show error message when state.error is present", () => {
+  it("should show error message when mutation.isError is true", () => {
     // Arrange
     const email = "test@example.com";
-    mockUseActionState.mockReturnValue([
-      { success: false, error: "Failed to send email" },
-      mockFormAction,
-      false,
-    ]);
+    mockMutationState = {
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: true,
+      error: new Error("Failed to send verification email"),
+    };
 
     // Act
-    render(<SimpleVerifyEmailForm email={email} />);
+    renderWithQueryClient(<SimpleVerifyEmailForm email={email} />);
 
     // Assert
-    expect(screen.getByText("Failed to send email")).toBeInTheDocument();
+    expect(
+      screen.getByText("Failed to send verification email"),
+    ).toBeInTheDocument();
   });
 
-  it("should show success message when state.success is true", () => {
+  it("should show success message after successful submission", async () => {
     // Arrange
     const email = "test@example.com";
-    mockUseActionState.mockReturnValue([
-      { success: true, message: "Email sent successfully" },
-      mockFormAction,
-      false,
-    ]);
+    const user = userEvent.setup();
+    mockMutationState.mutateAsync = vi.fn().mockResolvedValue({});
 
     // Act
-    render(<SimpleVerifyEmailForm email={email} />);
+    renderWithQueryClient(<SimpleVerifyEmailForm email={email} />);
+    const button = screen.getByRole("button", {
+      name: /resend confirmation email/i,
+    });
+    await user.click(button);
 
     // Assert
-    expect(screen.getByText("Email sent successfully")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/verification email sent! please check your inbox/i),
+      ).toBeInTheDocument();
+    });
+    expect(mockMutationState.mutateAsync).toHaveBeenCalledWith({ email });
   });
 
   it("should show loading state during submission", () => {
     // Arrange
     const email = "test@example.com";
-    mockUseActionState.mockReturnValue([
-      { success: false },
-      mockFormAction,
-      true,
-    ]);
+    mockMutationState = {
+      mutateAsync: vi.fn(),
+      isPending: true,
+      isError: false,
+      error: null,
+    };
 
     // Act
-    render(<SimpleVerifyEmailForm email={email} />);
+    renderWithQueryClient(<SimpleVerifyEmailForm email={email} />);
 
     // Assert
     expect(screen.getByText(/sending/i)).toBeInTheDocument();
     expect(screen.getByRole("button")).toBeDisabled();
   });
 
-  it("should include hidden email field in form", () => {
+  it("should call mutation with email when form is submitted", async () => {
     // Arrange
     const email = "test@example.com";
+    const user = userEvent.setup();
+    mockMutationState.mutateAsync = vi.fn().mockResolvedValue({});
 
     // Act
-    render(<SimpleVerifyEmailForm email={email} />);
+    renderWithQueryClient(<SimpleVerifyEmailForm email={email} />);
+    const button = screen.getByRole("button", {
+      name: /resend confirmation email/i,
+    });
+    await user.click(button);
 
     // Assert
-    const hiddenInput = screen.getByDisplayValue(email);
-    expect(hiddenInput).toHaveAttribute("type", "hidden");
-    expect(hiddenInput).toHaveAttribute("name", "email");
+    await waitFor(() => {
+      expect(mockMutationState.mutateAsync).toHaveBeenCalledWith({ email });
+    });
   });
 });

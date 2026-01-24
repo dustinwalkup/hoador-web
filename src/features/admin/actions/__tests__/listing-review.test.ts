@@ -85,6 +85,7 @@ describe("listing-review actions", () => {
       expect(listingDAL.updateApprovalStatus).toHaveBeenCalledWith(
         listingId,
         "approved",
+        "admin-user-123",
       );
       expect(sendNotification).toHaveBeenCalled();
       expect(revalidatePath).toHaveBeenCalledWith(
@@ -181,6 +182,7 @@ describe("listing-review actions", () => {
       expect(listingDAL.updateApprovalStatus).toHaveBeenCalledWith(
         listingId,
         "rejected",
+        "admin-user-123",
         rejectionReason,
       );
       expect(sendNotification).toHaveBeenCalled();

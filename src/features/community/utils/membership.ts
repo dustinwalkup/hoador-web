@@ -30,6 +30,11 @@ export const requireCommunityMembership = cache(
 // Helper to get current user's community ID
 export const getCurrentUserCommunityId = cache(
   async (): Promise<string | null> => {
-    return communityDAL.getCurrentUserCommunityId();
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return null;
+    }
+
+    return communityDAL.getUserCommunityId(userId);
   },
 );

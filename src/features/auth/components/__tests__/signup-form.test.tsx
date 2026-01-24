@@ -1,7 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+
+// Create a mock mutation object that can be modified between tests
+let mockSignupMutationState = {
+  mutateAsync: vi.fn(),
+  isPending: false,
+  isError: false,
+  error: null as Error | null,
+};
+
+// Mock next/navigation
+vi.mock("next/navigation", () => {
+  const mockRouter = {
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+    prefetch: vi.fn(),
+  };
+  return {
+    useRouter: () => mockRouter,
+  };
+});
+
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SignupForm } from "../signup-form";
+import { renderWithQueryClient } from "@/test/utils/render-helpers";
 
 // Mock Next.js
 vi.mock("next/link", () => ({
@@ -27,8 +52,8 @@ vi.mock("framer-motion", () => ({
         {children}
       </p>
     ),
-    button: ({ children, onClick, disabled, ...props }: any) => (
-      <button onClick={onClick} disabled={disabled} {...props}>
+    button: ({ children, onClick, disabled, type, ...props }: any) => (
+      <button onClick={onClick} disabled={disabled} type={type} {...props}>
         {children}
       </button>
     ),
@@ -48,105 +73,9 @@ vi.mock("@/services/better-auth/client", () => ({
   },
 }));
 
-// Mock server action
-const { mockSignupAction } = vi.hoisted(() => ({
-  mockSignupAction: vi.fn(),
-}));
-
-vi.mock("../actions/signup", () => ({
-  signupAction: mockSignupAction,
-}));
-
-// Mock useActionState
-type ActionState = {
-  success: boolean;
-  error?: string;
-  message?: string;
-} | null;
-
-const {
-  mockFormAction,
-  mockUseActionState,
-  mockStartTransition,
-  mockUseTransition,
-} = vi.hoisted(() => {
-  const mockFormActionFn = vi.fn();
-  const mockUseActionStateFn = vi.fn<
-    () => [ActionState, typeof mockFormActionFn, boolean]
-  >(() => [null, mockFormActionFn, false]);
-
-  const mockStartTransitionFn = vi.fn((callback: () => void) => {
-    callback();
-  });
-  const mockUseTransitionFn = vi.fn(() => [false, mockStartTransitionFn]);
-
-  return {
-    mockFormAction: mockFormActionFn,
-    mockUseActionState: mockUseActionStateFn,
-    mockStartTransition: mockStartTransitionFn,
-    mockUseTransition: mockUseTransitionFn,
-  };
-});
-
-vi.mock("react", async () => {
-  const actual = await vi.importActual("react");
-  // Access hoisted variables from closure
-  return {
-    ...actual,
-    useActionState: mockUseActionState,
-    useTransition: mockUseTransition,
-  };
-});
-
-// Mock react-hook-form
-const { mockRegister, mockSetValue, mockWatch, mockHandleSubmit } = vi.hoisted(
-  () => {
-    const mockRegisterFn = vi.fn((name: string) => ({
-      name,
-      onChange: vi.fn(),
-      onBlur: vi.fn(),
-      ref: vi.fn(),
-    }));
-
-    const mockSetValueFn = vi.fn();
-    const mockWatchFn = vi.fn(() => false);
-    const mockHandleSubmitFn = vi.fn(
-      (callback: (data: any) => Promise<void>) => {
-        return (e: React.FormEvent) => {
-          e.preventDefault();
-          const formData = new FormData(e.target as HTMLFormElement);
-          const data = {
-            firstName: formData.get("firstName") || "",
-            lastName: formData.get("lastName") || "",
-            email: formData.get("email") || "",
-            password: formData.get("password") || "",
-            legalAccepted: formData.get("legalAccepted") === "true",
-          };
-          return callback(data);
-        };
-      },
-    );
-
-    return {
-      mockRegister: mockRegisterFn,
-      mockSetValue: mockSetValueFn,
-      mockWatch: mockWatchFn,
-      mockHandleSubmit: mockHandleSubmitFn,
-    };
-  },
-);
-
-vi.mock("react-hook-form", () => ({
-  useForm: () => ({
-    register: mockRegister,
-    handleSubmit: mockHandleSubmit,
-    setValue: mockSetValue,
-    watch: mockWatch,
-    formState: {
-      errors: {},
-    },
-  }),
-  zodResolver: vi.fn(),
+// Mock the useSignup hook
+vi.mock("../../hooks/use-auth-mutations", () => ({
+  useSignup: () => mockSignupMutationState,
 }));
 
 // Mock UI components
@@ -241,13 +170,18 @@ describe("SignupForm", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseActionState.mockReturnValue([null, mockFormAction, false]);
-    mockUseTransition.mockReturnValue([false, mockStartTransition]);
+    // Reset mutation state to default
+    mockSignupMutationState = {
+      mutateAsync: vi.fn().mockResolvedValue({}),
+      isPending: false,
+      isError: false,
+      error: null,
+    };
   });
 
   it("should render all form fields", () => {
     // Arrange & Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
@@ -258,7 +192,7 @@ describe("SignupForm", () => {
 
   it("should render Google sign up button", () => {
     // Arrange & Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     expect(
@@ -268,7 +202,7 @@ describe("SignupForm", () => {
 
   it("should render create account submit button", () => {
     // Arrange & Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     expect(
@@ -278,7 +212,7 @@ describe("SignupForm", () => {
 
   it("should render legal acceptance checkbox", () => {
     // Arrange & Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     expect(
@@ -288,7 +222,7 @@ describe("SignupForm", () => {
 
   it("should render links to terms of service and privacy policy", () => {
     // Arrange & Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     expect(
@@ -302,7 +236,7 @@ describe("SignupForm", () => {
   it("should toggle password visibility", async () => {
     // Arrange
     const user = userEvent.setup();
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
     const passwordInput = screen.getByPlaceholderText(
       /create a strong password/i,
     );
@@ -317,7 +251,7 @@ describe("SignupForm", () => {
 
   it("should disable submit button when legal not accepted", () => {
     // Arrange & Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     const submitButton = screen.getByRole("button", {
@@ -329,7 +263,7 @@ describe("SignupForm", () => {
   it("should enable submit button when legal accepted", async () => {
     // Arrange
     const user = userEvent.setup();
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
     const checkbox = screen.getByRole("checkbox", {
       name: /i agree to the/i,
     });
@@ -344,16 +278,17 @@ describe("SignupForm", () => {
     expect(submitButton).not.toBeDisabled();
   });
 
-  it("should show error message when state.error is present", () => {
+  it("should show error message when mutation.isError is true", () => {
     // Arrange
-    mockUseActionState.mockReturnValue([
-      { success: false, error: "Email already exists" },
-      mockFormAction,
-      false,
-    ]);
+    mockSignupMutationState = {
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: true,
+      error: new Error("Email already exists"),
+    };
 
     // Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     expect(screen.getByText("Email already exists")).toBeInTheDocument();
@@ -361,10 +296,15 @@ describe("SignupForm", () => {
 
   it("should disable form during submission", () => {
     // Arrange
-    mockUseActionState.mockReturnValue([null, mockFormAction, true]);
+    mockSignupMutationState = {
+      mutateAsync: vi.fn(),
+      isPending: true,
+      isError: false,
+      error: null,
+    };
 
     // Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     const submitButton = screen.getByRole("button", {
@@ -378,7 +318,7 @@ describe("SignupForm", () => {
     // Arrange
     mockSignInSocial.mockResolvedValue({});
     const user = userEvent.setup();
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
     const googleButton = screen.getByRole("button", {
       name: /continue with google/i,
     });
@@ -395,10 +335,11 @@ describe("SignupForm", () => {
     });
   });
 
-  it("should call formAction on form submission", async () => {
+  it("should call mutation on form submission", async () => {
     // Arrange
     const user = userEvent.setup();
-    render(<SignupForm {...defaultProps} />);
+    mockSignupMutationState.mutateAsync = vi.fn().mockResolvedValue({});
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
     const checkbox = screen.getByRole("checkbox", {
       name: /i agree to the/i,
     });
@@ -415,19 +356,18 @@ describe("SignupForm", () => {
     await user.type(firstNameInput, "John");
     await user.type(lastNameInput, "Doe");
     await user.type(emailInput, "john@example.com");
-    await user.type(passwordInput, "Password123");
+    await user.type(passwordInput, "Password123!");
     await user.click(submitButton);
 
     // Assert
     await waitFor(() => {
-      expect(mockStartTransition).toHaveBeenCalled();
-      expect(mockFormAction).toHaveBeenCalled();
+      expect(mockSignupMutationState.mutateAsync).toHaveBeenCalled();
     });
   });
 
   it("should render password requirements text", () => {
     // Arrange & Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     expect(
@@ -439,7 +379,7 @@ describe("SignupForm", () => {
 
   it("should render divider text", () => {
     // Arrange & Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     expect(screen.getByText(/or continue with email/i)).toBeInTheDocument();
@@ -447,7 +387,7 @@ describe("SignupForm", () => {
 
   it("should render AnimatedFormField components", () => {
     // Arrange & Act
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
 
     // Assert
     const animatedFields = screen.getAllByTestId("animated-form-field");
@@ -460,7 +400,7 @@ describe("SignupForm", () => {
       () => new Promise(() => {}), // Never resolves
     );
     const user = userEvent.setup();
-    render(<SignupForm {...defaultProps} />);
+    renderWithQueryClient(<SignupForm {...defaultProps} />);
     const googleButton = screen.getByRole("button", {
       name: /continue with google/i,
     });

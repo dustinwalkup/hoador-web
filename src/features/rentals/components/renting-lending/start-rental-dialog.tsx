@@ -1,8 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
 import { PlayCircle, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   Dialog,
@@ -14,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-import { startRental } from "@/features/rentals/actions/start-rental";
+import { useStartRental } from "@/features/rentals/hooks/use-rental-mutations";
 
 interface StartRentalDialogProps {
   open: boolean;
@@ -33,33 +31,18 @@ export function StartRentalDialog({
   renterName,
   onSuccess,
 }: StartRentalDialogProps) {
-  const [isPending, startTransition] = useTransition();
+  const startMutation = useStartRental();
 
   const handleStartRental = async () => {
-    startTransition(async () => {
-      try {
-        const result = await startRental(rentalId);
+    try {
+      await startMutation.mutateAsync(rentalId);
 
-        if (result.success) {
-          // Close dialog and trigger success callback
-          onOpenChange(false);
-          onSuccess?.();
-          toast.success("Rental started successfully!", {
-            description: `The rental for ${listingName} is now active. ${renterName} has been notified.`,
-          });
-        } else {
-          toast.error("Failed to start rental", {
-            description: result.error || "Please try again.",
-          });
-        }
-      } catch (error) {
-        // Show error toast if the action fails
-        console.error("Failed to start rental", error);
-        toast.error("Failed to start rental", {
-          description: "An unexpected error occurred. Please try again.",
-        });
-      }
-    });
+      // Close dialog and trigger success callback
+      onOpenChange(false);
+      onSuccess?.();
+    } catch {
+      // Error toast is already shown by the mutation hook
+    }
   };
 
   return (
@@ -93,17 +76,17 @@ export function StartRentalDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isPending}
+            disabled={startMutation.isPending}
           >
             Cancel
           </Button>
           <Button
             type="button"
             onClick={handleStartRental}
-            disabled={isPending}
+            disabled={startMutation.isPending}
             className=""
           >
-            {isPending ? (
+            {startMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Starting...

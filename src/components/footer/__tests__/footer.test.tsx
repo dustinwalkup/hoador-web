@@ -42,13 +42,6 @@ vi.mock("lucide-react", () => ({
   ExternalLink: () => <span data-testid="external-link-icon" />,
 }));
 
-// Mock legalDocumentDAL
-vi.mock("@/dal/legal-document.dal", () => ({
-  legalDocumentDAL: {
-    getAllCurrentVersions: vi.fn(),
-  },
-}));
-
 // Mock tryCatch
 vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),

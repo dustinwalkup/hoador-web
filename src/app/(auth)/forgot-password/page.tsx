@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { ForgotPasswordForm } from "@/features/auth/components/forgot-password-form";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
 import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
@@ -10,6 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Forgot Password",
+};
 
 export default function ForgotPasswordPage() {
   return (

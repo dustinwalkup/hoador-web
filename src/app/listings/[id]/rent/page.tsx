@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
-import { listingDAL, rentalDAL } from "@/dal";
+import { listingDAL, rentalDAL, legalDocumentDAL } from "@/dal";
 import { getCurrentUser } from "@/features/auth/utils/session";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentListingPageContent } from "./_components/rent-listing-page-content";
 
@@ -24,7 +23,7 @@ export default async function RentListingPage({
   // Fetch listing details, booked dates, and legal documents in parallel
   const [listing, bookedDates, documentVersions] = await Promise.all([
     listingDAL.getListingById(id, currentUser.id),
-    rentalDAL.getBookedDatesForListing(id),
+    rentalDAL.getBookedDatesForListing(id, currentUser.id),
     legalDocumentDAL.getAllCurrentVersions(),
   ]);
 

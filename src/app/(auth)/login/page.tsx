@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { SuccessMessage } from "@/features/auth/components/success-message";
@@ -11,6 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+export const metadata: Metadata = {
+  title: "Log In",
+};
 
 export default async function LoginPage({
   searchParams,

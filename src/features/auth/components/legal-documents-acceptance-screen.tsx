@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useActionState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -9,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { acceptLegalDocumentsAction } from "../actions/accept-legal-documents";
+import { useAcceptLegalDocuments } from "../hooks/use-auth-mutations";
 
 interface LegalDocumentsAcceptanceScreenProps {
   firstName: string;
@@ -19,41 +18,29 @@ interface LegalDocumentsAcceptanceScreenProps {
   };
 }
 
-type AcceptLegalDocumentsResult = {
-  success: boolean;
-  error?: string;
-};
-
 export function LegalDocumentsAcceptanceScreen({
   firstName,
   documentUrls,
 }: LegalDocumentsAcceptanceScreenProps) {
   const [legalAccepted, setLegalAccepted] = useState(false);
-  const [isTransitionPending, startTransition] = useTransition();
+  const mutation = useAcceptLegalDocuments();
 
-  const [state, formAction, isPending] = useActionState<
-    AcceptLegalDocumentsResult | null,
-    FormData
-  >(acceptLegalDocumentsAction, null);
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!legalAccepted) {
       return;
     }
 
-    startTransition(() => {
-      const formData = new FormData();
-      // Set both TOS and Privacy as accepted when legalAccepted is true
-      formData.append("tosAccepted", String(legalAccepted));
-      formData.append("privacyAccepted", String(legalAccepted));
-      formAction(formData);
-    });
+    try {
+      await mutation.mutateAsync({
+        tosAccepted: legalAccepted,
+        privacyAccepted: legalAccepted,
+      });
+    } catch {
+      // Error is handled by the mutation hook
+    }
   };
-
-  const isFormPending = isPending || isTransitionPending;
-  const canSubmit = legalAccepted;
 
   return (
     <div className="space-y-6">
@@ -65,9 +52,13 @@ export function LegalDocumentsAcceptanceScreen({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {state?.error && (
+        {mutation.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{state.error}</AlertDescription>
+            <AlertDescription>
+              {mutation.error instanceof Error
+                ? mutation.error.message
+                : "Failed to accept legal documents"}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -77,7 +68,7 @@ export function LegalDocumentsAcceptanceScreen({
               id="legalAccepted"
               checked={legalAccepted}
               onCheckedChange={(checked) => setLegalAccepted(checked === true)}
-              disabled={isFormPending}
+              disabled={mutation.isPending}
             />
             <div className="grid gap-1.5 leading-none">
               <Label
@@ -110,9 +101,9 @@ export function LegalDocumentsAcceptanceScreen({
         <Button
           type="submit"
           className="w-full"
-          disabled={isFormPending || !canSubmit}
+          disabled={mutation.isPending || !legalAccepted}
         >
-          {isFormPending ? (
+          {mutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Processing...

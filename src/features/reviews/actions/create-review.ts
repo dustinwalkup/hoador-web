@@ -4,12 +4,22 @@ import { reviewDAL } from "@/dal";
 import { reviewSchema, type ReviewFormData } from "../schemas/review-schema";
 import { tryCatch } from "@walkup/walkup-utils";
 import { revalidatePath } from "next/cache";
+import { getCurrentUserId } from "@/features/auth/utils/session";
 
 export async function createReviewAction(
   prevState: { success: boolean; error?: string },
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; reviewId?: string }> {
   try {
+    // Authenticate user
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return {
+        success: false,
+        error: "Authentication required",
+      };
+    }
+
     // Parse form data
     const rentalId = formData.get("rentalId") as string;
     const requestId = formData.get("requestId") as string;
@@ -41,7 +51,7 @@ export async function createReviewAction(
 
     // Create review
     const { data: review, error } = await tryCatch(
-      reviewDAL.createReview(reviewData),
+      reviewDAL.createReview(userId, reviewData),
     );
 
     if (error) {
@@ -80,6 +90,15 @@ export async function createReview(
   data: ReviewFormData,
 ): Promise<{ success: boolean; error?: string; reviewId?: string }> {
   try {
+    // Authenticate user
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return {
+        success: false,
+        error: "Authentication required",
+      };
+    }
+
     // Validate with Zod schema and transform null to undefined
     const validatedData = reviewSchema.parse(data);
     const reviewData = {
@@ -92,7 +111,7 @@ export async function createReview(
 
     // Create review
     const { data: review, error } = await tryCatch(
-      reviewDAL.createReview(reviewData),
+      reviewDAL.createReview(userId, reviewData),
     );
 
     if (error) {

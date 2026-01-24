@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
 import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
 import { JoinCodeForm } from "@/features/auth/components/join-code-form";
 import { Users } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Join Community",
+};
 
 export default function JoinCodePage() {
   return (

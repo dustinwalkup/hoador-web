@@ -7,6 +7,7 @@ import {
   mockCreateListingFormData,
   mockMinimalCreateListingFormData,
 } from "@/test/fixtures/listings";
+import { requireCommunityMembership } from "@/features/community/utils/membership";
 
 // Mock all dependencies
 vi.mock("../../../../dal", () => ({
@@ -16,10 +17,17 @@ vi.mock("../../../../dal", () => ({
   userDAL: {
     isConnectOnboardingComplete: vi.fn(),
   },
+  communityDAL: {
+    requireUserCommunityMembership: vi.fn(),
+  },
 }));
 
 vi.mock("@/features/auth/utils/session", () => ({
   getCurrentUserId: vi.fn(),
+}));
+
+vi.mock("@/features/community/utils/membership", () => ({
+  requireCommunityMembership: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
@@ -54,6 +62,9 @@ describe("Form Action → DAL Flow Integration", () => {
     // Default mocks
     (getCurrentUserId as any).mockResolvedValue(mockUserId);
     (userDAL.isConnectOnboardingComplete as any).mockResolvedValue(true);
+    (requireCommunityMembership as any).mockResolvedValue({
+      community: { id: "community-123" },
+    });
     (listingDAL.createListing as any).mockResolvedValue({
       id: mockListingId,
       name: "Test Listing",
@@ -84,6 +95,8 @@ describe("Form Action → DAL Flow Integration", () => {
           condition: mockCreateListingFormData.condition,
           dailyRate: mockCreateListingFormData.dailyRate,
         }),
+        mockUserId,
+        "community-123",
       );
       expect(revalidatePath).toHaveBeenCalledWith("/dashboard/garage");
       expect(revalidatePath).toHaveBeenCalledWith("/dashboard/listings");
@@ -105,6 +118,8 @@ describe("Form Action → DAL Flow Integration", () => {
           condition: mockMinimalCreateListingFormData.condition,
           dailyRate: mockMinimalCreateListingFormData.dailyRate,
         }),
+        mockUserId,
+        "community-123",
       );
     });
   });
@@ -210,6 +225,8 @@ describe("Form Action → DAL Flow Integration", () => {
           categoryId: mockCreateListingFormData.categoryId,
           condition: mockCreateListingFormData.condition,
         }),
+        mockUserId,
+        "community-123",
       );
       expect(listingDAL.createListing).toHaveBeenCalledTimes(1);
     });
@@ -323,6 +340,8 @@ describe("Form Action → DAL Flow Integration", () => {
           description: originalData.description,
           categoryId: originalData.categoryId,
         }),
+        mockUserId,
+        "community-123",
       );
     });
 
@@ -335,7 +354,11 @@ describe("Form Action → DAL Flow Integration", () => {
       expect(userDAL.isConnectOnboardingComplete).toHaveBeenCalledWith(
         customUserId,
       );
-      // Note: DAL method doesn't receive userId directly - it gets it internally
+      expect(listingDAL.createListing).toHaveBeenCalledWith(
+        expect.any(Object),
+        customUserId,
+        "community-123",
+      );
     });
 
     it("should maintain data consistency across validation and DAL call", async () => {
@@ -354,6 +377,8 @@ describe("Form Action → DAL Flow Integration", () => {
           specifications: complexData.specifications,
           instructions: complexData.instructions,
         }),
+        mockUserId,
+        "community-123",
       );
     });
   });

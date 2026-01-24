@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import {
@@ -11,6 +12,10 @@ import {
 import { ResetPasswordForm } from "@/features/auth/components/reset-password-form";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
 import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
+
+export const metadata: Metadata = {
+  title: "Reset Password",
+};
 
 export default function ResetPasswordPage() {
   return (

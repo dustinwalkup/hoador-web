@@ -12,9 +12,9 @@ import {
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
-import { listingDAL, userDAL } from "../../../dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { listingDAL, userDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+import { requireCommunityMembership } from "@/features/community/utils/membership";
 
 // Separate action for uploading images
 export async function uploadListingImage(
@@ -79,9 +79,21 @@ export async function createListing(formData: CreateListingFormDataServerType) {
     };
   }
 
+  // Get user's community membership
+  const userCommunityInfo = await requireCommunityMembership();
+  if (!userCommunityInfo) {
+    return {
+      error: "User must be a member of a community",
+    };
+  }
+
   // Create the listing first
   const { data: listing, error } = await tryCatch(
-    listingDAL.createListing(validatedData),
+    listingDAL.createListing(
+      validatedData,
+      userId,
+      userCommunityInfo.community.id,
+    ),
   );
 
   if (error) {

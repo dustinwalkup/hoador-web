@@ -1,4 +1,4 @@
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 import { cn } from "@/lib/utils";
 import {

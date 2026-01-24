@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { rentalDAL } from "@/dal";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { rentalDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalLayout } from "./rental-layout";
 import { RentalContent } from "./rental-content";
+import { getAuthenticatedUser } from "@/features/auth/utils/session";
 
 interface RentalDetailsServerProps {
   rentalId: string;
@@ -14,14 +14,26 @@ export async function RentalDetailsServer({
   rentalId,
   view,
 }: RentalDetailsServerProps) {
-  const rentalDetails = await rentalDAL.getRentalDetailsById(rentalId);
+  // Check authentication
+  const auth = await getAuthenticatedUser();
+  if (!auth) {
+    notFound();
+  }
+  const { userId } = auth;
+
+  const rentalDetails = await rentalDAL.getRentalDetailsById(rentalId, userId);
 
   if (!rentalDetails) {
     notFound();
   }
 
-  const isRenter = rentalDetails.currentUserId === rentalDetails.renterId;
-  const isOwner = rentalDetails.currentUserId === rentalDetails.ownerId;
+  // Verify user has access to this rental (is either renter or owner)
+  if (rentalDetails.renterId !== userId && rentalDetails.ownerId !== userId) {
+    notFound();
+  }
+
+  const isRenter = userId === rentalDetails.renterId;
+  const isOwner = userId === rentalDetails.ownerId;
 
   // Determine the view context
   let viewContext: "renting" | "lending" | "auto" = "auto";
@@ -39,8 +51,10 @@ export async function RentalDetailsServer({
   // Fallback to current version if no acceptance found
   let rentalAgreementUrl: string | undefined;
   try {
-    const acceptance =
-      await legalDocumentDAL.getRentalAgreementAcceptance(rentalId);
+    const acceptance = await legalDocumentDAL.getRentalAgreementAcceptance(
+      rentalId,
+      userId,
+    );
     if (acceptance) {
       rentalAgreementUrl = acceptance.url;
     } else {

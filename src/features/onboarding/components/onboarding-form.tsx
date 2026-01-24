@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
@@ -18,7 +18,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { validateField } from "../schemas/validation";
 import type { OnboardingData } from "../schemas/validation";
-import { onboardingAction } from "../actions/onboarding-action";
+import { useCompleteOnboarding } from "../hooks/use-onboarding-mutation";
 import { ProfileImageUpload } from "./profile-image-upload";
 import { US_STATES } from "@/constants/profile";
 import { cn } from "@/lib/utils";
@@ -87,7 +87,8 @@ export function OnboardingForm({
 }: OnboardingFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
-  const [state, formAction, isPending] = useActionState(onboardingAction, null);
+  const completeOnboarding = useCompleteOnboarding();
+  const isPending = completeOnboarding.isPending;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -112,7 +113,7 @@ export function OnboardingForm({
     field: keyof OnboardingData | `address.${keyof OnboardingData["address"]}`,
     value: unknown,
   ) => {
-    if (!hasAttemptedSubmit || state?.success) return; // Only validate after first submit attempt
+    if (!hasAttemptedSubmit) return; // Only validate after first submit attempt
 
     const error = validateField(
       field as Parameters<typeof validateField>[0],
@@ -194,14 +195,10 @@ export function OnboardingForm({
   // Form submission handler
   // ---------------------------
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    // Don't validate if already successful (prevents state reset during redirect)
-    if (state?.success) {
-      return;
-    }
+    event.preventDefault();
 
-    // Don't validate if currently submitting
+    // Don't submit if currently submitting
     if (isPending) {
-      event.preventDefault();
       return;
     }
 
@@ -211,27 +208,29 @@ export function OnboardingForm({
     const isValid = validateAllFields();
 
     if (!isValid) {
-      event.preventDefault();
       return;
     }
 
-    // Form is valid, let it submit naturally to the server action
+    // Form is valid, submit using React Query mutation
+    const onboardingData: OnboardingData = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phone: formData.phone,
+      bio: formData.bio || undefined,
+      profileImageUrl: formData.profileImageUrl || undefined,
+      address: formData.address,
+      agreeToTerms: formData.agreeToTerms,
+    };
+
+    completeOnboarding.mutate(onboardingData);
   };
 
   // Generate user initials for profile image
   const userInitials =
     `${formData.firstName.charAt(0)}${formData.lastName.charAt(0)}`.toUpperCase();
 
-  // Show success/error messages from server action
-  // TODO: Add toast notifications when useToast is available
-
   return (
-    <form
-      action={formAction}
-      onSubmit={handleFormSubmit}
-      role="form"
-      className="space-y-6"
-    >
+    <form onSubmit={handleFormSubmit} role="form" className="space-y-6">
       {/* Profile Image Upload */}
       <div className="flex flex-col items-center space-y-2">
         <Label className="text-center">Profile Photo (Optional)</Label>
@@ -398,7 +397,7 @@ export function OnboardingForm({
           id="terms"
           name="agreeToTerms"
           className="mt-1"
-          checked={formData.agreeToTerms || isPending || state?.success}
+          checked={formData.agreeToTerms}
           onCheckedChange={(checked) => {
             const booleanValue = checked === true;
             handleChange("agreeToTerms", booleanValue);
@@ -421,29 +420,6 @@ export function OnboardingForm({
       </div>
       {errors.agreeToTerms && (
         <p className="text-xs text-red-500">{errors.agreeToTerms}</p>
-      )}
-
-      {/* Hidden fields for form submission */}
-      <input
-        type="hidden"
-        name="profileImageUrl"
-        value={formData.profileImageUrl}
-      />
-      <input type="hidden" name="phone" value={formData.phone} />
-      <input type="hidden" name="state" value={formData.address.state} />
-
-      {/* Server Error Display */}
-      {state?.error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-          <p className="text-sm text-red-600">{state.error}</p>
-        </div>
-      )}
-
-      {/* Success/Warning Display */}
-      {state?.success && state?.warning && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-          <p className="text-sm text-yellow-700">{state.warning}</p>
-        </div>
       )}
 
       {/* Submit */}

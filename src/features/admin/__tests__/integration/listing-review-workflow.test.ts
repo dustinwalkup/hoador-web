@@ -85,7 +85,11 @@ describe("Listing Review Workflow Integration", () => {
       } as any);
 
       // Act
-      const createdListing = await listingDAL.createListing(newListing);
+      const createdListing = await listingDAL.createListing(
+        newListing,
+        ownerId,
+        "community-1",
+      );
 
       // Assert
       expect(createdListing).toBeDefined();
@@ -114,7 +118,10 @@ describe("Listing Review Workflow Integration", () => {
       });
 
       // Act
-      const result = await listingDAL.getPendingReviews({ page: 1, limit: 10 });
+      const result = await listingDAL.getPendingReviews(
+        { page: 1, limit: 10 },
+        mockAdminUser.id,
+      );
 
       // Assert
       expect(result.data).toHaveLength(1);
@@ -158,6 +165,9 @@ describe("Listing Review Workflow Integration", () => {
       const searchResult = await listingDAL.searchListings(
         {},
         { page: 1, limit: 12 },
+        ownerId,
+        "community-1",
+        false,
       );
 
       // Assert
@@ -165,6 +175,7 @@ describe("Listing Review Workflow Integration", () => {
       expect(listingDAL.updateApprovalStatus).toHaveBeenCalledWith(
         listingId,
         "approved",
+        "admin-123",
       );
       expect(searchResult.data).toHaveLength(1);
       expect(searchResult.data[0].id).toBe(listingId);
@@ -212,6 +223,9 @@ describe("Listing Review Workflow Integration", () => {
       const searchResult = await listingDAL.searchListings(
         {},
         { page: 1, limit: 12 },
+        ownerId,
+        "community-1",
+        false,
       );
 
       // Assert
@@ -219,6 +233,7 @@ describe("Listing Review Workflow Integration", () => {
       expect(listingDAL.updateApprovalStatus).toHaveBeenCalledWith(
         listingId,
         "rejected",
+        "admin-123",
         rejectionReason,
       );
       expect(searchResult.data).toHaveLength(0); // Not visible in search
@@ -274,6 +289,7 @@ describe("Listing Review Workflow Integration", () => {
       const updatedListing = await listingDAL.updateListing(
         listingId,
         updateData,
+        ownerId,
       );
 
       // Assert
@@ -305,7 +321,10 @@ describe("Listing Review Workflow Integration", () => {
       });
 
       // Act
-      const result = await listingDAL.getPendingReviews({ page: 1, limit: 10 });
+      const result = await listingDAL.getPendingReviews(
+        { page: 1, limit: 10 },
+        mockAdminUser.id,
+      );
 
       // Assert
       expect(result.data).toHaveLength(1);
@@ -349,6 +368,7 @@ describe("Listing Review Workflow Integration", () => {
       const updatedListing = await listingDAL.updateListing(
         listingId,
         updateData,
+        ownerId,
       );
 
       // Assert
@@ -390,6 +410,7 @@ describe("Listing Review Workflow Integration", () => {
       const updatedListing = await listingDAL.updateListing(
         listingId,
         updateData,
+        ownerId,
       );
 
       // Assert

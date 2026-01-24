@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal";
 import {
   LEGAL_DOCUMENT_IDS,
   LEGAL_DOCUMENT_CATEGORIES,
