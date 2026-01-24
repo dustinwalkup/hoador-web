@@ -65,6 +65,39 @@ export function useRejectListing() {
 }
 
 /**
+ * Upload a legal document version
+ */
+export function useUploadLegalDocument() {
+  return useCreateMutation({
+    mutationFn: async (data: {
+      documentId: string;
+      version: string;
+      file: File;
+    }) => {
+      const formData = new FormData();
+      formData.append("documentId", data.documentId);
+      formData.append("version", data.version);
+      formData.append("file", data.file);
+
+      const response = await fetch("/api/admin/legal-documents/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to upload document");
+      }
+
+      return response.json();
+    },
+    // Success message will be customized in component
+    successMessage: undefined,
+    invalidateQueryKeys: [["admin", "legal-documents"]],
+  });
+}
+
+/**
  * Delete a document version
  */
 export function useDeleteDocumentVersion() {

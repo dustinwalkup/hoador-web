@@ -50,3 +50,39 @@ export function useUpdateUserProfile() {
     },
   });
 }
+
+/**
+ * Hook for updating profile image URL
+ * Invalidates profile and user queries on success
+ */
+export function useUpdateProfileImage() {
+  const queryClient = useQueryClient();
+
+  return useCreateMutation({
+    mutationFn: async (profileImageUrl: string) => {
+      const response = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileImageUrl }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update profile image");
+      }
+
+      return response.json();
+    },
+    successMessage: "Profile image updated successfully",
+    invalidateQueryKeys: [["profile"], ["user"]],
+    onSuccess: () => {
+      // Invalidate all profile-related queries
+      queryClient.invalidateQueries({
+        queryKey: ["profile"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["user"],
+      });
+    },
+  });
+}

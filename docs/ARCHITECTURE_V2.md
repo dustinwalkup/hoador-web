@@ -683,52 +683,52 @@ src/
 
 ### Phase 1: Update DAL
 
-- [ ] Remove `requireAuth()` from BaseDAL
-- [ ] Remove `getCurrentUserId()` from BaseDAL
-- [ ] Remove auth calls from all DAL methods
-- [ ] Add `userId` parameters where needed
-- [ ] Remove `UnauthorizedError` imports/throws
-- [ ] Test DAL methods work with parameters
+- [x] Remove `requireAuth()` from BaseDAL
+- [x] Remove `getCurrentUserId()` from BaseDAL
+- [x] Remove auth calls from all DAL methods
+- [x] Add `userId` parameters where needed
+- [x] Remove `UnauthorizedError` imports/throws
+- [x] Test DAL methods work with parameters
 
 ### Phase 2: Update/Create API Routes
 
-- [ ] Use `getAuthenticatedUserResponse()` for all protected routes
-- [ ] Use `requireAdminResponse()` for admin-only routes
-- [ ] Use `handleApiError()` in catch blocks
-- [ ] Add authorization checks (ownership, roles) after auth
-- [ ] Add Zod validation where needed
-- [ ] Ensure proper HTTP status codes
-- [ ] Test all endpoints
+- [x] Use `getAuthenticatedUserResponse()` for all protected routes
+- [x] Use `requireAdminResponse()` for admin-only routes
+- [x] Use `handleApiError()` in catch blocks
+- [x] Add authorization checks (ownership, roles) after auth
+- [x] Add Zod validation where needed
+- [x] Ensure proper HTTP status codes
+- [x] Test all endpoints
 
 ### Phase 3: Create React Query Hooks
 
-- [ ] Create query hooks for each data type
-- [ ] Create mutation hooks for create/update/delete
-- [ ] Add proper cache invalidation
-- [ ] Add toast notifications in hooks
-- [ ] Add optimistic updates where beneficial
+- [x] Create query hooks for each data type
+- [x] Create mutation hooks for create/update/delete
+- [x] Add proper cache invalidation
+- [x] Add toast notifications in hooks
+- [x] Add optimistic updates where beneficial
 
 ### Phase 4: Migrate Client Components
 
-- [ ] Replace server actions with mutation hooks
-- [ ] Replace direct fetches with query hooks
-- [ ] Update loading/error states
-- [ ] Test all user flows
+- [x] Replace server actions with mutation hooks
+- [x] Replace direct fetches with query hooks
+- [x] Update loading/error states
+- [x] Test all user flows
 
 ### Phase 5: Update Server Components
 
-- [ ] Use `getAuthenticatedUser()` or `requireAuthenticatedUser()` for auth
-- [ ] Pass userId to DAL methods (from auth result)
-- [ ] Remove server action calls
-- [ ] Test all pages
+- [x] Use `getAuthenticatedUser()` or `requireAuthenticatedUser()` for auth
+- [x] Pass userId to DAL methods (from auth result)
+- [x] Remove server action calls
+- [x] Test all pages
 
 ### Phase 6: Cleanup
 
-- [ ] Remove unused server actions files
-- [ ] Remove auth utilities from DAL
-- [ ] Update types/interfaces
-- [ ] Update workspace rules (.cursorrules)
-- [ ] Update tests
+- [x] Remove unused server actions files
+- [x] Remove auth utilities from DAL
+- [x] Update types/interfaces
+- [x] Update workspace rules (.cursorrules)
+- [x] Update tests
 
 ---
 
@@ -758,7 +758,6 @@ src/
 | Server Component | ✅ Use `getAuthenticatedUser()`         | Call DAL directly |
 | DAL              | ❌ None                                 | Database queries  |
 | React Query      | ❌ None                                 | Call API routes   |
-| Server Component | ✅ Check auth (inline)                  | Call DAL directly |
 
 | Action                     | Pattern                             |
 | -------------------------- | ----------------------------------- |

@@ -1,36 +1,42 @@
 "use client";
 
-import { useActionState } from "react";
 import { Mail, Loader2, CheckCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { resendVerificationEmailAction } from "../actions/verify-email";
+import { useResendVerification } from "../hooks/use-auth-mutations";
 
 interface SimpleVerifyEmailFormProps {
   email: string;
 }
 
 export function VerifyEmailForm({ email }: SimpleVerifyEmailFormProps) {
-  const [state, formAction, isPending] = useActionState(
-    resendVerificationEmailAction,
-    { success: false },
-  );
+  const resendVerification = useResendVerification();
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    resendVerification.mutate({ email });
+  };
 
   return (
     <>
       <div className="space-y-6">
         <div className="space-y-4">
-          {state?.error && (
+          {resendVerification.isError && (
             <Alert variant="destructive">
-              <AlertDescription>{state.error}</AlertDescription>
+              <AlertDescription>
+                {resendVerification.error?.message ||
+                  "Failed to resend verification email"}
+              </AlertDescription>
             </Alert>
           )}
 
-          {state?.success && state?.message && (
+          {resendVerification.isSuccess && (
             <Alert className="bg-primary/5 border-primary/50 border">
               <CheckCircle className="text-primary! h-4 w-4" />
-              <AlertDescription>{state.message}</AlertDescription>
+              <AlertDescription>
+                Verification email sent! Please check your inbox.
+              </AlertDescription>
             </Alert>
           )}
 
@@ -47,15 +53,14 @@ export function VerifyEmailForm({ email }: SimpleVerifyEmailFormProps) {
               </p>
             </div>
 
-            <form action={formAction} noValidate>
-              <input type="hidden" name="email" value={email} />
+            <form onSubmit={handleSubmit} noValidate>
               <Button
                 type="submit"
                 variant="outline"
-                disabled={isPending}
+                disabled={resendVerification.isPending}
                 className="w-full"
               >
-                {isPending ? (
+                {resendVerification.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Sending...

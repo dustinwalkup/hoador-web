@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { tryCatch } from "@walkup/walkup-utils";
 import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
 import { uploadToBlob } from "@/services/vercel-blob";
 import { validatePDFFile } from "@/lib/utils/document-validation";
@@ -6,6 +7,7 @@ import {
   LEGAL_DOCUMENT_IDS,
   type LegalDocumentId,
 } from "@/constants/legal-documents";
+import { legalDocumentDAL } from "@/dal";
 
 /**
  * POST /api/admin/legal-documents/upload
@@ -68,12 +70,28 @@ export async function POST(request: NextRequest) {
     // Upload to Vercel Blob
     const blob = await uploadToBlob(filename, file);
 
+    // Create version record in database
+    const { data: newVersion, error: dbError } = await tryCatch(
+      legalDocumentDAL.createVersion(
+        documentId as LegalDocumentId,
+        version,
+        blob.url,
+      ),
+    );
+
+    if (dbError) {
+      return NextResponse.json(
+        { error: dbError.message || "Failed to create document version" },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json({
       success: true,
+      documentId: newVersion.id,
+      version: newVersion.version,
       url: blob.url,
       pathname: blob.pathname,
-      documentId,
-      version,
       filename: file.name,
       size: file.size,
     });

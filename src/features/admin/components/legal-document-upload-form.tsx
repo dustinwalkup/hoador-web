@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
-import { useActionState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -19,7 +18,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LEGAL_DOCUMENT_METADATA } from "@/constants/legal-documents";
 import { validatePDFFile } from "@/lib/utils/document-validation";
-import { uploadDocumentAction } from "../actions/legal-documents";
+import { useUploadLegalDocument } from "../hooks/use-admin-mutations";
 
 interface LegalDocumentUploadFormProps {
   onSuccess?: () => void;
@@ -30,14 +29,8 @@ export function LegalDocumentUploadForm({
 }: LegalDocumentUploadFormProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [isTransitionPending, startTransition] = useTransition();
   const router = useRouter();
-  const previousStateRef = useRef<typeof state>(null);
-
-  const [state, formAction, isPending] = useActionState(
-    uploadDocumentAction,
-    null,
-  );
+  const uploadDocument = useUploadLegalDocument();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,17 +57,39 @@ export function LegalDocumentUploadForm({
     setFileError(null);
 
     const formData = new FormData(e.currentTarget);
+    const documentId = formData.get("documentId") as string;
+    const version = formData.get("version") as string;
 
     if (!selectedFile) {
       setFileError("Please select a PDF file");
       return;
     }
 
-    formData.append("file", selectedFile);
+    if (!documentId || !version) {
+      setFileError("Please fill in all required fields");
+      return;
+    }
 
-    startTransition(() => {
-      formAction(formData);
-    });
+    uploadDocument.mutate(
+      { documentId, version, file: selectedFile },
+      {
+        onSuccess: (data) => {
+          toast.success(
+            `Document version ${data.version} uploaded successfully`,
+          );
+          setSelectedFile(null);
+          const form = e.currentTarget;
+          form.reset();
+          if (onSuccess) {
+            onSuccess();
+          }
+          router.refresh();
+        },
+        onError: (error) => {
+          setFileError(error.message || "Failed to upload document");
+        },
+      },
+    );
   };
 
   const handleReset = () => {
@@ -86,46 +101,21 @@ export function LegalDocumentUploadForm({
     }
   };
 
-  // Handle success/error states with useEffect to avoid infinite loops
-  useEffect(() => {
-    // Prevent duplicate executions
-    if (previousStateRef.current === state) {
-      return;
-    }
-    previousStateRef.current = state;
-
-    if (state?.success) {
-      toast.success(`Document version ${state.version} uploaded successfully`);
-
-      // Wrap state updates in startTransition to avoid cascading renders
-      startTransition(() => {
-        setSelectedFile(null);
-        // Reset form
-        const form = document.querySelector("form");
-        if (form) {
-          form.reset();
-        }
-      });
-
-      if (onSuccess) {
-        onSuccess();
-      }
-      // Refresh page to show new version
-      router.refresh();
-    }
-
-    if (state?.error) {
-      toast.error(state.error);
-    }
-  }, [state, onSuccess, router, startTransition]);
-
-  const isLoading = isPending || isTransitionPending;
+  const isLoading = uploadDocument.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {state?.error && (
+      {uploadDocument.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{state.error}</AlertDescription>
+          <AlertDescription>
+            {uploadDocument.error?.message || "Failed to upload document"}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {fileError && (
+        <Alert variant="destructive">
+          <AlertDescription>{fileError}</AlertDescription>
         </Alert>
       )}
 
@@ -191,7 +181,7 @@ export function LegalDocumentUploadForm({
           type="button"
           variant="outline"
           onClick={handleReset}
-          disabled={isLoading || (!selectedFile && !state)}
+          disabled={isLoading || !selectedFile}
         >
           <RotateCcw className="mr-2 h-4 w-4" />
           Clear

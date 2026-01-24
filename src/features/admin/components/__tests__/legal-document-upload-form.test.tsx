@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LegalDocumentUploadForm } from "../legal-document-upload-form";
 import { validatePDFFile } from "@/lib/utils/document-validation";
@@ -9,10 +9,12 @@ import {
   createMockPDFFile,
   createMockLargePDFFile,
 } from "@/test/fixtures/legal-documents";
+import { renderWithQueryClient } from "@/test/utils/render-helpers";
+import { useUploadLegalDocument } from "../../hooks/use-admin-mutations";
 
 // Mock dependencies
-vi.mock("../../actions/legal-documents", () => ({
-  uploadDocumentAction: vi.fn(),
+vi.mock("../../hooks/use-admin-mutations", () => ({
+  useUploadLegalDocument: vi.fn(),
 }));
 
 vi.mock("@/lib/utils/document-validation", () => ({
@@ -42,15 +44,26 @@ describe("LegalDocumentUploadForm", () => {
     asPath: "/admin/dashboard/legal",
   };
 
+  const mockMutate = vi.fn();
+  const mockMutation = {
+    mutate: mockMutate,
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+    error: null,
+    data: null,
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useRouter).mockReturnValue(mockRouter as any);
     vi.mocked(validatePDFFile).mockReturnValue({ valid: true });
+    vi.mocked(useUploadLegalDocument).mockReturnValue(mockMutation as any);
   });
 
   describe("Rendering", () => {
     it("should render file upload input", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const fileInput = screen.getByLabelText(/pdf file/i);
       expect(fileInput).toBeInTheDocument();
@@ -59,14 +72,14 @@ describe("LegalDocumentUploadForm", () => {
     });
 
     it("should render document type select dropdown", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       // Look for the select trigger button which should have the placeholder text
       expect(screen.getByText("Select document type")).toBeInTheDocument();
     });
 
     it("should render version input field", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const versionInput = screen.getByLabelText(/version/i);
       expect(versionInput).toBeInTheDocument();
@@ -77,7 +90,7 @@ describe("LegalDocumentUploadForm", () => {
     });
 
     it("should render upload button", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const uploadButton = screen.getByRole("button", {
         name: /upload document/i,
@@ -86,7 +99,7 @@ describe("LegalDocumentUploadForm", () => {
     });
 
     it("should render clear button", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const clearButton = screen.getByRole("button", { name: /clear/i });
       expect(clearButton).toBeInTheDocument();
@@ -97,7 +110,7 @@ describe("LegalDocumentUploadForm", () => {
       expect(toast.error).toBeDefined();
 
       // Render component to ensure it can handle errors
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
       expect(screen.getByLabelText(/pdf file/i)).toBeInTheDocument();
     });
   });
@@ -105,7 +118,7 @@ describe("LegalDocumentUploadForm", () => {
   describe("User Interactions", () => {
     it("should update state when file is selected", async () => {
       const user = userEvent.setup();
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const fileInput = screen.getByLabelText(/pdf file/i);
       const file = createMockPDFFile("test-document.pdf");
@@ -118,7 +131,7 @@ describe("LegalDocumentUploadForm", () => {
 
     it("should enable upload button when file is selected", async () => {
       const user = userEvent.setup();
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const fileInput = screen.getByLabelText(/pdf file/i);
       const file = createMockPDFFile();
@@ -134,7 +147,7 @@ describe("LegalDocumentUploadForm", () => {
 
     it("should reset form when clear button is clicked", async () => {
       const user = userEvent.setup();
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const fileInput = screen.getByLabelText(/pdf file/i);
       const file = createMockPDFFile();
@@ -153,7 +166,7 @@ describe("LegalDocumentUploadForm", () => {
 
     it("should validate PDF files on upload", async () => {
       const user = userEvent.setup();
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const fileInput = screen.getByLabelText(/pdf file/i);
       const file = createMockPDFFile();
@@ -165,7 +178,7 @@ describe("LegalDocumentUploadForm", () => {
 
     it("should validate file size", async () => {
       const user = userEvent.setup();
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const fileInput = screen.getByLabelText(/pdf file/i);
       const file = createMockLargePDFFile();
@@ -176,7 +189,7 @@ describe("LegalDocumentUploadForm", () => {
     });
 
     it("should accept file input", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const fileInput = screen.getByLabelText(/pdf file/i);
       expect(fileInput).toBeInTheDocument();
@@ -186,7 +199,7 @@ describe("LegalDocumentUploadForm", () => {
 
   describe("Loading States", () => {
     it("should have loading text in button", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       // When not loading, button should show "Upload Document"
       const uploadButton = screen.getByRole("button", {
@@ -196,7 +209,7 @@ describe("LegalDocumentUploadForm", () => {
     });
 
     it("should have form inputs", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const fileInput = screen.getByLabelText(/pdf file/i);
       const versionInput = screen.getByLabelText(/version/i);
@@ -207,7 +220,7 @@ describe("LegalDocumentUploadForm", () => {
     });
 
     it("should disable submit button when no file selected", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const uploadButton = screen.getByRole("button", {
         name: /upload document/i,
@@ -216,7 +229,7 @@ describe("LegalDocumentUploadForm", () => {
     });
 
     it("should have clear button", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const clearButton = screen.getByRole("button", { name: /clear/i });
       expect(clearButton).toBeInTheDocument();
@@ -235,7 +248,7 @@ describe("LegalDocumentUploadForm", () => {
     });
 
     it("should have form inputs that can be reset", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       const fileInput = screen.getByLabelText(/pdf file/i);
       const versionInput = screen.getByLabelText(/version/i);
@@ -247,14 +260,14 @@ describe("LegalDocumentUploadForm", () => {
 
     it("should accept onSuccess callback prop", () => {
       const onSuccess = vi.fn();
-      render(<LegalDocumentUploadForm onSuccess={onSuccess} />);
+      renderWithQueryClient(<LegalDocumentUploadForm onSuccess={onSuccess} />);
 
       // Component should render with onSuccess prop
       expect(screen.getByLabelText(/pdf file/i)).toBeInTheDocument();
     });
 
     it("should use router for navigation", () => {
-      render(<LegalDocumentUploadForm />);
+      renderWithQueryClient(<LegalDocumentUploadForm />);
 
       // Router should be available (mocked)
       expect(mockRouter.refresh).toBeDefined();

@@ -9,17 +9,20 @@ import {
 } from "@/lib/api/route-helpers";
 
 const UpdateUserProfileSchema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  email: z.string().email(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  email: z.string().email().optional(),
   phone: z.string().optional(),
   bio: z.string().max(500).optional(),
-  address: z.object({
-    street: z.string().min(1),
-    city: z.string().min(1),
-    state: z.string().min(1),
-    zipCode: z.string().min(4).max(10),
-  }),
+  profileImageUrl: z.string().url().optional(),
+  address: z
+    .object({
+      street: z.string().min(1),
+      city: z.string().min(1),
+      state: z.string().min(1),
+      zipCode: z.string().min(4).max(10),
+    })
+    .optional(),
 });
 
 /**
@@ -53,19 +56,22 @@ export async function PATCH(request: NextRequest) {
 
     const { address, ...userFields } = validationResult.data;
 
-    // Update user profile and address in parallel
-    const [userResult, addressResult] = await Promise.all([
-      tryCatch(userDAL.updateUser(userId, userFields)),
-      tryCatch(userDAL.updateUserPrimaryAddress(userId, address)),
-    ]);
+    // Update user profile
+    const userResult = await tryCatch(userDAL.updateUser(userId, userFields));
 
-    // Check for errors
     if (userResult.error) {
       return handleApiError(userResult.error);
     }
 
-    if (addressResult.error) {
-      return handleApiError(addressResult.error);
+    // Update address if provided
+    if (address) {
+      const addressResult = await tryCatch(
+        userDAL.updateUserPrimaryAddress(userId, address),
+      );
+
+      if (addressResult.error) {
+        return handleApiError(addressResult.error);
+      }
     }
 
     return NextResponse.json({ success: true });

@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { ProfileImageUpload } from "@/features/onboarding/components/profile-image-upload";
-import { updateProfileImageAction } from "@/features/users/actions/update-profile-image";
+import { useUpdateProfileImage } from "@/features/users/hooks/use-profile-mutations";
 import { getUserInitials } from "@/features/users/utils/users.utils";
 import type { UserProfile } from "@/dal/types";
 
@@ -14,7 +13,7 @@ interface ProfileImageSectionProps {
 }
 
 export function ProfileImageSection({ user }: ProfileImageSectionProps) {
-  const [isPending, startTransition] = useTransition();
+  const updateProfileImage = useUpdateProfileImage();
   const [currentImageUrl, setCurrentImageUrl] = useState(
     user.profileImageUrl || user.image,
   );
@@ -27,29 +26,17 @@ export function ProfileImageSection({ user }: ProfileImageSectionProps) {
     setCurrentImageUrl(newImageUrl);
 
     // Update database
-    startTransition(async () => {
-      try {
-        const result = await updateProfileImageAction(newImageUrl);
-
-        if (!result.success) {
-          // Revert optimistic update on failure
-          setCurrentImageUrl(user.profileImageUrl);
-          toast.error(result.error || "Failed to update profile image");
-        } else {
-          toast.success("Profile image updated successfully");
-        }
-      } catch (error) {
+    updateProfileImage.mutate(newImageUrl, {
+      onError: () => {
         // Revert optimistic update on failure
-        setCurrentImageUrl(user.profileImageUrl);
-        console.error(error);
-        toast.error("Something went wrong. Please try again.");
-      }
+        setCurrentImageUrl(user.profileImageUrl || user.image);
+      },
     });
   };
 
   return (
     <div className="relative mb-4">
-      {isPending ? (
+      {updateProfileImage.isPending ? (
         // Loading state during database update - replace image with spinner
         <div className="flex h-32 w-32 items-center justify-center rounded-full bg-gray-100">
           <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -59,7 +46,7 @@ export function ProfileImageSection({ user }: ProfileImageSectionProps) {
         <ProfileImageUpload
           currentImageUrl={currentImageUrl || undefined}
           onImageChange={handleImageChange}
-          disabled={isPending}
+          disabled={updateProfileImage.isPending}
           userInitials={getUserInitials(user)}
           showRemoveButton={false}
           showToasts={false}
