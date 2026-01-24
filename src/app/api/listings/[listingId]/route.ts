@@ -13,8 +13,7 @@ import {
 import {
   handleApiError,
   parseFormData,
-  requireAuthResponse,
-  getCurrentUserId,
+  getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
 import {
   createListingSchemaServer,
@@ -128,8 +127,11 @@ export async function PATCH(
 ) {
   try {
     // Check authentication
-    const authError = await requireAuthResponse();
-    if (authError) return authError;
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId: currentUserId } = authResult;
 
     const { listingId } = await params;
 
@@ -138,15 +140,6 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Listing ID is required" },
         { status: 400 },
-      );
-    }
-
-    // Get current user ID
-    const currentUserId = await getCurrentUserId();
-    if (!currentUserId) {
-      return NextResponse.json(
-        { error: "Unauthorized: User not authenticated" },
-        { status: 401 },
       );
     }
 
@@ -169,9 +162,22 @@ export async function PATCH(
     const validatedData =
       validationResult.data as CreateListingFormDataServerType;
 
-    // Update the listing (DAL handles ownership validation)
+    // Verify ownership before updating
+    const existingListing = await listingDAL.getListingById(listingId);
+    if (!existingListing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    if (existingListing.owner.id !== currentUserId) {
+      return NextResponse.json(
+        { error: "Forbidden: You can only update your own listings" },
+        { status: 403 },
+      );
+    }
+
+    // Update the listing
     const { data: listing, error } = await tryCatch(
-      listingDAL.updateListing(listingId, validatedData),
+      listingDAL.updateListing(listingId, validatedData, currentUserId),
     );
 
     if (error) {
@@ -214,15 +220,26 @@ export async function DELETE(
     }
 
     // Check authentication
-    const userId = await getCurrentUserId();
-    if (!userId) {
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+    const { userId } = authResult;
+
+    // Verify ownership before deleting
+    const existingListing = await listingDAL.getListingById(listingId);
+    if (!existingListing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    if (existingListing.owner.id !== userId) {
       return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
+        { error: "Forbidden: You can only delete your own listings" },
+        { status: 403 },
       );
     }
 
-    // Delete the listing (DAL handles authorization internally)
+    // Delete the listing
     const result = await tryCatch(listingDAL.deleteListing(listingId));
 
     if (result.error) {

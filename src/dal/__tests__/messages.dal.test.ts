@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { messagesDAL } from "../index";
-import { UnauthorizedError } from "../errors";
 import { mockConversation, mockMessage } from "@/test/fixtures/messages";
-import * as sessionUtils from "@/features/auth/utils/session";
 import { db } from "@/db/db";
-
-// Mock dependencies
-vi.mock("@/features/auth/utils/session");
 vi.mock("@/db/db", () => ({
   db: {
     query: {
@@ -161,13 +156,12 @@ describe("MessagesDAL", () => {
   });
 
   describe("sendMessageToUser", () => {
-    it("should send message when user is authenticated", async () => {
+    it("should send message when senderId is provided", async () => {
       // Arrange
+      const senderId = "user-123";
       const recipientId = "user-456";
       const content = "Hello";
-      const userId = "user-123";
 
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
       vi.mocked(db.query.conversations.findFirst).mockResolvedValue(
         mockConversation as any,
       );
@@ -194,33 +188,22 @@ describe("MessagesDAL", () => {
       } as any);
 
       // Act
-      const result = await messagesDAL.sendMessageToUser(recipientId, content);
+      const result = await messagesDAL.sendMessageToUser(
+        senderId,
+        recipientId,
+        content,
+      );
 
       // Assert
       expect(result).toHaveProperty("conversationId");
       expect(result).toHaveProperty("messageId");
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
-    });
-
-    it("should throw UnauthorizedError when user not authenticated", async () => {
-      // Arrange
-      const recipientId = "user-456";
-      const content = "Hello";
-
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(
-        messagesDAL.sendMessageToUser(recipientId, content),
-      ).rejects.toThrow(UnauthorizedError);
     });
   });
 
   describe("getUserConversations", () => {
-    it("should return user conversations when authenticated", async () => {
+    it("should return user conversations when userId is provided", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       vi.mocked(db.query.conversations.findMany).mockResolvedValue([
         {
@@ -242,17 +225,15 @@ describe("MessagesDAL", () => {
       ] as any);
 
       // Act
-      const result = await messagesDAL.getUserConversations();
+      const result = await messagesDAL.getUserConversations(userId);
 
       // Assert
       expect(result).toBeDefined();
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
     });
 
     it("should filter archived conversations", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       vi.mocked(db.query.conversations.findMany).mockResolvedValue([
         {
@@ -274,7 +255,7 @@ describe("MessagesDAL", () => {
       ] as any);
 
       // Act
-      const result = await messagesDAL.getUserConversations(false);
+      const result = await messagesDAL.getUserConversations(userId, false);
 
       // Assert
       expect(result).toBeDefined();
@@ -286,7 +267,6 @@ describe("MessagesDAL", () => {
       // Arrange
       const conversationId = "conversation-123";
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       vi.mocked(db.query.conversations.findFirst).mockResolvedValue({
         ...mockConversation,
@@ -306,18 +286,16 @@ describe("MessagesDAL", () => {
       } as any);
 
       // Act
-      await messagesDAL.markConversationAsRead(conversationId);
+      await messagesDAL.markConversationAsRead(conversationId, userId);
 
       // Assert
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
       expect(db.update).toHaveBeenCalled();
     });
 
-    it("should throw UnauthorizedError when user not participant", async () => {
+    it("should return empty array when user not participant", async () => {
       // Arrange
       const conversationId = "conversation-123";
       const userId = "user-999";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       vi.mocked(db.query.conversations.findFirst).mockResolvedValue({
         ...mockConversation,
@@ -341,7 +319,10 @@ describe("MessagesDAL", () => {
       // Note: Current implementation doesn't throw when user is not participant,
       // it just returns an empty update result. The test expects an error, but
       // the implementation allows it. For now, we'll expect it to succeed with empty result.
-      const result = await messagesDAL.markConversationAsRead(conversationId);
+      const result = await messagesDAL.markConversationAsRead(
+        conversationId,
+        userId,
+      );
       expect(result).toEqual([]);
     });
   });
@@ -351,7 +332,6 @@ describe("MessagesDAL", () => {
       // Arrange
       const conversationId = "conversation-123";
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       vi.mocked(db.query.conversations.findFirst).mockResolvedValue({
         ...mockConversation,
@@ -371,7 +351,7 @@ describe("MessagesDAL", () => {
       } as any);
 
       // Act
-      await messagesDAL.archiveConversation(conversationId);
+      await messagesDAL.archiveConversation(conversationId, userId);
 
       // Assert
       expect(db.update).toHaveBeenCalled();
@@ -383,7 +363,6 @@ describe("MessagesDAL", () => {
       // Arrange
       const conversationId = "conversation-123";
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       vi.mocked(db.query.conversations.findFirst).mockResolvedValue({
         ...mockConversation,
@@ -396,17 +375,16 @@ describe("MessagesDAL", () => {
       } as any);
 
       // Act
-      await messagesDAL.deleteConversation(conversationId);
+      await messagesDAL.deleteConversation(conversationId, userId);
 
       // Assert
       expect(db.delete).toHaveBeenCalled();
     });
 
-    it("should throw UnauthorizedError when user not participant", async () => {
+    it("should throw error when user not participant", async () => {
       // Arrange
       const conversationId = "conversation-123";
       const userId = "user-999";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock conversation query to return null (user not participant)
       // The implementation throws "Conversation not found or access denied" for security
@@ -416,16 +394,15 @@ describe("MessagesDAL", () => {
       // Note: Implementation throws generic Error for security (doesn't leak conversation existence)
       // The error gets wrapped by handleError, so we expect DALError
       await expect(
-        messagesDAL.deleteConversation(conversationId),
+        messagesDAL.deleteConversation(conversationId, userId),
       ).rejects.toThrow();
     });
   });
 
   describe("getUnreadMessageCount", () => {
-    it("should return unread count when authenticated", async () => {
+    it("should return unread count when userId is provided", async () => {
       // Arrange
       const userId = "user-123";
-      vi.mocked(sessionUtils.getCurrentUserId).mockResolvedValue(userId);
 
       // Mock select().from().innerJoin() chain
       const mockWhere = vi.fn().mockResolvedValue([{ count: 5 }]);
@@ -440,11 +417,10 @@ describe("MessagesDAL", () => {
       } as any);
 
       // Act
-      const result = await messagesDAL.getUnreadMessageCount();
+      const result = await messagesDAL.getUnreadMessageCount(userId);
 
       // Assert
       expect(result).toBeGreaterThanOrEqual(0);
-      expect(sessionUtils.getCurrentUserId).toHaveBeenCalled();
     });
   });
 });

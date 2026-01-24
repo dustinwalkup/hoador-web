@@ -97,10 +97,13 @@ describe("Complete Admin Review Flow (E2E)", () => {
       },
     });
 
-    const queueResult = await listingDAL.getPendingReviews({
-      page: 1,
-      limit: 10,
-    });
+    const queueResult = await listingDAL.getPendingReviews(
+      {
+        page: 1,
+        limit: 10,
+      },
+      adminId,
+    );
     expect(queueResult.data).toHaveLength(1);
     expect(queueResult.data[0].id).toBe(listingId);
 
@@ -126,6 +129,7 @@ describe("Complete Admin Review Flow (E2E)", () => {
     expect(listingDAL.updateApprovalStatus).toHaveBeenCalledWith(
       listingId,
       "approved",
+      "admin-123",
     );
 
     // Step 5: Notifications sent correctly
@@ -150,10 +154,13 @@ describe("Complete Admin Review Flow (E2E)", () => {
       },
     });
 
-    const updatedQueue = await listingDAL.getPendingReviews({
-      page: 1,
-      limit: 10,
-    });
+    const updatedQueue = await listingDAL.getPendingReviews(
+      {
+        page: 1,
+        limit: 10,
+      },
+      adminId,
+    );
     expect(updatedQueue.data).toHaveLength(0);
 
     // Step 7: Review history shows reviewed listing
@@ -211,10 +218,13 @@ describe("Complete Admin Review Flow (E2E)", () => {
       },
     });
 
-    const queueResult = await listingDAL.getPendingReviews({
-      page: 1,
-      limit: 10,
-    });
+    const queueResult = await listingDAL.getPendingReviews(
+      {
+        page: 1,
+        limit: 10,
+      },
+      adminId,
+    );
     expect(queueResult.data).toHaveLength(1);
 
     // Step 3: Admin views full listing context
@@ -238,6 +248,7 @@ describe("Complete Admin Review Flow (E2E)", () => {
     expect(listingDAL.updateApprovalStatus).toHaveBeenCalledWith(
       listingId,
       "rejected",
+      "admin-123",
       rejectionReason,
     );
 
@@ -265,10 +276,13 @@ describe("Complete Admin Review Flow (E2E)", () => {
       },
     });
 
-    const updatedQueue = await listingDAL.getPendingReviews({
-      page: 1,
-      limit: 10,
-    });
+    const updatedQueue = await listingDAL.getPendingReviews(
+      {
+        page: 1,
+        limit: 10,
+      },
+      adminId,
+    );
     expect(updatedQueue.data).toHaveLength(0);
 
     // Step 7: Review history shows rejected listing

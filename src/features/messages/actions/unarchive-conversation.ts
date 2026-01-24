@@ -3,10 +3,13 @@
 import { tryCatch } from "@walkup/walkup-utils";
 import { revalidatePath } from "next/cache";
 import { messagesDAL } from "@/dal";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 export async function unarchiveConversationAction(conversationId: string) {
+  const { userId } = await requireAuthenticatedUser();
+
   const { data, error } = await tryCatch(
-    messagesDAL.unarchiveConversation(conversationId),
+    messagesDAL.unarchiveConversation(conversationId, userId),
   );
 
   if (error) {

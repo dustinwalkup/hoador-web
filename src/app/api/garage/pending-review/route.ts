@@ -1,4 +1,5 @@
-import { getCurrentUserId } from "@/features/auth/utils/session";
+import { NextResponse } from "next/server";
+import { getAuthenticatedUserResponse } from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
 import { db } from "@/db/db";
 import { listings } from "@/db/schemas/listings.schema";
@@ -6,22 +7,24 @@ import { eq } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const userId = await getCurrentUserId();
-
-    if (!userId) {
-      return Response.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
+    // Check authentication
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { userId } = authResult;
 
     // Get listings with pending_review status
-    const pendingListings =
-      await listingDAL.getUserListingsByApprovalStatus("pending_review");
+    const pendingListings = await listingDAL.getUserListingsByApprovalStatus(
+      "pending_review",
+      userId,
+    );
 
     // Get listings with rejected status
-    const rejectedListings =
-      await listingDAL.getUserListingsByApprovalStatus("rejected");
+    const rejectedListings = await listingDAL.getUserListingsByApprovalStatus(
+      "rejected",
+      userId,
+    );
 
     // Get rejection reasons for rejected listings
     const rejectedListingIds = rejectedListings.map((l) => l.id);

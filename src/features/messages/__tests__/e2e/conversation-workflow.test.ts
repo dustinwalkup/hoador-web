@@ -14,11 +14,21 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
+vi.mock("@/features/auth/utils/session", () => ({
+  requireAuthenticatedUser: vi.fn(),
+}));
+
 import { tryCatch } from "@walkup/walkup-utils";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 describe("Complete Conversation Workflow (E2E)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuthenticatedUser).mockResolvedValue({
+      user: mockUser1 as any,
+      userId: mockUser1.id,
+      isAdmin: false,
+    });
   });
 
   it("should complete full conversation workflow: User views profile → clicks Message → sends initial message → conversation created → message appears in mailbox", async () => {
@@ -58,6 +68,7 @@ describe("Complete Conversation Workflow (E2E)", () => {
     // Step 5: Verify message appears in mailbox
     // (In a real scenario, this would check the mailbox UI)
     expect(messagesDAL.sendMessageToUser).toHaveBeenCalledWith(
+      mockUser1.id,
       recipientId,
       message,
       listingId,

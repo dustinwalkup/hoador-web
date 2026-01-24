@@ -1,6 +1,20 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+// Lazy initialization - only create client when needed (at runtime, not during build)
+let openai: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI {
+  if (!openai) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "Missing credentials. Please set the OPENAI_API_KEY environment variable.",
+      );
+    }
+    openai = new OpenAI({ apiKey });
+  }
+  return openai;
+}
 
 const prompt = `You're assisting with a tool rental platform. Analyze the tool shown in the provided images (all images are of the same tool from different angles) and return ONLY a valid JSON object to help prefill a tool listing form.
 
@@ -48,7 +62,7 @@ Return ONLY the JSON object, no additional text, formatting, or markdown.`;
 export async function analyzeToolImage(imageUrls: string | string[]) {
   const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
 
-  const res = await openai.chat.completions.create({
+  const res = await getOpenAIClient().chat.completions.create({
     model: "gpt-4o",
     messages: [
       {

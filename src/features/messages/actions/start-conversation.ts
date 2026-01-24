@@ -2,6 +2,7 @@
 
 import { tryCatch } from "@walkup/walkup-utils";
 import { messagesDAL } from "@/dal";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 export async function startConversationAction(
   recipientId: string,
@@ -9,8 +10,10 @@ export async function startConversationAction(
   listingName: string,
   message: string,
 ): Promise<{ success: boolean; conversationId?: string; error?: string }> {
+  const { userId } = await requireAuthenticatedUser();
+
   const { data, error } = await tryCatch(
-    messagesDAL.sendMessageToUser(recipientId, message, listingId),
+    messagesDAL.sendMessageToUser(userId, recipientId, message, listingId),
   );
 
   if (error) {

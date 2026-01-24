@@ -10,8 +10,6 @@ import {
 describe("date.utils", () => {
   // Mock Date.now() to have consistent test results
   beforeEach(() => {
-    // Set timezone to UTC for consistent test results
-    process.env.TZ = "UTC";
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T12:00:00Z"));
   });
@@ -22,96 +20,101 @@ describe("date.utils", () => {
 
   describe("differenceInDays", () => {
     it("should calculate the difference between two dates correctly", () => {
-      const date1 = new Date("2024-01-10");
-      const date2 = new Date("2024-01-05");
+      // Use noon UTC to avoid timezone boundary issues
+      const date1 = new Date("2024-01-10T12:00:00Z");
+      const date2 = new Date("2024-01-05T12:00:00Z");
       expect(differenceInDays(date1, date2)).toBe(5);
     });
 
     it("should return the absolute difference (always positive)", () => {
-      const date1 = new Date("2024-01-05");
-      const date2 = new Date("2024-01-10");
+      const date1 = new Date("2024-01-05T12:00:00Z");
+      const date2 = new Date("2024-01-10T12:00:00Z");
       expect(differenceInDays(date1, date2)).toBe(5);
     });
 
     it("should handle string dates", () => {
-      expect(differenceInDays("2024-01-10", "2024-01-05")).toBe(5);
+      expect(
+        differenceInDays("2024-01-10T12:00:00Z", "2024-01-05T12:00:00Z"),
+      ).toBe(5);
     });
 
     it("should handle number timestamps", () => {
-      const date1 = new Date("2024-01-10").getTime();
-      const date2 = new Date("2024-01-05").getTime();
+      const date1 = new Date("2024-01-10T12:00:00Z").getTime();
+      const date2 = new Date("2024-01-05T12:00:00Z").getTime();
       expect(differenceInDays(date1, date2)).toBe(5);
     });
 
     it("should return 0 for the same date", () => {
-      const date = new Date("2024-01-10");
+      const date = new Date("2024-01-10T12:00:00Z");
       expect(differenceInDays(date, date)).toBe(0);
     });
 
     it("should handle dates across different months", () => {
-      const date1 = new Date("2024-02-01");
-      const date2 = new Date("2024-01-15");
+      const date1 = new Date("2024-02-01T12:00:00Z");
+      const date2 = new Date("2024-01-15T12:00:00Z");
       expect(differenceInDays(date1, date2)).toBe(17);
     });
 
     it("should handle dates across different years", () => {
-      const date1 = new Date("2024-01-01");
-      const date2 = new Date("2023-12-15");
+      const date1 = new Date("2024-01-01T12:00:00Z");
+      const date2 = new Date("2023-12-15T12:00:00Z");
       expect(differenceInDays(date1, date2)).toBe(17);
     });
   });
 
   describe("formatMMMd", () => {
     it("should format date in MMM d pattern", () => {
-      const date = new Date("2024-01-05");
+      // Use noon UTC to avoid timezone boundary issues
+      const date = new Date("2024-01-05T12:00:00Z");
       expect(formatMMMd(date)).toBe("Jan 5");
     });
 
     it("should handle string dates", () => {
-      expect(formatMMMd("2024-03-15")).toBe("Mar 15");
+      expect(formatMMMd("2024-03-15T12:00:00Z")).toBe("Mar 15");
     });
 
     it("should handle number timestamps", () => {
-      const timestamp = new Date("2024-12-25").getTime();
+      const timestamp = new Date("2024-12-25T12:00:00Z").getTime();
       expect(formatMMMd(timestamp)).toBe("Dec 25");
     });
 
     it("should handle different months correctly", () => {
-      expect(formatMMMd("2024-02-29")).toBe("Feb 29"); // Leap year
-      expect(formatMMMd("2024-06-01")).toBe("Jun 1");
-      expect(formatMMMd("2024-12-31")).toBe("Dec 31");
+      expect(formatMMMd("2024-02-29T12:00:00Z")).toBe("Feb 29"); // Leap year
+      expect(formatMMMd("2024-06-01T12:00:00Z")).toBe("Jun 1");
+      expect(formatMMMd("2024-12-31T12:00:00Z")).toBe("Dec 31");
     });
 
     it("should handle single digit days", () => {
-      expect(formatMMMd("2024-01-01")).toBe("Jan 1");
-      expect(formatMMMd("2024-01-09")).toBe("Jan 9");
+      expect(formatMMMd("2024-01-01T12:00:00Z")).toBe("Jan 1");
+      expect(formatMMMd("2024-01-09T12:00:00Z")).toBe("Jan 9");
     });
   });
 
   describe("formatPPP", () => {
     it("should format date in long format", () => {
-      const date = new Date("2024-01-05");
+      // Use noon UTC to avoid timezone boundary issues
+      const date = new Date("2024-01-05T12:00:00Z");
       expect(formatPPP(date)).toBe("January 5, 2024");
     });
 
     it("should handle string dates", () => {
-      expect(formatPPP("2024-03-15")).toBe("March 15, 2024");
+      expect(formatPPP("2024-03-15T12:00:00Z")).toBe("March 15, 2024");
     });
 
     it("should handle number timestamps", () => {
-      const timestamp = new Date("2024-12-25").getTime();
+      const timestamp = new Date("2024-12-25T12:00:00Z").getTime();
       expect(formatPPP(timestamp)).toBe("December 25, 2024");
     });
 
     it("should handle different months correctly", () => {
-      expect(formatPPP("2024-02-29")).toBe("February 29, 2024"); // Leap year
-      expect(formatPPP("2024-06-01")).toBe("June 1, 2024");
-      expect(formatPPP("2024-12-31")).toBe("December 31, 2024");
+      expect(formatPPP("2024-02-29T12:00:00Z")).toBe("February 29, 2024"); // Leap year
+      expect(formatPPP("2024-06-01T12:00:00Z")).toBe("June 1, 2024");
+      expect(formatPPP("2024-12-31T12:00:00Z")).toBe("December 31, 2024");
     });
 
     it("should handle different years", () => {
-      expect(formatPPP("2023-01-01")).toBe("January 1, 2023");
-      expect(formatPPP("2025-12-31")).toBe("December 31, 2025");
+      expect(formatPPP("2023-01-01T12:00:00Z")).toBe("January 1, 2023");
+      expect(formatPPP("2025-12-31T12:00:00Z")).toBe("December 31, 2025");
     });
   });
 
@@ -198,34 +201,38 @@ describe("date.utils", () => {
 
   describe("formatDate", () => {
     it("should format with MMM d pattern", () => {
-      const date = new Date("2024-01-05");
+      // Use noon UTC to avoid timezone boundary issues
+      const date = new Date("2024-01-05T12:00:00Z");
       expect(formatDate(date, "MMM d")).toBe("Jan 5");
     });
 
     it("should format with PPP pattern", () => {
-      const date = new Date("2024-01-05");
+      // Use noon UTC to avoid timezone boundary issues
+      const date = new Date("2024-01-05T12:00:00Z");
       expect(formatDate(date, "PPP")).toBe("January 5, 2024");
     });
 
     it("should use default locale string when no pattern provided", () => {
-      const date = new Date("2024-01-05");
+      // Use noon UTC to avoid timezone boundary issues
+      const date = new Date("2024-01-05T12:00:00Z");
       const result = formatDate(date);
       expect(result).toBe("1/5/2024"); // Default US locale format
     });
 
     it("should handle string dates with patterns", () => {
-      expect(formatDate("2024-03-15", "MMM d")).toBe("Mar 15");
-      expect(formatDate("2024-03-15", "PPP")).toBe("March 15, 2024");
+      expect(formatDate("2024-03-15T12:00:00Z", "MMM d")).toBe("Mar 15");
+      expect(formatDate("2024-03-15T12:00:00Z", "PPP")).toBe("March 15, 2024");
     });
 
     it("should handle number timestamps with patterns", () => {
-      const timestamp = new Date("2024-12-25").getTime();
+      const timestamp = new Date("2024-12-25T12:00:00Z").getTime();
       expect(formatDate(timestamp, "MMM d")).toBe("Dec 25");
       expect(formatDate(timestamp, "PPP")).toBe("December 25, 2024");
     });
 
     it("should handle undefined pattern", () => {
-      const date = new Date("2024-01-05");
+      // Use noon UTC to avoid timezone boundary issues
+      const date = new Date("2024-01-05T12:00:00Z");
       const result = formatDate(date, undefined);
       expect(result).toBe("1/5/2024"); // Default US locale format
     });

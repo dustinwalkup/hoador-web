@@ -221,7 +221,7 @@ export const mockExpiredToken = "expired-token-11111";
 
 // Legal documents fixtures
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
-import type { CurrentDocumentVersion } from "@/dal/legal-document.dal";
+import type { CurrentDocumentVersion } from "@/dal/types";
 
 export const mockLegalDocuments: Record<string, CurrentDocumentVersion> = {
   [LEGAL_DOCUMENT_IDS.TOS]: {

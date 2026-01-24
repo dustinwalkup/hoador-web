@@ -3,7 +3,7 @@ import { tryCatch } from "@walkup/walkup-utils";
 
 import { uploadToBlob } from "@/services/vercel-blob";
 import { requireAdmin } from "@/features/auth/utils/guards";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
+import { legalDocumentDAL } from "@/dal";
 import {
   LEGAL_DOCUMENT_IDS,
   type LegalDocumentId,

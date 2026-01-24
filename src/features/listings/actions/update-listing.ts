@@ -33,9 +33,19 @@ export async function updateListing(
     return { error: "Unauthorized: User not authenticated" };
   }
 
+  // Verify ownership before updating
+  const existingListing = await listingDAL.getListingById(listingId);
+  if (!existingListing) {
+    return { error: "Listing not found" };
+  }
+
+  if (existingListing.owner.id !== userId) {
+    return { error: "Forbidden: You can only update your own listings" };
+  }
+
   // Update the listing
   const { data: listing, error } = await tryCatch(
-    listingDAL.updateListing(listingId, validatedData),
+    listingDAL.updateListing(listingId, validatedData, userId),
   );
 
   if (error) {

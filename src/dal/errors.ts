@@ -33,9 +33,3 @@ export class ConflictError extends DALError {
     super(message, "CONFLICT", 409);
   }
 }
-
-export class UnauthorizedError extends DALError {
-  constructor(message = "Unauthorized") {
-    super(message, "UNAUTHORIZED", 401);
-  }
-}

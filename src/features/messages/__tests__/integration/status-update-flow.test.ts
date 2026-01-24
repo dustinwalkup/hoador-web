@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { markConversationAsReadAction } from "@/features/messages/actions/mark-conversation-read";
 import { markConversationUnreadAction } from "@/features/messages/actions/mark-conversation-unread";
 import { messagesDAL } from "@/dal";
-import { mockConversation } from "@/test/fixtures/messages";
+import { mockConversation, mockUser1 } from "@/test/fixtures/messages";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -20,12 +20,22 @@ vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
 }));
 
+vi.mock("@/features/auth/utils/session", () => ({
+  requireAuthenticatedUser: vi.fn(),
+}));
+
 import { tryCatch } from "@walkup/walkup-utils";
 import { revalidatePath } from "next/cache";
+import { requireAuthenticatedUser } from "@/features/auth/utils/session";
 
 describe("Status Update Flow: Component → Action → DAL → Database", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuthenticatedUser).mockResolvedValue({
+      user: mockUser1 as any,
+      userId: mockUser1.id,
+      isAdmin: false,
+    });
   });
 
   it("should complete full flow: User marks read → action updates → DAL updates → database updated", async () => {
@@ -43,10 +53,11 @@ describe("Status Update Flow: Component → Action → DAL → Database", () => 
     // Assert - Verify complete flow
     expect(result.success).toBe(true);
     expect(tryCatch).toHaveBeenCalledWith(
-      messagesDAL.markConversationAsRead(conversationId),
+      messagesDAL.markConversationAsRead(conversationId, mockUser1.id),
     );
     expect(messagesDAL.markConversationAsRead).toHaveBeenCalledWith(
       conversationId,
+      mockUser1.id,
     );
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/mailbox", "layout");
   });
@@ -66,10 +77,11 @@ describe("Status Update Flow: Component → Action → DAL → Database", () => 
     // Assert - Verify complete flow
     expect(result.success).toBe(true);
     expect(tryCatch).toHaveBeenCalledWith(
-      messagesDAL.markConversationAsUnread(conversationId),
+      messagesDAL.markConversationAsUnread(conversationId, mockUser1.id),
     );
     expect(messagesDAL.markConversationAsUnread).toHaveBeenCalledWith(
       conversationId,
+      mockUser1.id,
     );
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/mailbox");
   });

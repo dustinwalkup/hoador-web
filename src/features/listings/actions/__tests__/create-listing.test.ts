@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createListing, uploadListingImage } from "../create-listing";
-import { listingDAL, userDAL } from "@/dal";
+import { listingDAL, userDAL, legalDocumentDAL } from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { revalidatePath } from "next/cache";
 import { mockListing } from "@/test/fixtures/listings";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+import { requireCommunityMembership } from "@/features/community/utils/membership";
 
 // Mock dependencies
 vi.mock("@/dal", () => ({
@@ -15,9 +15,9 @@ vi.mock("@/dal", () => ({
   userDAL: {
     isConnectOnboardingComplete: vi.fn(),
   },
-}));
-
-vi.mock("@/dal/legal-document.dal", () => ({
+  communityDAL: {
+    requireUserCommunityMembership: vi.fn(),
+  },
   legalDocumentDAL: {
     getAllCurrentVersions: vi.fn(),
     recordAcceptance: vi.fn(),
@@ -26,6 +26,10 @@ vi.mock("@/dal/legal-document.dal", () => ({
 
 vi.mock("@/features/auth/utils/session", () => ({
   getCurrentUserId: vi.fn(),
+}));
+
+vi.mock("@/features/community/utils/membership", () => ({
+  requireCommunityMembership: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
@@ -100,6 +104,9 @@ describe("createListing", () => {
 
     vi.mocked(getCurrentUserId).mockResolvedValue(userId);
     vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
+    vi.mocked(requireCommunityMembership).mockResolvedValue({
+      community: { id: "community-123" },
+    } as any);
     vi.mocked(listingDAL.createListing).mockResolvedValue(mockListing as any);
 
     // Act
@@ -109,7 +116,12 @@ describe("createListing", () => {
     expect(result).toEqual({ success: true, listingId: mockListing.id });
     expect(getCurrentUserId).toHaveBeenCalled();
     expect(userDAL.isConnectOnboardingComplete).toHaveBeenCalledWith(userId);
-    expect(listingDAL.createListing).toHaveBeenCalled();
+    expect(requireCommunityMembership).toHaveBeenCalled();
+    expect(listingDAL.createListing).toHaveBeenCalledWith(
+      expect.any(Object),
+      userId,
+      "community-123",
+    );
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/garage");
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/listings");
 
@@ -227,6 +239,9 @@ describe("createListing", () => {
 
     vi.mocked(getCurrentUserId).mockResolvedValue(userId);
     vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
+    vi.mocked(requireCommunityMembership).mockResolvedValue({
+      community: { id: "community-123" },
+    } as any);
     vi.mocked(listingDAL.createListing).mockRejectedValue(
       new Error("Database error"),
     );
@@ -263,6 +278,9 @@ describe("createListing", () => {
 
     vi.mocked(getCurrentUserId).mockResolvedValue(userId);
     vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
+    vi.mocked(requireCommunityMembership).mockResolvedValue({
+      community: { id: "community-123" },
+    } as any);
     vi.mocked(listingDAL.createListing).mockResolvedValue(mockListing as any);
 
     // Act
@@ -318,6 +336,9 @@ describe("createListing", () => {
 
     vi.mocked(getCurrentUserId).mockResolvedValue(userId);
     vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
+    vi.mocked(requireCommunityMembership).mockResolvedValue({
+      community: { id: "community-123" },
+    } as any);
     vi.mocked(listingDAL.createListing).mockResolvedValue(mockListing as any);
     vi.mocked(legalDocumentDAL.recordAcceptance).mockRejectedValue(
       new Error("Failed to record acceptance"),
@@ -353,6 +374,9 @@ describe("createListing", () => {
 
     vi.mocked(getCurrentUserId).mockResolvedValue(userId);
     vi.mocked(userDAL.isConnectOnboardingComplete).mockResolvedValue(true);
+    vi.mocked(requireCommunityMembership).mockResolvedValue({
+      community: { id: "community-123" },
+    } as any);
     vi.mocked(listingDAL.createListing).mockResolvedValue(mockListing as any);
     // Return empty object - no document versions
     vi.mocked(legalDocumentDAL.getAllCurrentVersions).mockResolvedValue({});
