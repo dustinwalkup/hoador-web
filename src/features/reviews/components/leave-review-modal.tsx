@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Star, Loader2, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { createReview } from "../actions/create-review";
+import { useCreateReview } from "../hooks/use-review-mutations";
 
 interface LeaveReviewModalProps {
   open: boolean;
@@ -83,36 +82,30 @@ export function LeaveReviewModal({
     number | undefined
   >(undefined);
 
-  const [isPending, startTransition] = useTransition();
+  const createReviewMutation = useCreateReview();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (rating === 0) {
-      toast.error("Please select a rating");
       return;
     }
 
     if (!comment.trim() || comment.trim().length < 10) {
-      toast.error("Please write a comment (at least 10 characters)");
       return;
     }
 
-    startTransition(async () => {
-      try {
-        const result = await createReview({
-          ...(isRequestId ? { requestId: rentalId } : { rentalId }),
-          rating,
-          comment,
-          accuracyRating,
-          listingConditionRating,
-          ownerCommunicationRating,
-        });
-
-        if (result.success) {
-          toast.success("Review submitted successfully!", {
-            description: "Thank you for your feedback.",
-          });
+    createReviewMutation.mutate(
+      {
+        ...(isRequestId ? { requestId: rentalId } : { rentalId }),
+        rating,
+        comment,
+        accuracyRating,
+        listingConditionRating,
+        ownerCommunicationRating,
+      },
+      {
+        onSuccess: () => {
           onOpenChange(false);
           onSuccess?.();
           // Reset form
@@ -121,19 +114,9 @@ export function LeaveReviewModal({
           setAccuracyRating(undefined);
           setListingConditionRating(undefined);
           setOwnerCommunicationRating(undefined);
-        } else {
-          console.log("ELSE", result);
-          toast.error("Failed to submit review", {
-            description: result.error || "Please try again.",
-          });
-        }
-      } catch {
-        console.error("Error in handleSubmit:");
-        toast.error("Failed to submit review", {
-          description: "An unexpected error occurred. Please try again.",
-        });
-      }
-    });
+        },
+      },
+    );
   };
 
   return (
@@ -241,12 +224,15 @@ export function LeaveReviewModal({
                     type="button"
                     variant="outline"
                     onClick={() => onOpenChange(false)}
-                    disabled={isPending}
+                    disabled={createReviewMutation.isPending}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isPending || rating === 0}>
-                    {isPending ? (
+                  <Button
+                    type="submit"
+                    disabled={createReviewMutation.isPending || rating === 0}
+                  >
+                    {createReviewMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Submitting...

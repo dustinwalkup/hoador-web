@@ -2,13 +2,24 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LeaveReviewModal } from "../leave-review-modal";
-import { createReview } from "../../actions/create-review";
 
-// Mock dependencies
-vi.mock("../../actions/create-review", () => ({
-  createReview: vi.fn(),
+// Mock React Query hook
+const mockMutate = vi.fn();
+const mockUseCreateReview = vi.fn(() => ({
+  mutate: mockMutate,
+  mutateAsync: vi.fn(),
+  isPending: false,
+  isError: false,
+  isSuccess: false,
+  error: null,
+  data: null,
 }));
 
+vi.mock("../../hooks/use-review-mutations", () => ({
+  useCreateReview: () => mockUseCreateReview(),
+}));
+
+// Mock toast (used by mutation helpers)
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
@@ -37,10 +48,18 @@ describe("LeaveReviewModal", () => {
     isRequestId: false,
   };
 
-  const mockCreateReview = vi.mocked(createReview);
-
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset mock to default state
+    mockUseCreateReview.mockReturnValue({
+      mutate: mockMutate,
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+      isSuccess: false,
+      error: null,
+      data: null,
+    });
   });
 
   describe("Modal Structure", () => {
@@ -100,7 +119,7 @@ describe("LeaveReviewModal", () => {
       });
       await user.click(submitButton);
 
-      expect(mockCreateReview).not.toHaveBeenCalled();
+      expect(mockMutate).not.toHaveBeenCalled();
       // Note: Toast error would be called but we can't easily test it in this setup
     });
 
@@ -124,15 +143,11 @@ describe("LeaveReviewModal", () => {
       });
       await user.click(submitButton);
 
-      expect(mockCreateReview).not.toHaveBeenCalled();
+      expect(mockMutate).not.toHaveBeenCalled();
     });
 
     it("accepts valid form data", async () => {
       const user = userEvent.setup();
-      mockCreateReview.mockResolvedValueOnce({
-        success: true,
-        reviewId: "review-123",
-      });
 
       render(<LeaveReviewModal {...defaultProps} />);
 
@@ -156,15 +171,18 @@ describe("LeaveReviewModal", () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(mockCreateReview).toHaveBeenCalledWith({
-          rentalId: "rental-123",
-          rating: 5,
-          comment:
-            "This is a valid comment with more than 10 characters for testing purposes",
-          accuracyRating: undefined,
-          listingConditionRating: undefined,
-          ownerCommunicationRating: undefined,
-        });
+        expect(mockMutate).toHaveBeenCalledWith(
+          {
+            rentalId: "rental-123",
+            rating: 5,
+            comment:
+              "This is a valid comment with more than 10 characters for testing purposes",
+            accuracyRating: undefined,
+            listingConditionRating: undefined,
+            ownerCommunicationRating: undefined,
+          },
+          expect.any(Object), // onSuccess callback
+        );
       });
     });
   });
@@ -227,15 +245,16 @@ describe("LeaveReviewModal", () => {
   describe("Form Submission", () => {
     it("shows loading state during submission", async () => {
       const user = userEvent.setup();
-      mockCreateReview.mockImplementation(
-        () =>
-          new Promise((resolve) =>
-            setTimeout(
-              () => resolve({ success: true, reviewId: "review-123" }),
-              100,
-            ),
-          ),
-      );
+      // Mock pending state - when isPending is true, button shows "Submitting..."
+      mockUseCreateReview.mockReturnValue({
+        mutate: mockMutate,
+        mutateAsync: vi.fn(),
+        isPending: true,
+        isError: false,
+        isSuccess: false,
+        error: null,
+        data: null,
+      });
 
       render(<LeaveReviewModal {...defaultProps} />);
 
@@ -253,30 +272,19 @@ describe("LeaveReviewModal", () => {
         "This is a valid comment with more than 10 characters",
       );
 
-      const submitButton = screen.getByRole("button", {
-        name: /Submit Review/i,
+      // When isPending is true, button should show "Submitting..." and be disabled
+      const submittingButton = screen.getByRole("button", {
+        name: /Submitting.../i,
       });
-      await user.click(submitButton);
-
-      // Check loading state
+      expect(submittingButton).toBeInTheDocument();
+      expect(submittingButton).toBeDisabled();
       expect(screen.getByText("Submitting...")).toBeInTheDocument();
-      expect(submitButton).toBeDisabled();
-
-      // Wait for completion
-      await waitFor(() => {
-        expect(screen.queryByText("Submitting...")).not.toBeInTheDocument();
-      });
     });
 
     it("handles successful submission", async () => {
       const user = userEvent.setup();
       const mockOnSuccess = vi.fn();
       const mockOnOpenChange = vi.fn();
-
-      mockCreateReview.mockResolvedValueOnce({
-        success: true,
-        reviewId: "review-123",
-      });
 
       render(
         <LeaveReviewModal
@@ -306,7 +314,17 @@ describe("LeaveReviewModal", () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(mockCreateReview).toHaveBeenCalled();
+        expect(mockMutate).toHaveBeenCalled();
+      });
+
+      // Simulate successful mutation by calling onSuccess callback
+      const mutateCall = mockMutate.mock.calls[0];
+      const onSuccessCallback = mutateCall[1]?.onSuccess;
+      if (onSuccessCallback) {
+        onSuccessCallback();
+      }
+
+      await waitFor(() => {
         expect(mockOnSuccess).toHaveBeenCalled();
         expect(mockOnOpenChange).toHaveBeenCalledWith(false);
       });
@@ -314,10 +332,6 @@ describe("LeaveReviewModal", () => {
 
     it("handles submission error", async () => {
       const user = userEvent.setup();
-      mockCreateReview.mockResolvedValueOnce({
-        success: false,
-        error: "Database error",
-      });
 
       render(<LeaveReviewModal {...defaultProps} />);
 
@@ -341,18 +355,14 @@ describe("LeaveReviewModal", () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(mockCreateReview).toHaveBeenCalled();
-        // Modal should remain open on error
+        expect(mockMutate).toHaveBeenCalled();
+        // Modal should remain open on error (error handling is done by mutation hook)
         expect(screen.getByText("Leave a Review")).toBeInTheDocument();
       });
     });
 
     it("handles request ID instead of rental ID", async () => {
       const user = userEvent.setup();
-      mockCreateReview.mockResolvedValueOnce({
-        success: true,
-        reviewId: "review-123",
-      });
 
       render(<LeaveReviewModal {...defaultProps} isRequestId={true} />);
 
@@ -376,14 +386,17 @@ describe("LeaveReviewModal", () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(mockCreateReview).toHaveBeenCalledWith({
-          requestId: "rental-123",
-          rating: 5,
-          comment: "This is a valid comment with more than 10 characters",
-          accuracyRating: undefined,
-          listingConditionRating: undefined,
-          ownerCommunicationRating: undefined,
-        });
+        expect(mockMutate).toHaveBeenCalledWith(
+          {
+            requestId: "rental-123",
+            rating: 5,
+            comment: "This is a valid comment with more than 10 characters",
+            accuracyRating: undefined,
+            listingConditionRating: undefined,
+            ownerCommunicationRating: undefined,
+          },
+          expect.any(Object), // onSuccess callback
+        );
       });
     });
   });
@@ -391,10 +404,6 @@ describe("LeaveReviewModal", () => {
   describe("Form Reset", () => {
     it("resets form after successful submission", async () => {
       const user = userEvent.setup();
-      mockCreateReview.mockResolvedValueOnce({
-        success: true,
-        reviewId: "review-123",
-      });
 
       render(<LeaveReviewModal {...defaultProps} />);
 
@@ -419,10 +428,17 @@ describe("LeaveReviewModal", () => {
       });
       await user.click(submitButton);
 
-      // Wait for form reset (modal closes, but if we check before closure)
+      // Wait for mutation to be called
       await waitFor(() => {
-        expect(mockCreateReview).toHaveBeenCalled();
+        expect(mockMutate).toHaveBeenCalled();
       });
+
+      // Simulate successful mutation by calling onSuccess callback
+      const mutateCall = mockMutate.mock.calls[0];
+      const onSuccessCallback = mutateCall[1]?.onSuccess;
+      if (onSuccessCallback) {
+        onSuccessCallback();
+      }
 
       // Form should be reset when modal reopens, but since it closes we can't easily test this
       // The reset logic is in the onSuccess callback
