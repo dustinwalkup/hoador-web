@@ -41,7 +41,6 @@ export function LegalDocumentsAcceptanceScreen({
       // Error is handled by the mutation hook
     }
   };
-  const canSubmit = legalAccepted;
 
   return (
     <div className="space-y-6">

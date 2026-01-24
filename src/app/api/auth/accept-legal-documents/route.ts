@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { legalDocumentDAL } from "@/dal/legal-document.dal";
-import { userDAL } from "@/dal";
+import { userDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
-import { getSession } from "@/features/auth/utils/session";
 import {
   handleApiError,
   parseFormData,
   getClientIP,
   getUserAgent,
+  getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
+import { getSession } from "@/features/auth/utils/session";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,19 +30,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get current user session
-    const session = await getSession();
-    if (!session?.user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "You must be logged in to accept legal documents.",
-        },
-        { status: 401 },
-      );
+    // Authenticate user
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
-
-    const userId = session.user.id;
+    const { userId } = authResult;
 
     // Get current document versions
     const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
@@ -101,7 +94,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Set user profile photo if available from Google OAuth
-    if (session.user.image) {
+    // Get Better Auth session for OAuth-specific image data
+    const session = await getSession();
+    if (session?.user?.image) {
       await userDAL.updateUserProfilePhoto(userId, session.user.image);
     }
 

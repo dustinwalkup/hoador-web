@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { communityDAL, userDAL } from "@/dal";
-import { ValidationError, UnauthorizedError } from "@/dal/errors";
+import { ValidationError } from "@/dal/errors";
 import { joinCodeSchema } from "@/features/auth/schemas/auth-schemas";
-import { requireAuth } from "@/features/auth/utils/session";
 import {
   handleApiError,
   parseFormData,
-  requireAuthResponse,
+  getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const authError = await requireAuthResponse();
-    if (authError) {
-      return authError;
+    // Authenticate user
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { userId } = authResult;
 
     const body = await parseFormData(request);
     const joinCode = body.joinCode as string;
@@ -31,25 +31,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get current user profile
-    const { data: userProfile, error: userError } =
-      await tryCatch(requireAuth());
-
-    if (userError) {
-      console.error("Error fetching user profile:", userError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Authentication required. Please log in again.",
-        },
-        { status: 401 },
-      );
-    }
-
     // Check if user is already in a community
-    const { data: existingMembership } = await tryCatch(
-      communityDAL.getCurrentUserMembership(),
-    );
+    const existingMembership = await communityDAL.getMembershipForUser(userId);
 
     if (existingMembership) {
       return NextResponse.json(
@@ -91,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     // Join the community using the more efficient method for new users
     const { data: communityInfo, error: joinError } = await tryCatch(
-      communityDAL.joinCommunityForNewUser(userProfile.id, community.id),
+      communityDAL.joinCommunityForNewUser(userId, community.id),
     );
 
     if (joinError) {
@@ -102,16 +85,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { success: false, error: joinError.message },
           { status: 400 },
-        );
-      }
-
-      if (joinError instanceof UnauthorizedError) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Authentication required. Please log in again.",
-          },
-          { status: 401 },
         );
       }
 
@@ -137,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     // Update user status to incomplete_profile after joining community
     const { error: statusError } = await tryCatch(
-      userDAL.updateUserStatus(userProfile.id, "incomplete_profile"),
+      userDAL.updateUserStatus(userId, "incomplete_profile"),
     );
 
     if (statusError) {
