@@ -33,10 +33,8 @@ export function EarningsAndPayoutsPageClient({
 
   // Use account session hook only for error checking, not to block initialization
   // We initialize Connect immediately when onboarded - don't wait for this hook
-  const {
-    error: accountSessionError,
-    refetch: refetchAccountSession,
-  } = useAccountSession("payments", isOnboarded);
+  const { error: accountSessionError, refetch: refetchAccountSession } =
+    useAccountSession("payments", isOnboarded);
 
   // Initialize Stripe Connect immediately when user is onboarded
   // Don't wait for useAccountSession - this speeds up initialization significantly
