@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
-import { rentalDAL, userDAL } from "@/dal";
+import { rentalDAL, userDAL, paymentDAL } from "@/dal";
+import { rentals } from "@/db/schemas/rentals.schema";
+import { db } from "@/db/db";
 import {
   handleApiError,
   parseFormData,
@@ -349,6 +352,47 @@ export async function POST(
         },
         { status: 500 },
       );
+    }
+
+    // Get the rental that was just created to get its ID
+    const { data: createdRental, error: rentalQueryError } = await tryCatch(
+      db
+        .select()
+        .from(rentals)
+        .where(eq(rentals.requestId, rentalId))
+        .limit(1)
+        .then((results) => results[0]),
+    );
+
+    if (rentalQueryError || !createdRental) {
+      console.error(
+        "Failed to query created rental for payment record:",
+        rentalQueryError,
+      );
+      // Continue anyway - payment record creation is not critical
+    } else {
+      // Create payment record in database
+      const { error: paymentRecordError } = await tryCatch(
+        paymentDAL.createPayment({
+          rentalId: createdRental.id,
+          payerId: rentalRequest.renterId,
+          payeeId: rentalRequest.ownerId,
+          amount: totalAmount.toString(),
+          platformFee: applicationFeeAmount.toString(),
+          paymentMethodId: rentalRequest.paymentMethodId || undefined,
+          stripePaymentIntentId: rentalPaymentIntent.id,
+          status: "succeeded",
+          paidAt: new Date(),
+        }),
+      );
+
+      if (paymentRecordError) {
+        console.error(
+          "Failed to create payment record (payment succeeded):",
+          paymentRecordError,
+        );
+        // Continue anyway - payment succeeded, record creation is for history
+      }
     }
 
     // Send success notifications to both parties (don't block on notification failures)

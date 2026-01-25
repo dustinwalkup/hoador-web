@@ -1,9 +1,9 @@
-export const dynamic = "force-dynamic";
 import { Suspense } from "react";
-import { userDAL, listingDAL } from "@/dal";
+import { userDAL } from "@/dal";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { GarageClient } from "@/features/listings/components/garage-page/garage-client";
-import { OnboardingBanner } from "@/features/users/components/onboarding-banner";
+import { InitiateStripeOnboarding } from "@/features/payments/components/initiate-stripe-onboarding";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata = {
   title: "Garage",
@@ -16,18 +16,23 @@ export default async function GaragePage() {
     return <div>Loading...</div>;
   }
 
-  // Check onboarding status and listing count
-  const [isOnboarded, listingCount] = await Promise.all([
-    userDAL.isConnectOnboardingComplete(user.id),
-    listingDAL.countUserListings(user.id),
-  ]);
+  // Check onboarding status
+  const isOnboarded = await userDAL.isConnectOnboardingComplete(user.id);
 
   return (
     <div className="container pb-6">
-      <OnboardingBanner
-        hasListings={listingCount > 0}
-        isOnboarded={isOnboarded}
-      />
+      {!isOnboarded && (
+        <>
+          <div className="container pb-6">
+            <PageHeader
+              title="Garage"
+              description="Manage your listings and rentals in one place"
+            />
+            <InitiateStripeOnboarding />{" "}
+          </div>{" "}
+        </>
+      )}
+
       {isOnboarded && (
         <Suspense fallback={<div>Loading...</div>}>
           <GarageClient />

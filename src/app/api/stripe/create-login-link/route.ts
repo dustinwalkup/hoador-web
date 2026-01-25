@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
-import { getCurrentUserId } from "@/features/auth/utils/session";
+import {
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
 import { userDAL } from "@/dal";
 import { createLoginLink } from "@/services/stripe/connect";
 
@@ -10,11 +13,12 @@ import { createLoginLink } from "@/services/stripe/connect";
  */
 export async function POST() {
   try {
-    // Verify user authentication
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { userId } = authResult;
 
     // Get connected account ID
     const { data: accountId, error: accountError } = await tryCatch(
@@ -45,10 +49,6 @@ export async function POST() {
 
     return NextResponse.json({ url: loginUrl });
   } catch (error) {
-    console.error("Error creating login link:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }

@@ -413,3 +413,21 @@ export interface DocumentVersion {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface RentalPayment {
+  id: string;
+  rentalId: string;
+  listingId: string;
+  listingName: string;
+  amount: string; // Decimal as string from database
+  status:
+    | "pending"
+    | "processing"
+    | "succeeded"
+    | "completed"
+    | "failed"
+    | "refunded";
+  paymentDate: Date;
+  rentalStartDate: Date;
+  rentalEndDate: Date;
+}

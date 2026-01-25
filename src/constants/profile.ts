@@ -8,12 +8,38 @@ export const PROFILE_TABS = {
     // { value: "verification", label: "Verification" },
     // { value: "preferences", label: "Preferences" },
     // { value: "security", label: "Security" },
-    { value: "billing", label: "Billing" },
   ],
   editButton: {
     label: (editMode: boolean) => (editMode ? "Cancel" : "Edit Profile"),
   },
 };
+
+export const PROFILE_PAGE_HEADERS = {
+  profile: {
+    title: "Profile",
+    description: "Manage your personal information",
+  },
+  reviews: {
+    title: "Reviews",
+    description: "View your reviews and ratings from the community",
+  },
+  security: {
+    title: "Security",
+    description: "Manage your password and security settings",
+  },
+  preferences: {
+    title: "Preferences",
+    description: "Customize your notification and app preferences",
+  },
+  verification: {
+    title: "Verification",
+    description: "Verify your identity and build trust in the community",
+  },
+  billing: {
+    title: "Billing",
+    description: "Manage your payment methods and billing information",
+  },
+} as const;
 
 export const US_STATES = [
   { value: "AL", label: "Alabama" },

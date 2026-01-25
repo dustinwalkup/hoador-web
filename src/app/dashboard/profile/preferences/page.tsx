@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { PROFILE_TABS } from "@/constants/profile";
+import { PROFILE_PAGE_HEADERS } from "@/constants/profile";
 import { PageHeader } from "@/components/page-header";
 import {
   ProfileTabs,
@@ -15,8 +15,8 @@ export default async function PreferencesPage() {
   return (
     <div className="container pb-6">
       <PageHeader
-        title={PROFILE_TABS.title}
-        description={PROFILE_TABS.description}
+        title={PROFILE_PAGE_HEADERS.preferences.title}
+        description={PROFILE_PAGE_HEADERS.preferences.description}
       />
 
       <ProfileTabs>

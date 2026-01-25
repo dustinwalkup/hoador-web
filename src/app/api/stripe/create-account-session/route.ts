@@ -1,20 +1,26 @@
-import { NextResponse } from "next/server";
-import { getCurrentUserId } from "@/features/auth/utils/session";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
 import { userDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 import { createAccountSession } from "@/services/stripe/connect";
 
 /**
- * Create an account session for embedded onboarding
+ * Create an account session for embedded Stripe Connect components
+ * Supports both onboarding (backward compatible) and payments page components
  * POST /api/stripe/create-account-session
+ * Optional query parameter: ?mode=payments (defaults to onboarding for backward compatibility)
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    // Verify user authentication
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { userId } = authResult;
 
     // Get or create connected account
     const { data: accountId, error: accountError } = await tryCatch(
@@ -30,24 +36,59 @@ export async function POST() {
       );
     }
 
-    // Create account session
-    const { data: clientSecret, error: sessionError } = await tryCatch(
-      createAccountSession(accountId),
-    );
+    // Check if payments mode is requested (for payments page)
+    // Default to onboarding mode for backward compatibility
+    const { searchParams } = new URL(request.url);
+    const mode = searchParams.get("mode");
 
-    if (sessionError || !clientSecret) {
-      return NextResponse.json(
-        { error: sessionError?.message || "Failed to create account session" },
-        { status: 500 },
+    let clientSecret: string;
+
+    if (mode === "payments") {
+      // Create account session with all required components for payments page
+      // This includes: balances, payouts, payouts_list, payments, documents, notification_banner
+      const { data, error: sessionError } = await tryCatch(
+        createAccountSession(accountId, {
+          components: {
+            balances: { enabled: true },
+            payouts: { enabled: true },
+            payouts_list: { enabled: true },
+            payments: { enabled: true },
+            documents: { enabled: true },
+            notification_banner: { enabled: true },
+          },
+        }),
       );
+
+      if (sessionError || !data) {
+        return NextResponse.json(
+          {
+            error: sessionError?.message || "Failed to create account session",
+          },
+          { status: 500 },
+        );
+      }
+
+      clientSecret = data;
+    } else {
+      // Default to onboarding mode (backward compatible)
+      const { data, error: sessionError } = await tryCatch(
+        createAccountSession(accountId),
+      );
+
+      if (sessionError || !data) {
+        return NextResponse.json(
+          {
+            error: sessionError?.message || "Failed to create account session",
+          },
+          { status: 500 },
+        );
+      }
+
+      clientSecret = data;
     }
 
     return NextResponse.json({ clientSecret });
   } catch (error) {
-    console.error("Error creating account session:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }

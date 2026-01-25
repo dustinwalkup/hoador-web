@@ -14,7 +14,7 @@ import {
 import { ReviewerAvatar } from "@/features/reviews/components/reviewer-avatar";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/page-header";
-import { PROFILE_TABS } from "@/constants/profile";
+import { PROFILE_PAGE_HEADERS } from "@/constants/profile";
 import { reviewDAL } from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
@@ -44,8 +44,8 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
     return (
       <div className="container pb-6">
         <PageHeader
-          title={PROFILE_TABS.title}
-          description={PROFILE_TABS.description}
+          title={PROFILE_PAGE_HEADERS.reviews.title}
+          description={PROFILE_PAGE_HEADERS.reviews.description}
         />
         <ProfileTabs>
           <div className="grid gap-6">
@@ -98,8 +98,8 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
   return (
     <div className="container pb-6">
       <PageHeader
-        title={PROFILE_TABS.title}
-        description={PROFILE_TABS.description}
+        title={PROFILE_PAGE_HEADERS.reviews.title}
+        description={PROFILE_PAGE_HEADERS.reviews.description}
       />
 
       <ProfileTabs>

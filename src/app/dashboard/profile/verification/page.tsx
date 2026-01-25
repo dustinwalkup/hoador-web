@@ -3,7 +3,7 @@ import { CheckCircle, AlertCircle } from "lucide-react";
 import { userDAL } from "@/dal";
 import { ProfileTabs } from "@/features/users/components/profile";
 import { getCurrentUserId } from "@/features/auth/utils/session";
-import { PROFILE_TABS } from "@/constants/profile";
+import { PROFILE_PAGE_HEADERS } from "@/constants/profile";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,8 +26,8 @@ export default async function VerificationPage() {
     return (
       <div className="container pb-6">
         <PageHeader
-          title={PROFILE_TABS.title}
-          description={PROFILE_TABS.description}
+          title={PROFILE_PAGE_HEADERS.verification.title}
+          description={PROFILE_PAGE_HEADERS.verification.description}
         />
         <ProfileTabs>
           <Card>
@@ -47,8 +47,8 @@ export default async function VerificationPage() {
   return (
     <div className="container pb-6">
       <PageHeader
-        title={PROFILE_TABS.title}
-        description={PROFILE_TABS.description}
+        title={PROFILE_PAGE_HEADERS.verification.title}
+        description={PROFILE_PAGE_HEADERS.verification.description}
       />
 
       <ProfileTabs>

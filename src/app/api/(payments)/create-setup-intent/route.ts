@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
-import { getCurrentUser } from "@/features/auth/utils/session";
+import {
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
 import { userDAL } from "@/dal";
 
 export async function POST() {
   try {
-    // Get the current user
-    const user = await getCurrentUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
     }
+    const { user } = authResult;
 
     let stripeCustomerId = user.stripeCustomerId || null;
 
@@ -20,7 +23,6 @@ export async function POST() {
         email: user.email,
         name: `${user.firstName} ${user.lastName}`,
       });
-      console.log("stripeCustomer", stripeCustomer);
       stripeCustomerId = stripeCustomer.id;
       await userDAL.updateUser(user.id, {
         stripeCustomerId: stripeCustomer.id,
@@ -28,18 +30,17 @@ export async function POST() {
     }
 
     // Create a setup intent
-    const paymentIntent = await PAYMENT_SERVER_INSTANCE.setupIntents.create({
+    // Note: Don't specify payment_method_types when using PaymentElement
+    // PaymentElement will handle payment method type selection
+    const setupIntent = await PAYMENT_SERVER_INSTANCE.setupIntents.create({
       usage: "off_session",
       customer: stripeCustomerId,
+      // Don't specify payment_method_types - let PaymentElement handle it
     });
 
     // Return the client secret
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret });
+    return NextResponse.json({ clientSecret: setupIntent.client_secret });
   } catch (error) {
-    console.error("Internal error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }

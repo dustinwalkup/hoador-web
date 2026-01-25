@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
+import {
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
 
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) {
+      return authResult; // Returns 401
+    }
+
     const { amount } = await request.json();
 
     if (!amount || amount <= 0) {
@@ -23,10 +33,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
-    console.error("Internal error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return handleApiError(error);
   }
 }

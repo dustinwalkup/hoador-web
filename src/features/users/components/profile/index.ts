@@ -1,4 +1,3 @@
-export * from "./billing-tab";
 export * from "./preferences-tab";
 export * from "./profile-form";
 export * from "./profile-tabs";

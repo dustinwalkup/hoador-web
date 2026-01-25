@@ -127,7 +127,7 @@ export function ConnectOnboarding({ onComplete }: ConnectOnboardingProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Complete Payment Setup</CardTitle>
+        <CardTitle>Stripe Connect Setup Required</CardTitle>
         <CardDescription>
           Set up your payment account to list items and receive payouts from
           rentals. This process is secure and takes just a few minutes.

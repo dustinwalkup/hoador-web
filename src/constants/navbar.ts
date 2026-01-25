@@ -12,6 +12,7 @@ import {
   SearchIcon,
   SettingsIcon,
   CalendarIcon,
+  DollarSign,
 } from "lucide-react";
 import DoorIcon from "@/components/ui/door-icon";
 
@@ -65,6 +66,7 @@ export const MAIN_NAV: MainNavItem[] = [
   },
   { title: "Garage", url: "/dashboard/garage", icon: WarehouseIcon },
   { title: "Mailbox", url: "/dashboard/mailbox", icon: MailIcon },
+  { title: "Payments", url: "/dashboard/payments", icon: DollarSign },
   { title: "Profile", url: "/dashboard/profile", icon: UserIcon },
 ];
 

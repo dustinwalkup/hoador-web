@@ -1,9 +1,9 @@
+import { redirect } from "next/navigation";
 import { AuthenticatedSidebar } from "@/components/authenticated-sidebar";
 import { SiteHeader } from "@/components/site-header";
+import { ConditionalPadding } from "@/components/conditional-padding";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getCurrentUser } from "@/features/auth/utils/session";
-import { redirect } from "next/navigation";
-import { ConditionalPadding } from "../../components/conditional-padding";
 import { PageHeaderProvider } from "@/contexts/page-header-context";
 
 export default async function DashboardLayout({

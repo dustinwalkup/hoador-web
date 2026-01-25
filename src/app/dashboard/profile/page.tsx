@@ -3,7 +3,7 @@ import { Star, MapPin, Calendar, Info } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { rentalDAL, reviewDAL } from "@/dal";
-import { PROFILE_TABS, PROFILE_OVERVIEW } from "@/constants/profile";
+import { PROFILE_OVERVIEW, PROFILE_PAGE_HEADERS } from "@/constants/profile";
 import { formatReviewSummary } from "@/features/users/utils/reviews.utils";
 import {
   formatMemberSince,
@@ -48,8 +48,8 @@ export default async function ProfilePage() {
   return (
     <div className="container pb-6">
       <PageHeader
-        title={PROFILE_TABS.title}
-        description={PROFILE_TABS.description}
+        title={PROFILE_PAGE_HEADERS.profile.title}
+        description={PROFILE_PAGE_HEADERS.profile.description}
       />
 
       <ProfileTabs>
