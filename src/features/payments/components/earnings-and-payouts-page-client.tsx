@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, useRef } from "react";
 import { loadConnectAndInitialize } from "@stripe/connect-js";
 import { ConnectComponentsProvider } from "@stripe/react-connect-js";
 import type { StripeConnectInstance } from "@stripe/connect-js";
-import { PaymentsPageSkeleton } from "./payments-page-skeleton";
 import { PaymentsPageError } from "./payments-page-error";
 import { OwnerSection } from "./owner-section";
 import { InitiateStripeOnboarding } from "./initiate-stripe-onboarding";
@@ -28,65 +26,64 @@ interface EarningsAndPayoutsPageClientProps {
 export function EarningsAndPayoutsPageClient({
   isOnboarded,
 }: EarningsAndPayoutsPageClientProps) {
-  const queryClient = useQueryClient();
   const [connectInstance, setConnectInstance] =
     useState<StripeConnectInstance | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
+  const isInitializingRef = useRef(false);
 
-  // Fetch account session using React Query
+  // Use account session hook only for error checking, not to block initialization
+  // We initialize Connect immediately when onboarded - don't wait for this hook
   const {
-    data: clientSecret,
-    isLoading,
     error: accountSessionError,
     refetch: refetchAccountSession,
   } = useAccountSession("payments", isOnboarded);
 
-  // Initialize Stripe Connect when client secret is available
+  // Initialize Stripe Connect immediately when user is onboarded
+  // Don't wait for useAccountSession - this speeds up initialization significantly
   useEffect(() => {
-    if (!isOnboarded || !clientSecret) return;
+    if (!isOnboarded || isInitializingRef.current) return;
 
     const initializeConnect = async () => {
+      // Prevent double initialization (e.g., from React Strict Mode)
+      isInitializingRef.current = true;
+
       try {
         // Fetch client secret function - called by Connect components when needed
-        // Use ensureQueryData to get cached or refetch if needed
+        // Always create a fresh account session - Stripe handles session management
+        // Each component may need its own session, so we create fresh ones
         const fetchClientSecret = async (): Promise<string> => {
-          return queryClient.ensureQueryData({
-            queryKey: ["account-session", "payments"],
-            queryFn: async (): Promise<string> => {
-              const response = await fetch(
-                "/api/stripe/create-account-session?mode=payments",
-                {
-                  method: "POST",
-                },
-              );
-
-              if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                let errorMessage =
-                  errorData.error || "Failed to create account session";
-
-                // Provide user-friendly messages for specific error cases
-                if (response.status === 401) {
-                  errorMessage = "Please sign in to access payment settings.";
-                } else if (response.status === 404) {
-                  errorMessage =
-                    "Payment account not found. Please complete onboarding.";
-                } else if (response.status >= 500) {
-                  errorMessage = "Server error. Please try again later.";
-                }
-
-                throw new Error(errorMessage);
-              }
-
-              const data = await response.json();
-
-              if (!data.clientSecret) {
-                throw new Error("Invalid response from server");
-              }
-
-              return data.clientSecret;
+          const response = await fetch(
+            "/api/stripe/create-account-session?mode=payments",
+            {
+              method: "POST",
             },
-          });
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            let errorMessage =
+              errorData.error || "Failed to create account session";
+
+            // Provide user-friendly messages for specific error cases
+            if (response.status === 401) {
+              errorMessage = "Please sign in to access payment settings.";
+            } else if (response.status === 404) {
+              errorMessage =
+                "Payment account not found. Please complete onboarding.";
+            } else if (response.status >= 500) {
+              errorMessage = "Server error. Please try again later.";
+            }
+
+            throw new Error(errorMessage);
+          }
+
+          const data = await response.json();
+
+          if (!data.clientSecret) {
+            throw new Error("Invalid response from server");
+          }
+
+          return data.clientSecret;
         };
 
         const connect = await loadConnectAndInitialize({
@@ -102,16 +99,17 @@ export function EarningsAndPayoutsPageClient({
             ? err.message
             : "Failed to initialize Stripe Connect";
         setInitError(errorMessage);
+        isInitializingRef.current = false;
       }
     };
 
     initializeConnect();
-  }, [isOnboarded, clientSecret, queryClient]);
 
-  // Show loading state while fetching account session
-  if (isLoading) {
-    return <PaymentsPageSkeleton />;
-  }
+    // Cleanup function to reset initialization flag if component unmounts
+    return () => {
+      isInitializingRef.current = false;
+    };
+  }, [isOnboarded]);
 
   // Show error state if account session failed or initialization failed
   const error = accountSessionError || initError;
@@ -121,6 +119,7 @@ export function EarningsAndPayoutsPageClient({
         error={error instanceof Error ? error.message : String(error)}
         onRetry={() => {
           setInitError(null);
+          isInitializingRef.current = false; // Reset to allow reinitialization
           refetchAccountSession();
         }}
       />

@@ -97,7 +97,7 @@ export function PaymentMethodsSection() {
 
   if (showAddForm) {
     return (
-      <Card className="w-full max-w-[500px]">
+      <Card className="w-full">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -121,7 +121,7 @@ export function PaymentMethodsSection() {
   }
 
   return (
-    <Card className="w-full max-w-[500px]">
+    <Card className="w-full">
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
