@@ -173,6 +173,8 @@ jobs:
       # Mock API keys for build testing (secrets used in production deployments)
       OPENAI_API_KEY: sk-mock_openai_key_for_build
       SERP_API_KEY: mock_serp_key_for_build
+
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'mock_resend_key_for_build' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
