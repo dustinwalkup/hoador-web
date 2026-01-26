@@ -81,6 +81,13 @@ export class DisputeDAL extends BaseDAL {
               renterId: true,
               ownerId: true,
             },
+            with: {
+              listing: {
+                columns: {
+                  name: true,
+                },
+              },
+            },
           },
           createdByUser: {
             columns: {
@@ -158,6 +165,13 @@ export class DisputeDAL extends BaseDAL {
               listingId: true,
               renterId: true,
               ownerId: true,
+            },
+            with: {
+              listing: {
+                columns: {
+                  name: true,
+                },
+              },
             },
           },
           createdByUser: {
@@ -257,6 +271,13 @@ export class DisputeDAL extends BaseDAL {
               renterId: true,
               ownerId: true,
             },
+            with: {
+              listing: {
+                columns: {
+                  name: true,
+                },
+              },
+            },
           },
           createdByUser: {
             columns: {
@@ -334,6 +355,13 @@ export class DisputeDAL extends BaseDAL {
               listingId: true,
               renterId: true,
               ownerId: true,
+            },
+            with: {
+              listing: {
+                columns: {
+                  name: true,
+                },
+              },
             },
           },
           createdByUser: {

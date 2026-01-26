@@ -8,6 +8,7 @@ import type { PaginatedResult } from "@/dal/types";
 
 export const mockDispute: DisputeWithRelations = {
   id: "dispute-123",
+  referenceNumber: 42,
   rentalId: "rental-123",
   createdBy: "user-123",
   createdByRole: "renter",

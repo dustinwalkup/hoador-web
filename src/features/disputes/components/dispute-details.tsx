@@ -30,6 +30,10 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "@/lib/utils/date.utils";
 import { useDispute } from "../hooks";
 import { DisputeStatusBadge } from "./dispute-status-badge";
+import {
+  formatDisputeId,
+  formatDisputeIdentifier,
+} from "../utils/format-dispute-id";
 import { AdminResolutionPanel } from "./admin-resolution-panel";
 import { InternalNotesSection } from "./internal-notes-section";
 import { AdminStateControls } from "./admin-state-controls";
@@ -186,9 +190,10 @@ export function DisputeDetails({
     );
   }
 
-  const rentalInfo = dispute.rental
-    ? `Rental #${dispute.rental.requestId || dispute.rental.id.slice(0, 8)}`
-    : "Unknown Rental";
+  const disputeIdentifier = formatDisputeIdentifier(
+    dispute.referenceNumber,
+    dispute.rental?.listing?.name,
+  );
 
   const deadline = formatDeadline(dispute.evidenceDeadline);
 
@@ -200,11 +205,11 @@ export function DisputeDetails({
           <div className="flex items-start justify-between">
             <div>
               <CardTitle className="flex items-center gap-3">
-                <span>Dispute {dispute.id.slice(0, 8)}</span>
+                <span>Dispute {formatDisputeId(dispute.referenceNumber)}</span>
                 <DisputeStatusBadge status={dispute.status} />
               </CardTitle>
               <CardDescription className="mt-2">
-                {rentalInfo} • {getReasonCodeLabel(dispute.reasonCode)}
+                {disputeIdentifier} • {getReasonCodeLabel(dispute.reasonCode)}
               </CardDescription>
             </div>
             {dispute.rental && (

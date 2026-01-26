@@ -7,6 +7,8 @@ import {
   decimal,
   index,
   jsonb,
+  serial,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { user } from "./user.schema";
@@ -27,6 +29,7 @@ export const disputes = pgTable(
   "disputes",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    referenceNumber: serial("reference_number"),
     rentalId: uuid("rental_id")
       .references(() => rentals.id, { onDelete: "restrict" })
       .notNull()
@@ -55,6 +58,7 @@ export const disputes = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    uniqueIndex("disputes_reference_number_idx").on(table.referenceNumber),
     index("disputes_rental_id_idx").on(table.rentalId),
     index("disputes_created_by_idx").on(table.createdBy),
     index("disputes_status_idx").on(table.status),

@@ -469,6 +469,7 @@ export interface CreateDisputeData {
 
 export interface DisputeWithRelations {
   id: string;
+  referenceNumber: number | null;
   rentalId: string;
   createdBy: string;
   createdByRole: DisputeRole;
@@ -491,6 +492,9 @@ export interface DisputeWithRelations {
     listingId: string;
     renterId: string;
     ownerId: string;
+    listing?: {
+      name: string;
+    };
   };
   createdByUser?: {
     id: string;

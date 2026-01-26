@@ -3,14 +3,8 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AlertCircle, Loader2 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import Link from "next/link";
+import { AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -66,13 +60,17 @@ type CreateDisputeFormData = z.infer<typeof createDisputeSchema>;
 
 interface CreateDisputeFormProps {
   rentalId: string;
+  disputePolicyUrl?: string;
 }
 
 /**
  * Form content component (without Card wrapper)
  * Can be used in dialogs or other contexts
  */
-export function CreateDisputeFormContent({ rentalId }: CreateDisputeFormProps) {
+export function CreateDisputeFormContent({
+  rentalId,
+  disputePolicyUrl,
+}: CreateDisputeFormProps) {
   const createDispute = useCreateDispute();
 
   const form = useForm<CreateDisputeFormData>({
@@ -167,7 +165,20 @@ export function CreateDisputeFormContent({ rentalId }: CreateDisputeFormProps) {
           )}
         />
 
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-between gap-3">
+          {disputePolicyUrl && (
+            <div className="flex justify-start">
+              <Link
+                href={disputePolicyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary inline-flex items-center gap-1 text-sm hover:underline"
+              >
+                Review our Dispute Policy
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            </div>
+          )}
           <Button
             type="submit"
             disabled={createDispute.isPending || !form.formState.isValid}
@@ -184,25 +195,5 @@ export function CreateDisputeFormContent({ rentalId }: CreateDisputeFormProps) {
         </div>
       </form>
     </Form>
-  );
-}
-
-/**
- * Form component for creating a new dispute (with Card wrapper)
- * Accepts rentalId as prop and handles form validation and submission
- */
-export function CreateDisputeForm({ rentalId }: CreateDisputeFormProps) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>File a Dispute</CardTitle>
-        <CardDescription>
-          Please provide details about the issue with this rental
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <CreateDisputeFormContent rentalId={rentalId} />
-      </CardContent>
-    </Card>
   );
 }

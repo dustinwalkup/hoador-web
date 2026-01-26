@@ -86,6 +86,20 @@ export async function RentalDetailsServer({
     console.error("Error fetching review policy:", error);
   }
 
+  // Fetch the dispute policy document
+  let disputePolicyUrl: string | undefined;
+  try {
+    const currentVersion = await legalDocumentDAL.getCurrentVersion(
+      LEGAL_DOCUMENT_IDS.DISPUTE_POLICY,
+    );
+    if (currentVersion) {
+      disputePolicyUrl = currentVersion.url;
+    }
+  } catch (error) {
+    // If there's an error fetching, continue without the URL
+    console.error("Error fetching dispute policy:", error);
+  }
+
   // Fetch active dispute for this rental
   let activeDispute = null;
   try {
@@ -110,6 +124,7 @@ export async function RentalDetailsServer({
         isOwner={isOwner}
         rentalAgreementUrl={rentalAgreementUrl}
         reviewPolicyUrl={reviewPolicyUrl}
+        disputePolicyUrl={disputePolicyUrl}
         activeDispute={activeDispute}
       />
     </RentalLayout>

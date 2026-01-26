@@ -7,13 +7,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CreateDisputeFormContent } from "./create-dispute-form";
+import { CreateDisputeFormContent } from "@/features/disputes/components/";
 
 interface FileDisputeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rentalId: string;
   listingName?: string;
+  disputePolicyUrl?: string;
 }
 
 /**
@@ -26,6 +27,7 @@ export function FileDisputeDialog({
   onOpenChange,
   rentalId,
   listingName,
+  disputePolicyUrl,
 }: FileDisputeDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -39,7 +41,10 @@ export function FileDisputeDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4">
-          <CreateDisputeFormContent rentalId={rentalId} />
+          <CreateDisputeFormContent
+            rentalId={rentalId}
+            disputePolicyUrl={disputePolicyUrl}
+          />
         </div>
       </DialogContent>
     </Dialog>

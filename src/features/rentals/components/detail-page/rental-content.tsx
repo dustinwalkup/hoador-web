@@ -18,6 +18,7 @@ interface RentalContentProps {
   isOwner: boolean;
   rentalAgreementUrl?: string;
   reviewPolicyUrl?: string;
+  disputePolicyUrl?: string;
   activeDispute?: DisputeWithRelations | null;
 }
 
@@ -28,6 +29,7 @@ export function RentalContent({
   isOwner,
   rentalAgreementUrl,
   reviewPolicyUrl,
+  disputePolicyUrl,
   activeDispute,
 }: RentalContentProps) {
   return (
@@ -69,6 +71,7 @@ export function RentalContent({
           isOwner={isOwner}
           rentalAgreementUrl={rentalAgreementUrl}
           reviewPolicyUrl={reviewPolicyUrl}
+          disputePolicyUrl={disputePolicyUrl}
           activeDispute={activeDispute}
         />
         <RentalProtection />

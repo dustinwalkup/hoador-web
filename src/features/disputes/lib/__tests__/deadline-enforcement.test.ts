@@ -35,6 +35,7 @@ describe("DeadlineEnforcementService", () => {
       evidenceDeadline: Date | null,
     ): DisputeWithRelations => ({
       id: mockDisputeId,
+      referenceNumber: 42,
       rentalId: mockRentalId,
       createdBy: mockRenterId,
       createdByRole: "renter",
@@ -362,6 +363,7 @@ describe("DeadlineEnforcementService", () => {
       const pastDeadline = new Date("2024-01-01T00:00:00Z");
       const dispute: DisputeWithRelations = {
         id: "dispute-123",
+        referenceNumber: 42,
         rentalId: "rental-123",
         createdBy: "user-123",
         createdByRole: "renter",
@@ -387,6 +389,7 @@ describe("DeadlineEnforcementService", () => {
       const futureDeadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const dispute: DisputeWithRelations = {
         id: "dispute-123",
+        referenceNumber: 42,
         rentalId: "rental-123",
         createdBy: "user-123",
         createdByRole: "renter",
@@ -411,6 +414,7 @@ describe("DeadlineEnforcementService", () => {
     it("should return false when dispute is not in EVIDENCE_REQUESTED state", () => {
       const dispute: DisputeWithRelations = {
         id: "dispute-123",
+        referenceNumber: 42,
         rentalId: "rental-123",
         createdBy: "user-123",
         createdByRole: "renter",
@@ -435,6 +439,7 @@ describe("DeadlineEnforcementService", () => {
     it("should return false when deadline is null", () => {
       const dispute: DisputeWithRelations = {
         id: "dispute-123",
+        referenceNumber: 42,
         rentalId: "rental-123",
         createdBy: "user-123",
         createdByRole: "renter",
@@ -462,6 +467,7 @@ describe("DeadlineEnforcementService", () => {
       const futureDeadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
       const dispute: DisputeWithRelations = {
         id: "dispute-123",
+        referenceNumber: 42,
         rentalId: "rental-123",
         createdBy: "user-123",
         createdByRole: "renter",
@@ -490,6 +496,7 @@ describe("DeadlineEnforcementService", () => {
       const pastDeadline = new Date("2024-01-01T00:00:00Z");
       const dispute: DisputeWithRelations = {
         id: "dispute-123",
+        referenceNumber: 42,
         rentalId: "rental-123",
         createdBy: "user-123",
         createdByRole: "renter",
@@ -516,6 +523,7 @@ describe("DeadlineEnforcementService", () => {
     it("should return null when dispute is not in EVIDENCE_REQUESTED state", () => {
       const dispute: DisputeWithRelations = {
         id: "dispute-123",
+        referenceNumber: 42,
         rentalId: "rental-123",
         createdBy: "user-123",
         createdByRole: "renter",
@@ -540,6 +548,7 @@ describe("DeadlineEnforcementService", () => {
     it("should return null when deadline is null", () => {
       const dispute: DisputeWithRelations = {
         id: "dispute-123",
+        referenceNumber: 42,
         rentalId: "rental-123",
         createdBy: "user-123",
         createdByRole: "renter",

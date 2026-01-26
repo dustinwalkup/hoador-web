@@ -37,6 +37,7 @@ interface RentalActionsProps {
   isOwner: boolean;
   rentalAgreementUrl?: string;
   reviewPolicyUrl?: string;
+  disputePolicyUrl?: string;
   activeDispute?: DisputeWithRelations | null;
 }
 
@@ -46,6 +47,7 @@ export function RentalActions({
   isOwner,
   rentalAgreementUrl,
   reviewPolicyUrl,
+  disputePolicyUrl,
   activeDispute,
 }: RentalActionsProps) {
   const router = useRouter();
@@ -314,6 +316,7 @@ export function RentalActions({
         onOpenChange={setShowFileDisputeDialog}
         rentalId={rentalDetails.id}
         listingName={rentalDetails.listingName}
+        disputePolicyUrl={disputePolicyUrl}
       />
     </Card>
   );

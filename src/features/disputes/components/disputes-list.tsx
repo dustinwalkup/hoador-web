@@ -20,6 +20,10 @@ import {
 } from "@/components/ui/select";
 import { useDisputes, type UseDisputesFilters } from "../hooks";
 import { DisputeStatusBadge } from "./dispute-status-badge";
+import {
+  formatDisputeId,
+  formatDisputeIdentifier,
+} from "../utils/format-dispute-id";
 import type {
   DisputeStatus,
   DisputeRole,
@@ -217,9 +221,10 @@ export function DisputesList({ isAdmin = false }: DisputesListProps) {
           ) : (
             <div className="space-y-4">
               {disputes.map((dispute) => {
-                const rentalInfo = dispute.rental
-                  ? `Rental #${dispute.rental.requestId || dispute.rental.id.slice(0, 8)}`
-                  : "Unknown Rental";
+                const disputeIdentifier = formatDisputeIdentifier(
+                  dispute.referenceNumber,
+                  dispute.rental?.listing?.name,
+                );
 
                 return (
                   <Link
@@ -234,11 +239,11 @@ export function DisputesList({ isAdmin = false }: DisputesListProps) {
                             <div className="flex items-center gap-3">
                               <DisputeStatusBadge status={dispute.status} />
                               <span className="text-muted-foreground font-mono text-sm">
-                                {dispute.id.slice(0, 8)}
+                                {formatDisputeId(dispute.referenceNumber)}
                               </span>
                             </div>
                             <div>
-                              <p className="font-medium">{rentalInfo}</p>
+                              <p className="font-medium">{disputeIdentifier}</p>
                               <p className="text-muted-foreground text-sm">
                                 {getReasonCodeLabel(dispute.reasonCode)}
                               </p>

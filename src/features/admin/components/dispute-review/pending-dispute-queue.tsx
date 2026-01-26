@@ -13,6 +13,10 @@ import {
 } from "@/components/ui/card";
 import { useDisputes } from "@/features/disputes/hooks/use-disputes";
 import { DisputeStatusBadge } from "@/features/disputes/components/dispute-status-badge";
+import {
+  formatDisputeId,
+  formatDisputeIdentifier,
+} from "@/features/disputes/utils/format-dispute-id";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -138,9 +142,10 @@ export function PendingDisputeQueue() {
         <CardContent>
           <div className="space-y-4">
             {paginatedDisputes.map((dispute) => {
-              const rentalInfo = dispute.rental
-                ? `Rental #${dispute.rental.requestId || dispute.rental.id.slice(0, 8)}`
-                : "Unknown Rental";
+              const disputeIdentifier = formatDisputeIdentifier(
+                dispute.referenceNumber,
+                dispute.rental?.listing?.name,
+              );
 
               return (
                 <Link
@@ -155,11 +160,11 @@ export function PendingDisputeQueue() {
                           <div className="flex items-center gap-3">
                             <DisputeStatusBadge status={dispute.status} />
                             <span className="text-muted-foreground font-mono text-sm">
-                              {dispute.id.slice(0, 8)}
+                              {formatDisputeId(dispute.referenceNumber)}
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium">{rentalInfo}</p>
+                            <p className="font-medium">{disputeIdentifier}</p>
                             <p className="text-muted-foreground text-sm">
                               {getReasonCodeLabel(dispute.reasonCode)}
                             </p>
