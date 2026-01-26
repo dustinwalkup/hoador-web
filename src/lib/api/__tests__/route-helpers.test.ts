@@ -30,6 +30,7 @@ vi.mock("@/features/auth/utils/guards", () => ({
 
 import {
   getCurrentUserId,
+  getCurrentUser,
   getAuthenticatedUser,
 } from "@/features/auth/utils/session";
 import { requireAdmin } from "@/features/auth/utils/guards";
@@ -37,6 +38,9 @@ import { requireAdmin } from "@/features/auth/utils/guards";
 describe("route-helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock getCurrentUser to return a Promise that resolves to null
+    // This prevents errors when handleApiError tries to set user context
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
   });
 
   describe("handleApiError", () => {

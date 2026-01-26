@@ -69,6 +69,12 @@ jobs:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
+          # Sentry configuration (required)
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          # Optional: Set environment name (defaults to NODE_ENV)
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: production
+
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
         with:

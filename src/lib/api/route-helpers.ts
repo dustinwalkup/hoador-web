@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import {
   getCurrentUserId,
   requireAuth,
@@ -13,6 +14,7 @@ import {
   ValidationError,
   ConflictError,
 } from "@/dal/errors";
+import { setSentryUser } from "@/lib/sentry/user-context";
 
 /**
  * Error class for unauthorized access at the API layer
@@ -36,6 +38,33 @@ export function handleApiError(
   error: unknown,
 ): NextResponse<{ error: string; details?: unknown }> {
   console.error("API error:", error);
+
+  // Set user context for Sentry if available (non-blocking)
+  getCurrentUser()
+    .then((user) => {
+      if (user) {
+        setSentryUser(user);
+      }
+    })
+    .catch(() => {
+      // Silently fail if we can't get user context
+    });
+
+  // Only capture unexpected errors (500+) in production
+  const shouldCaptureError =
+    process.env.NODE_ENV === "production" &&
+    !(error instanceof UnauthorizedError) &&
+    !(error instanceof NotFoundError) &&
+    !(error instanceof ValidationError) &&
+    !(error instanceof ConflictError);
+
+  if (shouldCaptureError) {
+    Sentry.captureException(error, {
+      tags: {
+        error_type: error instanceof DALError ? "dal_error" : "api_error",
+      },
+    });
+  }
 
   // Handle DAL errors with specific status codes
   if (error instanceof UnauthorizedError) {

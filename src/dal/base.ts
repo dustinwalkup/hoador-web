@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { db } from "@/db/db";
 import { DALError, ValidationError } from "./errors";
 import { type PaginatedResult } from "./types";
@@ -13,6 +14,29 @@ export abstract class BaseDAL<TTable = undefined> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected handleError(error: any, operation: string): never {
     console.error(`DAL Error in ${operation}:`, error);
+
+    // Only capture unexpected database errors in production
+    const isUnexpectedError =
+      process.env.NODE_ENV === "production" &&
+      error.code !== "23505" && // Unique constraint - expected
+      error.code !== "23503" && // Foreign key - expected
+      error.code !== "23514"; // Check constraint - expected
+
+    if (isUnexpectedError) {
+      Sentry.captureException(error, {
+        tags: {
+          error_type: "dal_error",
+          operation,
+          error_code: error.code,
+        },
+        contexts: {
+          database: {
+            operation,
+            error_code: error.code,
+          },
+        },
+      });
+    }
 
     if (error instanceof DALError) {
       throw error;
