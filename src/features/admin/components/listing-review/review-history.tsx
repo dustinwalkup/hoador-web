@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/card";
 import { useReviewHistory } from "@/features/admin/hooks/use-review-history";
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 10;
 
 export function ReviewHistory() {
   const [page, setPage] = useState(1);

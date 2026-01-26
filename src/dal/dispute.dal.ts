@@ -1,4 +1,4 @@
-import { eq, and, or, ne, sql, desc, asc, gte } from "drizzle-orm";
+import { eq, and, or, ne, sql, desc, asc, gte, isNotNull } from "drizzle-orm";
 import { BaseDAL } from "./base";
 import { NotFoundError, ValidationError } from "./errors";
 import {
@@ -386,6 +386,140 @@ export class DisputeDAL extends BaseDAL {
       );
     } catch (error) {
       this.handleError(error, "getAdminDisputes");
+    }
+  }
+
+  /**
+   * Count disputes that need admin review
+   * Pending disputes = those in 'open', 'evidence_requested', or 'under_review' states
+   * @returns Count of pending disputes
+   */
+  async countPendingDisputes(): Promise<number> {
+    try {
+      const result = await this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(disputes)
+        .where(
+          or(
+            eq(disputes.status, "open"),
+            eq(disputes.status, "evidence_requested"),
+            eq(disputes.status, "under_review"),
+          ),
+        );
+
+      return Number(result[0]?.count || 0);
+    } catch (error) {
+      this.handleError(error, "countPendingDisputes");
+    }
+  }
+
+  /**
+   * Get comprehensive dispute statistics for admin dashboard
+   * @returns Object with various dispute statistics
+   */
+  async getDisputeStats(): Promise<{
+    total: number;
+    pending: number;
+    resolvedThisMonth: number;
+    byStatus: Record<DisputeStatus, number>;
+    byReasonCode: Record<DisputeReasonCode, number>;
+    averageResolutionTime: number | null; // in days
+  }> {
+    try {
+      // Get total count
+      const totalResult = await this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(disputes);
+      const total = Number(totalResult[0]?.count || 0);
+
+      // Get pending count
+      const pending = await this.countPendingDisputes();
+
+      // Get resolved this month count
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const resolvedThisMonthResult = await this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(disputes)
+        .where(
+          and(
+            eq(disputes.status, "resolved"),
+            isNotNull(disputes.resolvedAt),
+            gte(disputes.resolvedAt, startOfMonth),
+          ),
+        );
+      const resolvedThisMonth = Number(resolvedThisMonthResult[0]?.count || 0);
+
+      // Get breakdown by status
+      const statusBreakdownResult = await this.db
+        .select({
+          status: disputes.status,
+          count: sql<number>`count(*)`,
+        })
+        .from(disputes)
+        .groupBy(disputes.status);
+
+      const byStatus: Record<DisputeStatus, number> = {
+        open: 0,
+        evidence_requested: 0,
+        under_review: 0,
+        resolved: 0,
+        closed: 0,
+      };
+
+      for (const row of statusBreakdownResult) {
+        byStatus[row.status] = Number(row.count || 0);
+      }
+
+      // Get breakdown by reason code
+      const reasonCodeBreakdownResult = await this.db
+        .select({
+          reasonCode: disputes.reasonCode,
+          count: sql<number>`count(*)`,
+        })
+        .from(disputes)
+        .groupBy(disputes.reasonCode);
+
+      const byReasonCode: Record<DisputeReasonCode, number> = {
+        damage: 0,
+        non_delivery: 0,
+        quality_issue: 0,
+        cancellation: 0,
+        payment_issue: 0,
+        other: 0,
+      };
+
+      for (const row of reasonCodeBreakdownResult) {
+        byReasonCode[row.reasonCode] = Number(row.count || 0);
+      }
+
+      // Calculate average resolution time (in days) for resolved disputes
+      const resolutionTimeResult = await this.db
+        .select({
+          avgDays: sql<number>`AVG(EXTRACT(EPOCH FROM (${disputes.resolvedAt} - ${disputes.createdAt})) / 86400)`,
+        })
+        .from(disputes)
+        .where(
+          and(eq(disputes.status, "resolved"), isNotNull(disputes.resolvedAt)),
+        );
+
+      const averageResolutionTime =
+        resolutionTimeResult[0]?.avgDays !== null
+          ? Math.round(Number(resolutionTimeResult[0]?.avgDays || 0) * 10) / 10
+          : null;
+
+      return {
+        total,
+        pending,
+        resolvedThisMonth,
+        byStatus,
+        byReasonCode,
+        averageResolutionTime,
+      };
+    } catch (error) {
+      this.handleError(error, "getDisputeStats");
     }
   }
 

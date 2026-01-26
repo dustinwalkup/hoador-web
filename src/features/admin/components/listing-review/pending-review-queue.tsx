@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { usePendingReviews } from "@/features/admin/hooks/use-pending-reviews";
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 10;
 
 export function PendingReviewQueue() {
   const [page, setPage] = useState(1);

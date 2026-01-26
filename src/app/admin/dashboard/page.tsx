@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Users, Package, MessageSquare, Activity } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { DisputeStatsWidget } from "@/features/admin/components/dispute-stats-widget";
 export const metadata = {
   title: "Admin - Dashboard",
   description: "Overview of platform metrics and recent activity",
@@ -80,6 +81,9 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dispute Statistics Widget */}
+      <DisputeStatsWidget />
 
       {/* Recent Activity */}
       <Card>

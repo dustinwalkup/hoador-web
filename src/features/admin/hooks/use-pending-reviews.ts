@@ -13,7 +13,7 @@ interface PendingReviewsResponse {
   };
 }
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 10;
 
 export function usePendingReviews(
   page: number = 1,

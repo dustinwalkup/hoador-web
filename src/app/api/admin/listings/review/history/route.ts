@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       ? (statusParam as "approved" | "rejected" | "all")
       : "all";
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = parseInt(searchParams.get("limit") || "10");
 
     // Call DAL method with status filter and pagination
     const pagination = { page, limit };

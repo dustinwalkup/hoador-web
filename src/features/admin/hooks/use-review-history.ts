@@ -13,7 +13,7 @@ interface ReviewHistoryResponse {
   };
 }
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 10;
 
 export function useReviewHistory(
   statusFilter: "all" | "approved" | "rejected" = "all",

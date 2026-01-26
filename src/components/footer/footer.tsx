@@ -153,6 +153,9 @@ export default async function Footer() {
             <li>
               <FooterLink href="/help/report">Report an Issue</FooterLink>
             </li>
+            <li>
+              <FooterLink href="/dashboard/disputes">Disputes</FooterLink>
+            </li>
           </FooterSection>
         </div>
 

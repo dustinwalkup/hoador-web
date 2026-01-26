@@ -10,6 +10,7 @@ import {
   Users,
   Settings,
   ClipboardCheck,
+  Scale,
 } from "lucide-react";
 
 import {
@@ -25,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { UserProfile } from "@/dal/types";
 import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
 import { usePendingReviewCount } from "@/features/admin/hooks/use-pending-review-count";
+import { usePendingDisputesCount } from "@/features/admin/hooks/use-pending-disputes-count";
 import { NavUser } from "./nav-user";
 
 interface AdminSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -41,6 +43,11 @@ const adminNavItems = [
     title: "Listing Review",
     url: "/admin/dashboard/listings/review",
     icon: ClipboardCheck,
+  },
+  {
+    title: "Dispute Review",
+    url: "/admin/dashboard/disputes/review",
+    icon: Scale,
   },
   {
     title: "Legal Documents",
@@ -69,6 +76,7 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
   useMobileSidebarClose();
   const pathname = usePathname();
   const { data: pendingCount = 0 } = usePendingReviewCount();
+  const { data: pendingDisputesCount = 0 } = usePendingDisputesCount();
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -111,6 +119,12 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
               item.url === "/admin/dashboard/listings/review";
             const hasPendingReviews = isListingReview && pendingCount > 0;
 
+            // Check if this is the Dispute Review item and has pending disputes
+            const isDisputeReview =
+              item.url === "/admin/dashboard/disputes/review";
+            const hasPendingDisputes =
+              isDisputeReview && pendingDisputesCount > 0;
+
             return (
               <SidebarMenuItem key={item.title}>
                 <Link href={item.url}>
@@ -127,6 +141,16 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                         className="ml-auto h-5 min-w-5 px-1.5 text-xs"
                       >
                         {pendingCount > 99 ? "99+" : pendingCount}
+                      </Badge>
+                    )}
+                    {hasPendingDisputes && (
+                      <Badge
+                        variant="destructive"
+                        className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                      >
+                        {pendingDisputesCount > 99
+                          ? "99+"
+                          : pendingDisputesCount}
                       </Badge>
                     )}
                   </SidebarMenuButton>
