@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { rentalDAL, legalDocumentDAL } from "@/dal";
+import { rentalDAL, legalDocumentDAL, disputeDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalLayout } from "./rental-layout";
 import { RentalContent } from "./rental-content";
@@ -86,6 +86,16 @@ export async function RentalDetailsServer({
     console.error("Error fetching review policy:", error);
   }
 
+  // Fetch active dispute for this rental
+  let activeDispute = null;
+  try {
+    activeDispute = await disputeDAL.getActiveByRentalId(rentalId);
+  } catch (error) {
+    // If there's an error fetching dispute, continue without it
+    // This is non-critical, so we don't want to block the page
+    console.error("Error fetching active dispute:", error);
+  }
+
   return (
     <RentalLayout
       rentalDetails={rentalDetails}
@@ -100,6 +110,7 @@ export async function RentalDetailsServer({
         isOwner={isOwner}
         rentalAgreementUrl={rentalAgreementUrl}
         reviewPolicyUrl={reviewPolicyUrl}
+        activeDispute={activeDispute}
       />
     </RentalLayout>
   );

@@ -1,4 +1,5 @@
 import type { RentalDetails } from "@/dal/rentals.dal";
+import type { DisputeWithRelations } from "@/dal/types";
 import {
   RentalStatusCard,
   RentalListingInfo,
@@ -17,6 +18,7 @@ interface RentalContentProps {
   isOwner: boolean;
   rentalAgreementUrl?: string;
   reviewPolicyUrl?: string;
+  activeDispute?: DisputeWithRelations | null;
 }
 
 export function RentalContent({
@@ -26,12 +28,16 @@ export function RentalContent({
   isOwner,
   rentalAgreementUrl,
   reviewPolicyUrl,
+  activeDispute,
 }: RentalContentProps) {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
       {/* Main Content */}
       <div className="space-y-6 lg:col-span-2">
-        <RentalStatusCard rentalDetails={rentalDetails} />
+        <RentalStatusCard
+          rentalDetails={rentalDetails}
+          activeDispute={activeDispute}
+        />
         <RentalListingInfo rentalDetails={rentalDetails} />
         <RentalDetailsCard rentalDetails={rentalDetails} />
         <RentalMessagesCard
@@ -63,6 +69,7 @@ export function RentalContent({
           isOwner={isOwner}
           rentalAgreementUrl={rentalAgreementUrl}
           reviewPolicyUrl={reviewPolicyUrl}
+          activeDispute={activeDispute}
         />
         <RentalProtection />
       </div>

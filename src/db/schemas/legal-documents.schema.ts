@@ -32,9 +32,7 @@ export const legalDocuments = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => ({
-    pk: primaryKey({ columns: [table.id, table.version] }),
-  }),
+  (table) => [primaryKey({ columns: [table.id, table.version] })],
 );
 
 // User legal acceptances table - audit trail for all acceptances

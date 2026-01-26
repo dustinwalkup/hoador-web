@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { HelpCircle, Search } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata = {
   title: "Admin - Support Items",
@@ -75,13 +76,11 @@ const mockSupportTickets = [
 
 export default function SupportItemsPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Support Items</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage support tickets and customer inquiries (Coming Soon)
-        </p>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Support Items"
+        description="Manage support tickets and customer inquiries (Coming Soon)"
+      />
 
       {/* Filters */}
       <Card>

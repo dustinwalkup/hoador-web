@@ -262,6 +262,7 @@ export type RentalActionsInfo = Pick<
   | "renterName"
   | "status"
   | "startDate"
+  | "endDate"
   | "pickupInstructions"
   | "returnInstructions"
   | "deliveryRequested"
@@ -2075,6 +2076,29 @@ export class RentalDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "endRental");
+    }
+  }
+
+  /**
+   * Get security deposit authorization ID for a rental
+   * Used for dispute financial operations
+   *
+   * @param rentalId - The rental ID
+   * @returns The security deposit authorization ID or null
+   */
+  async getSecurityDepositAuthId(rentalId: string): Promise<string | null> {
+    try {
+      const [rental] = await this.db
+        .select({
+          securityDepositAuthId: rentals.securityDepositAuthId,
+        })
+        .from(rentals)
+        .where(eq(rentals.id, rentalId))
+        .limit(1);
+
+      return rental?.securityDepositAuthId || null;
+    } catch (error) {
+      this.handleError(error, "getSecurityDepositAuthId");
     }
   }
 }

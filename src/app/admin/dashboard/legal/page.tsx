@@ -16,6 +16,7 @@ import {
 } from "@/constants/legal-documents";
 import { LegalDocumentUploadForm } from "@/features/admin/components/legal-document-upload-form";
 import { DocumentVersionCard } from "@/features/admin/components/document-version-card";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata = {
   title: "Admin - Legal Documents",
@@ -39,13 +40,11 @@ export default async function LegalDocumentsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Legal Documents</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage legal documents and policies
-        </p>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Legal Documents"
+        description="Manage legal documents and policies"
+      />
 
       {/* Upload Form */}
       <Card>

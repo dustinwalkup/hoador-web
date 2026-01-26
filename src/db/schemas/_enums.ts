@@ -64,6 +64,11 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "listing_approved",
   "listing_rejected",
   "system",
+  "dispute_created",
+  "dispute_evidence_requested",
+  "dispute_evidence_deadline_approaching",
+  "dispute_evidence_deadline_expired",
+  "dispute_resolved",
 ]);
 
 export const messageStatusEnum = pgEnum("message_status", [
@@ -77,3 +82,59 @@ export const userTypeEnum = pgEnum("user_type", [
   "admin", // Admin user with admin privileges
   "superadmin", // Super admin with full system access
 ]);
+
+export const disputeStatusEnum = pgEnum("dispute_status", [
+  "open",
+  "evidence_requested",
+  "under_review",
+  "resolved",
+  "closed",
+]);
+
+export const disputeReasonCodeEnum = pgEnum("dispute_reason_code", [
+  "damage",
+  "non_delivery",
+  "quality_issue",
+  "cancellation",
+  "payment_issue",
+  "other",
+]);
+
+export const disputeRoleEnum = pgEnum("dispute_role", ["renter", "provider"]);
+
+export const disputeResolutionOutcomeEnum = pgEnum(
+  "dispute_resolution_outcome",
+  [
+    "favor_renter",
+    "favor_provider",
+    "partial_renter",
+    "partial_provider",
+    "dismissed",
+  ],
+);
+
+export const evidenceTypeEnum = pgEnum("evidence_type", ["image", "text"]);
+
+export const auditActionTypeEnum = pgEnum("audit_action_type", [
+  "dispute_created",
+  "state_change",
+  "evidence_uploaded",
+  "evidence_deleted",
+  "financial_operation",
+  "note_created",
+  "note_updated",
+  "note_deleted",
+  "resolution",
+]);
+
+export const financialOperationTypeEnum = pgEnum("financial_operation_type", [
+  "hold_payout",
+  "refund_partial",
+  "refund_full",
+  "capture_deposit",
+]);
+
+export const financialOperationStatusEnum = pgEnum(
+  "financial_operation_status",
+  ["pending", "succeeded", "failed"],
+);

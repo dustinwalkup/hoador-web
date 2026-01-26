@@ -431,3 +431,149 @@ export interface RentalPayment {
   rentalStartDate: Date;
   rentalEndDate: Date;
 }
+
+// Dispute types
+import type {
+  disputeStatusEnum,
+  disputeReasonCodeEnum,
+  disputeRoleEnum,
+  disputeResolutionOutcomeEnum,
+  evidenceTypeEnum,
+  auditActionTypeEnum,
+  financialOperationTypeEnum,
+  financialOperationStatusEnum,
+} from "@/db/schemas/_enums";
+
+export type DisputeStatus = (typeof disputeStatusEnum.enumValues)[number];
+export type DisputeReasonCode =
+  (typeof disputeReasonCodeEnum.enumValues)[number];
+export type DisputeRole = (typeof disputeRoleEnum.enumValues)[number];
+export type DisputeResolutionOutcome =
+  (typeof disputeResolutionOutcomeEnum.enumValues)[number];
+export type EvidenceType = (typeof evidenceTypeEnum.enumValues)[number];
+export type AuditActionType = (typeof auditActionTypeEnum.enumValues)[number];
+export type FinancialOperationType =
+  (typeof financialOperationTypeEnum.enumValues)[number];
+export type FinancialOperationStatus =
+  (typeof financialOperationStatusEnum.enumValues)[number];
+
+export interface CreateDisputeData {
+  rentalId: string;
+  createdBy: string;
+  createdByRole: DisputeRole;
+  reasonCode: DisputeReasonCode;
+  description: string;
+  policyVersion: string;
+  evidenceDeadline?: Date;
+}
+
+export interface DisputeWithRelations {
+  id: string;
+  rentalId: string;
+  createdBy: string;
+  createdByRole: DisputeRole;
+  reasonCode: DisputeReasonCode;
+  description: string;
+  status: DisputeStatus;
+  policyVersion: string;
+  evidenceDeadline: Date | null;
+  additionalEvidenceDeadline: Date | null;
+  resolvedAt: Date | null;
+  resolvedBy: string | null;
+  resolutionOutcome: DisputeResolutionOutcome | null;
+  resolutionReason: string | null;
+  stripeChargebackId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  rental?: {
+    id: string;
+    requestId: string | null;
+    listingId: string;
+    renterId: string;
+    ownerId: string;
+  };
+  createdByUser?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  };
+  resolvedByUser?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
+  evidence?: Array<{
+    id: string;
+    disputeId: string;
+    uploadedBy: string;
+    uploadedByRole: DisputeRole;
+    evidenceType: EvidenceType;
+    content: string;
+    uploadedAt: Date;
+  }>;
+  auditLogs?: Array<{
+    id: string;
+    disputeId: string;
+    actionType: AuditActionType;
+    userId: string | null;
+    previousState: DisputeStatus | null;
+    newState: DisputeStatus | null;
+    details: Record<string, unknown> | null;
+    reason: string | null;
+    createdAt: Date;
+  }>;
+  internalNotes?: Array<{
+    id: string;
+    disputeId: string;
+    adminId: string;
+    content: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  financialOperations?: Array<{
+    id: string;
+    disputeId: string;
+    operationType: FinancialOperationType;
+    amount: string | null;
+    stripeOperationId: string | null;
+    stripePaymentIntentId: string | null;
+    stripeTransferId: string | null;
+    status: FinancialOperationStatus;
+    errorMessage: string | null;
+    performedBy: string;
+    performedAt: Date;
+  }>;
+}
+
+export interface GetUserDisputesOptions {
+  role?: DisputeRole;
+  status?: DisputeStatus;
+  page?: number;
+  limit?: number;
+}
+
+export interface GetAdminDisputesOptions {
+  status?: DisputeStatus;
+  reasonCode?: DisputeReasonCode;
+  page?: number;
+  limit?: number;
+}
+
+export interface RateLimitResult {
+  monthlyCount: number;
+  yearlyCount: number;
+  withinLimits: boolean;
+}
+
+export interface TimeWindowValidationResult {
+  valid: boolean;
+  message?: string;
+}
+
+export interface EvidenceDeadlineResult {
+  expired: boolean;
+  deadline: Date | null;
+  timeRemaining?: number; // milliseconds
+}

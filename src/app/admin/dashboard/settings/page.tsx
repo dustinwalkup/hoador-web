@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Settings } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata = {
   title: "Admin - Settings",
@@ -20,13 +21,11 @@ export const metadata = {
 
 export default function AdminSettingsPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Admin Settings</h1>
-        <p className="text-muted-foreground mt-2">
-          Configure system settings and preferences (Coming Soon)
-        </p>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Admin Settings"
+        description="Configure system settings and preferences (Coming Soon)"
+      />
 
       {/* System Settings */}
       <Card>

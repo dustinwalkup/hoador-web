@@ -12,10 +12,12 @@ import {
   ExternalLink,
   PlayCircle,
   Star,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { RentalActionsInfo } from "@/dal/rentals.dal";
+import type { DisputeWithRelations } from "@/dal/types";
 import { CancelRequestDialog } from "@/features/rentals/components/renting-lending/cancel-request-dialog";
 import {
   ApproveRequestDialog,
@@ -25,6 +27,8 @@ import {
   EndRentalDialog,
 } from "@/features/rentals/components/renting-lending";
 import { LeaveReviewModal } from "@/features/reviews/components/leave-review-modal";
+import { FileDisputeDialog } from "@/features/disputes/components/file-dispute-dialog";
+import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
 
 interface RentalActionsProps {
   rentalDetails: RentalActionsInfo;
@@ -33,6 +37,7 @@ interface RentalActionsProps {
   isOwner: boolean;
   rentalAgreementUrl?: string;
   reviewPolicyUrl?: string;
+  activeDispute?: DisputeWithRelations | null;
 }
 
 export function RentalActions({
@@ -41,6 +46,7 @@ export function RentalActions({
   isOwner,
   rentalAgreementUrl,
   reviewPolicyUrl,
+  activeDispute,
 }: RentalActionsProps) {
   const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -51,6 +57,26 @@ export function RentalActions({
   const [showStartRentalDialog, setShowStartRentalDialog] = useState(false);
   const [showEndRentalDialog, setShowEndRentalDialog] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showFileDisputeDialog, setShowFileDisputeDialog] = useState(false);
+
+  // Determine if dispute can be filed
+  // Disputes can be filed for: active, completed, cancelled, denied rentals
+  // But not if an active dispute already exists
+  // And not if the dispute filing time window has expired
+  const isFilingWindowExpired =
+    TimeWindowValidation.isDisputeFilingWindowExpired(
+      new Date(rentalDetails.startDate),
+      new Date(rentalDetails.endDate),
+    );
+
+  const canFileDispute =
+    (isRenter || isOwner) &&
+    !activeDispute &&
+    (rentalDetails.status === "active" ||
+      rentalDetails.status === "completed" ||
+      rentalDetails.status === "cancelled" ||
+      rentalDetails.status === "denied") &&
+    !isFilingWindowExpired;
 
   const handleInstructionsUpdated = () => {
     router.refresh();
@@ -188,6 +214,18 @@ export function RentalActions({
           </>
         )}
 
+        {/* File Dispute Action - Available for both renter and owner */}
+        {canFileDispute && (
+          <Button
+            variant="outline"
+            className="w-full border-orange-200 bg-transparent text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-900/20"
+            onClick={() => setShowFileDisputeDialog(true)}
+          >
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            File Dispute
+          </Button>
+        )}
+
         {/* Common Actions */}
         <Button
           variant="outline"
@@ -269,6 +307,14 @@ export function RentalActions({
           reviewPolicyUrl={reviewPolicyUrl}
         />
       )}
+
+      {/* File Dispute Dialog */}
+      <FileDisputeDialog
+        open={showFileDisputeDialog}
+        onOpenChange={setShowFileDisputeDialog}
+        rentalId={rentalDetails.id}
+        listingName={rentalDetails.listingName}
+      />
     </Card>
   );
 }

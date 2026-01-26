@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Users, Package, MessageSquare, Activity } from "lucide-react";
-
+import { PageHeader } from "@/components/page-header";
 export const metadata = {
   title: "Admin - Dashboard",
   description: "Overview of platform metrics and recent activity",
@@ -29,13 +29,11 @@ const mockMetrics = {
 
 export default function AdminDashboardPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Overview of platform metrics and recent activity
-        </p>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Admin Dashboard"
+        description="Overview of platform metrics and recent activity"
+      />
 
       {/* Metrics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

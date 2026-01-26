@@ -10,6 +10,7 @@ import * as collections from "./collections.schema";
 import * as messages from "./messages.schema";
 import * as notifications from "./notifications.schema";
 import * as legalDocuments from "./legal-documents.schema";
+import * as disputes from "./disputes.schema";
 
 export const schema = {
   ...user,
@@ -21,4 +22,5 @@ export const schema = {
   ...messages,
   ...notifications,
   ...legalDocuments,
+  ...disputes,
 };

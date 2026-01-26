@@ -82,6 +82,28 @@ export class PaymentDAL extends BaseDAL {
   }
 
   /**
+   * Get payment by rental ID
+   *
+   * @param rentalId - The rental ID
+   * @returns The payment record or null if not found
+   */
+  async getByRentalId(
+    rentalId: string,
+  ): Promise<InferSelectModel<typeof payments> | null> {
+    try {
+      const [payment] = await this.db
+        .select()
+        .from(payments)
+        .where(eq(payments.rentalId, rentalId))
+        .limit(1);
+
+      return payment || null;
+    } catch (error) {
+      this.handleError(error, "getByRentalId");
+    }
+  }
+
+  /**
    * Create a payment record in the database
    * Called after a successful Stripe payment for a rental
    *

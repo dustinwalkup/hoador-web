@@ -7,6 +7,7 @@ import { CommunityDAL } from "./community.dal";
 import { NotificationDAL } from "./notifications.dal";
 import { LegalDocumentDAL } from "./legal-document.dal";
 import { PaymentDAL } from "./payment.dal";
+import { DisputeDAL } from "./dispute.dal";
 
 // Create singleton instances
 export const userDAL = new UserDAL();
@@ -18,3 +19,4 @@ export const messagesDAL = new MessagesDAL();
 export const notificationsDAL = new NotificationDAL();
 export const legalDocumentDAL = new LegalDocumentDAL();
 export const paymentDAL = new PaymentDAL();
+export const disputeDAL = new DisputeDAL();

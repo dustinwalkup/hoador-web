@@ -144,6 +144,9 @@
     .mobile-padding {
       @apply px-6 md:px-0;
     }
+    .page-container {
+      @apply mx-auto max-w-4xl space-y-6;
+    }
   }
 }
 

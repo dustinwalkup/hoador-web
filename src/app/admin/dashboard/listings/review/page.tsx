@@ -19,7 +19,7 @@ export default async function ListingReviewPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-container">
       <PageHeader
         title="Listing Review"
         description="Review and approve listings submitted by users"

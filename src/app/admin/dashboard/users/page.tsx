@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Users, Search } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata = {
   title: "Admin - User Management",
@@ -70,13 +71,11 @@ const mockUsers = [
 
 export default function UserManagementPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">User Management</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage users and their accounts (Coming Soon)
-        </p>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="User Management"
+        description="Manage users and their accounts (Coming Soon)"
+      />
 
       {/* Filters */}
       <Card>
