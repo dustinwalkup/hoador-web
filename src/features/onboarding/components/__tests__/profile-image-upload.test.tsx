@@ -495,7 +495,30 @@ describe("ProfileImageUpload", () => {
         expect(mockOnImageChange).toHaveBeenCalled();
       });
 
-      // Toast should not have been called any additional times when showToasts is false
+      // Wait for loading state to clear, ensuring all async operations complete
+      // This includes waiting for the toast check (if any) to complete
+      await waitFor(
+        () => {
+          const spinner = container.querySelector(".animate-spin");
+          expect(spinner).not.toBeInTheDocument();
+        },
+        { timeout: 1000 },
+      );
+
+      // Wait for toast count to be stable - ensures all async operations and microtasks are complete
+      // This handles race conditions in CI where timing can vary
+      await waitFor(
+        () => {
+          const currentCount = mockToastSuccess.mock.calls.length;
+          expect(currentCount).toBe(initialToastCallCount);
+        },
+        {
+          timeout: 500,
+          interval: 10, // Check every 10ms to catch any delayed calls
+        },
+      );
+
+      // Final assertion - toast should not have been called any additional times when showToasts is false
       expect(mockToastSuccess.mock.calls.length).toBe(initialToastCallCount);
     });
   });
