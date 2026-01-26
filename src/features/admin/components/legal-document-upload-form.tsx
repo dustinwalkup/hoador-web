@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ export function LegalDocumentUploadForm({
 }: LegalDocumentUploadFormProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
   const uploadDocument = useUploadLegalDocument();
 
@@ -78,8 +79,7 @@ export function LegalDocumentUploadForm({
             `Document version ${data.version} uploaded successfully`,
           );
           setSelectedFile(null);
-          const form = e.currentTarget;
-          form.reset();
+          formRef.current?.reset();
           if (onSuccess) {
             onSuccess();
           }
@@ -95,16 +95,13 @@ export function LegalDocumentUploadForm({
   const handleReset = () => {
     setSelectedFile(null);
     setFileError(null);
-    const form = document.querySelector("form");
-    if (form) {
-      form.reset();
-    }
+    formRef.current?.reset();
   };
 
   const isLoading = uploadDocument.isPending;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
       {uploadDocument.isError && (
         <Alert variant="destructive">
           <AlertDescription>

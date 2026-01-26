@@ -164,12 +164,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
   };
 
   return (
-    <Card
-      className={cn(
-        "lg:col-span-2",
-        editMode && "border-primary bg-green-50/5",
-      )}
-    >
+    <Card className={cn(editMode && "border-primary bg-green-50/5")}>
       <div className="flex items-center justify-between gap-2">
         <CardHeader className="flex-1 pr-0">
           <CardTitle className="flex items-center justify-between gap-2">

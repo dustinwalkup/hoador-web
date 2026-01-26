@@ -22,7 +22,7 @@ export default function RentalsLayout({
         <PageHeader
           title={headerConfig.title}
           description={headerConfig.description}
-          className="mb-8"
+          className="mb-6"
         />
       )}
       {children}

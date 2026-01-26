@@ -53,7 +53,7 @@ export default async function ProfilePage() {
       />
 
       <ProfileTabs>
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-2">
           <Card className="lg:col-span-1">
             <CardHeader className="relative">
               <CardTitle>{PROFILE_OVERVIEW.profileCard.title}</CardTitle>
@@ -141,7 +141,6 @@ export default async function ProfilePage() {
               </div>
             </CardContent>
           </Card>
-
           <ProfileForm user={user} />
         </div>
       </ProfileTabs>

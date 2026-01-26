@@ -44,7 +44,7 @@ export default async function DashboardPage() {
       <PageHeader
         title={header.titleFor(user?.firstName ?? "User")}
         description={header.description}
-        className="mb-2"
+        className="mb-6"
       />
 
       {/* Alerts section */}
