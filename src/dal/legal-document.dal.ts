@@ -5,7 +5,8 @@ import {
   legalDocuments,
   userLegalAcceptances,
 } from "@/db/schemas/legal-documents.schema";
-import { rentalRequests } from "@/db/schemas/rentals.schema";
+import { rentalRequests, rentals } from "@/db/schemas/rentals.schema";
+import { rentalAgreementDocuments } from "@/db/schemas/rental-agreement-documents.schema";
 import { BaseDAL } from "./base";
 import {
   type LegalDocumentId,
@@ -423,19 +424,63 @@ export class LegalDocumentDAL extends BaseDAL {
   }
 
   /**
-   * Get the rental agreement acceptance for a specific rental request
-   * Returns the document version and URL that was accepted at rental creation
+   * Resolve a rental identifier (rental_requests.id or rentals.id) to rental_requests.id.
+   * @param rentalIdOrRequestId - Either a rental request id or a rental id.
+   * @returns The rental request id, or null if not found.
+   */
+  private async resolveRentalIdToRequestId(
+    rentalIdOrRequestId: string,
+  ): Promise<string | null> {
+    const asRequest = await this.db
+      .select({ id: rentalRequests.id })
+      .from(rentalRequests)
+      .where(eq(rentalRequests.id, rentalIdOrRequestId))
+      .limit(1);
+
+    if (asRequest.length > 0) {
+      return asRequest[0].id;
+    }
+
+    const asRental = await this.db
+      .select({ requestId: rentals.requestId })
+      .from(rentals)
+      .where(eq(rentals.id, rentalIdOrRequestId))
+      .limit(1);
+
+    if (asRental.length > 0) {
+      return asRental[0].requestId;
+    }
+
+    return null;
+  }
+
+  /**
+   * Get the rental agreement URL for a rental (generated PDF or fallback to accepted/generic).
+   * Accepts either rental request id or rental id; resolves to request id, then prefers
+   * generated document, then acceptance-based URL, then current per_rental_agreement version.
+   *
+   * @param rentalIdOrRequestId - Rental request id or rental id (same id used for getRentalDetailsById).
+   * @param userId - Current user (must be renter or owner).
+   * @returns { version, url } or null if unauthorized or not found.
    */
   async getRentalAgreementAcceptance(
-    rentalRequestId: string,
+    rentalIdOrRequestId: string,
     userId: string,
   ): Promise<{ version: string; url: string } | null> {
     try {
-      // Verify the rental request exists
+      const requestId =
+        await this.resolveRentalIdToRequestId(rentalIdOrRequestId);
+      if (!requestId) {
+        return null;
+      }
+
       const rentalRequest = await this.db
-        .select()
+        .select({
+          renterId: rentalRequests.renterId,
+          ownerId: rentalRequests.ownerId,
+        })
         .from(rentalRequests)
-        .where(eq(rentalRequests.id, rentalRequestId))
+        .where(eq(rentalRequests.id, requestId))
         .limit(1);
 
       if (rentalRequest.length === 0) {
@@ -443,18 +488,34 @@ export class LegalDocumentDAL extends BaseDAL {
       }
 
       const request = rentalRequest[0];
-      // Verify user has access to this rental (is either renter or owner)
       if (request.renterId !== userId && request.ownerId !== userId) {
         return null;
       }
 
-      // Get the acceptance record for this rental request
+      // Prefer generated rental agreement document
+      const generated = await this.db
+        .select({
+          templateVersion: rentalAgreementDocuments.templateVersion,
+          pdfUrl: rentalAgreementDocuments.pdfUrl,
+        })
+        .from(rentalAgreementDocuments)
+        .where(eq(rentalAgreementDocuments.rentalRequestId, requestId))
+        .limit(1);
+
+      if (generated.length > 0) {
+        return {
+          version: generated[0].templateVersion,
+          url: generated[0].pdfUrl,
+        };
+      }
+
+      // Fallback: acceptance record + legal_documents URL for that version
       const acceptances = await this.db
         .select()
         .from(userLegalAcceptances)
         .where(
           and(
-            eq(userLegalAcceptances.rentalRequestId, rentalRequestId),
+            eq(userLegalAcceptances.rentalRequestId, requestId),
             eq(
               userLegalAcceptances.documentId,
               LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT,
@@ -463,26 +524,31 @@ export class LegalDocumentDAL extends BaseDAL {
         )
         .limit(1);
 
-      if (acceptances.length === 0) {
-        return null;
+      if (acceptances.length > 0) {
+        const documentVersion = await this.getVersion(
+          LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT,
+          acceptances[0].version,
+        );
+        if (documentVersion) {
+          return {
+            version: documentVersion.version,
+            url: documentVersion.url,
+          };
+        }
       }
 
-      const acceptance = acceptances[0];
-
-      // Get the document version to retrieve the URL
-      const documentVersion = await this.getVersion(
+      // Fallback: current per_rental_agreement version URL from legal_documents
+      const currentVersion = await this.getCurrentVersion(
         LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT,
-        acceptance.version,
       );
-
-      if (!documentVersion) {
-        return null;
+      if (currentVersion) {
+        return {
+          version: currentVersion.version,
+          url: currentVersion.url,
+        };
       }
 
-      return {
-        version: documentVersion.version,
-        url: documentVersion.url,
-      };
+      return null;
     } catch (error) {
       console.error("Error fetching rental agreement acceptance:", error);
       throw error;

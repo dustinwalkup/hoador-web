@@ -468,6 +468,29 @@ export async function POST(
       console.error("Error sending success notifications:", notificationError);
     }
 
+    // Trigger async PDF generation (fire-and-forget; do not block response)
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    const baseUrl =
+      process.env.VERCEL_URL != null
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.NEXT_PUBLIC_APP_URL;
+    if (internalSecret && baseUrl) {
+      fetch(`${baseUrl}/api/internal/generate-rental-agreement`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${internalSecret}`,
+        },
+        body: JSON.stringify({ rentalRequestId: rentalRequest.id }),
+        signal: AbortSignal.timeout(5000),
+      }).catch((err) => {
+        console.error(
+          `Failed to trigger rental agreement generation for ${rentalRequest.id}:`,
+          err,
+        );
+      });
+    }
+
     return NextResponse.json({
       success: true,
       paymentIntentId: rentalPaymentIntent.id,
