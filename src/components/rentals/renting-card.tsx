@@ -181,7 +181,7 @@ export function RentingCard({ rental, currentTab }: RentingCardProps) {
                   </Button>
                 )}
               {currentTab === "completed" && (
-                <Link href={`/listings/${rental.listing.id}/rent`}>
+                <Link href={`/dashboard/listings/${rental.listing.id}/rent`}>
                   <Button variant="outline" size="sm">
                     Rent Again
                   </Button>

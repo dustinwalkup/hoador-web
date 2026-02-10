@@ -125,10 +125,10 @@ export default function ListingCard({
 
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm" className="flex-1">
-            <Link href={`/listings/${id}`}>View</Link>
+            <Link href={`/dashboard/listings/${id}`}>View</Link>
           </Button>
           <Button asChild size="sm" className="flex-1">
-            <Link href={`/listings/${id}/rent`}>Rent</Link>
+            <Link href={`/dashboard/listings/${id}/rent`}>Rent</Link>
           </Button>
         </div>
       </CardContent>

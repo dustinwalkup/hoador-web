@@ -408,7 +408,10 @@ describe("ListingDetailView", () => {
 
       const rentButton = screen.getByRole("link", { name: /rent item/i });
       expect(rentButton).toBeInTheDocument();
-      expect(rentButton).toHaveAttribute("href", "/listings/listing-123/rent");
+      expect(rentButton).toHaveAttribute(
+        "href",
+        "/dashboard/listings/listing-123/rent",
+      );
     });
 
     it("should not display Edit Listing button for non-owner", () => {

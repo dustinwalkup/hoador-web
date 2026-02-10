@@ -409,7 +409,7 @@ export function ChatArea({
                   >
                     {message.listingId && message.listingName && (
                       <Link
-                        href={`/listings/${message.listingId}`}
+                        href={`/dashboard/listings/${message.listingId}`}
                         className={`mb-2 flex items-center gap-1 text-xs font-medium underline underline-offset-2 ${
                           message.sender === "me"
                             ? "text-white/90 hover:text-white"

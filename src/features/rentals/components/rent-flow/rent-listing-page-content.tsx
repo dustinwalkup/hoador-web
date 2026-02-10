@@ -19,12 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
 import { BackButton } from "@/components/back-button";
-import { DateSelectionStep } from "./date-selection-step";
-import { ServicesStep } from "./services-step";
-import { SummaryStep } from "./summary-step";
-import { StepIndicator } from "./step-indicator";
+import { DateSelectionStep } from "@/features/rentals/components/rent-flow/date-selection-step";
+import { ServicesStep } from "@/features/rentals/components/rent-flow/services-step";
+import { SummaryStep } from "@/features/rentals/components/rent-flow/summary-step";
+import { StepIndicator } from "@/features/rentals/components/rent-flow/step-indicator";
 import { differenceInDays } from "@/lib/utils/date.utils";
-import { ListingSummaryCard } from "./listing-summary-card";
+import { ListingSummaryCard } from "@/features/rentals/components/rent-flow/listing-summary-card";
 
 interface RentListingPageContentProps {
   listing: ListingDetails;

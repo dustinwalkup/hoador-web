@@ -148,7 +148,9 @@ export function RentalActions({
                     Leave Review
                   </Button>
                 )}
-                <Link href={`/listings/${rentalDetails.listingId}/rent`}>
+                <Link
+                  href={`/dashboard/listings/${rentalDetails.listingId}/rent`}
+                >
                   <Button className="mb-3 w-full">
                     <Plus className="mr-2 h-4 w-4" />
                     Rent Again

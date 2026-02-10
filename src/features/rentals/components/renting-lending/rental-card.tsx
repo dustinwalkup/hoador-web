@@ -246,7 +246,7 @@ export function RentalCard({
               {variant === "active" && rental.status === "completed" && (
                 <>
                   <Link
-                    href={`/listings/${rental.listingId}/rent`}
+                    href={`/dashboard/listings/${rental.listingId}/rent`}
                     className="block"
                   >
                     <Button variant="outline" className="w-full justify-center">
@@ -391,7 +391,7 @@ export function RentalCard({
                   </Button>
                 )}
               {variant === "active" && rental.status === "completed" && (
-                <Link href={`/listings/${rental.listingId}/rent`}>
+                <Link href={`/dashboard/listings/${rental.listingId}/rent`}>
                   <Button variant="outline" size="sm">
                     Rent Again
                   </Button>

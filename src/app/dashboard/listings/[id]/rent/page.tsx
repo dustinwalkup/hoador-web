@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { listingDAL, rentalDAL, legalDocumentDAL } from "@/dal";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
-import { RentListingPageContent } from "./_components/rent-listing-page-content";
+import { RentListingPageContent } from "@/features/rentals/components/rent-flow/rent-listing-page-content";
 
 interface RentListingPageProps {
   params: Promise<{ id: string }>;
@@ -11,32 +11,20 @@ interface RentListingPageProps {
 export default async function RentListingPage({
   params,
 }: RentListingPageProps) {
-  // Get the current user - they must be authenticated to rent
-  const currentUser = await getCurrentUser().catch(() => null);
-  if (!currentUser) {
-    // Redirect to login would be handled by middleware
-    notFound();
-  }
+  const currentUser = await getCurrentUser();
+  if (!currentUser) notFound();
 
   const { id } = await params;
 
-  // Fetch listing details, booked dates, and legal documents in parallel
   const [listing, bookedDates, documentVersions] = await Promise.all([
     listingDAL.getListingById(id, currentUser.id),
     rentalDAL.getBookedDatesForListing(id, currentUser.id),
     legalDocumentDAL.getAllCurrentVersions(),
   ]);
 
-  if (!listing) {
-    notFound();
-  }
+  if (!listing) notFound();
+  if (listing.owner.id === currentUser.id) notFound();
 
-  // Prevent users from renting their own listings
-  if (listing.owner.id === currentUser.id) {
-    notFound();
-  }
-
-  // Prepare document data for client component
   const legalDocuments = {
     rentalAgreement: documentVersions[LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT],
     cancellationRefund:

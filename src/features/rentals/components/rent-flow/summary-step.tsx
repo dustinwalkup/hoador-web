@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { formatDate } from "@/lib/utils/date.utils";
 import { type RentalFormData } from "@/features/rentals/lib/rental-form.schema";
 import type { CurrentDocumentVersion } from "@/dal/types";
-import { LegalDisclosures } from "./legal-disclosures";
+import { LegalDisclosures } from "@/features/rentals/components/rent-flow/legal-disclosures";
 
 interface SummaryStepProps {
   pricing: {

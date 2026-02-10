@@ -79,7 +79,7 @@ describe("ListingCard", () => {
     const viewButton = screen.getByText("View");
     expect(viewButton.closest("a")).toHaveAttribute(
       "href",
-      "/listings/listing-123",
+      "/dashboard/listings/listing-123",
     );
   });
 
@@ -170,7 +170,7 @@ describe("ListingCard", () => {
     render(<ListingCard {...defaultProps} />);
 
     const viewLink = screen.getByText("View").closest("a");
-    expect(viewLink).toHaveAttribute("href", "/listings/listing-123");
+    expect(viewLink).toHaveAttribute("href", "/dashboard/listings/listing-123");
 
     const image = screen.getByRole("img");
     expect(image).toHaveAttribute("alt", "Power Drill");

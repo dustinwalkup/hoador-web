@@ -320,7 +320,7 @@ export function ListingDetailView({
               <Button asChild className="w-full" size="lg">
                 <Link
                   className="flex items-center justify-center"
-                  href={`/listings/${listing.id}/rent`}
+                  href={`/dashboard/listings/${listing.id}/rent`}
                 >
                   <Calendar className="mr-2 h-4 w-4" />
                   Rent Item
