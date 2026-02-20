@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL, userDAL } from "@/dal";
-import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
+import {
+  handleApiError,
+  captureNonCriticalError,
+  requireAuthResponse,
+} from "@/lib/api/route-helpers";
 import { sendRentalCancelledNotification } from "@/features/rentals/notifications/rental-cancelled";
 
 /**
@@ -76,14 +80,17 @@ export async function POST(
           cancelledBy: "renter",
           cancellationReason: "Renter cancelled the request",
         }).catch((err) => {
-          console.error("Failed to send rental cancelled notification:", err);
+          captureNonCriticalError(err, {
+            route: "POST /api/rentals/[id]/cancel",
+            action: "send_rental_cancelled_notification",
+          });
         });
       }
     } catch (notificationError) {
-      console.error(
-        "Error sending rental cancelled notification:",
-        notificationError,
-      );
+      captureNonCriticalError(notificationError, {
+        route: "POST /api/rentals/[id]/cancel",
+        action: "send_cancellation_notifications",
+      });
     }
 
     return NextResponse.json({ success: true });

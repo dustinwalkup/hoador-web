@@ -2,14 +2,25 @@ import { tryCatch } from "@walkup/walkup-utils";
 import { notificationsDAL } from "@/dal";
 import { sendEmail } from "./send-email";
 import type { notifications } from "@/db/schemas/notifications.schema";
+import {
+  NOTIFICATION_TYPE_TO_CATEGORY,
+  type NotificationCategory,
+} from "../lib/notification-type-map";
+import { shouldSendEmail, shouldSendPush } from "../lib/preference-service";
+import { buildPushPayload } from "../lib/push-payload";
+import { sendPush } from "../lib/push-service";
+
+type NotificationType = (typeof notifications.type.enumValues)[number];
 
 interface SendNotificationOptions {
   userId: string;
-  type: (typeof notifications.type.enumValues)[number];
+  type: NotificationType;
   title: string;
   message: string;
   data?: Record<string, string | number | boolean | string[] | null>;
   linkUrl?: string;
+  /** Preference category; inferred from type via notification-type-map if omitted. */
+  category?: NotificationCategory;
   email?: {
     to: string;
     subject: string;
@@ -23,8 +34,9 @@ interface SendNotificationOptions {
 }
 
 /**
- * Send a notification to a user
- * Creates an in-app notification and optionally sends email/SMS
+ * Send a notification to a user.
+ * Creates an in-app notification first, then sends email/push per user preferences.
+ * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.7, 9.8
  */
 export async function sendNotification({
   userId,
@@ -33,6 +45,7 @@ export async function sendNotification({
   message,
   data = {},
   linkUrl,
+  category: categoryParam,
   email,
   sms,
 }: SendNotificationOptions): Promise<{
@@ -42,10 +55,11 @@ export async function sendNotification({
   emailSent?: boolean;
   smsSent?: boolean;
 }> {
-  // Add linkUrl to notification data if provided
+  const category =
+    categoryParam ?? NOTIFICATION_TYPE_TO_CATEGORY[type as NotificationType];
   const notificationData = linkUrl ? { ...data, linkUrl } : data;
 
-  // Create in-app notification
+  // Create in-app notification first (always)
   const { data: notification, error: notificationError } = await tryCatch(
     notificationsDAL.create({
       userId,
@@ -68,18 +82,36 @@ export async function sendNotification({
   let emailSent = false;
   let smsSent = false;
 
-  // Send email if provided
+  // Send email only if user preference allows and email payload provided
   if (email) {
-    const emailResult = await sendEmail(email);
-    emailSent = emailResult.success;
-
-    if (!emailResult.success) {
-      console.error(
-        "Email failed but notification was created:",
-        emailResult.error,
-      );
+    const allowEmail = await shouldSendEmail(userId, category);
+    if (allowEmail) {
+      const emailResult = await sendEmail(email);
+      emailSent = emailResult.success;
+      if (!emailResult.success) {
+        console.error(
+          "Email failed but notification was created:",
+          emailResult.error,
+        );
+      }
     }
   }
+
+  // Push: fire-and-forget after in-app notification is created
+  shouldSendPush(userId, category).then((allowPush) => {
+    if (allowPush) {
+      const payload = buildPushPayload(
+        title,
+        message,
+        linkUrl ?? "/dashboard",
+        type as NotificationType,
+        data,
+      );
+      sendPush(userId, payload).catch((err) => {
+        console.error("[sendNotification] push send failed:", err);
+      });
+    }
+  });
 
   // TODO: Send SMS if provided (Twilio integration)
   if (sms) {
@@ -87,7 +119,6 @@ export async function sendNotification({
       "SMS sending not yet implemented. Message would be sent to:",
       sms.to,
     );
-    // Future: Implement Twilio SMS sending here
     smsSent = false;
   }
 

@@ -11,12 +11,21 @@ import {
   Settings,
   ClipboardCheck,
   Scale,
+  BookOpen,
+  Bell,
+  Shield,
+  CreditCard,
+  Repeat,
+  MessageSquare,
 } from "lucide-react";
 
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -71,6 +80,34 @@ const adminNavItems = [
   },
 ];
 
+const howItWorksNavItems = [
+  {
+    title: "Notifications",
+    url: "/admin/dashboard/how-it-works/notifications",
+    icon: Bell,
+  },
+  {
+    title: "Authentication",
+    url: "/admin/dashboard/how-it-works/authentication",
+    icon: Shield,
+  },
+  {
+    title: "Payments",
+    url: "/admin/dashboard/how-it-works/payments",
+    icon: CreditCard,
+  },
+  {
+    title: "Rentals",
+    url: "/admin/dashboard/how-it-works/rentals",
+    icon: Repeat,
+  },
+  {
+    title: "Messaging",
+    url: "/admin/dashboard/how-it-works/messaging",
+    icon: MessageSquare,
+  },
+];
+
 export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
   // Auto-close mobile sidebar on navigation
   useMobileSidebarClose();
@@ -105,60 +142,93 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarMenu>
-          {adminNavItems.map((item) => {
-            // Dashboard should only be active on exact match
-            // Other items can be active on exact match or sub-routes
-            const isActive =
-              item.url === "/admin/dashboard"
-                ? pathname === item.url
-                : pathname === item.url || pathname.startsWith(item.url + "/");
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {adminNavItems.map((item) => {
+                // Dashboard should only be active on exact match
+                // Other items can be active on exact match or sub-routes
+                const isActive =
+                  item.url === "/admin/dashboard"
+                    ? pathname === item.url
+                    : pathname === item.url ||
+                      pathname.startsWith(item.url + "/");
 
-            // Check if this is the Listing Review item and has pending reviews
-            const isListingReview =
-              item.url === "/admin/dashboard/listings/review";
-            const hasPendingReviews = isListingReview && pendingCount > 0;
+                // Check if this is the Listing Review item and has pending reviews
+                const isListingReview =
+                  item.url === "/admin/dashboard/listings/review";
+                const hasPendingReviews = isListingReview && pendingCount > 0;
 
-            // Check if this is the Dispute Review item and has pending disputes
-            const isDisputeReview =
-              item.url === "/admin/dashboard/disputes/review";
-            const hasPendingDisputes =
-              isDisputeReview && pendingDisputesCount > 0;
+                // Check if this is the Dispute Review item and has pending disputes
+                const isDisputeReview =
+                  item.url === "/admin/dashboard/disputes/review";
+                const hasPendingDisputes =
+                  isDisputeReview && pendingDisputesCount > 0;
 
-            return (
-              <SidebarMenuItem key={item.title}>
-                <Link href={item.url}>
-                  <SidebarMenuButton
-                    size="lg"
-                    tooltip={item.title}
-                    isActive={isActive}
-                  >
-                    {item.icon && <item.icon className="size-5!" />}
-                    <span>{item.title}</span>
-                    {hasPendingReviews && (
-                      <Badge
-                        variant="destructive"
-                        className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <Link href={item.url}>
+                      <SidebarMenuButton
+                        size="lg"
+                        tooltip={item.title}
+                        isActive={isActive}
                       >
-                        {pendingCount > 99 ? "99+" : pendingCount}
-                      </Badge>
-                    )}
-                    {hasPendingDisputes && (
-                      <Badge
-                        variant="destructive"
-                        className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                        {item.icon && <item.icon className="size-5!" />}
+                        <span>{item.title}</span>
+                        {hasPendingReviews && (
+                          <Badge
+                            variant="destructive"
+                            className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                          >
+                            {pendingCount > 99 ? "99+" : pendingCount}
+                          </Badge>
+                        )}
+                        {hasPendingDisputes && (
+                          <Badge
+                            variant="destructive"
+                            className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                          >
+                            {pendingDisputesCount > 99
+                              ? "99+"
+                              : pendingDisputesCount}
+                          </Badge>
+                        )}
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            <BookOpen className="size-4" />
+            How Things Work
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {howItWorksNavItems.map((item) => {
+                const isActive =
+                  pathname === item.url || pathname.startsWith(item.url + "/");
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <Link href={item.url}>
+                      <SidebarMenuButton
+                        size="lg"
+                        tooltip={item.title}
+                        isActive={isActive}
                       >
-                        {pendingDisputesCount > 99
-                          ? "99+"
-                          : pendingDisputesCount}
-                      </Badge>
-                    )}
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
+                        {item.icon && <item.icon className="size-5!" />}
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

@@ -18,7 +18,12 @@ import { rentalRequests, rentals, reviews } from "./rentals.schema";
 import { payments } from "./payments.schema";
 import { userCollections, userFavorites } from "./collections.schema";
 import { messages } from "./messages.schema";
-import { notifications } from "./notifications.schema";
+import {
+  notifications,
+  notificationCategoryPreferences,
+  pushSubscriptions,
+  pushNotificationAudit,
+} from "./notifications.schema";
 
 export type UserDB = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;
@@ -257,4 +262,7 @@ export const userRelations = relations(user, ({ one, many }) => ({
   sentMessages: many(messages, { relationName: "sentMessages" }),
   receivedMessages: many(messages, { relationName: "receivedMessages" }),
   notifications: many(notifications),
+  notificationCategoryPreferences: many(notificationCategoryPreferences),
+  pushSubscriptions: many(pushSubscriptions),
+  pushNotificationAudit: many(pushNotificationAudit),
 }));

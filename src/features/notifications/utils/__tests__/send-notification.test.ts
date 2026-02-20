@@ -21,6 +21,18 @@ vi.mock("@/dal", () => ({
   notificationsDAL: {
     create: vi.fn(),
   },
+  userDAL: {
+    getUserPreferences: vi.fn().mockResolvedValue({
+      emailNotifications: true,
+      pushNotifications: true,
+    }),
+  },
+  notificationCategoryPreferencesDAL: {
+    getByUserId: vi.fn().mockResolvedValue([]),
+  },
+  pushSubscriptionDAL: {
+    getActiveByUserId: vi.fn().mockResolvedValue([]),
+  },
 }));
 
 vi.mock("../send-email", () => ({

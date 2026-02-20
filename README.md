@@ -27,6 +27,21 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## PWA push notifications (optional)
+
+To enable web push notifications, set VAPID keys in your environment (see `.env.example`):
+
+- **VAPID_PUBLIC_KEY** – Public key for Web Push (safe to expose to the client).
+- **VAPID_PRIVATE_KEY** – Private key for signing push payloads; **never commit or expose** this value.
+
+Generate a key pair:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Copy the keys into `.env.local` (or your deployment env). If these are unset, the push service will no-op and log a warning.
+
 ## Playwright (rental agreement PDF generation)
 
 Rental agreement PDF generation uses Playwright with Chromium only. For local development and CI, install Chromium:

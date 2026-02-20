@@ -4,7 +4,11 @@ import { UserDAL } from "./user.dal";
 import { ListingDAL } from "./listing.dal";
 import { MessagesDAL } from "./messages.dal";
 import { CommunityDAL } from "./community.dal";
-import { NotificationDAL } from "./notifications.dal";
+import {
+  NotificationDAL,
+  NotificationCategoryPreferencesDAL,
+  PushSubscriptionDAL,
+} from "./notifications.dal";
 import { LegalDocumentDAL } from "./legal-document.dal";
 import { RentalAgreementDocumentDAL } from "./rental-agreement-document.dal";
 import { PaymentDAL } from "./payment.dal";
@@ -18,6 +22,9 @@ export const rentalDAL = new RentalDAL();
 export const listingDAL = new ListingDAL();
 export const messagesDAL = new MessagesDAL();
 export const notificationsDAL = new NotificationDAL();
+export const notificationCategoryPreferencesDAL =
+  new NotificationCategoryPreferencesDAL();
+export const pushSubscriptionDAL = new PushSubscriptionDAL();
 export const legalDocumentDAL = new LegalDocumentDAL();
 export const rentalAgreementDocumentDAL = new RentalAgreementDocumentDAL();
 export const paymentDAL = new PaymentDAL();

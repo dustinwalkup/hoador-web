@@ -3,6 +3,7 @@ import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL, userDAL, listingDAL, legalDocumentDAL } from "@/dal";
 import {
   handleApiError,
+  captureNonCriticalError,
   parseFormData,
   getClientIP,
   getUserAgent,
@@ -186,8 +187,10 @@ export async function POST(request: NextRequest) {
         // Record all acceptances in parallel (don't block on failures)
         await Promise.allSettled(acceptancePromises);
       } catch (error) {
-        // Log error but don't fail the rental request creation
-        console.error("Error recording legal document acceptances:", error);
+        captureNonCriticalError(error, {
+          route: "POST /api/rentals",
+          action: "record_legal_acceptances",
+        });
       }
     }
 
@@ -222,18 +225,18 @@ export async function POST(request: NextRequest) {
             endDate,
             totalAmount: fullRequest.totalAmount,
           }).catch((err) => {
-            console.error(
-              "Failed to send rental request created notification:",
-              err,
-            );
+            captureNonCriticalError(err, {
+              route: "POST /api/rentals",
+              action: "send_rental_request_notification",
+            });
           });
         }
       }
     } catch (notificationError) {
-      console.error(
-        "Error sending rental request notification:",
-        notificationError,
-      );
+      captureNonCriticalError(notificationError, {
+        route: "POST /api/rentals",
+        action: "send_owner_notification",
+      });
     }
 
     return NextResponse.json({

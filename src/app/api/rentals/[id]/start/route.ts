@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { RentalDAL } from "@/dal/rentals.dal";
-import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
+import {
+  handleApiError,
+  captureNonCriticalError,
+  requireAuthResponse,
+} from "@/lib/api/route-helpers";
 import { sendRentalStartedNotification } from "@/features/rentals/notifications/rental-started";
 
 /**
@@ -77,11 +81,10 @@ export async function POST(
         rentalId: rentalId,
       });
     } catch (notificationError) {
-      // Log notification error but don't fail the action
-      console.error(
-        "Failed to send rental started notification:",
-        notificationError,
-      );
+      captureNonCriticalError(notificationError, {
+        route: "POST /api/rentals/[id]/start",
+        action: "send_rental_started_notification",
+      });
     }
 
     return NextResponse.json({ success: true });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
+  captureNonCriticalError,
   parseFormData,
 } from "@/lib/api/route-helpers";
 import { disputeDAL } from "@/dal";
@@ -156,11 +157,10 @@ export async function POST(
         await sendDisputeNotifications(disputeWithRelations, "resolved");
       }
     } catch (notificationError) {
-      console.error(
-        "Failed to send dispute resolution notifications:",
-        notificationError,
-      );
-      // Continue - notifications are non-critical
+      captureNonCriticalError(notificationError, {
+        route: "POST /api/disputes/[id]/resolve",
+        action: "send_dispute_resolved_notifications",
+      });
     }
 
     return NextResponse.json(resolvedDispute);

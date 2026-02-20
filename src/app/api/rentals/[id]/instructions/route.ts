@@ -4,6 +4,7 @@ import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL } from "@/dal";
 import {
   handleApiError,
+  captureNonCriticalError,
   parseFormData,
   requireAuthResponse,
 } from "@/lib/api/route-helpers";
@@ -107,7 +108,10 @@ export async function PATCH(
         returnInstructions: validatedData.returnInstructions,
       });
     } catch (notificationError) {
-      console.error("Failed to send notification:", notificationError);
+      captureNonCriticalError(notificationError, {
+        route: "PATCH /api/rentals/[id]/instructions",
+        action: "send_instructions_updated_notification",
+      });
     }
 
     return NextResponse.json({ success: true });

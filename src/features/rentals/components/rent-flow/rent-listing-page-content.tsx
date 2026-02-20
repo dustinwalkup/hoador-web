@@ -10,6 +10,8 @@ import type { CurrentDocumentVersion } from "@/dal/types";
 import { type ListingDetails, type UserProfile } from "@/dal/types";
 import { PaymentForm } from "@/features/payments/components/payment-form";
 import { useCreateRentalRequest } from "@/features/rentals/hooks/use-rental-mutations";
+import { shouldShowPermissionPrompt } from "@/lib/pwa/use-push-permission";
+import { PushPermissionPromptDialog } from "@/components/pwa/push-permission-prompt-dialog";
 import {
   rentalFormSchema,
   type RentalFormData,
@@ -48,6 +50,10 @@ export function RentListingPageContent({
 }: RentListingPageContentProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<BookingStep>("dates");
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+  const [pendingRedirectRequestId, setPendingRedirectRequestId] = useState<
+    string | null
+  >(null);
   const createRentalMutation = useCreateRentalRequest();
 
   const form = useForm<RentalFormData>({
@@ -255,13 +261,27 @@ export function RentListingPageContent({
       });
 
       // Success toast is handled by the mutation hook
-      // Redirect to the confirmation page with the request ID
       if (result.requestId) {
-        router.push(`/dashboard/rental/${result.requestId}?view=renting`);
+        if (shouldShowPermissionPrompt()) {
+          setPendingRedirectRequestId(result.requestId);
+          setShowPushPrompt(true);
+        } else {
+          router.push(`/dashboard/rental/${result.requestId}?view=renting`);
+        }
       }
     } catch {
       // Error toast is already shown by the mutation hook
-      // But we can add additional handling if needed
+    }
+  };
+
+  const handlePushPromptComplete = (enabled: boolean) => {
+    const requestId = pendingRedirectRequestId;
+    setPendingRedirectRequestId(null);
+    if (requestId) {
+      router.push(`/dashboard/rental/${requestId}?view=renting`);
+    }
+    if (enabled) {
+      toast.success("Push notifications enabled");
     }
   };
 
@@ -314,6 +334,13 @@ export function RentListingPageContent({
 
   return (
     <Form {...form}>
+      <PushPermissionPromptDialog
+        open={showPushPrompt}
+        onOpenChange={setShowPushPrompt}
+        onComplete={handlePushPromptComplete}
+        title="Get notified when the owner responds"
+        description="Enable push notifications to hear when your rental request is approved or if the owner has questions."
+      />
       <div className="min-h-screen">
         <div className="container mx-auto">
           {/* Header */}

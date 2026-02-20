@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
+  captureNonCriticalError,
   parseFormData,
 } from "@/lib/api/route-helpers";
 import { disputeDAL } from "@/dal";
@@ -109,11 +110,10 @@ export async function PATCH(
           );
         }
       } catch (notificationError) {
-        console.error(
-          "Failed to send evidence requested notifications:",
-          notificationError,
-        );
-        // Continue - notifications are non-critical
+        captureNonCriticalError(notificationError, {
+          route: "PATCH /api/disputes/[id]/state",
+          action: "send_evidence_requested_notifications",
+        });
       }
     }
 

@@ -4,6 +4,7 @@ import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL, userDAL } from "@/dal";
 import {
   handleApiError,
+  captureNonCriticalError,
   parseFormData,
   requireAuthResponse,
 } from "@/lib/api/route-helpers";
@@ -106,14 +107,17 @@ export async function POST(
           rentalId: rentalRequest.id,
           denialReason: validatedData.denialReason,
         }).catch((err) => {
-          console.error("Failed to send rental denied notification:", err);
+          captureNonCriticalError(err, {
+            route: "POST /api/rentals/[id]/decline",
+            action: "send_rental_denied_notification",
+          });
         });
       }
     } catch (notificationError) {
-      console.error(
-        "Error sending rental denied notification:",
-        notificationError,
-      );
+      captureNonCriticalError(notificationError, {
+        route: "POST /api/rentals/[id]/decline",
+        action: "send_denial_notifications",
+      });
     }
 
     return NextResponse.json({ success: true });

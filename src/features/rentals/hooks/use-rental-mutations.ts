@@ -1,5 +1,4 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
 import { rentalKeys } from "./use-rentals";
 import type { CreateRentalRequestFormData } from "../lib/form-schema";
@@ -8,8 +7,6 @@ import type { CreateRentalRequestFormData } from "../lib/form-schema";
  * Hook for creating a new rental request
  */
 export function useCreateRentalRequest() {
-  const router = useRouter();
-
   return useCreateMutation({
     mutationFn: async (data: CreateRentalRequestFormData) => {
       // Convert dates to ISO strings for JSON serialization
@@ -45,12 +42,7 @@ export function useCreateRentalRequest() {
       rentalKeys.renting(),
       rentalKeys.lending(),
     ],
-    onSuccess: (data) => {
-      // Navigate to rental detail page if requestId is returned
-      if (data.requestId) {
-        router.push(`/dashboard/rental/${data.requestId}`);
-      }
-    },
+    // Redirect is handled by the rent flow component (so it can show push prompt first)
   });
 }
 

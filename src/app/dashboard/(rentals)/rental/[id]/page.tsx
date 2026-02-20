@@ -8,7 +8,7 @@ export const metadata = {
 
 interface RentalDetailPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; firstApproval?: string }>;
 }
 
 export default async function RentalDetailPage({
@@ -16,7 +16,13 @@ export default async function RentalDetailPage({
   searchParams,
 }: RentalDetailPageProps) {
   const { id } = await params;
-  const { view } = await searchParams;
+  const { view, firstApproval } = await searchParams;
 
-  return <RentalDetailsServer rentalId={id} view={view} />;
+  return (
+    <RentalDetailsServer
+      rentalId={id}
+      view={view}
+      firstApproval={firstApproval === "1"}
+    />
+  );
 }

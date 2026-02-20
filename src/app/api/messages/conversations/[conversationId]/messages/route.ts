@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { tryCatch } from "@walkup/walkup-utils";
-import { messagesDAL } from "@/dal";
+import { messagesDAL, userDAL } from "@/dal";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
+  captureNonCriticalError,
   parseFormData,
 } from "@/lib/api/route-helpers";
+import { sendMessageReceivedNotification } from "@/features/messages/notifications/message-received";
 
 const sendMessageSchema = z.object({
   content: z
@@ -47,9 +49,33 @@ export async function POST(
       return handleApiError(error);
     }
 
+    // Send notification to recipient (in-app + email + push per preferences)
+    try {
+      const [sender, recipient] = await Promise.all([
+        userDAL.getUserById(userId),
+        userDAL.getUserById(data.recipientId),
+      ]);
+      const senderName =
+        [sender.firstName, sender.lastName].filter(Boolean).join(" ") ||
+        sender.name ||
+        "Someone";
+
+      await sendMessageReceivedNotification({
+        userId: data.recipientId,
+        to: recipient.email,
+        senderName,
+        conversationId,
+      });
+    } catch (notificationError) {
+      captureNonCriticalError(notificationError, {
+        route: "POST /api/messages/conversations/[id]/messages",
+        action: "send_notification",
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      data,
+      data: data.message,
     });
   } catch (error) {
     return handleApiError(error);

@@ -1,4 +1,5 @@
 import type { RentalDetails } from "@/dal/rentals.dal";
+import { PushPermissionPromptFromUrl } from "@/features/rentals/components/detail-page/push-permission-prompt-from-url";
 import { RentalHeader } from "./rental-header";
 
 interface RentalLayoutProps {
@@ -6,6 +7,7 @@ interface RentalLayoutProps {
   viewContext: "renting" | "lending" | "auto";
   isRenter: boolean;
   isOwner: boolean;
+  firstApproval?: boolean;
   children: React.ReactNode;
 }
 
@@ -14,6 +16,7 @@ export function RentalLayout({
   viewContext,
   isRenter,
   isOwner,
+  firstApproval,
   children,
 }: RentalLayoutProps) {
   return (
@@ -27,6 +30,9 @@ export function RentalLayout({
         />
         {children}
       </div>
+      {isRenter && firstApproval && (
+        <PushPermissionPromptFromUrl rentalId={rentalDetails.id} />
+      )}
     </div>
   );
 }

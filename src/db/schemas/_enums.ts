@@ -138,3 +138,18 @@ export const financialOperationStatusEnum = pgEnum(
   "financial_operation_status",
   ["pending", "succeeded", "failed"],
 );
+
+/** Notification category for preference toggles (email/push per category). */
+export const notificationCategoryEnum = pgEnum("notification_category", [
+  "bookings",
+  "payments",
+  "messages",
+  "disputes",
+  "reminders",
+]);
+
+/** Platform for push subscription (web vs native). */
+export const pushSubscriptionPlatformEnum = pgEnum(
+  "push_subscription_platform",
+  ["web", "ios", "android"],
+);

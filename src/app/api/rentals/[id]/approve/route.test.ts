@@ -29,6 +29,7 @@ vi.mock("@/lib/api/route-helpers", () => ({
   }),
   parseFormData: vi.fn().mockResolvedValue({}),
   requireAuthResponse: vi.fn().mockResolvedValue(null),
+  captureNonCriticalError: vi.fn(),
 }));
 
 vi.mock("@/features/auth/utils/session", () => ({

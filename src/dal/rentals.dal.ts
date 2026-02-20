@@ -1,4 +1,4 @@
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, gte, lte } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import { rentals, rentalRequests, reviews } from "@/db/schemas/rentals.schema";
@@ -552,6 +552,27 @@ export class RentalDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "getRentalRequestById");
+    }
+  }
+
+  /**
+   * Returns the number of approved/active/completed rental requests for a renter.
+   * Used to detect "first approval" for push permission prompt.
+   */
+  async getApprovedRentalCountForRenter(renterId: string): Promise<number> {
+    try {
+      const result = await this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(rentalRequests)
+        .where(
+          and(
+            eq(rentalRequests.renterId, renterId),
+            inArray(rentalRequests.status, ["approved", "active", "completed"]),
+          ),
+        );
+      return result[0]?.count ?? 0;
+    } catch (error) {
+      this.handleError(error, "getApprovedRentalCountForRenter");
     }
   }
 
@@ -2100,5 +2121,85 @@ export class RentalDAL extends BaseDAL {
     } catch (error) {
       this.handleError(error, "getSecurityDepositAuthId");
     }
+  }
+
+  /**
+   * Rental request row for pickup/return reminder cron.
+   * Requirements: 13.1, 13.2, 13.3
+   */
+  static readonly REMINDER_LEAD_TIME_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  /** Rental requests due for pickup reminder (start within next window); status approved. */
+  async getRentalsDueForPickupReminder(
+    withinNextMs: number = RentalDAL.REMINDER_LEAD_TIME_MS,
+  ): Promise<
+    Array<{
+      requestId: string;
+      renterId: string;
+      renterEmail: string;
+      listingName: string;
+      startDate: Date;
+      endDate: Date;
+    }>
+  > {
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + withinNextMs);
+    const rows = await this.db
+      .select({
+        requestId: rentalRequests.id,
+        renterId: rentalRequests.renterId,
+        renterEmail: user.email,
+        listingName: listings.name,
+        startDate: rentalRequests.startDate,
+        endDate: rentalRequests.endDate,
+      })
+      .from(rentalRequests)
+      .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+      .innerJoin(user, eq(rentalRequests.renterId, user.id))
+      .where(
+        and(
+          eq(rentalRequests.status, "approved"),
+          gte(rentalRequests.startDate, now),
+          lte(rentalRequests.startDate, windowEnd),
+        ),
+      );
+    return rows;
+  }
+
+  /** Rental requests due for return reminder (end within next window); status active. */
+  async getRentalsDueForReturnReminder(
+    withinNextMs: number = RentalDAL.REMINDER_LEAD_TIME_MS,
+  ): Promise<
+    Array<{
+      requestId: string;
+      renterId: string;
+      renterEmail: string;
+      listingName: string;
+      startDate: Date;
+      endDate: Date;
+    }>
+  > {
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + withinNextMs);
+    const rows = await this.db
+      .select({
+        requestId: rentalRequests.id,
+        renterId: rentalRequests.renterId,
+        renterEmail: user.email,
+        listingName: listings.name,
+        startDate: rentalRequests.startDate,
+        endDate: rentalRequests.endDate,
+      })
+      .from(rentalRequests)
+      .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+      .innerJoin(user, eq(rentalRequests.renterId, user.id))
+      .where(
+        and(
+          eq(rentalRequests.status, "active"),
+          gte(rentalRequests.endDate, now),
+          lte(rentalRequests.endDate, windowEnd),
+        ),
+      );
+    return rows;
   }
 }

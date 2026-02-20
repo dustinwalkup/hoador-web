@@ -133,6 +133,26 @@ export function handleApiError(
 }
 
 /**
+ * Capture a non-critical error in Sentry without failing the request.
+ * Use for fire-and-forget side effects (notifications, emails, PDF generation, etc.)
+ * where the primary operation succeeded but a secondary action failed.
+ */
+export function captureNonCriticalError(
+  error: unknown,
+  context: { route: string; action: string },
+): void {
+  console.error(`[${context.route}] ${context.action}:`, error);
+  Sentry.captureException(error, {
+    level: "warning",
+    tags: {
+      error_type: "non_critical",
+      route: context.route,
+      action: context.action,
+    },
+  });
+}
+
+/**
  * Require authentication in API routes
  * Returns NextResponse with 401 if not authenticated, otherwise returns null
  */

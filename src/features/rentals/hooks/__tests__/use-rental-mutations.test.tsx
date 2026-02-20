@@ -150,7 +150,7 @@ describe("useCreateRentalRequest", () => {
     });
   });
 
-  it("should navigate to rental detail page on success", async () => {
+  it("returns requestId on success (caller handles redirect and push prompt)", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => mockSuccessResponse,
@@ -162,13 +162,10 @@ describe("useCreateRentalRequest", () => {
       ),
     });
 
-    await result.current.mutateAsync(mockRentalData);
+    const data = await result.current.mutateAsync(mockRentalData);
 
-    await waitFor(() => {
-      expect(mockRouter.push).toHaveBeenCalledWith(
-        "/dashboard/rental/rental-123",
-      );
-    });
+    expect(data.requestId).toBe("rental-123");
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 
   it("should invalidate rental queries on success", async () => {

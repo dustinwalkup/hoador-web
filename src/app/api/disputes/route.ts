@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
+  captureNonCriticalError,
   parseFormData,
 } from "@/lib/api/route-helpers";
 import { disputeDAL, rentalDAL, legalDocumentDAL } from "@/dal";
@@ -222,11 +223,10 @@ export async function POST(request: NextRequest) {
     try {
       await sendDisputeNotifications(dispute, "created");
     } catch (notificationError) {
-      console.error(
-        "Failed to send dispute creation notifications:",
-        notificationError,
-      );
-      // Continue - notifications are non-critical
+      captureNonCriticalError(notificationError, {
+        route: "POST /api/disputes",
+        action: "send_dispute_created_notifications",
+      });
     }
 
     return NextResponse.json(dispute, { status: 201 });

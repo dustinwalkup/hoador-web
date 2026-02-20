@@ -321,9 +321,12 @@ export class UserDAL extends BaseDAL {
   ): Promise<void> {
     try {
       await this.db
-        .update(userPreferences)
-        .set({ ...preferences, updatedAt: new Date() })
-        .where(eq(userPreferences.userId, userId));
+        .insert(userPreferences)
+        .values({ userId, ...preferences })
+        .onConflictDoUpdate({
+          target: userPreferences.userId,
+          set: { ...preferences, updatedAt: new Date() },
+        });
     } catch (error) {
       this.handleError(error, "updateUserPreferences");
     }
@@ -338,6 +341,44 @@ export class UserDAL extends BaseDAL {
       return this.updateUserPreferences(userId, preferences);
     } catch (error) {
       this.handleError(error, "updateCurrentUserPreferences");
+    }
+  }
+
+  /**
+   * Get master notification preferences (email/push) for a user.
+   * Defaults to true for both when no preferences row exists.
+   */
+  async getUserPreferences(userId: string): Promise<{
+    emailNotifications: boolean;
+    pushNotifications: boolean;
+  }> {
+    try {
+      const row = await this.db.query.userPreferences.findFirst({
+        where: eq(userPreferences.userId, userId),
+        columns: { emailNotifications: true, pushNotifications: true },
+      });
+      return {
+        emailNotifications: row?.emailNotifications ?? true,
+        pushNotifications: row?.pushNotifications ?? true,
+      };
+    } catch (error) {
+      this.handleError(error, "getUserPreferences");
+    }
+  }
+
+  /**
+   * Get user's timezone from preferences (e.g. for reminder scheduling).
+   * Returns IANA timezone string; default "America/Chicago" if not set.
+   */
+  async getTimezone(userId: string): Promise<string> {
+    try {
+      const row = await this.db.query.userPreferences.findFirst({
+        where: eq(userPreferences.userId, userId),
+        columns: { timezone: true },
+      });
+      return row?.timezone ?? "America/Chicago";
+    } catch (error) {
+      this.handleError(error, "getTimezone");
     }
   }
 

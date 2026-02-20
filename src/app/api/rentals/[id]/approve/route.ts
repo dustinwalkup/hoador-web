@@ -7,6 +7,7 @@ import { rentals } from "@/db/schemas/rentals.schema";
 import { db } from "@/db/db";
 import {
   handleApiError,
+  captureNonCriticalError,
   parseFormData,
   requireAuthResponse,
 } from "@/lib/api/route-helpers";
@@ -447,7 +448,11 @@ export async function POST(
           );
         });
 
-        // Send rental approved notification to renter
+        // Send rental approved notification to renter (with firstApproval for push prompt)
+        const approvedCount = await rentalDAL.getApprovedRentalCountForRenter(
+          renterUser.id,
+        );
+        const firstApproval = approvedCount === 1;
         tryCatch(
           sendRentalApprovedNotification({
             userId: renterUser.id,
@@ -459,13 +464,20 @@ export async function POST(
             startDate,
             endDate,
             totalAmount: rentalRequest.totalAmount,
+            firstApproval,
           }),
         ).catch((err) => {
-          console.error("Failed to send rental approved notification:", err);
+          captureNonCriticalError(err, {
+            route: "POST /api/rentals/[id]/approve",
+            action: "send_rental_approved_notification",
+          });
         });
       }
     } catch (notificationError) {
-      console.error("Error sending success notifications:", notificationError);
+      captureNonCriticalError(notificationError, {
+        route: "POST /api/rentals/[id]/approve",
+        action: "send_success_notifications",
+      });
     }
 
     // Trigger async PDF generation (fire-and-forget; do not block response)
@@ -484,10 +496,10 @@ export async function POST(
         body: JSON.stringify({ rentalRequestId: rentalRequest.id }),
         signal: AbortSignal.timeout(5000),
       }).catch((err) => {
-        console.error(
-          `Failed to trigger rental agreement generation for ${rentalRequest.id}:`,
-          err,
-        );
+        captureNonCriticalError(err, {
+          route: "POST /api/rentals/[id]/approve",
+          action: "trigger_pdf_generation",
+        });
       });
     }
 

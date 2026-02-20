@@ -8,11 +8,13 @@ import { getAuthenticatedUser } from "@/features/auth/utils/session";
 interface RentalDetailsServerProps {
   rentalId: string;
   view?: string;
+  firstApproval?: boolean;
 }
 
 export async function RentalDetailsServer({
   rentalId,
   view,
+  firstApproval,
 }: RentalDetailsServerProps) {
   // Check authentication
   const auth = await getAuthenticatedUser();
@@ -116,6 +118,7 @@ export async function RentalDetailsServer({
       viewContext={viewContext}
       isRenter={isRenter}
       isOwner={isOwner}
+      firstApproval={firstApproval}
     >
       <RentalContent
         rentalDetails={rentalDetails}

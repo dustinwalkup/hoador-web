@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Card,
   CardContent,
@@ -6,247 +8,198 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { PWAInstallSection } from "./pwa-install-section";
+  useNotificationPreferences,
+  useUpdateNotificationPreferences,
+} from "@/features/notifications/hooks/use-notification-preferences";
+import type { NotificationCategory } from "@/features/notifications/lib/notification-type-map";
+
+const CATEGORY_LABELS: Record<NotificationCategory, string> = {
+  bookings: "Bookings",
+  payments: "Payments",
+  messages: "Messages",
+  disputes: "Disputes",
+  reminders: "Reminders",
+};
 
 export function PreferencesTab() {
+  const { data: preferences, isLoading } = useNotificationPreferences();
+  const patchMutation = useUpdateNotificationPreferences();
+
+  const updateMaster = (field: "email" | "push", value: boolean) => {
+    if (!preferences) return;
+    patchMutation.mutate({ master: { [field]: value } });
+  };
+
+  const updateCategory = (
+    category: NotificationCategory,
+    field: "email" | "push",
+    value: boolean,
+  ) => {
+    const current = preferences?.categories?.[category] ?? {
+      email: true,
+      push: true,
+    };
+    patchMutation.mutate({
+      categories: {
+        [category]: { ...current, [field]: value },
+      },
+    });
+  };
+
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>App Installation</CardTitle>
-          <CardDescription>
-            Install Hoador as an app on your device for quick access
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PWAInstallSection />
-        </CardContent>
-      </Card>
+    <div className=" ">
       <Card>
         <CardHeader>
           <CardTitle>Notification Preferences</CardTitle>
           <CardDescription>
-            Manage how you receive notifications
+            Manage how you receive notifications (email and push per category)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">Email Notifications</h3>
-              <p className="text-muted-foreground text-sm">
-                Receive updates about your rentals and messages
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">SMS Notifications</h3>
-              <p className="text-muted-foreground text-sm">
-                Receive text messages for important updates
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">Push Notifications</h3>
-              <p className="text-muted-foreground text-sm">
-                Receive push notifications on your devices
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">Marketing Communications</h3>
-              <p className="text-muted-foreground text-sm">
-                Receive promotional emails and updates
-              </p>
-            </div>
-            <Switch />
-          </div>
+          {isLoading ? (
+            <PreferencesSkeleton />
+          ) : preferences ? (
+            <>
+              <div className="flex flex-row gap-3 sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-medium">Email Notifications</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Master switch for email; category toggles below
+                  </p>
+                </div>
+                <Switch
+                  checked={preferences.master.email}
+                  onCheckedChange={(v) => updateMaster("email", v)}
+                  disabled={patchMutation.isPending}
+                />
+              </div>
+              <div className="flex gap-3 sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-medium">Push Notifications</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Master switch for push; category toggles below
+                  </p>
+                </div>
+                <Switch
+                  checked={preferences.master.push}
+                  onCheckedChange={(v) => updateMaster("push", v)}
+                  disabled={patchMutation.isPending}
+                />
+              </div>
+              <div className="border-t pt-4">
+                <h4 className="mb-3 font-medium">By category</h4>
+                <div className="space-y-4">
+                  {(
+                    Object.entries(preferences.categories) as [
+                      NotificationCategory,
+                      { email: boolean; push: boolean },
+                    ][]
+                  ).map(([category, { email, push }]) => (
+                    <div
+                      key={category}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
+                    >
+                      <span className="font-medium">
+                        {CATEGORY_LABELS[category]}
+                      </span>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <Label
+                            htmlFor={`${category}-email`}
+                            className="text-muted-foreground text-sm"
+                          >
+                            Email
+                          </Label>
+                          <Switch
+                            id={`${category}-email`}
+                            checked={email}
+                            onCheckedChange={(v) =>
+                              updateCategory(category, "email", v)
+                            }
+                            disabled={patchMutation.isPending}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label
+                            htmlFor={`${category}-push`}
+                            className="text-muted-foreground text-sm"
+                          >
+                            Push
+                          </Label>
+                          <Switch
+                            id={`${category}-push`}
+                            checked={push}
+                            onCheckedChange={(v) =>
+                              updateCategory(category, "push", v)
+                            }
+                            disabled={patchMutation.isPending}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              Unable to load preferences.
+            </p>
+          )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tool Sharing Preferences</CardTitle>
-          <CardDescription>
-            Configure your lending and borrowing settings
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="lending-radius">Lending Radius</Label>
-            <Select defaultValue="5">
-              <SelectTrigger>
-                <SelectValue placeholder="Select radius" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 mile</SelectItem>
-                <SelectItem value="3">3 miles</SelectItem>
-                <SelectItem value="5">5 miles</SelectItem>
-                <SelectItem value="10">10 miles</SelectItem>
-                <SelectItem value="20">20 miles</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+function MasterSwitchSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-36" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+      <Skeleton className="h-6 w-11 rounded-full" />
+    </div>
+  );
+}
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">Auto-approve Requests</h3>
-              <p className="text-muted-foreground text-sm">
-                Automatically approve rental requests from verified users
-              </p>
-            </div>
-            <Switch />
-          </div>
+function CategoryRowSkeleton() {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
+      <Skeleton className="h-5 w-24" />
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-10" />
+          <Skeleton className="h-6 w-11 rounded-full" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-10" />
+          <Skeleton className="h-6 w-11 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">Weekend Availability</h3>
-              <p className="text-muted-foreground text-sm">
-                Allow tool pickups and returns on weekends
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="default-rental-period">Default Rental Period</Label>
-            <Select defaultValue="3">
-              <SelectTrigger>
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 day</SelectItem>
-                <SelectItem value="3">3 days</SelectItem>
-                <SelectItem value="7">1 week</SelectItem>
-                <SelectItem value="14">2 weeks</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Privacy Settings</CardTitle>
-          <CardDescription>
-            Control your profile visibility and data sharing
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">Public Profile</h3>
-              <p className="text-muted-foreground text-sm">
-                Make your profile visible to other users
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">Show Location</h3>
-              <p className="text-muted-foreground text-sm">
-                Display your general location to nearby users
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">Show Activity Status</h3>
-              <p className="text-muted-foreground text-sm">
-                Let others see when you&apos;re active
-              </p>
-            </div>
-            <Switch />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-medium">Analytics Tracking</h3>
-              <p className="text-muted-foreground text-sm">
-                Help improve the platform with usage data
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Regional Settings</CardTitle>
-          <CardDescription>
-            Configure language, timezone, and currency
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="language">Language</Label>
-            <Select defaultValue="en">
-              <SelectTrigger>
-                <SelectValue placeholder="Select language" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="es">Español</SelectItem>
-                <SelectItem value="fr">Français</SelectItem>
-                <SelectItem value="de">Deutsch</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone</Label>
-            <Select defaultValue="america/chicago">
-              <SelectTrigger>
-                <SelectValue placeholder="Select timezone" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="america/new_york">Eastern Time</SelectItem>
-                <SelectItem value="america/chicago">Central Time</SelectItem>
-                <SelectItem value="america/denver">Mountain Time</SelectItem>
-                <SelectItem value="america/los_angeles">
-                  Pacific Time
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="currency">Currency</Label>
-            <Select defaultValue="usd">
-              <SelectTrigger>
-                <SelectValue placeholder="Select currency" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="usd">USD ($)</SelectItem>
-                <SelectItem value="eur">EUR (€)</SelectItem>
-                <SelectItem value="gbp">GBP (£)</SelectItem>
-                <SelectItem value="cad">CAD (C$)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+function PreferencesSkeleton() {
+  return (
+    <div className="space-y-4">
+      <MasterSwitchSkeleton />
+      <MasterSwitchSkeleton />
+      <div className="border-t pt-4">
+        <Skeleton className="mb-3 h-5 w-24" />
+        <div className="space-y-4">
+          {Array.from({ length: Object.keys(CATEGORY_LABELS).length }).map(
+            (_, i) => (
+              <CategoryRowSkeleton key={i} />
+            ),
+          )}
+        </div>
+      </div>
     </div>
   );
 }

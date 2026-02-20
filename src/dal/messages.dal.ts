@@ -447,7 +447,7 @@ export class MessagesDAL extends BaseDAL {
     senderId: string,
     content: string,
     rentalId?: string,
-  ): Promise<MessageDb> {
+  ): Promise<{ message: MessageDb; recipientId: string }> {
     const { data, error } = await tryCatch(
       (async () => {
         // Sanitize and validate message content
@@ -495,7 +495,12 @@ export class MessagesDAL extends BaseDAL {
           .set({ lastMessageAt: new Date() })
           .where(eq(conversations.id, conversationId));
 
-        return message;
+        const recipientId =
+          conversation.user1Id === senderId
+            ? conversation.user2Id
+            : conversation.user1Id;
+
+        return { message, recipientId };
       })(),
     );
 

@@ -13,6 +13,7 @@ export async function sendRentalApprovedNotification({
   startDate,
   endDate,
   totalAmount,
+  firstApproval,
 }: {
   userId: string;
   to: string;
@@ -23,10 +24,13 @@ export async function sendRentalApprovedNotification({
   startDate: string;
   endDate: string;
   totalAmount: string;
+  firstApproval?: boolean;
 }) {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
-  const linkUrl = `${baseUrl}/dashboard/rental/${rentalId}?view=renting`;
+  const params = new URLSearchParams({ view: "renting" });
+  if (firstApproval) params.set("firstApproval", "1");
+  const linkUrl = `${baseUrl}/dashboard/rental/${rentalId}?${params.toString()}`;
 
   return await sendNotification({
     userId,
@@ -92,7 +96,7 @@ export async function sendRentalApprovedNotification({
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${baseUrl}/dashboard/rental/${rentalId}?view=renting" 
+              <a href="${linkUrl}" 
                  style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
                 View Rental Details
               </a>
@@ -126,7 +130,7 @@ Next Steps:
 2. Review the pickup and return instructions
 3. Contact ${ownerName} if you have any questions
 
-View Rental Details: ${baseUrl}/dashboard/rental/${rentalId}?view=renting
+View Rental Details: ${linkUrl}
 
 You'll receive another notification when ${ownerName} starts the rental on ${startDate}.
 
