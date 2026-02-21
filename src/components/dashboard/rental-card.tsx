@@ -141,7 +141,7 @@ export default function RentalCard({
           alt={name}
           width={300}
           height={200}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain"
         />
         <Link
           href={`/dashboard/listings/${id}`}

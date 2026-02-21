@@ -1,4 +1,4 @@
-import { eq, count, sql } from "drizzle-orm";
+import { eq, count, sql, and, or, ilike, desc } from "drizzle-orm";
 
 import { geocodeAddress } from "@/services/geocoding";
 import { schema } from "@/db/schemas";
@@ -10,12 +10,17 @@ import {
   type UpdateUserDTO,
   type PaginationOptions,
   type PaginatedResult,
+  type GetUsersForAdminOptions,
+  type AdminUpdateUserDTO,
+  type AdminUserListItem,
+  type AdminUserDetail,
   UserProfile,
 } from "./types";
 import { ConflictError, NotFoundError } from "./errors";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
-const { user, userPreferences, userAddresses, reviews, rentals } = schema;
+const { user, userPreferences, userAddresses, reviews, rentals, listings } =
+  schema;
 
 type UpdateUserPreferencesDTO = Partial<
   Omit<
@@ -276,6 +281,120 @@ export class UserDAL extends BaseDAL {
       }
     } catch (error) {
       this.handleError(error, "deleteUser");
+    }
+  }
+
+  /**
+   * Get paginated users for admin list. Default sort: most recently signed up first.
+   */
+  async getUsersForAdmin(
+    options: GetUsersForAdminOptions,
+  ): Promise<PaginatedResult<AdminUserListItem>> {
+    try {
+      const { search, status, userType, page, limit } = options;
+      this.validatePagination(page, limit);
+      const offset = (page - 1) * limit;
+
+      const conditions = [];
+      if (search?.trim()) {
+        const term = `%${search.trim()}%`;
+        conditions.push(or(ilike(user.name, term), ilike(user.email, term)));
+      }
+      if (status) {
+        conditions.push(eq(user.status, status));
+      }
+      if (userType) {
+        conditions.push(eq(user.userType, userType));
+      }
+      const whereClause =
+        conditions.length > 0 ? and(...conditions) : undefined;
+
+      const countQuery = this.db
+        .select({ total: count() })
+        .from(user)
+        .where(whereClause);
+      const [{ total }] = await countQuery;
+
+      const rows = await this.db.query.user.findMany({
+        where: whereClause,
+        columns: {
+          id: true,
+          name: true,
+          email: true,
+          status: true,
+          userType: true,
+          createdAt: true,
+        },
+        orderBy: [desc(user.createdAt)],
+        limit,
+        offset,
+      });
+
+      return this.createPaginatedResult(
+        rows as AdminUserListItem[],
+        Number(total),
+        page,
+        limit,
+      );
+    } catch (error) {
+      this.handleError(error, "getUsersForAdmin");
+    }
+  }
+
+  /**
+   * Get user profile with extra counts for admin detail view.
+   */
+  async getUserDetailsForAdmin(userId: string): Promise<AdminUserDetail> {
+    try {
+      const profile = await this.getUserById(userId);
+
+      const [listingsCountResult, rentalsRenterResult, rentalsOwnerResult] =
+        await Promise.all([
+          this.db
+            .select({ count: count() })
+            .from(listings)
+            .where(eq(listings.ownerId, userId)),
+          this.db
+            .select({ count: count() })
+            .from(rentals)
+            .where(eq(rentals.renterId, userId)),
+          this.db
+            .select({ count: count() })
+            .from(rentals)
+            .where(eq(rentals.ownerId, userId)),
+        ]);
+
+      return {
+        ...profile,
+        listingsCount: Number(listingsCountResult[0]?.count ?? 0),
+        rentalsAsRenterCount: Number(rentalsRenterResult[0]?.count ?? 0),
+        rentalsAsOwnerCount: Number(rentalsOwnerResult[0]?.count ?? 0),
+      };
+    } catch (error) {
+      this.handleError(error, "getUserDetailsForAdmin");
+    }
+  }
+
+  /**
+   * Admin-only update: status and/or userType. Caller must enforce admin auth.
+   */
+  async adminUpdateUser(
+    userId: string,
+    updates: AdminUpdateUserDTO,
+  ): Promise<UserProfile> {
+    try {
+      if (updates.status !== undefined) {
+        await this.updateUserStatus(userId, updates.status);
+      }
+      if (updates.userType !== undefined) {
+        await this.db
+          .update(user)
+          .set({ userType: updates.userType, updatedAt: new Date() })
+          .where(eq(user.id, userId));
+      }
+      return this.getUserById(userId);
+    } catch (error) {
+      this.handleError(error, "adminUpdateUser");
     }
   }
 

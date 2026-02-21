@@ -7,6 +7,7 @@ import {
   useApproveListing,
   useRejectListing,
   useDeleteDocumentVersion,
+  useUpdateAdminUser,
 } from "../use-admin-mutations";
 
 // Mock fetch
@@ -744,5 +745,251 @@ describe("useDeleteDocumentVersion", () => {
 
       vi.clearAllMocks();
     }
+  });
+});
+
+describe("useUpdateAdminUser", () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = createTestQueryClient();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    queryClient.clear();
+  });
+
+  const mockUserResponse = {
+    id: "user-123",
+    name: "Test User",
+    email: "test@example.com",
+    status: "active",
+    userType: "standard",
+  };
+
+  it("should update user status successfully", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => mockUserResponse,
+    });
+
+    const { result } = renderHook(() => useUpdateAdminUser(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await result.current.mutateAsync({
+      userId: "user-123",
+      status: "suspended",
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/admin/users/user-123",
+        expect.objectContaining({
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+      expect(body).toEqual({ status: "suspended" });
+      expect(result.current.isSuccess).toBe(true);
+    });
+  });
+
+  it("should update user type successfully", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...mockUserResponse, userType: "admin" }),
+    });
+
+    const { result } = renderHook(() => useUpdateAdminUser(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await result.current.mutateAsync({
+      userId: "user-123",
+      userType: "admin",
+    });
+
+    await waitFor(() => {
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+      expect(body).toEqual({ userType: "admin" });
+      expect(result.current.isSuccess).toBe(true);
+    });
+  });
+
+  it("should send both status and userType when provided", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => mockUserResponse,
+    });
+
+    const { result } = renderHook(() => useUpdateAdminUser(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await result.current.mutateAsync({
+      userId: "user-456",
+      status: "active",
+      userType: "standard",
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/admin/users/user-456",
+        expect.any(Object),
+      );
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+      expect(body).toEqual({ status: "active", userType: "standard" });
+    });
+  });
+
+  it("should invalidate admin users and user queries on success", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => mockUserResponse,
+    });
+
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    const { result } = renderHook(() => useUpdateAdminUser(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await result.current.mutateAsync({ userId: "user-123", status: "active" });
+
+    await waitFor(() => {
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ["admin", "users"],
+      });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ["admin", "user"],
+      });
+    });
+  });
+
+  it("should show success toast on success", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => mockUserResponse,
+    });
+
+    const { result } = renderHook(() => useUpdateAdminUser(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await result.current.mutateAsync({ userId: "user-123", status: "active" });
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(
+        "User updated",
+        expect.objectContaining({ duration: 3000 }),
+      );
+    });
+  });
+
+  it("should handle API errors correctly", async () => {
+    const errorResponse = { error: "Only superadmin can set admin role" };
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => errorResponse,
+    });
+
+    const { result } = renderHook(() => useUpdateAdminUser(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await expect(
+      result.current.mutateAsync({
+        userId: "user-123",
+        userType: "admin",
+      }),
+    ).rejects.toThrow("Only superadmin can set admin role");
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "Only superadmin can set admin role",
+        expect.objectContaining({ duration: 5000 }),
+      );
+    });
+  });
+
+  it("should handle default error message when API error is missing", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
+
+    const { result } = renderHook(() => useUpdateAdminUser(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await expect(
+      result.current.mutateAsync({ userId: "user-123", status: "active" }),
+    ).rejects.toThrow("Failed to update user");
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "Failed to update user",
+        expect.objectContaining({ duration: 5000 }),
+      );
+    });
+  });
+
+  it("should handle network errors", async () => {
+    mockFetch.mockRejectedValue(new Error("Network error"));
+
+    const { result } = renderHook(() => useUpdateAdminUser(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await expect(
+      result.current.mutateAsync({ userId: "user-123", status: "active" }),
+    ).rejects.toThrow("Network error");
+  });
+
+  it("should show pending state during mutation", async () => {
+    let resolvePromise: (value: unknown) => void;
+    const pendingPromise = new Promise((resolve) => {
+      resolvePromise = resolve;
+    });
+
+    mockFetch.mockReturnValue(pendingPromise);
+
+    const { result } = renderHook(() => useUpdateAdminUser(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    result.current.mutate({ userId: "user-123", status: "active" });
+
+    await waitFor(() => {
+      expect(result.current.isPending).toBe(true);
+    });
+
+    resolvePromise!({
+      ok: true,
+      json: async () => mockUserResponse,
+    });
   });
 });

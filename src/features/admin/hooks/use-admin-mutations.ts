@@ -136,3 +136,44 @@ export function useDeleteDocumentVersion() {
     invalidateQueryKeys: [["admin", "legal-documents"]],
   });
 }
+
+export interface UpdateAdminUserVariables {
+  userId: string;
+  status?: import("@/dal/types").UserStatus;
+  userType?: import("@/dal/types").UserType;
+}
+
+/**
+ * Update a user's status and/or role (admin only). Only superadmin can set userType to admin/superadmin.
+ */
+export function useUpdateAdminUser() {
+  return useCreateMutation({
+    mutationFn: async ({
+      userId,
+      status,
+      userType,
+    }: UpdateAdminUserVariables) => {
+      const body: Record<string, string> = {};
+      if (status !== undefined) body.status = status;
+      if (userType !== undefined) body.userType = userType;
+
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update user");
+      }
+
+      return response.json();
+    },
+    successMessage: "User updated",
+    invalidateQueryKeys: [
+      ["admin", "users"],
+      ["admin", "user"],
+    ],
+  });
+}
