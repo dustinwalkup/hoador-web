@@ -14,14 +14,19 @@ export interface PaymentMethod {
   exp_year: number;
 }
 
+export interface PaymentMethodsResponse {
+  paymentMethods: PaymentMethod[];
+  defaultPaymentMethodId: string | null;
+}
+
 /**
- * Hook for fetching payment methods
- * Returns all saved payment methods for the current user
+ * Hook for fetching payment methods and the customer's default payment method.
+ * Returns all saved payment methods and which one is set as default in Stripe.
  */
 export function usePaymentMethods() {
   return useQuery({
     queryKey: paymentKeys.all,
-    queryFn: async (): Promise<PaymentMethod[]> => {
+    queryFn: async (): Promise<PaymentMethodsResponse> => {
       const response = await fetch("/api/get-payment-methods");
 
       if (!response.ok) {
@@ -30,7 +35,10 @@ export function usePaymentMethods() {
       }
 
       const data = await response.json();
-      return data.paymentMethods || [];
+      return {
+        paymentMethods: data.paymentMethods || [],
+        defaultPaymentMethodId: data.defaultPaymentMethodId ?? null,
+      };
     },
     staleTime: 1 * 60 * 1000, // 1 minute - user's own data
     refetchOnWindowFocus: false,

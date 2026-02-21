@@ -23,7 +23,7 @@ export function RentalListingInfo({ rentalDetails }: RentalListingInfoProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex gap-4">
-          <div className="relative aspect-[4/3] w-24 shrink-0 overflow-hidden rounded-lg sm:w-32">
+          <div className="relative aspect-4/3 w-24 shrink-0 overflow-hidden rounded-lg sm:w-32">
             <Image
               src={rentalDetails.listingImageUrl || "/images/placeholder.jpg"}
               alt={rentalDetails.listingName}

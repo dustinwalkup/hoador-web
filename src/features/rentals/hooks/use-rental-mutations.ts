@@ -1,3 +1,4 @@
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
 import { rentalKeys } from "./use-rentals";
@@ -51,6 +52,7 @@ export function useCreateRentalRequest() {
  */
 export function useApproveRentalRequest() {
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   return useCreateMutation({
     mutationFn: async ({
@@ -94,11 +96,13 @@ export function useApproveRentalRequest() {
       rentalKeys.lending(),
       ["garage"], // Invalidate garage to update listing availability
     ],
-    onSuccess: (data, variables) => {
-      // Invalidate specific rental detail query
+    onSuccess: (_data, variables) => {
+      // Invalidate specific rental detail query (for any client-side usage)
       queryClient.invalidateQueries({
         queryKey: rentalKeys.detail(variables.rentalId),
       });
+      // Refresh server-rendered rental detail page so it shows updated status
+      router.refresh();
     },
     // Note: Error handling is done via the toast in useCreateMutation
     // The error with paymentFailed flag is already set from API and propagated

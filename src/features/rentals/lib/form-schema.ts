@@ -16,7 +16,7 @@ export const createRentalRequestSchema = z
     setupFee: z.number().default(0),
     message: z.string().optional(),
     paymentIntentId: z.string().optional(), // Stripe payment intent ID
-    paymentMethodId: z.string().optional(), // Stripe payment method ID
+    paymentMethodId: z.string().min(1, "Payment method is required"), // Stripe payment method ID
     // Legal document acknowledgements
     rentalAgreementAccepted: z.boolean().optional(),
     cancellationRefundAcknowledged: z.boolean().optional(),

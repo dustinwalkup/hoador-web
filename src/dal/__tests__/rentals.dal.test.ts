@@ -52,6 +52,7 @@ describe("RentalDAL", () => {
       deliveryRequested: false,
       setupRequested: false,
       setupFee: 0,
+      paymentMethodId: "pm_test_123",
       message: "I need this for a weekend project",
     };
 

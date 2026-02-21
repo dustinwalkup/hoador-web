@@ -15,7 +15,10 @@ export async function GET() {
     const { user } = authResult;
 
     if (!user.stripeCustomerId) {
-      return NextResponse.json({ paymentMethods: [] });
+      return NextResponse.json({
+        paymentMethods: [],
+        defaultPaymentMethodId: null,
+      });
     }
 
     // Query for all payment methods (not just cards) to see what's available
@@ -40,8 +43,19 @@ export async function GET() {
         exp_year: pm.card!.exp_year,
       }));
 
+    // Retrieve customer to get default payment method
+    const customer = await PAYMENT_SERVER_INSTANCE.customers.retrieve(
+      user.stripeCustomerId,
+    );
+    const defaultPaymentMethodId =
+      customer.deleted ||
+      typeof customer.invoice_settings?.default_payment_method !== "string"
+        ? null
+        : customer.invoice_settings.default_payment_method;
+
     return NextResponse.json({
       paymentMethods: formattedMethods,
+      defaultPaymentMethodId,
     });
   } catch (error) {
     return handleApiError(error);

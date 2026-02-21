@@ -96,6 +96,15 @@ export const rentalFormSchema = z
       message: "Setup service requires delivery to be selected",
       path: ["setupRequested"],
     },
+  )
+  .refine(
+    (data) =>
+      typeof data.paymentMethodId === "string" &&
+      data.paymentMethodId.trim().length > 0,
+    {
+      message: "Please select a payment method",
+      path: ["paymentMethodId"],
+    },
   );
 
 export type RentalFormData = z.infer<typeof rentalFormSchema>;

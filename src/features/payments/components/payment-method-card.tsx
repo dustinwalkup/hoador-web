@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, Star, Loader2 } from "lucide-react";
+import { Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CardBrandIcon } from "@/features/payments/components/card-brand-icon";
@@ -86,16 +86,16 @@ export function PaymentMethodCard({
           {!isDefault && (
             <Button
               variant="ghost"
-              size="sm"
               onClick={onSetDefault}
               disabled={isSettingDefault}
               title="Set as default"
-              className="h-8 w-8 p-0"
+              className="flex items-center justify-center"
+              aria-label="Set as default"
             >
               {isSettingDefault ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="mr-10 h-4 w-4 shrink-0 animate-spin" />
               ) : (
-                <Star className="h-4 w-4" />
+                <span className="text-primary">Set as default</span>
               )}
             </Button>
           )}

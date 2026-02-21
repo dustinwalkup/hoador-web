@@ -40,12 +40,17 @@ export function PaymentMethodsSection() {
   const queryClient = useQueryClient();
 
   // React Query hooks
-  const { data: paymentMethods = [], isLoading, error } = usePaymentMethods();
+  const { data, isLoading, error } = usePaymentMethods();
+  const paymentMethods = data?.paymentMethods ?? [];
+  const defaultMethodId =
+    data?.defaultPaymentMethodId &&
+    paymentMethods.some((pm) => pm.id === data.defaultPaymentMethodId)
+      ? data.defaultPaymentMethodId
+      : null;
   const setDefaultMutation = useSetDefaultPaymentMethod();
   const deleteMutation = useDeletePaymentMethod();
 
   // UI state
-  const [defaultMethodId, setDefaultMethodId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
@@ -57,11 +62,7 @@ export function PaymentMethodsSection() {
   const handleSetDefault = async (paymentMethodId: string) => {
     setSettingDefaultId(paymentMethodId);
     setDefaultMutation.mutate(paymentMethodId, {
-      onSuccess: () => {
-        setDefaultMethodId(paymentMethodId);
-        setSettingDefaultId(null);
-      },
-      onError: () => {
+      onSettled: () => {
         setSettingDefaultId(null);
       },
     });
@@ -88,10 +89,11 @@ export function PaymentMethodsSection() {
     });
   };
 
-  const handleAddSuccess = () => {
+  const handleAddSuccess = (paymentMethodId: string) => {
+    // Set the new card as the default so it's used for future rentals
+    setDefaultMutation.mutate(paymentMethodId);
     toast.success("Payment method added successfully");
     setShowAddForm(false);
-    // Invalidate payment methods query to refetch the updated list
     queryClient.invalidateQueries({ queryKey: paymentKeys.all });
   };
 

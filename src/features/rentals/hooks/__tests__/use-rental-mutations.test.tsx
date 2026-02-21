@@ -90,6 +90,7 @@ describe("useCreateRentalRequest", () => {
     deliveryRequested: false,
     setupRequested: false,
     setupFee: 0,
+    paymentMethodId: "pm_test_123",
     rentalAgreementAccepted: true,
     safetyLiabilityPackageAccepted: true,
     paymentPayoutAccepted: true,

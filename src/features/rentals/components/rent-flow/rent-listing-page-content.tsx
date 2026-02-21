@@ -225,6 +225,13 @@ export function RentListingPageContent({
       return;
     }
 
+    if (!data.paymentMethodId?.trim()) {
+      toast.error("Payment method required", {
+        description: "Please select a payment method.",
+      });
+      return;
+    }
+
     // Concatenate address fields into a single string for navigation
     const fullAddress =
       data.deliveryMethod === "delivery"
@@ -250,7 +257,7 @@ export function RentListingPageContent({
             ? listing.setupFee
             : 0,
         message: data.message || undefined,
-        paymentMethodId: data.paymentMethodId,
+        paymentMethodId: data.paymentMethodId.trim(),
         // Legal document acknowledgements
         rentalAgreementAccepted: data.rentalAgreementAccepted,
         cancellationRefundAcknowledged:
@@ -424,7 +431,12 @@ export function RentListingPageContent({
                     }
                     className="bg-primary hover:bg-primary/90 w-full"
                     size="lg"
-                    disabled={!canProceed() || isSubmitting}
+                    disabled={
+                      !canProceed() ||
+                      isSubmitting ||
+                      (currentStep === "summary" &&
+                        !watchedValues.paymentMethodId?.trim())
+                    }
                   >
                     {isSubmitting
                       ? "Submitting..."

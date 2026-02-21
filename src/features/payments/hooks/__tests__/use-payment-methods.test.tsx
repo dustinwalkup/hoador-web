@@ -97,7 +97,8 @@ describe("usePaymentMethods", () => {
     });
 
     expect(mockFetch).toHaveBeenCalledWith("/api/get-payment-methods");
-    expect(result.current.data).toEqual(mockPaymentMethods);
+    expect(result.current.data?.paymentMethods).toEqual(mockPaymentMethods);
+    expect(result.current.data?.defaultPaymentMethodId).toBeNull();
   });
 
   it("should return loading state initially", () => {
@@ -138,7 +139,7 @@ describe("usePaymentMethods", () => {
   it("should return empty array when no payment methods", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ paymentMethods: [] }),
+      json: async () => ({ paymentMethods: [], defaultPaymentMethodId: null }),
     });
 
     const { result } = renderHook(() => usePaymentMethods(), {
@@ -151,7 +152,8 @@ describe("usePaymentMethods", () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(result.current.data).toEqual([]);
+    expect(result.current.data?.paymentMethods).toEqual([]);
+    expect(result.current.data?.defaultPaymentMethodId).toBeNull();
   });
 
   it("should use correct query key and stale time", () => {
@@ -183,8 +185,9 @@ describe("usePaymentMethods", () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    // Should return empty array when paymentMethods is missing
-    expect(result.current.data).toEqual([]);
+    // Should return empty array and null default when paymentMethods is missing
+    expect(result.current.data?.paymentMethods).toEqual([]);
+    expect(result.current.data?.defaultPaymentMethodId).toBeNull();
   });
 
   it("should handle default error message when error object is missing", async () => {

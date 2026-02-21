@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL, userDAL, paymentDAL } from "@/dal";
-import { rentals } from "@/db/schemas/rentals.schema";
+import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { db } from "@/db/db";
 import {
   handleApiError,
@@ -32,6 +32,33 @@ const approveRequestSchema = z.object({
   pickupInstructions: z.string().optional(),
   returnInstructions: z.string().optional(),
 });
+
+/**
+ * Resolve a payment method for the renter: customer's default or first card.
+ * Returns null if the customer has no card payment methods.
+ */
+async function resolveRenterPaymentMethod(
+  stripeCustomerId: string,
+): Promise<string | null> {
+  const { PAYMENT_SERVER_INSTANCE } = await import("@/services/stripe/server");
+  const customer =
+    await PAYMENT_SERVER_INSTANCE.customers.retrieve(stripeCustomerId);
+  if (customer.deleted) return null;
+
+  const defaultPmId =
+    typeof customer.invoice_settings?.default_payment_method === "string"
+      ? customer.invoice_settings.default_payment_method
+      : (customer.invoice_settings?.default_payment_method?.id ?? null);
+
+  const list = await PAYMENT_SERVER_INSTANCE.paymentMethods.list({
+    customer: stripeCustomerId,
+    type: "card",
+  });
+  const cardIds = list.data.map((pm) => pm.id);
+  if (cardIds.length === 0) return null;
+  if (defaultPmId && cardIds.includes(defaultPmId)) return defaultPmId;
+  return cardIds[0];
+}
 
 /**
  * POST /api/rentals/[id]/approve
@@ -95,15 +122,7 @@ export async function POST(
       );
     }
 
-    // Check if payment method is available
-    if (!rentalRequest.paymentMethodId) {
-      return NextResponse.json(
-        { error: "No payment method on file for renter" },
-        { status: 400 },
-      );
-    }
-
-    // Get or create Stripe customer ID for the renter
+    // Get or create Stripe customer ID for the renter (needed for payment method resolution)
     const { data: stripeCustomerId, error: customerError } = await tryCatch(
       userDAL.getOrCreateStripeCustomerId(rentalRequest.renterId),
     );
@@ -116,6 +135,37 @@ export async function POST(
         },
         { status: 500 },
       );
+    }
+
+    // Resolve payment method: use request's stored ID or fall back to renter's Stripe default/first card
+    let paymentMethodIdToUse: string | null = rentalRequest.paymentMethodId;
+
+    if (!paymentMethodIdToUse) {
+      const { data: defaultOrFirstPm } = await tryCatch(
+        resolveRenterPaymentMethod(stripeCustomerId),
+      );
+      paymentMethodIdToUse = defaultOrFirstPm ?? null;
+    }
+
+    if (!paymentMethodIdToUse) {
+      return NextResponse.json(
+        {
+          error:
+            "No payment method on file for renter. The renter needs to add a payment method in their account before you can approve.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // If we resolved from Stripe fallback, persist on the rental request for consistency
+    if (!rentalRequest.paymentMethodId && paymentMethodIdToUse) {
+      await db
+        .update(rentalRequests)
+        .set({
+          paymentMethodId: paymentMethodIdToUse,
+          updatedAt: new Date(),
+        })
+        .where(eq(rentalRequests.id, rentalId));
     }
 
     // Get owner's connected account ID and verify onboarding
@@ -162,7 +212,7 @@ export async function POST(
     let rentalPaymentResult = await tryCatch(
       chargeRentalPayment(
         stripeCustomerId,
-        rentalRequest.paymentMethodId!,
+        paymentMethodIdToUse,
         totalAmount,
         {
           rentalRequestId: rentalRequest.id,
@@ -186,7 +236,7 @@ export async function POST(
       rentalPaymentResult = await tryCatch(
         chargeRentalPayment(
           stripeCustomerId,
-          rentalRequest.paymentMethodId!,
+          paymentMethodIdToUse,
           totalAmount,
           {
             rentalRequestId: rentalRequest.id,
@@ -296,7 +346,7 @@ export async function POST(
       const { data: securityDepositAuth, error: depositError } = await tryCatch(
         authorizeSecurityDeposit(
           stripeCustomerId,
-          rentalRequest.paymentMethodId!,
+          paymentMethodIdToUse,
           Number(rentalRequest.securityDeposit),
           {
             type: "security_deposit",
@@ -380,7 +430,7 @@ export async function POST(
           payeeId: rentalRequest.ownerId,
           amount: totalAmount.toString(),
           platformFee: applicationFeeAmount.toString(),
-          paymentMethodId: rentalRequest.paymentMethodId || undefined,
+          paymentMethodId: paymentMethodIdToUse || undefined,
           stripePaymentIntentId: rentalPaymentIntent.id,
           status: "succeeded",
           paidAt: new Date(),
