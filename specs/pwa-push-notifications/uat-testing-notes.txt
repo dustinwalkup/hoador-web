@@ -2,25 +2,26 @@ UAT-1.1: Service worker registers on page load
  - Tested on desktop and passed
 
 UAT-1.2: Service worker does not break the app if registration fails
- - COuldn't Test
+ - Couldn't Test
 
 UAT-1.3: Service worker registers only in browser (not SSR)
- - Passed on desktop
+ - Pass 
 
 UAT-2.1: No prompt on first visit
- -
+ - Pass
 
 UAT-2.2: No prompt on login only
- -
+ - Pass
 
 UAT-2.3: Permission prompt after submitting a rental request
- - Should we be showing push notification prompts on desktop?
+ - Pass
+ - ** Should we be showing push notification prompts on desktop? **
 
 UAT-2.4: Prompt after first approval
- -
+ - 
 
 UAT-2.5: Accept prompt subscribes device
- -
+ - Pass
 
 UAT-2.6: Dismiss prompt does not subscribe
  -

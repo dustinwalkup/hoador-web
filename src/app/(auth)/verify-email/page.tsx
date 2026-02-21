@@ -55,7 +55,7 @@ export default async function VerifyEmailPage({
             {" "}
             <div className="text-muted-foreground text-center text-xs">
               Need help? Contact your community administrator or{" "}
-              <Link href="/support" className="text-green-600 underline">
+              <Link href="/support" className="text-primary underline">
                 support
               </Link>
             </div>

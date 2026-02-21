@@ -169,7 +169,7 @@ export default function TestImageUploadPage() {
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return "text-green-600 bg-green-50 border-green-200";
+    if (confidence >= 80) return "text-primary bg-green-50 border-green-200";
     if (confidence >= 60)
       return "text-yellow-600 bg-yellow-50 border-yellow-200";
     return "text-red-600 bg-red-50 border-red-200";

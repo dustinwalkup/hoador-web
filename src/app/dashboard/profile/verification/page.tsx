@@ -66,7 +66,7 @@ export default async function VerificationPage() {
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full ${
                       user.emailVerified
-                        ? "bg-green-100 text-green-600"
+                        ? "text-primary bg-green-100"
                         : "bg-amber-100 text-amber-600"
                     }`}
                   >
@@ -86,10 +86,7 @@ export default async function VerificationPage() {
                   </div>
                 </div>
                 {user.emailVerified ? (
-                  <Badge
-                    variant="outline"
-                    className="bg-green-50 text-green-600"
-                  >
+                  <Badge variant="outline" className="text-primary bg-green-50">
                     Verified
                   </Badge>
                 ) : (
@@ -106,7 +103,7 @@ export default async function VerificationPage() {
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full ${
                       user.idVerified
-                        ? "bg-green-100 text-green-600"
+                        ? "text-primary bg-green-100"
                         : "bg-amber-100 text-amber-600"
                     }`}
                   >
@@ -126,10 +123,7 @@ export default async function VerificationPage() {
                   </div>
                 </div>
                 {user.idVerified ? (
-                  <Badge
-                    variant="outline"
-                    className="bg-green-50 text-green-600"
-                  >
+                  <Badge variant="outline" className="text-primary bg-green-50">
                     Verified
                   </Badge>
                 ) : (
@@ -142,7 +136,7 @@ export default async function VerificationPage() {
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full ${
                       user.addressVerified
-                        ? "bg-green-100 text-green-600"
+                        ? "text-primary bg-green-100"
                         : "bg-amber-100 text-amber-600"
                     }`}
                   >
@@ -162,10 +156,7 @@ export default async function VerificationPage() {
                   </div>
                 </div>
                 {user.addressVerified ? (
-                  <Badge
-                    variant="outline"
-                    className="bg-green-50 text-green-600"
-                  >
+                  <Badge variant="outline" className="text-primary bg-green-50">
                     Verified
                   </Badge>
                 ) : (

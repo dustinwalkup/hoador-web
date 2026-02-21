@@ -275,9 +275,7 @@ export default function HowItWorksAuthenticationPage() {
               <Badge
                 key={s.status}
                 variant={s.badgeVariant}
-                className={
-                  s.status === "active" ? "bg-green-600/90" : undefined
-                }
+                className={s.status === "active" ? "bg-primary/90" : undefined}
               >
                 {s.status}
               </Badge>

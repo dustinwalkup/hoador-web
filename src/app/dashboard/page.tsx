@@ -259,7 +259,7 @@ export default async function DashboardPage() {
                   <span className="text-2xl font-bold">$387.50</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 text-xs text-green-600">
+              <div className="text-primary flex items-center gap-1 text-xs">
                 <TrendingUp className="h-3 w-3" />
                 <span>12%</span>
               </div>
@@ -267,10 +267,10 @@ export default async function DashboardPage() {
             <div className="mt-3 space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Goal: $120</span>
-                <span className="font-medium text-green-600">73%</span>
+                <span className="text-primary font-medium">73%</span>
               </div>
               <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
-                <div className="h-full w-[73%] rounded-full bg-green-500 transition-all duration-500"></div>
+                <div className="bg-primary h-full w-[73%] rounded-full transition-all duration-500"></div>
               </div>
               <p className="text-muted-foreground text-xs">$32.50 to goal</p>
             </div>

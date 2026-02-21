@@ -20,17 +20,23 @@ import {
 } from "lucide-react";
 
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { UserProfile } from "@/dal/types";
 import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
@@ -201,34 +207,52 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>
-            <BookOpen className="size-4" />
-            <span className="ml-2 text-sm font-medium">How Things Work</span>
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {howItWorksNavItems.map((item) => {
-                const isActive =
-                  pathname === item.url || pathname.startsWith(item.url + "/");
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <Link href={item.url}>
-                      <SidebarMenuButton
-                        size="lg"
-                        tooltip={item.title}
-                        isActive={isActive}
-                      >
-                        {item.icon && <item.icon className="size-5!" />}
-                        <span>{item.title}</span>
-                      </SidebarMenuButton>
-                    </Link>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <Collapsible defaultOpen={false}>
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "group text-sidebar-foreground/70 ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full shrink-0 cursor-pointer items-center rounded-md px-2 text-left text-xs font-medium outline-hidden transition-[margin,opacity] duration-200 ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+                )}
+              >
+                <BookOpen className="size-4" />
+                <span className="ml-2 text-sm font-medium">
+                  How Things Work
+                </span>
+                <ChevronDown
+                  className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180"
+                  aria-hidden
+                />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {howItWorksNavItems.map((item) => {
+                    const isActive =
+                      pathname === item.url ||
+                      pathname.startsWith(item.url + "/");
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <Link href={item.url}>
+                          <SidebarMenuButton
+                            size="lg"
+                            tooltip={item.title}
+                            isActive={isActive}
+                          >
+                            {item.icon && <item.icon className="size-5!" />}
+                            <span>{item.title}</span>
+                          </SidebarMenuButton>
+                        </Link>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

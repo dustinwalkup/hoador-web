@@ -35,7 +35,7 @@ function getStatusBadge(status: string) {
         </Badge>
       );
     case "approved":
-      return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
+      return <Badge className="bg-primary/10 text-primary">Approved</Badge>;
     case "denied":
       return <Badge className="bg-red-100 text-red-800">Denied</Badge>;
     case "cancelled":
@@ -80,7 +80,7 @@ export default async function RentalConfirmationPage({
     <div className="container mx-auto px-4 py-8">
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 text-center">
-          <CheckCircle className="mx-auto mb-4 h-16 w-16 text-green-600" />
+          <CheckCircle className="text-primary mx-auto mb-4 h-16 w-16" />
           <h1 className="mb-2 text-3xl font-bold text-gray-900">
             Request Sent!
           </h1>
@@ -175,9 +175,7 @@ export default async function RentalConfirmationPage({
                 </div>
                 <div className="flex justify-between border-t pt-2 font-semibold">
                   <span>Total Amount:</span>
-                  <span className="text-green-600">
-                    ${grandTotal.toFixed(2)}
-                  </span>
+                  <span className="text-primary">${grandTotal.toFixed(2)}</span>
                 </div>
               </div>
             </div>
