@@ -4,9 +4,13 @@
  * Hook and utilities for push notification permission state and prompting.
  * Tracks "has been prompted" via localStorage to avoid repeated prompts.
  * Requirements: 4.1, 4.5, 4.6, 5.4, 5.5
+ *
+ * In-app push permission prompts are shown only on mobile; shouldOfferPushOnDevice()
+ * gates those prompts. Preference toggles for push remain available on all devices.
  */
 
 import { useCallback, useSyncExternalStore } from "react";
+import { isMobileDevice } from "./install-prompt";
 
 const STORAGE_KEY = "push-permission-prompted";
 
@@ -28,6 +32,20 @@ function subscribe(callback: () => void): () => void {
   const handler = () => callback();
   window.addEventListener("focus", handler);
   return () => window.removeEventListener("focus", handler);
+}
+
+/**
+ * Returns whether in-app push permission prompts should be shown on this device.
+ * Prompts are shown only on mobile; desktop users do not see the post-request or
+ * first-approval prompt (they can still adjust push preferences in settings).
+ *
+ * @returns true only when running on client and isMobileDevice() is true
+ */
+export function shouldOfferPushOnDevice(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return isMobileDevice();
 }
 
 /**

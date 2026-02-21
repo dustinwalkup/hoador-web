@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { shouldShowPermissionPrompt } from "@/lib/pwa/use-push-permission";
+import {
+  shouldOfferPushOnDevice,
+  shouldShowPermissionPrompt,
+} from "@/lib/pwa/use-push-permission";
 import { PushPermissionPromptDialog } from "@/components/pwa/push-permission-prompt-dialog";
 import { toast } from "sonner";
 
@@ -28,7 +31,7 @@ export function PushPermissionPromptFromUrl({
 
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
-    if (shouldShowPermissionPrompt()) {
+    if (shouldOfferPushOnDevice() && shouldShowPermissionPrompt()) {
       queueMicrotask(() => setShow(true));
     }
   }, [mounted]);

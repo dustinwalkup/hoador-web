@@ -1,3 +1,8 @@
+Policy: In-app push permission prompts are mobile-only (desktop users do not see
+the prompt after rental request or first approval). Push preference toggles
+(master and per-category) are available on both desktop and mobile. UAT for
+prompts should be run on mobile.
+
 UAT-1.1: Service worker registers on page load
  - Tested on desktop and passed
 
@@ -14,8 +19,7 @@ UAT-2.2: No prompt on login only
  - Pass
 
 UAT-2.3: Permission prompt after submitting a rental request
- - Pass
- - ** Should we be showing push notification prompts on desktop? **
+ - Pass (mobile only; no prompt on desktop)
 
 UAT-2.4: Prompt after first approval
  - 

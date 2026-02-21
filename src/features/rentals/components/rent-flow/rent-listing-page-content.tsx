@@ -10,7 +10,10 @@ import type { CurrentDocumentVersion } from "@/dal/types";
 import { type ListingDetails, type UserProfile } from "@/dal/types";
 import { PaymentForm } from "@/features/payments/components/payment-form";
 import { useCreateRentalRequest } from "@/features/rentals/hooks/use-rental-mutations";
-import { shouldShowPermissionPrompt } from "@/lib/pwa/use-push-permission";
+import {
+  shouldOfferPushOnDevice,
+  shouldShowPermissionPrompt,
+} from "@/lib/pwa/use-push-permission";
 import { PushPermissionPromptDialog } from "@/components/pwa/push-permission-prompt-dialog";
 import {
   rentalFormSchema,
@@ -269,7 +272,7 @@ export function RentListingPageContent({
 
       // Success toast is handled by the mutation hook
       if (result.requestId) {
-        if (shouldShowPermissionPrompt()) {
+        if (shouldOfferPushOnDevice() && shouldShowPermissionPrompt()) {
           setPendingRedirectRequestId(result.requestId);
           setShowPushPrompt(true);
         } else {
