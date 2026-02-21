@@ -14,7 +14,7 @@ interface RentalListingInfoProps {
 
 export function RentalListingInfo({ rentalDetails }: RentalListingInfoProps) {
   return (
-    <Card>
+    <Card className="border bg-transparent shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
@@ -23,13 +23,15 @@ export function RentalListingInfo({ rentalDetails }: RentalListingInfoProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex gap-4">
-          <Image
-            src={rentalDetails.listingImageUrl || "/images/placeholder.jpg"}
-            alt={rentalDetails.listingName}
-            width={150}
-            height={150}
-            className="rounded-lg object-cover"
-          />
+          <div className="relative aspect-[4/3] w-24 shrink-0 overflow-hidden rounded-lg sm:w-32">
+            <Image
+              src={rentalDetails.listingImageUrl || "/images/placeholder.jpg"}
+              alt={rentalDetails.listingName}
+              fill
+              sizes="128px"
+              className="rounded-lg object-contain"
+            />
+          </div>
           <div className="flex-1">
             <h3 className="mb-2 text-xl font-semibold">
               {rentalDetails.listingName}
@@ -52,7 +54,7 @@ export function RentalListingInfo({ rentalDetails }: RentalListingInfoProps) {
                   <span className="font-medium">Condition:</span>
                   <Badge
                     variant="secondary"
-                    className="ml-2 bg-green-100 text-green-800 capitalize"
+                    className="bg-primary/10 text-primary ml-2 capitalize"
                   >
                     {rentalDetails.listingCondition}
                   </Badge>

@@ -57,7 +57,7 @@ export function PWAInstallSection() {
   if (isInstalled) {
     return (
       <Alert>
-        <Check className="h-5 w-5 text-green-600" />
+        <Check className="text-primary h-5 w-5" />
         <AlertTitle>App Installed</AlertTitle>
         <AlertDescription>
           Hoador is installed on your device. You can access it from your home

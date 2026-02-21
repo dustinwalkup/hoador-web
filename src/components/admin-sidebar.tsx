@@ -204,7 +204,7 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
         <SidebarGroup>
           <SidebarGroupLabel>
             <BookOpen className="size-4" />
-            How Things Work
+            <span className="ml-2 text-sm font-medium">How Things Work</span>
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

@@ -32,7 +32,7 @@ const getStatusIcon = (status: string) => {
       return <Clock className="h-4 w-4 text-yellow-600" />;
     case "approved":
     case "active":
-      return <CheckCircle className="h-4 w-4 text-green-600" />;
+      return <CheckCircle className="text-primary h-4 w-4" />;
     case "completed":
       return <CheckCircle className="h-4 w-4 text-blue-600" />;
     case "denied":
@@ -49,7 +49,7 @@ const getStatusColor = (status: string) => {
       return "bg-yellow-100 text-yellow-800";
     case "approved":
     case "active":
-      return "bg-green-100 text-green-800";
+      return "bg-primary/10 text-primary";
     case "completed":
       return "bg-blue-100 text-blue-800";
     case "denied":
@@ -155,7 +155,7 @@ export function LendingCard({ request }: LendingCardProps) {
                     </>
                   ) : (
                     <>
-                      <MapPin className="h-4 w-4 text-green-600" />
+                      <MapPin className="text-primary h-4 w-4" />
                       <span className="font-medium">Pickup</span>
                     </>
                   )}
@@ -174,7 +174,7 @@ export function LendingCard({ request }: LendingCardProps) {
               </div>
 
               {/* Price */}
-              <div className="mb-4 text-xl font-bold text-green-600">
+              <div className="text-primary mb-4 text-xl font-bold">
                 ${parseFloat(request.totalAmount).toFixed(2)}
               </div>
             </div>
@@ -203,7 +203,7 @@ export function LendingCard({ request }: LendingCardProps) {
               {request.status === "pending" && (
                 <>
                   <Button
-                    className="w-full justify-center bg-green-600 hover:bg-green-700"
+                    className="bg-primary hover:bg-primary/80 w-full justify-center"
                     onClick={() => setShowApproveDialog(true)}
                   >
                     <CheckCircle className="mr-2 h-4 w-4" />
@@ -321,7 +321,7 @@ export function LendingCard({ request }: LendingCardProps) {
                           </>
                         ) : (
                           <>
-                            <MapPin className="h-4 w-4 text-green-600" />
+                            <MapPin className="text-primary h-4 w-4" />
                             <span className="font-medium">Pickup</span>
                           </>
                         )}
@@ -360,7 +360,7 @@ export function LendingCard({ request }: LendingCardProps) {
             </div>
 
             <div className="space-y-4">
-              <div className="text-lg font-semibold text-green-600">
+              <div className="text-primary text-lg font-semibold">
                 ${parseFloat(request.totalAmount).toFixed(2)}
               </div>
 
@@ -368,7 +368,7 @@ export function LendingCard({ request }: LendingCardProps) {
                 {request.status === "pending" && (
                   <>
                     <Button
-                      className="w-full bg-green-600 hover:bg-green-700"
+                      className="bg-primary hover:bg-primary/80 w-full justify-center"
                       size="sm"
                       onClick={() => setShowApproveDialog(true)}
                     >

@@ -1,0 +1,185 @@
+UAT-1.1: Service worker registers on page load
+ - Tested on desktop and passed
+
+UAT-1.2: Service worker does not break the app if registration fails
+ - COuldn't Test
+
+UAT-1.3: Service worker registers only in browser (not SSR)
+ - Passed on desktop
+
+UAT-2.1: No prompt on first visit
+ -
+
+UAT-2.2: No prompt on login only
+ -
+
+UAT-2.3: Permission prompt after submitting a rental request
+ - Should we be showing push notification prompts on desktop?
+
+UAT-2.4: Prompt after first approval
+ -
+
+UAT-2.5: Accept prompt subscribes device
+ -
+
+UAT-2.6: Dismiss prompt does not subscribe
+ -
+
+UAT-2.7: No duplicate prompts
+ -
+
+UAT-2.8: No prompt when already granted
+ -
+
+UAT-2.9: No prompt when already denied
+ -
+
+UAT-3.1: Enable push from settings (default)
+ -
+
+UAT-3.2: Enable push from settings (granted)
+ -
+
+UAT-3.3: Blocked state shown when denied
+ -
+
+UAT-4.1: View default preferences
+ -
+
+UAT-4.2: Toggle category preference
+ -
+
+UAT-4.3: Master push switch off
+ -
+
+UAT-4.4: Master push switch back on
+ -
+
+UAT-4.5: Master email switch off
+ -
+
+UAT-4.6: Preferences are user-specific
+ -
+
+UAT-5.1: Push for rental request (owner)
+ -
+
+UAT-5.2: Push for rental approval (renter)
+ -
+
+UAT-5.3: Push for new message
+ -
+
+UAT-5.4: No push when category disabled
+ -
+
+UAT-5.5: No push when master push off
+ -
+
+UAT-5.6: In-app notification always created
+ -
+
+UAT-5.7: No sensitive data in push payload
+ -
+
+UAT-6.1: Click rental notification opens detail
+ -
+
+UAT-6.2: Click message notification opens mailbox
+ -
+
+UAT-6.3: Click notification when app closed
+ -
+
+UAT-6.4: Click notification when app backgrounded
+ -
+
+UAT-7.1: Subscribe on two devices
+ -
+
+UAT-7.2: Both devices receive push
+ -
+
+UAT-7.3: Unsubscribe one device only
+ -
+
+UAT-8.1: Expired subscription cleaned up
+ -
+
+UAT-9.1: Email sent when enabled
+ -
+
+UAT-9.2: No email when category disabled
+ -
+
+UAT-9.3: No email when master off
+ -
+
+UAT-10.1: Push works in Chrome
+ -
+
+UAT-10.2: Push works in Firefox
+ -
+
+UAT-10.3: Push works in Edge
+ -
+
+UAT-10.4: Push works in Safari 16+
+ -
+
+UAT-10.5: Graceful degradation unsupported
+ -
+
+UAT-11.1: Booking request push (owner)
+ -
+
+UAT-11.2: Booking approved push (renter)
+ -
+
+UAT-11.3: Booking denied push (renter)
+ -
+
+UAT-11.4: Booking cancelled push
+ -
+
+UAT-11.5: New message push
+ -
+
+UAT-11.6: Payment confirmation push
+ -
+
+UAT-11.7: Dispute created push
+ -
+
+UAT-11.8: Dispute resolved push
+ -
+
+UAT-12.1: Pickup reminder push
+ -
+
+UAT-12.2: Return reminder push
+ -
+
+UAT-12.3: No reminder when disabled
+ -
+
+UAT-12.4: No reminder for cancelled/completed
+ -
+
+UAT-13.1: VAPID keys not exposed
+ -
+
+UAT-13.2: Subscription requires auth
+ -
+
+UAT-13.3: No PII in push payloads
+ -
+
+UAT-14.1: Push failure doesn't block in-app
+ -
+
+UAT-14.2: Push failure doesn't block email
+ -
+
+UAT-14.3: Preference save failure shows error
+ -

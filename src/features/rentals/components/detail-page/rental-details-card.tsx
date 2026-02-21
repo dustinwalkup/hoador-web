@@ -162,7 +162,7 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
                   </div>
                 )}
               {rentalDetails.setupRequested && (
-                <div className="mt-2 flex items-center gap-2 text-green-600">
+                <div className="text-primary mt-2 flex items-center gap-2">
                   <Wrench className="h-3 w-3" />
                   <span className="text-sm font-medium">
                     Setup service requested
@@ -204,7 +204,7 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
             <Separator />
             <div className="flex justify-between font-semibold">
               <span>Total</span>
-              <span className="text-green-600">${grandTotal.toFixed(2)}</span>
+              <span className="text-primary">${grandTotal.toFixed(2)}</span>
             </div>
           </div>
         </div>

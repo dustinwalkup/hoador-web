@@ -31,7 +31,7 @@ const getStatusIcon = (status: string) => {
       return <Clock className="h-4 w-4 text-yellow-600" />;
     case "approved":
     case "active":
-      return <CheckCircle className="h-4 w-4 text-green-600" />;
+      return <CheckCircle className="text-primary h-4 w-4" />;
     case "completed":
       return <CheckCircle className="h-4 w-4 text-blue-600" />;
     case "denied":
@@ -48,7 +48,7 @@ const getStatusColor = (status: string) => {
       return "bg-yellow-100 text-yellow-800";
     case "approved":
     case "active":
-      return "bg-green-100 text-green-800";
+      return "bg-primary/10 text-primary";
     case "completed":
       return "bg-blue-100 text-blue-800";
     case "denied":
@@ -128,7 +128,7 @@ export function RentalCard({
                     {rental.status}
                   </Badge>
                 </div>
-                <div className="text-xl font-bold text-green-600">
+                <div className="text-primary text-xl font-bold">
                   ${parseFloat(rental.totalAmount).toFixed(2)}
                 </div>
               </div>
@@ -294,7 +294,7 @@ export function RentalCard({
                     {rental.status}
                   </Badge>
                 </div>
-                <div className="text-lg font-semibold text-green-600">
+                <div className="text-primary text-lg font-semibold">
                   ${parseFloat(rental.totalAmount).toFixed(2)}
                 </div>
               </div>
