@@ -342,6 +342,18 @@ export class UserDAL extends BaseDAL {
   }
 
   /**
+   * Get total user count for admin metrics (platform-wide).
+   */
+  async getTotalUserCount(): Promise<number> {
+    try {
+      const result = await this.db.select({ total: count() }).from(user);
+      return Number(result[0]?.total ?? 0);
+    } catch (error) {
+      this.handleError(error, "getTotalUserCount");
+    }
+  }
+
+  /**
    * Get user profile with extra counts for admin detail view.
    */
   async getUserDetailsForAdmin(userId: string): Promise<AdminUserDetail> {

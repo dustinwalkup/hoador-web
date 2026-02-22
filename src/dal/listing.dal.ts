@@ -1135,6 +1135,27 @@ export class ListingDAL extends BaseDAL {
   }
 
   /**
+   * Get platform-wide count of active listings (approved, available or rented).
+   */
+  async getActiveListingsCount(): Promise<number> {
+    try {
+      const result = await this.db
+        .select({ count: count() })
+        .from(listings)
+        .where(
+          and(
+            eq(listings.isActive, true),
+            eq(listings.approvalStatus, "approved"),
+            or(eq(listings.status, "available"), eq(listings.status, "rented")),
+          ),
+        );
+      return result[0]?.count ?? 0;
+    } catch (error) {
+      this.handleError(error, "getActiveListingsCount");
+    }
+  }
+
+  /**
    * Get active listings owned by a user with search, sort, and filter options
    * @param userId - The user ID
    * @param filters - Optional filters for search, sort, and filtering
