@@ -115,7 +115,7 @@ export function ApproveRejectDialog({
           <DialogTitle className="flex items-center gap-2">
             {action === "approve" ? (
               <>
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <CheckCircle2 className="text-primary h-5 w-5" />
                 Approve Listing
               </>
             ) : (
@@ -188,9 +188,7 @@ export function ApproveRejectDialog({
             }
             variant={action === "approve" ? "default" : "destructive"}
             className={
-              action === "approve"
-                ? "bg-green-600 hover:bg-green-700"
-                : undefined
+              action === "approve" ? "bg-primary hover:bg-green-700" : undefined
             }
           >
             {isPending ? (

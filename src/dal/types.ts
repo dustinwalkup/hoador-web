@@ -176,6 +176,38 @@ export interface UserProfile extends Omit<
 
 export type AdminUserType = "admin" | "superadmin";
 
+/** Options for admin user list (paginated, filterable). */
+export interface GetUsersForAdminOptions extends PaginationOptions {
+  search?: string;
+  status?: UserStatus;
+  userType?: UserType;
+}
+
+/** Admin-only update payload (status and/or userType). */
+export interface AdminUpdateUserDTO {
+  status?: UserStatus;
+  userType?: UserType;
+}
+
+/** Row shape returned by getUsersForAdmin. */
+export interface AdminUserListItem {
+  id: string;
+  name: string;
+  email: string;
+  status: UserStatus;
+  userType: UserType;
+  createdAt: Date;
+}
+
+/** User profile plus listing/rental counts for admin detail view. */
+export interface AdminUserDetail extends UserProfile {
+  listingsCount: number;
+  rentalsAsRenterCount: number;
+  rentalsAsOwnerCount: number;
+  /** Set by API when merging dispute count; not returned by DAL. */
+  totalDisputesCount?: number;
+}
+
 export interface ListingDetails {
   id: string;
   name: string;
@@ -442,6 +474,8 @@ import type {
   auditActionTypeEnum,
   financialOperationTypeEnum,
   financialOperationStatusEnum,
+  userStatusEnum,
+  userTypeEnum,
 } from "@/db/schemas/_enums";
 
 export type DisputeStatus = (typeof disputeStatusEnum.enumValues)[number];
@@ -456,6 +490,9 @@ export type FinancialOperationType =
   (typeof financialOperationTypeEnum.enumValues)[number];
 export type FinancialOperationStatus =
   (typeof financialOperationStatusEnum.enumValues)[number];
+
+export type UserStatus = (typeof userStatusEnum.enumValues)[number];
+export type UserType = (typeof userTypeEnum.enumValues)[number];
 
 export interface CreateDisputeData {
   rentalId: string;

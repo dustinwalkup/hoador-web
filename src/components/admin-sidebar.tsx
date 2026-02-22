@@ -17,6 +17,7 @@ import {
   CreditCard,
   Repeat,
   MessageSquare,
+  Home,
 } from "lucide-react";
 
 import {
@@ -204,6 +205,20 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                   </SidebarMenuItem>
                 );
               })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <Link href="/dashboard">
+                  <SidebarMenuButton size="lg" tooltip="User dashboard">
+                    <Home className="size-5!" />
+                    <span>User dashboard</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Shield } from "lucide-react";
 
 // import { NavDocuments } from "@/components/nav-documents";
 // import { NavSecondary } from "@/components/nav-secondary";
@@ -9,6 +11,8 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -25,12 +29,16 @@ interface AuthenticatedSidebarProps extends React.ComponentProps<
   user: UserProfile;
 }
 
+const isAdmin = (user: UserProfile) =>
+  user.userType === "admin" || user.userType === "superadmin";
+
 export function AuthenticatedSidebar({
   user,
   ...props
 }: AuthenticatedSidebarProps) {
   // Auto-close mobile sidebar on navigation
   useMobileSidebarClose();
+  const pathname = usePathname();
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -54,6 +62,26 @@ export function AuthenticatedSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain />
+        {isAdmin(user) && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <Link href="/admin/dashboard">
+                    <SidebarMenuButton
+                      size="lg"
+                      tooltip="Admin"
+                      isActive={pathname.startsWith("/admin")}
+                    >
+                      <Shield className="size-5!" />
+                      <span>Admin</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         {/* TODO: Add documents */}
         {/* <NavDocuments /> */}
         {/* <NavSecondary className="mt-auto" /> */}
