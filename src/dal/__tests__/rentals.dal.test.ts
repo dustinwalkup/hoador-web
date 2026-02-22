@@ -803,4 +803,68 @@ describe("RentalDAL", () => {
       expect(result).toBeDefined();
     });
   });
+
+  describe("getOverdueItemsForUser", () => {
+    const userId = "user-123";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    it("should return overdue items for user as borrower or owner", async () => {
+      const overdueRows = [
+        {
+          id: "req-1",
+          listingName: "Power Drill",
+          renterId: "renter-1",
+          ownerName: "Jane Owner",
+          endDate: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000),
+        },
+      ];
+      const renterNameRows = [{ id: "renter-1", name: "Bob Renter" }];
+
+      const mockOrderBy = vi.fn().mockResolvedValue(overdueRows);
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockInnerJoin2 = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockInnerJoin1 = vi.fn().mockReturnValue({
+        innerJoin: mockInnerJoin2,
+      });
+      const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin1 });
+
+      const mockWhereUser = vi.fn().mockResolvedValue(renterNameRows);
+      const mockFromUser = vi.fn().mockReturnValue({ where: mockWhereUser });
+
+      let selectCallCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          return { from: mockFrom } as any;
+        }
+        return { from: mockFromUser } as any;
+      });
+
+      const result = await rentalDAL.getOverdueItemsForUser(userId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        id: "req-1",
+        listingName: "Power Drill",
+        statusText: "3 days late",
+        linkTo: expect.stringContaining("/dashboard/rental/req-1"),
+      });
+    });
+
+    it("should return empty array when no overdue items", async () => {
+      const mockOrderBy = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockInnerJoin2 = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockInnerJoin1 = vi.fn().mockReturnValue({
+        innerJoin: mockInnerJoin2,
+      });
+      const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin1 });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      const result = await rentalDAL.getOverdueItemsForUser(userId);
+
+      expect(result).toEqual([]);
+    });
+  });
 });

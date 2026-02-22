@@ -337,6 +337,11 @@ describe("ProfileImageUpload", () => {
         const spinner = container.querySelector(".animate-spin");
         expect(spinner).toBeInTheDocument();
       });
+
+      // Drain async upload to prevent leakage into subsequent tests
+      await waitFor(() => {
+        expect(mockOnImageChange).toHaveBeenCalled();
+      });
     });
 
     it("should disable interaction during upload", async () => {
@@ -369,6 +374,11 @@ describe("ProfileImageUpload", () => {
       await waitFor(() => {
         const uploadArea = container.querySelector('[class*="border-dashed"]');
         expect(uploadArea).toHaveClass("opacity-50");
+      });
+
+      // Drain async upload to prevent leakage into subsequent tests
+      await waitFor(() => {
+        expect(mockOnImageChange).toHaveBeenCalled();
       });
     });
   });
@@ -484,42 +494,23 @@ describe("ProfileImageUpload", () => {
       dataTransfer.items.add(file);
       const fileList = dataTransfer.files;
 
-      // Record initial call count to handle any stray calls from previous tests' pending async operations
-      const initialToastCallCount = mockToastSuccess.mock.calls.length;
+      mockToastSuccess.mockClear();
+      mockToastError.mockClear();
 
       fireEvent.change(fileInput, { target: { files: fileList } });
 
-      // Wait for upload to complete and onImageChange to be called
       await waitFor(() => {
         expect(mockUploadProfileImage).toHaveBeenCalled();
         expect(mockOnImageChange).toHaveBeenCalled();
       });
 
-      // Wait for loading state to clear, ensuring all async operations complete
-      // This includes waiting for the toast check (if any) to complete
-      await waitFor(
-        () => {
-          const spinner = container.querySelector(".animate-spin");
-          expect(spinner).not.toBeInTheDocument();
-        },
-        { timeout: 1000 },
-      );
+      await waitFor(() => {
+        const spinner = container.querySelector(".animate-spin");
+        expect(spinner).not.toBeInTheDocument();
+      });
 
-      // Wait for toast count to be stable - ensures all async operations and microtasks are complete
-      // This handles race conditions in CI where timing can vary
-      await waitFor(
-        () => {
-          const currentCount = mockToastSuccess.mock.calls.length;
-          expect(currentCount).toBe(initialToastCallCount);
-        },
-        {
-          timeout: 500,
-          interval: 10, // Check every 10ms to catch any delayed calls
-        },
-      );
-
-      // Final assertion - toast should not have been called any additional times when showToasts is false
-      expect(mockToastSuccess.mock.calls.length).toBe(initialToastCallCount);
+      expect(mockToastSuccess).not.toHaveBeenCalled();
+      expect(mockToastError).not.toHaveBeenCalled();
     });
   });
 

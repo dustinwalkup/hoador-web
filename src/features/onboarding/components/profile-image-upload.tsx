@@ -31,6 +31,7 @@ export function ProfileImageUpload({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadInProgressRef = useRef(false);
 
   // Validate file before upload
   const validateFile = (file: File): string | null => {
@@ -52,7 +53,8 @@ export function ProfileImageUpload({
   // Handle file upload
   const handleFileUpload = useCallback(
     async (file: File) => {
-      // Validate file
+      if (uploadInProgressRef.current) return;
+
       const validationError = validateFile(file);
       if (validationError) {
         setUploadError(validationError);
@@ -62,6 +64,7 @@ export function ProfileImageUpload({
         return;
       }
 
+      uploadInProgressRef.current = true;
       setIsUploading(true);
       setUploadError(null);
 
@@ -79,6 +82,7 @@ export function ProfileImageUpload({
           toast.error(errorMessage);
         }
       } finally {
+        uploadInProgressRef.current = false;
         setIsUploading(false);
       }
     },

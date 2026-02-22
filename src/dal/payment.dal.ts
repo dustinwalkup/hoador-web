@@ -1,4 +1,4 @@
-import { eq, desc, sql, count } from "drizzle-orm";
+import { eq, desc, sql, count, and, gte, lte, inArray } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { payments } from "@/db/schemas/payments.schema";
@@ -100,6 +100,119 @@ export class PaymentDAL extends BaseDAL {
       return payment || null;
     } catch (error) {
       this.handleError(error, "getByRentalId");
+    }
+  }
+
+  /**
+   * Get sum of earnings for a user (as payee) within a date range.
+   * Used for dashboard summary (e.g. "This month earnings").
+   *
+   * @param userId - Payee user id
+   * @param start - Start of period (inclusive)
+   * @param end - End of period (inclusive)
+   * @returns Sum of payment amounts in dollars (decimal); 0 if none
+   */
+  async getUserEarningsForMonth(
+    userId: string,
+    start: Date,
+    end: Date,
+  ): Promise<number> {
+    try {
+      const [row] = await this.db
+        .select({
+          total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
+        })
+        .from(payments)
+        .where(
+          and(
+            eq(payments.payeeId, userId),
+            inArray(payments.status, ["succeeded", "completed"]),
+            gte(
+              sql`COALESCE(${payments.paidAt}, ${payments.createdAt})`,
+              start,
+            ),
+            lte(sql`COALESCE(${payments.paidAt}, ${payments.createdAt})`, end),
+          ),
+        );
+
+      const total = row?.total;
+      return total != null ? Number(total) : 0;
+    } catch (error) {
+      this.handleError(error, "getUserEarningsForMonth");
+    }
+  }
+
+  /**
+   * Get earnings by month for the last N months (dashboard Mini-Analytics trend).
+   * Returns one entry per month with amount; months with no earnings have 0.
+   *
+   * @param userId - Payee user id
+   * @param numberOfMonths - Last N months (e.g. 6)
+   * @returns Array of { year, month, monthLabel, amount } ordered by year, month asc
+   */
+  async getUserEarningsByMonthRange(
+    userId: string,
+    numberOfMonths: number,
+  ): Promise<
+    Array<{ year: number; month: number; monthLabel: string; amount: number }>
+  > {
+    try {
+      const now = new Date();
+      const startBound = new Date(
+        now.getFullYear(),
+        now.getMonth() - numberOfMonths,
+        1,
+      );
+
+      const rows = await this.db
+        .select({
+          paymentDate: sql<Date>`date_trunc('month', COALESCE(${payments.paidAt}, ${payments.createdAt}))::date`,
+          total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
+        })
+        .from(payments)
+        .where(
+          and(
+            eq(payments.payeeId, userId),
+            inArray(payments.status, ["succeeded", "completed"]),
+            gte(
+              sql`COALESCE(${payments.paidAt}, ${payments.createdAt})`,
+              startBound,
+            ),
+          ),
+        )
+        .groupBy(
+          sql`date_trunc('month', COALESCE(${payments.paidAt}, ${payments.createdAt}))`,
+        );
+
+      const byMonth = new Map<string, number>();
+      for (const row of rows) {
+        const d = new Date(row.paymentDate);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        byMonth.set(key, Number(row.total));
+      }
+
+      const result: Array<{
+        year: number;
+        month: number;
+        monthLabel: string;
+        amount: number;
+      }> = [];
+      for (let i = numberOfMonths - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        result.push({
+          year: d.getFullYear(),
+          month: d.getMonth() + 1,
+          monthLabel: d.toLocaleString("default", {
+            month: "short",
+            year: "2-digit",
+          }),
+          amount: byMonth.get(key) ?? 0,
+        });
+      }
+      return result;
+    } catch (error) {
+      this.handleError(error, "getUserEarningsByMonthRange");
     }
   }
 

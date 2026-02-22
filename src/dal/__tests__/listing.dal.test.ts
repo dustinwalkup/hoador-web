@@ -1343,4 +1343,123 @@ describe("ListingDAL", () => {
       expect(result[0].approvalStatus).toBe("rejected");
     });
   });
+
+  describe("getTopPerformingListings", () => {
+    const userId = "user-123";
+
+    it("should return top listings by rental count then rating", async () => {
+      const userListings = [
+        { id: "listing-1", name: "Drill" },
+        { id: "listing-2", name: "Saw" },
+      ];
+      const countRows = [
+        { listingId: "listing-1", rentalCount: 5 },
+        { listingId: "listing-2", rentalCount: 2 },
+      ];
+      const ratingRows = [
+        { listingId: "listing-1", avgRating: 4.5 },
+        { listingId: "listing-2", avgRating: 4.8 },
+      ];
+
+      const mockWhere1 = vi.fn().mockResolvedValue(userListings);
+      const mockFrom1 = vi.fn().mockReturnValue({ where: mockWhere1 });
+      const mockGroupBy2 = vi.fn().mockResolvedValue(countRows);
+      const mockWhere2 = vi.fn().mockReturnValue({ groupBy: mockGroupBy2 });
+      const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
+      const mockGroupBy3 = vi.fn().mockResolvedValue(ratingRows);
+      const mockFrom3 = vi.fn().mockReturnValue({ groupBy: mockGroupBy3 });
+
+      let selectCallCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) return { from: mockFrom1 } as any;
+        if (selectCallCount === 2) return { from: mockFrom2 } as any;
+        return { from: mockFrom3 } as any;
+      });
+
+      const result = await listingDAL.getTopPerformingListings(userId, 5);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        listingId: "listing-1",
+        name: "Drill",
+        metricText: "5 rentals",
+      });
+      expect(result[1]).toEqual({
+        listingId: "listing-2",
+        name: "Saw",
+        metricText: "2 rentals",
+      });
+    });
+
+    it("should return listing with stars when no rentals", async () => {
+      const userListings = [{ id: "listing-1", name: "Drill" }];
+      const mockWhere1 = vi.fn().mockResolvedValue(userListings);
+      const mockFrom1 = vi.fn().mockReturnValue({ where: mockWhere1 });
+      const mockGroupBy2 = vi.fn().mockResolvedValue([]);
+      const mockWhere2 = vi.fn().mockReturnValue({ groupBy: mockGroupBy2 });
+      const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
+      const mockGroupBy3 = vi
+        .fn()
+        .mockResolvedValue([{ listingId: "listing-1", avgRating: 4.8 }]);
+      const mockFrom3 = vi.fn().mockReturnValue({ groupBy: mockGroupBy3 });
+
+      let selectCallCount = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) return { from: mockFrom1 } as any;
+        if (selectCallCount === 2) return { from: mockFrom2 } as any;
+        return { from: mockFrom3 } as any;
+      });
+
+      const result = await listingDAL.getTopPerformingListings(userId, 5);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].metricText).toBe("4.8 stars");
+    });
+  });
+
+  describe("getRecentListingsNearUser", () => {
+    // Use a distinct userId so getUserPrimaryAddress cache from other tests is not used
+    const userId = "user-recent-listings-no-location";
+
+    it("should return platform-wide recent listings when user has no location", async () => {
+      vi.mocked(db.query.userAddresses.findFirst)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+
+      const mockLimit = vi.fn().mockResolvedValue([
+        { id: "listing-1", name: "Drill" },
+        { id: "listing-2", name: "Saw" },
+      ]);
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      const result = await listingDAL.getRecentListingsNearUser(userId, 5);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        id: "listing-1",
+        name: "Drill",
+        linkTo: "/dashboard/listings/listing-1",
+      });
+    });
+
+    it("should return empty array when no listings", async () => {
+      vi.mocked(db.query.userAddresses.findFirst)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+      const mockLimit = vi.fn().mockResolvedValue([]);
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      const result = await listingDAL.getRecentListingsNearUser(userId, 5);
+
+      expect(result).toEqual([]);
+    });
+  });
 });

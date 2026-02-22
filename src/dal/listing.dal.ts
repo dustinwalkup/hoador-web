@@ -38,6 +38,7 @@ const {
   user,
   userAddresses,
   rentals,
+  rentalRequests,
 } = schema;
 
 type ListingDb = typeof listings.$inferSelect;
@@ -1088,6 +1089,52 @@ export class ListingDAL extends BaseDAL {
   }
 
   /**
+   * Get inventory usage for dashboard Mini-Analytics.
+   * activeCount = approved, isActive listings with status available or rented.
+   * usagePercent = activeCount / totalCount (0–100), or 0 when total is 0.
+   *
+   * @param userId - Listing owner id
+   * @returns { activeCount, totalCount, usagePercent }
+   */
+  async getInventoryUsage(userId: string): Promise<{
+    activeCount: number;
+    totalCount: number;
+    usagePercent: number;
+  }> {
+    try {
+      const [totalResult, activeResult] = await Promise.all([
+        this.db
+          .select({ count: count() })
+          .from(listings)
+          .where(eq(listings.ownerId, userId)),
+        this.db
+          .select({ count: count() })
+          .from(listings)
+          .where(
+            and(
+              eq(listings.ownerId, userId),
+              eq(listings.isActive, true),
+              eq(listings.approvalStatus, "approved"),
+              or(
+                eq(listings.status, "available"),
+                eq(listings.status, "rented"),
+              ),
+            ),
+          ),
+      ]);
+
+      const totalCount = totalResult[0]?.count ?? 0;
+      const activeCount = activeResult[0]?.count ?? 0;
+      const usagePercent =
+        totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0;
+
+      return { activeCount, totalCount, usagePercent };
+    } catch (error) {
+      this.handleError(error, "getInventoryUsage");
+    }
+  }
+
+  /**
    * Get active listings owned by a user with search, sort, and filter options
    * @param userId - The user ID
    * @param filters - Optional filters for search, sort, and filtering
@@ -1967,6 +2014,162 @@ export class ListingDAL extends BaseDAL {
       ]);
     } catch (error) {
       this.handleError(error, "getUserListingsByApprovalStatus");
+    }
+  }
+
+  /**
+   * Get top performing listings for dashboard widget.
+   * Orders by rental count (approved/active/completed) then by average rating.
+   *
+   * @param userId - Listing owner id
+   * @param limit - Max number to return (e.g. 5)
+   * @returns Array with listingId, name, metricText (e.g. "5 rentals" or "4.8 stars")
+   */
+  async getTopPerformingListings(
+    userId: string,
+    limit: number,
+  ): Promise<Array<{ listingId: string; name: string; metricText: string }>> {
+    try {
+      const [userListings, countRows, ratingRows] = await Promise.all([
+        this.db
+          .select({ id: listings.id, name: listings.name })
+          .from(listings)
+          .where(
+            and(
+              eq(listings.ownerId, userId),
+              eq(listings.approvalStatus, "approved"),
+            ),
+          ),
+        this.db
+          .select({
+            listingId: rentalRequests.listingId,
+            rentalCount: count(),
+          })
+          .from(rentalRequests)
+          .where(
+            inArray(rentalRequests.status, ["approved", "active", "completed"]),
+          )
+          .groupBy(rentalRequests.listingId),
+        this.db
+          .select({
+            listingId: reviews.listingId,
+            avgRating:
+              sql<number>`ROUND(AVG(${reviews.rating})::numeric, 1)`.as("avg"),
+          })
+          .from(reviews)
+          .groupBy(reviews.listingId),
+      ]);
+
+      const countByListing = new Map(
+        countRows.map((r) => [r.listingId, Number(r.rentalCount)]),
+      );
+      const ratingByListing = new Map(
+        ratingRows.map((r) => [r.listingId, Number(r.avgRating)]),
+      );
+
+      const withMetrics = userListings.map((listing) => ({
+        listingId: listing.id,
+        name: listing.name,
+        rentalCount: countByListing.get(listing.id) ?? 0,
+        avgRating: ratingByListing.get(listing.id) ?? null,
+      }));
+
+      withMetrics.sort((a, b) => {
+        if (b.rentalCount !== a.rentalCount)
+          return b.rentalCount - a.rentalCount;
+        return (b.avgRating ?? 0) - (a.avgRating ?? 0);
+      });
+
+      return withMetrics.slice(0, limit).map((row) => {
+        const metricText =
+          row.rentalCount > 0
+            ? row.rentalCount === 1
+              ? "1 rental"
+              : `${row.rentalCount} rentals`
+            : row.avgRating != null
+              ? `${row.avgRating} stars`
+              : "No rentals yet";
+        return {
+          listingId: row.listingId,
+          name: row.name,
+          metricText,
+        };
+      });
+    } catch (error) {
+      this.handleError(error, "getTopPerformingListings");
+    }
+  }
+
+  /**
+   * Get recent listings near user for dashboard (or platform-wide if no location).
+   * If user/listings have location: recent listings near user. Else: platform-wide recent.
+   *
+   * @param userId - Current user id (for distance from user's address)
+   * @param limit - Max number to return (e.g. 5)
+   * @returns Array with id, name, linkTo (listing detail URL)
+   */
+  async getRecentListingsNearUser(
+    userId: string,
+    limit: number,
+  ): Promise<Array<{ id: string; name: string; linkTo: string }>> {
+    try {
+      const userAddress = await this.getUserPrimaryAddress(userId);
+      const hasUserLocation =
+        userAddress?.latitude != null && userAddress?.longitude != null;
+
+      if (hasUserLocation) {
+        const results = await this.db
+          .select({
+            id: listings.id,
+            name: listings.name,
+            distanceMiles: sql<number>`
+              ST_Distance(
+                ST_Point(${userAddress.longitude}::float, ${userAddress.latitude}::float)::geography,
+                ST_Point(${userAddresses.longitude}::float, ${userAddresses.latitude}::float)::geography
+              ) / 1609.34
+            `.as("distance_miles"),
+          })
+          .from(listings)
+          .innerJoin(userAddresses, eq(listings.ownerId, userAddresses.userId))
+          .where(
+            and(
+              eq(listings.approvalStatus, "approved"),
+              eq(listings.isActive, true),
+              sql`${userAddresses.latitude} IS NOT NULL AND ${userAddresses.longitude} IS NOT NULL`,
+            ),
+          )
+          .orderBy(sql`distance_miles ASC NULLS LAST`, desc(listings.createdAt))
+          .limit(limit);
+
+        return results.map((r) => ({
+          id: r.id,
+          name: r.name,
+          linkTo: `/dashboard/listings/${r.id}`,
+        }));
+      }
+
+      const results = await this.db
+        .select({
+          id: listings.id,
+          name: listings.name,
+        })
+        .from(listings)
+        .where(
+          and(
+            eq(listings.approvalStatus, "approved"),
+            eq(listings.isActive, true),
+          ),
+        )
+        .orderBy(desc(listings.createdAt))
+        .limit(limit);
+
+      return results.map((r) => ({
+        id: r.id,
+        name: r.name,
+        linkTo: `/dashboard/listings/${r.id}`,
+      }));
+    } catch (error) {
+      this.handleError(error, "getRecentListingsNearUser");
     }
   }
 

@@ -1,4 +1,4 @@
-import { eq, and, inArray, sql, gte, lte } from "drizzle-orm";
+import { eq, and, inArray, sql, gte, lte, lt, or, desc } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import { rentals, rentalRequests, reviews } from "@/db/schemas/rentals.schema";
@@ -282,7 +282,7 @@ export class RentalDAL extends BaseDAL {
       .where(
         and(
           eq(rentalRequests.renterId, userId),
-          inArray(rentalRequests.status, ["approved", "completed"]),
+          inArray(rentalRequests.status, ["active"]),
         ),
       );
 
@@ -296,7 +296,7 @@ export class RentalDAL extends BaseDAL {
       .where(
         and(
           eq(rentalRequests.ownerId, userId),
-          inArray(rentalRequests.status, ["approved", "completed"]),
+          inArray(rentalRequests.status, ["active"]),
         ),
       );
 
@@ -756,6 +756,247 @@ export class RentalDAL extends BaseDAL {
       }));
     } catch (error) {
       this.handleError(error, "getLendingRequestsByStatus");
+    }
+  }
+
+  /**
+   * Get overdue items for dashboard: as borrower (endDate passed, not returned) or
+   * as owner (lent out, return overdue). Each item includes id, listingName,
+   * statusText (e.g. "3 days late"), otherPartyName, and linkTo for rental/request detail.
+   *
+   * @param userId - Current user id (renter or owner)
+   * @returns Array of overdue items for OverdueAlertsWidget
+   */
+  async getOverdueItemsForUser(userId: string): Promise<
+    Array<{
+      id: string;
+      listingName: string;
+      statusText: string;
+      otherPartyName: string;
+      linkTo: string;
+    }>
+  > {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const rows = await this.db
+        .select({
+          id: rentalRequests.id,
+          listingName: listings.name,
+          renterId: rentalRequests.renterId,
+          ownerName:
+            sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`.as(
+              "owner_name",
+            ),
+          endDate: rentalRequests.endDate,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .where(
+          and(
+            or(
+              eq(rentalRequests.renterId, userId),
+              eq(rentalRequests.ownerId, userId),
+            ),
+            lt(rentalRequests.endDate, today),
+            inArray(rentalRequests.status, ["approved", "active"]),
+          ),
+        )
+        .orderBy(rentalRequests.endDate);
+
+      if (rows.length === 0) return [];
+
+      const renterIds = [...new Set(rows.map((r) => r.renterId))];
+      const renterNames = new Map<string, string>();
+      if (renterIds.length > 0) {
+        const renterRows = await this.db
+          .select({
+            id: user.id,
+            name: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+          })
+          .from(user)
+          .where(inArray(user.id, renterIds));
+        renterRows.forEach((r) => renterNames.set(r.id, r.name));
+      }
+
+      return rows.map((row) => {
+        const daysLate = differenceInDays(today, row.endDate);
+        const statusText =
+          daysLate === 1 ? "1 day late" : `${daysLate} days late`;
+        const isBorrower = row.renterId === userId;
+        const otherPartyName = isBorrower
+          ? row.ownerName
+          : (renterNames.get(row.renterId) ?? "Unknown");
+        const linkTo = isBorrower
+          ? `/dashboard/rental/${row.id}?view=renting`
+          : `/dashboard/rental/${row.id}?view=lending`;
+        return {
+          id: row.id,
+          listingName: row.listingName,
+          statusText,
+          otherPartyName,
+          linkTo,
+        };
+      });
+    } catch (error) {
+      this.handleError(error, "getOverdueItemsForUser");
+    }
+  }
+
+  /**
+   * Get rentals per month for dashboard Mini-Analytics (rentals per period).
+   * Counts rental_requests with status approved/active/completed where startDate
+   * falls in each month. Returns last N months (missing months as zeros).
+   *
+   * @param userId - Current user id (as renter or owner)
+   * @param numberOfMonths - Last N months (e.g. 6)
+   * @returns Array of { year, month, monthLabel, renterCount, ownerCount }
+   */
+  async getRentalsPerMonth(
+    userId: string,
+    numberOfMonths: number,
+  ): Promise<
+    Array<{
+      year: number;
+      month: number;
+      monthLabel: string;
+      renterCount: number;
+      ownerCount: number;
+    }>
+  > {
+    try {
+      const now = new Date();
+      const startBound = new Date(
+        now.getFullYear(),
+        now.getMonth() - numberOfMonths,
+        1,
+      );
+
+      const rows = await this.db
+        .select({
+          startDate: rentalRequests.startDate,
+          renterId: rentalRequests.renterId,
+          ownerId: rentalRequests.ownerId,
+        })
+        .from(rentalRequests)
+        .where(
+          and(
+            inArray(rentalRequests.status, ["approved", "active", "completed"]),
+            or(
+              eq(rentalRequests.renterId, userId),
+              eq(rentalRequests.ownerId, userId),
+            ),
+            gte(rentalRequests.startDate, startBound),
+          ),
+        );
+
+      const monthKeys = new Map<
+        string,
+        { renterCount: number; ownerCount: number }
+      >();
+      for (let i = 0; i < numberOfMonths; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        monthKeys.set(key, { renterCount: 0, ownerCount: 0 });
+      }
+      for (const row of rows) {
+        const d = new Date(row.startDate);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        const cur = monthKeys.get(key);
+        if (cur) {
+          if (row.renterId === userId) cur.renterCount += 1;
+          if (row.ownerId === userId) cur.ownerCount += 1;
+        }
+      }
+
+      const result: Array<{
+        year: number;
+        month: number;
+        monthLabel: string;
+        renterCount: number;
+        ownerCount: number;
+      }> = [];
+      for (let i = numberOfMonths - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        const cur = monthKeys.get(key) ?? {
+          renterCount: 0,
+          ownerCount: 0,
+        };
+        result.push({
+          year: d.getFullYear(),
+          month: d.getMonth() + 1,
+          monthLabel: d.toLocaleString("default", {
+            month: "short",
+            year: "2-digit",
+          }),
+          renterCount: cur.renterCount,
+          ownerCount: cur.ownerCount,
+        });
+      }
+      return result;
+    } catch (error) {
+      this.handleError(error, "getRentalsPerMonth");
+    }
+  }
+
+  /**
+   * Get recent rental activity for dashboard activity feed.
+   * Returns rental requests (as renter or owner) ordered by updatedAt desc.
+   *
+   * @param userId - Current user id
+   * @param limit - Max items to return
+   * @returns Array with id, listingName, role, status, updatedAt, linkTo
+   */
+  async getRecentRentalActivity(
+    userId: string,
+    limit: number,
+  ): Promise<
+    Array<{
+      id: string;
+      listingName: string;
+      role: "renter" | "owner";
+      status: string;
+      updatedAt: Date;
+      linkTo: string;
+    }>
+  > {
+    try {
+      const rows = await this.db
+        .select({
+          id: rentalRequests.id,
+          listingName: listings.name,
+          renterId: rentalRequests.renterId,
+          ownerId: rentalRequests.ownerId,
+          status: rentalRequests.status,
+          updatedAt: rentalRequests.updatedAt,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .where(
+          or(
+            eq(rentalRequests.renterId, userId),
+            eq(rentalRequests.ownerId, userId),
+          ),
+        )
+        .orderBy(desc(rentalRequests.updatedAt))
+        .limit(limit);
+
+      return rows.map((row) => ({
+        id: row.id,
+        listingName: row.listingName,
+        role: row.renterId === userId ? "renter" : "owner",
+        status: row.status,
+        updatedAt: row.updatedAt,
+        linkTo:
+          row.renterId === userId
+            ? `/dashboard/rental/${row.id}?view=renting`
+            : `/dashboard/rental/${row.id}?view=lending`,
+      }));
+    } catch (error) {
+      this.handleError(error, "getRecentRentalActivity");
     }
   }
 

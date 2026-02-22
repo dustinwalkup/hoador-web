@@ -1,557 +1,230 @@
 export const dynamic = "force-dynamic";
-import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowRight,
-  BarChart3,
-  Calendar,
-  Clock,
-  Coins,
-  Star,
-  TrendingUp,
-  Wrench,
-} from "lucide-react";
 
-import { DASHBOARD_PAGE } from "@/constants/dashboard";
+import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/utils/session";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import ActivityFeed from "@/components/dashboard/activity-feed";
 import { PageHeader } from "@/components/page-header";
 import { ScrollToTop } from "@/components/scroll-to-top";
-import { PendingReviewWidget } from "@/features/listings/components/dashboard/pending-review-widget";
-
-const { header, alerts, pendingRequests } = DASHBOARD_PAGE;
+import {
+  QuickActionsBar,
+  DashboardSummaryCards,
+  OverdueAlertsWidget,
+  PendingRequestsWidget,
+  UnreadMessagesWidget,
+  MiniAnalyticsSection,
+  RecentActivityFeed,
+  UpcomingScheduleWidget,
+  TopPerformingToolsWidget,
+  NeighborhoodActivityWidget,
+  ActiveDisputesWidget,
+} from "@/features/dashboard/components";
+import { getLendingRequestDetailUrl } from "@/features/dashboard/lib/urls";
+import {
+  getUpcomingSchedule,
+  getDashboardActivityFeed,
+} from "@/features/dashboard/lib";
+import {
+  rentalDAL,
+  listingDAL,
+  paymentDAL,
+  messagesDAL,
+  disputeDAL,
+} from "@/dal";
+import type { PendingRequestItem } from "@/features/dashboard/types";
+import type { DashboardAnalytics } from "@/features/dashboard/types";
+import { DASHBOARD_HEADER } from "@/constants/dashboard";
+import {
+  AnimatedSection,
+  StaggerGrid,
+  StaggerItem,
+} from "@/components/animation-section";
 
 export const metadata = {
   title: "Dashboard",
   description: "Manage your rentals, listings, and community connections",
 };
 
+/** Defaults when a fetch group fails so the rest of the page can render. */
+function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  return fn().catch(() => fallback);
+}
+
 export default async function DashboardPage() {
   const user = await getCurrentUser();
+  if (!user) redirect("/");
+
+  const userId = user.id;
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  endOfMonth.setHours(23, 59, 59, 999);
+
+  const [
+    activeRentalsCount,
+    toolsLentCount,
+    pendingLendingRequests,
+    overdueItems,
+    earningsThisMonth,
+    unreadMessageCount,
+    recentConversations,
+    upcomingSchedule,
+    topPerformingListings,
+    neighborhoodListings,
+    activityFeedItems,
+    disputesResult,
+    analytics,
+  ] = await Promise.all([
+    safe(() => rentalDAL.countBorrowedListings(userId), 0),
+    safe(() => rentalDAL.countSharedListings(userId), 0),
+    safe(() => rentalDAL.getLendingRequestsByStatus("pending", userId), []),
+    safe(() => rentalDAL.getOverdueItemsForUser(userId), []),
+    safe(
+      () =>
+        paymentDAL.getUserEarningsForMonth(userId, startOfMonth, endOfMonth),
+      0,
+    ),
+
+    safe(() => messagesDAL.getUnreadMessageCount(userId), 0),
+    safe(
+      () => messagesDAL.getUserConversationsPaginated(userId, false, 0, 3),
+      [],
+    ),
+    safe(() => getUpcomingSchedule(userId), []),
+    safe(() => listingDAL.getTopPerformingListings(userId, 5), []),
+    safe(() => listingDAL.getRecentListingsNearUser(userId, 5), []),
+    safe(() => getDashboardActivityFeed(userId, 10), []),
+    safe(() => disputeDAL.getUserDisputes(userId, { limit: 20 }), {
+      data: [],
+      pagination: {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false,
+      },
+    }),
+    safe(
+      async (): Promise<DashboardAnalytics> => {
+        const [rentalsPerMonth, earningsByMonth, inventoryUsage] =
+          await Promise.all([
+            rentalDAL.getRentalsPerMonth(userId, 6),
+            paymentDAL.getUserEarningsByMonthRange(userId, 6),
+            listingDAL.getInventoryUsage(userId),
+          ]);
+        return {
+          rentalsPerMonth,
+          earningsByMonth,
+          inventoryUsage,
+        };
+      },
+      {
+        rentalsPerMonth: [],
+        earningsByMonth: [],
+        inventoryUsage: {
+          activeCount: 0,
+          totalCount: 0,
+          usagePercent: 0,
+        },
+      },
+    ),
+  ]);
+
+  const pendingRequestItems: PendingRequestItem[] = pendingLendingRequests
+    .slice(0, 5)
+    .map((req) => ({
+      id: req.id,
+      listingName: req.listingName,
+      requesterName: req.renterName,
+      statusText: "Awaiting your response",
+      requestDetailUrl: getLendingRequestDetailUrl(req.id),
+    }));
+
+  const activeDisputes = disputesResult.data.filter(
+    (d) => d.status !== "closed",
+  );
+  const activeDisputesList = activeDisputes.slice(0, 5);
+  const activeDisputesCount = activeDisputes.length;
+
   return (
-    <div className="space-y-6">
+    <div className="container min-w-0 space-y-6">
       <ScrollToTop />
-      <PageHeader
-        title={header.titleFor(user?.firstName ?? "User")}
-        description={header.description}
-        className="mb-6"
-      />
+      <AnimatedSection delay={0}>
+        <PageHeader
+          title={DASHBOARD_HEADER.titleFor(user.firstName ?? "User")}
+          description={DASHBOARD_HEADER.description}
+          className="mb-6"
+        />
+      </AnimatedSection>
 
-      {/* Alerts section */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <PendingReviewWidget />
-        <Card className="gap-4! border-red-200 bg-red-50 dark:bg-red-950/10">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium text-red-700 dark:text-red-400">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  <span>{alerts.title}</span>
-                </div>
-              </CardTitle>
-              <Badge
-                variant="destructive"
-                className="px-2 py-0 text-xs font-normal"
-              >
-                {alerts.items.length} {alerts.itemsLabel}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3 text-sm">
-              {alerts.items.map((item) => {
-                return (
-                  <li className="flex items-start gap-2" key={item.id}>
-                    <div className="mt-0.5 h-2 w-2 rounded-full bg-red-500" />
-                    <div>
-                      <p className="font-medium text-red-700 dark:text-red-400">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-red-600/80 dark:text-red-400/80">
-                        {item.status} • {item.person}
-                      </p>
-                    </div>
-                    {item.actionable && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="ml-auto h-7 text-xs"
-                      >
-                        {alerts.actionLabel}
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-        </Card>
+      {/* Quick Actions - has its own internal stagger */}
+      <AnimatedSection delay={0.1}>
+        <QuickActionsBar />
+      </AnimatedSection>
 
-        {/* Pending Requests & Approvals */}
-        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/10">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium text-amber-700 dark:text-amber-400">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  <span>{pendingRequests.title}</span>
-                </div>
-              </CardTitle>
-              <Badge
-                variant="secondary"
-                className="bg-amber-100 px-2 py-0 text-xs font-normal text-amber-700"
-              >
-                {pendingRequests.items.length} {pendingRequests.requests}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3 text-sm">
-              {pendingRequests.items.slice(0, 2).map((item) => {
-                return (
-                  <li className="flex items-start gap-2" key={item.id}>
-                    <div className="mt-0.5 h-2 w-2 rounded-full bg-amber-500" />
-                    <div>
-                      <p className="font-medium text-amber-700 dark:text-amber-400">
-                        {item.title} {pendingRequests.from} {item.person}
-                      </p>
-                      <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
-                        {item.status} • {item.person}
-                      </p>
-                    </div>
-                    <div className="ml-auto flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                      >
-                        {pendingRequests.decline}
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-7 bg-amber-600 text-xs hover:bg-amber-700"
-                      >
-                        {pendingRequests.accept}
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-          {pendingRequests.items.length > 2 && (
-            <CardFooter className="pt-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-auto text-xs text-amber-700 hover:text-amber-800"
-              >
-                {pendingRequests.viewAllLabel}
-                <ArrowRight className="ml-1 h-3 w-3" />
-              </Button>
-            </CardFooter>
-          )}
-        </Card>
-      </div>
+      {/* Alerts row - full width for schedule when no overdue items */}
+      <StaggerGrid
+        className={`grid gap-4 ${overdueItems.length > 0 ? "lg:grid-cols-2" : ""}`}
+        delay={0.15}
+      >
+        <StaggerItem>
+          <UpcomingScheduleWidget entries={upcomingSchedule} />
+        </StaggerItem>
+        {overdueItems.length > 0 && (
+          <StaggerItem>
+            <OverdueAlertsWidget items={overdueItems} />
+          </StaggerItem>
+        )}
+      </StaggerGrid>
 
-      {/*  Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardContent className="px-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                  Active Rentals
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">3</span>
-                  <span className="text-muted-foreground text-sm">tools</span>
-                </div>
-              </div>
-              <div
-                className="h-2 w-2 rounded-full bg-amber-500"
-                title="1 due soon"
-              ></div>
-            </div>
-            <div className="mt-3 space-y-1">
-              <p className="text-muted-foreground text-xs">
-                Currently borrowing
-              </p>
-              <div className="flex items-center gap-1 text-xs text-amber-600">
-                <span>1 due tomorrow</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Pending Requests */}
+      <AnimatedSection delay={0.05}>
+        <PendingRequestsWidget
+          items={pendingRequestItems}
+          totalCount={pendingLendingRequests.length}
+        />
+      </AnimatedSection>
 
-        <Card>
-          <CardContent className="px-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                  Tools Lent
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">2</span>
-                  <span className="text-muted-foreground text-sm">tools</span>
-                </div>
-              </div>
-              <div
-                className="h-2 w-2 rounded-full bg-red-500"
-                title="1 overdue"
-              ></div>
-            </div>
-            <div className="mt-3 space-y-1">
-              <p className="text-muted-foreground text-xs">Others borrowing</p>
-              <div className="flex items-center gap-1 text-xs text-red-600">
-                <span>1 overdue return</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Summary Cards - has its own internal stagger */}
+      <AnimatedSection delay={0.05}>
+        <DashboardSummaryCards
+          activeRentalsCount={activeRentalsCount}
+          toolsLentCount={toolsLentCount}
+          pendingRequestsCount={pendingLendingRequests.length}
+          earningsThisMonth={earningsThisMonth}
+        />
+      </AnimatedSection>
 
-        <Card>
-          <CardContent className="px-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                  Pending Requests
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">4</span>
-                  <span className="text-muted-foreground text-sm">
-                    requests
-                  </span>
-                </div>
-              </div>
-              <div
-                className="h-2 w-2 rounded-full bg-amber-500"
-                title="Requests awaiting response"
-              ></div>
-            </div>
-            <div className="mt-3 space-y-1">
-              <p className="text-muted-foreground text-xs">Awaiting response</p>
-              <div className="flex items-center gap-1 text-xs text-amber-600">
-                <span>2 urgent (24h left)</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <AnimatedSection>
+        <UnreadMessagesWidget
+          unreadCount={unreadMessageCount}
+          recentConversations={recentConversations}
+        />
+      </AnimatedSection>
 
-        <Card>
-          <CardContent className="px-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                  This Month
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">$387.50</span>
-                </div>
-              </div>
-              <div className="text-primary flex items-center gap-1 text-xs">
-                <TrendingUp className="h-3 w-3" />
-                <span>12%</span>
-              </div>
-            </div>
-            <div className="mt-3 space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Goal: $120</span>
-                <span className="text-primary font-medium">73%</span>
-              </div>
-              <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
-                <div className="bg-primary h-full w-[73%] rounded-full transition-all duration-500"></div>
-              </div>
-              <p className="text-muted-foreground text-xs">$32.50 to goal</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Activity Feed + Upcoming Schedule */}
+      <AnimatedSection>
+        <RecentActivityFeed items={activityFeedItems} />
+      </AnimatedSection>
 
-        <Card>
-          <CardContent className="px-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                  Reward Points
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">350</span>
-                  <span className="text-muted-foreground text-sm">pts</span>
-                </div>
-              </div>
-              <div
-                className="h-2 w-2 rounded-full bg-blue-500"
-                title="Points available to redeem"
-              ></div>
-            </div>
-            <div className="mt-3 space-y-1">
-              <p className="text-muted-foreground text-xs">
-                Next reward: 500 pts
-              </p>
-              <div className="flex items-center gap-1 text-xs text-blue-600">
-                <Coins className="h-3 w-3" />
-                <span>150 pts to $25 credit</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <AnimatedSection>
+        <MiniAnalyticsSection analytics={analytics} />
+      </AnimatedSection>
 
-      {/*  Mini-Analytics */}
-      <Card className="gap-2">
-        <CardHeader className=" ">
-          <CardTitle className="flex items-center gap-1 text-base">
-            <BarChart3 className="h-5 w-5" />
-            Activity Overview
-          </CardTitle>
-          <CardDescription>
-            Your rental activity and earnings trends
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 md:grid-cols-3">
-            <div>
-              <h3 className="mb-2 text-sm font-medium">Rentals per Week</h3>
-              <div className="bg-muted/50 h-32 rounded-md p-3">
-                <div className="flex h-full items-end justify-between gap-1">
-                  {[
-                    { day: "M", count: 3, height: 30 },
-                    { day: "T", count: 5, height: 50 },
-                    { day: "W", count: 2, height: 20 },
-                    { day: "T", count: 7, height: 70 },
-                    { day: "F", count: 8, height: 80 },
-                    { day: "S", count: 4, height: 40 },
-                    { day: "S", count: 6, height: 60 },
-                  ].map((item, i) => (
-                    <div
-                      key={i}
-                      className="group flex h-full flex-1 flex-col items-center justify-end"
-                    >
-                      <div
-                        className="bg-primary/80 group-hover:bg-primary relative min-h-[8px] w-full rounded-t-sm transition-all duration-300"
-                        style={{ height: `${item.height}%` }}
-                        title={`${item.day === "M" ? "Monday" : item.day === "T" && i === 1 ? "Tuesday" : item.day === "W" ? "Wednesday" : item.day === "T" && i === 3 ? "Thursday" : item.day === "F" ? "Friday" : item.day === "S" && i === 5 ? "Saturday" : "Sunday"}`}
-                      >
-                        <div className="bg-background absolute -top-6 left-1/2 -translate-x-1/2 rounded px-1 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100">
-                          {item.count}
-                        </div>
-                      </div>
-                      <div className="text-muted-foreground mt-2 text-xs font-medium">
-                        {item.day}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 text-center">
-                  <span className="text-muted-foreground text-xs">
-                    This week: 35 total rentals
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="mb-2 text-sm font-medium">Earnings Trend</h3>
-              <div className="bg-muted/50 h-32 rounded-md p-2">
-                <div className="relative h-full w-full">
-                  <svg
-                    className="h-full w-full"
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio="none"
-                  >
-                    <path
-                      d="M0,50 L10,45 L20,60 L30,40 L40,45 L50,30 L60,35 L70,20 L80,30 L90,15 L100,25"
-                      fill="none"
-                      stroke="var(--primary)"
-                      strokeWidth="2"
-                    />
-                    <path
-                      d="M0,50 L10,45 L20,60 L30,40 L40,45 L50,30 L60,35 L70,20 L80,30 L90,15 L100,25 L100,100 L0,100 Z"
-                      fill="var(--primary)"
-                      fillOpacity="0.1"
-                    />
-                  </svg>
-                  <div className="text-muted-foreground absolute right-0 bottom-0 left-0 flex justify-between text-xs">
-                    <span>Apr</span>
-                    <span>May</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="mb-2 text-sm font-medium">Inventory Usage</h3>
-              <div className="bg-muted/50 h-32 rounded-md p-4">
-                <div className="flex h-full flex-col items-center justify-center">
-                  <div className="relative h-24 w-24">
-                    <svg className="h-full w-full" viewBox="0 0 100 100">
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        fill="none"
-                        stroke="var(--muted-foreground)"
-                        strokeOpacity={0.2}
-                        strokeWidth="10"
-                      />
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        fill="none"
-                        stroke="var(--primary)"
-                        strokeWidth="10"
-                        strokeDasharray="283"
-                        strokeDashoffset="85"
-                        transform="rotate(-90 50 50)"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-2xl font-bold">70%</span>
-                    </div>
-                  </div>
-                  <p className="text-muted-foreground mt-2 text-xs">
-                    of your tools are active
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Recent Activity Feed */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>
-              Latest updates on your rentals and listings
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ActivityFeed
-              activities={[
-                {
-                  icon: <Wrench className="h-4 w-4" />,
-                  title: "Pressure Washer rented",
-                  description: "You rented this from John D.",
-                  timestamp: "2 hours ago",
-                },
-                {
-                  icon: <Calendar className="h-4 w-4" />,
-                  title: "Rental extension requested",
-                  description: "Emily K. requested to extend Drill Set rental",
-                  timestamp: "Yesterday",
-                  actionable: true,
-                },
-                {
-                  icon: <Star className="h-4 w-4" />,
-                  title: "New review received",
-                  description: "David P. gave you 5 stars",
-                  timestamp: "2 days ago",
-                },
-                {
-                  icon: <AlertCircle className="h-4 w-4" />,
-                  title: "Return reminder",
-                  description: "Circular Saw due in 3 days",
-                  timestamp: "2 days ago",
-                },
-                {
-                  icon: <Wrench className="h-4 w-4" />,
-                  title: "Hedge Trimmer listed",
-                  description: "You added a new tool to your listings",
-                  timestamp: "3 days ago",
-                },
-              ]}
-            />
-            <div className="mt-4 text-center">
-              <Button variant="outline" size="sm">
-                View All Activity
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Schedule Widget */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming Schedule</CardTitle>
-            <CardDescription>
-              Your rental timeline for the next 7 days
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
-                  <Calendar className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">May 25, 2023</p>
-                  <p className="text-muted-foreground text-sm">
-                    Return Pressure Washer to John D.
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-7 text-xs">
-                      Directions
-                    </Button>
-                    <Button size="sm" className="h-7 text-xs">
-                      Request Extension
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
-                  <Calendar className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">May 26, 2023</p>
-                  <p className="text-muted-foreground text-sm">
-                    Emily K. returns Drill Set
-                  </p>
-                  <div className="mt-1">
-                    <Button variant="outline" size="sm" className="h-7 text-xs">
-                      Send Reminder
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
-                  <Calendar className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">May 28, 2023</p>
-                  <p className="text-muted-foreground text-sm">
-                    Return Circular Saw to Maria G.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 text-center">
-              <Button variant="outline" size="sm">
-                View Full Calendar
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <StaggerGrid className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <StaggerItem>
+          <TopPerformingToolsWidget listings={topPerformingListings} />
+        </StaggerItem>
+        <StaggerItem>
+          <NeighborhoodActivityWidget listings={neighborhoodListings} />
+        </StaggerItem>
+        <StaggerItem>
+          <ActiveDisputesWidget
+            disputes={activeDisputesList}
+            totalCount={activeDisputesCount}
+          />
+        </StaggerItem>
+      </StaggerGrid>
     </div>
   );
 }
