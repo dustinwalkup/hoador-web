@@ -25,6 +25,9 @@ vi.mock("@/dal", () => ({
   notificationCategoryPreferencesDAL: {
     upsertMany: vi.fn().mockResolvedValue(undefined),
   },
+  userActivityDAL: {
+    logActivity: vi.fn().mockResolvedValue(undefined),
+  },
 }));
 
 import { GET, PATCH } from "./route";

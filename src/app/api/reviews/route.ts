@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { reviewDAL } from "@/dal";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import {
   reviewSchema,
   type ReviewFormData,
@@ -72,6 +73,14 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return handleApiError(error);
+    }
+
+    if (review?.id) {
+      trackActivity(userId, "review_created", {
+        reviewId: review.id,
+        rentalId: reviewData.rentalId,
+        requestId: reviewData.requestId,
+      });
     }
 
     return NextResponse.json(

@@ -58,6 +58,9 @@ vi.mock("@/dal", () => ({
   paymentDAL: {
     createPayment: vi.fn().mockResolvedValue(undefined),
   },
+  userActivityDAL: {
+    logActivity: vi.fn().mockResolvedValue(undefined),
+  },
 }));
 
 vi.mock("@/db/db", () => ({

@@ -167,6 +167,7 @@ export interface UserProfile extends Omit<
   | "twoFactorSecret"
   | "updatedAt"
   | "lastLoginAt"
+  | "lastActiveAt"
   | "twoFactorEnabled"
 > {
   stats: UserStats;
@@ -181,6 +182,10 @@ export interface GetUsersForAdminOptions extends PaginationOptions {
   search?: string;
   status?: UserStatus;
   userType?: UserType;
+  /** Show only users inactive for at least this many days (uses lastActiveAt). */
+  inactiveDays?: number;
+  /** Sort by createdAt (default) or lastActiveAt. */
+  sortBy?: "createdAt" | "lastActiveAt";
 }
 
 /** Admin-only update payload (status and/or userType). */
@@ -197,6 +202,7 @@ export interface AdminUserListItem {
   status: UserStatus;
   userType: UserType;
   createdAt: Date;
+  lastActiveAt: Date | null;
 }
 
 /** User profile plus listing/rental counts for admin detail view. */

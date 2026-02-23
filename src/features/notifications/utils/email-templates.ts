@@ -207,3 +207,71 @@ Once you've made the necessary changes, your listing will be automatically resub
 The Hoador Team
   `.trim();
 }
+
+/** Data for re-engagement email (admin-initiated). */
+export interface ReEngagementEmailData {
+  recipientName: string;
+  message: string;
+  dashboardUrl: string;
+  baseUrl: string;
+}
+
+/**
+ * Generate HTML email for admin re-engagement notification.
+ */
+export function generateReEngagementEmailHtml({
+  recipientName,
+  message,
+  dashboardUrl,
+  baseUrl,
+}: ReEngagementEmailData): string {
+  const escapedMessage = message
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+    .replace(/\n/g, "<br>");
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>We miss you on Hoador</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
+        </div>
+        <h1 style="color: #333; margin-bottom: 20px;">Hi ${recipientName},</h1>
+        <p style="font-size: 16px; margin-bottom: 20px; white-space: pre-wrap;">${escapedMessage}</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${dashboardUrl}" style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Visit Dashboard</a>
+        </div>
+        <div style="border-top: 1px solid #eee; margin-top: 40px; padding-top: 20px; font-size: 12px; color: #999; text-align: center;">
+          <p>The Hoador Team</p>
+        </div>
+      </body>
+    </html>
+  `.trim();
+}
+
+/**
+ * Generate plain text for re-engagement email.
+ */
+export function generateReEngagementEmailText({
+  recipientName,
+  message,
+  dashboardUrl,
+}: Omit<ReEngagementEmailData, "baseUrl">): string {
+  return `
+Hi ${recipientName},
+
+${message}
+
+Visit your dashboard: ${dashboardUrl}
+
+The Hoador Team
+  `.trim();
+}

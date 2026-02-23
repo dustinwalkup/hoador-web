@@ -66,6 +66,7 @@ export async function getUpcomingSchedule(
   };
 
   for (const r of borrowed.currentRentals) {
+    addPickup(r.startDate, r.listingName, r.id, "renting");
     addReturn(r.endDate, r.listingName, r.id, "renting");
   }
   for (const r of borrowed.upcomingRentals) {

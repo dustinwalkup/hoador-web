@@ -212,6 +212,8 @@ describe("useAdminUsers", () => {
       "admin",
       3,
       15,
+      "", // inactiveDays
+      "", // sortBy
     ]);
     expect(cached).toEqual(mockUsersResponse);
   });

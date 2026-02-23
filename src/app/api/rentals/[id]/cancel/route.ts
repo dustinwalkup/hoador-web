@@ -6,6 +6,7 @@ import {
   captureNonCriticalError,
   requireAuthResponse,
 } from "@/lib/api/route-helpers";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalCancelledNotification } from "@/features/rentals/notifications/rental-cancelled";
 
 /**
@@ -60,6 +61,10 @@ export async function POST(
     if (error) {
       return handleApiError(error);
     }
+
+    trackActivity(currentUserId, "rental_cancelled", {
+      rentalRequestId: rentalId,
+    });
 
     // Send notification to owner (don't block on notification failure)
     try {

@@ -30,53 +30,60 @@ export type NewUser = typeof user.$inferInsert;
 export type UpdateUser = Partial<NewUser>;
 
 // BetterAuth user table, extended with profile fields
-export const user = pgTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").default(false).notNull(),
-  image: text("image"),
+export const user = pgTable(
+  "user",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: boolean("email_verified").default(false).notNull(),
+    image: text("image"),
 
-  // ---- Custom profile fields ----
-  firstName: varchar("first_name", { length: 100 }), // Nullable for Better Auth compatibility
-  lastName: varchar("last_name", { length: 100 }), // Nullable for Better Auth compatibility
-  status: userStatusEnum("status").default("pending_verification").notNull(),
-  userType: userTypeEnum("user_type").default("standard").notNull(),
-  phone: varchar("phone", { length: 20 }),
-  bio: text("bio"),
-  profileImageUrl: varchar("profile_image_url", { length: 500 }),
-  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
-  stripeConnectedAccountId: varchar("stripe_connected_account_id", {
-    length: 255,
+    // ---- Custom profile fields ----
+    firstName: varchar("first_name", { length: 100 }), // Nullable for Better Auth compatibility
+    lastName: varchar("last_name", { length: 100 }), // Nullable for Better Auth compatibility
+    status: userStatusEnum("status").default("pending_verification").notNull(),
+    userType: userTypeEnum("user_type").default("standard").notNull(),
+    phone: varchar("phone", { length: 20 }),
+    bio: text("bio"),
+    profileImageUrl: varchar("profile_image_url", { length: 500 }),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+    stripeConnectedAccountId: varchar("stripe_connected_account_id", {
+      length: 255,
+    }),
+    connectOnboardingComplete: boolean("connect_onboarding_complete")
+      .default(false)
+      .notNull(),
+    connectChargesEnabled: boolean("connect_charges_enabled")
+      .default(false)
+      .notNull(),
+    connectPayoutsEnabled: boolean("connect_payouts_enabled")
+      .default(false)
+      .notNull(),
+    idVerified: boolean("id_verified").default(false).notNull(),
+    addressVerified: boolean("address_verified").default(false).notNull(),
+    lastLoginAt: timestamp("last_login_at"),
+    lastActiveAt: timestamp("last_active_at"),
+
+    // ---- Legal document acceptance fields ----
+    tosVersion: varchar("tos_version", { length: 50 }),
+    tosAcceptedAt: timestamp("tos_accepted_at"),
+    privacyVersion: varchar("privacy_version", { length: 50 }),
+    privacyAcceptedAt: timestamp("privacy_accepted_at"),
+    communityVersion: varchar("community_version", { length: 50 }),
+    communityAcceptedAt: timestamp("community_accepted_at"),
+
+    // ---- Timestamps ----
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => ({
+    lastActiveAtIdx: index("user_last_active_at_idx").on(table.lastActiveAt),
   }),
-  connectOnboardingComplete: boolean("connect_onboarding_complete")
-    .default(false)
-    .notNull(),
-  connectChargesEnabled: boolean("connect_charges_enabled")
-    .default(false)
-    .notNull(),
-  connectPayoutsEnabled: boolean("connect_payouts_enabled")
-    .default(false)
-    .notNull(),
-  idVerified: boolean("id_verified").default(false).notNull(),
-  addressVerified: boolean("address_verified").default(false).notNull(),
-  lastLoginAt: timestamp("last_login_at"),
-
-  // ---- Legal document acceptance fields ----
-  tosVersion: varchar("tos_version", { length: 50 }),
-  tosAcceptedAt: timestamp("tos_accepted_at"),
-  privacyVersion: varchar("privacy_version", { length: 50 }),
-  privacyAcceptedAt: timestamp("privacy_accepted_at"),
-  communityVersion: varchar("community_version", { length: 50 }),
-  communityAcceptedAt: timestamp("community_accepted_at"),
-
-  // ---- Timestamps ----
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+);
 
 // BetterAuth session table
 export const session = pgTable("session", {

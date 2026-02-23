@@ -46,4 +46,5 @@ export const NOTIFICATION_TYPE_TO_CATEGORY: Record<
   listing_rejected: "bookings",
   review_received: "bookings",
   system: "bookings",
+  re_engagement: "bookings",
 };

@@ -1,4 +1,4 @@
-import { eq, count, sql, and, or, ilike, desc } from "drizzle-orm";
+import { eq, count, sql, and, or, ilike, desc, lt, lte } from "drizzle-orm";
 
 import { geocodeAddress } from "@/services/geocoding";
 import { schema } from "@/db/schemas";
@@ -291,7 +291,8 @@ export class UserDAL extends BaseDAL {
     options: GetUsersForAdminOptions,
   ): Promise<PaginatedResult<AdminUserListItem>> {
     try {
-      const { search, status, userType, page, limit } = options;
+      const { search, status, userType, page, limit, inactiveDays, sortBy } =
+        options;
       this.validatePagination(page, limit);
       const offset = (page - 1) * limit;
 
@@ -306,6 +307,19 @@ export class UserDAL extends BaseDAL {
       if (userType) {
         conditions.push(eq(user.userType, userType));
       }
+      if (inactiveDays != null && inactiveDays > 0) {
+        const threshold = new Date();
+        threshold.setDate(threshold.getDate() - inactiveDays);
+        // Inactive: last activity before threshold (or never)
+        conditions.push(
+          or(
+            lt(user.lastActiveAt, threshold),
+            sql`${user.lastActiveAt} IS NULL`,
+          ),
+        );
+        // Account must be at least that old (can't be "inactive 30+ days" if account is 5 days old)
+        conditions.push(lte(user.createdAt, threshold));
+      }
       const whereClause =
         conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -315,20 +329,26 @@ export class UserDAL extends BaseDAL {
         .where(whereClause);
       const [{ total }] = await countQuery;
 
-      const rows = await this.db.query.user.findMany({
-        where: whereClause,
-        columns: {
-          id: true,
-          name: true,
-          email: true,
-          status: true,
-          userType: true,
-          createdAt: true,
-        },
-        orderBy: [desc(user.createdAt)],
-        limit,
-        offset,
-      });
+      const orderBy =
+        sortBy === "lastActiveAt"
+          ? [sql`${user.lastActiveAt} DESC NULLS LAST`]
+          : [desc(user.createdAt)];
+
+      const rows = await this.db
+        .select({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          status: user.status,
+          userType: user.userType,
+          createdAt: user.createdAt,
+          lastActiveAt: user.lastActiveAt,
+        })
+        .from(user)
+        .where(whereClause)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset);
 
       return this.createPaginatedResult(
         rows as AdminUserListItem[],

@@ -69,6 +69,29 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "dispute_evidence_deadline_approaching",
   "dispute_evidence_deadline_expired",
   "dispute_resolved",
+  "re_engagement",
+]);
+
+/** User activity types for admin activity log and inactivity filtering. */
+export const userActivityTypeEnum = pgEnum("user_activity_type", [
+  "login",
+  "logout",
+  "password_change",
+  "listing_created",
+  "listing_updated",
+  "listing_deleted",
+  "listing_published",
+  "rental_requested",
+  "rental_approved",
+  "rental_rejected",
+  "rental_completed",
+  "rental_cancelled",
+  "profile_updated",
+  "settings_updated",
+  "payment_made",
+  "payout_received",
+  "review_created",
+  "review_responded",
 ]);
 
 export const messageStatusEnum = pgEnum("message_status", [

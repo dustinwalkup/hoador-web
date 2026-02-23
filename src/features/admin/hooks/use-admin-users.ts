@@ -16,6 +16,10 @@ export interface UseAdminUsersParams {
   userType?: UserType;
   page?: number;
   limit?: number;
+  /** Show only users inactive for at least this many days. */
+  inactiveDays?: number;
+  /** Sort by createdAt (default) or lastActiveAt. */
+  sortBy?: "createdAt" | "lastActiveAt";
 }
 
 /**
@@ -27,6 +31,8 @@ export function useAdminUsers({
   userType,
   page = 1,
   limit = DEFAULT_LIMIT,
+  inactiveDays,
+  sortBy,
 }: UseAdminUsersParams = {}) {
   const params = new URLSearchParams();
   params.set("page", String(page));
@@ -34,6 +40,9 @@ export function useAdminUsers({
   if (search?.trim()) params.set("search", search.trim());
   if (status) params.set("status", status);
   if (userType) params.set("userType", userType);
+  if (inactiveDays != null && inactiveDays > 0)
+    params.set("inactiveDays", String(inactiveDays));
+  if (sortBy) params.set("sortBy", sortBy);
 
   return useQuery<AdminUsersResponse>({
     queryKey: [
@@ -44,6 +53,8 @@ export function useAdminUsers({
       userType ?? "",
       page,
       limit,
+      inactiveDays ?? "",
+      sortBy ?? "",
     ],
     queryFn: async () => {
       const response = await fetch(`/api/admin/users?${params.toString()}`);

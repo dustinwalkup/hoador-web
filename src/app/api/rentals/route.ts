@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/route-helpers";
 import { createRentalRequestSchema } from "@/features/rentals/lib/form-schema";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalRequestCreatedNotification } from "@/features/rentals/notifications/rental-request-created";
 
 /**
@@ -95,6 +96,11 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+
+    trackActivity(currentUserId, "rental_requested", {
+      rentalRequestId: rentalRequest.id,
+      listingId: validatedData.listingId,
+    });
 
     // Record legal document acceptances AFTER rental request creation
     // This ties the acceptances to the specific rental request for legal audit trail

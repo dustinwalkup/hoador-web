@@ -71,7 +71,7 @@ const adminNavItems = [
     icon: FileText,
   },
   {
-    title: "Support Items",
+    title: "Support Items (Coming Soon)",
     url: "/admin/dashboard/support",
     icon: HelpCircle,
   },
@@ -81,7 +81,7 @@ const adminNavItems = [
     icon: Users,
   },
   {
-    title: "Settings",
+    title: "Settings (Coming Soon)",
     url: "/admin/dashboard/settings",
     icon: Settings,
   },

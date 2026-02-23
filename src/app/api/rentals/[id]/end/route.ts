@@ -6,6 +6,7 @@ import {
   captureNonCriticalError,
   requireAuthResponse,
 } from "@/lib/api/route-helpers";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalEndedNotification } from "@/features/rentals/notifications/rental-ended";
 
 /**
@@ -70,6 +71,11 @@ export async function POST(
         { status: 500 },
       );
     }
+
+    trackActivity(currentUserId, "rental_completed", {
+      rentalId,
+      rentalRequestId: rentalId,
+    });
 
     // Send notification to renter
     try {

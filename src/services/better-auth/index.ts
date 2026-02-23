@@ -1,8 +1,10 @@
 import { betterAuth } from "better-auth";
 import { NextRequest } from "next/server";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware } from "better-auth/api";
 import { getSessionCookie as getSessionCookieFromCookies } from "better-auth/cookies";
 import { db } from "@/db/db";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 
 export const EMAIL_VERIFICATION_CALLBACK_URL = "signup/email/callback";
 
@@ -102,6 +104,37 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
       redirectURI: process.env.GOOGLE_CALLBACK_URL,
     },
+  },
+
+  // Track login activity for admin inactivity filtering
+  hooks: {
+    after: createAuthMiddleware(async (ctx) => {
+      const newSession = ctx.context?.newSession as
+        | {
+            user: { id: string };
+            session?: { ipAddress?: string; userAgent?: string };
+          }
+        | undefined;
+      if (!newSession?.user?.id) return;
+
+      const isSignIn =
+        ctx.path?.includes("sign-in") || ctx.path?.includes("callback");
+      if (!isSignIn) return;
+
+      const ipAddress =
+        ctx.request?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        ctx.request?.headers?.get("x-real-ip") ??
+        null;
+      const userAgent = ctx.request?.headers?.get("user-agent") ?? null;
+
+      trackActivity(
+        newSession.user.id,
+        "login",
+        undefined,
+        ipAddress,
+        userAgent,
+      );
+    }),
   },
 });
 

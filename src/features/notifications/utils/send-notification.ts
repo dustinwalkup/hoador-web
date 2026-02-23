@@ -31,6 +31,10 @@ interface SendNotificationOptions {
     to: string;
     body: string;
   }; // TODO: Implement SMS with Twilio
+  /** When false, skip sending email (e.g. admin "push only"). Default true. */
+  sendEmail?: boolean;
+  /** When false, skip sending push (e.g. admin "email only"). Default true. */
+  sendPush?: boolean;
 }
 
 /**
@@ -48,6 +52,8 @@ export async function sendNotification({
   category: categoryParam,
   email,
   sms,
+  sendEmail: sendEmailOption = true,
+  sendPush: sendPushOption = true,
 }: SendNotificationOptions): Promise<{
   success: boolean;
   notificationId?: string;
@@ -82,8 +88,8 @@ export async function sendNotification({
   let emailSent = false;
   let smsSent = false;
 
-  // Send email only if user preference allows and email payload provided
-  if (email) {
+  // Send email only if user preference allows, email payload provided, and not disabled
+  if (email && sendEmailOption) {
     const allowEmail = await shouldSendEmail(userId, category);
     if (allowEmail) {
       const emailResult = await sendEmail(email);
@@ -97,21 +103,23 @@ export async function sendNotification({
     }
   }
 
-  // Push: fire-and-forget after in-app notification is created
-  shouldSendPush(userId, category).then((allowPush) => {
-    if (allowPush) {
-      const payload = buildPushPayload(
-        title,
-        message,
-        linkUrl ?? "/dashboard",
-        type as NotificationType,
-        data,
-      );
-      sendPush(userId, payload).catch((err) => {
-        console.error("[sendNotification] push send failed:", err);
-      });
-    }
-  });
+  // Push: fire-and-forget after in-app notification is created (unless disabled)
+  if (sendPushOption) {
+    shouldSendPush(userId, category).then((allowPush) => {
+      if (allowPush) {
+        const payload = buildPushPayload(
+          title,
+          message,
+          linkUrl ?? "/dashboard",
+          type as NotificationType,
+          data,
+        );
+        sendPush(userId, payload).catch((err) => {
+          console.error("[sendNotification] push send failed:", err);
+        });
+      }
+    });
+  }
 
   // TODO: Send SMS if provided (Twilio integration)
   if (sms) {

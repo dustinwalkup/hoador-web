@@ -26,6 +26,7 @@ import {
   sendPaymentSucceededNotificationToRenter,
   sendPaymentSucceededNotificationToOwner,
 } from "@/features/rentals/notifications/payment-succeeded";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalApprovedNotification } from "@/features/rentals/notifications/rental-approved";
 
 const approveRequestSchema = z.object({
@@ -443,6 +444,15 @@ export async function POST(
           paymentRecordError,
         );
         // Continue anyway - payment succeeded, record creation is for history
+      } else {
+        trackActivity(rentalRequest.renterId, "payment_made", {
+          rentalId: createdRental.id,
+          rentalRequestId: rentalRequest.id,
+        });
+        trackActivity(rentalRequest.ownerId, "payout_received", {
+          rentalId: createdRental.id,
+          rentalRequestId: rentalRequest.id,
+        });
       }
     }
 
@@ -529,6 +539,11 @@ export async function POST(
         action: "send_success_notifications",
       });
     }
+
+    trackActivity(currentUserId, "rental_approved", {
+      rentalId,
+      rentalRequestId: rentalRequest.id,
+    });
 
     // Trigger async PDF generation (fire-and-forget; do not block response)
     const internalSecret = process.env.INTERNAL_API_SECRET;

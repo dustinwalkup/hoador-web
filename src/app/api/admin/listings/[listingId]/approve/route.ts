@@ -8,6 +8,7 @@ import {
   getCurrentUserId,
 } from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import {
   generateListingApprovalEmailHtml,
@@ -74,6 +75,8 @@ export async function POST(
     if (updateError) {
       return handleApiError(updateError);
     }
+
+    trackActivity(listing.owner.id, "listing_published", { listingId });
 
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";

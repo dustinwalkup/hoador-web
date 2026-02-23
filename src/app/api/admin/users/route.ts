@@ -31,6 +31,14 @@ export async function GET(request: NextRequest) {
     const userType = (searchParams.get("userType") || undefined) as
       | UserType
       | undefined;
+    const inactiveDaysParam = searchParams.get("inactiveDays");
+    const inactiveDays =
+      inactiveDaysParam !== null && inactiveDaysParam !== ""
+        ? parseInt(inactiveDaysParam, 10)
+        : undefined;
+    const sortBy = (
+      searchParams.get("sortBy") === "lastActiveAt" ? "lastActiveAt" : undefined
+    ) as "createdAt" | "lastActiveAt" | undefined;
 
     const result = await userDAL.getUsersForAdmin({
       search: search || undefined,
@@ -38,6 +46,11 @@ export async function GET(request: NextRequest) {
       userType,
       page,
       limit,
+      inactiveDays:
+        inactiveDays != null && !Number.isNaN(inactiveDays)
+          ? inactiveDays
+          : undefined,
+      sortBy,
     });
 
     return NextResponse.json(result);

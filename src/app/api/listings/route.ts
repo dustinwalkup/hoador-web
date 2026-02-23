@@ -12,6 +12,7 @@ import {
   getUserAgent,
 } from "@/lib/api/route-helpers";
 import { listingDAL, userDAL, legalDocumentDAL } from "@/dal";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { requireCommunityMembership } from "@/features/community/utils/membership";
 
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+
+    trackActivity(currentUserId, "listing_created", { listingId: listing.id });
 
     // Record legal document acceptances for listing creation
     try {

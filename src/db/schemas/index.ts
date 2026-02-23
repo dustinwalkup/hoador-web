@@ -12,6 +12,7 @@ import * as notifications from "./notifications.schema";
 import * as legalDocuments from "./legal-documents.schema";
 import * as disputes from "./disputes.schema";
 import * as rentalAgreementDocuments from "./rental-agreement-documents.schema";
+import * as userActivity from "./user-activity.schema";
 
 export const schema = {
   ...user,
@@ -25,4 +26,5 @@ export const schema = {
   ...legalDocuments,
   ...disputes,
   ...rentalAgreementDocuments,
+  ...userActivity,
 };

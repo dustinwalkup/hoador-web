@@ -20,6 +20,7 @@ import {
   type CreateListingFormDataServerType,
 } from "@/features/listings/form-schema/listing.schema";
 import { listingDAL } from "@/dal";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 
 /**
  * POST /api/listings/[listingId]
@@ -191,6 +192,8 @@ export async function PATCH(
       );
     }
 
+    trackActivity(currentUserId, "listing_updated", { listingId: listing.id });
+
     return NextResponse.json({
       success: true,
       listingId: listing.id,
@@ -266,6 +269,8 @@ export async function DELETE(
         { status: 500 },
       );
     }
+
+    trackActivity(userId, "listing_deleted", { listingId });
 
     return NextResponse.json({ success: true });
   } catch (error) {

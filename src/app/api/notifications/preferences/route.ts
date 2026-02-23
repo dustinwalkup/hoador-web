@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notificationCategoryPreferencesDAL, userDAL } from "@/dal";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import { getCategoryPreferences } from "@/features/notifications/lib/preference-service";
 import {
   handleApiError,
@@ -84,6 +85,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     if (categories && Object.keys(categories).length > 0) {
       await notificationCategoryPreferencesDAL.upsertMany(userId, categories);
     }
+
+    trackActivity(userId, "settings_updated");
 
     const updated = await getCategoryPreferences(userId);
     return NextResponse.json(updated);

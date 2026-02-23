@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { PageHeader } from "@/components/page-header";
+import { AdminActivityOverviewWidget } from "@/features/admin/components/admin-activity-overview-widget";
 import { AdminMetricsCards } from "@/features/admin/components/admin-metrics-cards";
 import { AdminRecentActivityWidget } from "@/features/admin/components/admin-recent-activity-widget";
 import { DisputeStatsWidget } from "@/features/admin/components/dispute-stats-widget";
@@ -19,6 +20,8 @@ export default function AdminDashboardPage() {
       />
 
       <AdminMetricsCards />
+
+      <AdminActivityOverviewWidget />
 
       <DisputeStatsWidget />
 

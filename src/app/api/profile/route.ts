@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { tryCatch } from "@walkup/walkup-utils";
 import { userDAL } from "@/dal";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import {
   handleApiError,
   parseFormData,
@@ -73,6 +74,8 @@ export async function PATCH(request: NextRequest) {
         return handleApiError(addressResult.error);
       }
     }
+
+    trackActivity(userId, "profile_updated");
 
     return NextResponse.json({ success: true });
   } catch (error) {

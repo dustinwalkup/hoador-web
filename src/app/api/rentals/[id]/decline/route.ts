@@ -8,6 +8,7 @@ import {
   parseFormData,
   requireAuthResponse,
 } from "@/lib/api/route-helpers";
+import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalDeniedNotification } from "@/features/rentals/notifications/rental-denied";
 
 const declineRequestSchema = z.object({
@@ -87,6 +88,10 @@ export async function POST(
     if (error) {
       return handleApiError(error);
     }
+
+    trackActivity(currentUserId, "rental_rejected", {
+      rentalRequestId: rentalId,
+    });
 
     // Send notification to renter (don't block on notification failure)
     try {
