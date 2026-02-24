@@ -1,7 +1,9 @@
 # .github/workflows/deploy-staging.yml
 name: Deploy to Staging
 
-# Only run on pushes to develop branch after CI passes
+# Only run on pushes to develop branch after CI passes.
+# Note: workflow_run triggers use the workflow file from the default branch (main).
+# Merge this workflow into main once so "Deploy to Staging" runs when CI completes on develop.
 on:
   workflow_run:
     workflows: ["CI/CD Pipeline"]
@@ -47,6 +49,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # Deploy the branch that passed CI (develop), not the default branch (main)
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

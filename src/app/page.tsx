@@ -115,7 +115,7 @@ export default function HomePage() {
           <div className="relative z-10 container mx-auto flex flex-col items-center justify-center">
             <div className="max-w-3xl text-center">
               <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-                {hero.titleA}{" "}
+                {hero.titleA} !!!1
                 <span className="text-primary">{hero.titleB}</span>
               </h1>
               <p className="text-muted-foreground mb-8 text-xl">
