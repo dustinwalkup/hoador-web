@@ -15,6 +15,14 @@ on:
           - generate
           - push
           - seed
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
 
 jobs:
   # Generate database migrations
@@ -22,6 +30,7 @@ jobs:
     name: Generate Migrations
     runs-on: ubuntu-latest
     if: github.event.inputs.operation == 'generate'
+    environment: ${{ github.event.inputs.environment }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -39,7 +48,7 @@ jobs:
     name: Run Migrations
     runs-on: ubuntu-latest
     if: github.event.inputs.operation == 'migrate'
-    environment: production
+    environment: ${{ github.event.inputs.environment }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -57,6 +66,7 @@ jobs:
     name: Push Schema
     runs-on: ubuntu-latest
     if: github.event.inputs.operation == 'push'
+    environment: ${{ github.event.inputs.environment }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -74,6 +84,7 @@ jobs:
     name: Seed Database
     runs-on: ubuntu-latest
     if: github.event.inputs.operation == 'seed'
+    environment: ${{ github.event.inputs.environment }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

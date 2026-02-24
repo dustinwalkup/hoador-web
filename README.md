@@ -67,8 +67,6 @@ Auth TODO:
 [ ] handle google signup callback page with this error /signup?error=join_code_not_found
 
 Need to update following env vars on staging:
-
-BLOB_READ_WRITE_TOKEN
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 STRIPE_SECRET_KEY
 STRIPE_WEBHOOK_SECRET
