@@ -5,8 +5,6 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main, develop]
-  pull_request:
-    branches: [main]
 
 # Environment variables available to all jobs
 env:
