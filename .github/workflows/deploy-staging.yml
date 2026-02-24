@@ -30,12 +30,18 @@ jobs:
         run: |
           echo "CI workflow conclusion: ${{ github.event.workflow_run.conclusion }}"
           echo "Event name: ${{ github.event_name }}"
-          if [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          # Only deploy on direct pushes to develop, not PR runs
+          if [[ "${{ github.event.workflow_run.event }}" == "pull_request" ]]; then
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping deploy - triggered by a PR, not a direct push"
+            exit 0
+          fi
+
+          if [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]] || \
+            [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "should-deploy=true" >> $GITHUB_OUTPUT
-            echo "✅ CI passed - proceeding with deployment"
           else
             echo "should-deploy=false" >> $GITHUB_OUTPUT
-            echo "❌ CI failed - skipping deployment"
             exit 1
           fi
 
