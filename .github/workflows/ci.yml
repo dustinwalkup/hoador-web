@@ -6,7 +6,7 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 # Environment variables available to all jobs
 env:
