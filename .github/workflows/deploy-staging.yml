@@ -1,7 +1,9 @@
 # .github/workflows/deploy-staging.yml
 name: Deploy to Staging
 
-# Only run on pushes to develop branch after CI passes
+# Only run on pushes to develop branch after CI passes.
+# Note: workflow_run triggers use the workflow file from the default branch (main).
+# Merge this workflow into main once so "Deploy to Staging" runs when CI completes on develop.
 on:
   workflow_run:
     workflows: ["CI/CD Pipeline"]
