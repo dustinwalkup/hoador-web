@@ -65,3 +65,10 @@ Auth TODO:
 [x] middleware, if user status is incomplete_profile, the only place they can go is /onboarding
 [ ] handle email signup callpack page with this error /signup/email/callback?error=invalid_token
 [ ] handle google signup callback page with this error /signup?error=join_code_not_found
+
+Need to update following env vars on staging:
+
+BLOB_READ_WRITE_TOKEN
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
