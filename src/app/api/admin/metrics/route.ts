@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
 import { userDAL, listingDAL } from "@/dal";
 
@@ -8,7 +9,7 @@ import { userDAL, listingDAL } from "@/dal";
  * Support tickets are not implemented; always returns 0.
  * Requires admin authentication.
  */
-export async function GET() {
+async function getHandler() {
   try {
     const adminError = await requireAdminResponse();
     if (adminError) {
@@ -29,3 +30,4 @@ export async function GET() {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/admin/metrics");

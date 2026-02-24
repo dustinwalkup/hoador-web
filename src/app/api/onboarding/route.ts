@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { userDAL } from "@/dal";
@@ -9,7 +10,7 @@ import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
  * Complete user onboarding
  * POST /api/onboarding
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const userId = await getCurrentUserId();
     if (!userId) {
@@ -131,3 +132,4 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(postHandler, "POST /api/onboarding");

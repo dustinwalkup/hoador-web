@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
   captureNonCriticalError,
   parseFormData,
 } from "@/lib/api/route-helpers";
-import { disputeDAL } from "@/dal";
+import { disputeDAL, auditLogDAL } from "@/dal";
 import { StripeDisputeService } from "@/services/stripe/dispute-financial";
 import { z } from "zod";
 import type {
@@ -43,7 +44,7 @@ const resolveDisputeSchema = z.object({
     .optional(),
 });
 
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -149,6 +150,18 @@ export async function POST(
       reason,
     });
 
+    await auditLogDAL.create({
+      entityType: "dispute",
+      entityId: disputeId,
+      action: "dispute.resolved",
+      userId: resolvedBy,
+      metadata: {
+        previousStatus: dispute.status,
+        newStatus: "resolved",
+        resolutionOutcome: outcome,
+      },
+    });
+
     // Send notifications (don't block on notification failure)
     try {
       // Get full dispute with relations for notifications
@@ -168,3 +181,7 @@ export async function POST(
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/disputes/[id]/resolve",
+);

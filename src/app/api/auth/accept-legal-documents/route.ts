@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { userDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import {
@@ -10,7 +11,7 @@ import {
 } from "@/lib/api/route-helpers";
 import { getSession } from "@/features/auth/utils/session";
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const body = await parseFormData(request);
     const tosAccepted =
@@ -109,3 +110,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/auth/accept-legal-documents",
+);

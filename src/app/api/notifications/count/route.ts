@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
@@ -9,7 +10,7 @@ import { notificationsDAL } from "@/dal";
  * GET /api/notifications/count
  * Get unread notification count for the authenticated user
  */
-export async function GET() {
+async function getHandler() {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -25,3 +26,7 @@ export async function GET() {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/notifications/count",
+);

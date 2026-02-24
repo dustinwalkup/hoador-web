@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { messagesDAL } from "@/dal";
 import {
@@ -10,7 +11,7 @@ import {
  * POST /api/messages/conversations/[conversationId]/archive
  * Archive a conversation
  */
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
@@ -39,3 +40,7 @@ export async function POST(
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/messages/conversations/[conversationId]/archive",
+);

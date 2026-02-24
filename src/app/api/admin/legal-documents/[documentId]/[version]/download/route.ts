@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { handleApiError } from "@/lib/api/route-helpers";
 import { legalDocumentDAL } from "@/dal";
 import {
@@ -10,7 +11,7 @@ import {
  * GET /api/admin/legal-documents/[documentId]/[version]/download
  * Download a legal document version
  */
-export async function GET(
+async function getHandler(
   request: NextRequest,
   { params }: { params: Promise<{ documentId: string; version: string }> },
 ) {
@@ -46,3 +47,7 @@ export async function GET(
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/admin/legal-documents/[documentId]/[version]/download",
+);

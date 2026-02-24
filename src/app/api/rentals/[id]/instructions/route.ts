@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { z } from "zod";
 import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL } from "@/dal";
@@ -19,7 +20,7 @@ const updateInstructionsSchema = z.object({
  * PATCH /api/rentals/[id]/instructions
  * Update rental instructions
  */
-export async function PATCH(
+async function patchHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -119,3 +120,7 @@ export async function PATCH(
     return handleApiError(error);
   }
 }
+export const PATCH = withRequestLogging(
+  patchHandler,
+  "PATCH /api/rentals/[id]/instructions",
+);

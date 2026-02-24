@@ -14,6 +14,7 @@ import { RentalAgreementDocumentDAL } from "./rental-agreement-document.dal";
 import { PaymentDAL } from "./payment.dal";
 import { DisputeDAL } from "./dispute.dal";
 import { UserActivityDAL } from "./user-activity.dal";
+import { AuditLogDAL } from "./audit-log.dal";
 
 // Create singleton instances
 export const userDAL = new UserDAL();
@@ -31,3 +32,4 @@ export const rentalAgreementDocumentDAL = new RentalAgreementDocumentDAL();
 export const paymentDAL = new PaymentDAL();
 export const disputeDAL = new DisputeDAL();
 export const userActivityDAL = new UserActivityDAL();
+export const auditLogDAL = new AuditLogDAL();

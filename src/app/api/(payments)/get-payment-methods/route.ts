@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
 
-export async function GET() {
+async function getHandler() {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -61,3 +62,7 @@ export async function GET() {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/(payments)/get-payment-methods",
+);

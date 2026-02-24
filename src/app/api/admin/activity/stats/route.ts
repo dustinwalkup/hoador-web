@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
 import { userActivityDAL } from "@/dal";
 
@@ -7,7 +8,7 @@ import { userActivityDAL } from "@/dal";
  * Returns active user counts by time bucket and inactive user counts.
  * Requires admin authentication.
  */
-export async function GET() {
+async function getHandler() {
   try {
     const adminError = await requireAdminResponse();
     if (adminError) {
@@ -20,3 +21,7 @@ export async function GET() {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/admin/activity/stats",
+);

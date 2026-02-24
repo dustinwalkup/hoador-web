@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
 import { userDAL, disputeDAL } from "@/dal";
 import { formatDistanceToNow } from "@/lib/utils/date.utils";
@@ -16,7 +17,7 @@ export interface AdminActivityItem {
  * Returns recent platform activity for admin dashboard: new user signups and dispute activity.
  * Requires admin authentication.
  */
-export async function GET() {
+async function getHandler() {
   try {
     const adminError = await requireAdminResponse();
     if (adminError) {
@@ -84,3 +85,4 @@ export async function GET() {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/admin/activity");

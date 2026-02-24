@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { z } from "zod";
 import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL } from "@/dal";
@@ -13,7 +14,7 @@ const bodySchema = z.object({
  * Worker entrypoint for generating and storing a rental agreement PDF.
  * Protected by INTERNAL_API_SECRET. Invoked fire-and-forget from approve route.
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization");
     const internalSecret = process.env.INTERNAL_API_SECRET;
@@ -77,3 +78,7 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/internal/generate-rental-agreement",
+);

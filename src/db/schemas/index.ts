@@ -13,6 +13,7 @@ import * as legalDocuments from "./legal-documents.schema";
 import * as disputes from "./disputes.schema";
 import * as rentalAgreementDocuments from "./rental-agreement-documents.schema";
 import * as userActivity from "./user-activity.schema";
+import * as auditLogs from "./audit-logs.schema";
 
 export const schema = {
   ...user,
@@ -27,4 +28,5 @@ export const schema = {
   ...disputes,
   ...rentalAgreementDocuments,
   ...userActivity,
+  ...auditLogs,
 };

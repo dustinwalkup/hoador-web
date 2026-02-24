@@ -18,6 +18,12 @@ vi.mock("@/dal/rentals.dal", () => ({
   RentalDAL: vi.fn(),
 }));
 
+vi.mock("@/dal", () => ({
+  auditLogDAL: {
+    create: vi.fn().mockResolvedValue({}),
+  },
+}));
+
 vi.mock("../server", () => ({
   PAYMENT_SERVER_INSTANCE: {
     refunds: {

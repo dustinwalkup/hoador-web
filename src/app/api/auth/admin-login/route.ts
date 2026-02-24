@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { auth } from "@/services/better-auth";
 import { getAdminUser } from "@/features/auth/utils/admin-session";
 import { tryCatch } from "@walkup/walkup-utils";
-import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
+import {
+  handleApiError,
+  parseFormData,
+  getClientIP,
+} from "@/lib/api/route-helpers";
+import { getLogger } from "@/lib/logger";
+import { auditLogDAL } from "@/dal";
+import { recordFailedAuth } from "@/lib/auth/failed-auth-store";
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const body = await parseFormData(request);
     const email = body.email as string;
@@ -29,6 +37,23 @@ export async function POST(request: NextRequest) {
     );
 
     if (authError) {
+      getLogger().warn(
+        { message: "auth.failed", identifierType: "email" },
+        "Authentication failed",
+      );
+      const ip = getClientIP(request);
+      if (ip) {
+        recordFailedAuth(ip);
+      }
+      recordFailedAuth(`email:${email}`);
+      await auditLogDAL.create({
+        entityType: "auth",
+        entityId: "admin-login",
+        action: "auth.failed",
+        metadata: { identifierType: "email" },
+        ipAddress: ip ?? undefined,
+        userAgent: request.headers.get("user-agent") ?? undefined,
+      });
       return NextResponse.json(
         {
           success: false,
@@ -53,3 +78,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/auth/admin-login",
+);

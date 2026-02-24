@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import {
   createListingSchemaServer,
@@ -20,7 +21,7 @@ import { requireCommunityMembership } from "@/features/community/utils/membershi
  * POST /api/listings
  * Create a new listing
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Check authentication
     const authResult = await getAuthenticatedUserResponse();
@@ -162,3 +163,4 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(postHandler, "POST /api/listings");

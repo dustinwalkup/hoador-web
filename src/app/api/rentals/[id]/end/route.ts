@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { RentalDAL } from "@/dal/rentals.dal";
 import {
@@ -14,7 +15,7 @@ import { sendRentalEndedNotification } from "@/features/rentals/notifications/re
  * End a rental (active → completed)
  * Only the owner can end active rentals
  */
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -98,3 +99,7 @@ export async function POST(
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/rentals/[id]/end",
+);

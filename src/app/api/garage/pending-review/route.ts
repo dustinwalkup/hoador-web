@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { getAuthenticatedUserResponse } from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
 import { db } from "@/db/db";
 import { listings } from "@/db/schemas/listings.schema";
 import { eq } from "drizzle-orm";
 
-export async function GET() {
+async function getHandler() {
   try {
     // Check authentication
     const authResult = await getAuthenticatedUserResponse();
@@ -68,3 +69,7 @@ export async function GET() {
     );
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/garage/pending-review",
+);

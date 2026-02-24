@@ -1,5 +1,6 @@
 import { PAYMENT_SERVER_INSTANCE } from "./server";
 import { captureSecurityDeposit } from "./rental-payments";
+import { auditLogDAL } from "@/dal";
 import { DisputeDAL } from "@/dal/dispute.dal";
 import { PaymentDAL } from "@/dal/payment.dal";
 import { RentalDAL } from "@/dal/rentals.dal";
@@ -127,6 +128,18 @@ export class StripeDisputeService {
           performedBy,
         },
       );
+
+      await auditLogDAL.create({
+        entityType: "payment",
+        entityId: payment.stripePaymentIntentId,
+        action: "payment.refunded",
+        userId: performedBy,
+        metadata: {
+          amount: refundAmount,
+          currency: "usd",
+          status: "succeeded",
+        },
+      });
 
       return financialOperation;
     } catch (error) {

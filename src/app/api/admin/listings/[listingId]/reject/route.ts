@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import {
@@ -22,7 +23,7 @@ import { eq } from "drizzle-orm";
  * Reject a listing
  * Requires admin authentication
  */
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ listingId: string }> },
 ) {
@@ -151,3 +152,7 @@ export async function POST(
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/admin/listings/[listingId]/reject",
+);

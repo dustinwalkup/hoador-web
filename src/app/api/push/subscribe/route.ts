@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { pushSubscriptionDAL } from "@/dal";
 import {
   handleApiError,
@@ -15,7 +16,7 @@ import {
  * GET /api/push/subscribe
  * Returns whether the authenticated user has at least one active push subscription.
  */
-export async function GET(): Promise<NextResponse> {
+async function getHandler(): Promise<NextResponse> {
   try {
     const authError = await requireAuthResponse();
     if (authError) return authError;
@@ -36,13 +37,14 @@ export async function GET(): Promise<NextResponse> {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/push/subscribe");
 
 /**
  * POST /api/push/subscribe
  * Register a push subscription for the authenticated user.
  * Requirements: 3.8, 3.6
  */
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function postHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const authError = await requireAuthResponse();
     if (authError) return authError;
@@ -97,13 +99,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(postHandler, "POST /api/push/subscribe");
 
 /**
  * DELETE /api/push/subscribe
  * Deactivate a push subscription for the authenticated user.
  * Requirements: 3.5
  */
-export async function DELETE(request: NextRequest): Promise<NextResponse> {
+async function deleteHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const authError = await requireAuthResponse();
     if (authError) return authError;
@@ -147,3 +150,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     return handleApiError(error);
   }
 }
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/push/subscribe",
+);

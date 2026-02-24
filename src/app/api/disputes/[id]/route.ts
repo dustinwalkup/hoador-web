@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
@@ -10,7 +11,7 @@ import { disputeDAL, rentalDAL } from "@/dal";
  * Get dispute details by ID
  * Accessible by renter, provider, or admin
  */
-export async function GET(
+async function getHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -62,3 +63,4 @@ export async function GET(
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/disputes/[id]");

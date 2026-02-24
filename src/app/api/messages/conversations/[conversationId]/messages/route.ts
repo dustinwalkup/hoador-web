@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { z } from "zod";
 import { tryCatch } from "@walkup/walkup-utils";
 import { messagesDAL, userDAL } from "@/dal";
@@ -21,7 +22,7 @@ const sendMessageSchema = z.object({
  * POST /api/messages/conversations/[conversationId]/messages
  * Send a message in a conversation
  */
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
@@ -81,3 +82,7 @@ export async function POST(
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/messages/conversations/[conversationId]/messages",
+);

@@ -30,8 +30,10 @@ if (isProduction) {
     // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
     sendDefaultPii: true,
 
-    // Release tracking from package.json
-    release: `hoador-web@${process.env.npm_package_version || "0.1"}`,
+    // Release tracking from package version for deployment correlation (LOG-OBS-003)
+    release:
+      process.env.SENTRY_RELEASE ||
+      `hoador-web@${process.env.npm_package_version || "0.1"}`,
 
     // Attach user context from better-auth session
     beforeSend(event, hint) {

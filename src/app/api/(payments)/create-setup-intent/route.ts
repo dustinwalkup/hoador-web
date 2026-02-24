@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
 import {
   getAuthenticatedUserResponse,
@@ -6,7 +7,7 @@ import {
 } from "@/lib/api/route-helpers";
 import { userDAL } from "@/dal";
 
-export async function POST() {
+async function postHandler() {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -44,3 +45,7 @@ export async function POST() {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/(payments)/create-setup-intent",
+);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { analyzeToolImage } from "@/services/openai/analyze-tool-image";
 import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
 import { z } from "zod";
@@ -11,7 +12,7 @@ const analyzeImageSchema = z.object({
  * POST /api/listings/analyze-image
  * Analyze tool image using OpenAI
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Parse request body
     const body = await parseFormData(request);
@@ -42,3 +43,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/listings/analyze-image",
+);

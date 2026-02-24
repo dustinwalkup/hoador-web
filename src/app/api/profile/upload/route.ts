@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { uploadToBlob, deleteFromBlob } from "@/services/vercel-blob";
 import {
   handleApiError,
@@ -14,7 +15,7 @@ import {
  * POST /api/profile/upload
  * Upload a profile image
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Authenticate - ALWAYS use getAuthenticatedUserResponse()
     const authResult = await getAuthenticatedUserResponse();
@@ -113,8 +114,9 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(postHandler, "POST /api/profile/upload");
 
-export async function DELETE(request: NextRequest) {
+async function deleteHandler(request: NextRequest) {
   try {
     // Authenticate - ALWAYS use getAuthenticatedUserResponse()
     const authResult = await getAuthenticatedUserResponse();
@@ -150,3 +152,7 @@ export async function DELETE(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/profile/upload",
+);

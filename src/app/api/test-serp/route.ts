@@ -1,5 +1,6 @@
 // app/api/test-serp/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { sanitizeSearchQuery } from "@/lib/utils/sanitize";
 
 interface Product {
@@ -315,7 +316,7 @@ function simplifyQuery(query: string): string {
   return important.slice(0, 4).join(" ");
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   const apiKey = process.env.SERP_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -580,3 +581,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/test-serp");

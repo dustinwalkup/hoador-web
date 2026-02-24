@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   requireAdminResponse,
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
-import { userDAL, disputeDAL } from "@/dal";
+import { userDAL, disputeDAL, auditLogDAL } from "@/dal";
 import { isSuperAdmin } from "@/features/auth/utils/guards";
 import type { UserStatus, UserType } from "@/dal/types";
 
@@ -15,7 +16,7 @@ type RouteContext = { params: Promise<{ userId: string }> };
  * Fetch a single user for admin detail view (profile + counts).
  * Requires admin authentication
  */
-export async function GET(_request: NextRequest, context: RouteContext) {
+async function getHandler(_request: NextRequest, context: RouteContext) {
   try {
     const adminCheck = await requireAdminResponse();
     if (adminCheck) return adminCheck;
@@ -36,6 +37,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/admin/users/[userId]",
+);
 
 /**
  * PATCH /api/admin/users/[userId]
@@ -43,13 +48,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
  * Body: { status?: UserStatus, userType?: UserType } (at least one required)
  * Requires admin authentication
  */
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function patchHandler(request: NextRequest, context: RouteContext) {
   try {
     const adminCheck = await requireAdminResponse();
     if (adminCheck) return adminCheck;
 
     const authResult = await getAuthenticatedUserResponse();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId: adminUserId } = authResult;
 
     const { userId } = await context.params;
 
@@ -85,9 +91,41 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (status !== undefined) updates.status = status;
     if (userType !== undefined) updates.userType = userType;
 
+    const existing = await userDAL.getUserById(userId);
     const updated = await userDAL.adminUpdateUser(userId, updates);
+
+    if (userType !== undefined && existing.userType !== userType) {
+      await auditLogDAL.create({
+        entityType: "user",
+        entityId: userId,
+        action: "admin.role_change",
+        userId: adminUserId,
+        metadata: {
+          targetUserId: userId,
+          previousRole: existing.userType,
+          newRole: userType,
+        },
+      });
+    }
+    if (status !== undefined && existing.status !== status) {
+      await auditLogDAL.create({
+        entityType: "user",
+        entityId: userId,
+        action: "admin.account_status_change",
+        userId: adminUserId,
+        metadata: {
+          targetUserId: userId,
+          previousStatus: existing.status,
+          newStatus: status,
+        },
+      });
+    }
     return NextResponse.json(updated);
   } catch (error) {
     return handleApiError(error);
   }
 }
+export const PATCH = withRequestLogging(
+  patchHandler,
+  "PATCH /api/admin/users/[userId]",
+);

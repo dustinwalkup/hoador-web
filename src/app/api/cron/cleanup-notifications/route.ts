@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { notificationsDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 
@@ -7,7 +8,7 @@ import { tryCatch } from "@walkup/walkup-utils";
  * Runs daily at 2 AM UTC via Vercel Cron
  * Deletes notifications older than 90 days
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     // Verify cron secret
     const authHeader = request.headers.get("authorization");
@@ -60,3 +61,7 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/cron/cleanup-notifications",
+);

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { rentalDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 import {
@@ -11,7 +12,7 @@ import {
  * Get a rental details by ID
  * Only accessible by the owner, renter, or admin
  */
-export async function GET(
+async function getHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -51,3 +52,4 @@ export async function GET(
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/rentals/[id]");

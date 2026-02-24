@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
-import { rentalDAL, userDAL, paymentDAL } from "@/dal";
+import { rentalDAL, userDAL, paymentDAL, auditLogDAL } from "@/dal";
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { db } from "@/db/db";
 import {
@@ -10,6 +11,8 @@ import {
   captureNonCriticalError,
   parseFormData,
   requireAuthResponse,
+  getClientIP,
+  getUserAgent,
 } from "@/lib/api/route-helpers";
 import {
   chargeRentalPayment,
@@ -65,7 +68,7 @@ async function resolveRenterPaymentMethod(
  * POST /api/rentals/[id]/approve
  * Approve a rental request and process payment
  */
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -261,6 +264,23 @@ export async function POST(
         paymentFailureReason: errorMessage,
       });
 
+      const ipAddress = getClientIP(request);
+      const userAgent = getUserAgent(request);
+      await auditLogDAL.create({
+        entityType: "payment",
+        entityId: rentalId,
+        action: "payment.failed",
+        userId: currentUserId,
+        metadata: {
+          amount: totalAmount,
+          currency: "usd",
+          status: "failed",
+          errorMessage,
+        },
+        ipAddress: ipAddress ?? undefined,
+        userAgent: userAgent ?? undefined,
+      });
+
       // Get owner and renter details for notifications
       const { data: renterUser } = await tryCatch(
         userDAL.getUserById(rentalRequest.renterId),
@@ -331,6 +351,22 @@ export async function POST(
         paymentFailureReason: errorMessage,
       });
 
+      const ipAddress = getClientIP(request);
+      const userAgent = getUserAgent(request);
+      await auditLogDAL.create({
+        entityType: "payment",
+        entityId: rentalPaymentIntent.id,
+        action: "payment.failed",
+        userId: currentUserId,
+        metadata: {
+          amount: totalAmount,
+          currency: "usd",
+          status: rentalPaymentIntent.status,
+        },
+        ipAddress: ipAddress ?? undefined,
+        userAgent: userAgent ?? undefined,
+      });
+
       return NextResponse.json(
         {
           error: `Payment was not completed. ${errorMessage}. The renter has been notified.`,
@@ -339,6 +375,22 @@ export async function POST(
         { status: 400 },
       );
     }
+
+    const ipAddress = getClientIP(request);
+    const userAgent = getUserAgent(request);
+    await auditLogDAL.create({
+      entityType: "payment",
+      entityId: rentalPaymentIntent.id,
+      action: "payment.captured",
+      userId: currentUserId,
+      metadata: {
+        amount: totalAmount,
+        currency: "usd",
+        status: "succeeded",
+      },
+      ipAddress: ipAddress ?? undefined,
+      userAgent: userAgent ?? undefined,
+    });
 
     // Authorize (hold) the security deposit
     let securityDepositAuthId: string | undefined;
@@ -577,3 +629,7 @@ export async function POST(
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/rentals/[id]/approve",
+);

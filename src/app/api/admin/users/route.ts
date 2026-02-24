@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   requireAdminResponse,
   getAuthenticatedUserResponse,
@@ -13,7 +14,7 @@ import type { UserStatus, UserType } from "@/dal/types";
  * Query: search, status, userType, page, limit
  * Requires admin authentication
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const adminCheck = await requireAdminResponse();
     if (adminCheck) return adminCheck;
@@ -58,3 +59,4 @@ export async function GET(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/admin/users");

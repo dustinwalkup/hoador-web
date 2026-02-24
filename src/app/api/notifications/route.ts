@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
@@ -9,7 +10,7 @@ import { notificationsDAL } from "@/dal";
  * GET /api/notifications
  * Fetch paginated notifications for the authenticated user
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -44,12 +45,13 @@ export async function GET(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/notifications");
 
 /**
  * POST /api/notifications
  * Mark notification(s) as read or toggle read status
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -85,3 +87,4 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(postHandler, "POST /api/notifications");

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import {
   getAuthenticatedUserResponse,
@@ -11,7 +12,7 @@ import { createLoginLink } from "@/services/stripe/connect";
  * Create a login link for Express Dashboard access
  * POST /api/stripe/create-login-link
  */
-export async function POST() {
+async function postHandler() {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -52,3 +53,7 @@ export async function POST() {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/stripe/create-login-link",
+);

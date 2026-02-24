@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
 import { uploadToBlob } from "@/services/vercel-blob";
@@ -13,7 +14,7 @@ import { legalDocumentDAL } from "@/dal";
  * POST /api/admin/legal-documents/upload
  * Upload a new legal document version
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Require admin privileges
     const adminError = await requireAdminResponse();
@@ -99,3 +100,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/admin/legal-documents/upload",
+);

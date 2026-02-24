@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { deleteFromBlob } from "@/services/vercel-blob";
 import { eq, and } from "drizzle-orm";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
 
-export async function DELETE(
+async function deleteHandler(
   request: NextRequest,
   { params }: { params: Promise<{ listingId: string; imageId: string }> },
 ) {
@@ -39,3 +40,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Delete failed" }, { status: 500 });
   }
 }
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/listings/[listingId]/images/[imageId]",
+);

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
-import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
-import { userDAL } from "@/dal";
+import {
+  requireAdminResponse,
+  getAuthenticatedUserResponse,
+  handleApiError,
+} from "@/lib/api/route-helpers";
+import { userDAL, auditLogDAL } from "@/dal";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import {
   generateReEngagementEmailHtml,
@@ -27,10 +32,14 @@ interface ReengagementPayload {
  * Body: { action: 'update_status' | 'send_reengagement', userIds: string[], payload: UpdateStatusPayload | ReengagementPayload }
  * Requires admin authentication.
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const adminError = await requireAdminResponse();
     if (adminError) return adminError;
+
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) return authResult;
+    const adminUserId = authResult.userId;
 
     let body: unknown;
     try {
@@ -70,14 +79,34 @@ export async function POST(request: NextRequest) {
       const results: { userId: string; success: boolean; error?: string }[] =
         [];
       for (const userId of userIds) {
+        const existingResult = await tryCatch(userDAL.getUserById(userId));
+        const previousStatus = existingResult.data?.status;
         const result = await tryCatch(
           userDAL.adminUpdateUser(userId, { status }),
         );
+        const success = result.error == null;
         results.push({
           userId,
-          success: result.error == null,
+          success,
           error: result.error?.message,
         });
+        if (
+          success &&
+          previousStatus !== undefined &&
+          previousStatus !== status
+        ) {
+          await auditLogDAL.create({
+            entityType: "user",
+            entityId: userId,
+            action: "admin.account_status_change",
+            userId: adminUserId,
+            metadata: {
+              targetUserId: userId,
+              previousStatus,
+              newStatus: status,
+            },
+          });
+        }
       }
       const succeeded = results.filter((r) => r.success).length;
       return NextResponse.json({
@@ -198,3 +227,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/admin/users/bulk-actions",
+);

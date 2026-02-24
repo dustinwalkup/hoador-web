@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { z } from "zod";
 import { tryCatch } from "@walkup/walkup-utils";
 import { userDAL } from "@/dal";
@@ -30,7 +31,7 @@ const UpdateUserProfileSchema = z.object({
  * PATCH /api/profile
  * Update user profile and address
  */
-export async function PATCH(request: NextRequest) {
+async function patchHandler(request: NextRequest) {
   try {
     // Authenticate - ALWAYS use getAuthenticatedUserResponse()
     const authResult = await getAuthenticatedUserResponse();
@@ -82,3 +83,4 @@ export async function PATCH(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const PATCH = withRequestLogging(patchHandler, "PATCH /api/profile");

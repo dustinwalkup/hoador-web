@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
   captureNonCriticalError,
   parseFormData,
+  getClientIP,
+  getUserAgent,
 } from "@/lib/api/route-helpers";
-import { disputeDAL, rentalDAL, legalDocumentDAL } from "@/dal";
+import { disputeDAL, rentalDAL, legalDocumentDAL, auditLogDAL } from "@/dal";
 import { z } from "zod";
 import type {
   DisputeStatus,
@@ -24,7 +27,7 @@ import { eq } from "drizzle-orm";
  * - Admins: Get all disputes with filters
  * - Users: Get their own disputes (as renter or provider)
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -68,6 +71,7 @@ export async function GET(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/disputes");
 
 /**
  * POST /api/disputes
@@ -86,7 +90,7 @@ const createDisputeSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters"),
 });
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -208,6 +212,18 @@ export async function POST(request: NextRequest) {
       policyVersion,
     });
 
+    const ipAddress = getClientIP(request);
+    const userAgent = getUserAgent(request);
+    await auditLogDAL.create({
+      entityType: "dispute",
+      entityId: dispute.id,
+      action: "dispute.opened",
+      userId,
+      metadata: { reasonCode, createdByRole },
+      ipAddress: ipAddress ?? undefined,
+      userAgent: userAgent ?? undefined,
+    });
+
     // Create audit log for dispute creation
     await disputeDAL.createAuditLog({
       disputeId: dispute.id,
@@ -234,3 +250,4 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(postHandler, "POST /api/disputes");

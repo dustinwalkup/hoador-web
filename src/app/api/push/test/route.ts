@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getCurrentUserId,
   requireAuthResponse,
@@ -12,7 +13,7 @@ import { pushSubscriptionDAL } from "@/dal";
  * POST /api/push/test
  * Send a test push notification to the authenticated user's active subscriptions.
  */
-export async function POST(): Promise<NextResponse> {
+async function postHandler(): Promise<NextResponse> {
   try {
     const authError = await requireAuthResponse();
     if (authError) return authError;
@@ -52,3 +53,4 @@ export async function POST(): Promise<NextResponse> {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(postHandler, "POST /api/push/test");

@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { listingDAL } from "@/dal";
 import type { GarageListingFilters } from "@/dal/listing.dal";
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const userId = await getCurrentUserId();
@@ -42,3 +43,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/garage/active");

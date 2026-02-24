@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { RentalDAL } from "@/dal/rentals.dal";
 import {
@@ -13,7 +14,7 @@ import { sendRentalStartedNotification } from "@/features/rentals/notifications/
  * Start a rental (approved → active)
  * Only the owner can start approved rentals on or after the start date
  */
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -92,3 +93,7 @@ export async function POST(
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/rentals/[id]/start",
+);

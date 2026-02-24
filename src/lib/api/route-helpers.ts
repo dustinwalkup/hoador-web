@@ -8,6 +8,7 @@ import {
 } from "@/features/auth/utils/session";
 import { requireAdmin } from "@/features/auth/utils/guards";
 import { getClientIP, getUserAgent } from "@/lib/utils/request-context";
+import { getRequestContext } from "@/lib/logger";
 import {
   DALError,
   NotFoundError,
@@ -59,9 +60,16 @@ export function handleApiError(
     !(error instanceof ConflictError);
 
   if (shouldCaptureError) {
+    const ctx = getRequestContext();
     Sentry.captureException(error, {
       tags: {
         error_type: error instanceof DALError ? "dal_error" : "api_error",
+        ...(ctx?.requestId && { requestId: ctx.requestId }),
+        ...(ctx?.userId != null && { userId: String(ctx.userId) }),
+        ...(ctx?.route && { route: ctx.route }),
+        ...(process.env.NODE_ENV && {
+          environment: process.env.NODE_ENV,
+        }),
       },
     });
   }
@@ -142,12 +150,18 @@ export function captureNonCriticalError(
   context: { route: string; action: string },
 ): void {
   console.error(`[${context.route}] ${context.action}:`, error);
+  const reqCtx = getRequestContext();
   Sentry.captureException(error, {
     level: "warning",
     tags: {
       error_type: "non_critical",
       route: context.route,
       action: context.action,
+      ...(reqCtx?.requestId && { requestId: reqCtx.requestId }),
+      ...(reqCtx?.userId != null && { userId: String(reqCtx.userId) }),
+      ...(process.env.NODE_ENV && {
+        environment: process.env.NODE_ENV,
+      }),
     },
   });
 }

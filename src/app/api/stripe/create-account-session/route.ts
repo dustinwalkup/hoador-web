@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
@@ -13,7 +14,7 @@ import { createAccountSession } from "@/services/stripe/connect";
  * POST /api/stripe/create-account-session
  * Optional query parameter: ?mode=payments (defaults to onboarding for backward compatibility)
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -92,3 +93,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/stripe/create-account-session",
+);

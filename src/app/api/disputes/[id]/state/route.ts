@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
   captureNonCriticalError,
   parseFormData,
 } from "@/lib/api/route-helpers";
-import { disputeDAL } from "@/dal";
+import { disputeDAL, auditLogDAL } from "@/dal";
 import { DisputeStateMachine } from "@/features/disputes/lib/state-machine";
 import { z } from "zod";
 import type { DisputeStatus } from "@/dal/types";
@@ -26,7 +27,7 @@ const updateStateSchema = z.object({
   reason: z.string().optional(),
 });
 
-export async function PATCH(
+async function patchHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -98,6 +99,27 @@ export async function PATCH(
       reason: reason || undefined,
     });
 
+    if (newState === "evidence_requested" || newState === "under_review") {
+      await auditLogDAL.create({
+        entityType: "dispute",
+        entityId: id,
+        action: "dispute.escalated",
+        userId,
+        metadata: { previousStatus: previousState, newStatus: newState },
+      });
+    } else if (newState === "resolved") {
+      await auditLogDAL.create({
+        entityType: "dispute",
+        entityId: id,
+        action: "dispute.resolved",
+        userId,
+        metadata: {
+          previousStatus: previousState,
+          newStatus: "resolved",
+        },
+      });
+    }
+
     // Send notifications if transitioning to evidence_requested
     if (newState === "evidence_requested") {
       try {
@@ -122,3 +144,7 @@ export async function PATCH(
     return handleApiError(error);
   }
 }
+export const PATCH = withRequestLogging(
+  patchHandler,
+  "PATCH /api/disputes/[id]/state",
+);

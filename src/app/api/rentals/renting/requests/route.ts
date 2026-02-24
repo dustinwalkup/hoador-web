@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { rentalDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     // Check authentication
     const authError = await requireAuthResponse();
@@ -39,3 +40,7 @@ export async function GET(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/rentals/renting/requests",
+);

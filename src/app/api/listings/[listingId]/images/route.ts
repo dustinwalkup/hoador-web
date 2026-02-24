@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
 
-export async function GET(
+async function getHandler(
   request: NextRequest,
   { params }: { params: Promise<{ listingId: string }> },
 ) {
@@ -38,3 +39,7 @@ export async function GET(
     );
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/listings/[listingId]/images",
+);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { messagesDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 import {
@@ -6,7 +7,7 @@ import {
   handleApiError,
 } from "@/lib/api/route-helpers";
 
-export async function GET(
+async function getHandler(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
@@ -37,8 +38,12 @@ export async function GET(
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/messages/conversations/[conversationId]",
+);
 
-export async function DELETE(
+async function deleteHandler(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
@@ -66,3 +71,7 @@ export async function DELETE(
     return handleApiError(error);
   }
 }
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/messages/conversations/[conversationId]",
+);

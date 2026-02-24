@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
 import {
   getAuthenticatedUserResponse,
@@ -11,7 +12,7 @@ import { tryCatch } from "@walkup/walkup-utils";
  * Explicitly attach a payment method to the customer
  * This ensures the payment method is available for future use
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -56,3 +57,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/stripe/attach-payment-method",
+);

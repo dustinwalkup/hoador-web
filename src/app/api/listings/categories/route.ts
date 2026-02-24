@@ -1,6 +1,7 @@
 import { listingDAL } from "@/dal";
 
-export async function GET() {
+import { withRequestLogging } from "@/lib/api/with-request-logging";
+async function getHandler() {
   try {
     const categories = await listingDAL.getListingCategories();
     return Response.json(categories);
@@ -12,3 +13,7 @@ export async function GET() {
     );
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/listings/categories",
+);

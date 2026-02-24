@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { notificationCategoryPreferencesDAL, userDAL } from "@/dal";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { getCategoryPreferences } from "@/features/notifications/lib/preference-service";
@@ -15,7 +16,7 @@ import type { CategoryPreferencesInput } from "@/dal/notifications.dal";
  * Return master and per-category notification preferences for the authenticated user.
  * Requirements: 1.6, 6.1
  */
-export async function GET(): Promise<NextResponse> {
+async function getHandler(): Promise<NextResponse> {
   try {
     const authError = await requireAuthResponse();
     if (authError) return authError;
@@ -34,6 +35,10 @@ export async function GET(): Promise<NextResponse> {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/notifications/preferences",
+);
 
 /**
  * PATCH /api/notifications/preferences
@@ -41,7 +46,7 @@ export async function GET(): Promise<NextResponse> {
  * Body: { categories: { [category]: { email?, push? } } }
  * Requirements: 1.6, 6.3
  */
-export async function PATCH(request: NextRequest): Promise<NextResponse> {
+async function patchHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const authError = await requireAuthResponse();
     if (authError) return authError;
@@ -94,3 +99,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     return handleApiError(error);
   }
 }
+export const PATCH = withRequestLogging(
+  patchHandler,
+  "PATCH /api/notifications/preferences",
+);

@@ -32,6 +32,10 @@ vi.mock("@/dal", () => ({
 
 import { GET, PATCH } from "./route";
 
+const mockRequest = new NextRequest(
+  "http://localhost/api/notifications/preferences",
+);
+
 describe("GET /api/notifications/preferences", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -43,7 +47,7 @@ describe("GET /api/notifications/preferences", () => {
     mockRequireAuthResponse.mockResolvedValue(
       NextResponse.json({ error: "Authentication required" }, { status: 401 }),
     );
-    const res = await GET();
+    const res = await GET(mockRequest);
     expect(res.status).toBe(401);
     expect(mockGetCategoryPreferences).not.toHaveBeenCalled();
   });
@@ -59,7 +63,7 @@ describe("GET /api/notifications/preferences", () => {
         reminders: { email: true, push: true },
       },
     });
-    const res = await GET();
+    const res = await GET(mockRequest);
     expect(res.status).toBe(200);
     expect(mockGetCategoryPreferences).toHaveBeenCalledWith("user-1");
     const json = await res.json();

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import {
@@ -16,7 +17,7 @@ import {
  * Delete a document version
  * Requires admin authentication
  */
-export async function DELETE(
+async function deleteHandler(
   request: NextRequest,
   { params }: { params: Promise<{ documentId: string; version: string }> },
 ) {
@@ -68,3 +69,7 @@ export async function DELETE(
     return handleApiError(error);
   }
 }
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/admin/legal-documents/[documentId]/[version]",
+);

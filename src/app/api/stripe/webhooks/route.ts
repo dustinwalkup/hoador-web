@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import type Stripe from "stripe";
 import { UserDAL } from "@/dal/user.dal";
 import { tryCatch } from "@walkup/walkup-utils";
+import { getLogger } from "@/lib/logger";
+import { auditLogDAL } from "@/dal";
 
 // Force dynamic rendering for webhook route
 export const dynamic = "force-dynamic";
@@ -19,7 +22,7 @@ if (!STRIPE_WEBHOOK_SECRET) {
  * Handle Stripe Connect webhooks
  * POST /api/stripe/webhooks
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const body = await request.text();
     const signature = request.headers.get("stripe-signature");
@@ -43,13 +46,21 @@ export async function POST(request: NextRequest) {
         signature,
         STRIPE_WEBHOOK_SECRET,
       );
-    } catch (err) {
-      console.error("Webhook signature verification failed:", err);
+    } catch {
+      getLogger().error(
+        { message: "webhook.signature_verification_failed" },
+        "Stripe webhook signature verification failed",
+      );
       return NextResponse.json(
         { error: "Webhook signature verification failed" },
         { status: 400 },
       );
     }
+
+    getLogger().info(
+      { message: "webhook.received", eventId: event.id, eventType: event.type },
+      "Stripe webhook received",
+    );
 
     const userDAL = new UserDAL();
 
@@ -100,6 +111,13 @@ export async function POST(request: NextRequest) {
       console.log(`Unhandled event type: ${eventType}`);
     }
 
+    await auditLogDAL.create({
+      entityType: "webhook",
+      entityId: event.id,
+      action: "webhook.processed",
+      metadata: { eventType },
+    });
+
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Webhook error:", error);
@@ -109,3 +127,7 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/stripe/webhooks",
+);

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { listingDAL } from "@/dal";
 import type { ListingSearchFilters } from "@/dal/types";
 import { sanitizeSearchQuery } from "@/lib/utils/sanitize";
 import { getCurrentUserCommunityId } from "@/features/community/utils/membership";
 import { getAuthenticatedUserResponse } from "@/lib/api/route-helpers";
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     // Check authentication
     const authResult = await getAuthenticatedUserResponse();
@@ -78,3 +79,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+export const GET = withRequestLogging(getHandler, "GET /api/listings/search");

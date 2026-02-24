@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   requireAdminResponse,
   getAuthenticatedUserResponse,
@@ -11,7 +12,7 @@ import { listingDAL } from "@/dal";
  * Fetch paginated pending review listings
  * Requires admin authentication
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     // Require admin authentication
     const adminCheck = await requireAdminResponse();
@@ -41,3 +42,7 @@ export async function GET(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/admin/listings/review/pending",
+);

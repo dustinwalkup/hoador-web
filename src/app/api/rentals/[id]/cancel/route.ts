@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
-import { rentalDAL, userDAL } from "@/dal";
+import { rentalDAL, userDAL, auditLogDAL } from "@/dal";
 import {
   handleApiError,
   captureNonCriticalError,
   requireAuthResponse,
+  getClientIP,
+  getUserAgent,
 } from "@/lib/api/route-helpers";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalCancelledNotification } from "@/features/rentals/notifications/rental-cancelled";
@@ -13,7 +16,7 @@ import { sendRentalCancelledNotification } from "@/features/rentals/notification
  * POST /api/rentals/[id]/cancel
  * Cancel a rental request (only renter can cancel pending requests)
  */
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -62,6 +65,17 @@ export async function POST(
       return handleApiError(error);
     }
 
+    const ipAddress = getClientIP(request);
+    const userAgent = getUserAgent(request);
+    await auditLogDAL.create({
+      entityType: "rental_request",
+      entityId: rentalId,
+      action: "rental_request.cancelled",
+      userId: currentUserId,
+      ipAddress: ipAddress ?? undefined,
+      userAgent: userAgent ?? undefined,
+    });
+
     trackActivity(currentUserId, "rental_cancelled", {
       rentalRequestId: rentalId,
     });
@@ -103,3 +117,7 @@ export async function POST(
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/rentals/[id]/cancel",
+);

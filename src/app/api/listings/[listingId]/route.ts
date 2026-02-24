@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { uploadToBlob } from "@/services/vercel-blob";
 import { eq, max } from "drizzle-orm";
@@ -26,7 +27,7 @@ import { trackActivity } from "@/features/activity/lib/track-activity";
  * POST /api/listings/[listingId]
  * Upload a listing image
  */
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ listingId: string }> },
 ) {
@@ -117,12 +118,16 @@ export async function POST(
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/listings/[listingId]",
+);
 
 /**
  * PATCH /api/listings/[listingId]
  * Update a listing
  */
-export async function PATCH(
+async function patchHandler(
   request: NextRequest,
   { params }: { params: Promise<{ listingId: string }> },
 ) {
@@ -202,12 +207,16 @@ export async function PATCH(
     return handleApiError(error);
   }
 }
+export const PATCH = withRequestLogging(
+  patchHandler,
+  "PATCH /api/listings/[listingId]",
+);
 
 /**
  * DELETE /api/listings/[listingId]
  * Delete a listing
  */
-export async function DELETE(
+async function deleteHandler(
   request: NextRequest,
   { params }: { params: Promise<{ listingId: string }> },
 ) {
@@ -281,3 +290,7 @@ export async function DELETE(
     );
   }
 }
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/listings/[listingId]",
+);

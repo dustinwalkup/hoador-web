@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
 import { disputeDAL } from "@/dal";
 
@@ -15,7 +16,7 @@ import { disputeDAL } from "@/dal";
  * For user-facing activity, see the dispute details page which shows
  * a filtered timeline of user-relevant events.
  */
-export async function GET(
+async function getHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -43,3 +44,7 @@ export async function GET(
     return handleApiError(error);
   }
 }
+export const GET = withRequestLogging(
+  getHandler,
+  "GET /api/disputes/[id]/audit",
+);

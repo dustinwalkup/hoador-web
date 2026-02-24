@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
@@ -15,7 +16,7 @@ const createNoteSchema = z.object({
   content: z.string().min(1, "Note content is required"),
 });
 
-export async function POST(
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -80,6 +81,10 @@ export async function POST(
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/disputes/[id]/notes",
+);
 
 /**
  * PUT /api/disputes/[id]/notes
@@ -90,7 +95,7 @@ const updateNoteSchema = z.object({
   content: z.string().min(1, "Note content is required"),
 });
 
-export async function PUT(
+async function putHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -159,6 +164,10 @@ export async function PUT(
     return handleApiError(error);
   }
 }
+export const PUT = withRequestLogging(
+  putHandler,
+  "PUT /api/disputes/[id]/notes",
+);
 
 /**
  * DELETE /api/disputes/[id]/notes
@@ -168,7 +177,7 @@ const deleteNoteSchema = z.object({
   noteId: z.string().uuid("Invalid note ID"),
 });
 
-export async function DELETE(
+async function deleteHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -240,3 +249,7 @@ export async function DELETE(
     return handleApiError(error);
   }
 }
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/disputes/[id]/notes",
+);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
@@ -11,7 +12,7 @@ import { createCustomerPortalSession } from "@/services/stripe/connect";
  * Create a customer portal session for managing payment methods and billing
  * POST /api/stripe/create-customer-portal-session
  */
-export async function POST() {
+async function postHandler() {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -61,3 +62,7 @@ export async function POST() {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/stripe/create-customer-portal-session",
+);

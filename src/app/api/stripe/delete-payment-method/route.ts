@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
 import {
   getAuthenticatedUserResponse,
@@ -10,7 +11,7 @@ import { tryCatch } from "@walkup/walkup-utils";
  * DELETE /api/stripe/delete-payment-method
  * Detach a payment method from the customer
  */
-export async function DELETE(request: NextRequest) {
+async function deleteHandler(request: NextRequest) {
   try {
     // Authenticate
     const authResult = await getAuthenticatedUserResponse();
@@ -44,3 +45,7 @@ export async function DELETE(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/stripe/delete-payment-method",
+);

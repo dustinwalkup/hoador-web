@@ -30,6 +30,8 @@ vi.mock("@/lib/api/route-helpers", () => ({
   parseFormData: vi.fn().mockResolvedValue({}),
   requireAuthResponse: vi.fn().mockResolvedValue(null),
   captureNonCriticalError: vi.fn(),
+  getClientIP: vi.fn().mockReturnValue(null),
+  getUserAgent: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("@/features/auth/utils/session", () => ({
@@ -41,6 +43,9 @@ vi.mock("@/dal", () => ({
     getRentalRequestById: vi.fn(),
     updateRentalRequestPaymentStatus: vi.fn().mockResolvedValue(undefined),
     approveRentalRequest: vi.fn().mockResolvedValue(undefined),
+  },
+  auditLogDAL: {
+    create: vi.fn().mockResolvedValue({}),
   },
   userDAL: {
     getOrCreateStripeCustomerId: vi.fn().mockResolvedValue("cus_123"),

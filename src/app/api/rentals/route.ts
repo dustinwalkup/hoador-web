@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
-import { rentalDAL, userDAL, listingDAL, legalDocumentDAL } from "@/dal";
+import {
+  rentalDAL,
+  userDAL,
+  listingDAL,
+  legalDocumentDAL,
+  auditLogDAL,
+} from "@/dal";
 import {
   handleApiError,
   captureNonCriticalError,
@@ -18,7 +25,7 @@ import { sendRentalRequestCreatedNotification } from "@/features/rentals/notific
  * POST /api/rentals
  * Create a new rental request
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Check authentication
     const authError = await requireAuthResponse();
@@ -96,6 +103,26 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+
+    await auditLogDAL.create({
+      entityType: "rental_request",
+      entityId: rentalRequest.id,
+      action: "rental_request.created",
+      userId: currentUserId,
+      metadata: {
+        listingId: validatedData.listingId,
+        startDate:
+          validatedData.startDate instanceof Date
+            ? validatedData.startDate.toISOString()
+            : String(validatedData.startDate),
+        endDate:
+          validatedData.endDate instanceof Date
+            ? validatedData.endDate.toISOString()
+            : String(validatedData.endDate),
+      },
+      ipAddress: ipAddress ?? undefined,
+      userAgent: userAgent ?? undefined,
+    });
 
     trackActivity(currentUserId, "rental_requested", {
       rentalRequestId: rentalRequest.id,
@@ -255,3 +282,4 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(postHandler, "POST /api/rentals");

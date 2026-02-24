@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { auth } from "@/services/better-auth";
 import { forgotPasswordSchema } from "@/features/auth/schemas/password";
 import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const body = await parseFormData(request);
     const email = body.email as string;
@@ -50,3 +51,7 @@ export async function POST(request: NextRequest) {
     return handleApiError(error);
   }
 }
+export const POST = withRequestLogging(
+  postHandler,
+  "POST /api/auth/forgot-password",
+);
