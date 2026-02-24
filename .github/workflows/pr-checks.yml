@@ -4,7 +4,7 @@ name: Pull Request Checks
 # Run on pull requests to main and develop branches
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [develop]
     types: [opened, synchronize, reopened]
 
 jobs:

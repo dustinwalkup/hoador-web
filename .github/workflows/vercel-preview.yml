@@ -2,7 +2,7 @@ name: Vercel Preview Deployment
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [develop]
     types: [opened, synchronize, reopened]
 
 jobs:
