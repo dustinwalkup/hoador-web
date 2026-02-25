@@ -2139,34 +2139,82 @@ export class ListingDAL extends BaseDAL {
         userAddress?.latitude != null && userAddress?.longitude != null;
 
       if (hasUserLocation) {
-        const results = await this.db
-          .select({
-            id: listings.id,
-            name: listings.name,
-            distanceMiles: sql<number>`
-              ST_Distance(
-                ST_Point(${userAddress.longitude}::float, ${userAddress.latitude}::float)::geography,
-                ST_Point(${userAddresses.longitude}::float, ${userAddresses.latitude}::float)::geography
-              ) / 1609.34
-            `.as("distance_miles"),
-          })
-          .from(listings)
-          .innerJoin(userAddresses, eq(listings.ownerId, userAddresses.userId))
-          .where(
-            and(
-              eq(listings.approvalStatus, "approved"),
-              eq(listings.isActive, true),
-              sql`${userAddresses.latitude} IS NOT NULL AND ${userAddresses.longitude} IS NOT NULL`,
-            ),
-          )
-          .orderBy(sql`distance_miles ASC NULLS LAST`, desc(listings.createdAt))
-          .limit(limit);
+        try {
+          const results = await this.db
+            .select({
+              id: listings.id,
+              name: listings.name,
+              distanceMiles: sql<number>`
+                ST_Distance(
+                  ST_Point(${userAddress.longitude}::float, ${userAddress.latitude}::float)::geography,
+                  ST_Point(${userAddresses.longitude}::float, ${userAddresses.latitude}::float)::geography
+                ) / 1609.34
+              `.as("distance_miles"),
+            })
+            .from(listings)
+            .innerJoin(
+              userAddresses,
+              eq(listings.ownerId, userAddresses.userId),
+            )
+            .where(
+              and(
+                eq(listings.approvalStatus, "approved"),
+                eq(listings.isActive, true),
+                sql`${userAddresses.latitude} IS NOT NULL AND ${userAddresses.longitude} IS NOT NULL`,
+              ),
+            )
+            .orderBy(
+              sql`distance_miles ASC NULLS LAST`,
+              desc(listings.createdAt),
+            )
+            .limit(limit);
 
-        return results.map((r) => ({
-          id: r.id,
-          name: r.name,
-          linkTo: `/dashboard/listings/${r.id}`,
-        }));
+          return results.map((r) => ({
+            id: r.id,
+            name: r.name,
+            linkTo: `/dashboard/listings/${r.id}`,
+          }));
+        } catch (spatialError) {
+          const err = spatialError as Error & { code?: string; cause?: Error };
+          const msg = err.message?.toLowerCase() ?? "";
+          const causeMsg = err.cause?.message?.toLowerCase() ?? "";
+          const hasMsg = (s: string) => msg.includes(s) || causeMsg.includes(s);
+          const isPostGISUnavailable =
+            err instanceof Error &&
+            (err.code === "42704" ||
+              hasMsg("geography") ||
+              hasMsg("does not exist") ||
+              hasMsg("st_distance") ||
+              hasMsg("st_point"));
+
+          if (isPostGISUnavailable) {
+            console.warn(
+              "PostGIS unavailable, falling back to recent listings:",
+              err.message,
+            );
+            const fallbackResults = await this.db
+              .select({
+                id: listings.id,
+                name: listings.name,
+              })
+              .from(listings)
+              .where(
+                and(
+                  eq(listings.approvalStatus, "approved"),
+                  eq(listings.isActive, true),
+                ),
+              )
+              .orderBy(desc(listings.createdAt))
+              .limit(limit);
+
+            return fallbackResults.map((r) => ({
+              id: r.id,
+              name: r.name,
+              linkTo: `/dashboard/listings/${r.id}`,
+            }));
+          }
+          throw spatialError;
+        }
       }
 
       const results = await this.db

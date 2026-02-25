@@ -10,9 +10,14 @@ vi.mock("next/link", () => ({
 }));
 
 describe("NeighborhoodActivityWidget", () => {
-  it("should return null when listings array is empty", () => {
-    const { container } = render(<NeighborhoodActivityWidget listings={[]} />);
-    expect(container.firstChild).toBeNull();
+  it("should show empty state when listings array is empty", () => {
+    render(<NeighborhoodActivityWidget listings={[]} />);
+    expect(
+      screen.getByText("No neighborhood activity yet"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Nearby listings and activity will show here"),
+    ).toBeInTheDocument();
   });
 
   it("should render listings with name and link from props", () => {

@@ -521,14 +521,15 @@ function getRandomStatusAndActive() {
   return { status: "available", isActive: true };
 }
 
-async function main() {
-  console.log("🌱 Seeding listings and availability with all statuses...");
+function getRandomApprovalStatus(): "approved" | "pending_review" | "rejected" {
+  const r = faker.number.int({ min: 1, max: 100 });
+  if (r <= 80) return "approved";
+  if (r <= 95) return "pending_review";
+  return "rejected";
+}
 
-  // Clear existing data
-  await db.delete(listingImages);
-  await db.delete(listingAvailability);
-  await db.delete(listings);
-  await db.delete(listingCategories);
+async function main(): Promise<void> {
+  console.log("🌱 Seeding listings and availability with all statuses...");
 
   const allUsers = await db.select().from(user);
 
@@ -658,8 +659,7 @@ async function main() {
   const findCategory = (name: string) =>
     categories.find((c) => c.name === name);
 
-  // Generate 350 listings with variety across all statuses
-  const totalListings = 350;
+  const totalListings = 30;
   console.log(
     `📦 Generating ${totalListings} listings with realistic status distribution...`,
   );
@@ -704,12 +704,7 @@ async function main() {
       model: faker.string
         .alphanumeric({ length: { min: 6, max: 10 } })
         .toUpperCase(),
-      condition: faker.helpers.arrayElement([
-        "excellent",
-        "good",
-        "fair",
-        "poor",
-      ]),
+      condition: faker.helpers.arrayElement(["new", "good", "fair", "poor"]),
       dailyRate: faker.number
         .float({ min: 15, max: 150, multipleOf: 5 })
         .toString(),
@@ -746,6 +741,7 @@ async function main() {
         .toString(),
       deliveryRadius: faker.number.int({ min: 0, max: 15 }),
       isActive: isActive,
+      approvalStatus: getRandomApprovalStatus(),
       viewCount: faker.number.int({ min: 0, max: 250 }),
       favoriteCount: faker.number.int({ min: 0, max: 35 }),
       createdAt: faker.date.past({ years: 2 }),
@@ -865,7 +861,4 @@ async function main() {
   console.log(`   Archived listings: ${statusCounts.archived}`);
 }
 
-main().catch((err) => {
-  console.error("❌ Error seeding listings:", err);
-  process.exit(1);
-});
+export { main };

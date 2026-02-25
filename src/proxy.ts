@@ -177,7 +177,7 @@ export async function proxy(request: NextRequest) {
 
       // Handle incomplete_profile users
       if (user.status === "incomplete_profile") {
-        if (pathname !== "/onboarding") {
+        if (pathname !== "/onboarding" && pathname !== "/api/onboarding") {
           const onboardingUrl = new URL("/onboarding", request.url);
           return NextResponse.redirect(onboardingUrl);
         }

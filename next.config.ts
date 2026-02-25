@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "thnd3cwzf3mlmu4a.public.blob.vercel-storage.com",
+        port: "",
+        pathname: "/**",
+      },
       // Google Profile Images
       {
         protocol: "https",

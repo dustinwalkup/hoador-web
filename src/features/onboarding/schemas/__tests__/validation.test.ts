@@ -31,7 +31,6 @@ describe("onboardingSchema", () => {
         expect(result.data.lastName).toBe(mockOnboardingDataMinimal.lastName);
         expect(result.data.phone).toBe(mockOnboardingDataMinimal.phone);
         expect(result.data.address).toEqual(mockOnboardingDataMinimal.address);
-        expect(result.data.agreeToTerms).toBe(true);
       }
     });
 
@@ -205,21 +204,6 @@ describe("onboardingSchema", () => {
           issue.path.includes("profileImageUrl"),
         );
         expect(urlError?.message).toBe("Invalid image URL");
-      }
-    });
-
-    it("should reject agreeToTerms = false", () => {
-      const data = {
-        ...mockOnboardingDataMinimal,
-        agreeToTerms: false,
-      };
-      const result = onboardingSchema.safeParse(data);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        const termsError = result.error.issues.find((issue) =>
-          issue.path.includes("agreeToTerms"),
-        );
-        expect(termsError?.message).toBe("You must agree to the terms");
       }
     });
   });
@@ -442,11 +426,6 @@ describe("validateField", () => {
       expect(result).toBeNull();
     });
 
-    it("should return null for valid agreeToTerms", () => {
-      const result = validateField("agreeToTerms", true);
-      expect(result).toBeNull();
-    });
-
     it("should return null for valid nested address fields", () => {
       expect(validateField("address.street", "123 Main St")).toBeNull();
       expect(validateField("address.city", "San Francisco")).toBeNull();
@@ -480,11 +459,6 @@ describe("validateField", () => {
     it("should return error message for invalid profileImageUrl", () => {
       const result = validateField("profileImageUrl", "not-a-url");
       expect(result).toBe("Invalid image URL");
-    });
-
-    it("should return error message for invalid agreeToTerms", () => {
-      const result = validateField("agreeToTerms", false);
-      expect(result).toBe("You must agree to the terms");
     });
 
     it("should return error message for invalid nested address fields", () => {
@@ -523,7 +497,6 @@ describe("validateFields", () => {
           state: "X",
           zipCode: "12",
         },
-        agreeToTerms: false,
       };
 
       const result = validateFields(invalidData as any);
@@ -536,7 +509,6 @@ describe("validateFields", () => {
       expect(result["address.city"]).toBeDefined();
       expect(result["address.state"]).toBeDefined();
       expect(result["address.zipCode"]).toBeDefined();
-      expect(result.agreeToTerms).toBeDefined();
     });
 
     it("should include all validation errors", () => {

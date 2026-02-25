@@ -42,9 +42,6 @@ export const onboardingSchema = z.object({
     .url("Invalid image URL")
     .optional()
     .or(z.literal("")),
-  agreeToTerms: z
-    .boolean()
-    .refine((val) => val === true, "You must agree to the terms"),
 });
 
 // ---------------------------
@@ -68,7 +65,6 @@ const fieldValidators: Record<FieldPath, z.ZodTypeAny> = {
   phone: onboardingSchema.shape.phone,
   bio: onboardingSchema.shape.bio,
   profileImageUrl: onboardingSchema.shape.profileImageUrl,
-  agreeToTerms: onboardingSchema.shape.agreeToTerms,
   "address.street": addressSchema.shape.street,
   "address.city": addressSchema.shape.city,
   "address.state": addressSchema.shape.state,
