@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { validateField } from "../schemas/validation";
 import type { OnboardingData } from "../schemas/validation";
 import { useCompleteOnboarding } from "../hooks/use-onboarding-mutation";
@@ -103,7 +101,6 @@ export function OnboardingForm({
       state: "",
       zipCode: "",
     },
-    agreeToTerms: false,
   });
 
   // ---------------------------
@@ -158,7 +155,6 @@ export function OnboardingForm({
       { field: "address.city", value: formData.address.city },
       { field: "address.state", value: formData.address.state },
       { field: "address.zipCode", value: formData.address.zipCode },
-      { field: "agreeToTerms", value: formData.agreeToTerms },
     ] as const;
 
     let hasErrors = false;
@@ -187,8 +183,7 @@ export function OnboardingForm({
     formData.address.street?.trim() &&
     formData.address.city?.trim() &&
     formData.address.state?.trim() &&
-    formData.address.zipCode?.trim() &&
-    formData.agreeToTerms,
+    formData.address.zipCode?.trim(),
   );
 
   // ---------------------------
@@ -219,7 +214,6 @@ export function OnboardingForm({
       bio: formData.bio || undefined,
       profileImageUrl: formData.profileImageUrl || undefined,
       address: formData.address,
-      agreeToTerms: formData.agreeToTerms,
     };
 
     completeOnboarding.mutate(onboardingData);
@@ -230,7 +224,12 @@ export function OnboardingForm({
     `${formData.firstName.charAt(0)}${formData.lastName.charAt(0)}`.toUpperCase();
 
   return (
-    <form onSubmit={handleFormSubmit} role="form" className="space-y-6">
+    <form
+      onSubmit={handleFormSubmit}
+      role="form"
+      action="#"
+      className="space-y-6"
+    >
       {/* Profile Image Upload */}
       <div className="flex flex-col items-center space-y-2">
         <Label className="text-center">Profile Photo (Optional)</Label>
@@ -390,37 +389,6 @@ export function OnboardingForm({
           </div>
         </div>
       </div>
-
-      {/* Terms */}
-      <div className="flex items-start space-x-2">
-        <Checkbox
-          id="terms"
-          name="agreeToTerms"
-          className="mt-1"
-          checked={formData.agreeToTerms}
-          onCheckedChange={(checked) => {
-            const booleanValue = checked === true;
-            handleChange("agreeToTerms", booleanValue);
-          }}
-          disabled={isPending}
-        />
-        <label
-          htmlFor="terms"
-          className="text-sm leading-relaxed peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          I agree to the{" "}
-          <Link href="/terms" className="text-primary hover:underline">
-            terms of service
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy" className="text-primary hover:underline">
-            privacy policy
-          </Link>
-        </label>
-      </div>
-      {errors.agreeToTerms && (
-        <p className="text-xs text-red-500">{errors.agreeToTerms}</p>
-      )}
 
       {/* Submit */}
       <Button

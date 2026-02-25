@@ -14,13 +14,11 @@ export interface NeighborhoodActivityWidgetProps {
 }
 
 /**
- * Neighborhood widget with rose accent, location pins, and clean list.
+ * Neighborhood widget with rose accent, location pins, and graceful empty state.
  */
 export function NeighborhoodActivityWidget({
   listings,
 }: NeighborhoodActivityWidgetProps) {
-  if (listings.length === 0) return null;
-
   return (
     <Card className="border-t-4 border-t-rose-500">
       <CardHeader className="pb-2">
@@ -35,24 +33,38 @@ export function NeighborhoodActivityWidget({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <ul className="space-y-1">
-          {listings.map((listing) => (
-            <li key={listing.id}>
-              <Link
-                href={listing.linkTo}
-                className="group flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/20"
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10">
-                  <MapPin className="h-3.5 w-3.5 text-rose-500" />
-                </div>
-                <span className="min-w-0 flex-1 truncate font-medium">
-                  {listing.name}
-                </span>
-                <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-              </Link>
-            </li>
-          ))}
-        </ul>
+        {listings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10">
+              <MapPin className="h-6 w-6 text-rose-400" />
+            </div>
+            <p className="text-muted-foreground mt-3 text-sm">
+              No neighborhood activity yet
+            </p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              Nearby listings and activity will show here
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-1">
+            {listings.map((listing) => (
+              <li key={listing.id}>
+                <Link
+                  href={listing.linkTo}
+                  className="group flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10">
+                    <MapPin className="h-3.5 w-3.5 text-rose-500" />
+                  </div>
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {listing.name}
+                  </span>
+                  <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
         <Button
           asChild
           variant="ghost"

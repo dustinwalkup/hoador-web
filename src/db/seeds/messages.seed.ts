@@ -8,12 +8,8 @@ import { user } from "../schemas/user.schema";
 type NewConversation = InferInsertModel<typeof conversations>;
 type NewMessage = InferInsertModel<typeof messages>;
 
-async function main() {
+async function main(): Promise<void> {
   console.log("🌱 Seeding messages...");
-
-  // Clear existing data
-  await db.delete(messages);
-  await db.delete(conversations);
 
   const allUsers = await db.select().from(user);
   if (allUsers.length < 2) throw new Error("Seed at least 2 users first");
@@ -142,7 +138,4 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  console.error("❌ Error seeding messages:", err);
-  process.exit(1);
-});
+export { main };

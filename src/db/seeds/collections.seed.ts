@@ -16,12 +16,8 @@ type NewFavorite = InferInsertModel<typeof userFavorites>;
 type NewCollection = InferInsertModel<typeof userCollections>;
 type NewCollectionItem = InferInsertModel<typeof collectionItems>;
 
-async function main() {
+async function main(): Promise<void> {
   console.log("🌱 Seeding collections...");
-
-  await db.delete(collectionItems);
-  await db.delete(userFavorites);
-  await db.delete(userCollections);
 
   const allUsers = await db.select().from(user);
   const allListings = await db.select().from(listings);
@@ -85,7 +81,4 @@ async function main() {
   console.log("✅ Collections seed complete");
 }
 
-main().catch((err) => {
-  console.error("❌ Error seeding collections:", err);
-  process.exit(1);
-});
+export { main };

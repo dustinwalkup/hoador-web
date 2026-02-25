@@ -94,9 +94,6 @@ vi.mock("../../schemas/validation", () => ({
     ) {
       return "ZIP code is required";
     }
-    if (field === "agreeToTerms" && value !== true) {
-      return "You must agree to the terms";
-    }
     return null;
   }),
 }));
@@ -138,7 +135,6 @@ describe("OnboardingForm", () => {
       // State select doesn't have id, so check by label text directly or combobox
       expect(screen.getByText(/^state$/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/zip code/i)).toBeInTheDocument();
-      expect(screen.getByRole("checkbox")).toBeInTheDocument();
     });
 
     it("should render ProfileImageUpload component", () => {
@@ -192,7 +188,6 @@ describe("OnboardingForm", () => {
       });
       await user.click(screen.getByRole("option", { name: "California" }));
       await user.type(screen.getByLabelText(/zip code/i), "94102");
-      await user.click(screen.getByRole("checkbox"));
 
       // Submit form
       const submitButton = screen.getByRole("button", {
@@ -293,8 +288,6 @@ describe("OnboardingForm", () => {
       await user.click(screen.getByRole("option", { name: "California" }));
       const zipInput = screen.getByLabelText(/zip code/i);
       await user.type(zipInput, "94102");
-      const termsCheckbox = screen.getByRole("checkbox");
-      await user.click(termsCheckbox);
 
       // Now the form should be "complete" but with invalid firstName (empty) and phone (too short)
       // Trigger validation by submitting the form directly
@@ -481,7 +474,6 @@ describe("OnboardingForm", () => {
       });
       await user.click(screen.getByRole("option", { name: "California" }));
       await user.type(screen.getByLabelText(/zip code/i), "94102");
-      await user.click(screen.getByRole("checkbox"));
 
       // Bio and profileImageUrl are optional, should be empty
       const bioInput = screen.getByLabelText(/bio/i);

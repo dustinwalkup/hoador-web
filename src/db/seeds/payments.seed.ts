@@ -9,10 +9,8 @@ import { user } from "../schemas/user.schema";
 // Infer type
 type NewPayment = InferInsertModel<typeof payments>;
 
-async function main() {
+async function main(): Promise<void> {
   console.log("🌱 Seeding payments...");
-
-  await db.delete(payments);
 
   const allUsers = await db.select().from(user);
   const allRentals = await db.select().from(rentals);
@@ -89,7 +87,4 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  console.error("❌ Error seeding payments:", err);
-  process.exit(1);
-});
+export { main };

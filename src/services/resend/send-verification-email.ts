@@ -1,4 +1,4 @@
-import { resend, RESEND_FROM_EMAIL } from ".";
+import { resend, RESEND_FROM_EMAIL, PRIMARY_COLOR } from ".";
 
 /**
  * Send email verification email
@@ -33,7 +33,7 @@ export async function sendVerificationEmail({
               <img src="https://hoador-web.vercel.app/hoador-logo.svg" alt="Hoador" style="height: 50px;">
             </div>
             
-            <h1 style="color: #2563eb; text-align: center; margin-bottom: 30px;">
+            <h1 style="color: ${PRIMARY_COLOR}; text-align: center; margin-bottom: 30px;">
               Welcome to Hoador${firstName ? `, ${firstName}` : ""}!
             </h1>
             
@@ -43,7 +43,7 @@ export async function sendVerificationEmail({
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${verificationUrl}" 
-                 style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+                 style="background-color: ${PRIMARY_COLOR}; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
                 Verify Email Address
               </a>
             </div>

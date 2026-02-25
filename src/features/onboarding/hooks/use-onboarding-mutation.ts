@@ -44,7 +44,6 @@ export function useCompleteOnboarding() {
       formData.append("city", data.address.city);
       formData.append("state", data.address.state);
       formData.append("zipCode", data.address.zipCode);
-      formData.append("agreeToTerms", data.agreeToTerms ? "true" : "false");
 
       const response = await fetch("/api/onboarding", {
         method: "POST",

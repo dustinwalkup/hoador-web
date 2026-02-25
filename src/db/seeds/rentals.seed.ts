@@ -147,13 +147,8 @@ function generateDatesForStatus(status: string) {
   };
 }
 
-async function main() {
+async function main(): Promise<void> {
   console.log("🌱 Seeding comprehensive rentals data...");
-
-  // Clear existing data
-  await db.delete(reviews);
-  await db.delete(rentals);
-  await db.delete(rentalRequests);
 
   const allUsers = await db.select().from(user);
   const allListings = await db.select().from(listings);
@@ -170,8 +165,8 @@ async function main() {
 
   console.log("📝 Generating rental requests...");
 
-  // Generate 750 rental requests with realistic distribution
-  for (let i = 0; i < 750; i++) {
+  const totalRequests = 50;
+  for (let i = 0; i < totalRequests; i++) {
     const listing = faker.helpers.arrayElement(allListings);
     const owner = allUsers.find((u) => u.id === listing.ownerId)!;
     const renter = faker.helpers.arrayElement(
@@ -390,7 +385,4 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  console.error("❌ Error seeding rentals:", err);
-  process.exit(1);
-});
+export { main };

@@ -7,10 +7,8 @@ import { user } from "../schemas/user.schema";
 
 type NewNotification = InferInsertModel<typeof notifications>;
 
-async function main() {
+async function main(): Promise<void> {
   console.log("🌱 Seeding notifications...");
-
-  await db.delete(notifications);
 
   const allUsers = await db.select().from(user);
 
@@ -34,7 +32,7 @@ async function main() {
 
   const seedNotifications: NewNotification[] = [];
 
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 20; i++) {
     const user = faker.helpers.arrayElement(allUsers);
     const type = faker.helpers.arrayElement(types);
 
@@ -62,7 +60,4 @@ async function main() {
   console.log("✅ Notifications seed complete");
 }
 
-main().catch((err) => {
-  console.error("❌ Error seeding notifications:", err);
-  process.exit(1);
-});
+export { main };
