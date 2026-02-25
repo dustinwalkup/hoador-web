@@ -17,7 +17,6 @@ export const mockOnboardingData: OnboardingData = {
   },
   bio: "I love sharing tools with my community!",
   profileImageUrl: "https://example.com/profile.jpg",
-  agreeToTerms: true,
 };
 
 // Minimal valid data (required fields only)
@@ -31,7 +30,6 @@ export const mockOnboardingDataMinimal: OnboardingData = {
     state: "CA",
     zipCode: "90001",
   },
-  agreeToTerms: true,
 };
 
 // Invalid data for error testing
@@ -47,7 +45,6 @@ export const mockOnboardingDataInvalid = {
   },
   bio: "A".repeat(201), // Too long
   profileImageUrl: "not-a-url", // Invalid URL
-  agreeToTerms: false, // Not agreed
 };
 
 // Valid address data

@@ -36,10 +36,6 @@ async function postHandler(request: NextRequest) {
         state: (body.state as string) || "",
         zipCode: (body.zipCode as string) || "",
       },
-      agreeToTerms:
-        body.agreeToTerms === "on" ||
-        body.agreeToTerms === "true" ||
-        body.agreeToTerms === true,
     };
 
     // Validate with schema

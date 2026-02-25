@@ -86,7 +86,6 @@ describe("useCompleteOnboarding", () => {
       state: "CA",
       zipCode: "94102",
     },
-    agreeToTerms: true,
   };
 
   const mockSuccessResponse = {
@@ -164,7 +163,6 @@ describe("useCompleteOnboarding", () => {
       expect(formData.get("city")).toBe("San Francisco");
       expect(formData.get("state")).toBe("CA");
       expect(formData.get("zipCode")).toBe("94102");
-      expect(formData.get("agreeToTerms")).toBe("true");
     });
   });
 
@@ -179,7 +177,6 @@ describe("useCompleteOnboarding", () => {
         state: "CA",
         zipCode: "90001",
       },
-      agreeToTerms: true,
     };
 
     mockFetch.mockResolvedValue({
@@ -419,7 +416,6 @@ describe("useCompleteOnboarding", () => {
         state: "CA",
         zipCode: "90001",
       },
-      agreeToTerms: true,
     };
 
     mockFetch.mockResolvedValue({

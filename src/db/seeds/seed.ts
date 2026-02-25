@@ -1,11 +1,62 @@
 import "dotenv/config";
-import { db } from "../db-seed"; // Use WebSocket driver for Node.js compatibility
+import { sql } from "drizzle-orm";
+import { db } from "../db-seed";
 
-async function runSeed(file: string) {
+/**
+ * Truncate all app and auth tables in one go. CASCADE ensures dependent tables
+ * are truncated in correct order.
+ */
+async function truncateAll(): Promise<void> {
+  console.log("\n🗑️ Truncating all tables...");
+  await db.execute(
+    sql.raw(`
+    TRUNCATE TABLE
+      dispute_financial_operations,
+      dispute_internal_notes,
+      dispute_audit_logs,
+      dispute_evidence,
+      disputes,
+      rental_agreement_documents,
+      user_legal_acceptances,
+      legal_documents,
+      audit_logs,
+      user_activity_log,
+      push_notification_audit,
+      push_subscriptions,
+      notification_category_preferences,
+      notifications,
+      collection_items,
+      user_collections,
+      user_favorites,
+      messages,
+      conversations,
+      payments,
+      reviews,
+      rentals,
+      rental_requests,
+      listing_images,
+      listing_availability,
+      listings,
+      listing_categories,
+      community_memberships,
+      communities,
+      user_payment_methods,
+      user_preferences,
+      user_addresses,
+      session,
+      account,
+      verification,
+      "user"
+    RESTART IDENTITY CASCADE
+  `),
+  );
+  console.log("✅ All tables truncated");
+}
+
+async function runSeed(file: string): Promise<boolean> {
   console.log(`\n🌱 Running ${file}...`);
   try {
     const seedModule = await import(`./${file}`);
-    // Wait for the main function to complete if it exists
     if (seedModule.main && typeof seedModule.main === "function") {
       await seedModule.main();
     }
@@ -17,17 +68,9 @@ async function runSeed(file: string) {
   }
 }
 
-async function resetDatabaseConnection() {
-  try {
-    // Execute a simple query to reset the connection
-    await db.execute("SELECT 1");
-    console.log("🔄 Database connection reset");
-  } catch (error) {
-    console.warn("⚠️ Could not reset database connection:", error);
-  }
-}
+async function main(): Promise<void> {
+  await truncateAll();
 
-async function main() {
   const seedFiles = [
     "users.seed.ts",
     "communities.seed.ts",
@@ -49,16 +92,6 @@ async function main() {
     } else {
       failureCount++;
       console.log(`⚠️ Continuing with next seed file...`);
-    }
-
-    // Reset database connection to prevent deadlocks
-    await resetDatabaseConnection();
-
-    // Give database time to settle between seeds
-    if (file !== seedFiles[seedFiles.length - 1]) {
-      // Don't wait after the last seed
-      console.log(`⏳ Waiting 2 seconds before next seed...`);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
   }
 
