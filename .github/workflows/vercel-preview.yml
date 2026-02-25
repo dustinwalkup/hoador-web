@@ -26,14 +26,19 @@ jobs:
 
       # 4️⃣ Build the application
       - name: Build application
-        run: bun run build
         env:
-          NEXT_PUBLIC_APP_URL: ${{ github.server_url }}/${{ github.repository }}
-          STRIPE_SECRET_KEY: sk_test_mock_key_for_build_only
-          DATABASE_URL: postgresql://mock:mock@localhost:5432/mock_db
-          OPENCAGE_API_KEY: mock_opencage_key_for_build
-          OPENAI_API_KEY: sk-mock_openai_key_for_build
-          SERP_API_KEY: mock_serp_key_for_build
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: preview
+        run: bun run build
 
       # 5️⃣ Deploy to Vercel (Preview)
       - name: Deploy to Vercel (Preview)
