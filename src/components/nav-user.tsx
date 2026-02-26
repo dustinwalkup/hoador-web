@@ -77,11 +77,17 @@ export function NavUser({ user }: { user: UserProfile }) {
             sideOffset={4}
           >
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem
+                disabled
+                className="cursor-not-allowed opacity-50 text-muted-foreground [&_svg]:text-muted-foreground"
+              >
                 <UserCircleIcon />
                 Account
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem
+                disabled
+                className="cursor-not-allowed opacity-50 text-muted-foreground [&_svg]:text-muted-foreground"
+              >
                 <CreditCardIcon />
                 Billing
               </DropdownMenuItem>
