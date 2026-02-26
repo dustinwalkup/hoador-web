@@ -80,7 +80,10 @@ export const auth = betterAuth({
         const callbackParam = parsed.searchParams.get("callbackURL") ?? "";
         const isRootCallback = callbackParam === "" || callbackParam === "/";
         if (isRootCallback) {
-          parsed.searchParams.set("callbackURL", `/${EMAIL_VERIFICATION_CALLBACK_URL}`);
+          parsed.searchParams.set(
+            "callbackURL",
+            `/${EMAIL_VERIFICATION_CALLBACK_URL}`,
+          );
           emailVerificationUrl = parsed.toString();
         }
       } catch {

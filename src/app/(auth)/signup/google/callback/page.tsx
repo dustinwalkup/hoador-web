@@ -25,19 +25,28 @@ export default async function GoogleSignupCallback() {
     // Existing users: redirect by status and skip legal-acceptance
     if (status === "active") {
       if (session.user.image) {
-        await userDAL.updateUserProfilePhoto(session.user.id, session.user.image);
+        await userDAL.updateUserProfilePhoto(
+          session.user.id,
+          session.user.image,
+        );
       }
       redirect("/dashboard");
     }
     if (status === "incomplete_profile") {
       if (session.user.image) {
-        await userDAL.updateUserProfilePhoto(session.user.id, session.user.image);
+        await userDAL.updateUserProfilePhoto(
+          session.user.id,
+          session.user.image,
+        );
       }
       redirect("/onboarding");
     }
     if (status === "email_verified") {
       if (session.user.image) {
-        await userDAL.updateUserProfilePhoto(session.user.id, session.user.image);
+        await userDAL.updateUserProfilePhoto(
+          session.user.id,
+          session.user.image,
+        );
       }
       redirect("/join-code");
     }
