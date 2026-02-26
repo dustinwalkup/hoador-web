@@ -79,14 +79,14 @@ export function NavUser({ user }: { user: UserProfile }) {
             <DropdownMenuGroup>
               <DropdownMenuItem
                 disabled
-                className="cursor-not-allowed opacity-50 text-muted-foreground [&_svg]:text-muted-foreground"
+                className="text-muted-foreground [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
               >
                 <UserCircleIcon />
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled
-                className="cursor-not-allowed opacity-50 text-muted-foreground [&_svg]:text-muted-foreground"
+                className="text-muted-foreground [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
               >
                 <CreditCardIcon />
                 Billing
