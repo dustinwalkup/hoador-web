@@ -61,7 +61,11 @@ export default async function OnboardingPage() {
           <CardFooter className="flex flex-col items-center gap-4">
             <div className="text-muted-foreground text-center text-sm">
               Need help?{" "}
-              <Link href="/support" className="text-primary hover:underline">
+              <Link
+                href="/support"
+                target="_blank"
+                className="text-primary hover:underline"
+              >
                 Contact support
               </Link>
             </div>

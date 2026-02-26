@@ -99,21 +99,17 @@ export function ResetPasswordForm() {
         {password && (
           <div className="space-y-1 text-xs">
             <p
-              className={`${isPasswordLongEnough ? "text-green-600" : "text-red-500"}`}
+              className={`${isPasswordLongEnough ? "text-primary" : "text-red-500"}`}
             >
               ✓ At least 8 characters
             </p>
-            <p
-              className={`${hasUppercase ? "text-green-600" : "text-red-500"}`}
-            >
+            <p className={`${hasUppercase ? "text-primary" : "text-red-500"}`}>
               ✓ One uppercase letter
             </p>
-            <p
-              className={`${hasLowercase ? "text-green-600" : "text-red-500"}`}
-            >
+            <p className={`${hasLowercase ? "text-primary" : "text-red-500"}`}>
               ✓ One lowercase letter
             </p>
-            <p className={`${hasNumber ? "text-green-600" : "text-red-500"}`}>
+            <p className={`${hasNumber ? "text-primary" : "text-red-500"}`}>
               ✓ One number
             </p>
           </div>

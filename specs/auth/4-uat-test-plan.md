@@ -2,1162 +2,368 @@
 
 ## Overview
 
-This document provides User Acceptance Test (UAT) cases for the Auth API Routes Migration (Phase 7). UAT validates that all authentication functionality works correctly after migrating from server actions to API routes with React Query. These tests should be executed by business stakeholders, QA team, or end users before feature release.
+This document defines the user acceptance tests (UAT) for the Auth API Routes Migration (Phase 7). Each test is written from the end-user perspective and verifiable by a QA tester or stakeholder with access to a staging environment. Tests are grouped by feature area and traced back to Phase 7 requirements.
 
-**Feature**: Auth API Routes Migration (Phase 7)  
-**Version**: 1.0  
-**Date**: 2024  
-**Test Environment**: Staging/Production  
-**Reference Documents**:
+**Prerequisites for all tests:**
 
-- Migration Plan: `.cursor/plans/server_actions_to_api_routes_migration_de722195.plan.md`
-- Requirements: `specs/auth/1-requirements.md` (if exists)
-- Design: `specs/auth/2-design.md` (if exists)
-- Implementation Tasks: `specs/auth/3-tasks.md` (if exists)
+- Staging (or production) environment with API routes and React Query auth flows deployed
+- Test user accounts (regular users, admin users)
+- Test email service configured and observable (e.g., Resend)
+- Valid join codes available for join-community flow
+- Modern browser: Chrome, Firefox, Edge, or Safari (latest)
+- For Google OAuth tests (UAT-5.3–5.6): Google account (test or personal) and OAuth configured in environment
+- Optional: mobile device or emulation for UAT-12.1
 
-## Test Objectives
+**Reference documents:**
 
-1. Verify that signup works correctly with API routes and React Query
-2. Validate that email verification and resend functionality works correctly
-3. Confirm that join community flow works with redirect handling
-4. Ensure that legal document acceptance (OAuth flow) works correctly
-5. Verify that forgot password and reset password flows work correctly
-6. Validate that admin login works with proper authorization
-7. Confirm that redirect handling works correctly for all auth flows
-8. Ensure that React Query provides proper caching and updates
-9. Verify that error handling provides clear user feedback
-10. Validate that all user status transitions work correctly
-11. Ensure that legal document tracking works correctly
-12. Confirm that all auth functionality maintains existing behavior
-
-## Test Scenarios
-
-### Scenario 1: Signup - Happy Path
-
-**User Story**: As a new user, I want to create an account so that I can access the platform.
-
-**Preconditions**:
-
-- User is not logged in
-- User navigates to signup page (`/signup`)
-- User has a valid email address not already registered
-
-**Test Steps**:
-
-1. Navigate to signup page
-2. Verify signup form is displayed
-3. Enter first name: "John"
-4. Enter last name: "Doe"
-5. Enter email: "john.doe@example.com"
-6. Enter password: "SecurePassword123!"
-7. Confirm password: "SecurePassword123!"
-8. Accept Terms of Service checkbox
-9. Accept Privacy Policy checkbox
-10. Click "Sign Up" button
-11. Verify loading state appears
-12. Verify success message or redirect occurs
-13. Verify redirect to `/verify-email?email=john.doe@example.com`
-14. Check email inbox for verification email
-15. Verify user status is `pending_verification`
-
-**Expected Results**:
-
-- ✅ Signup form displays all required fields
-- ✅ Form validation allows valid data submission
-- ✅ Legal document checkboxes are required and functional
-- ✅ Password and confirm password must match
-- ✅ Upon submission, user sees loading state
-- ✅ Success message appears or redirect occurs
-- ✅ User is redirected to `/verify-email?email=john.doe@example.com`
-- ✅ Verification email is sent to user's email address
-- ✅ User account is created with status `pending_verification`
-- ✅ Legal document acceptances are recorded with IP and user agent
-- ✅ User cannot access dashboard until email is verified
-
-**Test Data**:
-
-- Valid first name and last name
-- Valid email address (not already registered)
-- Strong password (meets requirements)
-- Matching password confirmation
-- Legal documents accepted
-
-**Priority**: Critical  
-**Requirement Reference**: Phase 7 - Signup
+- Migration plan: `.cursor/plans/server_actions_to_api_routes_migration_de722195.plan.md`
+- Test plan: `specs/auth/4-test-plan.md`
 
 ---
 
-### Scenario 2: Signup - Validation Errors
+## UAT-1: Signup – Happy Path
 
-**User Story**: As a user, I want clear validation errors when I submit invalid signup data so I understand what needs to be fixed.
+**Requirements:** Phase 7 - Signup
 
-**Preconditions**:
+### UAT-1.1: Signup with valid data and legal acceptance
 
-- User is on signup page
-- User has not submitted form yet
-
-**Test Steps**:
-
-1. Navigate to signup page
-2. Attempt to submit with empty first name
-3. Verify validation error
-4. Attempt to submit with empty last name
-5. Verify validation error
-6. Attempt to submit with invalid email: "notanemail"
-7. Verify validation error
-8. Attempt to submit with existing email
-9. Verify validation error
-10. Attempt to submit with weak password: "123"
-11. Verify validation error
-12. Attempt to submit with mismatched passwords
-13. Verify validation error
-14. Attempt to submit without accepting legal documents
-15. Verify validation error
-
-**Expected Results**:
-
-- ✅ Error message for empty first name: "First name is required"
-- ✅ Error message for empty last name: "Last name is required"
-- ✅ Error message for invalid email: "Please enter a valid email address"
-- ✅ Error message for existing email: "An account with this email already exists. Please sign in instead."
-- ✅ Error message for weak password: "Password must meet requirements"
-- ✅ Error message for mismatched passwords: "Passwords do not match"
-- ✅ Error message for missing legal acceptance: "You must accept the Terms of Service and Privacy Policy"
-- ✅ Error messages appear near the relevant fields
-- ✅ Error messages are clear and actionable
-- ✅ Form prevents submission with invalid data
-
-**Test Data**:
-
-- Empty required fields
-- Invalid email format
-- Existing email address
-- Weak passwords
-- Mismatched passwords
-- Missing legal document acceptance
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Signup Validation
+| Field               | Value                                                                                                                                                                                                                                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is not logged in; user has a valid email not already registered                                                                                                                                                                                                                                     |
+| **Steps**           | 1. Navigate to `/signup`<br>2. Enter first name, last name, email, password, confirm password<br>3. Accept Terms of Service and Privacy Policy<br>4. Click "Sign Up"<br>5. Wait for success                                                                                                              |
+| **Expected Result** | Signup form displays all required fields. On submit, loading state appears; user is redirected to `/verify-email?email=...`. Verification email is sent; user status is `pending_verification`; legal acceptances recorded with IP and user agent. User cannot access dashboard until email is verified. |
 
 ---
 
-### Scenario 3: Resend Verification Email - Happy Path
+## UAT-2: Signup – Validation Errors
 
-**User Story**: As a user, I want to resend my verification email if I didn't receive it or it expired.
+**Requirements:** Phase 7 - Signup Validation
 
-**Preconditions**:
+### UAT-2.1: Signup validation errors for invalid or missing data
 
-- User has signed up but not verified email
-- User is on verify email page (`/verify-email`)
-- User's email is displayed on the page
-
-**Test Steps**:
-
-1. Navigate to verify email page (after signup or directly)
-2. Verify email address is displayed
-3. Verify "Resend Verification Email" button is visible
-4. Click "Resend Verification Email" button
-5. Verify loading state appears
-6. Verify success message appears
-7. Check email inbox for new verification email
-8. Verify email contains verification link or code
-9. Wait for rate limit period (if applicable)
-10. Attempt to resend again
-11. Verify rate limiting message (if applicable)
-
-**Expected Results**:
-
-- ✅ Verify email page displays user's email address
-- ✅ Resend button is visible and functional
-- ✅ Loading state appears when resending
-- ✅ Success message: "Verification email sent. Please check your inbox."
-- ✅ New verification email is sent to user's email
-- ✅ Email contains valid verification link or code
-- ✅ Rate limiting prevents spam (if implemented)
-- ✅ Rate limit message is clear (if applicable)
-- ✅ User can resend after rate limit period
-
-**Test Data**:
-
-- User with unverified email
-- Valid email address
-- Rate limit configuration (if applicable)
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Resend Verification
+| Field               | Value                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is on signup page; form not yet submitted                                                                                                                                                                                                                                                                                                                                            |
+| **Steps**           | 1. Submit with empty first name → verify error<br>2. Submit with empty last name → verify error<br>3. Submit with invalid email (e.g. "notanemail") → verify error<br>4. Submit with existing email → verify error<br>5. Submit with weak password (e.g. "123") → verify error<br>6. Submit with mismatched passwords → verify error<br>7. Submit without legal checkboxes → verify error |
+| **Expected Result** | Clear, field-specific errors: "First name is required", "Last name is required", "Please enter a valid email address", "An account with this email already exists. Please sign in instead.", "Password must meet requirements", "Passwords do not match", "You must accept the Terms of Service and Privacy Policy". Form blocks submission until valid.                                  |
 
 ---
 
-### Scenario 4: Resend Verification Email - Rate Limiting
+## UAT-3: Resend Verification Email
 
-**User Story**: As a system, I want to prevent spam by rate limiting verification email resends.
+**Requirements:** Phase 7 - Resend Verification, Phase 7 - Rate Limiting
 
-**Preconditions**:
+### UAT-3.1: Resend verification email – happy path
 
-- User is on verify email page
-- User has already requested verification email
+| Field               | Value                                                                                                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Preconditions**   | User has signed up but not verified email; user is on `/verify-email`; email is displayed                                                                                                                                            |
+| **Steps**           | 1. Navigate to verify email page (after signup or directly)<br>2. Confirm "Resend Verification Email" button is visible<br>3. Click "Resend Verification Email"<br>4. Wait for response<br>5. Check inbox for new verification email |
+| **Expected Result** | Loading state on click. Success message (e.g. "Verification email sent! Please check your inbox."). New verification email received with valid link. Resend button remains usable after rate limit window.                           |
 
-**Test Steps**:
+### UAT-3.2: Resend verification email – rate limiting
 
-1. Navigate to verify email page
-2. Click "Resend Verification Email" button
-3. Wait for success message
-4. Immediately click "Resend Verification Email" button again
-5. Verify rate limit message appears
-6. Wait for rate limit period to expire
-7. Click "Resend Verification Email" button again
-8. Verify email is sent successfully
-
-**Expected Results**:
-
-- ✅ Rate limiting prevents immediate resend
-- ✅ Rate limit message is clear: "Please wait before requesting another email"
-- ✅ Rate limit period is reasonable (e.g., 60 seconds)
-- ✅ User can resend after rate limit period expires
-- ✅ Rate limit applies per email address
-- ✅ Rate limit message includes wait time (if applicable)
-
-**Test Data**:
-
-- User with unverified email
-- Rate limit configuration
-- Timer for rate limit period
-
-**Priority**: Medium  
-**Requirement Reference**: Phase 7 - Rate Limiting
+| Field               | Value                                                                                                                                                                                              |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is on verify email page; user has just requested a verification email successfully                                                                                                            |
+| **Steps**           | 1. Immediately click "Resend Verification Email" again<br>2. Observe response<br>3. Wait for rate limit period to expire<br>4. Click "Resend Verification Email" again<br>5. Confirm email is sent |
+| **Expected Result** | Immediate resend returns rate limit response (e.g. 429) with message such as "Please wait before requesting another verification email." After wait, resend succeeds and email is sent.            |
 
 ---
 
-### Scenario 5: Join Community - Happy Path
+## UAT-4: Join Community
 
-**User Story**: As a user, I want to join the community with a valid join code so I can proceed to onboarding.
+**Requirements:** Phase 7 - Join Community, Phase 7 - Join Community Validation
 
-**Preconditions**:
+### UAT-4.1: Join community with valid join code
 
-- User has verified email (status: `email_verified`)
-- User is on join code page (`/join-code`)
-- User has a valid join code
+| Field               | Value                                                                                                                                                                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User has verified email (status `email_verified`); user is on `/join-code`; user has a valid join code                                                                                                                                                                                    |
+| **Steps**           | 1. Navigate to join code page (after email verification)<br>2. Enter valid join code (e.g. "COMMUNITY2024")<br>3. Click "Join Community"<br>4. Wait for success                                                                                                                           |
+| **Expected Result** | Join code form displays and accepts input. Validation is case-insensitive. On submit, loading state appears; user is redirected to `/onboarding`. User status becomes `incomplete_profile`; user is associated with community. User cannot access dashboard until onboarding is complete. |
 
-**Test Steps**:
+### UAT-4.2: Join community – invalid, empty, or expired join code
 
-1. Navigate to join code page (after email verification)
-2. Verify join code form is displayed
-3. Enter valid join code: "COMMUNITY2024"
-4. Click "Join Community" button
-5. Verify loading state appears
-6. Verify success message or redirect occurs
-7. Verify redirect to `/onboarding`
-8. Verify user status is updated to `incomplete_profile`
-9. Verify user is associated with community
-
-**Expected Results**:
-
-- ✅ Join code form displays correctly
-- ✅ Form accepts join code input
-- ✅ Join code validation works (case-insensitive)
-- ✅ Upon submission, user sees loading state
-- ✅ Success message appears or redirect occurs
-- ✅ User is redirected to `/onboarding`
-- ✅ User status is updated to `incomplete_profile`
-- ✅ User is associated with the community
-- ✅ User cannot access dashboard until onboarding is complete
-
-**Test Data**:
-
-- Valid join code (case-insensitive)
-- User with `email_verified` status
-
-**Priority**: Critical  
-**Requirement Reference**: Phase 7 - Join Community
+| Field               | Value                                                                                                                                                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Preconditions**   | User is on join code page; user has verified email                                                                                                                                                                                                                       |
+| **Steps**           | 1. Enter invalid join code (e.g. "INVALID123") and submit → verify error<br>2. Enter empty join code and submit → verify validation error<br>3. If applicable, enter expired join code and submit → verify error<br>4. Enter valid join code and submit → verify success |
+| **Expected Result** | Invalid code: clear error (e.g. "Invalid join code. Please check and try again."). Empty: "Join code is required". Expired: "This join code has expired" (if supported). User can retry with correct code.                                                               |
 
 ---
 
-### Scenario 6: Join Community - Invalid Join Code
+## UAT-5: Legal Documents (OAuth Flow)
 
-**User Story**: As a user, I want clear error messages when I enter an invalid join code.
+**Requirements:** Phase 7 - Accept Legal Documents, Phase 7 - Legal Documents Validation
 
-**Preconditions**:
+### UAT-5.1: Accept legal documents after OAuth signup – happy path
 
-- User is on join code page
-- User has verified email
+| Field               | Value                                                                                                                                                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User has signed up via OAuth (e.g. Google); user is on legal documents acceptance page; user has not yet accepted legal documents                                                                                                                 |
+| **Steps**           | 1. Complete OAuth signup and land on legal acceptance page<br>2. Confirm Terms of Service and Privacy Policy checkboxes and links are visible and functional<br>3. Check both checkboxes<br>4. Click "Accept and Continue"<br>5. Wait for success |
+| **Expected Result** | Legal acceptance page shows after OAuth signup. Both checkboxes required. On submit, loading state; redirect to `/join-code`. Legal document acceptances recorded in database with IP and user agent. User status updated appropriately.          |
 
-**Test Steps**:
+### UAT-5.2: Accept legal documents – validation when not both accepted
 
-1. Navigate to join code page
-2. Enter invalid join code: "INVALID123"
-3. Click "Join Community" button
-4. Verify error message appears
-5. Enter empty join code
-6. Click "Join Community" button
-7. Verify validation error
-8. Enter expired join code (if applicable)
-9. Click "Join Community" button
-10. Verify error message
+| Field               | Value                                                                                                                                                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is on legal documents acceptance page; user has not accepted both documents                                                                                                                                       |
+| **Steps**           | 1. Submit with no checkboxes checked → verify error<br>2. Check only Terms of Service and submit → verify error<br>3. Check only Privacy Policy and submit → verify error<br>4. Check both and submit → verify success |
+| **Expected Result** | Errors as appropriate: "You must accept both Terms of Service and Privacy Policy" (or equivalent for missing TOS or Privacy). Form blocks submission until both are checked. User can proceed after accepting both.    |
 
-**Expected Results**:
+### UAT-5.3: Google signup – new user end-to-end
 
-- ✅ Error message for invalid join code: "Invalid join code. Please check and try again."
-- ✅ Error message for empty join code: "Join code is required"
-- ✅ Error message for expired join code: "This join code has expired"
-- ✅ Error messages are clear and actionable
-- ✅ Form prevents submission with invalid join code
-- ✅ User can retry with correct join code
+| Field               | Value                                                                                                                                                                                                                                                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Preconditions**   | User is not logged in; user has a Google account not yet registered in the app                                                                                                                                                                                                                                                             |
+| **Steps**           | 1. Navigate to `/signup`<br>2. Click "Continue with Google"<br>3. Complete Google consent (sign in with Google if prompted)<br>4. After redirect to app, confirm landing on `/signup/google/legal-acceptance`<br>5. Check Terms of Service and Privacy Policy; click "Accept and Continue"<br>6. Wait for redirect                         |
+| **Expected Result** | "Continue with Google" is visible and triggers redirect to Google. After Google auth, user is redirected to `/signup/google/callback` then to `/signup/google/legal-acceptance` (legal not yet accepted). After accepting, user is redirected to `/join-code`. User status is `email_verified`; profile photo set from Google if provided. |
 
-**Test Data**:
+### UAT-5.4: Google login – existing active user
 
-- Invalid join codes
-- Empty join code
-- Expired join code (if applicable)
+| Field               | Value                                                                                                                                                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User already has an account (created via Google or email) with status `active`                                                                                                                                        |
+| **Steps**           | 1. Navigate to `/login`<br>2. Click "Continue with Google"<br>3. Complete Google sign-in if prompted<br>4. After redirect to app, confirm destination                                                                 |
+| **Expected Result** | "Continue with Google" is visible and triggers redirect to Google. After Google auth, user is redirected to `/dashboard` (or callbackUrl when provided). Session is established; user can access authenticated areas. |
 
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Join Community Validation
+### UAT-5.5: Google callback – status-based redirect (existing user)
 
----
+| Field               | Value                                                                                                                                                                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User has an existing account with status `active` or `incomplete_profile`; user starts Google sign-in from signup page (e.g. "Continue with Google" on `/signup`)                                                                                                                       |
+| **Steps**           | 1. From `/signup`, click "Continue with Google" and complete Google auth<br>2. Observe redirect after callback<br>3. If user already had legal accepted and status `active`, confirm redirect to `/dashboard`<br>4. If user had `incomplete_profile`, confirm redirect to `/onboarding` |
+| **Expected Result** | Callback `/signup/google/callback` routes by status: `active` → `/dashboard`; `incomplete_profile` → `/onboarding`; otherwise (e.g. `email_verified`) → `/join-code`. No duplicate legal-acceptance step if already accepted.                                                           |
 
-### Scenario 7: Accept Legal Documents (OAuth Flow) - Happy Path
+### UAT-5.6: Google signup – user cancels or error
 
-**User Story**: As a user signing up with OAuth, I want to accept legal documents so I can complete my account setup.
-
-**Preconditions**:
-
-- User has signed up via OAuth (Google, etc.)
-- User is on legal documents acceptance page
-- User has not yet accepted legal documents
-
-**Test Steps**:
-
-1. Complete OAuth signup (Google, etc.)
-2. Verify redirect to legal documents acceptance page
-3. Verify Terms of Service checkbox is visible
-4. Verify Privacy Policy checkbox is visible
-5. Verify links to legal documents are functional
-6. Check Terms of Service checkbox
-7. Check Privacy Policy checkbox
-8. Click "Accept and Continue" button
-9. Verify loading state appears
-10. Verify success message or redirect occurs
-11. Verify redirect to `/join-code`
-12. Verify legal document acceptances are recorded
-13. Verify IP address and user agent are tracked
-
-**Expected Results**:
-
-- ✅ Legal documents acceptance page displays after OAuth signup
-- ✅ Both checkboxes (TOS and Privacy) are visible
-- ✅ Links to legal documents open correctly
-- ✅ Both checkboxes must be checked to proceed
-- ✅ Upon submission, user sees loading state
-- ✅ Success message appears or redirect occurs
-- ✅ User is redirected to `/join-code`
-- ✅ Legal document acceptances are recorded in database
-- ✅ IP address and user agent are tracked for compliance
-- ✅ User status is updated appropriately
-
-**Test Data**:
-
-- OAuth provider (Google, etc.)
-- Legal document URLs
-- Valid IP address and user agent
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Accept Legal Documents
+| Field               | Value                                                                                                                                                                                                 |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is on signup page; user may cancel at Google or an error may occur                                                                                                                               |
+| **Steps**           | 1. Navigate to `/signup`<br>2. Click "Continue with Google"<br>3. Cancel at Google consent screen (or simulate error/denied)<br>4. Return to app and observe URL and any message                      |
+| **Expected Result** | User returns to app; redirect to `/signup?error=...` (e.g. `signup_failed`) or login with no session. No crash; user can retry with Google or use email signup. Error state is clear where supported. |
 
 ---
 
-### Scenario 8: Accept Legal Documents - Validation Errors
+## UAT-6: Forgot Password
 
-**User Story**: As a user, I want clear validation when I haven't accepted required legal documents.
+**Requirements:** Phase 7 - Forgot Password, Phase 7 - Security
 
-**Preconditions**:
+### UAT-6.1: Forgot password – happy path
 
-- User is on legal documents acceptance page
-- User has not accepted legal documents
+| Field               | Value                                                                                                                                                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is not logged in; user navigates to `/forgot-password`; user has a registered email address                                                                                                                                                                                      |
+| **Steps**           | 1. Navigate to forgot password page<br>2. Enter registered email address<br>3. Click "Send Reset Link" (or equivalent)<br>4. Wait for response<br>5. Check email inbox for password reset email<br>6. Confirm email contains reset link with token                                    |
+| **Expected Result** | Form accepts email. On submit, loading state. Success message (e.g. "If an account exists with this email, a password reset link has been sent."). Registered user receives email with valid reset link and secure token. Same message shown for non-existent email (no enumeration). |
 
-**Test Steps**:
+### UAT-6.2: Forgot password – email enumeration prevention
 
-1. Navigate to legal documents acceptance page
-2. Attempt to submit without checking any checkboxes
-3. Verify validation error
-4. Check only Terms of Service checkbox
-5. Attempt to submit
-6. Verify validation error
-7. Check only Privacy Policy checkbox
-8. Attempt to submit
-9. Verify validation error
-10. Check both checkboxes
-11. Submit successfully
-
-**Expected Results**:
-
-- ✅ Error message when no checkboxes checked: "You must accept both Terms of Service and Privacy Policy"
-- ✅ Error message when only TOS checked: "You must accept the Privacy Policy"
-- ✅ Error message when only Privacy checked: "You must accept the Terms of Service"
-- ✅ Form prevents submission until both are checked
-- ✅ Error messages are clear and actionable
-- ✅ User can proceed after accepting both documents
-
-**Test Data**:
-
-- Legal documents acceptance page
-- Various checkbox combinations
-
-**Priority**: Medium  
-**Requirement Reference**: Phase 7 - Legal Documents Validation
+| Field               | Value                                                                                                                                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is on forgot password page                                                                                                                                                                                               |
+| **Steps**           | 1. Submit with registered email → note success message<br>2. Submit with non-existent email → note success message<br>3. Confirm no indication that email does not exist<br>4. Confirm email only sent for registered address |
+| **Expected Result** | Same success message for both registered and non-existent emails. No indication whether email exists. Email sent only when account exists. Response timing similar to avoid timing-based enumeration.                         |
 
 ---
 
-### Scenario 9: Forgot Password - Happy Path
+## UAT-7: Reset Password
 
-**User Story**: As a user, I want to request a password reset email so I can reset my forgotten password.
+**Requirements:** Phase 7 - Reset Password, Phase 7 - Reset Password Validation, Phase 7 - Token Validation
 
-**Preconditions**:
+### UAT-7.1: Reset password – happy path
 
-- User is not logged in
-- User navigates to forgot password page (`/forgot-password`)
-- User has a registered email address
+| Field               | Value                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Preconditions**   | User has requested password reset and received reset email; user has valid reset token (e.g. from link)                                                                                                                                                                                                |
+| **Steps**           | 1. Open password reset link from email<br>2. Confirm reset password form is displayed with token in URL<br>3. Enter new password and confirm password (meeting strength requirements)<br>4. Click "Reset Password"<br>5. Wait for success<br>6. Confirm redirect to login and log in with new password |
+| **Expected Result** | Reset page loads with token. Form enforces password strength. On submit, loading state; redirect to `/login?message=password-reset-success`. Success message on login page. User can log in with new password; old password no longer works. Token invalidated after use.                              |
 
-**Test Steps**:
+### UAT-7.2: Reset password – validation errors
 
-1. Navigate to forgot password page
-2. Verify forgot password form is displayed
-3. Enter registered email address: "user@example.com"
-4. Click "Send Reset Link" button
-5. Verify loading state appears
-6. Verify success message appears
-7. Check email inbox for password reset email
-8. Verify email contains password reset link
-9. Verify link includes reset token
+| Field               | Value                                                                                                                                                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Preconditions**   | User is on reset password page with valid token                                                                                                                                                                                            |
+| **Steps**           | 1. Submit with empty password → verify error<br>2. Submit with weak password (e.g. "123") → verify error<br>3. Enter valid password and mismatched confirm → verify error<br>4. Enter matching valid passwords and submit → verify success |
+| **Expected Result** | Errors: "Password is required", weak password message, "Passwords do not match". Form blocks submission until valid matching passwords meeting requirements.                                                                               |
 
-**Expected Results**:
+### UAT-7.3: Reset password – invalid or expired token
 
-- ✅ Forgot password form displays correctly
-- ✅ Form accepts email input
-- ✅ Upon submission, user sees loading state
-- ✅ Success message: "If an account exists with this email, a password reset link has been sent."
-- ✅ Email is sent to registered email address (if account exists)
-- ✅ Password reset email contains valid reset link
-- ✅ Reset link includes secure token
-- ✅ Email provides clear instructions
-- ✅ Security: Same message shown for non-existent emails (prevents email enumeration)
-
-**Test Data**:
-
-- Registered email address
-- Non-existent email address (for security testing)
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Forgot Password
+| Field               | Value                                                                                                                                                                                                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User has reset link; token may be invalid or expired                                                                                                                                                                                                                                     |
+| **Steps**           | 1. Open reset page with invalid token → verify error<br>2. Attempt to submit new password → verify submission prevented or error<br>3. Open reset page with expired token → verify error<br>4. Request new reset email; use new token → verify reset succeeds; old token no longer works |
+| **Expected Result** | Invalid/expired token shows clear error (e.g. "Invalid or expired reset link. Please request a new password reset."). Form disabled or error state; link to request new reset provided. New token works; old token invalid.                                                              |
 
 ---
 
-### Scenario 10: Forgot Password - Email Enumeration Prevention
+## UAT-8: Admin Login
 
-**User Story**: As a system, I want to prevent email enumeration by showing the same message for all email addresses.
+**Requirements:** Phase 7 - Admin Login, Phase 7 - Admin Login Security
 
-**Preconditions**:
+### UAT-8.1: Admin login – happy path
 
-- User is on forgot password page
-- System has security measures in place
+| Field               | Value                                                                                                                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | Admin user exists with admin privileges; admin navigates to admin login page (`/admin`); admin has valid credentials                                                                                                                      |
+| **Steps**           | 1. Navigate to admin login page<br>2. Enter admin email and password<br>3. Click "Sign In"<br>4. Wait for success<br>5. Confirm redirect to admin dashboard<br>6. Confirm admin can access admin-only features                            |
+| **Expected Result** | Admin login form displays and accepts credentials. On submit, loading state; redirect to admin dashboard. Admin session established; admin privileges active; admin can access admin-only features. Regular users cannot use admin login. |
 
-**Test Steps**:
+### UAT-8.2: Admin login – invalid credentials and non-admin user
 
-1. Navigate to forgot password page
-2. Enter registered email address: "user@example.com"
-3. Submit form
-4. Verify success message
-5. Enter non-existent email address: "nonexistent@example.com"
-6. Submit form
-7. Verify same success message appears
-8. Verify no indication that email doesn't exist
-9. Check email inbox for registered email
-10. Verify no email sent for non-existent email
-
-**Expected Results**:
-
-- ✅ Same success message shown for all email addresses
-- ✅ No indication whether email exists or not
-- ✅ Email is only sent if account exists
-- ✅ Response time is similar for both cases (prevents timing attacks)
-- ✅ Security best practice is followed
-
-**Test Data**:
-
-- Registered email address
-- Non-existent email address
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Security
+| Field               | Value                                                                                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is on admin login page                                                                                                                                                                  |
+| **Steps**           | 1. Submit invalid email/password → verify error<br>2. Submit valid email but wrong password → verify error<br>3. Submit regular (non-admin) user credentials → verify error                  |
+| **Expected Result** | Generic errors (e.g. "Invalid email or password", "You do not have admin privileges"). No indication whether email exists. Admin session not established; user cannot access admin features. |
 
 ---
 
-### Scenario 11: Reset Password - Happy Path
+## UAT-9: Redirect Handling
 
-**User Story**: As a user, I want to reset my password using the link from my email so I can regain access to my account.
+**Requirements:** Phase 7 - Redirect Handling
 
-**Preconditions**:
+### UAT-9.1: Redirect handling – signup flow
 
-- User has requested password reset
-- User has received password reset email
-- User has valid reset token
+| Field               | Value                                                                                                                                                                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is completing full signup flow; API routes return redirect URLs                                                                                                                                                                                                            |
+| **Steps**           | 1. Complete signup → verify redirect to `/verify-email?email=...`<br>2. Complete email verification (e.g. click link) → verify redirect to `/join-code`<br>3. Complete join code → verify redirect to `/onboarding`<br>4. Complete onboarding → verify redirect to `/dashboard` |
+| **Expected Result** | Redirects occur automatically after each step. URLs and query params correct (e.g. email in verify-email). User cannot skip steps. Redirects smooth; browser history and back button behave appropriately.                                                                      |
 
-**Test Steps**:
+### UAT-9.2: Redirect handling – password reset flow
 
-1. Click password reset link from email
-2. Verify redirect to reset password page with token
-3. Verify reset password form is displayed
-4. Enter new password: "NewSecurePassword123!"
-5. Confirm new password: "NewSecurePassword123!"
-6. Click "Reset Password" button
-7. Verify loading state appears
-8. Verify success message appears
-9. Verify redirect to `/login?message=password-reset-success`
-10. Verify success message on login page
-11. Attempt to login with new password
-12. Verify login succeeds
-
-**Expected Results**:
-
-- ✅ Reset password page loads with token from URL
-- ✅ Form displays password and confirm password fields
-- ✅ Password strength requirements are enforced
-- ✅ Upon submission, user sees loading state
-- ✅ Success message appears
-- ✅ User is redirected to login page with success message
-- ✅ Success message on login page: "Your password has been reset successfully. Please log in with your new password."
-- ✅ User can login with new password
-- ✅ Old password no longer works
-- ✅ Reset token is invalidated after use
-
-**Test Data**:
-
-- Valid password reset token
-- Strong new password
-- Matching password confirmation
-
-**Priority**: Critical  
-**Requirement Reference**: Phase 7 - Reset Password
+| Field               | Value                                                                                                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User has completed password reset; API returns redirect URL                                                                                                                              |
+| **Steps**           | 1. Submit reset password form<br>2. Verify redirect to `/login?message=password-reset-success`<br>3. Verify success message on login page<br>4. Verify user can log in with new password |
+| **Expected Result** | Redirect after reset to login with message param. Success message displayed and parsed correctly. User can proceed to login; redirect is smooth.                                         |
 
 ---
 
-### Scenario 12: Reset Password - Validation Errors
+## UAT-10: React Query and Error Handling
 
-**User Story**: As a user, I want clear validation errors when I submit invalid password reset data.
+**Requirements:** Phase 7 - React Query Performance, Phase 7 - Error Handling
 
-**Preconditions**:
+### UAT-10.1: React Query caching and updates during auth
 
-- User is on reset password page with valid token
+| Field               | Value                                                                                                                                                                                                 |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is completing auth flows; React Query is configured                                                                                                                                              |
+| **Steps**           | 1. Submit signup (or other auth action) and observe loading/success state<br>2. Navigate between auth pages<br>3. Observe loading and cached behavior                                                 |
+| **Expected Result** | Loading states appear on submission; success state after completion. Navigation between auth pages smooth; cached data loads instantly where applicable; no unnecessary flicker or duplicate loading. |
 
-**Test Steps**:
+### UAT-10.2: Error handling – network errors
 
-1. Navigate to reset password page with token
-2. Attempt to submit with empty password
-3. Verify validation error
-4. Enter weak password: "123"
-5. Attempt to submit
-6. Verify validation error
-7. Enter password: "SecurePassword123!"
-8. Enter mismatched confirm password: "DifferentPassword123!"
-9. Attempt to submit
-10. Verify validation error
-11. Enter matching passwords
-12. Submit successfully
+| Field               | Value                                                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Preconditions**   | User is on an auth page; network can be disconnected                                                                                                                                 |
+| **Steps**           | 1. Fill out signup (or other) form<br>2. Disconnect network<br>3. Submit form<br>4. Verify error message<br>5. Reconnect network and submit again<br>6. Verify submission succeeds   |
+| **Expected Result** | User-friendly network error (e.g. "Network error. Please check your internet connection and try again."). User can retry after network restored. Form data preserved where possible. |
 
-**Expected Results**:
+### UAT-10.3: Error handling – API errors
 
-- ✅ Error message for empty password: "Password is required"
-- ✅ Error message for weak password: "Password must meet requirements (min length, complexity)"
-- ✅ Error message for mismatched passwords: "Passwords do not match"
-- ✅ Error messages are clear and actionable
-- ✅ Form prevents submission with invalid data
-- ✅ User can proceed after entering valid matching passwords
-
-**Test Data**:
-
-- Empty password
-- Weak passwords
-- Mismatched passwords
-- Valid matching passwords
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Reset Password Validation
+| Field               | Value                                                                                                                                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User can trigger various API errors (existing email, invalid join code, invalid reset token, server error)                                                                                                              |
+| **Steps**           | 1. Signup with existing email → verify specific error<br>2. Submit invalid join code → verify error<br>3. Submit reset with invalid token → verify error<br>4. If possible, trigger server error → verify error message |
+| **Expected Result** | Specific, user-friendly messages per error type with actionable guidance. Errors shown as toast or inline. Toast duration appropriate (e.g. 5 seconds). User can retry after fixing issues.                             |
 
 ---
 
-### Scenario 13: Reset Password - Invalid/Expired Token
+## UAT-11: Legal Document Tracking and User Status
 
-**User Story**: As a user, I want clear error messages when my password reset token is invalid or expired.
+**Requirements:** Phase 7 - Legal Document Tracking, Phase 7 - User Status Transitions
 
-**Preconditions**:
+### UAT-11.1: Legal document tracking (IP, user agent, versions)
 
-- User has password reset link
-- Token may be invalid or expired
+| Field               | Value                                                                                                                                                                                                                                                                |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is completing signup or OAuth flow with legal document acceptance                                                                                                                                                                                               |
+| **Steps**           | 1. Complete signup with legal acceptance; verify signup succeeds<br>2. Check database/logs for legal acceptance records<br>3. Verify IP, user agent, user ID, document versions, timestamps<br>4. Complete OAuth flow with legal acceptance and verify same tracking |
+| **Expected Result** | Legal acceptances recorded in database. IP address and user agent captured and stored. User ID linked; document versions and timestamps accurate. Tracking works for both email signup and OAuth.                                                                    |
 
-**Test Steps**:
+### UAT-11.2: User status transitions through auth flow
 
-1. Navigate to reset password page with invalid token
-2. Verify error message appears
-3. Attempt to submit new password
-4. Verify submission is prevented
-5. Navigate to reset password page with expired token
-6. Verify error message appears
-7. Request new password reset email
-8. Use new token
-9. Verify reset works with new token
-
-**Expected Results**:
-
-- ✅ Error message for invalid token: "Invalid or expired reset link. Please request a new password reset."
-- ✅ Error message for expired token: "This reset link has expired. Please request a new password reset."
-- ✅ Form is disabled or shows error state
-- ✅ Link to request new reset email is provided
-- ✅ User can request new reset email
-- ✅ New token works correctly
-- ✅ Old token is no longer valid
-
-**Test Data**:
-
-- Invalid reset token
-- Expired reset token
-- Valid reset token
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Token Validation
+| Field               | Value                                                                                                                                                                                                                                                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is completing full auth flow; status changes at each step                                                                                                                                                                                                                                                                                  |
+| **Steps**           | 1. Complete signup → verify status `pending_verification` and no dashboard access<br>2. Complete email verification → verify status `email_verified` and no dashboard access<br>3. Complete join community → verify status `incomplete_profile` and no dashboard access<br>4. Complete onboarding → verify status `active` and dashboard access |
+| **Expected Result** | Status transitions: `pending_verification` → `email_verified` → `incomplete_profile` → `active`. Each transition at correct step; user cannot skip steps or access dashboard until `active`. Middleware enforces status-based routing.                                                                                                          |
 
 ---
 
-### Scenario 14: Admin Login - Happy Path
+## UAT-12: Mobile and Concurrency
 
-**User Story**: As an admin, I want to log in with my admin credentials so I can access admin features.
+**Requirements:** Phase 7 - Mobile Support, Phase 7 - Concurrency Handling
 
-**Preconditions**:
+### UAT-12.1: Mobile responsiveness of auth forms
 
-- Admin user exists with admin privileges
-- Admin navigates to admin login page
-- Admin has valid credentials
+| Field               | Value                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User is on mobile device or mobile browser view                                                                                                                                                           |
+| **Steps**           | 1. Open app and navigate to signup, login, forgot password, reset password<br>2. Complete each form on mobile<br>3. Verify layout, touch targets, and keyboard behavior                                   |
+| **Expected Result** | All auth forms mobile-responsive; no horizontal scroll; inputs and buttons appropriately sized; buttons at least 44x44px; text readable; appropriate keyboard types; no cut-off or inaccessible elements. |
 
-**Test Steps**:
+### UAT-12.2: Concurrent auth actions (same email or token)
 
-1. Navigate to admin login page
-2. Verify admin login form is displayed
-3. Enter admin email: "admin@example.com"
-4. Enter admin password: "AdminPassword123!"
-5. Click "Sign In" button
-6. Verify loading state appears
-7. Verify success message or redirect occurs
-8. Verify redirect to admin dashboard
-9. Verify admin privileges are active
-10. Verify admin can access admin-only features
-
-**Expected Results**:
-
-- ✅ Admin login form displays correctly
-- ✅ Form accepts email and password
-- ✅ Upon submission, user sees loading state
-- ✅ Success message appears or redirect occurs
-- ✅ Admin is redirected to admin dashboard
-- ✅ Admin session is established
-- ✅ Admin privileges are active
-- ✅ Admin can access admin-only features
-- ✅ Regular users cannot access admin login
-
-**Test Data**:
-
-- Valid admin email and password
-- Admin user with proper privileges
-
-**Priority**: Critical  
-**Requirement Reference**: Phase 7 - Admin Login
-
----
-
-### Scenario 15: Admin Login - Invalid Credentials
-
-**User Story**: As a system, I want to prevent unauthorized access by rejecting invalid admin credentials.
-
-**Preconditions**:
-
-- User is on admin login page
-- User may or may not be an admin
-
-**Test Steps**:
-
-1. Navigate to admin login page
-2. Enter invalid email: "wrong@example.com"
-3. Enter password: "WrongPassword123!"
-4. Click "Sign In" button
-5. Verify error message appears
-6. Enter valid email but wrong password
-7. Click "Sign In" button
-8. Verify error message appears
-9. Enter regular user email (non-admin)
-10. Enter correct password
-11. Click "Sign In" button
-12. Verify error message appears
-
-**Expected Results**:
-
-- ✅ Error message for invalid credentials: "Invalid email or password"
-- ✅ Error message for non-admin user: "You do not have admin privileges"
-- ✅ Error messages are generic (don't reveal if email exists)
-- ✅ Form prevents access with invalid credentials
-- ✅ Admin session is not established
-- ✅ User cannot access admin features
-
-**Test Data**:
-
-- Invalid email/password combinations
-- Regular user credentials
-- Admin credentials
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Admin Login Security
-
----
-
-### Scenario 16: Redirect Handling - Signup Flow
-
-**User Story**: As a user, I want to be automatically redirected to the next step after completing each auth action.
-
-**Preconditions**:
-
-- User is completing signup flow
-- API routes return redirect URLs
-
-**Test Steps**:
-
-1. Complete signup form
-2. Submit signup
-3. Verify redirect to `/verify-email?email=...`
-4. Verify email is pre-filled in URL
-5. Complete email verification
-6. Verify redirect to `/join-code`
-7. Complete join code
-8. Verify redirect to `/onboarding`
-9. Complete onboarding
-10. Verify redirect to `/dashboard`
-
-**Expected Results**:
-
-- ✅ Redirects occur automatically after each step
-- ✅ Redirect URLs are correct for each step
-- ✅ Query parameters are preserved (e.g., email in verify-email URL)
-- ✅ User cannot skip steps
-- ✅ Redirects are smooth (no page flash)
-- ✅ Browser history is maintained correctly
-- ✅ Back button works appropriately
-
-**Test Data**:
-
-- Complete signup flow
-- All redirect URLs
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Redirect Handling
-
----
-
-### Scenario 17: Redirect Handling - Password Reset Flow
-
-**User Story**: As a user, I want to be redirected to login after successfully resetting my password.
-
-**Preconditions**:
-
-- User has reset password
-- API route returns redirect URL
-
-**Test Steps**:
-
-1. Complete password reset form
-2. Submit reset password
-3. Verify redirect to `/login?message=password-reset-success`
-4. Verify success message appears on login page
-5. Verify message parameter is displayed correctly
-6. Verify user can login with new password
-
-**Expected Results**:
-
-- ✅ Redirect occurs automatically after password reset
-- ✅ Redirect URL includes success message parameter
-- ✅ Success message is displayed on login page
-- ✅ Message parameter is parsed and displayed correctly
-- ✅ User can proceed to login
-- ✅ Redirect is smooth (no page flash)
-
-**Test Data**:
-
-- Password reset completion
-- Redirect URL with message parameter
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Redirect Handling
-
----
-
-### Scenario 18: React Query Caching and Updates
-
-**User Story**: As a user, I want instant feedback and smooth navigation during auth flows.
-
-**Preconditions**:
-
-- User is completing auth flows
-- React Query is configured
-
-**Test Steps**:
-
-1. Complete signup form
-2. Submit signup
-3. Verify optimistic update (if applicable)
-4. Verify loading state during submission
-5. Verify success state after completion
-6. Navigate between auth pages
-7. Verify cached data loads instantly (if applicable)
-8. Verify background refetch works correctly
-
-**Expected Results**:
-
-- ✅ Loading states appear immediately on submission
-- ✅ Optimistic updates provide instant feedback (if implemented)
-- ✅ Success states appear after completion
-- ✅ Navigation is smooth between auth pages
-- ✅ Cached data loads instantly (if applicable)
-- ✅ Background refetch ensures data freshness
-- ✅ No flickering or loading states on cached data
-
-**Test Data**:
-
-- Complete auth flows
-- Multiple page navigations
-
-**Priority**: Medium  
-**Requirement Reference**: Phase 7 - React Query Performance
-
----
-
-### Scenario 19: Error Handling - Network Errors
-
-**User Story**: As a user, I want clear error messages when network issues prevent auth actions.
-
-**Preconditions**:
-
-- User is on any auth page
-- Network can be disconnected
-
-**Test Steps**:
-
-1. Navigate to signup page
-2. Fill out signup form
-3. Disconnect network
-4. Submit form
-5. Verify error message appears
-6. Reconnect network
-7. Submit form again
-8. Verify submission succeeds
-
-**Expected Results**:
-
-- ✅ Network error message: "Network error. Please check your internet connection and try again."
-- ✅ Error message is user-friendly
-- ✅ User can retry after network is restored
-- ✅ Form data is preserved (if possible)
-- ✅ Error handling works for all auth actions
-
-**Test Data**:
-
-- Network disconnection
-- Various auth actions
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Error Handling
-
----
-
-### Scenario 20: Error Handling - API Errors
-
-**User Story**: As a user, I want clear error messages when API errors occur during auth actions.
-
-**Preconditions**:
-
-- User is completing auth actions
-- Various API errors can occur
-
-**Test Steps**:
-
-1. **Signup with existing email**:
-   - Enter existing email
-   - Submit signup
-   - Verify specific error message
-
-2. **Invalid join code**:
-   - Enter invalid join code
-   - Submit
-   - Verify error message
-
-3. **Invalid reset token**:
-   - Use invalid reset token
-   - Submit reset
-   - Verify error message
-
-4. **Server error**:
-   - Trigger server error (if possible)
-   - Verify error message
-
-**Expected Results**:
-
-- ✅ Specific error messages for each error type
-- ✅ Error messages are user-friendly (not technical)
-- ✅ Error messages include actionable guidance
-- ✅ All errors appear as toast notifications or inline messages
-- ✅ Error toast duration is appropriate (5 seconds)
-- ✅ User can retry after fixing issues
-
-**Test Data**:
-
-- Various error conditions
-- Invalid data
-- Server errors
-
-**Priority**: High  
-**Requirement Reference**: Phase 7 - Error Handling
-
----
-
-### Scenario 21: Legal Document Tracking
-
-**User Story**: As a system, I want to track legal document acceptances with IP and user agent for legal compliance.
-
-**Preconditions**:
-
-- User is completing signup or OAuth flow
-- Legal documents need to be accepted
-
-**Test Steps**:
-
-1. Complete signup with legal document acceptance
-2. Verify signup succeeds
-3. Check database/logs for legal document acceptance records
-4. Verify IP address is recorded
-5. Verify user agent is recorded
-6. Verify user ID is linked to acceptances
-7. Verify document versions are recorded
-8. Verify acceptance timestamps are accurate
-9. Complete OAuth flow with legal document acceptance
-10. Verify same tracking occurs
-
-**Expected Results**:
-
-- ✅ Legal document acceptances are recorded in database
-- ✅ IP address is captured and stored
-- ✅ User agent is captured and stored
-- ✅ User ID is linked to each acceptance
-- ✅ Document versions are recorded correctly
-- ✅ Acceptance timestamps are accurate
-- ✅ All required documents are tracked separately
-- ✅ Tracking works for both email signup and OAuth flows
-
-**Test Data**:
-
-- Signup with legal documents
-- OAuth flow with legal documents
-- Valid IP address and user agent
-
-**Priority**: Medium  
-**Requirement Reference**: Phase 7 - Legal Document Tracking
-
----
-
-### Scenario 22: User Status Transitions
-
-**User Story**: As a system, I want user status to transition correctly through the auth flow.
-
-**Preconditions**:
-
-- User is completing auth flow
-- User status changes at each step
-
-**Test Steps**:
-
-1. Complete signup
-2. Verify user status is `pending_verification`
-3. Verify user cannot access dashboard
-4. Complete email verification
-5. Verify user status is `email_verified`
-6. Verify user cannot access dashboard
-7. Complete join community
-8. Verify user status is `incomplete_profile`
-9. Verify user cannot access dashboard
-10. Complete onboarding
-11. Verify user status is `active`
-12. Verify user can access dashboard
-
-**Expected Results**:
-
-- ✅ User status transitions correctly: `pending_verification` → `email_verified` → `incomplete_profile` → `active`
-- ✅ Each status transition occurs at the correct step
-- ✅ User cannot skip steps
-- ✅ User cannot access dashboard until status is `active`
-- ✅ Status transitions are recorded in database
-- ✅ Middleware enforces status-based routing
-
-**Test Data**:
-
-- Complete auth flow
-- User status at each step
-
-**Priority**: Critical  
-**Requirement Reference**: Phase 7 - User Status Transitions
-
----
-
-### Scenario 23: Mobile Responsiveness
-
-**User Story**: As a mobile user, I want auth functionality to work correctly on mobile devices.
-
-**Preconditions**:
-
-- User is on mobile device or mobile browser view
-- User is completing auth flows
-
-**Test Steps**:
-
-1. Open app on mobile device
-2. Navigate to signup page
-3. Complete signup form on mobile
-4. Verify form is usable on mobile
-5. Navigate to login page
-6. Complete login form on mobile
-7. Navigate to forgot password page
-8. Complete forgot password form on mobile
-9. Navigate to reset password page
-10. Complete reset password form on mobile
-11. Verify all forms work correctly on mobile
-
-**Expected Results**:
-
-- ✅ All auth forms are mobile-responsive
-- ✅ Forms fit within mobile screen without horizontal scrolling
-- ✅ Input fields are appropriately sized for mobile
-- ✅ Buttons are easily tappable (at least 44x44 pixels)
-- ✅ Text is readable without zooming
-- ✅ Keyboard types are appropriate (email, password, etc.)
-- ✅ No UI elements are cut off or inaccessible
-- ✅ Touch targets meet accessibility standards
-
-**Test Data**:
-
-- Mobile device (iOS/Android)
-- Mobile browser view (Chrome DevTools)
-- All auth forms
-
-**Priority**: Medium  
-**Requirement Reference**: Phase 7 - Mobile Support
-
----
-
-### Scenario 24: Concurrent Auth Actions
-
-**User Story**: As a system, I want to handle concurrent auth actions correctly to prevent conflicts.
-
-**Preconditions**:
-
-- User can attempt multiple auth actions simultaneously
-
-**Test Steps**:
-
-1. Open signup page in Tab 1
-2. Open signup page in Tab 2
-3. Submit signup in Tab 1 with email: "user1@example.com"
-4. Submit signup in Tab 2 with same email: "user1@example.com"
-5. Verify system handles correctly
-6. Open reset password page with token in Tab 1
-7. Open reset password page with same token in Tab 2
-8. Submit reset in Tab 1
-9. Attempt to submit reset in Tab 2
-10. Verify system handles correctly
-
-**Expected Results**:
-
-- ✅ First action succeeds
-- ✅ Second action shows appropriate error or updated state
-- ✅ No duplicate accounts created
-- ✅ No duplicate password resets
-- ✅ Data remains consistent
-- ✅ Error messages are clear when actions conflict
-- ✅ No data corruption or inconsistent states
-
-**Test Data**:
-
-- Multiple browser tabs
-- Same email addresses
-- Same reset tokens
-
-**Priority**: Low  
-**Requirement Reference**: Phase 7 - Concurrency Handling
+| Field               | Value                                                                                                                                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Preconditions**   | User can open multiple tabs and attempt overlapping auth actions                                                                                                                                                                                                    |
+| **Steps**           | 1. Open signup in two tabs; submit same email in both → verify first succeeds, second gets appropriate error or state<br>2. Open reset password with same token in two tabs; submit in first then second → verify second handled correctly (error or updated state) |
+| **Expected Result** | First action succeeds; second shows appropriate error or updated state. No duplicate accounts or duplicate resets. Data consistent; clear messages on conflict; no corruption or inconsistent state.                                                                |
 
 ---
 
 ## Test Execution Checklist
 
-### Pre-Test Setup
+Use this checklist to track UAT progress during testing rounds.
 
-- [ ] Test environment is set up and accessible
-- [ ] Test user accounts are created (regular users, admins)
-- [ ] Test email service is configured and testable
-- [ ] Test join codes are available
-- [ ] API routes are deployed and functional
-- [ ] React Query hooks are implemented and working
-- [ ] Redirect handler utility is implemented
-- [ ] Legal documents are available in system
-- [ ] Better Auth is configured correctly
+| Test ID  | Description                                    | Status | Tester | Date | Notes |
+| -------- | ---------------------------------------------- | ------ | ------ | ---- | ----- |
+| UAT-1.1  | Signup with valid data and legal acceptance    |        |        |      |       |
+| UAT-2.1  | Signup validation errors                       |        |        |      |       |
+| UAT-3.1  | Resend verification – happy path               |        |        |      |       |
+| UAT-3.2  | Resend verification – rate limiting            |        |        |      |       |
+| UAT-4.1  | Join community with valid code                 |        |        |      |       |
+| UAT-4.2  | Join community – invalid/empty/expired code    |        |        |      |       |
+| UAT-5.1  | Accept legal documents (OAuth) – happy path    |        |        |      |       |
+| UAT-5.2  | Accept legal documents – validation            |        |        |      |       |
+| UAT-5.3  | Google signup – new user end-to-end            |        |        |      |       |
+| UAT-5.4  | Google login – existing active user            |        |        |      |       |
+| UAT-5.5  | Google callback – status-based redirect        |        |        |      |       |
+| UAT-5.6  | Google signup – user cancels or error          |        |        |      |       |
+| UAT-6.1  | Forgot password – happy path                   |        |        |      |       |
+| UAT-6.2  | Forgot password – email enumeration prevention |        |        |      |       |
+| UAT-7.1  | Reset password – happy path                    |        |        |      |       |
+| UAT-7.2  | Reset password – validation errors             |        |        |      |       |
+| UAT-7.3  | Reset password – invalid/expired token         |        |        |      |       |
+| UAT-8.1  | Admin login – happy path                       |        |        |      |       |
+| UAT-8.2  | Admin login – invalid/non-admin                |        |        |      |       |
+| UAT-9.1  | Redirect handling – signup flow                |        |        |      |       |
+| UAT-9.2  | Redirect handling – password reset             |        |        |      |       |
+| UAT-10.1 | React Query caching and updates                |        |        |      |       |
+| UAT-10.2 | Error handling – network errors                |        |        |      |       |
+| UAT-10.3 | Error handling – API errors                    |        |        |      |       |
+| UAT-11.1 | Legal document tracking                        |        |        |      |       |
+| UAT-11.2 | User status transitions                        |        |        |      |       |
+| UAT-12.1 | Mobile responsiveness                          |        |        |      |       |
+| UAT-12.2 | Concurrent auth actions                        |        |        |      |       |
 
-### Test Environment
-
-- **Environment**: Staging/Production
-- **Browser**: Chrome, Firefox, Safari (latest versions)
-- **Devices**: Desktop, Tablet, Mobile
-- **Database**: PostgreSQL with test data
-- **Email**: Test email service (Resend, etc.)
-
-### Test Execution
-
-- [ ] Execute all test scenarios
-- [ ] Document results (Pass/Fail/Blocked)
-- [ ] Capture screenshots for failures
-- [ ] Log defects/issues in issue tracker
-- [ ] Verify fixes and re-test failed scenarios
-- [ ] Test on multiple browsers
-- [ ] Test on mobile devices
-- [ ] Test email delivery
-- [ ] Test redirect handling
-
-### Post-Test Activities
-
-- [ ] Review all test results
-- [ ] Verify all critical scenarios passed
-- [ ] Document any known issues or limitations
-- [ ] Sign off on feature acceptance
-- [ ] Prepare test summary report
-- [ ] Verify performance metrics meet targets
-- [ ] Verify security measures are in place
+---
 
 ## Acceptance Criteria Summary
 
 The Phase 7 migration SHALL be considered accepted when:
 
-1. ✅ Signup works correctly with API routes and React Query
-2. ✅ Email verification and resend functionality works correctly
-3. ✅ Join community flow works with redirect handling
-4. ✅ Legal document acceptance (OAuth flow) works correctly
-5. ✅ Forgot password and reset password flows work correctly
-6. ✅ Admin login works with proper authorization
-7. ✅ Redirect handling works correctly for all auth flows
-8. ✅ React Query provides proper caching and updates
-9. ✅ Error handling provides clear user feedback
-10. ✅ All user status transitions work correctly
-11. ✅ Legal document tracking works correctly
-12. ✅ All auth functionality maintains existing behavior
-13. ✅ Security measures are in place (rate limiting, email enumeration prevention)
-14. ✅ Performance is acceptable with expected load
-15. ✅ Mobile experience is functional and responsive
+- Signup works with API routes and React Query (email and Google); email verification and resend work correctly
+- Join community flow works with redirect handling; legal document acceptance (OAuth) and Google signup/login flows work correctly
+- Forgot password and reset password flows work correctly; admin login works with proper authorization
+- Redirect handling is correct for all auth flows; React Query provides appropriate caching and updates
+- Error handling gives clear user feedback; all user status transitions and legal document tracking work correctly
+- Security measures in place (rate limiting, email enumeration prevention); mobile experience is functional and responsive
 
 ## Known Issues and Limitations
 
@@ -1165,10 +371,10 @@ _To be filled during test execution_
 
 ## Test Sign-Off
 
-- **Test Executor**: **\*\*\*\***\_**\*\*\*\*** Date: **\_\_\_**
-- **Business Stakeholder**: **\*\*\***\_**\*\*\*** Date: **\_\_\_**
-- **Product Owner**: **\*\*\***\_**\*\*\*** Date: **\_\_\_**
-- **Technical Lead**: **\*\*\***\_**\*\*\*** Date: **\_\_\_**
+- **Test Executor**: \_\_\_\_\_\_\_\_\_\_\_\_ Date: \_\_\_\_
+- **Business Stakeholder**: \_\_\_\_\_\_\_\_\_\_\_\_ Date: \_\_\_\_
+- **Product Owner**: \_\_\_\_\_\_\_\_\_\_\_\_ Date: \_\_\_\_
+- **Technical Lead**: \_\_\_\_\_\_\_\_\_\_\_\_ Date: \_\_\_\_
 
 ---
 

@@ -48,6 +48,9 @@ const SKIP_MIDDLEWARE_PATHS = [
   "/sitemap.xml",
 ];
 
+// Pages that are always accessible (no auth required; funnel users are not redirected away)
+const PUBLIC_PAGE_ROUTES = ["/support", "/help"];
+
 /**
  * Check if a path matches any of the protected route patterns
  */
@@ -67,6 +70,15 @@ function isAdminRoute(pathname: string): boolean {
  */
 function isPublicApiRoute(pathname: string): boolean {
   return PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route));
+}
+
+/**
+ * Check if path is a public page (support, help) that anyone can access
+ */
+function isPublicPageRoute(pathname: string): boolean {
+  return PUBLIC_PAGE_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/"),
+  );
 }
 
 /**
@@ -119,10 +131,9 @@ export async function proxy(request: NextRequest) {
     if (isAdminRoute(pathname)) {
       const adminUser = await getAdminUser();
       if (!adminUser) {
-        // Redirect to admin login if not admin
-        const adminLoginUrl = new URL("/admin", request.url);
-        adminLoginUrl.searchParams.set("callbackUrl", pathname);
-        return NextResponse.redirect(adminLoginUrl);
+        // Redirect to standard login (callbackUrl preserves intended admin path for after login)
+        const redirectUrl = createRedirectUrl(request);
+        return NextResponse.redirect(redirectUrl);
       }
       // Admin user accessing admin route - allow
       return NextResponse.next();
@@ -133,6 +144,10 @@ export async function proxy(request: NextRequest) {
 
     // Handle authenticated users
     if (user) {
+      // Allow public pages (support, help) regardless of verification/onboarding state
+      if (isPublicPageRoute(pathname)) {
+        return NextResponse.next();
+      }
       // FIRST: Always allow callback routes regardless of status
       if (
         VERIFICATION_CALLBACK_ROUTES.some((route) => pathname.startsWith(route))

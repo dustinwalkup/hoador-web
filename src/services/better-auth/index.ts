@@ -71,15 +71,20 @@ export const auth = betterAuth({
       const { sendVerificationEmail } =
         await import("@/services/resend/send-verification-email");
       /**
-       * There seems to be a bug in Better Auth where the callback url is not being set correctly.
-       * So we need to add the EMAIL_VERIFICATION_CALLBACK_URL to the url if the callback url is /
+       * Better Auth sometimes sends callbackURL=/ (or encoded %2F). Redirect to our
+       * email callback page so the user lands on /signup/email/callback after verification.
        */
       let emailVerificationUrl = url;
-      const callbackUrl = url.split("callbackURL=")[1];
-
-      if (callbackUrl === "/") {
-        // add the EMAIL_VERIFICATION_CALLBACK_URL to the url
-        emailVerificationUrl = url + EMAIL_VERIFICATION_CALLBACK_URL;
+      try {
+        const parsed = new URL(url);
+        const callbackParam = parsed.searchParams.get("callbackURL") ?? "";
+        const isRootCallback = callbackParam === "" || callbackParam === "/";
+        if (isRootCallback) {
+          parsed.searchParams.set("callbackURL", `/${EMAIL_VERIFICATION_CALLBACK_URL}`);
+          emailVerificationUrl = parsed.toString();
+        }
+      } catch {
+        // If URL parsing fails, use original url
       }
 
       try {
@@ -94,6 +99,11 @@ export const auth = betterAuth({
         console.error("Failed to send verification email:", error);
         // Don't throw - let user retry verification
       }
+    },
+    async afterEmailVerification(user) {
+      // Set app status so middleware routes to /join-code
+      const { userDAL } = await import("@/dal");
+      await userDAL.updateUserStatus(user.id, "email_verified");
     },
   },
 
