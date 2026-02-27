@@ -17,59 +17,63 @@ export default async function GoogleSignupCallback() {
     redirect("/login");
   }
 
-  // Check if user has accepted required legal documents
-  const [tosAccepted, privacyAccepted] = await Promise.all([
-    legalDocumentDAL.hasAcceptedCurrentVersion(
-      session.user.id,
-      LEGAL_DOCUMENT_IDS.TOS,
-    ),
-    legalDocumentDAL.hasAcceptedCurrentVersion(
-      session.user.id,
-      LEGAL_DOCUMENT_IDS.PRIVACY,
-    ),
-  ]);
-
-  // If required documents are not accepted, redirect to legal acceptance page
-  // Note: Community Guidelines is optional, so we don't check it here
-  if (!tosAccepted || !privacyAccepted) {
-    redirect("/signup/google/legal-acceptance");
-  }
-
   try {
-    // Fetch current user profile to check existing status
+    // Fetch user profile once; redirect by status before requiring legal acceptance
     const userProfile = await userDAL.getUserById(session.user.id);
-    const currentStatus = userProfile.status;
+    const status = userProfile.status;
 
-    // For new Google signups, status will be "pending_verification" (from DB default)
-    // Update to "email_verified" only if status is "pending_verification"
-    // For existing users (with status "active", "incomplete_profile", etc.), preserve their status
-    if (currentStatus === "pending_verification") {
-      await userDAL.updateUserStatus(session.user.id, "email_verified");
+    // Existing users: redirect by status and skip legal-acceptance
+    if (status === "active") {
+      if (session.user.image) {
+        await userDAL.updateUserProfilePhoto(
+          session.user.id,
+          session.user.image,
+        );
+      }
+      redirect("/dashboard");
+    }
+    if (status === "incomplete_profile") {
+      if (session.user.image) {
+        await userDAL.updateUserProfilePhoto(
+          session.user.id,
+          session.user.image,
+        );
+      }
+      redirect("/onboarding");
+    }
+    if (status === "email_verified") {
+      if (session.user.image) {
+        await userDAL.updateUserProfilePhoto(
+          session.user.id,
+          session.user.image,
+        );
+      }
+      redirect("/join-code");
     }
 
-    // Set user profile photo
+    // New Google signups (pending_verification): require legal acceptance
+    const [tosAccepted, privacyAccepted] = await Promise.all([
+      legalDocumentDAL.hasAcceptedCurrentVersion(
+        session.user.id,
+        LEGAL_DOCUMENT_IDS.TOS,
+      ),
+      legalDocumentDAL.hasAcceptedCurrentVersion(
+        session.user.id,
+        LEGAL_DOCUMENT_IDS.PRIVACY,
+      ),
+    ]);
+
+    if (!tosAccepted || !privacyAccepted) {
+      redirect("/signup/google/legal-acceptance");
+    }
+
+    await userDAL.updateUserStatus(session.user.id, "email_verified");
     if (session.user.image) {
       await userDAL.updateUserProfilePhoto(session.user.id, session.user.image);
     }
-
-    // Determine final status after potential update
-    const finalStatus =
-      currentStatus === "pending_verification"
-        ? "email_verified"
-        : currentStatus;
-
-    // Redirect based on final user status
-    // Match the middleware routing logic for each status
-    if (finalStatus === "active") {
-      redirect("/dashboard");
-    } else if (finalStatus === "incomplete_profile") {
-      redirect("/onboarding");
-    } else {
-      // email_verified, pending_verification, etc. -> join-code
-      redirect("/join-code");
-    }
+    redirect("/join-code");
   } catch (error) {
-    // Check if this is a redirect error - if so, re-throw it
+    // Re-throw redirect errors so Next.js handles them
     if (error && typeof error === "object" && "digest" in error) {
       const redirectError = error as { digest?: string };
       if (redirectError.digest?.startsWith("NEXT_REDIRECT")) {

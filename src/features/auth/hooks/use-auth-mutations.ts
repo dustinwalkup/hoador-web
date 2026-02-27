@@ -202,30 +202,3 @@ export function useResetPassword() {
     },
   });
 }
-
-/**
- * Hook for admin login
- */
-export function useAdminLogin() {
-  return useCreateMutation({
-    mutationFn: async (data: { email: string; password: string }) => {
-      const formData = new FormData();
-      formData.append("email", data.email);
-      formData.append("password", data.password);
-
-      const response = await fetch("/api/auth/admin-login", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to login");
-      }
-
-      const result = await response.json();
-      return result;
-    },
-    successMessage: "Login successful!",
-  });
-}

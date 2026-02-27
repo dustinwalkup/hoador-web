@@ -51,7 +51,7 @@ export async function sendResetPasswordEmail({
             </p>
             
             <div style="border-top: 1px solid #eee; margin-top: 40px; padding-top: 20px; font-size: 12px; color: #999; text-align: center;">
-              <p>This reset password link will expire in 15 minutes.</p>
+              <p>This reset password link will expire in 1 hour.</p>
               <p>If you didn't request a password reset, you can safely ignore this email.</p>
             </div>
           </body>
