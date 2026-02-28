@@ -58,11 +58,12 @@ test.describe("Google OAuth (E2E mock)", () => {
 
     await expect(page).toHaveURL(/\/join-code/);
 
+    // Wait for hydration to complete so keypresses aren't lost to a re-render.
+    await page.waitForLoadState("networkidle");
+
     const joinCodeInput = page.getByPlaceholder(/enter your join code/i);
     await joinCodeInput.click();
-    // Use pressSequentially so React's onChange fires (controlled input);
-    // fill() updates DOM only and react-hook-form state stays empty.
-    await joinCodeInput.pressSequentially(E2E_JOIN_CODE);
+    await joinCodeInput.pressSequentially(E2E_JOIN_CODE, { delay: 50 });
     await expect(joinCodeInput).toHaveValue(E2E_JOIN_CODE);
 
     const joinResponsePromise = page.waitForResponse(
@@ -71,6 +72,9 @@ test.describe("Google OAuth (E2E mock)", () => {
         res.request().method() === "POST",
       { timeout: 15_000 },
     );
+
+    // Re-verify the value survived any late re-renders before clicking.
+    await expect(joinCodeInput).toHaveValue(E2E_JOIN_CODE);
     await page.getByRole("button", { name: /join community/i }).click();
     const joinResponse = await joinResponsePromise;
     expect(

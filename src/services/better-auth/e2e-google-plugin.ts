@@ -1,9 +1,14 @@
 /**
  * E2E-only plugin: GET /api/auth/e2e-callback creates a session via Better Auth's
- * internalAdapter and setSessionCookie so the cookie format matches getSession().
+ * internalAdapter and redirects with the session cookie on the response.
  * Used when E2E_TEST=1; test redirects to this after intercepting Google OAuth.
- * Returns a NextResponse.redirect with Set-Cookie so the browser receives the
- * session on the redirect response (ctx.redirect() may not merge headers).
+ *
+ * Cookie strategy (belt-and-suspenders):
+ * 1. setSessionCookie → nextCookies() → cookies().set() registers the cookie in
+ *    Next.js's pending-cookie outbox. This works locally where toNextJsHandler
+ *    merges the outbox onto the returned response.
+ * 2. res.cookies.set() writes the cookie directly onto the NextResponse.redirect().
+ *    This covers CI / environments where the outbox is not merged.
  */
 import { NextResponse } from "next/server";
 import { APIError, createAuthEndpoint } from "better-auth/api";
@@ -112,23 +117,25 @@ export function e2eGoogleCallbackPlugin(): BetterAuthPlugin {
             }
 
             const session = await internalAdapter.createSession(user.id);
-            await setSessionCookie(ctx, { session, user });
-            ctx.context.setNewSession({ session, user });
 
-            // Return redirect with Set-Cookie so the browser gets the session.
-            // setSessionCookie sets on ctx.context.responseHeaders (Better Auth).
-            const responseHeaders = (
-              ctx as { context?: { responseHeaders?: Headers } }
-            ).context?.responseHeaders;
-            const setCookie =
-              responseHeaders?.get?.("set-cookie") ??
-              (
-                ctx as { response?: { headers?: Headers } }
-              ).response?.headers?.get?.("set-cookie");
-            const res = NextResponse.redirect(redirectUrl, 302);
-            if (setCookie) {
-              res.headers.set("set-cookie", setCookie);
+            // (1) Register via Better Auth so cookies().set() puts the token
+            //     into Next.js's pending-cookie outbox (works locally).
+            try {
+              await setSessionCookie(ctx, { session, user });
+            } catch {
+              // Swallow — direct cookie below is the fallback.
             }
+
+            // (2) Also write the cookie directly onto the redirect response
+            //     so it is present even when the outbox is not merged (CI).
+            const res = NextResponse.redirect(redirectUrl, 302);
+            res.cookies.set("better-auth.session_token", session.token, {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: "lax",
+              path: "/",
+              maxAge: 60 * 60 * 24 * 7,
+            });
             return res;
           } catch (err) {
             if (err instanceof APIError) throw err;
