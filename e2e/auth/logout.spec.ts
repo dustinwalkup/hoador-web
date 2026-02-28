@@ -15,11 +15,14 @@ test.describe("Logout and subsequent access", () => {
     await page.getByRole("menuitem", { name: /log out/i }).click();
 
     await expect(page).toHaveURL(/\//);
+    await page.waitForLoadState("networkidle");
 
-    // The server-side redirect (/dashboard → /login) can abort the navigation
-    // before any response arrives, causing net::ERR_ABORTED. Catch and verify
-    // the final URL instead.
-    await page.goto("/dashboard").catch(() => {});
-    await expect(page).toHaveURL(/\/login/);
+    // Use client-side navigation instead of page.goto because the server-side
+    // redirect (/dashboard → /login) fires so fast in CI that Chromium aborts
+    // the request before Playwright can observe it (net::ERR_ABORTED).
+    await page.evaluate(() => {
+      window.location.href = "/dashboard";
+    });
+    await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
   });
 });
