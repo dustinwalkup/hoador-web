@@ -52,6 +52,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
+      all: true, // include files even if never imported by tests
+      include: ["src/**/*.{ts,tsx}"], // include all TypeScript files for coverage
       // thresholds: {
       //   global: {
       //     lines: 70,
@@ -68,12 +70,34 @@ export default defineConfig({
       // },
       exclude: [
         "node_modules/",
-        "src/lib/utils/__tests__/",
         "src/test/",
+        "src/**/__tests__/**",
+        "src/**/*.test.{ts,tsx}",
+        "src/**/*.spec.{ts,tsx}",
         "**/*.d.ts",
         "**/*.config.*",
         "src/db/**",
         "**/*.schema.ts",
+        "src/app/**/*.tsx", // Next.js page files - just wrappers
+        "src/app/**/*.ts", // layouts, loading, not-found files
+        "src/components/ui/**", // shadcn primitives, not your logic
+        "src/services/better-auth/**", // third-party auth config
+        "src/instrumentation*.ts", // observability setup
+        "src/proxy.ts", // infra config
+        "src/**/index.ts", // barrel files, no logic
+        "src/**/*.schema.ts",
+        "src/**/*.types.ts",
+        "src/**/types.ts",
+        "src/**/*.d.ts",
+        "src/**/*.config.*",
+        "src/db/**",
+        "src/test/",
+        "src/lib/sentry/**", // observability glue
+        "src/services/vercel-blob/**", // thin SDK wrapper
+        "src/services/resend/**", // thin SDK wrapper
+        "src/app/api/test*/**", // test/dev routes
+        "src/app/test*/**",
+        "src/**/mock-*.ts", // mock data files
       ],
     },
   },
