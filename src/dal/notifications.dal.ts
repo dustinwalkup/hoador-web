@@ -345,7 +345,7 @@ export class NotificationDAL extends BaseDAL {
       const deletedNotifications = await this.db
         .delete(notifications)
         .where(lt(notifications.createdAt, cutoffDate))
-        .returning({ id: notifications.id });
+        .returning();
 
       return deletedNotifications.length;
     } catch (error) {

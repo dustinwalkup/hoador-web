@@ -68,6 +68,11 @@ export function ResetPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {mutation.isError && mutation.error?.message && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm text-red-600">{mutation.error.message}</p>
+        </div>
+      )}
       {/* New Password */}
       <div className="space-y-2">
         <Label htmlFor="password">New Password</Label>

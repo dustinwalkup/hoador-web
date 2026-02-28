@@ -32,9 +32,7 @@ describe("RentalAgreementDocumentDAL", () => {
         returning: mockReturning,
       });
 
-      vi.mocked(db.insert).mockReturnValue({
-        values: mockValues,
-      } as unknown as ReturnType<typeof db.insert>);
+      vi.mocked(db.insert).mockReturnValue({ values: mockValues } as any);
 
       const result = await rentalAgreementDocumentDAL.create(
         rentalRequestId,
@@ -55,9 +53,7 @@ describe("RentalAgreementDocumentDAL", () => {
         returning: mockReturning,
       });
 
-      vi.mocked(db.insert).mockReturnValue({
-        values: mockValues,
-      } as unknown as ReturnType<typeof db.insert>);
+      vi.mocked(db.insert).mockReturnValue({ values: mockValues } as any);
 
       await expect(
         rentalAgreementDocumentDAL.create(

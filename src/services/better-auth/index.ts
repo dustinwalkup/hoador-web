@@ -3,8 +3,10 @@ import { NextRequest } from "next/server";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createAuthMiddleware } from "better-auth/api";
 import { getSessionCookie as getSessionCookieFromCookies } from "better-auth/cookies";
+import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db/db";
 import { trackActivity } from "@/features/activity/lib/track-activity";
+import { e2eGoogleCallbackPlugin } from "./e2e-google-plugin";
 
 export const EMAIL_VERIFICATION_CALLBACK_URL = "signup/email/callback";
 
@@ -32,7 +34,11 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
     sendResetPassword: async ({ user, url }) => {
-      // Import Resend service
+      if (process.env.E2E_TEST === "1") {
+        const { captureEmail } = await import("@/test/e2e/email-capture");
+        captureEmail("reset", url);
+        return;
+      }
       const { sendResetPasswordEmail } =
         await import("@/services/resend/send-reset-password-email");
 
@@ -67,9 +73,6 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     expiresIn: 60 * 60 * 24, // 24 hours
     sendVerificationEmail: async ({ user, url }) => {
-      // Import Resend service
-      const { sendVerificationEmail } =
-        await import("@/services/resend/send-verification-email");
       /**
        * Better Auth sometimes sends callbackURL=/ (or encoded %2F). Redirect to our
        * email callback page so the user lands on /signup/email/callback after verification.
@@ -89,6 +92,14 @@ export const auth = betterAuth({
       } catch {
         // If URL parsing fails, use original url
       }
+
+      if (process.env.E2E_TEST === "1") {
+        const { captureEmail } = await import("@/test/e2e/email-capture");
+        captureEmail("verification", emailVerificationUrl);
+        return;
+      }
+      const { sendVerificationEmail } =
+        await import("@/services/resend/send-verification-email");
 
       try {
         await sendVerificationEmail({
@@ -118,6 +129,8 @@ export const auth = betterAuth({
       redirectURI: process.env.GOOGLE_CALLBACK_URL,
     },
   },
+
+  plugins: [e2eGoogleCallbackPlugin(), nextCookies()],
 
   // Track login activity for admin inactivity filtering
   hooks: {

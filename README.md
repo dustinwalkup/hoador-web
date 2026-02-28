@@ -42,6 +42,15 @@ npx web-push generate-vapid-keys
 
 Copy the keys into `.env.local` (or your deployment env). If these are unset, the push service will no-op and log a warning.
 
+## Auth E2E tests
+
+See **[docs/e2e-auth.md](docs/e2e-auth.md)** for full setup.
+
+1. Start Postgres: `docker compose up -d` (or `bun run e2e:db:up`).
+2. Run tests: `bun run test:e2e`.
+
+First time: copy `.env.test.example` to `.env.test` and set `BETTER_AUTH_SECRET`.
+
 ## Playwright (rental agreement PDF generation)
 
 Rental agreement PDF generation uses Playwright with Chromium only. For local development and CI, install Chromium:
@@ -55,16 +64,6 @@ npx playwright install chromium
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-Auth TODO:
-
-[x] handle users who try to login but haven't verified email
-[x] handle users who try to create an account, but haven't veriried email
-[x] handle users who try to create an account, but have an active account
-[x] profile photo upload borken
-[x] middleware, if user status is incomplete_profile, the only place they can go is /onboarding
-[ ] handle email signup callpack page with this error /signup/email/callback?error=invalid_token
-[ ] handle google signup callback page with this error /signup?error=join_code_not_found
 
 Need to update following env vars on staging:
 

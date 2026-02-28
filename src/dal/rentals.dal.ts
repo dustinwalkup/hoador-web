@@ -466,7 +466,7 @@ export class RentalDAL extends BaseDAL {
           paymentMethodId: formData.paymentMethodId || null,
           status: "pending",
         })
-        .returning({ id: rentalRequests.id });
+        .returning();
 
       return { id: rentalRequest.id };
     } catch (error) {

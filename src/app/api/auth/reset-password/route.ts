@@ -35,27 +35,13 @@ async function postHandler(request: NextRequest) {
     if (error) {
       console.error("Reset password error:", error);
 
-      // Handle specific error cases
-      if (
-        error.message?.includes("expired") ||
-        error.message?.includes("invalid")
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "This reset link has expired or is invalid. Please request a new one.",
-          },
-          { status: 400 },
-        );
-      }
-
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to reset password. Please try again.",
+          error:
+            "This reset link has expired or is invalid. Please request a new one.",
         },
-        { status: 500 },
+        { status: 400 },
       );
     }
 

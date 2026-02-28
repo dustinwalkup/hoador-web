@@ -262,14 +262,16 @@ export class LegalDocumentDAL extends BaseDAL {
 
     // Delete from database
     const { error: dbError } = await tryCatch(
-      this.db
-        .delete(legalDocuments)
-        .where(
-          and(
-            eq(legalDocuments.id, documentId),
-            eq(legalDocuments.version, version),
-          ),
-        ),
+      (async () => {
+        await this.db
+          .delete(legalDocuments)
+          .where(
+            and(
+              eq(legalDocuments.id, documentId),
+              eq(legalDocuments.version, version),
+            ),
+          );
+      })(),
     );
 
     if (dbError) {
@@ -304,17 +306,19 @@ export class LegalDocumentDAL extends BaseDAL {
     listingId?: string,
   ): Promise<void> {
     const { error } = await tryCatch(
-      this.db.insert(userLegalAcceptances).values({
-        userId,
-        documentId,
-        version,
-        rentalRequestId: rentalRequestId || null,
-        listingId: listingId || null,
-        ipAddress,
-        userAgent,
-        method,
-        acceptedAt: new Date(),
-      }),
+      (async () => {
+        await this.db.insert(userLegalAcceptances).values({
+          userId,
+          documentId,
+          version,
+          rentalRequestId: rentalRequestId || null,
+          listingId: listingId || null,
+          ipAddress,
+          userAgent,
+          method,
+          acceptedAt: new Date(),
+        });
+      })(),
     );
 
     if (error) {
@@ -338,16 +342,18 @@ export class LegalDocumentDAL extends BaseDAL {
     rentalRequestId?: string,
   ): Promise<void> {
     const { error } = await tryCatch(
-      this.db.insert(userLegalAcceptances).values({
-        userId,
-        documentId,
-        version,
-        rentalRequestId: rentalRequestId || null,
-        ipAddress,
-        userAgent,
-        method,
-        acceptedAt: new Date(),
-      }),
+      (async () => {
+        await this.db.insert(userLegalAcceptances).values({
+          userId,
+          documentId,
+          version,
+          rentalRequestId: rentalRequestId || null,
+          ipAddress,
+          userAgent,
+          method,
+          acceptedAt: new Date(),
+        });
+      })(),
     );
 
     if (error) {

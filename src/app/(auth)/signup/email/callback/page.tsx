@@ -14,15 +14,14 @@ export default async function EmailSignupCallback({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  // Get authenticated user session
-  const session = await getSession();
-  if (!session?.user) {
-    redirect("/login");
-  }
-
   const { error } = await searchParams;
   if (error) {
     redirect(`/signup?error=${error}`);
+  }
+
+  const session = await getSession();
+  if (!session?.user) {
+    redirect("/login");
   }
 
   try {

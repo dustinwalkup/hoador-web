@@ -6,6 +6,7 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   test: {
+    exclude: ["e2e/**", "**/node_modules/**"],
     onConsoleLog(log) {
       if (log.includes("NotSupportedError")) return false;
       if (log.includes("non-boolean attribute `fill`")) return false;

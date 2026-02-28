@@ -1,0 +1,16 @@
+/**
+ * E2E auth test constants. Must match src/db/seeds/e2e.seed.ts.
+ */
+export const E2E_JOIN_CODE = "E2E-JOIN-CODE";
+export const E2E_PASSWORD = "E2eTestPassword1!";
+
+export const E2E_USER_ACTIVE = "active@e2e.test";
+export const E2E_USER_EMAIL_VERIFIED = "email_verified@e2e.test";
+export const E2E_USER_INCOMPLETE = "incomplete@e2e.test";
+export const E2E_USER_UNVERIFIED = "unverified@e2e.test";
+export const E2E_USER_ADMIN = "admin@e2e.test";
+
+/** Used by E2E Google OAuth mock (code param). See src/lib/e2e-google-callback.ts */
+export const E2E_GOOGLE_CODE = "e2e-test-google";
+/** Default test user for Google OAuth (find-or-create by email). */
+export const E2E_GOOGLE_USER_EMAIL = "google@e2e.test";

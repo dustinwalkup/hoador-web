@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { redirect, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -39,7 +39,7 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
 
-    const { data: authResult, error: authError } = await tryCatch(
+    const { error: authError } = await tryCatch(
       signInEmail(data.email, data.password, callbackUrl),
     );
 
@@ -56,30 +56,26 @@ export function LoginForm() {
       } else {
         setError("Failed to sign in. Please try again.");
       }
+      setIsLoading(false);
+      return;
     }
 
-    if (authResult) {
-      redirect(callbackUrl);
-    }
-
-    setIsLoading(false);
+    // Full page navigation so dashboard (and proxy) see the new session and can
+    // apply status-based redirects (e.g. email_verified → /join-code).
+    window.location.replace(callbackUrl);
   };
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setError(null);
 
-    const { data: authResult, error: authError } = await tryCatch(
+    const { error: authError } = await tryCatch(
       signInSocial("google", callbackUrl),
     );
 
     if (authError) {
       setError("Failed to sign in with Google. Please try again.");
-    }
-
-    if (authResult) {
       setIsLoading(false);
-      redirect(callbackUrl);
     }
   };
 

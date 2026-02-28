@@ -334,7 +334,7 @@ export class CommunityDAL extends BaseDAL {
       const result = await this.db
         .delete(communities)
         .where(eq(communities.id, id))
-        .returning({ id: communities.id });
+        .returning();
 
       if (!result.length) {
         throw new NotFoundError("Community not found");
@@ -407,7 +407,7 @@ export class CommunityDAL extends BaseDAL {
             eq(communityMemberships.communityId, communityId),
           ),
         )
-        .returning({ id: communityMemberships.id });
+        .returning();
 
       if (!result.length) {
         throw new NotFoundError("Membership not found");
