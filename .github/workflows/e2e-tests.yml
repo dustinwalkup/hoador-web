@@ -3,7 +3,7 @@ name: E2E Tests
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, main]
   workflow_dispatch:
 
 concurrency:
@@ -47,10 +47,10 @@ jobs:
           E2E_TEST: "1"
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
           NEXT_PUBLIC_APP_URL: http://localhost:3001
-          BETTER_AUTH_SECRET: ${{ secrets.E2E_BETTER_AUTH_SECRET }}
+          BETTER_AUTH_SECRET: ${{ secrets.E2E_BETTER_AUTH_SECRET || 'e2e-fallback-auth-secret-32chars!' }}
           RESEND_API_KEY: ${{ secrets.E2E_RESEND_API_KEY }}
-          GOOGLE_CLIENT_ID: ${{ secrets.E2E_GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.E2E_GOOGLE_CLIENT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.E2E_GOOGLE_CLIENT_ID || 'e2e-placeholder-client-id' }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.E2E_GOOGLE_CLIENT_SECRET || 'e2e-placeholder-secret' }}
           GOOGLE_CALLBACK_URL: http://localhost:3001/api/auth/callback/google
           # Add any other env vars your app needs to start
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}

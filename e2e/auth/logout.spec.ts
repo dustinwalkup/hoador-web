@@ -16,7 +16,9 @@ test.describe("Logout and subsequent access", () => {
 
     await expect(page).toHaveURL(/\//);
 
-    await page.goto("/dashboard");
+    // Use "commit" because the server redirect (/dashboard → /login) can fire
+    // before the "load" event, causing net::ERR_ABORTED with the default wait.
+    await page.goto("/dashboard", { waitUntil: "commit" });
     await expect(page).toHaveURL(/\/login/);
   });
 });
