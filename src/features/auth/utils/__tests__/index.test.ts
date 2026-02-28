@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { signOut, signInEmail, signInSocial } from "../index";
+import {
+  signOut,
+  signInEmail,
+  signInSocial,
+  getSafeCallbackUrl,
+} from "../index";
 
 // Mock Better Auth client
 vi.mock("@/services/better-auth/client", () => ({
@@ -211,6 +216,43 @@ describe("index.ts", () => {
       // Act & Assert
       await expect(signInSocial(provider)).rejects.toThrow(
         "Failed to sign in with social provider",
+      );
+    });
+  });
+
+  describe("getSafeCallbackUrl", () => {
+    it("returns /dashboard for null or empty", () => {
+      expect(getSafeCallbackUrl(null)).toBe("/dashboard");
+      expect(getSafeCallbackUrl("")).toBe("/dashboard");
+      expect(getSafeCallbackUrl("   ")).toBe("/dashboard");
+    });
+
+    it("returns path for valid relative paths", () => {
+      expect(getSafeCallbackUrl("/dashboard")).toBe("/dashboard");
+      expect(getSafeCallbackUrl("/join-code")).toBe("/join-code");
+      expect(getSafeCallbackUrl("/dashboard/garage")).toBe("/dashboard/garage");
+    });
+
+    it("returns path for relative path with safe query string", () => {
+      expect(getSafeCallbackUrl("/dashboard?tab=settings")).toBe(
+        "/dashboard?tab=settings",
+      );
+    });
+
+    it("returns /dashboard for absolute URLs to prevent open redirect", () => {
+      expect(getSafeCallbackUrl("https://evil.com")).toBe("/dashboard");
+      expect(getSafeCallbackUrl("http://evil.com")).toBe("/dashboard");
+      expect(getSafeCallbackUrl("//evil.com")).toBe("/dashboard");
+    });
+
+    it("returns /dashboard for javascript or other schemes", () => {
+      expect(getSafeCallbackUrl("javascript:alert(1)")).toBe("/dashboard");
+      expect(getSafeCallbackUrl("data:text/html,<script>")).toBe("/dashboard");
+    });
+
+    it("returns /dashboard for path that contains colon to avoid protocol-relative", () => {
+      expect(getSafeCallbackUrl("/path?url=https://evil.com")).toBe(
+        "/dashboard",
       );
     });
   });

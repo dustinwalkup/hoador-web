@@ -33,6 +33,20 @@ async function postHandler(request: NextRequest) {
 
     if (error) {
       console.error("Forgot password error:", error);
+      const isRateLimit =
+        error.message?.includes("rate limit") ||
+        error.message?.includes("wait") ||
+        error.message?.toLowerCase().includes("too many");
+      if (isRateLimit) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Please wait before requesting another password reset email.",
+          },
+          { status: 429 },
+        );
+      }
       return NextResponse.json(
         {
           success: false,

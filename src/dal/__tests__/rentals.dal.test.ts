@@ -486,9 +486,11 @@ describe("RentalDAL", () => {
     it("should throw when request status is not pending", async () => {
       const requestId = "rental-request-123";
       const ownerId = "user-123";
-      const mockLimit = vi.fn().mockResolvedValue([
-        { ...mockRentalRequest, ownerId, status: "approved" },
-      ]);
+      const mockLimit = vi
+        .fn()
+        .mockResolvedValue([
+          { ...mockRentalRequest, ownerId, status: "approved" },
+        ]);
       const mockWhereSelect = vi.fn().mockReturnValue({
         limit: mockLimit,
       });
@@ -574,19 +576,15 @@ describe("RentalDAL", () => {
     });
 
     it("should throw when request status is not pending", async () => {
-      const mockLimit = vi.fn().mockResolvedValue([
-        { ...mockRentalRequest, status: "approved" },
-      ]);
+      const mockLimit = vi
+        .fn()
+        .mockResolvedValue([{ ...mockRentalRequest, status: "approved" }]);
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
       vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
 
       await expect(
-        rentalDAL.declineRentalRequest(
-          "req-1",
-          "Not available",
-          "owner-1",
-        ),
+        rentalDAL.declineRentalRequest("req-1", "Not available", "owner-1"),
       ).rejects.toThrow(/only pending requests can be declined/i);
     });
   });
@@ -1009,9 +1007,11 @@ describe("RentalDAL", () => {
       const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
       const mockWhere3 = vi.fn().mockResolvedValue([]);
       const mockFrom3 = vi.fn().mockReturnValue({ where: mockWhere3 });
-      const mockLimit4 = vi.fn().mockResolvedValue([
-        { id: "rental-record-123", damageReported: false },
-      ]);
+      const mockLimit4 = vi
+        .fn()
+        .mockResolvedValue([
+          { id: "rental-record-123", damageReported: false },
+        ]);
       const mockWhere4 = vi.fn().mockReturnValue({ limit: mockLimit4 });
       const mockFrom4 = vi.fn().mockReturnValue({ where: mockWhere4 });
 
@@ -1096,9 +1096,11 @@ describe("RentalDAL", () => {
       const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
       const mockWhere3 = vi.fn().mockResolvedValue([]);
       const mockFrom3 = vi.fn().mockReturnValue({ where: mockWhere3 });
-      const mockLimit4 = vi.fn().mockResolvedValue([
-        { id: "rental-record-123", damageReported: false },
-      ]);
+      const mockLimit4 = vi
+        .fn()
+        .mockResolvedValue([
+          { id: "rental-record-123", damageReported: false },
+        ]);
       const mockWhere4 = vi.fn().mockReturnValue({ limit: mockLimit4 });
       const mockFrom4 = vi.fn().mockReturnValue({ where: mockWhere4 });
 
@@ -1133,10 +1135,7 @@ describe("RentalDAL", () => {
       vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue(undefined);
       mockGetReviewByRentalId.mockResolvedValue(undefined);
 
-      const result = await rentalDAL.getRentalDetailsById(
-        rentalId,
-        "renter-1",
-      );
+      const result = await rentalDAL.getRentalDetailsById(rentalId, "renter-1");
 
       expect(result.canLeaveReview).toBe(true);
     });
@@ -1199,9 +1198,11 @@ describe("RentalDAL", () => {
     });
 
     it("should throw when status is not approved", async () => {
-      const mockLimit = vi.fn().mockResolvedValue([
-        { ...mockRentalRequest, ownerId: "user-123", status: "pending" },
-      ]);
+      const mockLimit = vi
+        .fn()
+        .mockResolvedValue([
+          { ...mockRentalRequest, ownerId: "user-123", status: "pending" },
+        ]);
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
       vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
@@ -1289,9 +1290,11 @@ describe("RentalDAL", () => {
     });
 
     it("should throw when status is not active", async () => {
-      const mockLimit = vi.fn().mockResolvedValue([
-        { ...mockRentalRequest, ownerId: "user-123", status: "approved" },
-      ]);
+      const mockLimit = vi
+        .fn()
+        .mockResolvedValue([
+          { ...mockRentalRequest, ownerId: "user-123", status: "approved" },
+        ]);
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
       vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
@@ -1390,8 +1393,8 @@ describe("RentalDAL", () => {
       vi.mocked(db.select).mockImplementation(() => {
         selectCallCount++;
         return selectCallCount === 1
-          ? { from: mockFrom } as any
-          : { from: mockFromUser } as any;
+          ? ({ from: mockFrom } as any)
+          : ({ from: mockFromUser } as any);
       });
       const result = await rentalDAL.getOverdueItemsForUser(ownerId);
       expect(result).toHaveLength(1);
@@ -1452,9 +1455,9 @@ describe("RentalDAL", () => {
       const mockFrom1 = vi.fn().mockReturnValue({
         innerJoin: mockInnerJoin1,
       });
-      const mockLimit2 = vi.fn().mockResolvedValue([
-        { imageUrl: "https://example.com/img.jpg" },
-      ]);
+      const mockLimit2 = vi
+        .fn()
+        .mockResolvedValue([{ imageUrl: "https://example.com/img.jpg" }]);
       const mockOrderBy2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
       const mockWhere2 = vi.fn().mockReturnValue({ orderBy: mockOrderBy2 });
       const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
@@ -1463,8 +1466,8 @@ describe("RentalDAL", () => {
       vi.mocked(db.select).mockImplementation(() => {
         selectCallCount++;
         return selectCallCount === 1
-          ? { from: mockFrom1 } as any
-          : { from: mockFrom2 } as any;
+          ? ({ from: mockFrom1 } as any)
+          : ({ from: mockFrom2 } as any);
       });
 
       const result = await rentalDAL.getRentalRequestById(requestId);
@@ -1510,7 +1513,8 @@ describe("RentalDAL", () => {
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
       vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
 
-      const result = await rentalDAL.getApprovedRentalCountForRenter("renter-1");
+      const result =
+        await rentalDAL.getApprovedRentalCountForRenter("renter-1");
 
       expect(result).toBe(5);
     });
@@ -1520,7 +1524,8 @@ describe("RentalDAL", () => {
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
       vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
 
-      const result = await rentalDAL.getApprovedRentalCountForRenter("renter-1");
+      const result =
+        await rentalDAL.getApprovedRentalCountForRenter("renter-1");
 
       expect(result).toBe(0);
     });
@@ -1559,7 +1564,9 @@ describe("RentalDAL", () => {
       let callCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
-        return callCount === 1 ? { from: mockFrom1 } as any : { from: mockFrom2 } as any;
+        return callCount === 1
+          ? ({ from: mockFrom1 } as any)
+          : ({ from: mockFrom2 } as any);
       });
 
       const result = await rentalDAL.getRentalRequestsByStatus(
@@ -1625,7 +1632,9 @@ describe("RentalDAL", () => {
       let callCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
-        return callCount === 1 ? { from: mockFrom1 } as any : { from: mockFrom2 } as any;
+        return callCount === 1
+          ? ({ from: mockFrom1 } as any)
+          : ({ from: mockFrom2 } as any);
       });
 
       const result = await rentalDAL.getLendingRequestsByStatus(
@@ -1740,7 +1749,9 @@ describe("RentalDAL", () => {
       let callCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
-        return callCount === 1 ? { from: mockFrom1 } as any : { from: mockFrom2 } as any;
+        return callCount === 1
+          ? ({ from: mockFrom1 } as any)
+          : ({ from: mockFrom2 } as any);
       });
 
       const result = await rentalDAL.getRentalsByStatus("approved", "renter-1");
@@ -1803,7 +1814,9 @@ describe("RentalDAL", () => {
       let callCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
-        return callCount === 1 ? { from: mockFrom1 } as any : { from: mockFrom2 } as any;
+        return callCount === 1
+          ? ({ from: mockFrom1 } as any)
+          : ({ from: mockFrom2 } as any);
       });
 
       const result = await rentalDAL.getLendingRentalsByStatus(
@@ -1965,8 +1978,8 @@ describe("RentalDAL", () => {
       vi.mocked(db.select).mockImplementation(() => {
         callCount++;
         return callCount === 1
-          ? { from: mockFrom1 } as any
-          : { from: mockFrom2 } as any;
+          ? ({ from: mockFrom1 } as any)
+          : ({ from: mockFrom2 } as any);
       });
 
       const result = await rentalDAL.getBookedDatesForListing("listing-1");
@@ -1982,9 +1995,9 @@ describe("RentalDAL", () => {
 
   describe("getSecurityDepositAuthId", () => {
     it("should return security deposit auth id when present", async () => {
-      const mockLimit = vi.fn().mockResolvedValue([
-        { securityDepositAuthId: "auth_123" },
-      ]);
+      const mockLimit = vi
+        .fn()
+        .mockResolvedValue([{ securityDepositAuthId: "auth_123" }]);
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
       vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
@@ -2028,8 +2041,9 @@ describe("RentalDAL", () => {
       });
       vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
 
-      const result =
-        await rentalDAL.getRentalsDueForPickupReminder(24 * 60 * 60 * 1000);
+      const result = await rentalDAL.getRentalsDueForPickupReminder(
+        24 * 60 * 60 * 1000,
+      );
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
@@ -2062,8 +2076,9 @@ describe("RentalDAL", () => {
       });
       vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
 
-      const result =
-        await rentalDAL.getRentalsDueForReturnReminder(24 * 60 * 60 * 1000);
+      const result = await rentalDAL.getRentalsDueForReturnReminder(
+        24 * 60 * 60 * 1000,
+      );
 
       expect(result).toHaveLength(1);
       expect(result[0].requestId).toBe("req-2");

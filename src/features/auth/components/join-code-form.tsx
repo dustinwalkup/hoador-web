@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Users } from "lucide-react";
@@ -9,11 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SESSION_EXPIRED_MESSAGE } from "../constants";
 import { useJoinCommunity } from "../hooks/use-auth-mutations";
 import { joinCodeSchema, type JoinCodeData } from "../schemas/auth-schemas";
 
 export function JoinCodeForm() {
+  const router = useRouter();
   const mutation = useJoinCommunity();
+
+  useEffect(() => {
+    if (
+      mutation.isError &&
+      mutation.error instanceof Error &&
+      mutation.error.message === SESSION_EXPIRED_MESSAGE
+    ) {
+      router.replace("/login?callbackUrl=/join-code");
+    }
+  }, [mutation.isError, mutation.error, router]);
 
   const {
     register,

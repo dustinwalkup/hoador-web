@@ -381,7 +381,7 @@ describe("route-helpers", () => {
         expect(result.status).toBe(401);
 
         const json = await result.json();
-        expect(json.error).toBe("Authentication required");
+        expect(json.error).toBe("Your session expired. Please sign in again.");
       }
     });
   });

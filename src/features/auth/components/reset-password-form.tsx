@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,9 @@ export function ResetPasswordForm() {
             Invalid reset link. Please request a new password reset.
           </p>
         </div>
+        <Button variant="link" className="text-primary" asChild>
+          <Link href="/forgot-password">Request a new reset link</Link>
+        </Button>
       </div>
     );
   }

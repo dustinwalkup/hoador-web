@@ -20,7 +20,32 @@ export const metadata: Metadata = {
   title: "Sign Up",
 };
 
-export default async function SignupPage() {
+const SIGNUP_ERROR_MESSAGES: Record<string, string> = {
+  invalid_token:
+    "This verification link is invalid. Please sign up again or request a new verification email.",
+  expired:
+    "This verification link has expired. Please request a new verification email from the verify-email page.",
+  already_verified:
+    "This email is already verified. You can sign in to your account.",
+  user_status_update_failed:
+    "We couldn't complete verification. Please try again or contact support.",
+  signup_failed:
+    "Something went wrong during sign up. Please try again or use a different sign-in method.",
+};
+
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error: errorCode } = await searchParams;
+  const errorMessage =
+    errorCode && SIGNUP_ERROR_MESSAGES[errorCode]
+      ? SIGNUP_ERROR_MESSAGES[errorCode]
+      : errorCode
+        ? "Something went wrong. Please try again."
+        : null;
+
   // Fetch current document URLs server-side
   const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
 
@@ -40,7 +65,10 @@ export default async function SignupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SignupForm documentUrls={documentUrls} />
+            <SignupForm
+              documentUrls={documentUrls}
+              errorMessage={errorMessage}
+            />
           </CardContent>
           <CardFooter className="flex flex-col items-center gap-4">
             <div className="text-muted-foreground text-center text-sm">

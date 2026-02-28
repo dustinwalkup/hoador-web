@@ -1,5 +1,29 @@
 import { authClient } from "@/services/better-auth/client";
 
+/** Default redirect after login when no valid callback is provided */
+const DEFAULT_CALLBACK_PATH = "/dashboard";
+
+/**
+ * Validates callbackUrl to prevent open redirects. Allows only same-origin
+ * relative paths (e.g. /dashboard, /join-code). Rejects absolute URLs,
+ * protocol-relative (//evil.com), and other schemes (e.g. javascript:).
+ */
+export function getSafeCallbackUrl(callbackUrl: string | null): string {
+  if (!callbackUrl || typeof callbackUrl !== "string") {
+    return DEFAULT_CALLBACK_PATH;
+  }
+  const trimmed = callbackUrl.trim();
+  if (
+    trimmed === "" ||
+    !trimmed.startsWith("/") ||
+    trimmed.startsWith("//") ||
+    trimmed.includes(":")
+  ) {
+    return DEFAULT_CALLBACK_PATH;
+  }
+  return trimmed;
+}
+
 export async function signOut(redirectTo?: string): Promise<void> {
   await authClient.signOut();
 
