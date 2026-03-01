@@ -1019,19 +1019,17 @@ describe("UserDAL", () => {
       const mockFromCount = vi.fn().mockReturnValue({
         where: mockWhereCount,
       });
-      const mockOffset = vi
-        .fn()
-        .mockResolvedValue([
-          {
-            id: "u1",
-            name: "User 1",
-            email: "u1@x.com",
-            status: "active",
-            userType: "standard",
-            createdAt: new Date(),
-            lastActiveAt: null,
-          },
-        ]);
+      const mockOffset = vi.fn().mockResolvedValue([
+        {
+          id: "u1",
+          name: "User 1",
+          email: "u1@x.com",
+          status: "active",
+          userType: "standard",
+          createdAt: new Date(),
+          lastActiveAt: null,
+        },
+      ]);
       const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
       const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
       const mockWhereRows = vi.fn().mockReturnValue({
