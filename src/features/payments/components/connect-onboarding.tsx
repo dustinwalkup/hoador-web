@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 import {
   ConnectAccountOnboarding,
   ConnectComponentsProvider,
@@ -9,6 +9,7 @@ import {
 import { loadConnectAndInitialize } from "@stripe/connect-js";
 import type { StripeConnectInstance } from "@stripe/connect-js";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -133,7 +134,38 @@ export function ConnectOnboarding({ onComplete }: ConnectOnboardingProps) {
           rentals. This process is secure and takes just a few minutes.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <Alert className="bg-primary/10">
+          <Info className="size-4" />
+          <AlertTitle className="text-primary font-semibold">
+            Before you start
+          </AlertTitle>
+          <AlertDescription>
+            <ol className="list-inside list-decimal space-y-1.5 text-sm">
+              <li>
+                <strong>Select &quot;Individual&quot;</strong> — most users are
+                individuals.
+              </li>
+              <li>
+                <strong>Website:</strong> enter <strong>hoador.com</strong>.
+              </li>
+              <li>
+                <strong>Name:</strong> use your legal name (as on your ID).
+              </li>
+              <li>
+                <strong>Date of birth &amp; SSN:</strong> enter your real
+                details — Stripe uses them for identity verification.
+              </li>
+              <li>
+                <strong>Payouts:</strong> use a bank account in your name.
+              </li>
+            </ol>
+          </AlertDescription>
+        </Alert>
+        <p className="text-muted-foreground text-sm">
+          Stripe verifies this information; mismatches can delay or block
+          payouts.
+        </p>
         <ConnectComponentsProvider connectInstance={connectInstance}>
           <ConnectAccountOnboarding onExit={handleComplete} />
         </ConnectComponentsProvider>
