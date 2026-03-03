@@ -1990,7 +1990,7 @@ export class ListingDAL extends BaseDAL {
             eq(listings.approvalStatus, "pending_review"),
           ),
         )
-        .returning({ id: listings.id });
+        .returning();
 
       // Check if update actually happened (optimistic lock check)
       if (result.length === 0) {

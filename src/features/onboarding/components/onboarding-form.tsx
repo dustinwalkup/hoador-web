@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+
+import { SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,10 +86,21 @@ export function OnboardingForm({
   userFirstName = "",
   userLastName = "",
 }: OnboardingFormProps) {
+  const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const completeOnboarding = useCompleteOnboarding();
   const isPending = completeOnboarding.isPending;
+
+  useEffect(() => {
+    if (
+      completeOnboarding.isError &&
+      completeOnboarding.error instanceof Error &&
+      completeOnboarding.error.message === SESSION_EXPIRED_MESSAGE
+    ) {
+      router.replace("/login?callbackUrl=/onboarding");
+    }
+  }, [completeOnboarding.isError, completeOnboarding.error, router]);
 
   // Form state
   const [formData, setFormData] = useState({

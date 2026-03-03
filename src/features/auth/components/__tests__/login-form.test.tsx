@@ -54,8 +54,10 @@ const { mockSignInEmail, mockSignInSocial } = vi.hoisted(() => {
   };
 });
 
-vi.mock("../../utils", () => {
+vi.mock("../../utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../utils")>();
   return {
+    ...actual,
     signInEmail: mockSignInEmail,
     signInSocial: mockSignInSocial,
   };
@@ -298,6 +300,97 @@ describe("LoginForm", () => {
       },
       { timeout: 2000 },
     );
+  });
+
+  it("should show network error message when sign in fails with fetch error", async () => {
+    mockSignInEmail.mockRejectedValueOnce(new Error("Failed to fetch"));
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.type(screen.getByLabelText(/email/i), "test@example.com");
+    await user.type(
+      screen.getByPlaceholderText(/enter your password/i),
+      "pass",
+    );
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/we couldn't reach the server/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("should show email not verified message when sign in fails with email not verified", async () => {
+    mockSignInEmail.mockRejectedValueOnce(new Error("email not verified"));
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.type(screen.getByLabelText(/email/i), "test@example.com");
+    await user.type(
+      screen.getByPlaceholderText(/enter your password/i),
+      "pass",
+    );
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/please verify your email address before signing in/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("should show generic sign in error for unknown auth errors", async () => {
+    mockSignInEmail.mockRejectedValueOnce(
+      new Error("Something unexpected happened"),
+    );
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.type(screen.getByLabelText(/email/i), "test@example.com");
+    await user.type(
+      screen.getByPlaceholderText(/enter your password/i),
+      "pass",
+    );
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/failed to sign in\. please try again/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("should show network error when Google sign in fails with fetch error", async () => {
+    mockSignInSocial.mockRejectedValueOnce(new Error("Failed to fetch"));
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.click(
+      screen.getByRole("button", { name: /continue with google/i }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/we couldn't reach the server/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("should show generic error when Google sign in fails with non-network error", async () => {
+    mockSignInSocial.mockRejectedValueOnce(new Error("Google sign in failed"));
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.click(
+      screen.getByRole("button", { name: /continue with google/i }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/failed to sign in with google\. please try again/i),
+      ).toBeInTheDocument();
+    });
   });
 
   it("should disable form during loading", async () => {

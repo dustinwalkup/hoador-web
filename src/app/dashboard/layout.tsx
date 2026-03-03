@@ -6,6 +6,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { PageHeaderProvider } from "@/contexts/page-header-context";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -13,7 +15,13 @@ export default async function DashboardLayout({
 }) {
   // Dashboard always requires authentication
   const user = await getCurrentUser();
-  if (!user) redirect("/");
+  if (!user) redirect("/login?callbackUrl=/dashboard");
+
+  // Status-based redirects (backstop for proxy; ensures correct redirect in all runtimes)
+  if (!user.emailVerified || user.status === "pending_verification")
+    redirect("/verify-email");
+  if (user.status === "email_verified") redirect("/join-code");
+  if (user.status === "incomplete_profile") redirect("/onboarding");
 
   return (
     <SidebarProvider>

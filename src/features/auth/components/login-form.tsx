@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { redirect, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { loginSchema, type LoginData } from "../schemas/auth-schemas";
 import { GoogleIcon } from "../../../../public/svg/google-icon";
-import { signInEmail, signInSocial } from "../utils";
+import { signInEmail, signInSocial, getSafeCallbackUrl } from "../utils";
 import { AnimatedFormField } from "./animated-form-field";
 
 export function LoginForm() {
@@ -24,7 +24,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
 
   const {
     register,
@@ -39,13 +39,22 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
 
-    const { data: authResult, error: authError } = await tryCatch(
+    const { error: authError } = await tryCatch(
       signInEmail(data.email, data.password, callbackUrl),
     );
 
     if (authError) {
-      // Handle specific Better Auth errors
-      if (authError.message?.includes("email not verified")) {
+      // Network/timeout vs auth errors
+      const isNetworkError =
+        authError.message === "Failed to fetch" ||
+        authError.name === "TypeError" ||
+        authError.message?.toLowerCase().includes("network") ||
+        authError.message?.toLowerCase().includes("timeout");
+      if (isNetworkError) {
+        setError(
+          "We couldn't reach the server. Check your connection and try again.",
+        );
+      } else if (authError.message?.includes("email not verified")) {
         setError("Please verify your email address before signing in.");
       } else if (
         authError.message?.includes("invalid") ||
@@ -56,30 +65,35 @@ export function LoginForm() {
       } else {
         setError("Failed to sign in. Please try again.");
       }
+      setIsLoading(false);
+      return;
     }
 
-    if (authResult) {
-      redirect(callbackUrl);
-    }
-
-    setIsLoading(false);
+    // Full page navigation so dashboard (and proxy) see the new session and can
+    // apply status-based redirects (e.g. email_verified → /join-code).
+    window.location.replace(callbackUrl);
   };
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setError(null);
 
-    const { data: authResult, error: authError } = await tryCatch(
+    const { error: authError } = await tryCatch(
       signInSocial("google", callbackUrl),
     );
 
     if (authError) {
-      setError("Failed to sign in with Google. Please try again.");
-    }
-
-    if (authResult) {
+      const isNetworkError =
+        authError.message === "Failed to fetch" ||
+        authError.name === "TypeError" ||
+        authError.message?.toLowerCase().includes("network") ||
+        authError.message?.toLowerCase().includes("timeout");
+      setError(
+        isNetworkError
+          ? "We couldn't reach the server. Check your connection and try again."
+          : "Failed to sign in with Google. Please try again.",
+      );
       setIsLoading(false);
-      redirect(callbackUrl);
     }
   };
 

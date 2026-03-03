@@ -12,6 +12,7 @@ import {
   Building2,
   ArrowRightLeft,
   Shield,
+  ShieldAlert,
   Database,
   FileCode,
   ListChecks,
@@ -109,6 +110,25 @@ const apiRoutes = [
     path: "POST /api/rentals/[id]/approve",
     purpose: "Approve rental, charge, authorize deposit, create payment record",
   },
+  {
+    path: "POST /api/disputes",
+    purpose: "Create dispute (renter or provider)",
+  },
+  { path: "GET /api/disputes/[id]", purpose: "Get dispute by ID" },
+  {
+    path: "PATCH /api/disputes/[id]/state",
+    purpose: "Admin state transition (evidence_requested, under_review, etc.)",
+  },
+  {
+    path: "POST /api/disputes/[id]/resolve",
+    purpose: "Admin resolve with outcome and financial operations",
+  },
+  {
+    path: "POST /api/disputes/[id]/evidence",
+    purpose: "Upload dispute evidence",
+  },
+  { path: "GET /api/disputes/[id]/audit", purpose: "Dispute audit log" },
+  { path: "POST /api/disputes/[id]/notes", purpose: "Admin internal notes" },
 ];
 
 const keyFiles = [
@@ -159,6 +179,46 @@ const keyFiles = [
   {
     label: "Earnings and Payouts UI",
     path: "src/features/payments/components/earnings-and-payouts-page-client.tsx",
+  },
+  { label: "Dispute DAL", path: "src/dal/dispute.dal.ts" },
+  { label: "Disputes schema", path: "src/db/schemas/disputes.schema.ts" },
+  {
+    label: "Dispute financial service",
+    path: "src/services/stripe/dispute-financial.ts",
+  },
+  {
+    label: "Resolve dispute route",
+    path: "src/app/api/disputes/[id]/resolve/route.ts",
+  },
+  {
+    label: "Dispute state machine",
+    path: "src/features/disputes/lib/state-machine.ts",
+  },
+  {
+    label: "Admin resolution panel",
+    path: "src/features/disputes/components/admin-resolution-panel.tsx",
+  },
+];
+
+const disputeFinancialOperationsTable = [
+  {
+    operation: "refund_full / refund_partial",
+    stripeEffect:
+      "Stripe refund created on rental PaymentIntent (refunds.create).",
+    dbEffect:
+      "Row in dispute_financial_operations. payments row is NOT updated (refundedAt, refundAmount, status stay unchanged).",
+  },
+  {
+    operation: "hold_payout",
+    stripeEffect: "None.",
+    dbEffect:
+      "Row in dispute_financial_operations only. Not enforced — Stripe still pays out to connected account; no app or Stripe hold.",
+  },
+  {
+    operation: "capture_deposit",
+    stripeEffect:
+      "Security deposit PaymentIntent captured (captureSecurityDeposit).",
+    dbEffect: "Row in dispute_financial_operations with stripeOperationId.",
   },
 ];
 
@@ -571,6 +631,233 @@ export default function HowItWorksPaymentsPage() {
             <strong>Status enum:</strong> payment_status in _enums.ts (pending,
             processing, succeeded, completed, failed, refunded).
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Section: Disputes */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldAlert className="size-5" />
+            Disputes
+          </CardTitle>
+          <CardDescription>
+            Current implementation and payment effects of dispute resolution
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="mb-2 text-sm font-medium">Current implementation</p>
+            <ul className="list-inside list-disc space-y-1 text-sm">
+              <li>
+                <strong>In-app disputes only:</strong> Disputes are created via
+                the app (renter or provider), not from Stripe cardholder
+                chargebacks. Schema has{" "}
+                <code className="bg-muted rounded px-1.5 py-0.5">
+                  stripeChargebackId
+                </code>{" "}
+                on disputes but it is never set; webhooks handle only{" "}
+                <code className="bg-muted rounded px-1.5 py-0.5">
+                  account.updated
+                </code>{" "}
+                /{" "}
+                <code className="bg-muted rounded px-1.5 py-0.5">
+                  account.closed
+                </code>{" "}
+                — no{" "}
+                <code className="bg-muted rounded px-1.5 py-0.5">
+                  charge.dispute.*
+                </code>
+                .
+              </li>
+              <li>
+                <strong>Lifecycle:</strong> One dispute per rental;{" "}
+                <code className="bg-muted rounded px-1.5 py-0.5">
+                  POST /api/disputes
+                </code>{" "}
+                ; state machine: open → evidence_requested → under_review →
+                resolved → closed. Rate limits (3/month, 10/year), time windows
+                by reason code, evidence deadlines; admin-only resolution.
+              </li>
+              <li>
+                <strong>Resolution:</strong>{" "}
+                <code className="bg-muted rounded px-1.5 py-0.5">
+                  POST /api/disputes/[id]/resolve
+                </code>{" "}
+                (admin) accepts outcome, reason, and optional
+                financialOperations; StripeDisputeService runs ops in order,
+                then dispute marked resolved.
+              </li>
+            </ul>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-medium">
+              Payment effects (financial operations)
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[500px] border-collapse text-sm">
+                <thead>
+                  <tr className="bg-muted/50 border-b">
+                    <th className="px-3 py-2 text-left font-medium">
+                      Operation
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      Stripe effect
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      DB / audit effect
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {disputeFinancialOperationsTable.map((row) => (
+                    <tr
+                      key={row.operation}
+                      className="hover:bg-muted/30 border-b last:border-0"
+                    >
+                      <td className="px-3 py-2 font-medium">{row.operation}</td>
+                      <td className="px-3 py-2">{row.stripeEffect}</td>
+                      <td className="px-3 py-2">{row.dbEffect}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Refunds do not update the{" "}
+              <code className="bg-muted rounded px-1.5 py-0.5">payments</code>{" "}
+              table. Hold payout is audit-only and not enforced.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Section: Disputes — Gaps and improvement checklist */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldAlert className="size-5" />
+            Disputes: Gaps and Improvement Checklist
+          </CardTitle>
+          <CardDescription>
+            Scenarios the code does not handle that users could realistically
+            trigger, and future work
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-inside list-disc space-y-3 text-sm">
+            <li>
+              <strong>Payments table out of sync</strong>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: After a dispute refund, payments.refundedAt,
+                  refundAmount, refundReason, status are never updated.
+                </li>
+                <li>
+                  Improvement: After successful refund in
+                  StripeDisputeService.createRefund, update payment row (e.g.
+                  PaymentDAL.updateRefund()).
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Double refund / over-refund</strong>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: No check that payment has not already been fully refunded
+                  or that sum of partial refunds does not exceed payment amount.
+                </li>
+                <li>
+                  Improvement: Before creating a refund, check existing
+                  dispute_financial_operations and total refunded vs payment
+                  amount; reject or cap.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Stripe cardholder chargebacks</strong>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: If customer disputes with their bank, Stripe emits
+                  charge.dispute.created; app does not handle;
+                  disputes.stripeChargebackId never set.
+                </li>
+                <li>
+                  Improvement: Handle Stripe dispute webhooks; create or link
+                  internal dispute and set stripeChargebackId; consider
+                  auto-hold or alerts.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Hold payout not enforced</strong>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: &quot;Hold payout&quot; only creates an audit record;
+                  Stripe still pays out to connected account.
+                </li>
+                <li>
+                  Improvement: Document as policy/audit-only until Stripe
+                  Reserve or manual process exists; or implement actual hold.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Application fee on refunds</strong>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: For destination charges, platform takes application fee;
+                  Stripe refund behavior on fee/transfer reversal should be
+                  confirmed.
+                </li>
+                <li>
+                  Improvement: Verify Stripe refund behavior for destination
+                  charges; add transfer reversal if needed.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Idempotency</strong>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: Resolve endpoint and financial operations have no
+                  idempotency key; duplicate submissions could run ops twice.
+                </li>
+                <li>
+                  Improvement: Idempotency keys on POST
+                  /api/disputes/[id]/resolve and/or idempotent checks in
+                  executeOperation.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Release deposit</strong>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: releaseSecurityDeposit exists in rental-payments but no
+                  financial operation type for &quot;release deposit&quot; in
+                  disputes (only capture_deposit).
+                </li>
+                <li>
+                  Improvement: Add release_deposit operation type and wire in
+                  resolve flow if product requires it.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Webhook sync</strong>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: No handling of charge.refunded / payment_intent.refunded
+                  to sync payments status when refund is created outside app.
+                </li>
+                <li>
+                  Improvement: Optional webhook handler to update payments when
+                  Stripe reports a refund.
+                </li>
+              </ul>
+            </li>
+          </ul>
         </CardContent>
       </Card>
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
+import { SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { userDAL } from "@/dal";
 import { onboardingSchema } from "@/features/onboarding/schemas/validation";
@@ -15,7 +16,7 @@ async function postHandler(request: NextRequest) {
     const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json(
-        { error: "Authentication required" },
+        { error: SESSION_EXPIRED_MESSAGE },
         { status: 401 },
       );
     }

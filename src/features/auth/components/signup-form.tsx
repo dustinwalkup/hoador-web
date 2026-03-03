@@ -26,9 +26,11 @@ interface SignupFormProps {
     tos: string;
     privacy: string;
   };
+  /** User-friendly message from URL (e.g. verification link expired) */
+  errorMessage?: string | null;
 }
 
-export function SignupForm({ documentUrls }: SignupFormProps) {
+export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const mutation = useSignup();
@@ -96,6 +98,11 @@ export function SignupForm({ documentUrls }: SignupFormProps) {
         },
       }}
     >
+      {errorMessage && (
+        <Alert variant="destructive">
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      )}
       {/* Google Sign Up Button */}
       <AnimatedFormField delay={300}>
         <motion.div

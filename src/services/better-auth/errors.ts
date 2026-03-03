@@ -24,15 +24,25 @@ export function handleBetterAuthSignInError(context: ErrorContext) {
 
   // If email not verified, redirect to verify email page
   if (context.error.code === "EMAIL_NOT_VERIFIED") {
-    const requestBody = JSON.parse(context.request.body as string);
-    const email = requestBody.email;
-
-    window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
+    let email: string | undefined;
+    try {
+      const body =
+        typeof context.request?.body === "string"
+          ? context.request.body
+          : undefined;
+      const requestBody = body
+        ? (JSON.parse(body) as { email?: string })
+        : null;
+      email = requestBody?.email;
+    } catch {
+      email = undefined;
+    }
+    const query = email ? `?email=${encodeURIComponent(email)}` : "";
+    window.location.href = `/verify-email${query}`;
   }
 
   // Handle specific error cases
   if (context.error?.message?.includes("email not verified")) {
-    // Redirect to email verification page
-    window.location.href = "/auth/verify-email";
+    window.location.href = "/verify-email";
   }
 }

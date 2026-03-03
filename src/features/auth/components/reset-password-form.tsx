@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,9 @@ export function ResetPasswordForm() {
             Invalid reset link. Please request a new password reset.
           </p>
         </div>
+        <Button variant="link" className="text-primary" asChild>
+          <Link href="/forgot-password">Request a new reset link</Link>
+        </Button>
       </div>
     );
   }
@@ -68,6 +72,11 @@ export function ResetPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {mutation.isError && mutation.error?.message && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm text-red-600">{mutation.error.message}</p>
+        </div>
+      )}
       {/* New Password */}
       <div className="space-y-2">
         <Label htmlFor="password">New Password</Label>

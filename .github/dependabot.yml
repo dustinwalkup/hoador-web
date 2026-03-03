@@ -8,6 +8,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
+    target-branch: "develop"
     open-pull-requests-limit: 10
     assignees:
       - "dustinwalkup"
@@ -25,6 +26,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
+    target-branch: "develop"
     open-pull-requests-limit: 5
     assignees:
       - "dustinwalkup"

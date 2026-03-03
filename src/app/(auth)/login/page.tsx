@@ -43,6 +43,14 @@ export default async function LoginPage({
                 />
               </div>
             )}
+            {params.message === "session-expired" && (
+              <div className="mb-4">
+                <SuccessMessage
+                  title="Session expired"
+                  description="Your session may have expired. Please sign in again, or use the verify-email page to resend your confirmation link."
+                />
+              </div>
+            )}
             <LoginForm />
           </CardContent>
           <CardFooter className="flex flex-col items-center gap-4">

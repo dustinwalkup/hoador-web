@@ -126,6 +126,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // E2E: proxy runs in Edge and cannot use E2E DB (Node pg). Let protected routes
+  // through so dashboard layout (Node) does auth and status-based redirects.
+  if (process.env.E2E_TEST === "1" && isProtectedRoute(pathname)) {
+    return NextResponse.next();
+  }
+
   try {
     // Check admin routes first - require admin privileges
     if (isAdminRoute(pathname)) {
@@ -179,19 +185,21 @@ export async function proxy(request: NextRequest) {
         return NextResponse.next();
       }
 
-      // Handle email_verified users (need to join community)
+      // Handle email_verified users (need to join community).
+      // Allow /dashboard through so dashboard layout (Node runtime) can redirect;
+      // layout is source of truth when proxy may run in Edge with different DB/session.
       if (user.status === "email_verified") {
-        // Redirect to join-code page to join community
+        if (pathname.startsWith("/dashboard")) return NextResponse.next();
         if (pathname !== "/join-code") {
           const joinCodeUrl = new URL("/join-code", request.url);
           return NextResponse.redirect(joinCodeUrl);
         }
-        // Allow access to join-code
         return NextResponse.next();
       }
 
-      // Handle incomplete_profile users
+      // Handle incomplete_profile users (same: allow /dashboard for layout redirect).
       if (user.status === "incomplete_profile") {
+        if (pathname.startsWith("/dashboard")) return NextResponse.next();
         if (pathname !== "/onboarding" && pathname !== "/api/onboarding") {
           const onboardingUrl = new URL("/onboarding", request.url);
           return NextResponse.redirect(onboardingUrl);

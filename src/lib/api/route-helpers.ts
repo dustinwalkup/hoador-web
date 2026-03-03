@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import { SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 import {
   getCurrentUserId,
   requireAuth,
@@ -309,7 +310,7 @@ export async function getAuthenticatedUserResponse(): Promise<
   const result = await getAuthenticatedUser();
   if (!result) {
     return NextResponse.json(
-      { error: "Authentication required" },
+      { error: SESSION_EXPIRED_MESSAGE },
       { status: 401 },
     );
   }

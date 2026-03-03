@@ -57,7 +57,7 @@ export function SimpleVerifyEmailForm({ email }: SimpleVerifyEmailFormProps) {
           {showSuccess && (
             <Alert className="bg-primary/5 border-primary/50 border">
               <CheckCircle className="text-primary! h-4 w-4" />
-              <AlertDescription>
+              <AlertDescription className="text-primary!">
                 Verification email sent! Please check your inbox.
               </AlertDescription>
             </Alert>
