@@ -110,7 +110,10 @@ const apiRoutes = [
     path: "POST /api/rentals/[id]/approve",
     purpose: "Approve rental, charge, authorize deposit, create payment record",
   },
-  { path: "POST /api/disputes", purpose: "Create dispute (renter or provider)" },
+  {
+    path: "POST /api/disputes",
+    purpose: "Create dispute (renter or provider)",
+  },
   { path: "GET /api/disputes/[id]", purpose: "Get dispute by ID" },
   {
     path: "PATCH /api/disputes/[id]/state",
@@ -661,7 +664,11 @@ export default function HowItWorksPaymentsPage() {
                 <code className="bg-muted rounded px-1.5 py-0.5">
                   account.closed
                 </code>{" "}
-                — no <code className="bg-muted rounded px-1.5 py-0.5">charge.dispute.*</code>.
+                — no{" "}
+                <code className="bg-muted rounded px-1.5 py-0.5">
+                  charge.dispute.*
+                </code>
+                .
               </li>
               <li>
                 <strong>Lifecycle:</strong> One dispute per rental;{" "}
@@ -741,58 +748,113 @@ export default function HowItWorksPaymentsPage() {
           <ul className="list-inside list-disc space-y-3 text-sm">
             <li>
               <strong>Payments table out of sync</strong>
-              <ul className="ml-4 list-disc text-muted-foreground">
-                <li>Gap: After a dispute refund, payments.refundedAt, refundAmount, refundReason, status are never updated.</li>
-                <li>Improvement: After successful refund in StripeDisputeService.createRefund, update payment row (e.g. PaymentDAL.updateRefund()).</li>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: After a dispute refund, payments.refundedAt,
+                  refundAmount, refundReason, status are never updated.
+                </li>
+                <li>
+                  Improvement: After successful refund in
+                  StripeDisputeService.createRefund, update payment row (e.g.
+                  PaymentDAL.updateRefund()).
+                </li>
               </ul>
             </li>
             <li>
               <strong>Double refund / over-refund</strong>
-              <ul className="ml-4 list-disc text-muted-foreground">
-                <li>Gap: No check that payment has not already been fully refunded or that sum of partial refunds does not exceed payment amount.</li>
-                <li>Improvement: Before creating a refund, check existing dispute_financial_operations and total refunded vs payment amount; reject or cap.</li>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: No check that payment has not already been fully refunded
+                  or that sum of partial refunds does not exceed payment amount.
+                </li>
+                <li>
+                  Improvement: Before creating a refund, check existing
+                  dispute_financial_operations and total refunded vs payment
+                  amount; reject or cap.
+                </li>
               </ul>
             </li>
             <li>
               <strong>Stripe cardholder chargebacks</strong>
-              <ul className="ml-4 list-disc text-muted-foreground">
-                <li>Gap: If customer disputes with their bank, Stripe emits charge.dispute.created; app does not handle; disputes.stripeChargebackId never set.</li>
-                <li>Improvement: Handle Stripe dispute webhooks; create or link internal dispute and set stripeChargebackId; consider auto-hold or alerts.</li>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: If customer disputes with their bank, Stripe emits
+                  charge.dispute.created; app does not handle;
+                  disputes.stripeChargebackId never set.
+                </li>
+                <li>
+                  Improvement: Handle Stripe dispute webhooks; create or link
+                  internal dispute and set stripeChargebackId; consider
+                  auto-hold or alerts.
+                </li>
               </ul>
             </li>
             <li>
               <strong>Hold payout not enforced</strong>
-              <ul className="ml-4 list-disc text-muted-foreground">
-                <li>Gap: &quot;Hold payout&quot; only creates an audit record; Stripe still pays out to connected account.</li>
-                <li>Improvement: Document as policy/audit-only until Stripe Reserve or manual process exists; or implement actual hold.</li>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: &quot;Hold payout&quot; only creates an audit record;
+                  Stripe still pays out to connected account.
+                </li>
+                <li>
+                  Improvement: Document as policy/audit-only until Stripe
+                  Reserve or manual process exists; or implement actual hold.
+                </li>
               </ul>
             </li>
             <li>
               <strong>Application fee on refunds</strong>
-              <ul className="ml-4 list-disc text-muted-foreground">
-                <li>Gap: For destination charges, platform takes application fee; Stripe refund behavior on fee/transfer reversal should be confirmed.</li>
-                <li>Improvement: Verify Stripe refund behavior for destination charges; add transfer reversal if needed.</li>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: For destination charges, platform takes application fee;
+                  Stripe refund behavior on fee/transfer reversal should be
+                  confirmed.
+                </li>
+                <li>
+                  Improvement: Verify Stripe refund behavior for destination
+                  charges; add transfer reversal if needed.
+                </li>
               </ul>
             </li>
             <li>
               <strong>Idempotency</strong>
-              <ul className="ml-4 list-disc text-muted-foreground">
-                <li>Gap: Resolve endpoint and financial operations have no idempotency key; duplicate submissions could run ops twice.</li>
-                <li>Improvement: Idempotency keys on POST /api/disputes/[id]/resolve and/or idempotent checks in executeOperation.</li>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: Resolve endpoint and financial operations have no
+                  idempotency key; duplicate submissions could run ops twice.
+                </li>
+                <li>
+                  Improvement: Idempotency keys on POST
+                  /api/disputes/[id]/resolve and/or idempotent checks in
+                  executeOperation.
+                </li>
               </ul>
             </li>
             <li>
               <strong>Release deposit</strong>
-              <ul className="ml-4 list-disc text-muted-foreground">
-                <li>Gap: releaseSecurityDeposit exists in rental-payments but no financial operation type for &quot;release deposit&quot; in disputes (only capture_deposit).</li>
-                <li>Improvement: Add release_deposit operation type and wire in resolve flow if product requires it.</li>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: releaseSecurityDeposit exists in rental-payments but no
+                  financial operation type for &quot;release deposit&quot; in
+                  disputes (only capture_deposit).
+                </li>
+                <li>
+                  Improvement: Add release_deposit operation type and wire in
+                  resolve flow if product requires it.
+                </li>
               </ul>
             </li>
             <li>
               <strong>Webhook sync</strong>
-              <ul className="ml-4 list-disc text-muted-foreground">
-                <li>Gap: No handling of charge.refunded / payment_intent.refunded to sync payments status when refund is created outside app.</li>
-                <li>Improvement: Optional webhook handler to update payments when Stripe reports a refund.</li>
+              <ul className="text-muted-foreground ml-4 list-disc">
+                <li>
+                  Gap: No handling of charge.refunded / payment_intent.refunded
+                  to sync payments status when refund is created outside app.
+                </li>
+                <li>
+                  Improvement: Optional webhook handler to update payments when
+                  Stripe reports a refund.
+                </li>
               </ul>
             </li>
           </ul>
