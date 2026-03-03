@@ -63,7 +63,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Upload HTML coverage report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-html
           path: coverage/
@@ -100,7 +100,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: build-files
           path: .next/
