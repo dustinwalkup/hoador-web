@@ -162,6 +162,13 @@
       "when": 1771872312692,
       "tag": "0022_nervous_leopardon",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1772000000000,
+      "tag": "0023_reset_stripe_fields",
+      "breakpoints": true
     }
   ]
 }
