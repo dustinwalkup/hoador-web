@@ -57,7 +57,7 @@ jobs:
           OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: playwright-report
