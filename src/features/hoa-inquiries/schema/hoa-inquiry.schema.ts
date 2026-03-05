@@ -20,7 +20,13 @@ export const hoaInquirySchema = z.object({
     .string()
     .min(1, "Email is required")
     .email("Please enter a valid email address"),
-  phone: z.string().optional(),
+  phone: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || val === "" || val.replace(/\D/g, "").length >= 10,
+      { message: "Phone number must be at least 10 digits" },
+    ),
   hoaContactName: z.string().optional(),
   hoaContactEmail: z
     .string()
@@ -29,7 +35,13 @@ export const hoaInquirySchema = z.object({
       (val) => !val || val === "" || z.string().email().safeParse(val).success,
       { message: "Please enter a valid email address" },
     ),
-  hoaContactPhone: z.string().optional(),
+  hoaContactPhone: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || val === "" || val.replace(/\D/g, "").length >= 10,
+      { message: "Phone number must be at least 10 digits" },
+    ),
 });
 
 export type HoaInquiryFormData = z.infer<typeof hoaInquirySchema>;

@@ -146,6 +146,58 @@ describe("hoaInquirySchema", () => {
     });
   });
 
+  describe("phone validation", () => {
+    it("should reject phone with fewer than 10 digits", () => {
+      const result = hoaInquirySchema.safeParse({
+        ...validData,
+        phone: "12345",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should accept phone with 10 digits", () => {
+      const result = hoaInquirySchema.safeParse({
+        ...validData,
+        phone: "5551234567",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should accept empty phone", () => {
+      const result = hoaInquirySchema.safeParse({
+        ...validData,
+        phone: "",
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("hoaContactPhone validation", () => {
+    it("should reject hoaContactPhone with fewer than 10 digits", () => {
+      const result = hoaInquirySchema.safeParse({
+        ...validData,
+        hoaContactPhone: "123",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should accept hoaContactPhone with 10 digits", () => {
+      const result = hoaInquirySchema.safeParse({
+        ...validData,
+        hoaContactPhone: "5559876543",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should accept empty hoaContactPhone", () => {
+      const result = hoaInquirySchema.safeParse({
+        ...validData,
+        hoaContactPhone: "",
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
   describe("max length validation", () => {
     it("should reject hoaName exceeding 255 characters", () => {
       const result = hoaInquirySchema.safeParse({
