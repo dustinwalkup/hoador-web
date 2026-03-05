@@ -15,11 +15,13 @@ import { HOME_PAGE, structuredData } from "@/constants/home";
 import StaggeredChildren, {
   StaggeredItem,
 } from "@/components/homepage/staggered-children";
+import { RequestHoadorButton } from "@/features/hoa-inquiries/components/request-hoador-button";
 
 // Base URL - Update this with your production domain
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hoador.com";
 
-const { hero, valueProp, community, howItWorks, cta } = HOME_PAGE;
+const { hero, requestHoador, valueProp, community, howItWorks, cta } =
+  HOME_PAGE;
 
 // Comprehensive metadata for SEO
 export const metadata: Metadata = {
@@ -142,9 +144,24 @@ export default function HomePage() {
         </section>
       </FadeIn>
 
+      {/* Request Hoador Section */}
+      <AnimatedSection className="mobile-padding py-16 md:py-20">
+        <div className="container mx-auto flex flex-col items-center justify-center text-center">
+          <div className="max-w-2xl">
+            <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">
+              {requestHoador.title}
+            </h2>
+            <p className="text-muted-foreground mb-6 text-lg">
+              {requestHoador.description}
+            </p>
+            <RequestHoadorButton label={requestHoador.buttonLabel} />
+          </div>
+        </div>
+      </AnimatedSection>
+
       {/* Value Proposition */}
       <AnimatedSection
-        className="mobile-padding py-16 md:py-24"
+        className="mobile-padding bg-primary-light py-16 md:py-24"
         parallax={true}
         parallaxOffset={30}
       >
@@ -177,7 +194,7 @@ export default function HomePage() {
       </AnimatedSection>
 
       {/* Community Section */}
-      <div className="bg-accent mobile-padding py-16 md:py-24">
+      <div className="mobile-padding py-16 md:py-24">
         <AnimatedSection>
           <div className="container mx-auto flex flex-col items-center justify-center">
             <div className="mb-16 max-w-3xl text-center">
@@ -220,7 +237,7 @@ export default function HomePage() {
 
       {/* How It Works */}
       <AnimatedSection
-        className="mobile-padding py-16 md:py-24"
+        className="mobile-padding bg-accent py-16 md:py-24"
         parallax
         parallaxOffset={20}
       >
@@ -265,14 +282,7 @@ export default function HomePage() {
               {cta.title}
             </h2>
             <p className="mb-8 text-xl opacity-90">{cta.description} </p>
-            <Button
-              asChild
-              size="lg"
-              variant="secondary"
-              className="rounded-full"
-            >
-              <Link href="/signup">{cta.buttonLabel}</Link>
-            </Button>
+            <RequestHoadorButton label={cta.buttonLabel} variant="secondary" />
           </div>
         </div>
       </AnimatedSection>

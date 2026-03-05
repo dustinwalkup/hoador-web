@@ -58,9 +58,16 @@ export interface CtaConstants {
   readonly buttonLabel: string;
 }
 
+export interface RequestHoadorConstants {
+  readonly title: string;
+  readonly description: string;
+  readonly buttonLabel: string;
+}
+
 export interface HomePageConstants {
   readonly header: HeaderConstants;
   readonly hero: HeroConstants;
+  readonly requestHoador: RequestHoadorConstants;
   readonly valueProp: ValuePropConstants;
   readonly community: CommunityConstants;
   readonly howItWorks: HowItWorksConstants;
@@ -78,6 +85,12 @@ export const HOME_PAGE: HomePageConstants = {
     description:
       "Borrow tools or offer simple services to neighbors—earn money, save time, and strengthen your community",
     inputPlaceholder: "What are you looking for?",
+  },
+  requestHoador: {
+    title: "Request Hoador for Your Community",
+    description:
+      "Want Hoador in your neighborhood? Let us know about your HOA and we'll work to bring tool sharing to your community.",
+    buttonLabel: "Request Hoador for Your Community",
   },
   valueProp: {
     title: "Get the Tools You Need—Right in Your Neighborhood",
@@ -167,7 +180,7 @@ export const HOME_PAGE: HomePageConstants = {
   cta: {
     title: "Ready to join your neighborhood marketplace?",
     description: "Sign up today and start sharing tools with your neighbors",
-    buttonLabel: "Get started",
+    buttonLabel: "Request Hoador for Your Community",
   },
 };
 

@@ -1,10 +1,11 @@
 export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 
-import { listingDAL } from "@/dal";
+import { listingDAL, legalDocumentDAL } from "@/dal";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import type { ListingDetails } from "@/dal/types";
 import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 import { BackButton } from "@/components/back-button";
 import { AddListingForm } from "@/features/listings/components/listing-form/add-listing-form";
@@ -51,9 +52,23 @@ export default async function EditListingPage({
   const currentUser = await getCurrentUser();
   if (!currentUser) return notFound();
   const { id } = await params;
-  const listing = await listingDAL.getListingById(id, currentUser.id);
+
+  const [listing, categories, documentVersions] = await Promise.all([
+    listingDAL.getListingById(id, currentUser.id),
+    listingDAL.getListingCategories(),
+    legalDocumentDAL.getAllCurrentVersions(),
+  ]);
+
   if (!listing) return notFound();
-  const categories = await listingDAL.getListingCategories();
+
+  const ownerPolicyDocuments = {
+    safetyLiabilityPackage:
+      documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE] ?? null,
+    prohibitedItemsAndListingContent:
+      documentVersions[
+        LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT
+      ] ?? null,
+  };
 
   const initialValues = mapListingToFormData(listing);
 
@@ -71,6 +86,7 @@ export default async function EditListingPage({
       <AddListingForm
         categories={categories}
         initialValues={initialValues}
+        ownerPolicyDocuments={ownerPolicyDocuments}
         isEdit
         listingId={id}
       />

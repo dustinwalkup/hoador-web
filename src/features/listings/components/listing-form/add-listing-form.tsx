@@ -25,7 +25,10 @@ import { PricingSection } from "./pricing-section";
 import { PhotosSection } from "./photos-section";
 import { PickupDeliverySection } from "./pickup-delivery-section";
 import { AdditionalDetailsSection } from "./additional-details-section";
-import { LegalDocumentAcknowledgments } from "./legal-document-acknowledgments";
+import {
+  LegalDocumentAcknowledgments,
+  type OwnerPolicyDocuments,
+} from "./legal-document-acknowledgments";
 
 interface Category {
   id: string;
@@ -37,6 +40,7 @@ interface Category {
 interface AddListingFormProps {
   categories: Category[];
   initialValues?: Partial<CreateListingFormDataClientType>;
+  ownerPolicyDocuments?: OwnerPolicyDocuments;
   onSubmit?: (
     data: Omit<
       CreateListingFormDataClientType,
@@ -54,6 +58,7 @@ interface AddListingFormProps {
 export function AddListingForm({
   categories,
   initialValues,
+  ownerPolicyDocuments,
   onSubmit,
   isEdit,
   listingId,
@@ -382,13 +387,16 @@ export function AddListingForm({
           />
         </div>
 
-        <LegalDocumentAcknowledgments control={control} />
+        <LegalDocumentAcknowledgments
+          control={control}
+          ownerPolicyDocuments={ownerPolicyDocuments}
+        />
 
         {/* Review Notice */}
         {!isEdit && (
-          <Alert>
+          <Alert className="bg-primary/10">
             <Info className="h-4 w-4" />
-            <AlertDescription>
+            <AlertDescription className="text-primary">
               Your listing will be reviewed by an admin before being published.
               You&apos;ll receive a notification once it&apos;s approved.
             </AlertDescription>

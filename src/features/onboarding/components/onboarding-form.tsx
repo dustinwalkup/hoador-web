@@ -22,20 +22,7 @@ import type { OnboardingData } from "../schemas/validation";
 import { useCompleteOnboarding } from "../hooks/use-onboarding-mutation";
 import { ProfileImageUpload } from "./profile-image-upload";
 import { US_STATES } from "@/constants/profile";
-import { cn } from "@/lib/utils";
-
-// Phone formatting utility
-const formatPhoneNumber = (value: string): string => {
-  // Remove all non-digits
-  const phoneNumber = value.replace(/\D/g, "");
-
-  // Apply formatting based on length
-  if (phoneNumber.length < 4) return phoneNumber;
-  if (phoneNumber.length < 7) {
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-  }
-  return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
-};
+import { cn, formatPhoneNumber } from "@/lib/utils";
 
 // Custom phone input component
 interface PhoneInputProps {

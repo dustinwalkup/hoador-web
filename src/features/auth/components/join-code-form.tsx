@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SESSION_EXPIRED_MESSAGE } from "../constants";
 import { useJoinCommunity } from "../hooks/use-auth-mutations";
 import { joinCodeSchema, type JoinCodeData } from "../schemas/auth-schemas";
+import { RequestHoadorModal } from "@/features/hoa-inquiries/components/request-hoador-modal";
 
 export function JoinCodeForm() {
   const router = useRouter();
@@ -128,6 +129,20 @@ export function JoinCodeForm() {
 
         <div className="text-muted-foreground text-center text-xs">
           Don&apos;t have a join code? Contact your community administrator.
+        </div>
+
+        <div className="text-muted-foreground text-center text-xs">
+          Want Hoador in your neighborhood?{" "}
+          <RequestHoadorModal
+            trigger={
+              <button
+                type="button"
+                className="text-primary hover:text-primary/80 underline underline-offset-2"
+              >
+                Request it for your community
+              </button>
+            }
+          />
         </div>
       </div>
     </>

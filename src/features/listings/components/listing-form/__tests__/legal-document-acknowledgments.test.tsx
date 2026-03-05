@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { FormProvider } from "react-hook-form";
-import { LegalDocumentAcknowledgments } from "../legal-document-acknowledgments";
+import {
+  LegalDocumentAcknowledgments,
+  type OwnerPolicyDocuments,
+} from "../legal-document-acknowledgments";
 import { createMockForm } from "@/test/utils/listing-test-helpers";
 import {
   LEGAL_DOCUMENT_IDS,
@@ -245,7 +248,7 @@ describe("LegalDocumentAcknowledgments", () => {
       </FormProvider>,
     );
 
-    // Check that PDF links in description have correct hrefs
+    // Check that PDF links in description have correct hrefs (fallback when no ownerPolicyDocuments)
     const links = screen.getAllByRole("link");
     const pdfLinks = links.filter((link) =>
       link.getAttribute("href")?.startsWith("/documents/"),
@@ -264,5 +267,63 @@ describe("LegalDocumentAcknowledgments", () => {
           ?.includes("prohibited-items-and-listing-content-policy"),
       ),
     ).toBe(true);
+  });
+
+  it("should use ownerPolicyDocuments URLs when provided", async () => {
+    const ownerPolicyDocuments: OwnerPolicyDocuments = {
+      safetyLiabilityPackage: {
+        id: LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
+        version: "1.0",
+        url: "https://example.com/safety-liability.pdf",
+        publishedAt: new Date(),
+      },
+      prohibitedItemsAndListingContent: {
+        id: LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
+        version: "1.0",
+        url: "https://example.com/prohibited-items.pdf",
+        publishedAt: new Date(),
+      },
+    };
+
+    render(
+      <FormProvider {...mockForm}>
+        <LegalDocumentAcknowledgments
+          control={mockForm.control}
+          ownerPolicyDocuments={ownerPolicyDocuments}
+        />
+      </FormProvider>,
+    );
+
+    const links = screen.getAllByRole("link");
+    expect(
+      links.some(
+        (link) =>
+          link.getAttribute("href") ===
+          "https://example.com/safety-liability.pdf",
+      ),
+    ).toBe(true);
+    expect(
+      links.some(
+        (link) =>
+          link.getAttribute("href") ===
+          "https://example.com/prohibited-items.pdf",
+      ),
+    ).toBe(true);
+
+    // Modal "View full document" should use the provided URL
+    const safetyLiabilityButton = screen.getAllByRole("button", {
+      name:
+        LEGAL_DOCUMENT_METADATA[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]
+          ?.name || "",
+    })[0];
+    fireEvent.click(safetyLiabilityButton);
+
+    await waitFor(() => {
+      const pdfLink = screen.getByText(/View full document/i);
+      expect(pdfLink.closest("a")).toHaveAttribute(
+        "href",
+        "https://example.com/safety-liability.pdf",
+      );
+    });
   });
 });
