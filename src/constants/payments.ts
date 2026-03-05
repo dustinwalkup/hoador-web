@@ -1,4 +1,4 @@
-export const PLATFORM_FEE_PERCENTAGE = 0.1;
+export const PLATFORM_FEE_PERCENTAGE = 0.2;
 
 export const PAYMENTS_TABS = {
   title: "Payments",

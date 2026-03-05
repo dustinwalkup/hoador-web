@@ -27,6 +27,9 @@ vi.mock("../../hooks/use-auth-mutations", () => ({
 vi.mock("lucide-react", () => ({
   Loader2: () => <span data-testid="loader-icon" />,
   Users: () => <span data-testid="users-icon" />,
+  XIcon: () => <span data-testid="x-icon" />,
+  CheckCircle2: () => <span data-testid="check-circle-icon" />,
+  ChevronDown: () => <span data-testid="chevron-down-icon" />,
 }));
 
 import { screen, waitFor } from "@testing-library/react";
@@ -124,7 +127,9 @@ describe("JoinCodeForm", () => {
     renderWithQueryClient(<JoinCodeForm />);
 
     expect(screen.getByText(/joining community\.\.\./i)).toBeInTheDocument();
-    expect(screen.getByRole("button")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /joining community/i }),
+    ).toBeDisabled();
     expect(screen.getByPlaceholderText(/enter your join code/i)).toBeDisabled();
   });
 

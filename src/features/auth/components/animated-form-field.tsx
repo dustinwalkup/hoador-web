@@ -1,10 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { motion, type Variants } from "framer-motion";
-import { cn } from "@/lib/utils";
+import type { Variants } from "framer-motion";
 
-export const formFieldVariants: Variants = {
+export const fieldVariants: Variants = {
   hidden: {
     opacity: 0,
     y: 20,
@@ -15,86 +13,16 @@ export const formFieldVariants: Variants = {
     y: 0,
     filter: "blur(0px)",
     transition: {
-      duration: 0.5,
+      duration: 0.4,
       ease: "easeOut",
     },
   },
 };
 
-interface AnimatedFormFieldProps {
-  children: ReactNode;
-  className?: string;
-  delay?: number;
-}
-
-export function AnimatedFormField({
-  children,
-  className,
-  delay = 0,
-}: AnimatedFormFieldProps) {
-  return (
-    <motion.div
-      variants={formFieldVariants}
-      initial="hidden"
-      animate="visible"
-      transition={{
-        delay: delay / 1000,
-      }}
-      className={cn(className)}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-interface AnimatedButtonProps {
-  children: ReactNode;
-  className?: string;
-  disabled?: boolean;
-  type?: "button" | "submit" | "reset";
-  onClick?: () => void;
-}
-
-export function AnimatedButton({
-  children,
-  className,
-  disabled = false,
-  type = "button",
-  onClick,
-}: AnimatedButtonProps) {
-  return (
-    <motion.button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
-      className={className}
-      whileHover={!disabled ? { scale: 1.02 } : {}}
-      whileTap={!disabled ? { scale: 0.98 } : {}}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-    >
-      {children}
-    </motion.button>
-  );
-}
-
-interface AnimatedInputWrapperProps {
-  children: ReactNode;
-  className?: string;
-}
-
-export function AnimatedInputWrapper({
-  children,
-  className,
-}: AnimatedInputWrapperProps) {
-  return (
-    <motion.div
-      className={cn(className)}
-      whileFocus={{
-        scale: 1.01,
-        transition: { duration: 0.2 },
-      }}
-    >
-      {children}
-    </motion.div>
-  );
-}
+export const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
+  },
+};

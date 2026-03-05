@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
-import { listingDAL } from "@/dal";
+import { listingDAL, legalDocumentDAL } from "@/dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { AddListingForm } from "@/features/listings/components/listing-form/add-listing-form";
 import { BackButton } from "@/components/back-button";
 
@@ -9,7 +10,19 @@ export const metadata = {
 };
 
 export default async function AddListingPage() {
-  const categories = await listingDAL.getListingCategories();
+  const [categories, documentVersions] = await Promise.all([
+    listingDAL.getListingCategories(),
+    legalDocumentDAL.getAllCurrentVersions(),
+  ]);
+
+  const ownerPolicyDocuments = {
+    safetyLiabilityPackage:
+      documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE] ?? null,
+    prohibitedItemsAndListingContent:
+      documentVersions[
+        LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT
+      ] ?? null,
+  };
 
   return (
     <>
@@ -22,7 +35,10 @@ export default async function AddListingPage() {
           </p>
         </div>
       </div>
-      <AddListingForm categories={categories} />
+      <AddListingForm
+        categories={categories}
+        ownerPolicyDocuments={ownerPolicyDocuments}
+      />
     </>
   );
 }

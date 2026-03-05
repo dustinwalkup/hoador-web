@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 
 import { SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
+import {
+  containerVariants,
+  fieldVariants,
+} from "@/features/auth/components/animated-form-field";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,20 +27,7 @@ import type { OnboardingData } from "../schemas/validation";
 import { useCompleteOnboarding } from "../hooks/use-onboarding-mutation";
 import { ProfileImageUpload } from "./profile-image-upload";
 import { US_STATES } from "@/constants/profile";
-import { cn } from "@/lib/utils";
-
-// Phone formatting utility
-const formatPhoneNumber = (value: string): string => {
-  // Remove all non-digits
-  const phoneNumber = value.replace(/\D/g, "");
-
-  // Apply formatting based on length
-  if (phoneNumber.length < 4) return phoneNumber;
-  if (phoneNumber.length < 7) {
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-  }
-  return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
-};
+import { cn, formatPhoneNumber } from "@/lib/utils";
 
 // Custom phone input component
 interface PhoneInputProps {
@@ -238,14 +230,20 @@ export function OnboardingForm({
     `${formData.firstName.charAt(0)}${formData.lastName.charAt(0)}`.toUpperCase();
 
   return (
-    <form
+    <motion.form
       onSubmit={handleFormSubmit}
       role="form"
       action="#"
       className="space-y-6"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
     >
       {/* Profile Image Upload */}
-      <div className="flex flex-col items-center space-y-2">
+      <motion.div
+        variants={fieldVariants}
+        className="flex flex-col items-center space-y-2"
+      >
         <Label className="text-center">Profile Photo (Optional)</Label>
         <ProfileImageUpload
           currentImageUrl={formData.profileImageUrl || undefined}
@@ -253,10 +251,10 @@ export function OnboardingForm({
           disabled={isPending}
           userInitials={userInitials}
         />
-      </div>
+      </motion.div>
 
       {/* Name Fields */}
-      <div className="grid grid-cols-2 gap-4">
+      <motion.div variants={fieldVariants} className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="first-name">First name *</Label>
           <Input
@@ -285,10 +283,10 @@ export function OnboardingForm({
             <p className="text-xs text-red-500">{errors.lastName}</p>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Phone */}
-      <div className="space-y-2">
+      <motion.div variants={fieldVariants} className="space-y-2">
         <Label htmlFor="phone">Phone number *</Label>
         <PhoneInput
           value={formData.phone}
@@ -297,10 +295,10 @@ export function OnboardingForm({
           disabled={isPending}
         />
         {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
-      </div>
+      </motion.div>
 
       {/* Bio */}
-      <div className="space-y-2">
+      <motion.div variants={fieldVariants} className="space-y-2">
         <Label htmlFor="bio">
           Bio (Optional)
           <span className="ml-2 text-xs text-gray-500">
@@ -319,10 +317,10 @@ export function OnboardingForm({
           rows={3}
         />
         {errors.bio && <p className="text-xs text-red-500">{errors.bio}</p>}
-      </div>
+      </motion.div>
 
       {/* Address */}
-      <div className="space-y-4">
+      <motion.div variants={fieldVariants} className="space-y-4">
         <Label className="text-base font-medium">Address *</Label>
 
         <div className="space-y-2">
@@ -402,23 +400,25 @@ export function OnboardingForm({
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Submit */}
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={!isFormComplete || isPending}
-      >
-        {isPending ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Completing Profile...
-          </>
-        ) : (
-          "Complete Profile"
-        )}
-      </Button>
-    </form>
+      <motion.div variants={fieldVariants}>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={!isFormComplete || isPending}
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Completing Profile...
+            </>
+          ) : (
+            "Complete Profile"
+          )}
+        </Button>
+      </motion.div>
+    </motion.form>
   );
 }

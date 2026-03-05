@@ -19,7 +19,7 @@ import {
   emailSignupSchema,
   type EmailSignupInput,
 } from "../schemas/auth-schemas";
-import { AnimatedFormField } from "./animated-form-field";
+import { containerVariants, fieldVariants } from "./animated-form-field";
 
 interface SignupFormProps {
   documentUrls: {
@@ -87,16 +87,7 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
       className="space-y-6"
       initial="hidden"
       animate="visible"
-      variants={{
-        hidden: { opacity: 0 },
-        visible: {
-          opacity: 1,
-          transition: {
-            staggerChildren: 0.1,
-            delayChildren: 0.1,
-          },
-        },
-      }}
+      variants={containerVariants}
     >
       {errorMessage && (
         <Alert variant="destructive">
@@ -104,7 +95,7 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
         </Alert>
       )}
       {/* Google Sign Up Button */}
-      <AnimatedFormField delay={300}>
+      <motion.div variants={fieldVariants}>
         <motion.div
           whileHover={!isGoogleLoading && !isFormPending ? { scale: 1.02 } : {}}
           whileTap={!isGoogleLoading && !isFormPending ? { scale: 0.98 } : {}}
@@ -125,9 +116,9 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
             Continue with Google
           </Button>
         </motion.div>
-      </AnimatedFormField>
+      </motion.div>
 
-      <AnimatedFormField delay={400}>
+      <motion.div variants={fieldVariants}>
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -138,7 +129,7 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
             </span>
           </div>
         </div>
-      </AnimatedFormField>
+      </motion.div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         {mutation.isError && (
@@ -158,20 +149,15 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
         )}
 
         <div className="grid grid-cols-2 gap-4">
-          <AnimatedFormField delay={500}>
+          <motion.div variants={fieldVariants}>
             <div className="space-y-2">
               <Label htmlFor="firstName">First name</Label>
-              <motion.div
-                whileFocus={{ scale: 1.01 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Input
-                  id="firstName"
-                  placeholder="John"
-                  disabled={isFormPending}
-                  {...register("firstName")}
-                />
-              </motion.div>
+              <Input
+                id="firstName"
+                placeholder="John"
+                disabled={isFormPending}
+                {...register("firstName")}
+              />
               {errors.firstName && (
                 <motion.p
                   initial={{ opacity: 0, y: -5 }}
@@ -182,21 +168,16 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
                 </motion.p>
               )}
             </div>
-          </AnimatedFormField>
-          <AnimatedFormField delay={600}>
+          </motion.div>
+          <motion.div variants={fieldVariants}>
             <div className="space-y-2">
               <Label htmlFor="lastName">Last name</Label>
-              <motion.div
-                whileFocus={{ scale: 1.01 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  disabled={isFormPending}
-                  {...register("lastName")}
-                />
-              </motion.div>
+              <Input
+                id="lastName"
+                placeholder="Doe"
+                disabled={isFormPending}
+                {...register("lastName")}
+              />
               {errors.lastName && (
                 <motion.p
                   initial={{ opacity: 0, y: -5 }}
@@ -207,24 +188,19 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
                 </motion.p>
               )}
             </div>
-          </AnimatedFormField>
+          </motion.div>
         </div>
 
-        <AnimatedFormField delay={700}>
+        <motion.div variants={fieldVariants}>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <motion.div
-              whileFocus={{ scale: 1.01 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Input
-                id="email"
-                type="email"
-                placeholder="john@example.com"
-                disabled={isFormPending}
-                {...register("email")}
-              />
-            </motion.div>
+            <Input
+              id="email"
+              type="email"
+              placeholder="john@example.com"
+              disabled={isFormPending}
+              {...register("email")}
+            />
             {errors.email && (
               <motion.p
                 initial={{ opacity: 0, y: -5 }}
@@ -235,16 +211,12 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
               </motion.p>
             )}
           </div>
-        </AnimatedFormField>
+        </motion.div>
 
-        <AnimatedFormField delay={800}>
+        <motion.div variants={fieldVariants}>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <motion.div
-              className="relative"
-              whileFocus={{ scale: 1.01 }}
-              transition={{ duration: 0.2 }}
-            >
+            <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
@@ -267,7 +239,7 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
                   <Eye className="h-4 w-4" />
                 )}
               </motion.button>
-            </motion.div>
+            </div>
             {errors.password && (
               <motion.p
                 initial={{ opacity: 0, y: -5 }}
@@ -282,9 +254,9 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
               number
             </p>
           </div>
-        </AnimatedFormField>
+        </motion.div>
 
-        <AnimatedFormField delay={900}>
+        <motion.div variants={fieldVariants}>
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <motion.div
@@ -341,9 +313,9 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
               </motion.p>
             )}
           </div>
-        </AnimatedFormField>
+        </motion.div>
 
-        <AnimatedFormField delay={1000}>
+        <motion.div variants={fieldVariants}>
           <motion.div
             whileHover={!isFormPending && legalAccepted ? { scale: 1.02 } : {}}
             whileTap={!isFormPending && legalAccepted ? { scale: 0.98 } : {}}
@@ -364,7 +336,7 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
               )}
             </Button>
           </motion.div>
-        </AnimatedFormField>
+        </motion.div>
       </form>
     </motion.div>
   );

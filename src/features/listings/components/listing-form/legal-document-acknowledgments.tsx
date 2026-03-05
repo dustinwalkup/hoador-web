@@ -24,7 +24,13 @@ import {
   LEGAL_DOCUMENT_IDS,
   LEGAL_DOCUMENT_METADATA,
 } from "@/constants/legal-documents";
+import type { CurrentDocumentVersion } from "@/dal/types";
 import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
+
+export interface OwnerPolicyDocuments {
+  safetyLiabilityPackage?: CurrentDocumentVersion | null;
+  prohibitedItemsAndListingContent?: CurrentDocumentVersion | null;
+}
 
 // Map document IDs to PDF filenames
 const DOCUMENT_PDF_MAP: Record<string, string> = {
@@ -50,6 +56,29 @@ const DOCUMENT_IDS = [
 
 interface LegalDocumentAcknowledgmentsProps {
   control: Control<CreateListingFormDataClientType>;
+  ownerPolicyDocuments?: OwnerPolicyDocuments;
+}
+
+/** Resolve document URL from server data or fallback to static map. */
+function getDocumentUrl(
+  documentId: string,
+  ownerPolicyDocuments?: OwnerPolicyDocuments,
+): string {
+  if (documentId === LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE) {
+    return (
+      ownerPolicyDocuments?.safetyLiabilityPackage?.url ??
+      DOCUMENT_PDF_MAP[documentId] ??
+      "#"
+    );
+  }
+  if (documentId === LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT) {
+    return (
+      ownerPolicyDocuments?.prohibitedItemsAndListingContent?.url ??
+      DOCUMENT_PDF_MAP[documentId] ??
+      "#"
+    );
+  }
+  return DOCUMENT_PDF_MAP[documentId] ?? "#";
 }
 
 interface DocumentModalProps {
@@ -96,6 +125,7 @@ function DocumentModal({ metadata, summary, pdfUrl }: DocumentModalProps) {
 
 export function LegalDocumentAcknowledgments({
   control,
+  ownerPolicyDocuments,
 }: LegalDocumentAcknowledgmentsProps) {
   const documentNames = DOCUMENT_IDS.map(
     (id) => LEGAL_DOCUMENT_METADATA[id]?.name || id,
@@ -115,7 +145,7 @@ export function LegalDocumentAcknowledgments({
           const metadata = LEGAL_DOCUMENT_METADATA[documentId];
           if (!metadata) return null;
           const summary = DOCUMENT_SUMMARIES[documentId];
-          const pdfUrl = DOCUMENT_PDF_MAP[documentId];
+          const pdfUrl = getDocumentUrl(documentId, ownerPolicyDocuments);
 
           return (
             <li key={documentId}>
@@ -155,7 +185,10 @@ export function LegalDocumentAcknowledgments({
                 {documentNames.map((name, index) => (
                   <span key={name}>
                     <Link
-                      href={DOCUMENT_PDF_MAP[DOCUMENT_IDS[index]]}
+                      href={getDocumentUrl(
+                        DOCUMENT_IDS[index],
+                        ownerPolicyDocuments,
+                      )}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"

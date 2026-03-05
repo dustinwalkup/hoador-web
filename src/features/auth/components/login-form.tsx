@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { loginSchema, type LoginData } from "../schemas/auth-schemas";
 import { GoogleIcon } from "../../../../public/svg/google-icon";
 import { signInEmail, signInSocial, getSafeCallbackUrl } from "../utils";
-import { AnimatedFormField } from "./animated-form-field";
+import { containerVariants, fieldVariants } from "./animated-form-field";
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -102,16 +102,7 @@ export function LoginForm() {
       className="space-y-6"
       initial="hidden"
       animate="visible"
-      variants={{
-        hidden: { opacity: 0 },
-        visible: {
-          opacity: 1,
-          transition: {
-            staggerChildren: 0.1,
-            delayChildren: 0.1,
-          },
-        },
-      }}
+      variants={containerVariants}
     >
       {/* Error Alert */}
       {error && (
@@ -127,7 +118,7 @@ export function LoginForm() {
       )}
 
       {/* Google Sign In Button */}
-      <AnimatedFormField delay={300}>
+      <motion.div variants={fieldVariants}>
         <motion.div
           whileHover={!isLoading ? { scale: 1.02 } : {}}
           whileTap={!isLoading ? { scale: 0.98 } : {}}
@@ -148,9 +139,9 @@ export function LoginForm() {
             Continue with Google
           </Button>
         </motion.div>
-      </AnimatedFormField>
+      </motion.div>
 
-      <AnimatedFormField delay={400}>
+      <motion.div variants={fieldVariants}>
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -161,7 +152,7 @@ export function LoginForm() {
             </span>
           </div>
         </div>
-      </AnimatedFormField>
+      </motion.div>
 
       {/* Email/Password Form */}
       <form
@@ -169,21 +160,16 @@ export function LoginForm() {
         className="space-y-4"
         noValidate
       >
-        <AnimatedFormField delay={500}>
+        <motion.div variants={fieldVariants}>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <motion.div
-              whileFocus={{ scale: 1.01 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Input
-                id="email"
-                type="email"
-                placeholder="john@example.com"
-                disabled={isLoading}
-                {...register("email")}
-              />
-            </motion.div>
+            <Input
+              id="email"
+              type="email"
+              placeholder="john@example.com"
+              disabled={isLoading}
+              {...register("email")}
+            />
             {errors.email && (
               <motion.p
                 initial={{ opacity: 0, y: -5 }}
@@ -194,9 +180,9 @@ export function LoginForm() {
               </motion.p>
             )}
           </div>
-        </AnimatedFormField>
+        </motion.div>
 
-        <AnimatedFormField delay={600}>
+        <motion.div variants={fieldVariants}>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
@@ -207,11 +193,7 @@ export function LoginForm() {
                 Forgot password?
               </Link>
             </div>
-            <motion.div
-              className="relative"
-              whileFocus={{ scale: 1.01 }}
-              transition={{ duration: 0.2 }}
-            >
+            <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
@@ -234,7 +216,7 @@ export function LoginForm() {
                   <Eye className="h-4 w-4" />
                 )}
               </motion.button>
-            </motion.div>
+            </div>
             {errors.password && (
               <motion.p
                 initial={{ opacity: 0, y: -5 }}
@@ -245,9 +227,9 @@ export function LoginForm() {
               </motion.p>
             )}
           </div>
-        </AnimatedFormField>
+        </motion.div>
 
-        <AnimatedFormField delay={700}>
+        <motion.div variants={fieldVariants}>
           <motion.div
             whileHover={!isLoading ? { scale: 1.02 } : {}}
             whileTap={!isLoading ? { scale: 0.98 } : {}}
@@ -264,7 +246,7 @@ export function LoginForm() {
               )}
             </Button>
           </motion.div>
-        </AnimatedFormField>
+        </motion.div>
       </form>
     </motion.div>
   );
