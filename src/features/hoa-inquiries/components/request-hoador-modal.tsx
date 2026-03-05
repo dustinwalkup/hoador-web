@@ -35,6 +35,7 @@ import {
   type HoaInquiryFormData,
 } from "../schema/hoa-inquiry.schema";
 import { US_STATES } from "@/constants/profile";
+import { formatPhoneNumber } from "@/lib/utils";
 import { useHoaInquiryMutation } from "../hooks/use-hoa-inquiry-mutation";
 
 const fieldVariants: Variants = {
@@ -298,6 +299,18 @@ export function RequestHoadorModal({ trigger }: RequestHoadorModalProps) {
                               type="tel"
                               placeholder="(optional)"
                               {...field}
+                              value={
+                                field.value
+                                  ? formatPhoneNumber(field.value)
+                                  : ""
+                              }
+                              onChange={(e) => {
+                                const digits = e.target.value.replace(
+                                  /\D/g,
+                                  "",
+                                );
+                                field.onChange(digits);
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
@@ -365,6 +378,18 @@ export function RequestHoadorModal({ trigger }: RequestHoadorModalProps) {
                               type="tel"
                               placeholder="(optional)"
                               {...field}
+                              value={
+                                field.value
+                                  ? formatPhoneNumber(field.value)
+                                  : ""
+                              }
+                              onChange={(e) => {
+                                const digits = e.target.value.replace(
+                                  /\D/g,
+                                  "",
+                                );
+                                field.onChange(digits);
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
