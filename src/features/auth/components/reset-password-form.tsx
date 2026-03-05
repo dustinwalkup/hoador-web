@@ -4,11 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useResetPassword } from "../hooks/use-auth-mutations";
 import { passwordSchema } from "../schemas/password";
+import { containerVariants, fieldVariants } from "./animated-form-field";
 
 export function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -71,14 +74,20 @@ export function ResetPasswordForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <motion.form
+      onSubmit={handleSubmit}
+      className="space-y-4"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
       {mutation.isError && mutation.error?.message && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <p className="text-sm text-red-600">{mutation.error.message}</p>
         </div>
       )}
       {/* New Password */}
-      <div className="space-y-2">
+      <motion.div variants={fieldVariants} className="space-y-2">
         <Label htmlFor="password">New Password</Label>
         <div className="relative">
           <Input
@@ -128,10 +137,10 @@ export function ResetPasswordForm() {
             Must be at least 8 characters with uppercase, lowercase, and number
           </p>
         )}
-      </div>
+      </motion.div>
 
       {/* Confirm Password */}
-      <div className="space-y-2">
+      <motion.div variants={fieldVariants} className="space-y-2">
         <Label htmlFor="confirmPassword">Confirm New Password</Label>
         <Input
           id="confirmPassword"
@@ -146,23 +155,25 @@ export function ResetPasswordForm() {
         {confirmPassword && !passwordsMatch && (
           <p className="text-xs text-red-500">Passwords do not match</p>
         )}
-      </div>
+      </motion.div>
 
       {/* Submit */}
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={!isFormValid || mutation.isPending}
-      >
-        {mutation.isPending ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Resetting Password...
-          </>
-        ) : (
-          "Reset Password"
-        )}
-      </Button>
-    </form>
+      <motion.div variants={fieldVariants}>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={!isFormValid || mutation.isPending}
+        >
+          {mutation.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Resetting Password...
+            </>
+          ) : (
+            "Reset Password"
+          )}
+        </Button>
+      </motion.div>
+    </motion.form>
   );
 }

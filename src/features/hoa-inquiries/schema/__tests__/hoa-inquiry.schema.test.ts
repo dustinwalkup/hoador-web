@@ -139,6 +139,7 @@ describe("hoaInquirySchema", () => {
     });
 
     it("should accept undefined hoaContactEmail", () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { hoaContactEmail, ...rest } = validData;
       const result = hoaInquirySchema.safeParse(rest);
       expect(result.success).toBe(true);

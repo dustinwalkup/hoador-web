@@ -151,13 +151,10 @@ vi.mock("../../../../public/svg/google-icon", () => ({
   ),
 }));
 
-// Mock AnimatedFormField
+// Mock animated-form-field variants
 vi.mock("../animated-form-field", () => ({
-  AnimatedFormField: ({ children, delay }: any) => (
-    <div data-testid="animated-form-field" data-delay={delay}>
-      {children}
-    </div>
-  ),
+  containerVariants: {},
+  fieldVariants: {},
 }));
 
 describe("SignupForm", () => {
@@ -385,13 +382,16 @@ describe("SignupForm", () => {
     expect(screen.getByText(/or continue with email/i)).toBeInTheDocument();
   });
 
-  it("should render AnimatedFormField components", () => {
+  it("should render all form sections", () => {
     // Arrange & Act
     renderWithQueryClient(<SignupForm {...defaultProps} />);
 
-    // Assert
-    const animatedFields = screen.getAllByTestId("animated-form-field");
-    expect(animatedFields.length).toBeGreaterThan(0);
+    // Assert - form renders with all key elements
+    expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /create account/i }),
+    ).toBeInTheDocument();
   });
 
   it("should show loading state on Google button during signup", async () => {

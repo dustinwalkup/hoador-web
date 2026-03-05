@@ -176,13 +176,10 @@ vi.mock("../../../../public/svg/google-icon", () => ({
   ),
 }));
 
-// Mock AnimatedFormField
+// Mock animated-form-field variants
 vi.mock("../animated-form-field", () => ({
-  AnimatedFormField: ({ children, delay }: any) => (
-    <div data-testid="animated-form-field" data-delay={delay}>
-      {children}
-    </div>
-  ),
+  containerVariants: {},
+  fieldVariants: {},
 }));
 
 describe("LoginForm", () => {
@@ -494,12 +491,15 @@ describe("LoginForm", () => {
     expect(screen.getByText(/or continue with email/i)).toBeInTheDocument();
   });
 
-  it("should render AnimatedFormField components", () => {
+  it("should render all form sections", () => {
     // Arrange & Act
     render(<LoginForm />);
 
-    // Assert
-    const animatedFields = screen.getAllByTestId("animated-form-field");
-    expect(animatedFields.length).toBeGreaterThan(0);
+    // Assert - form renders with all key elements
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /sign in/i }),
+    ).toBeInTheDocument();
   });
 });
