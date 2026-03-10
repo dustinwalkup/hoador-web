@@ -40,9 +40,10 @@ export const rentalFormSchema = z
     paymentPayoutAccepted: z.boolean().optional(),
   })
   .refine(
-    (data) => !data.startDate || !data.endDate || data.endDate > data.startDate,
+    (data) =>
+      !data.startDate || !data.endDate || data.endDate >= data.startDate,
     {
-      message: "End date must be after start date",
+      message: "End date must be on or after start date",
       path: ["endDate"],
     },
   )
@@ -126,17 +127,19 @@ export function validateDateRange(
     };
   }
 
-  if (endDate <= startDate) {
+  if (endDate < startDate) {
     return {
       isValid: false,
-      error: "End date must be after start date",
+      error: "End date must be on or after start date",
     };
   }
 
+  const s = new Date(startDate);
+  const e = new Date(endDate);
+  s.setHours(12, 0, 0, 0);
+  e.setHours(12, 0, 0, 0);
   const days =
-    Math.floor(
-      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
-    ) + 1;
+    Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   if (days < minimumRentalPeriod) {
     return {

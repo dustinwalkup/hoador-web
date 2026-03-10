@@ -10,6 +10,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { RentalDetailsInfo } from "@/dal/rentals.dal";
+import { ServiceFeeLine } from "@/features/rentals/components/service-fee-line";
+import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
 
 interface RentalDetailsCardProps {
   rentalDetails: RentalDetailsInfo;
@@ -18,9 +20,11 @@ interface RentalDetailsCardProps {
 export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
   const deliveryTotal = parseFloat(rentalDetails.deliveryFee);
   const setupTotal = parseFloat(rentalDetails.setupFee || "0");
+  const serviceFee = parseFloat(rentalDetails.serviceFee || "0");
   const securityDeposit = parseFloat(rentalDetails.securityDeposit);
   const totalAmount = parseFloat(rentalDetails.totalAmount);
-  const grandTotal = totalAmount + deliveryTotal + setupTotal + securityDeposit;
+  const subtotal = totalAmount - serviceFee - deliveryTotal - setupTotal;
+  const grandTotal = totalAmount + securityDeposit;
 
   return (
     <Card>
@@ -183,7 +187,7 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
                 ${parseFloat(rentalDetails.dailyRate).toFixed(2)}/day ×{" "}
                 {rentalDetails.totalDays} days
               </span>
-              <span>${totalAmount.toFixed(2)}</span>
+              <span>${subtotal.toFixed(2)}</span>
             </div>
             {deliveryTotal > 0 && (
               <div className="flex justify-between">
@@ -197,10 +201,8 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
                 <span>${setupTotal.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between">
-              <span>Security deposit</span>
-              <span>${securityDeposit.toFixed(2)}</span>
-            </div>
+            <ServiceFeeLine amount={serviceFee} />
+            <SecurityDepositLine amount={securityDeposit} />
             <Separator />
             <div className="flex justify-between font-semibold">
               <span>Total</span>

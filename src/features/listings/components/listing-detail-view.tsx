@@ -239,7 +239,8 @@ export function ListingDetailView({
                     {formatPrice(listing.dailyRate)}
                   </span>
                 </div>
-                {listing.weeklyRate && (
+                {/* Weekly/monthly rates temporarily disabled — daily rate only */}
+                {/* {listing.weeklyRate && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Weekly Rate</span>
                     <span className="font-medium">
@@ -254,7 +255,7 @@ export function ListingDetailView({
                       {formatPrice(listing.monthlyRate)}
                     </span>
                   </div>
-                )}
+                )} */}
               </div>
               <Separator />
               <div className="flex justify-between">

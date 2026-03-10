@@ -50,6 +50,24 @@ export const rentalRequests = pgTable(
     setupFee: decimal("setup_fee", { precision: 10, scale: 2 })
       .default("0")
       .notNull(),
+    serviceFee: decimal("service_fee", { precision: 10, scale: 2 })
+      .default("0")
+      .notNull(),
+    applicationFeeAmount: decimal("application_fee_amount", {
+      precision: 10,
+      scale: 2,
+    })
+      .default("0")
+      .notNull(),
+    ownerPayout: decimal("owner_payout", { precision: 10, scale: 2 })
+      .default("0")
+      .notNull(),
+    platformNetRevenue: decimal("platform_net_revenue", {
+      precision: 10,
+      scale: 2,
+    })
+      .default("0")
+      .notNull(),
     message: text("message"),
     paymentIntentId: varchar("payment_intent_id", { length: 255 }), // Stripe payment intent ID for rental charge
     paymentMethodId: varchar("payment_method_id", { length: 255 }), // Stripe payment method ID
@@ -110,7 +128,7 @@ export const rentals = pgTable(
     applicationFeeAmount: decimal("application_fee_amount", {
       precision: 10,
       scale: 2,
-    }), // Platform fee collected (10% of total amount)
+    }), // Platform fee retained via Stripe (platformFee + serviceFee; set at approval)
     pickupInstructions: text("pickup_instructions"),
     returnInstructions: text("return_instructions"),
     conditionAtPickup: text("condition_at_pickup"),

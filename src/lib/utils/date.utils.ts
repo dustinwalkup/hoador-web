@@ -34,10 +34,12 @@ export const differenceInDays = (
   date1: DateInput,
   date2: DateInput,
 ): number => {
-  const diffTime = Math.abs(
-    new Date(date1).getTime() - new Date(date2).getTime(),
-  );
-  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  d1.setHours(12, 0, 0, 0);
+  d2.setHours(12, 0, 0, 0);
+  const diffTime = Math.abs(d1.getTime() - d2.getTime());
+  return Math.round(diffTime / (1000 * 60 * 60 * 24));
 };
 
 /**

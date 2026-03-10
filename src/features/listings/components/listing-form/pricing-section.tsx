@@ -62,7 +62,8 @@ export function PricingSection({ control }: PricingSectionProps) {
             </FormItem>
           )}
         />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Weekly/monthly rates temporarily disabled — daily rate only */}
+        {/* <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             control={control}
             name="weeklyRate"
@@ -123,7 +124,7 @@ export function PricingSection({ control }: PricingSectionProps) {
               </FormItem>
             )}
           />
-        </div>
+        </div> */}
         <Separator />
         <FormField
           control={control}

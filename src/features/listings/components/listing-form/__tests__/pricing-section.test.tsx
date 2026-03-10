@@ -28,24 +28,17 @@ describe("PricingSection", () => {
     );
 
     // Query inputs by name attribute since labels point to wrapper divs
+    // Weekly/monthly rate fields are commented out (daily rate only for now)
     const dailyRateInput = container.querySelector('input[name="dailyRate"]');
-    const weeklyRateInput = container.querySelector('input[name="weeklyRate"]');
-    const monthlyRateInput = container.querySelector(
-      'input[name="monthlyRate"]',
-    );
     const securityDepositInput = container.querySelector(
       'input[name="securityDeposit"]',
     );
 
     expect(dailyRateInput).toBeInTheDocument();
-    expect(weeklyRateInput).toBeInTheDocument();
-    expect(monthlyRateInput).toBeInTheDocument();
     expect(securityDepositInput).toBeInTheDocument();
 
     // Verify labels are present
     expect(screen.getByText(/daily rate \*/i)).toBeInTheDocument();
-    expect(screen.getByText(/weekly rate \(optional\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/monthly rate \(optional\)/i)).toBeInTheDocument();
     expect(screen.getByText(/security deposit/i)).toBeInTheDocument();
   });
 
@@ -97,11 +90,11 @@ describe("PricingSection", () => {
     expect(dailyRateInput).toBeInTheDocument();
     expect(dailyRateInput).toHaveAttribute("placeholder", "0.00");
 
-    // Verify other inputs also have placeholders
+    // Verify other price inputs also have placeholders (daily + deposit; weekly/monthly commented out)
     const inputsWithPlaceholders = container.querySelectorAll(
       'input[placeholder="0.00"]',
     );
-    expect(inputsWithPlaceholders.length).toBeGreaterThanOrEqual(4); // daily, weekly, monthly, deposit
+    expect(inputsWithPlaceholders.length).toBeGreaterThanOrEqual(2); // daily, deposit
     expect(dailyRateInput).toHaveAttribute("type", "number");
     expect(dailyRateInput).toHaveAttribute("inputMode", "decimal");
   });
@@ -114,8 +107,9 @@ describe("PricingSection", () => {
     );
 
     // All number inputs have role="spinbutton"
+    // daily, deposit, min period, max period (weekly/monthly commented out)
     const numberInputs = screen.getAllByRole("spinbutton");
-    expect(numberInputs.length).toBeGreaterThanOrEqual(6); // daily, weekly, monthly, deposit, min, max periods
+    expect(numberInputs.length).toBeGreaterThanOrEqual(4);
   });
 
   it("should render rental terms section", () => {
@@ -210,9 +204,9 @@ describe("PricingSection", () => {
     expect(screen.getByText(/daily rate/i)).toBeInTheDocument();
     expect(screen.getByText(/security deposit/i)).toBeInTheDocument();
 
-    // Check that inputs are present (all number inputs have role="spinbutton")
+    // Check that inputs are present (daily, deposit, min, max — weekly/monthly commented out)
     const inputs = screen.getAllByRole("spinbutton");
-    expect(inputs.length).toBeGreaterThanOrEqual(4); // daily, weekly, monthly, deposit, min, max
+    expect(inputs.length).toBeGreaterThanOrEqual(4);
   });
 
   it("should render input validation placeholders and attributes", () => {
@@ -223,10 +217,11 @@ describe("PricingSection", () => {
     );
 
     // Check that inputs have proper attributes for number input
+    // daily + deposit (weekly/monthly commented out)
     const inputs = screen
       .getAllByDisplayValue("")
       .filter((input) => input.getAttribute("inputMode") === "decimal");
-    expect(inputs.length).toBeGreaterThanOrEqual(4); // daily, weekly, monthly, deposit rates
+    expect(inputs.length).toBeGreaterThanOrEqual(2);
   });
 
   it("should display rental period descriptions", () => {

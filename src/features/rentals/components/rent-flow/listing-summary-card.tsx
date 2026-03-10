@@ -1,11 +1,13 @@
 "use client";
 
-import { MapPin, Info } from "lucide-react";
+import { Info, MapPin } from "lucide-react";
 import Image from "next/image";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { ServiceFeeLine } from "@/features/rentals/components/service-fee-line";
+import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
 
 interface ListingSummaryCardProps {
   listing: {
@@ -26,6 +28,7 @@ interface ListingSummaryCardProps {
     subtotal: number;
     deliveryFee: number;
     setupFee: number;
+    serviceFee: number;
     securityDeposit: number;
     total: number;
   };
@@ -84,10 +87,11 @@ export function ListingSummaryCard({
                   <span>${pricing.setupFee.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span>Security deposit</span>
-                <span>${pricing.securityDeposit.toFixed(2)}</span>
-              </div>
+              <ServiceFeeLine amount={pricing.serviceFee} className="text-sm" />
+              <SecurityDepositLine
+                amount={pricing.securityDeposit}
+                className="text-sm"
+              />
               <Separator />
               <div className="flex justify-between font-semibold">
                 <span>Total</span>

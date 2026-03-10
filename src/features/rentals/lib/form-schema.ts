@@ -23,8 +23,8 @@ export const createRentalRequestSchema = z
     safetyLiabilityPackageAccepted: z.boolean().optional(),
     paymentPayoutAccepted: z.boolean().optional(),
   })
-  .refine((data) => data.endDate > data.startDate, {
-    message: "End date must be after start date",
+  .refine((data) => data.endDate >= data.startDate, {
+    message: "End date must be on or after start date",
     path: ["endDate"],
   })
   .refine(

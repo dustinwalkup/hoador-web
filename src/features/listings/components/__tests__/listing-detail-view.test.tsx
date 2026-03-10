@@ -174,18 +174,16 @@ describe("ListingDetailView", () => {
       expect(screen.getByText("$25.00")).toBeInTheDocument();
     });
 
-    it("should display weekly rate when available", () => {
+    it("should not display weekly rate (daily rate only for now)", () => {
       render(<ListingDetailView listing={mockListing} isOwner={false} />);
 
-      expect(screen.getByText("Weekly Rate")).toBeInTheDocument();
-      expect(screen.getByText("$150.00")).toBeInTheDocument();
+      expect(screen.queryByText("Weekly Rate")).not.toBeInTheDocument();
     });
 
-    it("should display monthly rate when available", () => {
+    it("should not display monthly rate (daily rate only for now)", () => {
       render(<ListingDetailView listing={mockListing} isOwner={false} />);
 
-      expect(screen.getByText("Monthly Rate")).toBeInTheDocument();
-      expect(screen.getByText("$500.00")).toBeInTheDocument();
+      expect(screen.queryByText("Monthly Rate")).not.toBeInTheDocument();
     });
 
     it("should display security deposit", () => {
