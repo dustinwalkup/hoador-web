@@ -137,6 +137,28 @@ export function useDeleteDocumentVersion() {
   });
 }
 
+/**
+ * Delete a user permanently (superadmin only).
+ */
+export function useDeleteAdminUser() {
+  return useCreateMutation({
+    mutationFn: async (userId: string) => {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete user");
+      }
+
+      return response.json();
+    },
+    successMessage: "User deleted",
+    invalidateQueryKeys: [["admin", "users"]],
+  });
+}
+
 export interface UpdateAdminUserVariables {
   userId: string;
   status?: import("@/dal/types").UserStatus;

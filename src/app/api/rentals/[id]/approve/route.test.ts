@@ -16,6 +16,12 @@ const mockRentalRequest = {
   deliveryRequested: false,
   deliveryAddress: null,
   deliveryFee: "0",
+  setupRequested: false,
+  setupFee: "0",
+  serviceFee: "0",
+  applicationFeeAmount: "12.00",
+  ownerPayout: "48.00",
+  platformNetRevenue: "12.00",
   message: null,
   paymentMethodId: "pm_123",
   paymentIntentId: null,
@@ -42,7 +48,10 @@ vi.mock("@/dal", () => ({
   rentalDAL: {
     getRentalRequestById: vi.fn(),
     updateRentalRequestPaymentStatus: vi.fn().mockResolvedValue(undefined),
+    updateRentalRequestPaymentMethod: vi.fn().mockResolvedValue(undefined),
     approveRentalRequest: vi.fn().mockResolvedValue(undefined),
+    getRentalByRequestId: vi.fn().mockResolvedValue({ id: "rental-456" }),
+    getApprovedRentalCountForRenter: vi.fn().mockResolvedValue(1),
   },
   auditLogDAL: {
     create: vi.fn().mockResolvedValue({}),

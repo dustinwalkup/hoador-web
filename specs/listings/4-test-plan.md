@@ -123,7 +123,7 @@ This test plan covers tool listing management including creation, updates, delet
   - User interaction: Form field updates
 
 - [x] `PricingSection` - Pricing information form section
-  - Rendering: Daily, weekly, monthly rate fields
+  - Rendering: Daily rate field (required), security deposit field, minimum/maximum rental period fields. Note: Weekly and monthly rate fields are currently disabled (commented out in the UI component). The schema still supports them but they are not user-facing.
   - Validation: Price validation (positive numbers, reasonable ranges)
   - User interaction: Price input updates
 
@@ -134,12 +134,19 @@ This test plan covers tool listing management including creation, updates, delet
   - Loading state: Upload progress indicators
 
 - [x] `PickupDeliverySection` - Pickup and delivery options form section
-  - Rendering: Pickup available, delivery available checkboxes
-  - User interaction: Option selection updates form state
+  - Rendering: Delivery mode Select dropdown (pickup_only/delivery_only/both_available). Conditionally shows delivery fee input, delivery radius input, setup service checkbox, and setup fee input when delivery mode is delivery_only or both_available. Setup fee only appears when setupAvailable checkbox is checked.
+  - User interaction: Delivery mode selection conditionally shows/hides delivery and setup fields
+  - Validation: Delivery radius required when delivery available, setup requires delivery mode
 
 - [x] `AdditionalDetailsSection` - Additional listing details form section
-  - Rendering: Additional fields (tags, notes, etc.)
-  - User interaction: Field updates
+  - Rendering: Custom specifications (key-value pairs with add/remove), usage instructions textarea, safety notes textarea
+  - User interaction: Add specification via key/value inputs with Plus button (disabled when empty), remove specification via X button, text input for instructions and safety notes
+
+- [x] `LegalDocumentAcknowledgments` - Owner policy acknowledgment section
+  - Rendering: Owner Policies header, document list with modal previews (Safety & Liability Package, Prohibited Items and Listing Content Policy), single acknowledgment checkbox
+  - User interaction: Document name buttons open Dialog modals with summary and PDF link; checkbox toggles acknowledgment
+  - Validation: Checkbox must be true to submit form
+  - Tested in: `listing-form/__tests__/legal-document-acknowledgments.test.tsx`
 
 - [x] `ListingDetailView` - Full listing details display
   - Rendering: Shows all listing information, images, owner info
@@ -168,84 +175,84 @@ This test plan covers tool listing management including creation, updates, delet
   - Error handling: Displays error on failure
   - Optimistic updates: UI updates immediately
 
-- [ ] `GarageClient` - Garage page main component
+- [x] `GarageClient` - Garage page main component
   - Rendering: Garage tabs, filters, listings grid
   - User interaction: Tab switching, filter changes
   - Loading state: Shows skeleton during data fetch
   - Error state: Shows error message on failure
 
-- [ ] `GarageTabsClient` - Garage tabs (active, inactive, archived)
-  - Rendering: Tab buttons for each status
-  - User interaction: Tab switching updates displayed listings
+- [x] `GarageTabsClient` - Garage tabs (Active, Inactive, Pending Review)
+  - Rendering: Tab buttons for each status. Note: Archived tab is currently commented out. Includes PendingReviewListings component with count badge (yellow) when pendingCount > 0.
+  - User interaction: Tab switching updates displayed listings and URL params (?tab=inactive, ?tab=pending_review). Clears rentalStatus filter for non-active tabs.
   - Active state: Highlights active tab
 
-- [ ] `ActiveListings` - Active listings display
+- [x] `ActiveListings` - Active listings display
   - Rendering: Grid of active listings
   - User interaction: Listing card interactions
   - Empty state: Shows message when no active listings
 
-- [ ] `InactiveListings` - Inactive listings display
+- [x] `InactiveListings` - Inactive listings display
   - Rendering: Grid of inactive listings
   - Empty state: Shows message when no inactive listings
 
-- [ ] `ArchivedListings` - Archived listings display
+- [x] `ArchivedListings` - Archived listings display
   - Rendering: Grid of archived listings
   - Empty state: Shows message when no archived listings
 
-- [ ] `GarageFiltersClient` - Garage page filters
+- [x] `GarageFiltersClient` - Garage page filters
   - Rendering: Search input, category filter, status filter
   - User interaction: Filter changes update displayed listings
   - URL state: Filters synced with URL parameters
 
-- [ ] `ExplorePageClient` - Explore page main component
+- [x] `ExplorePageClient` - Explore page main component
   - Rendering: Filters, listings grid, pagination/infinite scroll
   - User interaction: Filter changes, listing selection
   - Loading state: Shows skeleton during data fetch
   - Error state: Shows error message on failure
 
-- [ ] `ExplorePageContent` - Explore page content area
+- [x] `ExplorePageContent` - Explore page content area
   - Rendering: Listings grid with filters
   - User interaction: Listing card clicks navigate to detail page
   - Infinite scroll: Loads more listings on scroll
 
-- [ ] `ExplorePageFilters` - Explore page filter controls
+- [x] `ExplorePageFilters` - Explore page filter controls
   - Rendering: Search, category, price range, condition filters
   - User interaction: Filter changes update results
   - URL state: Filters synced with URL parameters
   - Debouncing: Search input debounced to avoid API spam
 
-- [ ] `ExplorePageSkeleton` - Loading skeleton for explore page
+- [x] `ExplorePageSkeleton` - Loading skeleton for explore page
   - Rendering: Skeleton placeholders for listings grid
 
 #### Hooks
 
-- [ ] `useListings` - Fetch listings with React Query
+- [x] `useListings` - Fetch listings with React Query
   - Data fetching: Fetches listings on mount
   - Loading state: Returns loading boolean
   - Error state: Returns error object
   - Cache management: Proper cache key usage
   - Refetching: Manual refetch capability
 
-- [ ] `useGarage` - Fetch user's garage listings
+- [x] `useGarage` - Fetch user's garage listings
   - Data fetching: Fetches user's listings
   - Filtering: Filters by status (active, inactive, archived)
   - Loading state: Returns loading boolean
   - Error state: Returns error object
   - Cache invalidation: Invalidates on create/update/delete
 
-- [ ] `useListingForm` - Form state management for listing form
+- [x] `useListingForm` - Form state management for listing form
   - Form state: Manages multi-step form state
   - Validation: Client-side validation
   - Submission: Handles form submission
   - Error handling: Displays validation errors
 
-- [ ] `useListingImages` - Image management for listing form
+- [x] `useListingImages` - Image management for listing form
   - Image state: Manages selected images
   - Upload: Handles image upload
   - Removal: Handles image removal
   - Reordering: Handles image order changes
 
-- [ ] `useURLState` - URL state management for filters
+- [x] `useURLState` - URL state management for filters
   - URL parsing: Parses filter state from URL
   - URL updates: Updates URL when filters change
   - Browser navigation: Supports back/forward navigation
@@ -635,11 +642,14 @@ Feature: Add Listing to Favorites
 
 ### Missing Test Coverage
 
-- `GarageClient` and garage page components (no tests)
-- `ExplorePageClient` and explore page components (no tests)
-- All hooks (no tests)
 - Integration tests (none exist)
 - E2E tests (none exist)
+
+### Recently Added Test Coverage
+
+- **Garage Components**: `GarageClient`, `GarageTabsClient`, `ActiveListings`, `InactiveListings`, `ArchivedListings`, `GarageFiltersClient` - Tests in `src/features/listings/components/garage-page/__tests__/`
+- **Explore Components**: `ExplorePageClient`, `ExplorePageContent`, `ExplorePageFilters`, `ExplorePageSkeleton` - Tests in `src/features/listings/components/explore-page/__tests__/`
+- **Hooks**: `useListings`, `useGarage`, `useListingForm`, `useListingImages`, `useURLState`, `useListingMutations` - Tests in `src/features/listings/hooks/__tests__/`
 
 ## References
 

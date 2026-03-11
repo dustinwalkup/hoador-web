@@ -1,6 +1,5 @@
 import Stripe from "stripe";
 import { PAYMENT_SERVER_INSTANCE } from "./server";
-import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 
 /**
  * Rental payment service for processing rental charges and security deposits
@@ -22,16 +21,18 @@ interface SecurityDepositMetadata {
 }
 
 /**
- * Charge the rental payment (rental amount + delivery + setup fees)
- * This creates an immediate charge on the renter's payment method
- * With destination charges, funds transfer immediately to the owner's connected account
+ * Charge the rental payment (rental amount + delivery + setup + service fee).
+ * Creates an immediate charge on the renter's payment method.
+ * With destination charges, funds transfer to the owner's connected account;
+ * applicationFeeAmount (platform fee + service fee) is retained by the platform.
  */
 export async function chargeRentalPayment(
   customerId: string,
   paymentMethodId: string,
-  amount: number, // in dollars
+  amount: number, // in dollars (charge amount = rental price + service fee)
   metadata: RentalPaymentMetadata,
-  ownerConnectedAccountId?: string, // Optional: if provided, creates destination charge
+  ownerConnectedAccountId?: string,
+  applicationFeeAmount?: number, // in dollars (platform fee + service fee)
 ): Promise<Stripe.PaymentIntent> {
   try {
     const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
@@ -39,22 +40,23 @@ export async function chargeRentalPayment(
       currency: "usd",
       customer: customerId,
       payment_method: paymentMethodId,
-      off_session: true, // Renter doesn't need to be online
-      confirm: true, // Charge immediately
+      off_session: true,
+      confirm: true,
       metadata: {
         ...metadata,
         paymentType: "rental_charge",
       },
     };
 
-    // Add destination charge parameters if owner connected account is provided
     if (ownerConnectedAccountId) {
       paymentIntentParams.transfer_data = {
         destination: ownerConnectedAccountId,
       };
-      paymentIntentParams.application_fee_amount = Math.round(
-        amount * PLATFORM_FEE_PERCENTAGE * 100,
-      );
+      if (applicationFeeAmount !== undefined) {
+        paymentIntentParams.application_fee_amount = Math.round(
+          applicationFeeAmount * 100,
+        );
+      }
     }
 
     const paymentIntent =

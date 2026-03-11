@@ -15,6 +15,8 @@ import { formatDate } from "@/lib/utils/date.utils";
 import { type RentalFormData } from "@/features/rentals/lib/rental-form.schema";
 import type { CurrentDocumentVersion } from "@/dal/types";
 import { LegalDisclosures } from "@/features/rentals/components/rent-flow/legal-disclosures";
+import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
+import { ServiceFeeLine } from "@/features/rentals/components/service-fee-line";
 
 interface SummaryStepProps {
   pricing: {
@@ -22,6 +24,7 @@ interface SummaryStepProps {
     subtotal: number;
     deliveryFee: number;
     setupFee: number;
+    serviceFee: number;
     securityDeposit: number;
     total: number;
   };
@@ -108,10 +111,8 @@ export function SummaryStep({ pricing, legalDocuments }: SummaryStepProps) {
               <span>${pricing.setupFee.toFixed(2)}</span>
             </div>
           )}
-          <div className="flex justify-between">
-            <span>Security deposit</span>
-            <span>${pricing.securityDeposit.toFixed(2)}</span>
-          </div>
+          <ServiceFeeLine amount={pricing.serviceFee} />
+          <SecurityDepositLine amount={pricing.securityDeposit} />
           <Separator />
           <div className="flex justify-between text-lg font-semibold">
             <span>Total</span>

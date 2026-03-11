@@ -54,108 +54,34 @@ describe("RentalDAL", () => {
     mockGetReviewByRentalId.mockResolvedValue(undefined);
   });
 
-  describe("createRentalRequest", () => {
-    const validRentalData = {
+  describe("insertRentalRequest", () => {
+    const validPayload = {
       listingId: "listing-123",
+      renterId: "user-456",
+      ownerId: "user-123",
       startDate: new Date("2024-02-01"),
       endDate: new Date("2024-02-05"),
+      totalDays: 5,
+      dailyRate: "15.00",
+      totalAmount: "78.50",
+      securityDeposit: "50.00",
       deliveryRequested: false,
+      deliveryAddress: null as string | null,
+      deliveryInstructions: null as string | null,
+      deliveryFee: "0",
       setupRequested: false,
-      setupFee: 0,
-      paymentMethodId: "pm_test_123",
+      setupFee: "0",
+      serviceFee: "3.50",
+      applicationFeeAmount: "19.20",
+      ownerPayout: "59.30",
+      platformNetRevenue: "15.70",
       message: "I need this for a weekend project",
+      paymentIntentId: null as string | null,
+      paymentMethodId: "pm_test_123",
+      status: "pending" as const,
     };
 
-    it("should create rental request when user is authenticated", async () => {
-      // Arrange
-      const userId = "user-456";
-
-      // Mock listing check - listing exists and is owned by different user
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        id: validRentalData.listingId,
-        ownerId: "user-123", // Different from userId
-        dailyRate: "15.00",
-        minimumRentalPeriod: 1,
-        maximumRentalPeriod: 30,
-        owner: { id: "user-123" },
-      } as any);
-
-      // Mock no existing conflicts
-      vi.mocked(db.query.rentalRequests.findFirst).mockResolvedValue(undefined);
-      vi.mocked(db.query.rentals.findFirst).mockResolvedValue(undefined);
-
-      const mockReturning = vi.fn().mockResolvedValue([mockRentalRequest]);
-      const mockValues = vi.fn().mockReturnValue({
-        returning: mockReturning,
-      });
-
-      vi.mocked(db.insert).mockReturnValue({
-        values: mockValues,
-      } as any);
-
-      // Act
-      const result = await rentalDAL.createRentalRequest(
-        validRentalData,
-        userId,
-      );
-
-      // Assert
-      expect(result).toBeDefined();
-    });
-
-    it("should validate date range", async () => {
-      // Arrange
-      const userId = "user-456";
-
-      // Mock listing exists with minimum rental period of 5 days
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        id: validRentalData.listingId,
-        ownerId: "user-123",
-        dailyRate: "15.00",
-        minimumRentalPeriod: 5, // Require at least 5 days
-        maximumRentalPeriod: 30,
-        owner: { id: "user-123" },
-      } as any);
-
-      // Use dates that result in only 2 days (less than minimum of 5)
-      const invalidDates = {
-        ...validRentalData,
-        startDate: new Date("2024-02-01"),
-        endDate: new Date("2024-02-02"), // Only 1 day difference = 2 total days
-        setupFee: 0,
-      };
-
-      // Don't mock db.insert - validation should fail before reaching it
-      // differenceInDays returns 1, totalDays = 1 + 1 = 2, which is < minimumRentalPeriod (5)
-
-      // Act & Assert
-      await expect(
-        rentalDAL.createRentalRequest(invalidDates, userId),
-      ).rejects.toThrow(/minimum.*rental.*period/i);
-    });
-
-    it("should check for date conflicts", async () => {
-      // Arrange
-      const userId = "user-456";
-
-      // Mock listing exists
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        id: validRentalData.listingId,
-        ownerId: "user-123",
-        dailyRate: "15.00",
-        minimumRentalPeriod: 1,
-        maximumRentalPeriod: 30,
-        owner: { id: "user-123" },
-      } as any);
-
-      // Note: Date conflict checking is not currently implemented in createRentalRequest
-      // This test is skipped until conflict checking is added
-      // When implemented, it should check for overlapping dates with existing requests/rentals
-
-      // For now, the request will succeed even with conflicts
-      vi.mocked(db.query.rentalRequests.findFirst).mockResolvedValue(undefined);
-      vi.mocked(db.query.rentals.findFirst).mockResolvedValue(undefined);
-
+    it("should insert rental request and return id", async () => {
       const mockReturning = vi.fn().mockResolvedValue([mockRentalRequest]);
       const mockValues = vi.fn().mockReturnValue({
         returning: mockReturning,
@@ -164,90 +90,23 @@ describe("RentalDAL", () => {
         values: mockValues,
       } as any);
 
-      // Act
-      const result = await rentalDAL.createRentalRequest(
-        validRentalData,
-        userId,
-      );
+      const result = await rentalDAL.insertRentalRequest(validPayload);
 
-      // Assert
-      expect(result).toBeDefined();
-      // TODO: When conflict checking is implemented, update this test to expect rejection
-    });
-
-    it("should throw when totalDays exceeds maximumRentalPeriod", async () => {
-      const userId = "user-456";
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        id: validRentalData.listingId,
-        ownerId: "user-123",
-        dailyRate: "15.00",
-        minimumRentalPeriod: 1,
-        maximumRentalPeriod: 5,
-        owner: { id: "user-123" },
-      } as any);
-      const longStay = {
-        ...validRentalData,
-        startDate: new Date("2024-02-01"),
-        endDate: new Date("2024-02-20"), // 20 days > max 5
-      };
-      await expect(
-        rentalDAL.createRentalRequest(longStay, userId),
-      ).rejects.toThrow(/maximum.*rental.*period/i);
-    });
-
-    it("should throw NotFoundError when listing not found", async () => {
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue(undefined);
-      await expect(
-        rentalDAL.createRentalRequest(
-          { ...validRentalData, listingId: "bad-listing" },
-          "user-456",
-        ),
-      ).rejects.toThrow(NotFoundError);
-    });
-
-    it("should use monthlyRate when totalDays >= 30", async () => {
-      const userId = "user-456";
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        id: validRentalData.listingId,
-        ownerId: "user-123",
-        dailyRate: "20.00",
-        monthlyRate: "450.00",
-        minimumRentalPeriod: 1,
-        maximumRentalPeriod: 60,
-        owner: { id: "user-123" },
-      } as any);
-      const mockReturning = vi.fn().mockResolvedValue([mockRentalRequest]);
-      const mockValues = vi.fn().mockReturnValue({
-        returning: mockReturning,
-      });
-      vi.mocked(db.insert).mockReturnValue({
-        values: mockValues,
-      } as any);
-      const monthLong = {
-        ...validRentalData,
-        startDate: new Date("2024-02-01"),
-        endDate: new Date("2024-03-02"), // 31 days
-      };
-      const result = await rentalDAL.createRentalRequest(monthLong, userId);
-      expect(result).toBeDefined();
+      expect(result).toEqual({ id: mockRentalRequest.id });
       expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
-          dailyRate: "15", // 450/30
+          listingId: validPayload.listingId,
+          renterId: validPayload.renterId,
+          ownerId: validPayload.ownerId,
+          totalDays: validPayload.totalDays,
+          dailyRate: validPayload.dailyRate,
+          totalAmount: validPayload.totalAmount,
+          status: "pending",
         }),
       );
     });
 
-    it("should use weeklyRate when totalDays >= 7 and no monthlyRate", async () => {
-      const userId = "user-456";
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        id: validRentalData.listingId,
-        ownerId: "user-123",
-        dailyRate: "20.00",
-        weeklyRate: "100.00",
-        minimumRentalPeriod: 1,
-        maximumRentalPeriod: 30,
-        owner: { id: "user-123" },
-      } as any);
+    it("should pass through all payload fields to insert", async () => {
       const mockReturning = vi.fn().mockResolvedValue([mockRentalRequest]);
       const mockValues = vi.fn().mockReturnValue({
         returning: mockReturning,
@@ -255,15 +114,20 @@ describe("RentalDAL", () => {
       vi.mocked(db.insert).mockReturnValue({
         values: mockValues,
       } as any);
-      const weekLong = {
-        ...validRentalData,
-        startDate: new Date("2024-02-01"),
-        endDate: new Date("2024-02-10"), // 10 days
-      };
-      await rentalDAL.createRentalRequest(weekLong, userId);
+
+      await rentalDAL.insertRentalRequest(validPayload);
+
       const inserted = mockValues.mock.calls[0]?.[0];
       expect(inserted).toBeDefined();
-      expect(Number(inserted.dailyRate)).toBeCloseTo(100 / 7, 2);
+      expect(inserted.listingId).toBe(validPayload.listingId);
+      expect(inserted.deliveryFee).toBe(validPayload.deliveryFee);
+      expect(inserted.serviceFee).toBe(validPayload.serviceFee);
+      expect(inserted.applicationFeeAmount).toBe(
+        validPayload.applicationFeeAmount,
+      );
+      expect(inserted.ownerPayout).toBe(validPayload.ownerPayout);
+      expect(inserted.platformNetRevenue).toBe(validPayload.platformNetRevenue);
+      expect(inserted.paymentMethodId).toBe(validPayload.paymentMethodId);
     });
   });
 
@@ -1317,7 +1181,11 @@ describe("RentalDAL", () => {
           listingName: "Power Drill",
           renterId: "renter-1",
           ownerName: "Jane Owner",
-          endDate: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000),
+          endDate: (() => {
+            const d = new Date(today);
+            d.setDate(d.getDate() - 3);
+            return d;
+          })(),
         },
       ];
       const renterNameRows = [{ id: "renter-1", name: "Bob Renter" }];
@@ -1376,7 +1244,11 @@ describe("RentalDAL", () => {
           listingName: "Saw",
           renterId: "renter-2",
           ownerName: "Jane Owner",
-          endDate: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000),
+          endDate: (() => {
+            const d = new Date(today);
+            d.setDate(d.getDate() - 2);
+            return d;
+          })(),
         },
       ];
       const renterNameRows = [{ id: "renter-2", name: "Alice Renter" }];

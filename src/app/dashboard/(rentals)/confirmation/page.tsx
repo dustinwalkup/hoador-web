@@ -16,6 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils/date.utils";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { rentalDAL } from "@/dal";
+import { ServiceFeeLine } from "@/features/rentals/components/service-fee-line";
+import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
 
 export const metadata = {
   title: "Rental Confirmation",
@@ -72,9 +74,12 @@ export default async function RentalConfirmationPage({
   }
 
   const deliveryTotal = Number(rentalRequest.deliveryFee);
+  const setupTotal = Number(rentalRequest.setupFee ?? 0);
   const securityDeposit = Number(rentalRequest.securityDeposit);
   const totalAmount = Number(rentalRequest.totalAmount);
-  const grandTotal = totalAmount + deliveryTotal + securityDeposit;
+  const serviceFee = Number(rentalRequest.serviceFee ?? 0);
+  const rentalSubtotal = totalAmount - serviceFee - deliveryTotal - setupTotal;
+  const grandTotal = totalAmount + securityDeposit;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -161,7 +166,7 @@ export default async function RentalConfirmationPage({
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Rental cost ({rentalRequest.totalDays} days)</span>
-                  <span>${totalAmount.toFixed(2)}</span>
+                  <span>${rentalSubtotal.toFixed(2)}</span>
                 </div>
                 {deliveryTotal > 0 && (
                   <div className="flex justify-between">
@@ -169,10 +174,17 @@ export default async function RentalConfirmationPage({
                     <span>${deliveryTotal.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span>Security deposit</span>
-                  <span>${securityDeposit.toFixed(2)}</span>
-                </div>
+                {setupTotal > 0 && (
+                  <div className="flex justify-between">
+                    <span>Setup service</span>
+                    <span>${setupTotal.toFixed(2)}</span>
+                  </div>
+                )}
+                <ServiceFeeLine amount={serviceFee} className="text-sm" />
+                <SecurityDepositLine
+                  amount={securityDeposit}
+                  className="text-sm"
+                />
                 <div className="flex justify-between border-t pt-2 font-semibold">
                   <span>Total Amount:</span>
                   <span className="text-primary">${grandTotal.toFixed(2)}</span>

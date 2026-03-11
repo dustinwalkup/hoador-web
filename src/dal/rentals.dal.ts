@@ -9,7 +9,6 @@ import {
 } from "@/db/schemas/listings.schema";
 import { user, userAddresses } from "@/db/schemas/user.schema";
 import { conversations } from "@/db/schemas/messages.schema";
-import { type CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BaseDAL } from "./base";
@@ -98,6 +97,36 @@ export interface LendingRequestItem {
   conversationId?: string | null;
 }
 
+/**
+ * Payload for inserting a rental request. All pricing and business rules
+ * are applied by the service layer; the DAL only persists.
+ */
+export interface InsertRentalRequestPayload {
+  listingId: string;
+  renterId: string;
+  ownerId: string;
+  startDate: Date;
+  endDate: Date;
+  totalDays: number;
+  dailyRate: string;
+  totalAmount: string;
+  securityDeposit: string;
+  deliveryRequested: boolean;
+  deliveryAddress: string | null;
+  deliveryInstructions: string | null;
+  deliveryFee: string;
+  setupRequested: boolean;
+  setupFee: string;
+  serviceFee: string;
+  applicationFeeAmount: string;
+  ownerPayout: string;
+  platformNetRevenue: string;
+  message: string | null;
+  paymentIntentId: string | null;
+  paymentMethodId: string | null;
+  status: "pending";
+}
+
 export interface RentalDetails {
   id: string;
   type: "request" | "rental";
@@ -146,6 +175,7 @@ export interface RentalDetails {
   pickupAddress?: string;
   setupRequested?: boolean;
   setupFee?: string;
+  serviceFee?: string;
   selectedWindow?: string;
   message?: string;
   pickupInstructions?: string;
@@ -221,6 +251,7 @@ export type RentalDetailsInfo = Pick<
   | "pickupAddress"
   | "setupRequested"
   | "setupFee"
+  | "serviceFee"
   | "selectedWindow"
   | "pickupInstructions"
   | "returnInstructions"
@@ -378,99 +409,42 @@ export class RentalDAL extends BaseDAL {
     }
   }
 
-  async createRentalRequest(
-    formData: CreateRentalRequestFormData,
-    userId: string,
+  async insertRentalRequest(
+    payload: InsertRentalRequestPayload,
   ): Promise<{ id: string }> {
     try {
-      // Get listing details to calculate pricing
-      const listing = await this.db.query.listings.findFirst({
-        where: eq(listings.id, formData.listingId),
-        with: {
-          owner: {
-            columns: {
-              id: true,
-            },
-          },
-        },
-      });
-
-      if (!listing) {
-        throw new NotFoundError("Listing", formData.listingId);
-      }
-
-      // Calculate rental period and pricing
-      const totalDays =
-        differenceInDays(formData.endDate, formData.startDate) + 1;
-
-      // Validate rental period
-      if (totalDays < listing.minimumRentalPeriod) {
-        throw new Error(
-          `Minimum rental period is ${listing.minimumRentalPeriod} day(s)`,
-        );
-      }
-
-      if (totalDays > listing.maximumRentalPeriod) {
-        throw new Error(
-          `Maximum rental period is ${listing.maximumRentalPeriod} days`,
-        );
-      }
-
-      // Calculate rate based on rental period (apply discounts for longer rentals)
-      let dailyRate = Number(listing.dailyRate);
-      if (totalDays >= 30 && listing.monthlyRate) {
-        dailyRate = Number(listing.monthlyRate) / 30;
-      } else if (totalDays >= 7 && listing.weeklyRate) {
-        dailyRate = Number(listing.weeklyRate) / 7;
-      }
-
-      const subtotal = Math.round(dailyRate * totalDays * 100) / 100;
-      const deliveryFee = formData.deliveryRequested
-        ? Number(listing.deliveryFee)
-        : 0;
-      const setupFee = formData.setupRequested
-        ? Number(formData.setupFee || listing.setupFee || 0)
-        : 0;
-      const securityDeposit = Number(listing.securityDeposit);
-      const totalAmount = subtotal + deliveryFee + setupFee;
-
-      // Sanitize text fields
-      const sanitizedMessage = formData.message
-        ? sanitizeTextWithMaxLength(formData.message, 2000)
-        : null;
-      const sanitizedDeliveryInstructions = formData.deliveryInstructions
-        ? sanitizeTextWithMaxLength(formData.deliveryInstructions, 2000)
-        : null;
-
-      // Create rental request with payment information
       const [rentalRequest] = await this.db
         .insert(rentalRequests)
         .values({
-          listingId: formData.listingId,
-          renterId: userId,
-          ownerId: listing.ownerId,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          totalDays,
-          dailyRate: dailyRate.toString(),
-          totalAmount: totalAmount.toString(),
-          securityDeposit: securityDeposit.toString(),
-          deliveryRequested: formData.deliveryRequested,
-          deliveryAddress: formData.deliveryAddress || null,
-          deliveryInstructions: sanitizedDeliveryInstructions,
-          deliveryFee: deliveryFee.toString(),
-          setupRequested: formData.setupRequested || false,
-          setupFee: setupFee.toString(),
-          message: sanitizedMessage,
-          paymentIntentId: formData.paymentIntentId || null,
-          paymentMethodId: formData.paymentMethodId || null,
-          status: "pending",
+          listingId: payload.listingId,
+          renterId: payload.renterId,
+          ownerId: payload.ownerId,
+          startDate: payload.startDate,
+          endDate: payload.endDate,
+          totalDays: payload.totalDays,
+          dailyRate: payload.dailyRate,
+          totalAmount: payload.totalAmount,
+          securityDeposit: payload.securityDeposit,
+          deliveryRequested: payload.deliveryRequested,
+          deliveryAddress: payload.deliveryAddress,
+          deliveryInstructions: payload.deliveryInstructions,
+          deliveryFee: payload.deliveryFee,
+          setupRequested: payload.setupRequested,
+          setupFee: payload.setupFee,
+          serviceFee: payload.serviceFee,
+          applicationFeeAmount: payload.applicationFeeAmount,
+          ownerPayout: payload.ownerPayout,
+          platformNetRevenue: payload.platformNetRevenue,
+          message: payload.message,
+          paymentIntentId: payload.paymentIntentId,
+          paymentMethodId: payload.paymentMethodId,
+          status: payload.status,
         })
         .returning();
 
       return { id: rentalRequest.id };
     } catch (error) {
-      this.handleError(error, "createRentalRequest");
+      this.handleError(error, "insertRentalRequest");
     }
   }
 
@@ -495,6 +469,12 @@ export class RentalDAL extends BaseDAL {
     deliveryRequested: boolean;
     deliveryAddress: string | null;
     deliveryFee: string;
+    setupRequested: boolean;
+    setupFee: string;
+    serviceFee: string;
+    applicationFeeAmount: string;
+    ownerPayout: string;
+    platformNetRevenue: string;
     message: string | null;
     paymentIntentId: string | null;
     paymentMethodId: string | null;
@@ -520,6 +500,12 @@ export class RentalDAL extends BaseDAL {
           deliveryRequested: rentalRequests.deliveryRequested,
           deliveryAddress: rentalRequests.deliveryAddress,
           deliveryFee: rentalRequests.deliveryFee,
+          setupRequested: rentalRequests.setupRequested,
+          setupFee: rentalRequests.setupFee,
+          serviceFee: rentalRequests.serviceFee,
+          applicationFeeAmount: rentalRequests.applicationFeeAmount,
+          ownerPayout: rentalRequests.ownerPayout,
+          platformNetRevenue: rentalRequests.platformNetRevenue,
           message: rentalRequests.message,
           paymentIntentId: rentalRequests.paymentIntentId,
           paymentMethodId: rentalRequests.paymentMethodId,
@@ -1293,6 +1279,26 @@ export class RentalDAL extends BaseDAL {
   }
 
   /**
+   * Update payment method ID on a rental request (e.g. when resolved from Stripe fallback).
+   */
+  async updateRentalRequestPaymentMethod(
+    requestId: string,
+    paymentMethodId: string,
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(rentalRequests)
+        .set({
+          paymentMethodId,
+          updatedAt: new Date(),
+        })
+        .where(eq(rentalRequests.id, requestId));
+    } catch (error) {
+      this.handleError(error, "updateRentalRequestPaymentMethod");
+    }
+  }
+
+  /**
    * Approve a rental request
    * Only the owner can approve their own pending requests
    */
@@ -1359,6 +1365,24 @@ export class RentalDAL extends BaseDAL {
       });
     } catch (error) {
       this.handleError(error, "approveRentalRequest");
+    }
+  }
+
+  /**
+   * Get rental by its rental request ID (used after approving a request to get the new rental id).
+   */
+  async getRentalByRequestId(
+    requestId: string,
+  ): Promise<{ id: string } | null> {
+    try {
+      const [row] = await this.db
+        .select({ id: rentals.id })
+        .from(rentals)
+        .where(eq(rentals.requestId, requestId))
+        .limit(1);
+      return row ?? null;
+    } catch (error) {
+      this.handleError(error, "getRentalByRequestId");
     }
   }
 
@@ -1549,6 +1573,7 @@ export class RentalDAL extends BaseDAL {
           deliveryFee: rentalRequests.deliveryFee,
           setupRequested: rentalRequests.setupRequested,
           setupFee: rentalRequests.setupFee,
+          serviceFee: rentalRequests.serviceFee,
           message: rentalRequests.message,
           status: rentalRequests.status,
           createdAt: rentalRequests.createdAt,
@@ -1757,6 +1782,7 @@ export class RentalDAL extends BaseDAL {
           pickupAddress,
           setupRequested: request.setupRequested,
           setupFee: request.setupFee,
+          serviceFee: request.serviceFee,
           message: request.message || undefined,
           pickupInstructions: request.pickupInstructions || undefined,
           returnInstructions: request.returnInstructions || undefined,
@@ -1834,6 +1860,7 @@ export class RentalDAL extends BaseDAL {
           deliveryFee: rentalRequests.deliveryFee,
           setupRequested: rentalRequests.setupRequested,
           setupFee: rentalRequests.setupFee,
+          serviceFee: rentalRequests.serviceFee,
           message: rentalRequests.message,
           status: rentalRequests.status,
         })
@@ -2007,6 +2034,7 @@ export class RentalDAL extends BaseDAL {
         pickupAddress,
         setupRequested: request[0]?.setupRequested || false,
         setupFee: request[0]?.setupFee || "0",
+        serviceFee: request[0]?.serviceFee || "0",
         message: request[0]?.message || undefined,
         pickupInstructions: rentalData.pickupInstructions || undefined,
         returnInstructions: rentalData.returnInstructions || undefined,

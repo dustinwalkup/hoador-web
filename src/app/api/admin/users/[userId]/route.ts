@@ -129,3 +129,52 @@ export const PATCH = withRequestLogging(
   patchHandler,
   "PATCH /api/admin/users/[userId]",
 );
+
+/**
+ * DELETE /api/admin/users/[userId]
+ * Permanently delete a user. Superadmin only.
+ * Requires admin authentication
+ */
+async function deleteHandler(_request: NextRequest, context: RouteContext) {
+  try {
+    const adminCheck = await requireAdminResponse();
+    if (adminCheck) return adminCheck;
+
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId: adminUserId } = authResult;
+
+    const superAdmin = await isSuperAdmin();
+    if (!superAdmin) {
+      return NextResponse.json(
+        { error: "Only superadmin can delete users" },
+        { status: 403 },
+      );
+    }
+
+    const { userId } = await context.params;
+    const existing = await userDAL.getUserById(userId);
+
+    await userDAL.deleteUser(userId);
+
+    await auditLogDAL.create({
+      entityType: "user",
+      entityId: userId,
+      action: "admin.user_deleted",
+      userId: adminUserId,
+      metadata: {
+        targetUserId: userId,
+        targetUserEmail: existing.email,
+        targetUserName: existing.name,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/admin/users/[userId]",
+);

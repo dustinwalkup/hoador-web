@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useAdminUser } from "@/features/admin/hooks/use-admin-user";
 import { UserDetailActions } from "./user-detail-actions";
+import { DeleteUserDialog } from "./delete-user-dialog";
 
 interface AdminUserDetailClientProps {
   userId: string;
@@ -29,6 +31,7 @@ function formatDate(d: Date | string) {
 
 export function AdminUserDetailClient({ userId }: AdminUserDetailClientProps) {
   const { data: user, isLoading, error } = useAdminUser(userId);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -195,6 +198,25 @@ export function AdminUserDetailClient({ userId }: AdminUserDetailClientProps) {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger zone</CardTitle>
+          <CardDescription>Irreversible actions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="destructive" onClick={() => setIsDeleteOpen(true)}>
+            Delete user
+          </Button>
+        </CardContent>
+      </Card>
+
+      <DeleteUserDialog
+        userId={user.id}
+        userName={user.name}
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+      />
     </div>
   );
 }

@@ -28,6 +28,7 @@ import { DateSelectionStep } from "@/features/rentals/components/rent-flow/date-
 import { ServicesStep } from "@/features/rentals/components/rent-flow/services-step";
 import { SummaryStep } from "@/features/rentals/components/rent-flow/summary-step";
 import { StepIndicator } from "@/features/rentals/components/rent-flow/step-indicator";
+import { calculateServiceFee } from "@/constants/payments";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { ListingSummaryCard } from "@/features/rentals/components/rent-flow/listing-summary-card";
 
@@ -97,20 +98,21 @@ export function RentListingPageContent({
         subtotal: 0,
         deliveryFee: 0,
         setupFee: 0,
+        serviceFee: 0,
         securityDeposit: 0,
         total: 0,
       };
 
     const days =
       differenceInDays(watchedValues.endDate, watchedValues.startDate) + 1;
-    let rate = listing.dailyRate;
+    const rate = listing.dailyRate;
 
-    // Apply weekly/monthly discounts
-    if (days >= 30 && listing.monthlyRate) {
-      rate = listing.monthlyRate / 30;
-    } else if (days >= 7 && listing.weeklyRate) {
-      rate = listing.weeklyRate / 7;
-    }
+    // Apply weekly/monthly discounts — temporarily disabled (daily rate only)
+    // if (days >= 30 && listing.monthlyRate) {
+    //   rate = listing.monthlyRate / 30;
+    // } else if (days >= 7 && listing.weeklyRate) {
+    //   rate = listing.weeklyRate / 7;
+    // }
 
     const subtotal = Math.round(rate * days * 100) / 100;
     const deliveryFeeAmount =
@@ -120,15 +122,22 @@ export function RentListingPageContent({
       watchedValues.deliveryMethod === "delivery"
         ? listing.setupFee
         : 0;
+    const rentalCharges = subtotal + deliveryFeeAmount + setupFeeAmount;
+    const serviceFee = calculateServiceFee(rentalCharges);
     const securityDeposit = listing.securityDeposit;
     const total =
-      subtotal + deliveryFeeAmount + setupFeeAmount + securityDeposit;
+      subtotal +
+      deliveryFeeAmount +
+      setupFeeAmount +
+      serviceFee +
+      securityDeposit;
 
     return {
       days,
       subtotal,
       deliveryFee: deliveryFeeAmount,
       setupFee: setupFeeAmount,
+      serviceFee,
       securityDeposit,
       total,
     };

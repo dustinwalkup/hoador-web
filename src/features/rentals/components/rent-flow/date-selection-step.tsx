@@ -33,9 +33,14 @@ export function DateSelectionStep({
   const startDate = form.watch("startDate");
   const endDate = form.watch("endDate");
 
-  // Convert to DateRange format for Calendar component
+  // Convert to DateRange format for Calendar component.
+  // When startDate === endDate (auto-filled single-day), pass to: undefined
+  // so react-day-picker keeps the range "open" for a second click.
+  const isSingleDayAutoFill =
+    startDate && endDate && startDate.getTime() === endDate.getTime();
+
   const dateRange: DateRange | undefined =
-    startDate && endDate
+    startDate && endDate && !isSingleDayAutoFill
       ? { from: startDate, to: endDate }
       : startDate
         ? { from: startDate, to: undefined }
@@ -91,9 +96,8 @@ export function DateSelectionStep({
                         form.setValue("startDate", range.from, {
                           shouldValidate: true,
                         });
-                      }
-                      if (range?.to) {
-                        form.setValue("endDate", range.to, {
+                        // Single-day: default endDate to startDate when no end selected
+                        form.setValue("endDate", range.to ?? range.from, {
                           shouldValidate: true,
                         });
                       }
@@ -184,9 +188,10 @@ export function DateSelectionStep({
                       validation.isValid ? "text-green-800" : "text-red-800"
                     }`}
                   >
-                    <strong>Selected:</strong> {formatDate(startDate, "PPP")} to{" "}
-                    {formatDate(endDate, "PPP")} ({days} day
-                    {days !== 1 ? "s" : ""})
+                    <strong>Selected:</strong>{" "}
+                    {days === 1
+                      ? `${formatDate(startDate, "PPP")} (1 day)`
+                      : `${formatDate(startDate, "PPP")} to ${formatDate(endDate, "PPP")} (${days} days)`}
                   </p>
                   {validation.error && (
                     <p className="mt-1 text-sm text-red-700">

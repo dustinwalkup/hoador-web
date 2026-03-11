@@ -1,68 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
-import { rentalDAL, userDAL, paymentDAL, auditLogDAL } from "@/dal";
-import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
-import { db } from "@/db/db";
 import {
   handleApiError,
-  captureNonCriticalError,
   parseFormData,
   requireAuthResponse,
   getClientIP,
   getUserAgent,
 } from "@/lib/api/route-helpers";
+import { NotFoundError } from "@/dal/errors";
 import {
-  chargeRentalPayment,
-  authorizeSecurityDeposit,
-  getPaymentErrorMessage,
-  isRetryablePaymentError,
-} from "@/services/stripe/rental-payments";
-import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
-import {
-  sendPaymentFailureNotificationToRenter,
-  sendPaymentFailureNotificationToOwner,
-} from "@/features/rentals/notifications/payment-failure";
-import {
-  sendPaymentSucceededNotificationToRenter,
-  sendPaymentSucceededNotificationToOwner,
-} from "@/features/rentals/notifications/payment-succeeded";
-import { trackActivity } from "@/features/activity/lib/track-activity";
-import { sendRentalApprovedNotification } from "@/features/rentals/notifications/rental-approved";
+  RentalService,
+  type ApproveRentalRequestInput,
+} from "@/features/rentals/services/rental-service";
 
 const approveRequestSchema = z.object({
   pickupInstructions: z.string().optional(),
   returnInstructions: z.string().optional(),
 });
-
-/**
- * Resolve a payment method for the renter: customer's default or first card.
- * Returns null if the customer has no card payment methods.
- */
-async function resolveRenterPaymentMethod(
-  stripeCustomerId: string,
-): Promise<string | null> {
-  const { PAYMENT_SERVER_INSTANCE } = await import("@/services/stripe/server");
-  const customer =
-    await PAYMENT_SERVER_INSTANCE.customers.retrieve(stripeCustomerId);
-  if (customer.deleted) return null;
-
-  const defaultPmId =
-    typeof customer.invoice_settings?.default_payment_method === "string"
-      ? customer.invoice_settings.default_payment_method
-      : (customer.invoice_settings?.default_payment_method?.id ?? null);
-
-  const list = await PAYMENT_SERVER_INSTANCE.paymentMethods.list({
-    customer: stripeCustomerId,
-    type: "card",
-  });
-  const cardIds = list.data.map((pm) => pm.id);
-  if (cardIds.length === 0) return null;
-  if (defaultPmId && cardIds.includes(defaultPmId)) return defaultPmId;
-  return cardIds[0];
-}
 
 /**
  * POST /api/rentals/[id]/approve
@@ -73,16 +29,12 @@ async function postHandler(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    // Check authentication
     const authError = await requireAuthResponse();
     if (authError) return authError;
 
     const { id: rentalId } = await params;
 
-    // Parse request body
     const body = await parseFormData(request);
-
-    // Validate input data
     const parseResult = approveRequestSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -91,9 +43,8 @@ async function postHandler(
       );
     }
 
-    const validatedData = parseResult.data;
+    const validatedData: ApproveRentalRequestInput = parseResult.data;
 
-    // Get current user ID for authorization
     const { getCurrentUserId } = await import("@/features/auth/utils/session");
     const currentUserId = await getCurrentUserId();
     if (!currentUserId) {
@@ -103,527 +54,69 @@ async function postHandler(
       );
     }
 
-    // Fetch rental request details
-    const { data: rentalRequest, error: fetchError } = await tryCatch(
-      rentalDAL.getRentalRequestById(rentalId, currentUserId),
-    );
+    const ipAddress = getClientIP(request);
+    const userAgent = getUserAgent(request);
 
-    if (fetchError || !rentalRequest) {
-      return NextResponse.json(
-        { error: fetchError?.message || "Rental request not found" },
-        { status: 404 },
-      );
-    }
-
-    // Authorization check: only owner can approve
-    if (rentalRequest.ownerId !== currentUserId) {
-      return NextResponse.json(
+    const result = await tryCatch(
+      RentalService.approveRentalRequest(
+        rentalId,
+        currentUserId,
+        validatedData,
         {
-          error:
-            "Forbidden: Only the listing owner can approve rental requests",
+          ipAddress,
+          userAgent,
         },
-        { status: 403 },
-      );
-    }
-
-    // Get or create Stripe customer ID for the renter (needed for payment method resolution)
-    const { data: stripeCustomerId, error: customerError } = await tryCatch(
-      userDAL.getOrCreateStripeCustomerId(rentalRequest.renterId),
-    );
-
-    if (customerError || !stripeCustomerId) {
-      return NextResponse.json(
-        {
-          error:
-            customerError?.message || "Failed to get renter's payment info",
-        },
-        { status: 500 },
-      );
-    }
-
-    // Resolve payment method: use request's stored ID or fall back to renter's Stripe default/first card
-    let paymentMethodIdToUse: string | null = rentalRequest.paymentMethodId;
-
-    if (!paymentMethodIdToUse) {
-      const { data: defaultOrFirstPm } = await tryCatch(
-        resolveRenterPaymentMethod(stripeCustomerId),
-      );
-      paymentMethodIdToUse = defaultOrFirstPm ?? null;
-    }
-
-    if (!paymentMethodIdToUse) {
-      return NextResponse.json(
-        {
-          error:
-            "No payment method on file for renter. The renter needs to add a payment method in their account before you can approve.",
-        },
-        { status: 400 },
-      );
-    }
-
-    // If we resolved from Stripe fallback, persist on the rental request for consistency
-    if (!rentalRequest.paymentMethodId && paymentMethodIdToUse) {
-      await db
-        .update(rentalRequests)
-        .set({
-          paymentMethodId: paymentMethodIdToUse,
-          updatedAt: new Date(),
-        })
-        .where(eq(rentalRequests.id, rentalId));
-    }
-
-    // Get owner's connected account ID and verify onboarding
-    const { data: ownerAccountId, error: accountError } = await tryCatch(
-      userDAL.getConnectedAccountId(rentalRequest.ownerId),
-    );
-
-    if (accountError || !ownerAccountId) {
-      return NextResponse.json(
-        {
-          error:
-            "Owner must complete Stripe onboarding before receiving payments. Please contact the owner.",
-        },
-        { status: 400 },
-      );
-    }
-
-    // Verify owner has completed onboarding (charges enabled)
-    const { data: isOnboarded, error: onboardingCheckError } = await tryCatch(
-      userDAL.isConnectOnboardingComplete(rentalRequest.ownerId),
-    );
-
-    if (onboardingCheckError || !isOnboarded) {
-      return NextResponse.json(
-        {
-          error:
-            "Owner's Stripe account is not fully set up. Please contact the owner to complete onboarding.",
-        },
-        { status: 400 },
-      );
-    }
-
-    // Calculate application fee amount
-    const totalAmount = Number(rentalRequest.totalAmount);
-    const applicationFeeAmount = totalAmount * PLATFORM_FEE_PERCENTAGE;
-
-    // Update payment status to processing
-    await rentalDAL.updateRentalRequestPaymentStatus(rentalId, {
-      paymentStatus: "processing",
-    });
-
-    // Process the rental payment (with automatic retry for network errors)
-    let rentalPaymentAttempts = 0;
-    let rentalPaymentResult = await tryCatch(
-      chargeRentalPayment(
-        stripeCustomerId,
-        paymentMethodIdToUse,
-        totalAmount,
-        {
-          rentalRequestId: rentalRequest.id,
-          listingId: rentalRequest.listingId,
-          ownerId: rentalRequest.ownerId,
-          renterId: rentalRequest.renterId,
-          listingName: rentalRequest.listingName,
-        },
-        ownerAccountId, // Pass for destination transfer
       ),
     );
 
-    // Retry once if it's a retryable error (network issues, etc)
-    if (
-      rentalPaymentResult.error &&
-      isRetryablePaymentError(rentalPaymentResult.error) &&
-      rentalPaymentAttempts === 0
-    ) {
-      rentalPaymentAttempts++;
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
-      rentalPaymentResult = await tryCatch(
-        chargeRentalPayment(
-          stripeCustomerId,
-          paymentMethodIdToUse,
-          totalAmount,
-          {
-            rentalRequestId: rentalRequest.id,
-            listingId: rentalRequest.listingId,
-            ownerId: rentalRequest.ownerId,
-            renterId: rentalRequest.renterId,
-            listingName: rentalRequest.listingName,
-          },
-          ownerAccountId, // Pass for destination transfer
-        ),
-      );
-    }
-
-    // Check if rental payment failed
-    if (rentalPaymentResult.error || !rentalPaymentResult.data) {
-      const errorMessage = getPaymentErrorMessage(rentalPaymentResult.error);
-
-      // Update payment status to failed
-      await rentalDAL.updateRentalRequestPaymentStatus(rentalId, {
-        paymentStatus: "failed",
-        paymentFailureReason: errorMessage,
-      });
-
-      const ipAddress = getClientIP(request);
-      const userAgent = getUserAgent(request);
-      await auditLogDAL.create({
-        entityType: "payment",
-        entityId: rentalId,
-        action: "payment.failed",
-        userId: currentUserId,
-        metadata: {
-          amount: totalAmount,
-          currency: "usd",
-          status: "failed",
-          errorMessage,
-        },
-        ipAddress: ipAddress ?? undefined,
-        userAgent: userAgent ?? undefined,
-      });
-
-      // Get owner and renter details for notifications
-      const { data: renterUser } = await tryCatch(
-        userDAL.getUserById(rentalRequest.renterId),
-      );
-
-      const { data: ownerUser } = await tryCatch(
-        userDAL.getUserById(rentalRequest.ownerId),
-      );
-
-      // Send notifications to both parties (don't block on notification failures)
-      if (renterUser && ownerUser) {
-        // Send notification to renter
-        tryCatch(
-          sendPaymentFailureNotificationToRenter({
-            userId: renterUser.id,
-            to: renterUser.email,
-            renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-            ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-            listingName: rentalRequest.listingName,
-            totalAmount: rentalRequest.totalAmount,
-            failureReason: errorMessage,
-            rentalId: rentalRequest.id,
-          }),
-        ).catch((err) => {
-          console.error(
-            "Failed to send payment failure notification to renter:",
-            err,
-          );
-        });
-
-        // Send notification to owner
-        tryCatch(
-          sendPaymentFailureNotificationToOwner({
-            userId: ownerUser.id,
-            to: ownerUser.email,
-            ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-            renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-            listingName: rentalRequest.listingName,
-            totalAmount: rentalRequest.totalAmount,
-            failureReason: errorMessage,
-            rentalId: rentalRequest.id,
-          }),
-        ).catch((err) => {
-          console.error(
-            "Failed to send payment failure notification to owner:",
-            err,
-          );
-        });
+    if (result.error) {
+      if (result.error instanceof NotFoundError) {
+        return NextResponse.json(
+          { error: result.error.message || "Rental request not found" },
+          { status: 404 },
+        );
       }
-
-      return NextResponse.json(
-        {
-          error: `Payment failed: ${errorMessage}. The renter has been notified to update their payment method.`,
-          paymentFailed: true,
-        },
-        { status: 400 },
-      );
-    }
-
-    const rentalPaymentIntent = rentalPaymentResult.data;
-
-    // Check if payment succeeded
-    if (rentalPaymentIntent.status !== "succeeded") {
-      const errorMessage = `Payment status: ${rentalPaymentIntent.status}`;
-
-      await rentalDAL.updateRentalRequestPaymentStatus(rentalId, {
-        paymentStatus: "failed",
-        paymentFailureReason: errorMessage,
-      });
-
-      const ipAddress = getClientIP(request);
-      const userAgent = getUserAgent(request);
-      await auditLogDAL.create({
-        entityType: "payment",
-        entityId: rentalPaymentIntent.id,
-        action: "payment.failed",
-        userId: currentUserId,
-        metadata: {
-          amount: totalAmount,
-          currency: "usd",
-          status: rentalPaymentIntent.status,
-        },
-        ipAddress: ipAddress ?? undefined,
-        userAgent: userAgent ?? undefined,
-      });
-
-      return NextResponse.json(
-        {
-          error: `Payment was not completed. ${errorMessage}. The renter has been notified.`,
-          paymentFailed: true,
-        },
-        { status: 400 },
-      );
-    }
-
-    const ipAddress = getClientIP(request);
-    const userAgent = getUserAgent(request);
-    await auditLogDAL.create({
-      entityType: "payment",
-      entityId: rentalPaymentIntent.id,
-      action: "payment.captured",
-      userId: currentUserId,
-      metadata: {
-        amount: totalAmount,
-        currency: "usd",
-        status: "succeeded",
-      },
-      ipAddress: ipAddress ?? undefined,
-      userAgent: userAgent ?? undefined,
-    });
-
-    // Authorize (hold) the security deposit
-    let securityDepositAuthId: string | undefined;
-
-    if (Number(rentalRequest.securityDeposit) > 0) {
-      const { data: securityDepositAuth, error: depositError } = await tryCatch(
-        authorizeSecurityDeposit(
-          stripeCustomerId,
-          paymentMethodIdToUse,
-          Number(rentalRequest.securityDeposit),
-          {
-            type: "security_deposit",
-            rentalRequestId: rentalRequest.id,
-            listingId: rentalRequest.listingId,
-            renterId: rentalRequest.renterId,
-          },
-        ),
-      );
-
-      if (depositError || !securityDepositAuth) {
-        // Security deposit authorization failed
-        // The rental payment succeeded, so we need to handle this carefully
-        console.error(
-          "Security deposit authorization failed:",
-          depositError?.message,
-        );
-
-        // We could either:
-        // 1. Refund the rental payment and fail the approval
-        // 2. Continue without security deposit hold (log for manual review)
-        // For now, we'll continue and log the issue
-        console.warn(
-          `Rental ${rentalRequest.id} approved without security deposit hold`,
-        );
-      } else if (
-        securityDepositAuth.status === "requires_capture" ||
-        securityDepositAuth.status === "requires_confirmation"
+      const message =
+        result.error instanceof Error
+          ? result.error.message
+          : "An error occurred";
+      if (message.includes("Forbidden")) {
+        return NextResponse.json({ error: message }, { status: 403 });
+      }
+      if (
+        message.includes("payment method") ||
+        message.includes("onboarding") ||
+        message.includes("Stripe")
       ) {
-        securityDepositAuthId = securityDepositAuth.id;
+        return NextResponse.json({ error: message }, { status: 400 });
       }
+      return handleApiError(result.error);
     }
 
-    // Now approve the rental request with payment IDs
-    const { error: approvalError } = await tryCatch(
-      rentalDAL.approveRentalRequest(rentalId, currentUserId, {
-        pickupInstructions: validatedData.pickupInstructions,
-        returnInstructions: validatedData.returnInstructions,
-        rentalPaymentIntentId: rentalPaymentIntent.id,
-        securityDepositAuthId: securityDepositAuthId,
-        applicationFeeAmount: applicationFeeAmount.toString(),
-      }),
-    );
-
-    if (approvalError) {
-      // Approval failed after payment succeeded
-      // This is a critical error that needs manual intervention
-      console.error("Rental approval failed after payment:", approvalError);
-
+    const data = result.data;
+    if (!data) {
       return NextResponse.json(
-        {
-          error:
-            "Payment was processed but approval failed. Please contact support immediately.",
-        },
+        { error: "Failed to approve rental request" },
         { status: 500 },
       );
     }
 
-    // Get the rental that was just created to get its ID
-    const { data: createdRental, error: rentalQueryError } = await tryCatch(
-      db
-        .select()
-        .from(rentals)
-        .where(eq(rentals.requestId, rentalId))
-        .limit(1)
-        .then((results) => results[0]),
-    );
-
-    if (rentalQueryError || !createdRental) {
-      console.error(
-        "Failed to query created rental for payment record:",
-        rentalQueryError,
-      );
-      // Continue anyway - payment record creation is not critical
-    } else {
-      // Create payment record in database
-      const { error: paymentRecordError } = await tryCatch(
-        paymentDAL.createPayment({
-          rentalId: createdRental.id,
-          payerId: rentalRequest.renterId,
-          payeeId: rentalRequest.ownerId,
-          amount: totalAmount.toString(),
-          platformFee: applicationFeeAmount.toString(),
-          paymentMethodId: paymentMethodIdToUse || undefined,
-          stripePaymentIntentId: rentalPaymentIntent.id,
-          status: "succeeded",
-          paidAt: new Date(),
-        }),
-      );
-
-      if (paymentRecordError) {
-        console.error(
-          "Failed to create payment record (payment succeeded):",
-          paymentRecordError,
-        );
-        // Continue anyway - payment succeeded, record creation is for history
-      } else {
-        trackActivity(rentalRequest.renterId, "payment_made", {
-          rentalId: createdRental.id,
-          rentalRequestId: rentalRequest.id,
-        });
-        trackActivity(rentalRequest.ownerId, "payout_received", {
-          rentalId: createdRental.id,
-          rentalRequestId: rentalRequest.id,
-        });
-      }
-    }
-
-    // Send success notifications to both parties (don't block on notification failures)
-    try {
-      const { data: renterUser } = await tryCatch(
-        userDAL.getUserById(rentalRequest.renterId),
-      );
-      const { data: ownerUser } = await tryCatch(
-        userDAL.getUserById(rentalRequest.ownerId),
-      );
-
-      if (renterUser && ownerUser) {
-        const startDate = new Date(
-          rentalRequest.startDate,
-        ).toLocaleDateString();
-        const endDate = new Date(rentalRequest.endDate).toLocaleDateString();
-
-        // Send payment success notification to renter
-        tryCatch(
-          sendPaymentSucceededNotificationToRenter({
-            userId: renterUser.id,
-            to: renterUser.email,
-            renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-            ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-            listingName: rentalRequest.listingName,
-            rentalId: rentalRequest.id,
-            totalAmount: rentalRequest.totalAmount,
-            securityDeposit: rentalRequest.securityDeposit,
-          }),
-        ).catch((err) => {
-          console.error(
-            "Failed to send payment success notification to renter:",
-            err,
-          );
-        });
-
-        // Send payment success notification to owner
-        tryCatch(
-          sendPaymentSucceededNotificationToOwner({
-            userId: ownerUser.id,
-            to: ownerUser.email,
-            ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-            renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-            listingName: rentalRequest.listingName,
-            rentalId: rentalRequest.id,
-            totalAmount: rentalRequest.totalAmount,
-          }),
-        ).catch((err) => {
-          console.error(
-            "Failed to send payment success notification to owner:",
-            err,
-          );
-        });
-
-        // Send rental approved notification to renter (with firstApproval for push prompt)
-        const approvedCount = await rentalDAL.getApprovedRentalCountForRenter(
-          renterUser.id,
-        );
-        const firstApproval = approvedCount === 1;
-        tryCatch(
-          sendRentalApprovedNotification({
-            userId: renterUser.id,
-            to: renterUser.email,
-            renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-            ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-            listingName: rentalRequest.listingName,
-            rentalId: rentalRequest.id,
-            startDate,
-            endDate,
-            totalAmount: rentalRequest.totalAmount,
-            firstApproval,
-          }),
-        ).catch((err) => {
-          captureNonCriticalError(err, {
-            route: "POST /api/rentals/[id]/approve",
-            action: "send_rental_approved_notification",
-          });
-        });
-      }
-    } catch (notificationError) {
-      captureNonCriticalError(notificationError, {
-        route: "POST /api/rentals/[id]/approve",
-        action: "send_success_notifications",
-      });
-    }
-
-    trackActivity(currentUserId, "rental_approved", {
-      rentalId,
-      rentalRequestId: rentalRequest.id,
-    });
-
-    // Trigger async PDF generation (fire-and-forget; do not block response)
-    const internalSecret = process.env.INTERNAL_API_SECRET;
-    const baseUrl =
-      process.env.VERCEL_URL != null
-        ? `https://${process.env.VERCEL_URL}`
-        : process.env.NEXT_PUBLIC_APP_URL;
-    if (internalSecret && baseUrl) {
-      fetch(`${baseUrl}/api/internal/generate-rental-agreement`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${internalSecret}`,
+    if (!data.success) {
+      return NextResponse.json(
+        {
+          error: data.paymentFailed
+            ? `Payment failed: ${data.error}. The renter has been notified to update their payment method.`
+            : data.error,
+          paymentFailed: data.paymentFailed ?? false,
         },
-        body: JSON.stringify({ rentalRequestId: rentalRequest.id }),
-        signal: AbortSignal.timeout(5000),
-      }).catch((err) => {
-        captureNonCriticalError(err, {
-          route: "POST /api/rentals/[id]/approve",
-          action: "trigger_pdf_generation",
-        });
-      });
+        { status: data.paymentFailed ? 400 : 500 },
+      );
     }
 
     return NextResponse.json({
       success: true,
-      paymentIntentId: rentalPaymentIntent.id,
-      securityDepositAuthId,
+      paymentIntentId: data.paymentIntentId,
+      securityDepositAuthId: data.securityDepositAuthId,
     });
   } catch (error) {
     return handleApiError(error);
