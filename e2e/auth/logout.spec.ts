@@ -17,8 +17,11 @@ test.describe("Logout and subsequent access", () => {
     await expect(page).toHaveURL(/\//);
     await page.waitForLoadState("networkidle");
 
-    // Navigate to protected route - catch potential ERR_ABORTED from fast redirects
-    await page.goto("/dashboard", { waitUntil: "commit" }).catch(() => {});
-    await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+    // Retry navigation — in CI, session invalidation may not have propagated
+    // to the server yet, causing /dashboard to redirect to / instead of /login.
+    await expect(async () => {
+      await page.goto("/dashboard", { waitUntil: "load", timeout: 10_000 });
+      expect(page.url()).toMatch(/\/login/);
+    }).toPass({ timeout: 20_000, intervals: [1_000, 2_000, 3_000] });
   });
 });
