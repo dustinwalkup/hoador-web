@@ -10,8 +10,12 @@ test.describe("Logout and subsequent access", () => {
     await page.getByLabel(/^password/i).fill(E2E_PASSWORD);
     await page.getByRole("button", { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/dashboard/);
+    await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: /active user/i }).click();
+    // Ensure the user menu button is interactive before clicking
+    const userMenuButton = page.getByRole("button", { name: /active user/i });
+    await userMenuButton.waitFor({ state: "visible" });
+    await userMenuButton.click();
     await page.getByRole("menuitem", { name: /log out/i }).click();
 
     await expect(page).toHaveURL(/\//);
