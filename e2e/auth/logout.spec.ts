@@ -17,12 +17,8 @@ test.describe("Logout and subsequent access", () => {
     await expect(page).toHaveURL(/\//);
     await page.waitForLoadState("networkidle");
 
-    // Use client-side navigation instead of page.goto because the server-side
-    // redirect (/dashboard → /login) fires so fast in CI that Chromium aborts
-    // the request before Playwright can observe it (net::ERR_ABORTED).
-    await page.evaluate(() => {
-      window.location.href = "/dashboard";
-    });
+    // Navigate to protected route - catch potential ERR_ABORTED from fast redirects
+    await page.goto("/dashboard", { waitUntil: "commit" }).catch(() => {});
     await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
   });
 });
