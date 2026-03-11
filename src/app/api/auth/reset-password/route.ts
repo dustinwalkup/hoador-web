@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { auth } from "@/services/better-auth";
 import { resetPasswordSchema } from "@/features/auth/schemas/password";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
 
 async function postHandler(request: NextRequest) {

@@ -138,7 +138,6 @@ const keyFiles = [
   { label: "User DAL", path: "src/dal/user.dal.ts" },
   { label: "Login page", path: "src/app/(auth)/login/page.tsx" },
   { label: "Signup page", path: "src/app/(auth)/signup/page.tsx" },
-  { label: "Admin login API", path: "src/app/api/auth/admin-login/route.ts" },
   {
     label: "Auth API handler",
     path: "src/app/api/auth/[...all]/route.ts",
