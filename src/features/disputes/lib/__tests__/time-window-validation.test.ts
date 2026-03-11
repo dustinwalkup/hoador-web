@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { TimeWindowValidation } from "../time-window-validation";
 import type { DisputeReasonCode } from "@/dal/types";
 
@@ -159,10 +159,13 @@ describe("TimeWindowValidation", () => {
     });
 
     it("should validate exactly at deadline boundary (inclusive)", () => {
-      // Create a deadline that is exactly now
-      const now = new Date();
-      const endDate = new Date(now);
-      endDate.setDate(endDate.getDate() - 7); // 7 days ago (for damage, deadline is 7 days after endDate = now)
+      // Freeze time so the deadline and "now" inside validateTimeWindow are identical
+      const frozen = new Date("2024-06-01T12:00:00Z");
+      vi.useFakeTimers({ now: frozen });
+
+      // endDate 7 days ago → damage deadline = endDate + 7 = frozen
+      const endDate = new Date(frozen);
+      endDate.setDate(endDate.getDate() - 7);
 
       const result = TimeWindowValidation.validateTimeWindow(
         endDate,
@@ -172,6 +175,8 @@ describe("TimeWindowValidation", () => {
 
       // Should be valid (inclusive boundary)
       expect(result.valid).toBe(true);
+
+      vi.useRealTimers();
     });
 
     it("should validate different reason codes correctly", () => {
