@@ -22,7 +22,7 @@ export async function processImageForUpload(
     format = "jpeg",
   } = options;
 
-  let sharpInstance = sharp(buffer).resize(maxWidth, maxHeight, {
+  let sharpInstance = sharp(buffer).rotate().resize(maxWidth, maxHeight, {
     fit: "inside",
     withoutEnlargement: true,
   });
@@ -64,8 +64,9 @@ export function validateImageForProcessing(
   file: File,
   maxSizeMB: number = 10,
 ): string | null {
-  // Check file type
-  if (!file.type.startsWith("image/")) {
+  // Check file type (also accept HEIC/HEIF which may have empty MIME on some platforms)
+  const isHeic = file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif");
+  if (!file.type.startsWith("image/") && !isHeic) {
     return "File must be an image";
   }
 
@@ -75,6 +76,40 @@ export function validateImageForProcessing(
   }
 
   return null;
+}
+
+/**
+ * Validate image content by checking magic bytes (file signature).
+ * Returns true if the buffer matches a known image format.
+ * This prevents accepting non-image files with spoofed MIME types.
+ */
+export function validateImageMagicBytes(buffer: Buffer): boolean {
+  if (buffer.length < 12) return false;
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return true;
+
+  // PNG: 89 50 4E 47
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return true;
+
+  // GIF: 47 49 46
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return true;
+
+  // WebP: RIFF....WEBP
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+      buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return true;
+
+  // HEIC/HEIF: ftyp box — bytes 4-7 are "ftyp"
+  if (buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70) return true;
+
+  // BMP: 42 4D
+  if (buffer[0] === 0x42 && buffer[1] === 0x4D) return true;
+
+  // TIFF: 49 49 2A 00 (little-endian) or 4D 4D 00 2A (big-endian)
+  if ((buffer[0] === 0x49 && buffer[1] === 0x49 && buffer[2] === 0x2A && buffer[3] === 0x00) ||
+      (buffer[0] === 0x4D && buffer[1] === 0x4D && buffer[2] === 0x00 && buffer[3] === 0x2A)) return true;
+
+  return false;
 }
 
 /**

@@ -143,16 +143,26 @@ export const listings = pgTable(
   }),
 );
 
-export const listingImages = pgTable("listing_images", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  listingId: uuid("listing_id").references(() => listings.id, {
-    onDelete: "cascade",
+export const listingImages = pgTable(
+  "listing_images",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    listingId: uuid("listing_id").references(() => listings.id, {
+      onDelete: "cascade",
+    }),
+    imageUrl: varchar("image_url", { length: 500 }).notNull(),
+    blobPathname: varchar("blob_pathname", { length: 255 }).notNull(), // For deletion
+    orderIndex: integer("order_index").default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    listingIdIdx: index("listing_images_listing_id_idx").on(table.listingId),
+    listingIdOrderIdx: index("listing_images_listing_id_order_idx").on(
+      table.listingId,
+      table.orderIndex,
+    ),
   }),
-  imageUrl: varchar("image_url", { length: 500 }).notNull(),
-  blobPathname: varchar("blob_pathname", { length: 255 }).notNull(), // For deletion
-  orderIndex: integer("order_index").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+);
 
 // listing availability
 export const listingAvailability = pgTable(

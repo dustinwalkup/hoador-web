@@ -8,7 +8,7 @@ import type {
   CreateListingFormDataClientType,
   ImageFile,
 } from "@/features/listings/form-schema/listing.schema";
-import { validateImageFile } from "@/lib/image/image.utils";
+import { processSelectedFiles } from "@/lib/image/process-selected-files";
 
 import {
   Card,
@@ -130,20 +130,17 @@ export function PhotosSection({
     // Don't try to set a fallback src since we're not using mock images anymore
   };
 
-  // Handle file selection
+  // Handle file selection (with HEIC conversion support)
   const handleFileSelect = useCallback(
-    (files: FileList | null) => {
+    async (files: FileList | null) => {
       if (!files) return;
 
-      Array.from(files).forEach((file) => {
-        const error = validateImageFile(file);
-        if (error) {
-          toast.error(error);
-          return;
-        }
-
-        addImage(file);
-      });
+      const result = await processSelectedFiles(files);
+      result.errors.forEach((err) => toast.error(err));
+      if (result.heicConversionCount > 0) {
+        toast.info("Converting HEIC image...");
+      }
+      result.files.forEach((file) => addImage(file));
     },
     [addImage],
   );
@@ -271,7 +268,7 @@ export function PhotosSection({
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 onChange={handleFileInputChange}
                 className="hidden"
               />

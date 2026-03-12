@@ -28,6 +28,12 @@ export class ValidationError extends DALError {
   }
 }
 
+export class ForbiddenError extends DALError {
+  constructor(message = "Forbidden") {
+    super(message, "FORBIDDEN", 403);
+  }
+}
+
 export class ConflictError extends DALError {
   constructor(message: string) {
     super(message, "CONFLICT", 409);

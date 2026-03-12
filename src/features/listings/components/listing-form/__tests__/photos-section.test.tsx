@@ -11,6 +11,8 @@ import {
 // Mock image utilities
 vi.mock("@/lib/image/image.utils", () => ({
   validateImageFile: vi.fn(),
+  isHeicFile: vi.fn().mockReturnValue(false),
+  convertHeicToJpeg: vi.fn(),
 }));
 
 describe("PhotosSection", () => {
@@ -59,7 +61,7 @@ describe("PhotosSection", () => {
     ) as HTMLInputElement;
     expect(fileInput).toBeInTheDocument();
     expect(fileInput).toHaveAttribute("type", "file");
-    expect(fileInput).toHaveAttribute("accept", "image/*");
+    expect(fileInput).toHaveAttribute("accept", "image/*,.heic,.heif");
     expect(fileInput).toHaveAttribute("multiple");
   });
 
