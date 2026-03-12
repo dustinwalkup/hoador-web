@@ -89,12 +89,17 @@ export const imageFileSchema = z.object({
   url: z.string().optional(),
   id: z.string().optional(),
   orderIndex: z.number().optional(),
+  status: z.enum(["processing", "ready", "error"]).optional(),
+  errorMessage: z.string().optional(),
 });
 
 // Client schema = base + images + ownerPoliciesAcknowledged + service validation
 export const createListingSchemaClient = withServiceValidation(
   baseListingSchema.extend({
-    images: z.array(imageFileSchema).min(1, "At least one image is required"),
+    images: z
+      .array(imageFileSchema)
+      .min(1, "At least one image is required")
+      .max(10, "Maximum 10 images allowed"),
     ownerPoliciesAcknowledged: z.boolean().refine((val) => val === true, {
       message: "You must acknowledge the Owner Policies to create a listing.",
     }),

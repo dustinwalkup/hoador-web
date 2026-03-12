@@ -23,7 +23,6 @@ export function useCreateListing() {
 
       return response.json();
     },
-    successMessage: "Listing created successfully",
     invalidateQueryKeys: [["listings"], ["garage"], ["listing-details"]],
     onSuccess: (data) => {
       // Invalidate specific listing query if listingId is returned
@@ -63,7 +62,6 @@ export function useUpdateListing() {
 
       return response.json();
     },
-    successMessage: "Listing updated successfully",
     invalidateQueryKeys: [["listings"], ["garage"], ["listing-details"]],
     onSuccess: (data, variables) => {
       // Invalidate specific listing query

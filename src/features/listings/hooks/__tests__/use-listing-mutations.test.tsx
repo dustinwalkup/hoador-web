@@ -119,10 +119,8 @@ describe("useCreateListing", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mockListingData),
       });
-      expect(toast.success).toHaveBeenCalledWith(
-        "Listing created successfully",
-        expect.objectContaining({ duration: 3000 }),
-      );
+      // Success toast is handled by the submit handler, not the mutation
+      expect(toast.success).not.toHaveBeenCalled();
     });
   });
 
@@ -294,10 +292,8 @@ describe("useUpdateListing", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mockListingData),
       });
-      expect(toast.success).toHaveBeenCalledWith(
-        "Listing updated successfully",
-        expect.objectContaining({ duration: 3000 }),
-      );
+      // Success toast is handled by the submit handler, not the mutation
+      expect(toast.success).not.toHaveBeenCalled();
     });
   });
 

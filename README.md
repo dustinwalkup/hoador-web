@@ -67,6 +67,7 @@ After merging `develop` into `main`, sync your local `develop` branch:
 git checkout develop
 git fetch origin
 git reset --hard origin/main
+git push origin develop --force
 ```
 
 ## Deploy on Vercel

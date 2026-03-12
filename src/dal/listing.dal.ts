@@ -671,6 +671,12 @@ export class ListingDAL extends BaseDAL {
 
   async deleteListing(id: string): Promise<void> {
     try {
+      // Fetch blob pathnames before cascade delete removes the image records
+      const images = await this.db
+        .select({ blobPathname: listingImages.blobPathname })
+        .from(listingImages)
+        .where(eq(listingImages.listingId, id));
+
       const result = await this.db
         .delete(listings)
         .where(eq(listings.id, id))
@@ -678,6 +684,21 @@ export class ListingDAL extends BaseDAL {
 
       if (result.length === 0) {
         throw new NotFoundError("Listing", id);
+      }
+
+      // Clean up blob storage in the background (don't block the response)
+      if (images.length > 0) {
+        const { deleteFromBlob } = await import("@/services/vercel-blob");
+        Promise.allSettled(
+          images.map((img) => deleteFromBlob(img.blobPathname)),
+        ).then((results) => {
+          const failed = results.filter((r) => r.status === "rejected");
+          if (failed.length > 0) {
+            console.error(
+              `Failed to delete ${failed.length} blob images for listing ${id}`,
+            );
+          }
+        });
       }
     } catch (error) {
       this.handleError(error, "deleteListing");

@@ -1,6 +1,6 @@
 {
-  "id": "0dec691a-7f33-45d6-9006-9fa741e358fe",
-  "prevId": "95804050-c234-4bb0-a28e-1a00f93f940e",
+  "id": "16f8bf53-fec5-4d8b-97a3-b96a7814e62e",
+  "prevId": "0dec691a-7f33-45d6-9006-9fa741e358fe",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2042,7 +2042,44 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "listing_images_listing_id_idx": {
+          "name": "listing_images_listing_id_idx",
+          "columns": [
+            {
+              "expression": "listing_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "listing_images_listing_id_order_idx": {
+          "name": "listing_images_listing_id_order_idx",
+          "columns": [
+            {
+              "expression": "listing_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "order_index",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "listing_images_listing_id_listings_id_fk": {
           "name": "listing_images_listing_id_listings_id_fk",
@@ -3728,6 +3765,34 @@
         },
         "setup_fee": {
           "name": "setup_fee",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "service_fee": {
+          "name": "service_fee",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "application_fee_amount": {
+          "name": "application_fee_amount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "owner_payout": {
+          "name": "owner_payout",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "platform_net_revenue": {
+          "name": "platform_net_revenue",
           "type": "numeric(10, 2)",
           "primaryKey": false,
           "notNull": true,

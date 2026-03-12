@@ -377,6 +377,7 @@ export function createMockForm() {
     },
     addImage: vi.fn(),
     removeImage: vi.fn(),
+    setImages: vi.fn(),
     addSpecification: vi.fn(),
     removeSpecification: vi.fn(),
   };

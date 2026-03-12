@@ -47,10 +47,21 @@ export function useListingForm(
   const addImage = (file?: File) => {
     const images = form.getValues("images");
     const newImage: ImageFile = file
-      ? { file, orderIndex: images.length }
-      : { url: getMockToolImage(), orderIndex: images.length };
+      ? { file, orderIndex: images.length, id: crypto.randomUUID() }
+      : {
+          url: getMockToolImage(),
+          orderIndex: images.length,
+          id: crypto.randomUUID(),
+        };
 
     form.setValue("images", [...images, newImage], {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  const setImages = (images: ImageFile[]) => {
+    form.setValue("images", images, {
       shouldDirty: true,
       shouldValidate: true,
     });
@@ -136,6 +147,7 @@ export function useListingForm(
     ...form,
     addImage,
     removeImage,
+    setImages,
     updateImageOrder,
     addSpecification,
     removeSpecification,

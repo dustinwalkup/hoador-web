@@ -66,7 +66,10 @@ export function useListingImages(listingId: string) {
     }
   };
 
-  const deleteImage = async (imageId: string) => {
+  const deleteImage = async (
+    imageId: string,
+    options?: { silent?: boolean },
+  ) => {
     try {
       const response = await fetch(
         `/api/listings/${listingId}/images/${imageId}`,
@@ -79,7 +82,9 @@ export function useListingImages(listingId: string) {
 
       if (result.success) {
         setImages((prev) => prev.filter((img) => img.id !== imageId));
-        toast.success("Image deleted successfully");
+        if (!options?.silent) {
+          toast.success("Image deleted successfully");
+        }
       } else {
         toast.error(result.error || "Delete failed");
       }
@@ -89,7 +94,10 @@ export function useListingImages(listingId: string) {
     }
   };
 
-  const reorderImages = async (newImageIds: string[]) => {
+  const reorderImages = async (
+    newImageIds: string[],
+    options?: { silent?: boolean },
+  ) => {
     try {
       const response = await fetch(
         `/api/listings/${listingId}/images/reorder`,
@@ -109,7 +117,9 @@ export function useListingImages(listingId: string) {
           return { ...image, orderIndex: index };
         });
         setImages(reorderedImages);
-        toast.success("Images reordered successfully");
+        if (!options?.silent) {
+          toast.success("Images reordered successfully");
+        }
       } else {
         toast.error(result.error || "Reorder failed");
       }
