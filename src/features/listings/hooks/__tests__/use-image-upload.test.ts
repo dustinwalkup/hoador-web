@@ -39,15 +39,34 @@ describe("useImageUpload", () => {
       );
     });
 
-    expect(uploadResult!).toEqual({ succeeded: 0, failed: 0, total: 0 });
+    expect(uploadResult!).toEqual({
+      succeeded: 0,
+      failed: 0,
+      total: 0,
+      failedIndices: [],
+      uploadedImages: [],
+    });
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("should upload files and track progress", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ success: true }),
-    });
+  it("should upload files sequentially and track progress", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            image: { id: "uploaded-1" },
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            image: { id: "uploaded-2" },
+          }),
+      });
 
     const { result } = renderHook(() => useImageUpload());
     const images = createImageFiles(2);
@@ -57,7 +76,13 @@ describe("useImageUpload", () => {
       uploadResult = await result.current.uploadImages(images, listingId);
     });
 
-    expect(uploadResult!).toEqual({ succeeded: 2, failed: 0, total: 2 });
+    expect(uploadResult!).toEqual({
+      succeeded: 2,
+      failed: 0,
+      total: 2,
+      failedIndices: [],
+      uploadedImages: [{ id: "uploaded-1" }, { id: "uploaded-2" }],
+    });
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockFetch).toHaveBeenCalledWith(
       `/api/listings/${listingId}`,
@@ -71,7 +96,8 @@ describe("useImageUpload", () => {
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ success: true }),
+        json: () =>
+          Promise.resolve({ success: true, image: { id: "uploaded-1" } }),
       })
       .mockResolvedValueOnce({
         ok: false,
@@ -86,7 +112,13 @@ describe("useImageUpload", () => {
       uploadResult = await result.current.uploadImages(images, listingId);
     });
 
-    expect(uploadResult!).toEqual({ succeeded: 1, failed: 1, total: 2 });
+    expect(uploadResult!).toEqual({
+      succeeded: 1,
+      failed: 1,
+      total: 2,
+      failedIndices: [1],
+      uploadedImages: [{ id: "uploaded-1" }],
+    });
   });
 
   it("should handle total upload failure", async () => {
@@ -103,7 +135,13 @@ describe("useImageUpload", () => {
       uploadResult = await result.current.uploadImages(images, listingId);
     });
 
-    expect(uploadResult!).toEqual({ succeeded: 0, failed: 3, total: 3 });
+    expect(uploadResult!).toEqual({
+      succeeded: 0,
+      failed: 3,
+      total: 3,
+      failedIndices: [0, 1, 2],
+      uploadedImages: [],
+    });
   });
 
   it("should return empty result for empty images array", async () => {
@@ -114,7 +152,58 @@ describe("useImageUpload", () => {
       uploadResult = await result.current.uploadImages([], listingId);
     });
 
-    expect(uploadResult!).toEqual({ succeeded: 0, failed: 0, total: 0 });
+    expect(uploadResult!).toEqual({
+      succeeded: 0,
+      failed: 0,
+      total: 0,
+      failedIndices: [],
+      uploadedImages: [],
+    });
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("should upload images in sequential order", async () => {
+    const callOrder: number[] = [];
+    mockFetch
+      .mockImplementationOnce(() => {
+        callOrder.push(1);
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({ success: true, image: { id: "first" } }),
+        });
+      })
+      .mockImplementationOnce(() => {
+        callOrder.push(2);
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({ success: true, image: { id: "second" } }),
+        });
+      })
+      .mockImplementationOnce(() => {
+        callOrder.push(3);
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({ success: true, image: { id: "third" } }),
+        });
+      });
+
+    const { result } = renderHook(() => useImageUpload());
+    const images = createImageFiles(3);
+
+    let uploadResult: Awaited<ReturnType<typeof result.current.uploadImages>>;
+    await act(async () => {
+      uploadResult = await result.current.uploadImages(images, listingId);
+    });
+
+    // Verify sequential order
+    expect(callOrder).toEqual([1, 2, 3]);
+    expect(uploadResult!.uploadedImages).toEqual([
+      { id: "first" },
+      { id: "second" },
+      { id: "third" },
+    ]);
   });
 });

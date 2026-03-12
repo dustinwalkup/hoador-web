@@ -38,7 +38,7 @@ describe("processSelectedFiles", () => {
     expect(result.heicConversionCount).toBe(0);
   });
 
-  it("should collect validation errors", async () => {
+  it("should collect structured validation errors", async () => {
     mockValidateImageFile
       .mockReturnValueOnce(null) // first file valid
       .mockReturnValueOnce("File too large (max 10MB)"); // second invalid
@@ -51,7 +51,12 @@ describe("processSelectedFiles", () => {
     const result = await processSelectedFiles(files);
 
     expect(result.files).toHaveLength(1);
-    expect(result.errors).toEqual(["File too large (max 10MB)"]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      fileName: "huge.jpg",
+      reason: expect.stringMatching(/too-large|invalid-type/),
+      message: expect.any(String),
+    });
   });
 
   it("should convert HEIC files to JPEG", async () => {
@@ -79,9 +84,13 @@ describe("processSelectedFiles", () => {
     const result = await processSelectedFiles([heicFile]);
 
     expect(result.files).toHaveLength(0);
-    expect(result.errors).toEqual([
-      "Failed to convert photo.heic. Please try a JPEG or PNG instead.",
-    ]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      fileName: "photo.heic",
+      reason: "conversion-failed",
+      message:
+        "Failed to convert photo.heic. Please try a JPEG or PNG instead.",
+    });
     expect(result.heicConversionCount).toBe(0);
   });
 
@@ -107,7 +116,8 @@ describe("processSelectedFiles", () => {
     const result = await processSelectedFiles([jpegFile, bigFile, heicFile]);
 
     expect(result.files).toEqual([jpegFile, convertedFile]);
-    expect(result.errors).toEqual(["File too large (max 10MB)"]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].fileName).toBe("big.jpg");
     expect(result.heicConversionCount).toBe(1);
   });
 
@@ -117,5 +127,61 @@ describe("processSelectedFiles", () => {
     expect(result.files).toHaveLength(0);
     expect(result.errors).toHaveLength(0);
     expect(result.heicConversionCount).toBe(0);
+  });
+
+  it("should call onFileProcessing callback for each file", async () => {
+    const onFileProcessing = vi.fn();
+    const files = [new File(["a"], "photo.jpg", { type: "image/jpeg" })];
+
+    await processSelectedFiles(files, { onFileProcessing });
+
+    expect(onFileProcessing).toHaveBeenCalledWith("photo.jpg", "validating");
+    expect(onFileProcessing).toHaveBeenCalledWith("photo.jpg", "done");
+  });
+
+  it("should call onFileProcessing with converting stage for HEIC files", async () => {
+    const onFileProcessing = vi.fn();
+    const heicFile = new File(["heic"], "photo.heic", { type: "image/heic" });
+    const convertedFile = new File(["jpeg"], "photo.jpg", {
+      type: "image/jpeg",
+    });
+
+    mockIsHeicFile.mockReturnValue(true);
+    mockConvertHeicToJpeg.mockResolvedValue(convertedFile);
+
+    await processSelectedFiles([heicFile], { onFileProcessing });
+
+    expect(onFileProcessing).toHaveBeenCalledWith("photo.heic", "validating");
+    expect(onFileProcessing).toHaveBeenCalledWith("photo.heic", "converting");
+    expect(onFileProcessing).toHaveBeenCalledWith("photo.heic", "done");
+  });
+
+  it("should call onFileProcessing with error stage on failure", async () => {
+    const onFileProcessing = vi.fn();
+    mockValidateImageFile.mockReturnValue("File too large");
+
+    const files = [new File(["a"], "big.jpg", { type: "image/jpeg" })];
+
+    await processSelectedFiles(files, { onFileProcessing });
+
+    expect(onFileProcessing).toHaveBeenCalledWith("big.jpg", "validating");
+    expect(onFileProcessing).toHaveBeenCalledWith("big.jpg", "error");
+  });
+
+  it("should include file size in too-large errors", async () => {
+    // Create a file that appears > 10MB by mocking validateImageFile
+    const bigContent = new Uint8Array(11 * 1024 * 1024); // 11MB
+    const bigFile = new File([bigContent], "huge.jpg", { type: "image/jpeg" });
+    mockValidateImageFile.mockReturnValue("File too large (max 10MB)");
+
+    const result = await processSelectedFiles([bigFile]);
+
+    expect(result.errors[0]).toMatchObject({
+      fileName: "huge.jpg",
+      reason: "too-large",
+      fileSize: bigFile.size,
+    });
+    expect(result.errors[0].message).toContain("huge.jpg");
+    expect(result.errors[0].message).toContain("Maximum is 10MB");
   });
 });

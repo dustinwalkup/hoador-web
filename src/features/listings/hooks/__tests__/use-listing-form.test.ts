@@ -144,7 +144,7 @@ describe("useListingForm", () => {
 
       expect(mockForm.setValue).toHaveBeenCalledWith(
         "images",
-        [{ file: mockFile, orderIndex: 0 }],
+        [{ file: mockFile, orderIndex: 0, id: expect.any(String) }],
         {
           shouldDirty: true,
           shouldValidate: true,
@@ -166,7 +166,7 @@ describe("useListingForm", () => {
 
       expect(mockForm.setValue).toHaveBeenCalledWith(
         "images",
-        [{ url: expect.any(String), orderIndex: 0 }],
+        [{ url: expect.any(String), orderIndex: 0, id: expect.any(String) }],
         {
           shouldDirty: true,
           shouldValidate: true,
@@ -192,7 +192,10 @@ describe("useListingForm", () => {
 
       expect(mockForm.setValue).toHaveBeenCalledWith(
         "images",
-        [...existingImages, { file: expect.any(File), orderIndex: 2 }],
+        [
+          ...existingImages,
+          { file: expect.any(File), orderIndex: 2, id: expect.any(String) },
+        ],
         {
           shouldDirty: true,
           shouldValidate: true,

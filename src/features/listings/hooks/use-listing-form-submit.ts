@@ -14,7 +14,14 @@ interface UseListingFormSubmitOptions {
   isEdit: boolean;
   listingId?: string;
   existingImages: ListingImage[];
-  deleteImage: (imageId: string) => Promise<void>;
+  deleteImage: (
+    imageId: string,
+    options?: { silent?: boolean },
+  ) => Promise<void>;
+  reorderImages: (
+    imageIds: string[],
+    options?: { silent?: boolean },
+  ) => Promise<void>;
   onSuccess?: () => void;
 }
 
@@ -23,6 +30,7 @@ export function useListingFormSubmit({
   listingId,
   existingImages,
   deleteImage,
+  reorderImages,
   onSuccess,
 }: UseListingFormSubmitOptions) {
   const router = useRouter();
@@ -47,7 +55,9 @@ export function useListingFormSubmit({
         (img) => !remainingImageIds.has(img.id),
       );
 
-      await Promise.all(removedImages.map((img) => deleteImage(img.id)));
+      await Promise.all(
+        removedImages.map((img) => deleteImage(img.id, { silent: true })),
+      );
     },
     [isEdit, listingId, existingImages, deleteImage],
   );
@@ -79,15 +89,39 @@ export function useListingFormSubmit({
           await deleteRemovedImages(images);
 
           const newImages = images.filter((img: ImageFile) => img.file);
+          let uploadResult = null;
           if (newImages.length > 0) {
-            const uploadResult = await uploadImages(newImages, listingId);
-            if (uploadResult.failed > 0) {
-              toast.error(
-                `${uploadResult.succeeded} of ${uploadResult.total} images uploaded. Failed images can be re-uploaded from the edit page.`,
-              );
-            } else {
-              toast.success("Listing and images updated successfully!");
+            uploadResult = await uploadImages(newImages, listingId);
+          }
+
+          // Persist the user's image order (including main photo selection)
+          let uploadIdx = 0;
+          const finalImageIds: string[] = [];
+          for (const img of images) {
+            if (img.id && !img.file) {
+              // Existing image retained by user
+              finalImageIds.push(img.id);
+            } else if (img.file && uploadResult) {
+              // Newly uploaded image — match by sequential index
+              const uploaded = uploadResult.uploadedImages[uploadIdx];
+              if (uploaded) {
+                finalImageIds.push(uploaded.id);
+                uploadIdx++;
+              }
             }
+          }
+
+          if (finalImageIds.length > 0) {
+            await reorderImages(finalImageIds, { silent: true });
+          }
+
+          // Single consolidated toast
+          if (uploadResult && uploadResult.failed > 0) {
+            toast.error(
+              `${uploadResult.succeeded} of ${uploadResult.total} images uploaded. Failed images can be re-uploaded from the edit page.`,
+            );
+          } else {
+            toast.success("Listing updated successfully!");
           }
 
           router.push("/dashboard/garage");
@@ -125,6 +159,15 @@ export function useListingFormSubmit({
           isEdit ? "Error updating listing:" : "Error creating listing:",
           error,
         );
+        const message =
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred";
+        toast.error(
+          isEdit
+            ? `Failed to update listing: ${message}`
+            : `Failed to create listing: ${message}`,
+        );
       }
     },
     [
@@ -135,6 +178,7 @@ export function useListingFormSubmit({
       updateMutation,
       uploadImages,
       deleteRemovedImages,
+      reorderImages,
       onSuccess,
       router,
     ],

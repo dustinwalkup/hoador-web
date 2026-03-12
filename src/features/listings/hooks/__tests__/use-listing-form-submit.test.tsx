@@ -58,6 +58,7 @@ function createWrapper() {
 
 describe("useListingFormSubmit", () => {
   const mockDeleteImage = vi.fn();
+  const mockReorderImages = vi.fn().mockResolvedValue(undefined);
   const mockOnSuccess = vi.fn();
 
   const mockExistingImages: ListingImage[] = [
@@ -76,14 +77,19 @@ describe("useListingFormSubmit", () => {
     listingId: undefined,
     existingImages: [] as ListingImage[],
     deleteImage: mockDeleteImage,
+    reorderImages: mockReorderImages,
     onSuccess: mockOnSuccess,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ success: true }),
+    let uploadCounter = 0;
+    mockFetch.mockImplementation(() => {
+      const id = `uploaded-${++uploadCounter}`;
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true, image: { id } }),
+      });
     });
   });
 
@@ -237,7 +243,7 @@ describe("useListingFormSubmit", () => {
         listingId: "listing-123",
         data: expect.objectContaining({ name: formData.name }),
       });
-      expect(mockDeleteImage).toHaveBeenCalledWith("img-1");
+      expect(mockDeleteImage).toHaveBeenCalledWith("img-1", { silent: true });
       expect(mockPush).toHaveBeenCalledWith("/dashboard/garage");
     });
 

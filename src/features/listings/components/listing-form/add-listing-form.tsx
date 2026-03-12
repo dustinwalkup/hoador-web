@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { BasicInformationSection } from "./basic-information-section";
 import { PricingSection } from "./pricing-section";
-import { PhotosSection } from "./photos-section";
+import { PhotosSection } from "./photos-section/photos-section";
 import { PickupDeliverySection } from "./pickup-delivery-section";
 import { AdditionalDetailsSection } from "./additional-details-section";
 import {
@@ -48,6 +48,7 @@ export function AddListingForm({
     images: existingImages,
     loadImages,
     deleteImage,
+    reorderImages,
     isLoading: isLoadingImages,
   } = useListingImages(listingId || "");
 
@@ -59,6 +60,7 @@ export function AddListingForm({
     setValue,
     addImage,
     removeImage,
+    setImages,
     addSpecification,
     removeSpecification,
     reset,
@@ -75,6 +77,7 @@ export function AddListingForm({
     listingId,
     existingImages,
     deleteImage,
+    reorderImages,
     onSuccess: isEdit ? undefined : reset,
   });
 
@@ -113,6 +116,7 @@ export function AddListingForm({
           getValues={getValues}
           addImage={addImage}
           removeImage={removeImage}
+          setImages={setImages}
           isLoadingImages={isLoadingImages}
         />
 

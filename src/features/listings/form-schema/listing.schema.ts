@@ -89,6 +89,8 @@ export const imageFileSchema = z.object({
   url: z.string().optional(),
   id: z.string().optional(),
   orderIndex: z.number().optional(),
+  status: z.enum(["processing", "ready", "error"]).optional(),
+  errorMessage: z.string().optional(),
 });
 
 // Client schema = base + images + ownerPoliciesAcknowledged + service validation
