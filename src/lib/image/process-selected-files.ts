@@ -1,4 +1,8 @@
-import { validateImageFile, isHeicFile, convertHeicToJpeg } from "./image.utils";
+import {
+  validateImageFile,
+  isHeicFile,
+  convertHeicToJpeg,
+} from "./image.utils";
 
 export interface ProcessedFilesOutput {
   files: File[];

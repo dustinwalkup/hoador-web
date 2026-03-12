@@ -7,10 +7,7 @@ import type {
   ImageFile,
 } from "@/features/listings/form-schema/listing.schema";
 import type { ListingImage } from "./use-listing-images";
-import {
-  useCreateListing,
-  useUpdateListing,
-} from "./use-listing-mutations";
+import { useCreateListing, useUpdateListing } from "./use-listing-mutations";
 import { useImageUpload } from "./use-image-upload";
 
 interface UseListingFormSubmitOptions {
@@ -34,16 +31,16 @@ export function useListingFormSubmit({
   const { uploadImages, uploadProgress } = useImageUpload();
 
   const isSubmitting =
-    createMutation.isPending || updateMutation.isPending || uploadProgress !== null;
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    uploadProgress !== null;
 
   const deleteRemovedImages = useCallback(
     async (currentFormImages: ImageFile[]) => {
       if (!isEdit || !listingId) return;
 
       const remainingImageIds = new Set(
-        currentFormImages
-          .filter((img) => img.id)
-          .map((img) => img.id),
+        currentFormImages.filter((img) => img.id).map((img) => img.id),
       );
 
       const removedImages = existingImages.filter(

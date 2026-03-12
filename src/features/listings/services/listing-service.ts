@@ -2,11 +2,7 @@ import { eq, max, count } from "drizzle-orm";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
-import {
-  NotFoundError,
-  ForbiddenError,
-  ValidationError,
-} from "@/dal/errors";
+import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
 import { listingDAL } from "@/dal";
 import { uploadToBlob } from "@/services/vercel-blob";
 import {
@@ -172,10 +168,7 @@ export class ListingService {
    * @throws NotFoundError if listing not found
    * @throws ForbiddenError if user doesn't own the listing
    */
-  static async deleteListing(
-    listingId: string,
-    userId: string,
-  ): Promise<void> {
+  static async deleteListing(listingId: string, userId: string): Promise<void> {
     await this.verifyOwnership(listingId, userId);
 
     await listingDAL.deleteListing(listingId);

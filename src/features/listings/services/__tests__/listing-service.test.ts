@@ -173,7 +173,6 @@ describe("ListingService", () => {
       // Set up order index query (second db.select call)
       const mockOrderWhere = vi.fn().mockResolvedValue([{ max: 2 }]);
       const mockOrderFrom = vi.fn().mockReturnValue({ where: mockOrderWhere });
-      const mockOrderSelect = vi.fn().mockReturnValue({ from: mockOrderFrom });
 
       // First call returns count, second returns max order
       mockSelect
@@ -209,21 +208,13 @@ describe("ListingService", () => {
       mockGetListingById.mockResolvedValue(null);
 
       await expect(
-        ListingService.updateListing(
-          "listing-123",
-          {} as never,
-          "owner-123",
-        ),
+        ListingService.updateListing("listing-123", {} as never, "owner-123"),
       ).rejects.toThrow(NotFoundError);
     });
 
     it("throws ForbiddenError when user does not own listing", async () => {
       await expect(
-        ListingService.updateListing(
-          "listing-123",
-          {} as never,
-          "other-user",
-        ),
+        ListingService.updateListing("listing-123", {} as never, "other-user"),
       ).rejects.toThrow(ForbiddenError);
     });
 

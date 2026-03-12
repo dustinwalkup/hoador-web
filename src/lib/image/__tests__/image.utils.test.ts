@@ -68,9 +68,7 @@ describe("imageFilesToUrls", () => {
       { url: "", orderIndex: 2 },
     ];
 
-    expect(imageFilesToUrls(imageFiles)).toEqual([
-      "https://example.com/1.jpg",
-    ]);
+    expect(imageFilesToUrls(imageFiles)).toEqual(["https://example.com/1.jpg"]);
   });
 
   it("returns empty array for empty input", () => {

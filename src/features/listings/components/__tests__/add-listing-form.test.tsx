@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import {
-  createMockFormData,
   createMockCategories,
   createMockForm,
   createMockRouter,
@@ -90,9 +89,7 @@ describe("AddListingForm", () => {
 
   describe("Component Structure", () => {
     it("should render all form sections", () => {
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       expect(screen.getByText("Basic Information")).toBeInTheDocument();
       expect(screen.getByText("Pricing & Rental Terms")).toBeInTheDocument();
@@ -103,9 +100,7 @@ describe("AddListingForm", () => {
     });
 
     it("should render form inputs and labels", () => {
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       expect(screen.getByText(/listing name/i)).toBeInTheDocument();
       const categoryElements = screen.getAllByText(/category/i);
@@ -115,9 +110,7 @@ describe("AddListingForm", () => {
     });
 
     it("should render submit button", () => {
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
         name: /add listing/i,
@@ -126,9 +119,7 @@ describe("AddListingForm", () => {
     });
 
     it("should show review notice for new listings", () => {
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       expect(
         screen.getByText(/your listing will be reviewed by an admin/i),
@@ -152,9 +143,7 @@ describe("AddListingForm", () => {
 
   describe("Form Submission", () => {
     it("should call handleSubmit from useListingFormSubmit on form submit", () => {
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
         name: /add listing/i,
@@ -170,9 +159,7 @@ describe("AddListingForm", () => {
     it("should show loading state when isSubmitting is true", () => {
       mockFormSubmitHook.isSubmitting = true;
 
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
         name: /adding listing/i,
@@ -184,9 +171,7 @@ describe("AddListingForm", () => {
     it("should show loading state when create mutation is pending", () => {
       mockFormSubmitHook.isCreatePending = true;
 
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
         name: /adding listing/i,
@@ -197,9 +182,7 @@ describe("AddListingForm", () => {
     it("should show upload progress when uploading", () => {
       mockFormSubmitHook.uploadProgress = { current: 2, total: 5 };
 
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
         name: /uploading image/i,
@@ -210,9 +193,7 @@ describe("AddListingForm", () => {
     it("should disable submit when loading images", () => {
       mockImagesHook.isLoading = true;
 
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
         name: /add listing/i,
@@ -306,7 +287,13 @@ describe("AddListingForm", () => {
       await waitFor(() => {
         expect(mockForm.setValue).toHaveBeenCalledWith(
           "images",
-          [{ id: "image-1", url: "https://example.com/image1.jpg", orderIndex: 0 }],
+          [
+            {
+              id: "image-1",
+              url: "https://example.com/image1.jpg",
+              orderIndex: 0,
+            },
+          ],
           { shouldDirty: false, shouldValidate: true },
         );
       });
@@ -315,9 +302,7 @@ describe("AddListingForm", () => {
 
   describe("Form Validation", () => {
     it("should display owner policies acknowledgment checkbox", () => {
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const checkbox = screen.getByRole("checkbox", {
         name: /I have read and agree to the Owner Policies/i,
@@ -351,9 +336,7 @@ describe("AddListingForm", () => {
       });
       mockForm.control.getFieldState = (mockForm as any).getFieldState;
 
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       expect(
         screen.getByText(new RegExp(errorMessage, "i")),
@@ -363,9 +346,7 @@ describe("AddListingForm", () => {
 
   describe("Categories", () => {
     it("should display categories in dropdown", () => {
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const categoryLabels = screen.getAllByText(/category/i);
       expect(categoryLabels.length).toBeGreaterThan(0);
@@ -381,17 +362,13 @@ describe("AddListingForm", () => {
 
   describe("Image Handling", () => {
     it("should render photos section", () => {
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       expect(screen.getByText("Photos")).toBeInTheDocument();
     });
 
     it("should have image management functions available", () => {
-      renderWithQueryClient(
-        <AddListingForm categories={mockCategories} />,
-      );
+      renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       expect(mockForm.addImage).toBeDefined();
       expect(mockForm.removeImage).toBeDefined();
