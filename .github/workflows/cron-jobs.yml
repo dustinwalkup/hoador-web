@@ -1,0 +1,48 @@
+name: Cron Jobs
+
+on:
+  schedule:
+    - cron: "0 * * * *" # hourly
+    - cron: "0 2 * * *" # daily at 2 AM UTC
+  workflow_dispatch:
+
+jobs:
+  hourly:
+    if: github.event.schedule != '0 2 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [production, staging]
+    environment: ${{ matrix.environment }}
+    steps:
+      - name: Schedule deposit holds
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/schedule-deposit-holds
+
+      - name: Process payouts
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/process-payouts
+
+      - name: Monitor deposit expiry
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/monitor-deposit-expiry
+
+  daily:
+    if: github.event.schedule == '0 2 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [production, staging]
+    environment: ${{ matrix.environment }}
+    steps:
+      - name: Cleanup notifications
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/cleanup-notifications

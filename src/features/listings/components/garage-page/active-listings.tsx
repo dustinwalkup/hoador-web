@@ -40,7 +40,7 @@ export function ActiveListings({ filters }: ActiveListingsProps) {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {activeListings && activeListings.length > 0 ? (
         activeListings.map((listing) => (
           <RentalCard

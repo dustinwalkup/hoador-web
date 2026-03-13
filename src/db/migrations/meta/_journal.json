@@ -176,6 +176,13 @@
       "when": 1773275468456,
       "tag": "0024_large_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1773349366453,
+      "tag": "0025_remarkable_venom",
+      "breakpoints": true
     }
   ]
 }

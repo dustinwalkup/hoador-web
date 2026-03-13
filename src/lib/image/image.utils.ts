@@ -60,13 +60,24 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
   return new File([resultBlob], newName, { type: "image/jpeg" });
 }
 
+const ACCEPTED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+  "image/tiff",
+  "image/heic",
+  "image/heif",
+]);
+
 /**
  * Validate if a file is a valid image
  */
 export function validateImageFile(file: File): string | null {
-  // Check file type (also accept HEIC/HEIF which may have empty MIME on some platforms)
-  if (!file.type.startsWith("image/") && !isHeicFile(file)) {
-    return "File must be an image";
+  // Check file type against accepted raster formats (also accept HEIC/HEIF which may have empty MIME on some platforms)
+  if (!ACCEPTED_IMAGE_TYPES.has(file.type.toLowerCase()) && !isHeicFile(file)) {
+    return "Unsupported image type. Please use JPEG, PNG, GIF, WebP, or HEIF.";
   }
 
   // Check file size (10MB limit - server will handle compression)

@@ -401,7 +401,7 @@ export function PhotosSection({
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*,.heic,.heif"
+              accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.tif,.heic,.heif"
               onChange={handleFileInputChange}
               className="hidden"
             />

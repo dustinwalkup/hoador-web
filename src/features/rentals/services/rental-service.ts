@@ -3,6 +3,7 @@ import {
   legalDocumentDAL,
   listingDAL,
   paymentDAL,
+  paymentLifecycleDAL,
   rentalDAL,
   userDAL,
 } from "@/dal";
@@ -26,11 +27,11 @@ import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import {
-  authorizeSecurityDeposit,
   chargeRentalPayment,
   getPaymentErrorMessage,
   isRetryablePaymentError,
 } from "@/services/stripe/rental-payments";
+import { placeDepositHold } from "@/services/stripe/deposit-hold";
 import { tryCatch } from "@walkup/walkup-utils";
 
 /**
@@ -392,6 +393,7 @@ export class RentalService {
       );
     }
 
+    // Verify owner's Stripe Connect is set up (needed for later payout)
     const { data: ownerAccountId, error: accountError } = await tryCatch(
       userDAL.getConnectedAccountId(rentalRequest.ownerId),
     );
@@ -425,6 +427,8 @@ export class RentalService {
       listingName: rentalRequest.listingName,
     };
 
+    const idempotencyKey = `rental-charge-${rentalRequest.id}`;
+
     let rentalPaymentAttempts = 0;
     let rentalPaymentResult = await tryCatch(
       chargeRentalPayment(
@@ -432,8 +436,7 @@ export class RentalService {
         paymentMethodIdToUse,
         totalAmount,
         chargePayload,
-        ownerAccountId,
-        applicationFeeAmount,
+        idempotencyKey,
       ),
     );
 
@@ -450,8 +453,7 @@ export class RentalService {
           paymentMethodIdToUse,
           totalAmount,
           chargePayload,
-          ownerAccountId,
-          applicationFeeAmount,
+          idempotencyKey,
         ),
       );
     }
@@ -556,34 +558,55 @@ export class RentalService {
       userAgent: context.userAgent ?? undefined,
     });
 
+    // Extract Charge ID for later use as source_transaction on owner transfer
+    const rentalChargeId =
+      typeof rentalPaymentIntent.latest_charge === "string"
+        ? rentalPaymentIntent.latest_charge
+        : (rentalPaymentIntent.latest_charge?.id ?? null);
+
+    // Determine deposit hold status based on deposit amount and timing
     let securityDepositAuthId: string | undefined;
-    if (Number(rentalRequest.securityDeposit) > 0) {
-      const { data: securityDepositAuth, error: depositError } = await tryCatch(
-        authorizeSecurityDeposit(
-          stripeCustomerId,
-          paymentMethodIdToUse,
-          Number(rentalRequest.securityDeposit),
-          {
-            type: "security_deposit",
+    let depositHoldStatus: "scheduled" | "held" | "failed" | "not_applicable";
+    const securityDepositAmount = Number(rentalRequest.securityDeposit);
+
+    if (securityDepositAmount <= 0) {
+      depositHoldStatus = "not_applicable";
+    } else {
+      const hoursUntilPickup =
+        (new Date(rentalRequest.startDate).getTime() - Date.now()) /
+        (1000 * 60 * 60);
+
+      if (hoursUntilPickup <= 48) {
+        // Place deposit hold immediately
+        const holdResult = await placeDepositHold({
+          rentalId: "", // Will be set after rental creation — use request ID for idempotency temporarily
+          customerId: stripeCustomerId,
+          paymentMethodId: paymentMethodIdToUse,
+          amount: securityDepositAmount,
+          metadata: {
             rentalRequestId: rentalRequest.id,
+            rentalId: rentalRequest.id, // Placeholder; updated after rental creation
             listingId: rentalRequest.listingId,
             renterId: rentalRequest.renterId,
           },
-        ),
-      );
-      if (depositError || !securityDepositAuth) {
-        captureNonCriticalError(
-          depositError ?? new Error("Security deposit auth failed"),
-          {
-            route: "RentalService.approveRentalRequest",
-            action: "authorize_security_deposit",
-          },
-        );
-      } else if (
-        securityDepositAuth.status === "requires_capture" ||
-        securityDepositAuth.status === "requires_confirmation"
-      ) {
-        securityDepositAuthId = securityDepositAuth.id;
+        });
+
+        if (holdResult.success) {
+          securityDepositAuthId = holdResult.paymentIntentId;
+          depositHoldStatus = "held";
+        } else {
+          depositHoldStatus = "failed";
+          captureNonCriticalError(
+            new Error(`Deposit hold failed: ${holdResult.error}`),
+            {
+              route: "RentalService.approveRentalRequest",
+              action: "place_deposit_hold_immediate",
+            },
+          );
+        }
+      } else {
+        // Schedule for cron to place 48hrs before pickup
+        depositHoldStatus = "scheduled";
       }
     }
 
@@ -605,6 +628,7 @@ export class RentalService {
 
     const createdRental = await rentalDAL.getRentalByRequestId(rentalId);
     if (createdRental) {
+      // Create payment record
       const { error: paymentRecordError } = await tryCatch(
         paymentDAL.createPayment({
           rentalId: createdRental.id,
@@ -616,6 +640,7 @@ export class RentalService {
           stripePaymentIntentId: rentalPaymentIntent.id,
           status: "succeeded",
           paidAt: new Date(),
+          paymentType: "rental_charge",
         }),
       );
       if (!paymentRecordError) {
@@ -623,10 +648,85 @@ export class RentalService {
           rentalId: createdRental.id,
           rentalRequestId: rentalRequest.id,
         });
-        trackActivity(rentalRequest.ownerId, "payout_received", {
+        // Note: payout_received is NOT tracked here — owner payout happens later via cron
+      }
+
+      // Create payment lifecycle record
+      const { error: lifecycleError } = await tryCatch(
+        paymentLifecycleDAL.create({
           rentalId: createdRental.id,
-          rentalRequestId: rentalRequest.id,
+          rentalChargeId,
+          depositHoldStatus,
+          ownerTransferStatus: "pending",
+          payoutStatus: "pending",
+        }),
+      );
+      if (lifecycleError) {
+        captureNonCriticalError(lifecycleError, {
+          route: "RentalService.approveRentalRequest",
+          action: "create_payment_lifecycle",
         });
+      }
+
+      // If deposit was held immediately, update the placed timestamp
+      if (depositHoldStatus === "held") {
+        await tryCatch(
+          paymentLifecycleDAL.updateDepositHoldStatus(
+            createdRental.id,
+            "held",
+            { depositHoldPlacedAt: new Date() },
+          ),
+        );
+      }
+
+      // If deposit hold failed, notify both parties
+      if (depositHoldStatus === "failed") {
+        try {
+          const [renterUser, ownerUser] = await Promise.all([
+            userDAL.getUserById(rentalRequest.renterId),
+            userDAL.getUserById(rentalRequest.ownerId),
+          ]);
+          if (renterUser) {
+            const { sendNotification } =
+              await import("@/features/notifications/utils/send-notification");
+            sendNotification({
+              userId: renterUser.id,
+              type: "payment_failed",
+              title: "Security Deposit Hold Failed",
+              message: `The security deposit hold for "${rentalRequest.listingName}" could not be placed. Please verify or update your payment method.`,
+              data: { rentalId: createdRental.id },
+              linkUrl: "/dashboard/profile/payments",
+              category: "payments",
+            }).catch((err) =>
+              captureNonCriticalError(err, {
+                route: "RentalService.approveRentalRequest",
+                action: "notify_renter_deposit_failed",
+              }),
+            );
+          }
+          if (ownerUser) {
+            const { sendNotification } =
+              await import("@/features/notifications/utils/send-notification");
+            sendNotification({
+              userId: ownerUser.id,
+              type: "payment_failed",
+              title: "Deposit Hold Not Placed",
+              message: `The security deposit hold for "${rentalRequest.listingName}" could not be placed. The rental is proceeding without deposit protection.`,
+              data: { rentalId: createdRental.id },
+              category: "payments",
+            }).catch((err) =>
+              captureNonCriticalError(err, {
+                route: "RentalService.approveRentalRequest",
+                action: "notify_owner_deposit_failed",
+              }),
+            );
+          }
+        } catch (notifyError) {
+          captureNonCriticalError(notifyError, {
+            route: "RentalService.approveRentalRequest",
+            action: "deposit_failure_notifications",
+          });
+        }
       }
     }
 

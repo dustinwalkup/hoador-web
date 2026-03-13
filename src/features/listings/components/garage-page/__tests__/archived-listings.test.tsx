@@ -175,9 +175,7 @@ describe("ArchivedListings", () => {
       );
 
       const grid = container.querySelector('div[class*="grid"]');
-      expect(grid).toHaveClass(
-        "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-      );
+      expect(grid).toHaveClass("grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ");
     });
 
     it("should render rental cards for each listing", () => {
@@ -426,9 +424,7 @@ describe("ArchivedListings", () => {
       );
 
       const grid = container.querySelector('div[class*="grid"]');
-      expect(grid).toHaveClass(
-        "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-      );
+      expect(grid).toHaveClass("grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ");
     });
 
     it("should have correct empty state styling", () => {

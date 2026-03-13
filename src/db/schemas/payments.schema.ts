@@ -10,7 +10,7 @@ import {
 
 import { rentals } from "./rentals.schema";
 import { user } from "./user.schema";
-import { paymentStatusEnum } from "./_enums";
+import { paymentStatusEnum, paymentTypeEnum } from "./_enums";
 import { relations } from "drizzle-orm";
 
 export const payments = pgTable(
@@ -33,6 +33,9 @@ export const payments = pgTable(
     paymentMethodId: varchar("payment_method_id", { length: 255 }), // Stripe payment method ID
     stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
     status: paymentStatusEnum("status").default("pending").notNull(),
+    paymentType: paymentTypeEnum("payment_type")
+      .default("rental_charge")
+      .notNull(),
     paidAt: timestamp("paid_at"),
     refundedAt: timestamp("refunded_at"),
     refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),

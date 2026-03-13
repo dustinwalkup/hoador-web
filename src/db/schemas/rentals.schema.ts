@@ -141,6 +141,7 @@ export const rentals = pgTable(
       .notNull(),
     extensionRequested: boolean("extension_requested").default(false).notNull(),
     extensionApproved: boolean("extension_approved").default(false).notNull(),
+    returnConfirmedAt: timestamp("return_confirmed_at"), // Owner confirmed return — starts 24hr dispute window
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -152,6 +153,9 @@ export const rentals = pgTable(
     dateRangeIdx: index("rentals_date_range_idx").on(
       table.startDate,
       table.endDate,
+    ),
+    returnConfirmedAtIdx: index("rentals_return_confirmed_at_idx").on(
+      table.returnConfirmedAt,
     ),
   }),
 );

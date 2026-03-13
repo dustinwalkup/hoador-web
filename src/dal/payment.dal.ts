@@ -223,6 +223,47 @@ export class PaymentDAL extends BaseDAL {
    * @param data - Payment data to create
    * @returns The created payment record
    */
+  /**
+   * Get a payment by its Stripe PaymentIntent ID
+   */
+  async getByPaymentIntentId(
+    paymentIntentId: string,
+  ): Promise<InferSelectModel<typeof payments> | null> {
+    try {
+      const [payment] = await this.db
+        .select()
+        .from(payments)
+        .where(eq(payments.stripePaymentIntentId, paymentIntentId))
+        .limit(1);
+
+      return payment || null;
+    } catch (error) {
+      this.handleError(error, "getByPaymentIntentId");
+    }
+  }
+
+  /**
+   * Update a payment's status and optional fields
+   */
+  async updatePaymentStatus(
+    paymentId: string,
+    status: "pending" | "succeeded" | "failed" | "refunded",
+    extra?: { paidAt?: Date },
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(payments)
+        .set({
+          status,
+          ...(extra?.paidAt && { paidAt: extra.paidAt }),
+          updatedAt: new Date(),
+        })
+        .where(eq(payments.id, paymentId));
+    } catch (error) {
+      this.handleError(error, "updatePaymentStatus");
+    }
+  }
+
   async createPayment(data: {
     rentalId: string;
     payerId: string;
@@ -233,6 +274,7 @@ export class PaymentDAL extends BaseDAL {
     stripePaymentIntentId: string;
     status: "pending" | "succeeded" | "failed" | "refunded";
     paidAt?: Date;
+    paymentType?: "rental_charge" | "security_deposit_hold";
   }): Promise<InferSelectModel<typeof payments>> {
     try {
       const [payment] = await this.db
@@ -247,6 +289,7 @@ export class PaymentDAL extends BaseDAL {
           stripePaymentIntentId: data.stripePaymentIntentId,
           status: data.status,
           paidAt: data.paidAt || null,
+          paymentType: data.paymentType ?? "rental_charge",
         })
         .returning();
 

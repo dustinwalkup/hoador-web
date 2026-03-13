@@ -72,6 +72,9 @@ vi.mock("@/dal", () => ({
   paymentDAL: {
     createPayment: vi.fn().mockResolvedValue(undefined),
   },
+  paymentLifecycleDAL: {
+    create: vi.fn().mockResolvedValue({ id: "lifecycle-1" }),
+  },
   userActivityDAL: {
     logActivity: vi.fn().mockResolvedValue(undefined),
   },
@@ -96,6 +99,12 @@ vi.mock("@/db/db", () => ({
 
 vi.mock("@/db/schemas/rentals.schema", () => ({
   rentals: {},
+}));
+
+vi.mock("@/services/stripe/deposit-hold", () => ({
+  placeDepositHold: vi
+    .fn()
+    .mockResolvedValue({ success: false, error: "skipped" }),
 }));
 
 vi.mock("@/services/stripe/rental-payments", () => ({

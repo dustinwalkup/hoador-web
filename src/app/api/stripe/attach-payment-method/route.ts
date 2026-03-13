@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { tryCatch } from "@walkup/walkup-utils";
+import { attachPaymentMethod } from "@/services/stripe/payment-method";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
-import { tryCatch } from "@walkup/walkup-utils";
 
 /**
  * POST /api/stripe/attach-payment-method
@@ -38,11 +38,8 @@ async function postHandler(request: NextRequest) {
       );
     }
 
-    // Attach the payment method to the customer
     const { data, error } = await tryCatch(
-      PAYMENT_SERVER_INSTANCE.paymentMethods.attach(paymentMethodId, {
-        customer: user.stripeCustomerId,
-      }),
+      attachPaymentMethod(user.stripeCustomerId, paymentMethodId, user.id),
     );
 
     if (error || !data) {

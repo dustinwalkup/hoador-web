@@ -2301,11 +2301,12 @@ export class RentalDAL extends BaseDAL {
         })
         .where(eq(rentalRequests.id, rentalId));
 
-      // Update the rentals table with actual end date
+      // Update the rentals table with actual end date and confirm return
       await this.db
         .update(rentals)
         .set({
           actualEndDate: new Date(),
+          returnConfirmedAt: new Date(),
           updatedAt: new Date(),
         })
         .where(eq(rentals.requestId, rentalId));

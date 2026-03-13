@@ -172,7 +172,9 @@ describe("validateImageFile", () => {
 
   it("rejects non-image files", () => {
     const file = new File(["data"], "doc.pdf", { type: "application/pdf" });
-    expect(validateImageFile(file)).toBe("File must be an image");
+    expect(validateImageFile(file)).toBe(
+      "Unsupported image type. Please use JPEG, PNG, GIF, WebP, or HEIF.",
+    );
   });
 
   it("rejects files over 10MB", () => {
