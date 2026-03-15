@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { StripeDisputeService } from "../dispute-financial";
 import { PAYMENT_SERVER_INSTANCE } from "../server";
-import { captureSecurityDeposit } from "../rental-payments";
 import { mockDispute } from "@/test/fixtures/disputes";
 import type { DisputeWithRelations } from "@/dal/types";
 
@@ -29,6 +28,10 @@ vi.mock("../server", () => ({
     refunds: {
       create: vi.fn(),
     },
+    paymentIntents: {
+      capture: vi.fn(),
+      cancel: vi.fn(),
+    },
   },
 }));
 
@@ -40,6 +43,7 @@ describe("StripeDisputeService", () => {
   let mockDisputeDAL: any;
   let mockPaymentDAL: any;
   let mockRentalDAL: any;
+  let mockPaymentLifecycleDAL: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -55,11 +59,17 @@ describe("StripeDisputeService", () => {
     mockRentalDAL = {
       getSecurityDepositAuthId: vi.fn(),
     };
+    mockPaymentLifecycleDAL = {
+      getByRentalId: vi.fn(),
+      markDepositCaptured: vi.fn(),
+      updateDepositHoldStatus: vi.fn(),
+    };
 
     // Set static properties
     (StripeDisputeService as any).disputeDAL = mockDisputeDAL;
     (StripeDisputeService as any).paymentDAL = mockPaymentDAL;
     (StripeDisputeService as any).rentalDAL = mockRentalDAL;
+    (StripeDisputeService as any).paymentLifecycleDAL = mockPaymentLifecycleDAL;
   });
 
   describe("executeOperation", () => {
@@ -473,12 +483,15 @@ describe("StripeDisputeService", () => {
         status: "succeeded",
       };
 
+      mockPaymentLifecycleDAL.getByRentalId.mockResolvedValue({
+        depositHoldStatus: "held",
+      });
       mockRentalDAL.getSecurityDepositAuthId.mockResolvedValue(
         securityDepositAuthId,
       );
-      vi.mocked(captureSecurityDeposit).mockResolvedValue(
-        mockPaymentIntent as any,
-      );
+      vi.mocked(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.capture,
+      ).mockResolvedValue(mockPaymentIntent as any);
       mockDisputeDAL.createFinancialOperation.mockResolvedValue(
         mockFinancialOperation,
       );
@@ -497,8 +510,14 @@ describe("StripeDisputeService", () => {
       expect(mockRentalDAL.getSecurityDepositAuthId).toHaveBeenCalledWith(
         disputeWithRental.rentalId,
       );
-      expect(captureSecurityDeposit).toHaveBeenCalledWith(
+      expect(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.capture,
+      ).toHaveBeenCalledWith(
         securityDepositAuthId,
+        expect.any(Object),
+        expect.objectContaining({
+          idempotencyKey: `deposit-capture-${disputeWithRental.id}`,
+        }),
       );
       expect(mockDisputeDAL.createFinancialOperation).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -530,10 +549,15 @@ describe("StripeDisputeService", () => {
       const securityDepositAuthId = "auth_1234567890";
       const stripeError = new Error("Stripe capture failed");
 
+      mockPaymentLifecycleDAL.getByRentalId.mockResolvedValue({
+        depositHoldStatus: "held",
+      });
       mockRentalDAL.getSecurityDepositAuthId.mockResolvedValue(
         securityDepositAuthId,
       );
-      vi.mocked(captureSecurityDeposit).mockRejectedValue(stripeError);
+      vi.mocked(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.capture,
+      ).mockRejectedValue(stripeError);
       mockDisputeDAL.createFinancialOperation.mockResolvedValue({
         id: "financial-123",
         status: "failed",
@@ -555,6 +579,212 @@ describe("StripeDisputeService", () => {
           errorMessage: "Stripe capture failed",
         }),
       );
+    });
+  });
+
+  describe("captureDeposit - enhanced", () => {
+    const disputeWithRental: DisputeWithRelations = {
+      ...mockDispute,
+      rental: {
+        id: "rental-123",
+        requestId: null,
+        listingId: "listing-123",
+        renterId: "user-123",
+        ownerId: "user-456",
+      },
+    };
+
+    it("should call paymentIntents.capture with idempotency key deposit-capture-{disputeId}", async () => {
+      const securityDepositAuthId = "pi_auth_123";
+      const mockPaymentIntent = {
+        id: "pi_deposit_123",
+        status: "succeeded",
+      };
+
+      mockPaymentLifecycleDAL.getByRentalId.mockResolvedValue({
+        depositHoldStatus: "held",
+      });
+      mockRentalDAL.getSecurityDepositAuthId.mockResolvedValue(
+        securityDepositAuthId,
+      );
+      vi.mocked(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.capture,
+      ).mockResolvedValue(mockPaymentIntent as any);
+      mockDisputeDAL.createFinancialOperation.mockResolvedValue({
+        id: "financial-123",
+        operationType: "capture_deposit",
+        status: "succeeded",
+      });
+
+      await StripeDisputeService.executeOperation(
+        disputeWithRental,
+        { type: "capture_deposit" },
+        "admin-123",
+      );
+
+      expect(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.capture,
+      ).toHaveBeenCalledWith(
+        securityDepositAuthId,
+        {},
+        { idempotencyKey: `deposit-capture-${disputeWithRental.id}` },
+      );
+    });
+
+    it("should pass amount_to_capture for partial capture", async () => {
+      const securityDepositAuthId = "pi_auth_123";
+      const mockPaymentIntent = {
+        id: "pi_deposit_123",
+        status: "succeeded",
+      };
+
+      mockPaymentLifecycleDAL.getByRentalId.mockResolvedValue({
+        depositHoldStatus: "held",
+      });
+      mockRentalDAL.getSecurityDepositAuthId.mockResolvedValue(
+        securityDepositAuthId,
+      );
+      vi.mocked(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.capture,
+      ).mockResolvedValue(mockPaymentIntent as any);
+      mockDisputeDAL.createFinancialOperation.mockResolvedValue({
+        id: "financial-123",
+        operationType: "capture_deposit",
+        status: "succeeded",
+      });
+
+      await StripeDisputeService.executeOperation(
+        disputeWithRental,
+        { type: "capture_deposit", amount: 50 },
+        "admin-123",
+      );
+
+      expect(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.capture,
+      ).toHaveBeenCalledWith(
+        securityDepositAuthId,
+        { amount_to_capture: 5000 },
+        { idempotencyKey: `deposit-capture-${disputeWithRental.id}` },
+      );
+    });
+
+    it("should skip capture and record failed op when deposit not held", async () => {
+      mockPaymentLifecycleDAL.getByRentalId.mockResolvedValue({
+        depositHoldStatus: "expired",
+      });
+      mockDisputeDAL.createFinancialOperation.mockResolvedValue({
+        id: "financial-123",
+        operationType: "capture_deposit",
+        status: "failed",
+      });
+
+      const result = await StripeDisputeService.executeOperation(
+        disputeWithRental,
+        { type: "capture_deposit" },
+        "admin-123",
+      );
+
+      expect(result.status).toBe("failed");
+      expect(mockDisputeDAL.createFinancialOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operationType: "capture_deposit",
+          status: "failed",
+          errorMessage: expect.stringContaining("capture skipped"),
+        }),
+      );
+      expect(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.capture,
+      ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("releaseDeposit", () => {
+    const disputeWithRental: DisputeWithRelations = {
+      ...mockDispute,
+      rental: {
+        id: "rental-123",
+        requestId: null,
+        listingId: "listing-123",
+        renterId: "user-123",
+        ownerId: "user-456",
+      },
+    };
+
+    it("should release deposit successfully when held", async () => {
+      const securityDepositAuthId = "pi_auth_123";
+      const mockPaymentIntent = {
+        id: "pi_deposit_123",
+        status: "canceled",
+      };
+
+      mockPaymentLifecycleDAL.getByRentalId.mockResolvedValue({
+        depositHoldStatus: "held",
+      });
+      mockRentalDAL.getSecurityDepositAuthId.mockResolvedValue(
+        securityDepositAuthId,
+      );
+      vi.mocked(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.cancel,
+      ).mockResolvedValue(mockPaymentIntent as any);
+      mockPaymentLifecycleDAL.updateDepositHoldStatus.mockResolvedValue(
+        undefined,
+      );
+      mockDisputeDAL.createFinancialOperation.mockResolvedValue({
+        id: "financial-123",
+        operationType: "capture_deposit",
+        status: "succeeded",
+      });
+
+      const result = await StripeDisputeService.releaseDeposit(
+        disputeWithRental,
+        "admin-123",
+      );
+
+      expect(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.cancel,
+      ).toHaveBeenCalledWith(securityDepositAuthId);
+      expect(
+        mockPaymentLifecycleDAL.updateDepositHoldStatus,
+      ).toHaveBeenCalledWith(
+        disputeWithRental.rentalId,
+        "released",
+        expect.objectContaining({ depositReleasedAt: expect.any(Date) }),
+      );
+      expect(mockDisputeDAL.createFinancialOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operationType: "capture_deposit",
+          status: "succeeded",
+        }),
+      );
+      expect(result.status).toBe("succeeded");
+    });
+
+    it("should skip release and record failed op when deposit not held", async () => {
+      mockPaymentLifecycleDAL.getByRentalId.mockResolvedValue({
+        depositHoldStatus: "released",
+      });
+      mockDisputeDAL.createFinancialOperation.mockResolvedValue({
+        id: "financial-123",
+        operationType: "capture_deposit",
+        status: "failed",
+      });
+
+      const result = await StripeDisputeService.releaseDeposit(
+        disputeWithRental,
+        "admin-123",
+      );
+
+      expect(result.status).toBe("failed");
+      expect(mockDisputeDAL.createFinancialOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operationType: "capture_deposit",
+          status: "failed",
+          errorMessage: expect.stringContaining("release skipped"),
+        }),
+      );
+      expect(
+        PAYMENT_SERVER_INSTANCE.paymentIntents.cancel,
+      ).not.toHaveBeenCalled();
     });
   });
 });

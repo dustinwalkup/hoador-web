@@ -385,6 +385,93 @@ export class PaymentLifecycleDAL extends BaseDAL {
   }
 
   /**
+   * Freeze owner transfer when a dispute is filed.
+   * If no lifecycle record exists (edge case), creates one with frozen status.
+   *
+   * @param rentalId - The rental ID to freeze
+   * @returns The updated or created lifecycle record
+   */
+  async freezeForDispute(
+    rentalId: string,
+  ): Promise<RentalPaymentLifecycleRecord> {
+    try {
+      const existing = await this.getByRentalId(rentalId);
+
+      if (existing) {
+        const [updated] = await this.db
+          .update(rentalPaymentLifecycle)
+          .set({
+            ownerTransferStatus: "frozen",
+            updatedAt: new Date(),
+          })
+          .where(eq(rentalPaymentLifecycle.rentalId, rentalId))
+          .returning();
+
+        return updated;
+      }
+
+      return await this.create({
+        rentalId,
+        rentalChargeId: null,
+        depositHoldStatus: "not_applicable",
+        ownerTransferStatus: "frozen",
+        payoutStatus: "pending",
+      });
+    } catch (error) {
+      this.handleError(error, "PaymentLifecycleDAL.freezeForDispute");
+    }
+  }
+
+  /**
+   * Unfreeze owner transfer after dispute resolution and financial ops complete.
+   * Atomic update: only transitions from 'frozen' → 'pending' (no-op if not frozen).
+   *
+   * @param rentalId - The rental ID to unfreeze
+   * @returns true if a row was updated, false if nothing was frozen
+   */
+  async unfreezeAfterResolution(rentalId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .update(rentalPaymentLifecycle)
+        .set({
+          ownerTransferStatus: "pending",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(rentalPaymentLifecycle.rentalId, rentalId),
+            eq(rentalPaymentLifecycle.ownerTransferStatus, "frozen"),
+          ),
+        )
+        .returning();
+
+      return result.length > 0;
+    } catch (error) {
+      this.handleError(error, "PaymentLifecycleDAL.unfreezeAfterResolution");
+    }
+  }
+
+  /**
+   * Mark deposit as captured after successful Stripe capture for damage.
+   *
+   * @param rentalId - The rental ID whose deposit was captured
+   */
+  async markDepositCaptured(rentalId: string): Promise<void> {
+    try {
+      await this.db
+        .update(rentalPaymentLifecycle)
+        .set({
+          depositHoldStatus: "captured",
+          depositCapturedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(rentalPaymentLifecycle.rentalId, rentalId));
+    } catch (error) {
+      this.handleError(error, "PaymentLifecycleDAL.markDepositCaptured");
+    }
+  }
+
+  /**
    * Find failed deposits for a renter (for recovery when they update payment method).
    * Only returns deposits where the rental hasn't started yet.
    */

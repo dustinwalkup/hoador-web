@@ -28,6 +28,7 @@ export const rentalPaymentLifecycle = pgTable(
       .notNull(),
     depositHoldPlacedAt: timestamp("deposit_hold_placed_at"),
     depositReleasedAt: timestamp("deposit_released_at"),
+    depositCapturedAt: timestamp("deposit_captured_at"),
     ownerTransferStatus: ownerTransferStatusEnum("owner_transfer_status")
       .default("pending")
       .notNull(),

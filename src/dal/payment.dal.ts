@@ -4,6 +4,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import { payments } from "@/db/schemas/payments.schema";
 import { rentals } from "@/db/schemas/rentals.schema";
 import { listings } from "@/db/schemas/listings.schema";
+import { rentalPaymentLifecycle } from "@/db/schemas/rental-payment-lifecycle.schema";
 import { BaseDAL } from "./base";
 import { type RentalPayment, type PaginatedResult } from "./types";
 
@@ -291,6 +292,52 @@ export class PaymentDAL extends BaseDAL {
         .where(eq(payments.id, paymentId));
     } catch (error) {
       this.handleError(error, "recordRefund");
+    }
+  }
+
+  /**
+   * Find a payment by its associated Stripe Charge ID.
+   * The charge ID is stored on rental_payment_lifecycle.rentalChargeId,
+   * so this joins through the lifecycle table.
+   * Used by ChargebackService to identify the rental from a chargeback webhook.
+   *
+   * @param chargeId - Stripe Charge ID (e.g. ch_xxx)
+   * @returns The payment record or null if not found
+   */
+  async getByChargeId(
+    chargeId: string,
+  ): Promise<InferSelectModel<typeof payments> | null> {
+    try {
+      const [payment] = await this.db
+        .select({
+          id: payments.id,
+          rentalId: payments.rentalId,
+          payerId: payments.payerId,
+          payeeId: payments.payeeId,
+          amount: payments.amount,
+          platformFee: payments.platformFee,
+          paymentMethodId: payments.paymentMethodId,
+          stripePaymentIntentId: payments.stripePaymentIntentId,
+          status: payments.status,
+          paymentType: payments.paymentType,
+          paidAt: payments.paidAt,
+          refundedAt: payments.refundedAt,
+          refundAmount: payments.refundAmount,
+          refundReason: payments.refundReason,
+          createdAt: payments.createdAt,
+          updatedAt: payments.updatedAt,
+        })
+        .from(payments)
+        .innerJoin(
+          rentalPaymentLifecycle,
+          eq(payments.rentalId, rentalPaymentLifecycle.rentalId),
+        )
+        .where(eq(rentalPaymentLifecycle.rentalChargeId, chargeId))
+        .limit(1);
+
+      return payment ?? null;
+    } catch (error) {
+      this.handleError(error, "getByChargeId");
     }
   }
 

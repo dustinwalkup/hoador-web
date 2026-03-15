@@ -67,24 +67,28 @@ export function RentalActions({
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showFileDisputeDialog, setShowFileDisputeDialog] = useState(false);
 
-  // Determine if dispute can be filed
-  // Disputes can be filed for: active, completed, cancelled, denied rentals
-  // But not if an active dispute already exists
-  // And not if the dispute filing time window has expired
-  const isFilingWindowExpired =
-    TimeWindowValidation.isDisputeFilingWindowExpired(
-      new Date(rentalDetails.startDate),
-      new Date(rentalDetails.endDate),
-    );
+  const startDate = new Date(rentalDetails.startDate);
+  const returnConfirmedAt = rentalDetails.returnConfirmedAt
+    ? new Date(rentalDetails.returnConfirmedAt)
+    : null;
+  const now = new Date();
 
-  const canFileDispute =
-    (isRenter || isOwner) &&
-    !activeDispute &&
-    (rentalDetails.status === "active" ||
-      rentalDetails.status === "completed" ||
-      rentalDetails.status === "cancelled" ||
-      rentalDetails.status === "denied") &&
-    !isFilingWindowExpired;
+  const canFileDispute = (() => {
+    if (!(isRenter || isOwner) || !!activeDispute) return false;
+
+    const status = rentalDetails.status;
+    if (status === "approved" && now >= startDate) return true;
+    if (status === "active") return true;
+    if (status === "completed") {
+      if (!returnConfirmedAt) return false;
+      return TimeWindowValidation.isDisputeFilingWindowOpen(
+        startDate,
+        returnConfirmedAt,
+        now,
+      );
+    }
+    return false;
+  })();
 
   const handleInstructionsUpdated = () => {
     router.refresh();
@@ -365,6 +369,8 @@ export function RentalActions({
         rentalId={rentalDetails.id}
         listingName={rentalDetails.listingName}
         disputePolicyUrl={disputePolicyUrl}
+        rentalStatus={rentalDetails.status}
+        startDate={startDate}
       />
     </Card>
   );

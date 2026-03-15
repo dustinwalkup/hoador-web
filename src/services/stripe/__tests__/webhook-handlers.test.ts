@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Stripe from "stripe";
 
-// --- Mocks ---
-const loggerInstance = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-};
+// --- Mocks (vi.hoisted so loggerInstance exists when hoisted mocks run) ---
+const { loggerInstance } = vi.hoisted(() => ({
+  loggerInstance: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 vi.mock("@/lib/logger", () => ({
   getLogger: () => loggerInstance,
@@ -71,6 +73,12 @@ vi.mock("@walkup/walkup-utils", () => ({
       return { data: null, error };
     }
   },
+}));
+
+// Prevent server.ts from loading (it throws if STRIPE_SECRET_KEY is not set).
+// chargeback-service imports it via webhook-handlers.
+vi.mock("../server", () => ({
+  PAYMENT_SERVER_INSTANCE: {},
 }));
 
 import { handleWebhookEvent } from "../webhook-handlers";

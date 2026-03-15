@@ -516,6 +516,8 @@ export class DisputeDAL extends BaseDAL {
         quality_issue: 0,
         cancellation: 0,
         payment_issue: 0,
+        renter_no_show: 0,
+        owner_no_show: 0,
         other: 0,
       };
 
@@ -639,6 +641,34 @@ export class DisputeDAL extends BaseDAL {
   }
 
   /**
+   * Link a Stripe chargeback to an internal dispute.
+   *
+   * @param disputeId - Internal dispute UUID
+   * @param stripeChargebackId - Stripe dispute ID (e.g. dp_xxx)
+   */
+  async updateStripeChargebackId(
+    disputeId: string,
+    stripeChargebackId: string,
+  ): Promise<void> {
+    try {
+      const [updated] = await this.db
+        .update(disputes)
+        .set({
+          stripeChargebackId,
+          updatedAt: new Date(),
+        })
+        .where(eq(disputes.id, disputeId))
+        .returning();
+
+      if (!updated) {
+        throw new NotFoundError("Dispute", disputeId);
+      }
+    } catch (error) {
+      this.handleError(error, "updateStripeChargebackId");
+    }
+  }
+
+  /**
    * Check rate limits for dispute creation (on-the-fly calculation)
    * Returns monthly and yearly counts, and whether user is within limits
    * Limits: 3 disputes per month, 10 disputes per year
@@ -691,7 +721,62 @@ export class DisputeDAL extends BaseDAL {
   }
 
   /**
-   * Validate time window for dispute creation based on reason code
+   * Validate unified filing window for Phase 3 dispute creation.
+   * Rules:
+   *  - If `returnConfirmedAt` is set: `now <= returnConfirmedAt + 24h`
+   *  - If `returnConfirmedAt` is NOT set: `now >= startDate`
+   * Applies the same 24-hour rule for ALL dispute reason codes.
+   *
+   * @param rentalId - Rental UUID to validate filing window for
+   * @returns Validation result with valid flag and optional error message
+   */
+  async validateFilingWindowUnified(
+    rentalId: string,
+  ): Promise<TimeWindowValidationResult> {
+    try {
+      const rental = await this.db.query.rentals.findFirst({
+        where: eq(rentals.id, rentalId),
+        columns: {
+          id: true,
+          startDate: true,
+          returnConfirmedAt: true,
+        },
+      });
+
+      if (!rental) {
+        return { valid: false, message: "Rental not found" };
+      }
+
+      const now = new Date();
+
+      if (rental.returnConfirmedAt) {
+        const deadline = new Date(
+          rental.returnConfirmedAt.getTime() + 24 * 60 * 60 * 1000,
+        );
+        const valid = now <= deadline;
+        return {
+          valid,
+          message: valid
+            ? undefined
+            : "The dispute filing window closed 24 hours after the return was confirmed",
+        };
+      }
+
+      const valid = now >= rental.startDate;
+      return {
+        valid,
+        message: valid
+          ? undefined
+          : "Disputes cannot be filed before the rental start date",
+      };
+    } catch (error) {
+      this.handleError(error, "validateFilingWindowUnified");
+    }
+  }
+
+  /**
+   * @deprecated Use `validateFilingWindowUnified` for Phase 3 unified 24-hour window.
+   * Validate time window for dispute creation based on reason code.
    * Time windows vary by reason code (e.g., 7 days for damage, 3 days for non_delivery)
    * @param rentalId - Rental UUID to validate time window for
    * @param reasonCode - Dispute reason code that determines the time window

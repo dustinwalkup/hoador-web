@@ -120,6 +120,8 @@ export const disputeReasonCodeEnum = pgEnum("dispute_reason_code", [
   "quality_issue",
   "cancellation",
   "payment_issue",
+  "renter_no_show",
+  "owner_no_show",
   "other",
 ]);
 

@@ -216,6 +216,7 @@ export interface RentalDetails {
   damagePhotos?: string[];
   extensionRequested?: boolean;
   extensionApproved?: boolean;
+  returnConfirmedAt?: Date;
   status: string;
   createdAt: Date;
   approvedAt?: Date;
@@ -328,6 +329,7 @@ export type RentalActionsInfo = Pick<
   | "deliveryRequested"
   | "hasReview"
   | "canLeaveReview"
+  | "returnConfirmedAt"
 >;
 export type RentalMessagesInfo = Pick<
   RentalDetails,
@@ -1620,6 +1622,7 @@ export class RentalDAL extends BaseDAL {
           returnInstructions: rentals.returnInstructions,
           actualStartDate: rentals.actualStartDate,
           actualEndDate: rentals.actualEndDate,
+          returnConfirmedAt: rentals.returnConfirmedAt,
           conversationId: conversations.id,
         })
         .from(rentalRequests)
@@ -1828,6 +1831,7 @@ export class RentalDAL extends BaseDAL {
           denialReason: request.denialReason || undefined,
           actualStartDate: request.actualStartDate || undefined,
           actualEndDate: request.actualEndDate || undefined,
+          returnConfirmedAt: request.returnConfirmedAt || undefined,
           currentUserId: userId || "",
           conversationId: request.conversationId || null,
           hasReview,
@@ -1859,6 +1863,7 @@ export class RentalDAL extends BaseDAL {
           damagePhotos: rentals.damagePhotos,
           extensionRequested: rentals.extensionRequested,
           extensionApproved: rentals.extensionApproved,
+          returnConfirmedAt: rentals.returnConfirmedAt,
           createdAt: rentals.createdAt,
           conversationId: conversations.id,
         })
@@ -2080,6 +2085,7 @@ export class RentalDAL extends BaseDAL {
         damagePhotos: rentalData.damagePhotos || [],
         extensionRequested: rentalData.extensionRequested || false,
         extensionApproved: rentalData.extensionApproved || false,
+        returnConfirmedAt: rentalData.returnConfirmedAt || undefined,
         status: request[0]?.status || "approved",
         createdAt: rentalData.createdAt,
         currentUserId: userId || "",

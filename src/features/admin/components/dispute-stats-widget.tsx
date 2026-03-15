@@ -56,6 +56,8 @@ function getReasonCodeLabel(code: DisputeReasonCode): string {
     quality_issue: "Quality Issue",
     cancellation: "Cancellation",
     payment_issue: "Payment Issue",
+    renter_no_show: "Renter No-Show",
+    owner_no_show: "Owner No-Show",
     other: "Other",
   };
   return labels[code] || code;

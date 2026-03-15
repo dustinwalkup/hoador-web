@@ -4,6 +4,7 @@ import { userDAL, paymentDAL, auditLogDAL, paymentLifecycleDAL } from "@/dal";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { tryCatch } from "@walkup/walkup-utils";
+import { ChargebackService } from "./chargeback-service";
 
 /**
  * Dispatch a Stripe webhook event to the appropriate handler.
@@ -46,6 +47,21 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       break;
     case "charge.refunded":
       await handleChargeRefunded(event.data.object as Stripe.Charge);
+      break;
+    case "charge.dispute.created":
+      await ChargebackService.handleChargebackCreated(
+        event.data.object as Stripe.Dispute,
+      );
+      break;
+    case "charge.dispute.updated":
+      await ChargebackService.handleChargebackUpdated(
+        event.data.object as Stripe.Dispute,
+      );
+      break;
+    case "charge.dispute.closed":
+      await ChargebackService.handleChargebackClosed(
+        event.data.object as Stripe.Dispute,
+      );
       break;
     default:
       getLogger().info(

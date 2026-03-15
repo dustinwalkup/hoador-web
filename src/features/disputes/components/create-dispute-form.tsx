@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -27,13 +28,18 @@ import {
 import { useCreateDispute } from "../hooks/use-create-dispute";
 import type { DisputeReasonCode } from "@/dal/types";
 
-const disputeReasonCodes: { value: DisputeReasonCode; label: string }[] = [
+const BASE_REASON_CODES: { value: DisputeReasonCode; label: string }[] = [
   { value: "damage", label: "Damage" },
   { value: "non_delivery", label: "Non-Delivery" },
   { value: "quality_issue", label: "Quality Issue" },
   { value: "cancellation", label: "Cancellation" },
   { value: "payment_issue", label: "Payment Issue" },
   { value: "other", label: "Other" },
+];
+
+const NO_SHOW_REASON_CODES: { value: DisputeReasonCode; label: string }[] = [
+  { value: "renter_no_show", label: "Renter No-Show" },
+  { value: "owner_no_show", label: "Owner No-Show" },
 ];
 
 const createDisputeSchema = z.object({
@@ -44,6 +50,8 @@ const createDisputeSchema = z.object({
       "quality_issue",
       "cancellation",
       "payment_issue",
+      "renter_no_show",
+      "owner_no_show",
       "other",
     ],
     {
@@ -61,6 +69,8 @@ type CreateDisputeFormData = z.infer<typeof createDisputeSchema>;
 interface CreateDisputeFormProps {
   rentalId: string;
   disputePolicyUrl?: string;
+  rentalStatus?: string;
+  startDate?: Date;
 }
 
 /**
@@ -70,8 +80,22 @@ interface CreateDisputeFormProps {
 export function CreateDisputeFormContent({
   rentalId,
   disputePolicyUrl,
+  rentalStatus,
+  startDate,
 }: CreateDisputeFormProps) {
   const createDispute = useCreateDispute();
+
+  const showNoShowCodes = useMemo(() => {
+    if (rentalStatus !== "approved" || !startDate) return false;
+    return new Date() >= new Date(startDate);
+  }, [rentalStatus, startDate]);
+
+  const disputeReasonCodes = useMemo(() => {
+    if (showNoShowCodes) {
+      return [...BASE_REASON_CODES, ...NO_SHOW_REASON_CODES];
+    }
+    return BASE_REASON_CODES;
+  }, [showNoShowCodes]);
 
   const form = useForm<CreateDisputeFormData>({
     resolver: zodResolver(createDisputeSchema),
