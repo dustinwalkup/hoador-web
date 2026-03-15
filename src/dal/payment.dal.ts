@@ -264,6 +264,36 @@ export class PaymentDAL extends BaseDAL {
     }
   }
 
+  /**
+   * Record a refund on a payment. Updates status, refund amount, reason, and timestamp.
+   *
+   * @param paymentId - The payment record ID
+   * @param data - Refund details (refundedAt, refundAmount as decimal string, refundReason)
+   */
+  async recordRefund(
+    paymentId: string,
+    data: {
+      refundedAt: Date;
+      refundAmount: string;
+      refundReason: string;
+    },
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(payments)
+        .set({
+          status: "refunded",
+          refundedAt: data.refundedAt,
+          refundAmount: data.refundAmount,
+          refundReason: data.refundReason,
+          updatedAt: new Date(),
+        })
+        .where(eq(payments.id, paymentId));
+    } catch (error) {
+      this.handleError(error, "recordRefund");
+    }
+  }
+
   async createPayment(data: {
     rentalId: string;
     payerId: string;

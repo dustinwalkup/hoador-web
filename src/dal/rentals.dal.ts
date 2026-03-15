@@ -8,15 +8,44 @@ import {
   listingAvailability,
 } from "@/db/schemas/listings.schema";
 import { user, userAddresses } from "@/db/schemas/user.schema";
+import { payments } from "@/db/schemas/payments.schema";
+import { rentalPaymentLifecycle } from "@/db/schemas/rental-payment-lifecycle.schema";
 import { conversations } from "@/db/schemas/messages.schema";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BaseDAL } from "./base";
 import { NotFoundError } from "./errors";
+import type { CancellationReason } from "./types";
 import { ReviewDAL } from "./review.dal";
 
 // Create a single instance at module level to reuse across methods
 const reviewDALInstance = new ReviewDAL();
+
+/** All data needed by CancellationService to process a cancellation or no-show. */
+export interface RentalCancellationContext {
+  rentalRequestId: string;
+  rentalId: string;
+  listingId: string;
+  listingName: string;
+  renterId: string;
+  ownerId: string;
+  status: string;
+  startDate: Date;
+  /** Rental price (excluding service fee) — decimal as string. */
+  rentalPrice: string;
+  /** Service fee — decimal as string. */
+  serviceFee: string;
+  /** Total charge (rental price + service fee) — decimal as string. */
+  totalChargeAmount: string;
+  depositHoldStatus: string | null;
+  securityDepositAuthId: string | null;
+  /** Stripe Charge ID from the rental payment lifecycle record. */
+  rentalChargeId: string | null;
+  paymentId: string | null;
+  paymentStatus: string | null;
+  ownerConnectedAccountId: string | null;
+  ownerTransferStatus: string | null;
+}
 
 export interface BorrowedListing {
   id: string;
@@ -390,8 +419,12 @@ export class RentalDAL extends BaseDAL {
           listingImageUrl: listingImagesMap.get(rental.listingId) || null,
         };
 
-        // Current rentals: started and not yet ended
-        if (rental.startDate <= now && rental.endDate >= now) {
+        // Current rentals: started and not yet ended.
+        // Normalize endDate to end-of-day so same-day rentals (endDate at midnight)
+        // are not dropped after midnight.
+        const endOfDay = new Date(rental.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (rental.startDate <= now && endOfDay >= now) {
           currentRentals.push(listingWithImage);
         }
         // Upcoming rentals: haven't started yet
@@ -1211,8 +1244,8 @@ export class RentalDAL extends BaseDAL {
    */
   async cancelRentalRequest(
     requestId: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _userId: string,
+    cancellationNotes?: string | null,
   ): Promise<void> {
     try {
       // First, verify the request exists
@@ -1241,6 +1274,8 @@ export class RentalDAL extends BaseDAL {
           status: "cancelled",
           deniedAt: new Date(),
           denialReason: "Cancelled by renter",
+          ...(cancellationNotes != null && { cancellationNotes }),
+          updatedAt: new Date(),
         })
         .where(eq(rentalRequests.id, requestId));
     } catch (error) {
@@ -2471,5 +2506,101 @@ export class RentalDAL extends BaseDAL {
         ),
       );
     return rows;
+  }
+
+  /**
+   * Get full cancellation context for a rental: joins rental_requests, rentals,
+   * rental_payment_lifecycle, payments, and user (owner) to return all data
+   * needed by CancellationService to process a cancellation or no-show.
+   *
+   * @param rentalRequestId - The rental request ID
+   * @returns Full context or null if not found
+   */
+  async getRentalCancellationContext(
+    rentalRequestId: string,
+  ): Promise<RentalCancellationContext | null> {
+    try {
+      const [row] = await this.db
+        .select({
+          rentalRequestId: rentalRequests.id,
+          rentalId: rentals.id,
+          listingId: rentalRequests.listingId,
+          listingName: listings.name,
+          renterId: rentalRequests.renterId,
+          ownerId: rentalRequests.ownerId,
+          status: rentalRequests.status,
+          startDate: rentalRequests.startDate,
+          rentalPrice: rentalRequests.totalAmount,
+          serviceFee: rentalRequests.serviceFee,
+          totalChargeAmount: sql<string>`(${rentalRequests.totalAmount}::numeric + ${rentalRequests.serviceFee}::numeric)::text`,
+          depositHoldStatus: rentalPaymentLifecycle.depositHoldStatus,
+          securityDepositAuthId: rentals.securityDepositAuthId,
+          rentalChargeId: rentalPaymentLifecycle.rentalChargeId,
+          paymentId: payments.id,
+          paymentStatus: payments.status,
+          ownerConnectedAccountId: user.stripeConnectedAccountId,
+          ownerTransferStatus: rentalPaymentLifecycle.ownerTransferStatus,
+        })
+        .from(rentalRequests)
+        .innerJoin(rentals, eq(rentals.requestId, rentalRequests.id))
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .leftJoin(
+          rentalPaymentLifecycle,
+          eq(rentalPaymentLifecycle.rentalId, rentals.id),
+        )
+        .leftJoin(payments, eq(payments.rentalId, rentals.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .where(eq(rentalRequests.id, rentalRequestId))
+        .limit(1);
+
+      return row ?? null;
+    } catch (error) {
+      this.handleError(error, "getRentalCancellationContext");
+    }
+  }
+
+  /**
+   * Cancel an approved rental request with cancellation metadata.
+   * Sets status to 'cancelled' and records who cancelled and why.
+   * Uses a status guard (WHERE status IN ('approved')) to prevent race conditions.
+   *
+   * @param requestId - The rental request ID
+   * @param cancelledBy - User ID of who cancelled
+   * @param cancellationReason - Enum value for the reason
+   * @throws Error if no rows affected (status guard failed — already cancelled or wrong status)
+   */
+  async cancelApprovedRental(
+    requestId: string,
+    cancelledBy: string,
+    cancellationReason: CancellationReason,
+    cancellationNotes?: string | null,
+  ): Promise<void> {
+    try {
+      const result = await this.db
+        .update(rentalRequests)
+        .set({
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancelledBy,
+          cancellationReason,
+          ...(cancellationNotes != null && { cancellationNotes }),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(rentalRequests.id, requestId),
+            eq(rentalRequests.status, "approved"),
+          ),
+        )
+        .returning();
+
+      if (result.length === 0) {
+        throw new Error(
+          "Cannot cancel rental: request not found or status is not approved",
+        );
+      }
+    } catch (error) {
+      this.handleError(error, "cancelApprovedRental");
+    }
   }
 }

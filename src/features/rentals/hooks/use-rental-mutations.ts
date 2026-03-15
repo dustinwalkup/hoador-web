@@ -1,8 +1,18 @@
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
+import {
+  useCreateMutation,
+  handleMutationSuccess,
+} from "@/lib/react-query/mutation-helpers";
 import { rentalKeys } from "./use-rentals";
 import type { CreateRentalRequestFormData } from "../lib/form-schema";
+
+/** Response shape from POST /api/rentals/[id]/cancel */
+export interface CancelRentalResponse {
+  success: true;
+  refundAmount?: number;
+  ownerTransferAmount?: number;
+}
 
 /**
  * Hook for creating a new rental request
@@ -151,16 +161,25 @@ export function useDeclineRentalRequest() {
   });
 }
 
+export interface CancelRentalVariables {
+  rentalId: string;
+  reason: string;
+}
+
 /**
- * Hook for canceling a rental request
+ * Hook for canceling a rental request or approved rental.
+ * Pending: no refund. Approved: may include refundAmount and ownerTransferAmount.
+ * Requires reason (1–1000 chars) for cancellation notes.
  */
 export function useCancelRentalRequest() {
   const queryClient = useQueryClient();
 
-  return useCreateMutation({
-    mutationFn: async (rentalId: string) => {
+  return useCreateMutation<CancelRentalResponse, CancelRentalVariables>({
+    mutationFn: async ({ rentalId, reason }: CancelRentalVariables) => {
       const response = await fetch(`/api/rentals/${rentalId}/cancel`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: reason.trim() }),
       });
 
       if (!response.ok) {
@@ -168,18 +187,22 @@ export function useCancelRentalRequest() {
         throw new Error(error.error || "Failed to cancel rental request");
       }
 
-      return response.json();
+      return response.json() as Promise<CancelRentalResponse>;
     },
-    successMessage: "Rental request cancelled",
     invalidateQueryKeys: [
       rentalKeys.all,
       rentalKeys.renting(),
       rentalKeys.lending(),
     ],
     onSuccess: (data, variables) => {
-      // Invalidate specific rental detail query
+      const message =
+        data.refundAmount != null
+          ? `Rental cancelled successfully. A refund of $${data.refundAmount.toFixed(2)} has been processed.`
+          : "Rental cancelled successfully";
+      handleMutationSuccess(message);
+
       queryClient.invalidateQueries({
-        queryKey: rentalKeys.detail(variables),
+        queryKey: rentalKeys.detail(variables.rentalId),
       });
     },
   });

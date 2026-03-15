@@ -7,7 +7,7 @@ Deposit scheduling — if start > 48hrs, cron places auth hold when within 48hrs
 Owner confirms return — POST /api/rentals/[id]/confirm-return sets returnConfirmedAt, status → completed
 24-hour dispute window passes — payout cron finds eligible rentals
 Payout cron — releases deposit hold (paymentIntents.cancel), creates owner transfer (transfers.create with source_transaction), deducts 20% platform fee
-Webhooks — payment_intent.succeeded/failed/canceled, transfer.failed, account.updated/closed
+Webhooks — payment_intent.succeeded/failed/canceled, transfer.reversed, account.updated/closed
 Error/recovery paths:
 
 Deposit hold fails → renter/owner notified → renter updates payment method → status resets to scheduled → cron retries

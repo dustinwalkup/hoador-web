@@ -142,8 +142,8 @@ Phase 1 introduces a platform-hold payment model where rental payments are captu
 1. WHEN a `payment_intent.succeeded` webhook is received THEN the system SHALL look up the payment record by `stripePaymentIntentId` and update its `status` to `'succeeded'` and set `paidAt` to the current timestamp if not already set
 2. WHEN a `payment_intent.payment_failed` webhook is received THEN the system SHALL look up the payment record by `stripePaymentIntentId`, update its `status` to `'failed'`, and send a notification to the renter informing them of the payment failure
 3. WHEN a `payment_intent.canceled` webhook is received AND the PaymentIntent metadata contains `paymentType: 'security_deposit_hold'` THEN the system SHALL check if this was an intentional release (depositHoldStatus is `'released'`) or an expiration — IF the hold was not intentionally released THEN set `depositHoldStatus: 'expired'` and alert the operations team
-4. WHEN a `transfer.failed` webhook is received THEN the system SHALL look up the payment lifecycle record by the Transfer ID, set `ownerTransferStatus` to `'failed'`, and send an alert to the operations team — the system SHALL NOT automatically retry
-5. The system SHALL add the new event types (`payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`, `transfer.failed`) to the existing webhook handler in `src/app/api/stripe/webhooks/route.ts` alongside the current `account.updated` and `account.closed` handlers
+4. WHEN a `transfer.reversed` webhook is received THEN the system SHALL look up the payment lifecycle record by the Transfer ID, set `ownerTransferStatus` to `'failed'`, and send an alert to the operations team — the system SHALL NOT automatically retry
+5. The system SHALL add the new event types (`payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`, `transfer.reversed`) to the existing webhook handler in `src/app/api/stripe/webhooks/route.ts` alongside the current `account.updated` and `account.closed` handlers
 6. The system SHALL return HTTP 200 for all successfully processed webhooks, and HTTP 500 only for unrecoverable processing errors
 7. WHERE a webhook event has already been processed (detected via DB status checks) THEN the system SHALL return HTTP 200 without making duplicate changes (idempotent handling)
 
@@ -272,7 +272,7 @@ Phase 1 introduces a platform-hold payment model where rental payments are captu
 ## Assumptions
 
 1. Stripe Connect accounts for owners are already set up and onboarded (existing flow handles this)
-2. The Stripe webhook endpoint in the Stripe Dashboard will be updated to include the new event types (`payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`, `transfer.failed`)
+2. The Stripe webhook endpoint in the Stripe Dashboard will be updated to include the new event types (`payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`, `transfer.reversed`)
 3. The existing `rentalStatusEnum` value `'completed'` is appropriate for the return-confirmed state — no new rental status is needed
 4. The owner has a UI action (or API endpoint) to confirm tool return — the exact UI is not defined in this spec, only the backend trigger (`returnConfirmedAt`) is required
 5. The `source_transaction` on `stripe.transfers.create()` requires the Charge ID (not PaymentIntent ID) — the system must store the Charge ID (from `paymentIntent.latest_charge`) at capture time

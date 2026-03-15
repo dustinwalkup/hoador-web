@@ -1,33 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
-import { rentalDAL, userDAL, auditLogDAL } from "@/dal";
 import {
   handleApiError,
-  captureNonCriticalError,
   requireAuthResponse,
   getClientIP,
   getUserAgent,
+  parseFormData,
 } from "@/lib/api/route-helpers";
-import { trackActivity } from "@/features/activity/lib/track-activity";
-import { sendRentalCancelledNotification } from "@/features/rentals/notifications/rental-cancelled";
+import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
+import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
+import { cancelRental } from "@/features/rentals/services/cancellation-service";
+
+const CANCEL_REASON_MAX_LENGTH = 1000;
+
+const cancelRequestSchema = z.object({
+  reason: z
+    .string()
+    .min(1, "Cancellation reason is required")
+    .max(
+      CANCEL_REASON_MAX_LENGTH,
+      `Cancellation reason must be ${CANCEL_REASON_MAX_LENGTH} characters or fewer`,
+    ),
+});
 
 /**
  * POST /api/rentals/[id]/cancel
- * Cancel a rental request (only renter can cancel pending requests)
+ * Cancel a rental request or approved rental (thin handler — delegates to CancellationService).
+ * Pending: renter only, no payment. Approved: renter or owner, with tiered refund.
+ * Body: { reason: string } (required, 1–1000 chars, sanitized).
  */
 async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    // Check authentication
     const authError = await requireAuthResponse();
     if (authError) return authError;
 
-    const { id: rentalId } = await params;
+    const { id: rentalRequestId } = await params;
 
-    // Get current user ID
+    const body = await parseFormData(request);
+    const parseResult = cancelRequestSchema.safeParse(body);
+    if (!parseResult.success) {
+      const issues = parseResult.error?.issues;
+      const firstMessage =
+        issues?.[0] && "message" in issues[0]
+          ? (issues[0] as { message: string }).message
+          : null;
+      const message = firstMessage ?? "Invalid request body";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    const reason = sanitizeTextWithMaxLength(
+      parseResult.data.reason.trim(),
+      CANCEL_REASON_MAX_LENGTH,
+    );
+    if (!reason) {
+      return NextResponse.json(
+        { error: "Cancellation reason is required" },
+        { status: 400 },
+      );
+    }
+
     const { getCurrentUserId } = await import("@/features/auth/utils/session");
     const currentUserId = await getCurrentUserId();
     if (!currentUserId) {
@@ -37,86 +73,45 @@ async function postHandler(
       );
     }
 
-    // Fetch rental request details before canceling (for notification)
-    const { data: rentalRequest, error: fetchError } = await tryCatch(
-      rentalDAL.getRentalRequestById(rentalId, currentUserId),
-    );
-
-    if (fetchError || !rentalRequest) {
-      return NextResponse.json(
-        { error: fetchError?.message || "Rental request not found" },
-        { status: 404 },
-      );
-    }
-
-    // Authorization check: only renter can cancel
-    if (rentalRequest.renterId !== currentUserId) {
-      return NextResponse.json(
-        { error: "Forbidden: Only the renter can cancel rental requests" },
-        { status: 403 },
-      );
-    }
-
-    const { error } = await tryCatch(
-      rentalDAL.cancelRentalRequest(rentalId, currentUserId),
-    );
-
-    if (error) {
-      return handleApiError(error);
-    }
-
     const ipAddress = getClientIP(request);
     const userAgent = getUserAgent(request);
-    await auditLogDAL.create({
-      entityType: "rental_request",
-      entityId: rentalId,
-      action: "rental_request.cancelled",
-      userId: currentUserId,
-      ipAddress: ipAddress ?? undefined,
-      userAgent: userAgent ?? undefined,
-    });
 
-    trackActivity(currentUserId, "rental_cancelled", {
-      rentalRequestId: rentalId,
-    });
+    const result = await tryCatch(
+      cancelRental(rentalRequestId, currentUserId, {
+        ipAddress: ipAddress ?? undefined,
+        userAgent: userAgent ?? undefined,
+        reason,
+      }),
+    );
 
-    // Send notification to owner (don't block on notification failure)
-    try {
-      const { data: ownerUser } = await tryCatch(
-        userDAL.getUserById(rentalRequest.ownerId),
-      );
-      const { data: renterUser } = await tryCatch(
-        userDAL.getUserById(rentalRequest.renterId),
-      );
-
-      if (ownerUser && renterUser) {
-        await sendRentalCancelledNotification({
-          recipientUserId: ownerUser.id,
-          recipientName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-          otherPartyName: `${renterUser.firstName} ${renterUser.lastName}`,
-          listingName: rentalRequest.listingName,
-          rentalId: rentalRequest.id,
-          cancelledBy: "renter",
-          cancellationReason: "Renter cancelled the request",
-        }).catch((err) => {
-          captureNonCriticalError(err, {
-            route: "POST /api/rentals/[id]/cancel",
-            action: "send_rental_cancelled_notification",
-          });
-        });
+    if (result.error) {
+      if (result.error instanceof NotFoundError) {
+        return NextResponse.json(
+          { error: result.error.message || "Rental not found" },
+          { status: 404 },
+        );
       }
-    } catch (notificationError) {
-      captureNonCriticalError(notificationError, {
-        route: "POST /api/rentals/[id]/cancel",
-        action: "send_cancellation_notifications",
-      });
+      if (result.error instanceof ForbiddenError) {
+        return NextResponse.json(
+          { error: result.error.message },
+          { status: 403 },
+        );
+      }
+      if (result.error instanceof ValidationError) {
+        return NextResponse.json(
+          { error: result.error.message },
+          { status: 400 },
+        );
+      }
+      return handleApiError(result.error);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json(result.data);
   } catch (error) {
     return handleApiError(error);
   }
 }
+
 export const POST = withRequestLogging(
   postHandler,
   "POST /api/rentals/[id]/cancel",

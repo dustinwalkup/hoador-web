@@ -553,7 +553,7 @@ if (eventType === "payment_intent.succeeded") {
     // Check lifecycle record: if depositHoldStatus !== 'released'
     // → set depositHoldStatus = 'expired', alert ops
   }
-} else if (eventType === "transfer.failed") {
+} else if (eventType === "transfer.reversed") {
   const transfer = event.data.object as Stripe.Transfer;
   // Look up lifecycle by stripeTransferId
   // Set ownerTransferStatus = 'failed'
@@ -673,7 +673,7 @@ All ops-relevant events use `getLogger().error()` with an `alertType: "ops"` tag
 
 ```typescript
 getLogger().error(
-  { alertType: "ops", event: "transfer.failed", rentalId, error: message },
+  { alertType: "ops", event: "transfer.reversed", rentalId, error: message },
   "Owner transfer failed — manual intervention required",
 );
 ```

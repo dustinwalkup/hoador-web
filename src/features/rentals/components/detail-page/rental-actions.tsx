@@ -21,6 +21,7 @@ import type { DisputeWithRelations } from "@/dal/types";
 import { CancelRequestDialog } from "@/features/rentals/components/renting-lending/cancel-request-dialog";
 import {
   ApproveRequestDialog,
+  CancelApprovedRentalDialog,
   DeclineRequestDialog,
   UpdateInstructionsDialog,
   StartRentalDialog,
@@ -52,6 +53,11 @@ export function RentalActions({
 }: RentalActionsProps) {
   const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showCancelApprovedDialog, setShowCancelApprovedDialog] =
+    useState(false);
+  const [cancelApprovedRole, setCancelApprovedRole] = useState<
+    "renter" | "owner"
+  >("renter");
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
   const [showUpdateInstructionsDialog, setShowUpdateInstructionsDialog] =
@@ -124,6 +130,20 @@ export function RentalActions({
               </Button>
             )}
 
+            {rentalDetails.status === "approved" && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => {
+                  setCancelApprovedRole("renter");
+                  setShowCancelApprovedDialog(true);
+                }}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Cancel Rental
+              </Button>
+            )}
+
             {rentalDetails.status === "active" && (
               <>
                 {/* <Button variant="outline" className="w-full bg-transparent">
@@ -184,6 +204,20 @@ export function RentalActions({
               </>
             )}
 
+            {rentalDetails.status === "approved" && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => {
+                  setCancelApprovedRole("owner");
+                  setShowCancelApprovedDialog(true);
+                }}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Cancel Rental
+              </Button>
+            )}
+
             {rentalDetails.status === "approved" && isStartDateReached() && (
               <Button
                 className="w-full"
@@ -242,12 +276,24 @@ export function RentalActions({
         </Button>
       </CardContent>
 
-      {/* Cancel Request Dialog */}
+      {/* Cancel Request Dialog (pending only) */}
       <CancelRequestDialog
         open={showCancelDialog}
         onOpenChange={setShowCancelDialog}
         requestId={rentalDetails.id}
         listingName={rentalDetails.listingName}
+        onSuccess={handleRentalStatusChanged}
+      />
+
+      {/* Cancel Approved Rental Dialog */}
+      <CancelApprovedRentalDialog
+        open={showCancelApprovedDialog}
+        onOpenChange={setShowCancelApprovedDialog}
+        requestId={rentalDetails.id}
+        listingName={rentalDetails.listingName}
+        startDate={rentalDetails.startDate}
+        role={cancelApprovedRole}
+        onSuccess={handleRentalStatusChanged}
       />
 
       {/* Approve Request Dialog */}

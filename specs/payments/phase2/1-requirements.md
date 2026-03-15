@@ -8,28 +8,28 @@ Phase 2 introduces automated cancellation paths for approved rentals: tiered ref
 
 ### Scope
 
-**In scope:** Renter cancellation before approval (formalize existing behavior), renter cancellation after approval and before pickup (tiered refund: 100% rental price refund if ≥24h before pickup, 50% if &lt;24h; service fee never refunded), owner cancellation after approval (full refund including service fee; platform absorbs Stripe fee), deposit hold release or cancellation on cancellation, refund processing via Stripe with idempotency, cancellation and no-show data model extensions, notifications (renter, owner, OPS_ALERT where specified), and webhook handling for refunds. No-show reporting is manual (either party reports via support; ops handles); financial outcomes (renter no-show: 50% refund of rental price, owner paid remainder minus platform fee; owner no-show: full refund including service fee, OPS_ALERT) are implemented when ops applies the no-show outcome.
+**In scope:** Renter cancellation before approval (formalize existing behavior), renter cancellation after approval and before pickup (tiered refund: 100% rental price refund if ≥24h before pickup, 50% if &lt;24h; service fee never refunded; non-refunded balance transferred to owner minus platform fee; OPS_ALERT), owner cancellation after approval (full refund including service fee; platform absorbs Stripe fee; OPS_ALERT), deposit hold release or cancellation on cancellation, refund processing via Stripe with idempotency, owner transfer for non-refunded balances, cancellation and no-show data model extensions, notifications (renter, owner, OPS_ALERT for all post-approval cancellations and both no-show scenarios), and webhook handling for refunds. No-show reporting is manual (either party reports via support; ops handles); financial outcomes (renter no-show: 50% refund of rental price, owner paid remainder minus platform fee, OPS_ALERT; owner no-show: full refund including service fee, OPS_ALERT) are implemented when ops applies the no-show outcome.
 
 **Out of scope:** Cancellation or refund for **active** rentals (cancellation not allowed; early termination has no payment effect), automated no-show detection by time window, dispute resolution workflows (Phase 3), chargeback evidence, per-listing cancellation policies, and operational tooling (Phase 4).
 
 ### Key Architectural Decisions
 
-1. **Renter cancellation tiers (post-approval, pre-pickup):** Full refund of **rental price** (not service fee) if cancelled ≥24 hours before pickup; 50% refund of rental price if cancelled &lt;24 hours before pickup. The service fee is never refunded when the renter cancels.
+1. **Renter cancellation tiers (post-approval, pre-pickup):** Full refund of **rental price** (not service fee) if cancelled ≥24 hours before pickup; 50% refund of rental price if cancelled &lt;24 hours before pickup. The service fee is never refunded when the renter cancels — the platform retains it. Any non-refunded balance of the rental price is transferred to the owner minus the platform fee (20%). An OPS_ALERT is sent for all renter cancellations after approval.
 2. **Owner cancellation:** Full refund of the entire charge (rental price + service fee) to the renter. The platform absorbs the Stripe processing fee; the owner does not.
 3. **Active rental:** Cancellation is not allowed for rentals in `active` status. Early termination has no effect on payment (no partial refund, no proration).
-4. **No-show:** Renter no-show results in 50% refund of rental price to renter (service fee not refunded); owner receives remaining compensation minus platform fee. Owner no-show results in full refund including service fee to renter; OPS_ALERT is sent. No-show is reported by either party via support; ops handles and triggers the financial flow (no automated time-based no-show).
+4. **No-show:** Renter no-show results in 50% refund of rental price to renter (service fee not refunded); owner receives remaining compensation minus platform fee; OPS_ALERT is sent. Owner no-show results in full refund including service fee to renter; OPS_ALERT is sent. No-show is reported by either party via support; ops handles and triggers the financial flow (no automated time-based no-show).
 5. **Stripe fee on refunds:** For both renter-initiated and owner-initiated cancellation refunds, Stripe retains the original processing fee (2.9% + $0.30). The platform absorbs this cost.
 6. **Deposit on cancellation:** When a rental is cancelled after approval, any deposit hold is released (if `held`) or scheduling is cancelled (if `scheduled`); no deposit is captured.
 
 ### Fee and Refund Summary
 
-| Scenario                             | Rental price refund | Service fee refund | Stripe fee absorbed by |
-| ------------------------------------ | ------------------- | ------------------ | ---------------------- |
-| Renter cancels ≥24h before pickup    | 100%                | No                 | Platform               |
-| Renter cancels &lt;24h before pickup | 50%                 | No                 | Platform               |
-| Owner cancels                        | 100%                | Yes (full refund)  | Platform               |
-| Renter no-show                       | 50%                 | No                 | N/A (partial refund)   |
-| Owner no-show                        | 100%                | Yes                | Platform (full refund) |
+| Scenario                             | Rental price refund | Service fee refund  | Owner transfer                         | Stripe fee absorbed by | OPS_ALERT |
+| ------------------------------------ | ------------------- | ------------------- | -------------------------------------- | ---------------------- | --------- |
+| Renter cancels ≥24h before pickup    | 100%                | No (platform keeps) | None (full rental price refunded)      | Platform               | Yes       |
+| Renter cancels &lt;24h before pickup | 50%                 | No (platform keeps) | 50% of rental price minus platform fee | Platform               | Yes       |
+| Owner cancels                        | 100%                | Yes (full refund)   | None                                   | Platform               | Yes       |
+| Renter no-show                       | 50%                 | No (platform keeps) | 50% of rental price minus platform fee | N/A (partial refund)   | Yes       |
+| Owner no-show                        | 100%                | Yes                 | None                                   | Platform (full refund) | Yes       |
 
 ## Requirements
 
@@ -51,18 +51,21 @@ Phase 2 introduces automated cancellation paths for approved rentals: tiered ref
 
 #### Acceptance Criteria
 
-1. WHEN the renter requests cancellation AND the rental request status is `'approved'` AND the rental has not started (current time is before `startDate`) THEN the system SHALL allow cancellation and apply the tiered refund policy
-2. The refund amount SHALL be calculated on the **rental price only** (excluding the service fee). The service fee SHALL NOT be refunded in any case for renter-initiated cancellation
+1. WHEN the renter requests cancellation AND the rental request status is `'approved'` (and not `'active'`) THEN the system SHALL allow cancellation and apply the tiered refund policy. The gate for cancellation is rental status: only `'active'` rentals are non-cancellable; approved rentals may be cancelled on or after `startDate` (e.g. same-day before pickup), with the &lt;24h refund tier applied when applicable.
+2. The refund amount SHALL be calculated on the **rental price only** (excluding the service fee). The service fee SHALL NOT be refunded in any case for renter-initiated cancellation — the platform retains the service fee regardless of the cancellation tier
 3. IF the cancellation occurs 24 hours or more before the rental `startDate` THEN the system SHALL refund 100% of the rental price (full refund of rental portion only)
 4. IF the cancellation occurs less than 24 hours before the rental `startDate` THEN the system SHALL refund 50% of the rental price
-5. WHEN processing the refund THEN the system SHALL call `stripe.refunds.create()` on the charge associated with the rental PaymentIntent, with the calculated refund amount in cents
-6. The system SHALL use a deterministic idempotency key of format `refund-rental-{rentalId}` when creating the refund
-7. WHEN the refund is initiated THEN the system SHALL release the deposit hold if `depositHoldStatus` is `'held'` (via `stripe.paymentIntents.cancel()`), or SHALL ensure no deposit hold is placed if `depositHoldStatus` is `'scheduled'` (e.g. set status so the deposit scheduling cron skips this rental)
-8. WHEN the rental is cancelled THEN the system SHALL set the rental request status to `'cancelled'` and record cancellation metadata (e.g. `cancelledAt`, `cancelledBy`, `cancellationReason`) as defined in Requirement 8
-9. The system SHALL update the payment record with `status: 'refunded'`, `refundedAt`, `refundAmount`, and `refundReason` when the refund is processed
-10. The platform SHALL absorb the Stripe processing fee (2.9% + $0.30) retained on the refunded amount — no portion of this fee is charged to the renter or owner
-11. Only the renter SHALL be permitted to cancel an approved rental (pre-pickup) via this path
-12. The system SHALL notify the owner that the rental was cancelled and notify the renter of the refund amount (e.g. `rental_cancelled`, `payment_refunded`)
+5. WHERE a non-refunded balance of the rental price exists (e.g. 50% retained on &lt;24h cancellation) THEN the system SHALL create an owner transfer for the non-refunded rental price amount minus the platform fee (20% of the rental price), using `stripe.transfers.create()` with `source_transaction` referencing the original charge, the same idempotency pattern as Phase 1 (`transfer-owner-{rentalId}`), and the owner's connected account as destination
+6. WHERE the full rental price is refunded (≥24h cancellation) THEN no owner transfer SHALL be created
+7. WHEN processing the refund THEN the system SHALL call `stripe.refunds.create()` on the charge associated with the rental PaymentIntent, with the calculated refund amount in cents
+8. The system SHALL use a deterministic idempotency key of format `refund-rental-{rentalId}` when creating the refund
+9. WHEN the refund is initiated THEN the system SHALL release the deposit hold if `depositHoldStatus` is `'held'` (via `stripe.paymentIntents.cancel()`), or SHALL ensure no deposit hold is placed if `depositHoldStatus` is `'scheduled'` (e.g. set status so the deposit scheduling cron skips this rental)
+10. WHEN the rental is cancelled THEN the system SHALL set the rental request status to `'cancelled'` and record cancellation metadata (e.g. `cancelledAt`, `cancelledBy`, `cancellationReason`) as defined in Requirement 8
+11. The system SHALL update the payment record with `status: 'refunded'`, `refundedAt`, `refundAmount`, and `refundReason` when the refund is processed
+12. The platform SHALL absorb the Stripe processing fee (2.9% + $0.30) retained on the refunded amount — no portion of this fee is charged to the renter or owner
+13. Only the renter SHALL be permitted to cancel an approved rental (pre-pickup) via this path
+14. The system SHALL notify the owner that the rental was cancelled and notify the renter of the refund amount (e.g. `rental_cancelled`, `payment_refunded`)
+15. The system SHALL send an OPS_ALERT email so that admin is aware of post-approval renter cancellations
 
 ### Requirement 3: Owner Cancellation After Approval
 
@@ -123,12 +126,13 @@ Phase 2 introduces automated cancellation paths for approved rentals: tiered ref
 
 #### Acceptance Criteria
 
-1. **Renter no-show:** WHEN ops records a renter no-show outcome THEN the system SHALL process a refund of 50% of the **rental price only** (not the service fee) to the renter. The owner SHALL receive the remaining compensation (the portion not refunded) minus the platform fee (20% of rental price). The system SHALL NOT refund the service fee to the renter.
+1. **Renter no-show:** WHEN ops records a renter no-show outcome THEN the system SHALL process a refund of 50% of the **rental price only** (not the service fee) to the renter. The owner SHALL receive the remaining compensation (the non-refunded 50% of rental price) minus the platform fee (20% of rental price). The system SHALL NOT refund the service fee to the renter. The system SHALL send an OPS_ALERT so that admin is notified.
 2. **Owner no-show:** WHEN ops records an owner no-show outcome THEN the system SHALL process a full refund of the rental charge (rental price + service fee) to the renter. The system SHALL send an OPS_ALERT so that admin is notified.
 3. No-show reporting is manual: either party may report via support or dispute; the system SHALL provide an API or admin path by which ops can trigger the no-show financial flow (refund + optional owner transfer for renter no-show). There is no automated time-based no-show detection in Phase 2.
-4. WHEN processing renter no-show THEN the system SHALL release any deposit hold if present, and SHALL create an owner transfer for the non-refunded portion (minus platform fee) so the owner is compensated
+4. WHEN processing renter no-show THEN the system SHALL release any deposit hold if present, and SHALL create an owner transfer for the non-refunded portion (50% of rental price minus platform fee) so the owner is compensated, using the same transfer pattern as Requirement 2 (`transfer-owner-{rentalId}`)
 5. WHEN processing owner no-show THEN the system SHALL release any deposit hold if present; no owner transfer SHALL be created
 6. Refunds for no-show SHALL use the same idempotency key format and payment record update rules as other refunds (Requirement 6), with `refundReason` indicating renter_no_show or owner_no_show
+7. The system SHALL send an OPS_ALERT for **both** renter no-show and owner no-show outcomes
 
 ### Requirement 8: Cancellation Data Model
 
@@ -149,10 +153,11 @@ Phase 2 introduces automated cancellation paths for approved rentals: tiered ref
 
 1. WHEN the renter cancels (before or after approval) THEN the system SHALL notify the owner (e.g. existing `rental_cancelled` notification type)
 2. WHEN the renter cancels after approval and a refund is processed THEN the system SHALL notify the renter of the refund (e.g. `payment_refunded` or equivalent with refund amount)
-3. WHEN the owner cancels THEN the system SHALL notify the renter that the rental was cancelled and that a full refund has been or will be issued
-4. WHEN the owner cancels THEN the system SHALL send an OPS_ALERT (existing ops alerting channel) so that admin is notified
-5. No-show outcomes (when applied by ops) MAY trigger in-app or email notifications to renter/owner as defined by product; the system SHALL at minimum support OPS_ALERT for owner no-show
-6. Notifications SHALL use existing notification infrastructure and types where possible (`rental_cancelled`, `payment_refunded`)
+3. WHEN the renter cancels after approval THEN the system SHALL send an OPS_ALERT so that admin is aware of post-approval cancellations
+4. WHEN the owner cancels THEN the system SHALL notify the renter that the rental was cancelled and that a full refund has been or will be issued
+5. WHEN the owner cancels THEN the system SHALL send an OPS_ALERT (existing ops alerting channel) so that admin is notified
+6. WHEN a no-show outcome is applied (renter or owner) THEN the system SHALL send an OPS_ALERT; no-show notifications to renter/owner MAY also be sent as defined by product
+7. Notifications SHALL use existing notification infrastructure and types where possible (`rental_cancelled`, `payment_refunded`)
 
 ### Requirement 10: Webhook Handling for Refunds
 
@@ -225,12 +230,12 @@ Phase 2 introduces automated cancellation paths for approved rentals: tiered ref
 ## Success Criteria
 
 1. Renter can cancel a pending request with no charge and owner is notified.
-2. Renter can cancel an approved rental before pickup: ≥24h before pickup results in 100% rental price refund (no service fee refund); &lt;24h results in 50% rental price refund. Service fee is never refunded for renter cancellation.
+2. Renter can cancel an approved rental before pickup: ≥24h before pickup results in 100% rental price refund (no service fee refund); &lt;24h results in 50% rental price refund with the non-refunded 50% transferred to owner minus platform fee. Service fee is never refunded for renter cancellation. OPS_ALERT is sent for all post-approval renter cancellations.
 3. Owner can cancel an approved rental; renter receives full refund (rental + service fee); platform absorbs Stripe fee; renter and ops are notified.
 4. Active rentals cannot be cancelled; early termination does not change payment.
 5. Deposit hold is released or not placed when a rental is cancelled after approval.
 6. All refunds use idempotency key `refund-rental-{rentalId}` and payment record is updated with refund amount and reason.
-7. No-show (renter): 50% of rental price refunded to renter, owner paid remainder minus platform fee; no-show (owner): full refund to renter, OPS_ALERT sent.
+7. No-show (renter): 50% of rental price refunded to renter, owner paid remainder minus platform fee, OPS_ALERT sent; no-show (owner): full refund to renter, OPS_ALERT sent.
 8. Cancellation and refund events are recorded for audit (cancelledBy, cancelledAt, refundReason, etc.).
 9. Refund-related webhooks update payment status correctly and idempotently.
 10. No duplicate refunds for the same rental.

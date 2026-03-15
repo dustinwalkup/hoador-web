@@ -136,8 +136,8 @@ This test plan maps all tests to specific requirements from `specs/payments/1-re
 - Integration tests: `payment_intent.canceled` for deposit hold detects unintentional expiry
 - Integration tests: `payment_intent.canceled` for intentional release → no-op
 - Integration tests: `payment_intent.canceled` sets `depositHoldStatus: 'expired'`, alerts ops
-- Integration tests: `transfer.failed` sets `ownerTransferStatus: 'failed'`, alerts ops
-- Integration tests: `transfer.failed` does NOT auto-retry
+- Integration tests: `transfer.reversed` sets `ownerTransferStatus: 'failed'`, alerts ops
+- Integration tests: `transfer.reversed` does NOT auto-retry
 - Integration tests: All webhook handlers return HTTP 200 on success
 - Integration tests: Duplicate webhook events are handled idempotently (no duplicate state changes)
 - Integration tests: Invalid Stripe signatures are rejected
@@ -526,9 +526,9 @@ describe("POST /api/cron/process-payouts", () => {
 8. `payment_intent.canceled` - Sets `depositHoldStatus: 'expired'` for unintentional cancel
 9. `payment_intent.canceled` - No-op for intentional release (`depositHoldStatus: 'released'`)
 10. `payment_intent.canceled` - Alerts ops for unintentional expiry
-11. `transfer.failed` - Sets `ownerTransferStatus: 'failed'`
-12. `transfer.failed` - Alerts ops
-13. `transfer.failed` - Does NOT auto-retry
+11. `transfer.reversed` - Sets `ownerTransferStatus: 'failed'`
+12. `transfer.reversed` - Alerts ops
+13. `transfer.reversed` - Does NOT auto-retry
 14. All handlers - Return HTTP 200 on success
 15. All handlers - Return HTTP 500 only on unrecoverable errors
 16. Signature verification - Rejects invalid signatures

@@ -89,7 +89,7 @@ Neither amount is transferred to the owner at this stage.
 
 ### Transfer Failure
 
-- `transfer.failed` webhook sets `ownerTransferStatus: 'failed'` and alerts the ops team.
+- `transfer.reversed` webhook sets `ownerTransferStatus: 'failed'` and alerts the ops team.
 - The system does **not** automatically retry failed transfers — manual intervention is required.
 - Common failure causes: owner's connected account deactivated, insufficient platform balance.
 
@@ -127,9 +127,11 @@ Neither amount is transferred to the owner at this stage.
 
 ### Renter Cancels After Owner Confirms (Pre-Pickup)
 
-- **Cancellation policy tiers:** Full refund of **rental price** (not service fee) if cancelled **24 hours or more** before pickup. **50% refund** of rental price if cancelled **less than 24 hours** before pickup. The **service fee is never refunded** when the renter cancels.
+- **Cancellation policy tiers:** Full refund of **rental price** (not service fee) if cancelled **24 hours or more** before pickup. **50% refund** of rental price if cancelled **less than 24 hours** before pickup. The **service fee is never refunded** when the renter cancels — the platform retains it.
+- **Owner transfer:** Any non-refunded balance of the rental price (e.g. 50% on &lt;24h cancellation) is transferred to the owner minus the platform fee (20% of rental price). No transfer is created when the full rental price is refunded (≥24h cancellation).
 - Deposit hold is released (cancelled) since it was never captured.
 - Stripe retains the processing fee (~2.9% + $0.30) on the rental charge refund — **platform absorbs this cost**.
+- **OPS_ALERT** is sent for all renter cancellations after approval.
 
 ### Owner Cancels After Confirming
 
@@ -144,8 +146,8 @@ Neither amount is transferred to the owner at this stage.
 
 ### No-Show Handling
 
-- **Renter no-show:** 50% refund of **rental price only** (service fee not refunded) to renter. Owner receives remaining compensation minus platform fee.
-- **Owner no-show:** Full refund to renter **including service fee**. OPS_ALERT sent to admin.
+- **Renter no-show:** 50% refund of **rental price only** (service fee not refunded) to renter. Owner receives remaining compensation (50% of rental price) minus platform fee. **OPS_ALERT** sent to admin.
+- **Owner no-show:** Full refund to renter **including service fee**. **OPS_ALERT** sent to admin.
 - No-show is reported by either party via support; ops applies the outcome (no automated time-based no-show in Phase 2).
 
 ---
@@ -183,9 +185,12 @@ Neither amount is transferred to the owner at this stage.
 | `payment_intent.succeeded`      | Update payment record status to `'succeeded'`, set `paidAt`                                                                               |
 | `payment_intent.payment_failed` | Update payment record status to `'failed'`, notify renter                                                                                 |
 | `payment_intent.canceled`       | If deposit hold: check if intentional release or expiration; set `depositHoldStatus: 'expired'` + alert ops if not intentionally released |
-| `transfer.failed`               | Set `ownerTransferStatus: 'failed'`, alert ops                                                                                            |
+| `transfer.reversed`             | Set `ownerTransferStatus: 'failed'`, alert ops when transfer is reversed/clawed back                                                      |
+| `charge.refunded` (Phase 2)     | Update payment record to `'refunded'`, set `refundedAt`, `refundAmount`, `refundReason` (idempotent)                                      |
 
 All webhook handlers are idempotent — they check current DB status before making changes. Duplicate webhook delivery results in a no-op with HTTP 200.
+
+**Stripe Dashboard:** For Phase 2 refund sync, add the event type `charge.refunded` to your Stripe webhook endpoint (Dashboard → Developers → Webhooks → select endpoint → "Update details" → add event).
 
 ### Cron Jobs (3 Separate Endpoints)
 
@@ -268,15 +273,17 @@ Before every Stripe call, the system checks the corresponding status field. If t
 
 ### Events That Trigger Alerts
 
-| Event                              | Log | Email |
-| ---------------------------------- | --- | ----- |
-| Deposit hold placement failure     | Yes | Yes   |
-| Deposit hold expiration detected   | Yes | Yes   |
-| Deposit hold release failure       | Yes | Yes   |
-| Owner transfer failure             | Yes | Yes   |
-| Cron processing error (unexpected) | Yes | Yes   |
-| Owner cancellation (Phase 2)       | Yes | Yes   |
-| Owner no-show (Phase 2)            | Yes | Yes   |
+| Event                                       | Log | Email |
+| ------------------------------------------- | --- | ----- |
+| Deposit hold placement failure              | Yes | Yes   |
+| Deposit hold expiration detected            | Yes | Yes   |
+| Deposit hold release failure                | Yes | Yes   |
+| Owner transfer failure                      | Yes | Yes   |
+| Cron processing error (unexpected)          | Yes | Yes   |
+| Renter cancellation post-approval (Phase 2) | Yes | Yes   |
+| Owner cancellation (Phase 2)                | Yes | Yes   |
+| Renter no-show (Phase 2)                    | Yes | Yes   |
+| Owner no-show (Phase 2)                     | Yes | Yes   |
 
 Operations alerts are **internal only** — never sent to renters or owners.
 

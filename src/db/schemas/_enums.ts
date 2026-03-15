@@ -211,3 +211,11 @@ export const paymentTypeEnum = pgEnum("payment_type", [
   "rental_charge", // Main rental payment
   "security_deposit_hold", // Deposit auth hold
 ]);
+
+/** Cancellation reason for rental_requests (Phase 2). */
+export const cancellationReasonEnum = pgEnum("cancellation_reason", [
+  "renter_cancellation", // Renter cancelled after approval (pre-pickup)
+  "owner_cancellation", // Owner cancelled after approval
+  "renter_no_show", // Renter did not show up — ops-applied
+  "owner_no_show", // Owner did not show up — ops-applied
+]);

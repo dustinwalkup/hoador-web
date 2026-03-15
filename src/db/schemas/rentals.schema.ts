@@ -14,7 +14,11 @@ import {
 
 import { user } from "./user.schema";
 import { listings } from "./listings.schema";
-import { rentalStatusEnum, paymentStatusEnum } from "./_enums";
+import {
+  rentalStatusEnum,
+  paymentStatusEnum,
+  cancellationReasonEnum,
+} from "./_enums";
 import { relations } from "drizzle-orm";
 import { payments } from "./payments.schema";
 
@@ -78,6 +82,10 @@ export const rentalRequests = pgTable(
     approvedAt: timestamp("approved_at"),
     deniedAt: timestamp("denied_at"),
     denialReason: text("denial_reason"),
+    cancelledAt: timestamp("cancelled_at"),
+    cancelledBy: text("cancelled_by").references(() => user.id),
+    cancellationReason: cancellationReasonEnum("cancellation_reason"),
+    cancellationNotes: text("cancellation_notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

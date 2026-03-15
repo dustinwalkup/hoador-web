@@ -16,6 +16,7 @@ const mockGetUserByConnectedAccountId = vi.fn();
 const mockUpdateConnectOnboardingStatus = vi.fn();
 const mockGetByPaymentIntentId = vi.fn();
 const mockUpdatePaymentStatus = vi.fn();
+const mockRecordRefund = vi.fn();
 const mockAuditCreate = vi.fn();
 const mockPaymentLifecycleGetByRentalId = vi.fn();
 const mockPaymentLifecycleGetByTransferId = vi.fn();
@@ -34,6 +35,7 @@ vi.mock("@/dal", () => ({
       mockGetByPaymentIntentId(...args),
     updatePaymentStatus: (...args: unknown[]) =>
       mockUpdatePaymentStatus(...args),
+    recordRefund: (...args: unknown[]) => mockRecordRefund(...args),
   },
   auditLogDAL: {
     create: (...args: unknown[]) => mockAuditCreate(...args),
@@ -92,6 +94,7 @@ describe("handleWebhookEvent", () => {
     mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
     mockUpdateOwnerTransferStatus.mockResolvedValue(undefined);
     mockUpdatePaymentStatus.mockResolvedValue(undefined);
+    mockRecordRefund.mockResolvedValue(undefined);
   });
 
   it("logs the received event", async () => {
@@ -401,14 +404,14 @@ describe("handleWebhookEvent", () => {
     });
   });
 
-  describe("transfer.failed", () => {
+  describe("transfer.reversed", () => {
     it("sets ownerTransferStatus to 'failed'", async () => {
       mockPaymentLifecycleGetByTransferId.mockResolvedValue({
         rentalId: "rental-1",
       });
 
       await handleWebhookEvent(
-        createEvent("transfer.failed", { id: "tr_123" }),
+        createEvent("transfer.reversed", { id: "tr_123" }),
       );
 
       expect(mockUpdateOwnerTransferStatus).toHaveBeenCalledWith(
@@ -417,18 +420,18 @@ describe("handleWebhookEvent", () => {
       );
     });
 
-    it("sends ops alert on transfer failure", async () => {
+    it("sends ops alert on transfer reversal", async () => {
       mockPaymentLifecycleGetByTransferId.mockResolvedValue({
         rentalId: "rental-1",
       });
 
       await handleWebhookEvent(
-        createEvent("transfer.failed", { id: "tr_123" }),
+        createEvent("transfer.reversed", { id: "tr_123" }),
       );
 
       expect(mockSendOpsAlert).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: "transfer_failed_webhook",
+          event: "transfer_reversed_webhook",
           rentalId: "rental-1",
           sendEmailAlert: true,
         }),
@@ -439,7 +442,7 @@ describe("handleWebhookEvent", () => {
       mockPaymentLifecycleGetByTransferId.mockResolvedValue(null);
 
       await handleWebhookEvent(
-        createEvent("transfer.failed", { id: "tr_unknown" }),
+        createEvent("transfer.reversed", { id: "tr_unknown" }),
       );
 
       expect(mockUpdateOwnerTransferStatus).not.toHaveBeenCalled();
@@ -452,10 +455,122 @@ describe("handleWebhookEvent", () => {
       });
 
       await handleWebhookEvent(
-        createEvent("transfer.failed", { id: "tr_123" }),
+        createEvent("transfer.reversed", { id: "tr_123" }),
       );
 
       expect(mockUpdateOwnerTransferStatus).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("charge.refunded", () => {
+    it("updates payment record to refunded with refundedAt and refundAmount", async () => {
+      mockGetByPaymentIntentId.mockResolvedValue({
+        id: "payment-1",
+        status: "succeeded",
+        paymentIntentId: "pi_123",
+      });
+
+      await handleWebhookEvent(
+        createEvent("charge.refunded", {
+          id: "ch_123",
+          payment_intent: "pi_123",
+          amount_refunded: 10050,
+          metadata: { reason: "renter_cancellation_24h" },
+        }),
+      );
+
+      expect(mockRecordRefund).toHaveBeenCalledWith(
+        "payment-1",
+        expect.objectContaining({
+          refundedAt: expect.any(Date),
+          refundAmount: "100.50",
+          refundReason: "renter_cancellation_24h",
+        }),
+      );
+    });
+
+    it("uses charge.amount_refunded / 100 for refundAmount", async () => {
+      mockGetByPaymentIntentId.mockResolvedValue({
+        id: "pay-1",
+        status: "succeeded",
+      });
+
+      await handleWebhookEvent(
+        createEvent("charge.refunded", {
+          id: "ch_1",
+          payment_intent: "pi_1",
+          amount_refunded: 5000,
+        }),
+      );
+
+      expect(mockRecordRefund).toHaveBeenCalledWith(
+        "pay-1",
+        expect.objectContaining({
+          refundAmount: "50.00",
+          refundReason: "stripe_webhook",
+        }),
+      );
+    });
+
+    it("no-op for already-refunded payment", async () => {
+      mockGetByPaymentIntentId.mockResolvedValue({
+        id: "payment-1",
+        status: "refunded",
+      });
+
+      await handleWebhookEvent(
+        createEvent("charge.refunded", {
+          id: "ch_123",
+          payment_intent: "pi_123",
+          amount_refunded: 10000,
+        }),
+      );
+
+      expect(mockRecordRefund).not.toHaveBeenCalled();
+    });
+
+    it("logs warning and returns without error for unknown payment", async () => {
+      mockGetByPaymentIntentId.mockResolvedValue(null);
+
+      await expect(
+        handleWebhookEvent(
+          createEvent("charge.refunded", {
+            id: "ch_unknown",
+            payment_intent: "pi_unknown",
+            amount_refunded: 1000,
+          }),
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(mockRecordRefund).not.toHaveBeenCalled();
+      expect(loggerInstance.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chargeId: "ch_unknown",
+          paymentIntentId: "pi_unknown",
+        }),
+        "charge.refunded webhook: no payment record found",
+      );
+    });
+
+    it("handles payment_intent as object with id", async () => {
+      mockGetByPaymentIntentId.mockResolvedValue({
+        id: "payment-2",
+        status: "succeeded",
+      });
+
+      await handleWebhookEvent(
+        createEvent("charge.refunded", {
+          id: "ch_2",
+          payment_intent: { id: "pi_2" },
+          amount_refunded: 7500,
+        }),
+      );
+
+      expect(mockGetByPaymentIntentId).toHaveBeenCalledWith("pi_2");
+      expect(mockRecordRefund).toHaveBeenCalledWith(
+        "payment-2",
+        expect.objectContaining({ refundAmount: "75.00" }),
+      );
     });
   });
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { XCircle, Loader2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { XCircle, Loader2, AlertTriangle } from "lucide-react";
 
 import {
   Dialog,
@@ -19,23 +19,50 @@ import { useCancelRentalRequest } from "@/features/rentals/hooks/use-rental-muta
 
 const CANCEL_REASON_MAX_LENGTH = 1000;
 
-interface CancelRequestDialogProps {
+interface CancelApprovedRentalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requestId: string;
   listingName: string;
+  startDate: Date | string;
+  role: "renter" | "owner";
   onSuccess?: () => void;
 }
 
-export function CancelRequestDialog({
+function getPolicyDescription(
+  role: "renter" | "owner",
+  startDate: Date | string,
+): string {
+  if (role === "owner") {
+    return "The renter will receive a full refund including the service fee. No payout will be issued to you.";
+  }
+
+  const start = typeof startDate === "string" ? new Date(startDate) : startDate;
+  const hoursUntilPickup = (start.getTime() - Date.now()) / (1000 * 60 * 60);
+
+  if (hoursUntilPickup >= 24) {
+    return "You will receive a full refund of the rental price. The service fee is non-refundable.";
+  }
+
+  return "You will receive a 50% refund of the rental price. The remaining 50% will be paid to the owner. The service fee is non-refundable.";
+}
+
+export function CancelApprovedRentalDialog({
   open,
   onOpenChange,
   requestId,
   listingName,
+  startDate,
+  role,
   onSuccess,
-}: CancelRequestDialogProps) {
+}: CancelApprovedRentalDialogProps) {
   const [reason, setReason] = useState("");
   const cancelMutation = useCancelRentalRequest();
+
+  const policyDescription = useMemo(
+    () => getPolicyDescription(role, startDate),
+    [role, startDate],
+  );
 
   const isReasonValid = reason.trim().length > 0;
   const canSubmit = isReasonValid && !cancelMutation.isPending;
@@ -48,7 +75,6 @@ export function CancelRequestDialog({
         rentalId: requestId,
         reason: reason.trim(),
       });
-
       onOpenChange(false);
       setReason("");
       onSuccess?.();
@@ -59,24 +85,32 @@ export function CancelRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <XCircle className="h-5 w-5 text-red-600" />
-            Cancel Request
+            Cancel Approved Rental
           </DialogTitle>
-          <DialogDescription>
-            Are you sure you want to cancel your rental request for{" "}
-            {listingName}? This action cannot be undone.
+          <DialogDescription asChild>
+            <div className="space-y-3">
+              <p>
+                Are you sure you want to cancel your approved rental for{" "}
+                {listingName}? This action cannot be undone.
+              </p>
+              <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                <AlertTriangle className="mb-1 inline h-4 w-4" />{" "}
+                {policyDescription}
+              </p>
+            </div>
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="cancel-request-reason">
+            <Label htmlFor="cancel-reason">
               Reason for cancellation (required)
             </Label>
             <Textarea
-              id="cancel-request-reason"
+              id="cancel-reason"
               placeholder="Please provide a reason for cancelling..."
               value={reason}
               onChange={(e) =>
@@ -98,7 +132,7 @@ export function CancelRequestDialog({
             onClick={() => onOpenChange(false)}
             disabled={cancelMutation.isPending}
           >
-            Keep Request
+            Keep Rental
           </Button>
           <Button
             type="button"
@@ -112,7 +146,7 @@ export function CancelRequestDialog({
                 Cancelling...
               </>
             ) : (
-              "Cancel Request"
+              "Cancel Rental"
             )}
           </Button>
         </DialogFooter>

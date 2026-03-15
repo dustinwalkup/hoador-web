@@ -333,9 +333,9 @@ This document breaks down the Phase 1 payment lifecycle implementation into disc
     - If already released: no-op
   - _Requirements: 6.3_
 
-- [ ] 35. Add `transfer.failed` handler
+- [ ] 35. Add `transfer.reversed` handler
   - In `src/app/api/stripe/webhooks/route.ts`:
-  - Add case for `transfer.failed`
+  - Add case for `transfer.reversed`
   - Look up lifecycle record by Stripe Transfer ID
   - Set `ownerTransferStatus: 'failed'`
   - Call `sendOpsAlert()` with transfer details
@@ -347,7 +347,7 @@ This document breaks down the Phase 1 payment lifecycle implementation into disc
     - `payment_intent.succeeded`
     - `payment_intent.payment_failed`
     - `payment_intent.canceled`
-    - `transfer.failed`
+    - `transfer.reversed`
   - Add this to deployment notes / implementation notes
   - _Requirements: 6.5_
 
@@ -478,7 +478,7 @@ This document breaks down the Phase 1 payment lifecycle implementation into disc
   - Test `payment_intent.succeeded` updates payment status
   - Test `payment_intent.payment_failed` updates status and notifies
   - Test `payment_intent.canceled` for deposit hold expiry detection
-  - Test `transfer.failed` updates transfer status and alerts ops
+  - Test `transfer.reversed` updates transfer status and alerts ops
   - Test idempotent handling (duplicate webhook is no-op)
   - Test signature verification rejects invalid signatures
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.7_

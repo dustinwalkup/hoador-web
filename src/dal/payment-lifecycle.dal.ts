@@ -339,6 +339,52 @@ export class PaymentLifecycleDAL extends BaseDAL {
   }
 
   /**
+   * Set terminal statuses on a lifecycle record when a rental is cancelled.
+   * Prevents the payout cron from picking up this rental by setting payoutStatus
+   * to 'completed'. Accepts optional overrides for deposit and transfer statuses.
+   *
+   * @param rentalId - The rental ID
+   * @param extra - Optional deposit/transfer status overrides
+   */
+  async markCancelled(
+    rentalId: string,
+    extra?: {
+      depositHoldStatus?: DepositHoldStatus;
+      depositReleasedAt?: Date;
+      ownerTransferStatus?: OwnerTransferStatus;
+      stripeTransferId?: string;
+      ownerTransferredAt?: Date;
+    },
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(rentalPaymentLifecycle)
+        .set({
+          payoutStatus: "completed",
+          ...(extra?.depositHoldStatus && {
+            depositHoldStatus: extra.depositHoldStatus,
+          }),
+          ...(extra?.depositReleasedAt && {
+            depositReleasedAt: extra.depositReleasedAt,
+          }),
+          ...(extra?.ownerTransferStatus && {
+            ownerTransferStatus: extra.ownerTransferStatus,
+          }),
+          ...(extra?.stripeTransferId && {
+            stripeTransferId: extra.stripeTransferId,
+          }),
+          ...(extra?.ownerTransferredAt && {
+            ownerTransferredAt: extra.ownerTransferredAt,
+          }),
+          updatedAt: new Date(),
+        })
+        .where(eq(rentalPaymentLifecycle.rentalId, rentalId));
+    } catch (error) {
+      this.handleError(error, "PaymentLifecycleDAL.markCancelled");
+    }
+  }
+
+  /**
    * Find failed deposits for a renter (for recovery when they update payment method).
    * Only returns deposits where the rental hasn't started yet.
    */

@@ -41,8 +41,11 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         event.data.object as Stripe.PaymentIntent,
       );
       break;
-    case "transfer.failed":
-      await handleTransferFailed(event.data.object as Stripe.Transfer);
+    case "transfer.reversed":
+      await handleTransferReversed(event.data.object as Stripe.Transfer);
+      break;
+    case "charge.refunded":
+      await handleChargeRefunded(event.data.object as Stripe.Charge);
       break;
     default:
       getLogger().info(
@@ -150,7 +153,9 @@ async function handlePaymentIntentCanceled(
   }
 }
 
-async function handleTransferFailed(transfer: Stripe.Transfer): Promise<void> {
+async function handleTransferReversed(
+  transfer: Stripe.Transfer,
+): Promise<void> {
   const lifecycle = await paymentLifecycleDAL.getByTransferId(transfer.id);
   if (lifecycle) {
     await paymentLifecycleDAL.updateOwnerTransferStatus(
@@ -158,10 +163,49 @@ async function handleTransferFailed(transfer: Stripe.Transfer): Promise<void> {
       "failed",
     );
     await sendOpsAlert({
-      event: "transfer_failed_webhook",
+      event: "transfer_reversed_webhook",
       rentalId: lifecycle.rentalId,
-      message: `Owner transfer failed (detected via webhook): Transfer ${transfer.id}`,
+      message: `Owner transfer reversed (detected via webhook): Transfer ${transfer.id}`,
       sendEmailAlert: true,
     });
   }
+}
+
+/**
+ * Sync payment record when a charge is refunded (e.g. from Stripe Dashboard or our refund).
+ * Idempotent: if payment is already marked refunded, no-op.
+ */
+async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
+  const paymentIntentId =
+    typeof charge.payment_intent === "string"
+      ? charge.payment_intent
+      : charge.payment_intent?.id;
+
+  if (!paymentIntentId) {
+    getLogger().warn(
+      { chargeId: charge.id },
+      "charge.refunded webhook: no payment_intent on charge",
+    );
+    return;
+  }
+
+  const payment = await paymentDAL.getByPaymentIntentId(paymentIntentId);
+  if (!payment) {
+    getLogger().warn(
+      { chargeId: charge.id, paymentIntentId },
+      "charge.refunded webhook: no payment record found",
+    );
+    return;
+  }
+
+  if (payment.status === "refunded") {
+    return;
+  }
+
+  const refundAmountDollars = (charge.amount_refunded / 100).toFixed(2);
+  await paymentDAL.recordRefund(payment.id, {
+    refundedAt: new Date(),
+    refundAmount: refundAmountDollars,
+    refundReason: (charge.metadata?.reason as string) || "stripe_webhook",
+  });
 }
