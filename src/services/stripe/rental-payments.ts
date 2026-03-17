@@ -23,16 +23,15 @@ interface SecurityDepositMetadata {
 /**
  * Charge the rental payment (rental amount + delivery + setup + service fee).
  * Creates an immediate charge on the renter's payment method.
- * With destination charges, funds transfer to the owner's connected account;
- * applicationFeeAmount (platform fee + service fee) is retained by the platform.
+ * Platform-hold model: funds stay in the platform account — no transfer_data.
+ * Owner payout is handled later via manual stripe.transfers.create().
  */
 export async function chargeRentalPayment(
   customerId: string,
   paymentMethodId: string,
   amount: number, // in dollars (charge amount = rental price + service fee)
   metadata: RentalPaymentMetadata,
-  ownerConnectedAccountId?: string,
-  applicationFeeAmount?: number, // in dollars (platform fee + service fee)
+  idempotencyKey: string,
 ): Promise<Stripe.PaymentIntent> {
   try {
     const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
@@ -48,19 +47,10 @@ export async function chargeRentalPayment(
       },
     };
 
-    if (ownerConnectedAccountId) {
-      paymentIntentParams.transfer_data = {
-        destination: ownerConnectedAccountId,
-      };
-      if (applicationFeeAmount !== undefined) {
-        paymentIntentParams.application_fee_amount = Math.round(
-          applicationFeeAmount * 100,
-        );
-      }
-    }
-
-    const paymentIntent =
-      await PAYMENT_SERVER_INSTANCE.paymentIntents.create(paymentIntentParams);
+    const paymentIntent = await PAYMENT_SERVER_INSTANCE.paymentIntents.create(
+      paymentIntentParams,
+      { idempotencyKey },
+    );
 
     return paymentIntent;
   } catch (error) {
@@ -70,29 +60,33 @@ export async function chargeRentalPayment(
 }
 
 /**
- * Authorize (hold) the security deposit without charging
- * This creates a hold on the renter's card that can be captured later if needed
+ * Authorize (hold) the security deposit without charging.
+ * Creates a hold on the renter's card that can be captured later if needed.
  */
 export async function authorizeSecurityDeposit(
   customerId: string,
   paymentMethodId: string,
   amount: number, // in dollars
   metadata: SecurityDepositMetadata,
+  idempotencyKey?: string,
 ): Promise<Stripe.PaymentIntent> {
   try {
-    const paymentIntent = await PAYMENT_SERVER_INSTANCE.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents
-      currency: "usd",
-      customer: customerId,
-      payment_method: paymentMethodId,
-      off_session: true,
-      capture_method: "manual", // Authorize only, don't capture
-      confirm: true,
-      metadata: {
-        ...metadata,
-        paymentType: "security_deposit_authorization",
+    const paymentIntent = await PAYMENT_SERVER_INSTANCE.paymentIntents.create(
+      {
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: "usd",
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true,
+        capture_method: "manual", // Authorize only, don't capture
+        confirm: true,
+        metadata: {
+          ...metadata,
+          paymentType: "security_deposit_hold",
+        },
       },
-    });
+      idempotencyKey ? { idempotencyKey } : undefined,
+    );
 
     return paymentIntent;
   } catch (error) {

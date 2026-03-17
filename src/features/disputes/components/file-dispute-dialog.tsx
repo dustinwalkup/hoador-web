@@ -15,6 +15,8 @@ interface FileDisputeDialogProps {
   rentalId: string;
   listingName?: string;
   disputePolicyUrl?: string;
+  rentalStatus?: string;
+  startDate?: Date;
 }
 
 /**
@@ -28,6 +30,8 @@ export function FileDisputeDialog({
   rentalId,
   listingName,
   disputePolicyUrl,
+  rentalStatus,
+  startDate,
 }: FileDisputeDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -44,6 +48,8 @@ export function FileDisputeDialog({
           <CreateDisputeFormContent
             rentalId={rentalId}
             disputePolicyUrl={disputePolicyUrl}
+            rentalStatus={rentalStatus}
+            startDate={startDate}
           />
         </div>
       </DialogContent>

@@ -1,3 +1,4 @@
+import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { rentalDAL, userDAL } from "@/dal";
 import type { DisputeWithRelations } from "@/dal/types";
@@ -83,9 +84,7 @@ export async function sendDisputeNotifications(
                   <title>Dispute Filed</title>
                 </head>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <div style="text-align: center; margin-bottom: 30px;">
-                    <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-                  </div>
+                  ${EMAIL_LOGO_HTML}
                   
                   <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
                     <h2 style="color: #92400e; margin-top: 0;">⚠️ Dispute Filed</h2>
@@ -200,9 +199,7 @@ The Hoador Team
                   <title>Evidence Requested</title>
                 </head>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <div style="text-align: center; margin-bottom: 30px;">
-                    <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-                  </div>
+                  ${EMAIL_LOGO_HTML}
                   
                   <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
                     <h2 style="color: #92400e; margin-top: 0;">📋 Evidence Requested</h2>
@@ -304,9 +301,7 @@ The Hoador Team
                   <title>Evidence Requested</title>
                 </head>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <div style="text-align: center; margin-bottom: 30px;">
-                    <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-                  </div>
+                  ${EMAIL_LOGO_HTML}
                   
                   <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
                     <h2 style="color: #92400e; margin-top: 0;">📋 Evidence Requested</h2>
@@ -418,9 +413,7 @@ The Hoador Team
                   <title>Dispute Resolved</title>
                 </head>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <div style="text-align: center; margin-bottom: 30px;">
-                    <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-                  </div>
+                  ${EMAIL_LOGO_HTML}
                   
                   <div style="background-color: #d1fae5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
                     <h2 style="color: #065f46; margin-top: 0;">✅ Dispute Resolved</h2>
@@ -509,9 +502,7 @@ The Hoador Team
                   <title>Dispute Resolved</title>
                 </head>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <div style="text-align: center; margin-bottom: 30px;">
-                    <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-                  </div>
+                  ${EMAIL_LOGO_HTML}
                   
                   <div style="background-color: #d1fae5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
                     <h2 style="color: #065f46; margin-top: 0;">✅ Dispute Resolved</h2>

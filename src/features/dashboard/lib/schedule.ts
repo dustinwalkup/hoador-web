@@ -22,12 +22,21 @@ export async function getUpcomingSchedule(
     rentalDAL.getLendingRequestsByStatus("active", userId),
   ]);
 
+  // Use calendar-day bounds so dates at midnight (e.g. same-day returns) are included.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const endWindow = new Date(today);
   endWindow.setDate(endWindow.getDate() + 7);
+  endWindow.setHours(23, 59, 59, 999); // Inclusive of full last day
 
   const entries: ScheduleEntry[] = [];
+
+  /** Normalize to start of calendar day for consistent window comparison. */
+  const startOfDay = (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
 
   const addReturn = (
     date: Date,
@@ -35,8 +44,7 @@ export async function getUpcomingSchedule(
     id: string,
     view: "renting" | "lending",
   ) => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
+    const d = startOfDay(date);
     if (d >= today && d <= endWindow) {
       entries.push({
         date: d,
@@ -53,8 +61,7 @@ export async function getUpcomingSchedule(
     id: string,
     view: "renting" | "lending",
   ) => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
+    const d = startOfDay(date);
     if (d >= today && d <= endWindow) {
       entries.push({
         date: d,

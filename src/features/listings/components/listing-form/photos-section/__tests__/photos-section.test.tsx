@@ -105,7 +105,10 @@ describe("PhotosSection", () => {
     ) as HTMLInputElement;
     expect(fileInput).toBeInTheDocument();
     expect(fileInput).toHaveAttribute("type", "file");
-    expect(fileInput).toHaveAttribute("accept", "image/*,.heic,.heif");
+    expect(fileInput).toHaveAttribute(
+      "accept",
+      ".jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.tif,.heic,.heif",
+    );
     expect(fileInput).toHaveAttribute("multiple");
   });
 

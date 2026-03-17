@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 process.env.STRIPE_WEBHOOK_SECRET =
   process.env.STRIPE_WEBHOOK_SECRET || "whsec_test";
 
+// --- Mocks ---
 const mockConstructEvent = vi.fn();
 const loggerInstance = {
   info: vi.fn(),
@@ -11,7 +12,7 @@ const loggerInstance = {
   error: vi.fn(),
 };
 const mockGetLogger = vi.fn(() => loggerInstance);
-const mockAuditCreate = vi.fn();
+const mockHandleWebhookEvent = vi.fn();
 const mockRunWithRequestContext = vi.fn((_ctx: unknown, fn: () => unknown) =>
   fn(),
 );
@@ -24,23 +25,18 @@ vi.mock("@/services/stripe/server", () => ({
     },
   },
 }));
+
 vi.mock("@/lib/logger", () => ({
   getLogger: () => mockGetLogger(),
   runWithRequestContext: (ctx: unknown, fn: () => unknown) =>
     mockRunWithRequestContext(ctx, fn),
   generateRequestId: () => mockGenerateRequestId(),
 }));
-vi.mock("@/dal", () => ({
-  auditLogDAL: {
-    create: (...args: unknown[]) => mockAuditCreate(...args),
-  },
+
+vi.mock("@/services/stripe/webhook-handlers", () => ({
+  handleWebhookEvent: (...args: unknown[]) => mockHandleWebhookEvent(...args),
 }));
-vi.mock("@/dal/user.dal", () => ({
-  UserDAL: class MockUserDAL {
-    getUserByConnectedAccountId = vi.fn().mockResolvedValue(null);
-    updateConnectOnboardingStatus = vi.fn().mockResolvedValue(undefined);
-  },
-}));
+
 vi.mock("@/lib/api/with-request-logging", () => ({
   withRequestLogging: (handler: (req: NextRequest) => Promise<unknown>) =>
     handler,
@@ -48,71 +44,93 @@ vi.mock("@/lib/api/with-request-logging", () => ({
 
 const { POST } = await import("../route");
 
-describe("POST /api/stripe/webhooks", () => {
-  const validBody = JSON.stringify({
-    id: "evt_123",
-    type: "account.updated",
-    data: { object: { id: "acct_1" } },
+function createWebhookRequest(
+  body: string = "{}",
+  signature: string = "stripe-signature",
+): NextRequest {
+  return new NextRequest("http://localhost/api/stripe/webhooks", {
+    method: "POST",
+    body,
+    headers: { "stripe-signature": signature },
   });
-  const signature = "stripe-signature";
+}
 
+describe("POST /api/stripe/webhooks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHandleWebhookEvent.mockResolvedValue(undefined);
   });
 
-  it("on signature verification failure, logs error and returns 400 without creating audit row", async () => {
+  it("returns 400 when signature is missing", async () => {
+    const request = new NextRequest("http://localhost/api/stripe/webhooks", {
+      method: "POST",
+      body: "{}",
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    const json = await response.json();
+    expect(json.error).toBe("Missing signature or webhook secret");
+  });
+
+  it("returns 400 on signature verification failure and logs error", async () => {
     mockConstructEvent.mockImplementation(() => {
       throw new Error("Invalid signature");
     });
 
-    const request = new NextRequest("http://localhost/api/stripe/webhooks", {
-      method: "POST",
-      body: validBody,
-      headers: { "stripe-signature": signature },
-    });
-
-    const response = await POST(request);
+    const response = await POST(createWebhookRequest());
 
     expect(response.status).toBe(400);
     expect(loggerInstance.error).toHaveBeenCalledWith(
       { message: "webhook.signature_verification_failed" },
       "Stripe webhook signature verification failed",
     );
-    expect(mockAuditCreate).not.toHaveBeenCalled();
+    expect(mockHandleWebhookEvent).not.toHaveBeenCalled();
   });
 
-  it("on successful webhook handling, logs event id/type and creates audit row with webhook.processed", async () => {
-    const eventId = "evt_456";
-    const eventType = "account.updated";
-    mockConstructEvent.mockReturnValue({
-      id: eventId,
-      type: eventType,
+  it("calls handleWebhookEvent with verified event and returns 200", async () => {
+    const event = {
+      id: "evt_123",
+      type: "account.updated",
       data: { object: { id: "acct_1" } },
-    });
+    };
+    mockConstructEvent.mockReturnValue(event);
 
-    const request = new NextRequest("http://localhost/api/stripe/webhooks", {
-      method: "POST",
-      body: validBody,
-      headers: { "stripe-signature": signature },
-    });
-
-    const response = await POST(request);
+    const response = await POST(createWebhookRequest());
 
     expect(response.status).toBe(200);
-    expect(loggerInstance.info).toHaveBeenCalledWith(
-      {
-        message: "webhook.received",
-        eventId,
-        eventType,
-      },
-      "Stripe webhook received",
-    );
-    expect(mockAuditCreate).toHaveBeenCalledTimes(1);
-    expect(mockAuditCreate).toHaveBeenCalledWith({
-      entityType: "webhook",
-      entityId: eventId,
-      action: "webhook.processed",
-      metadata: { eventType },
+    const json = await response.json();
+    expect(json.received).toBe(true);
+    expect(mockHandleWebhookEvent).toHaveBeenCalledWith(event);
+  });
+
+  it("returns 500 when handleWebhookEvent throws", async () => {
+    mockConstructEvent.mockReturnValue({
+      id: "evt_123",
+      type: "account.updated",
+      data: { object: {} },
     });
+    mockHandleWebhookEvent.mockRejectedValue(new Error("Handler error"));
+
+    const response = await POST(createWebhookRequest());
+
+    expect(response.status).toBe(500);
+    const json = await response.json();
+    expect(json.error).toBe("Webhook handler failed");
+  });
+
+  it("passes body and signature to constructEvent", async () => {
+    const body = '{"test": true}';
+    const sig = "whsec_test_sig";
+    mockConstructEvent.mockReturnValue({
+      id: "evt_1",
+      type: "test",
+      data: { object: {} },
+    });
+
+    await POST(createWebhookRequest(body, sig));
+
+    expect(mockConstructEvent).toHaveBeenCalledWith(body, sig, "whsec_test");
   });
 });

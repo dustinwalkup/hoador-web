@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { getEmailLogoAttachment } from "@/features/notifications/utils/email-logo";
 import { sendEmail } from "../send-email";
 import { resend, RESEND_FROM_EMAIL } from "@/services/resend";
+
+// Mock the email logo helper so tests don't depend on filesystem
+vi.mock("@/features/notifications/utils/email-logo", () => ({
+  getEmailLogoAttachment: vi.fn().mockReturnValue(null),
+  EMAIL_LOGO_HTML: "<div>Logo</div>",
+  EMAIL_LOGO_CID: "hoador-logo",
+}));
 
 // Mock the resend service
 vi.mock("@/services/resend", () => ({
@@ -170,5 +178,45 @@ describe("sendEmail", () => {
       html: emailOptions.html,
       text: emailOptions.text,
     });
+  });
+
+  it("should include logo attachment when getEmailLogoAttachment returns attachment", async () => {
+    const logoAttachment = {
+      filename: "hoador-logo.png",
+      content: "base64content",
+      contentId: "hoador-logo",
+    };
+    vi.mocked(getEmailLogoAttachment).mockReturnValue(logoAttachment);
+    vi.mocked(resend.emails.send).mockResolvedValue({
+      data: { id: "email-456" },
+      error: null,
+      headers: null,
+    } as any);
+
+    const emailOptions = {
+      to: "user@example.com",
+      subject: "Test",
+      html: "<p>Hi</p>",
+      text: "Hi",
+    };
+
+    await sendEmail(emailOptions);
+
+    expect(resend.emails.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: RESEND_FROM_EMAIL,
+        to: [emailOptions.to],
+        subject: emailOptions.subject,
+        html: emailOptions.html,
+        text: emailOptions.text,
+        attachments: [
+          {
+            filename: logoAttachment.filename,
+            content: logoAttachment.content,
+            contentId: logoAttachment.contentId,
+          },
+        ],
+      }),
+    );
   });
 });

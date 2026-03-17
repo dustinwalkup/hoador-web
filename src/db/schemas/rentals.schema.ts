@@ -14,7 +14,11 @@ import {
 
 import { user } from "./user.schema";
 import { listings } from "./listings.schema";
-import { rentalStatusEnum, paymentStatusEnum } from "./_enums";
+import {
+  rentalStatusEnum,
+  paymentStatusEnum,
+  cancellationReasonEnum,
+} from "./_enums";
 import { relations } from "drizzle-orm";
 import { payments } from "./payments.schema";
 
@@ -78,6 +82,10 @@ export const rentalRequests = pgTable(
     approvedAt: timestamp("approved_at"),
     deniedAt: timestamp("denied_at"),
     denialReason: text("denial_reason"),
+    cancelledAt: timestamp("cancelled_at"),
+    cancelledBy: text("cancelled_by").references(() => user.id),
+    cancellationReason: cancellationReasonEnum("cancellation_reason"),
+    cancellationNotes: text("cancellation_notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -141,6 +149,7 @@ export const rentals = pgTable(
       .notNull(),
     extensionRequested: boolean("extension_requested").default(false).notNull(),
     extensionApproved: boolean("extension_approved").default(false).notNull(),
+    returnConfirmedAt: timestamp("return_confirmed_at"), // Owner confirmed return — starts 24hr dispute window
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -152,6 +161,9 @@ export const rentals = pgTable(
     dateRangeIdx: index("rentals_date_range_idx").on(
       table.startDate,
       table.endDate,
+    ),
+    returnConfirmedAtIdx: index("rentals_return_confirmed_at_idx").on(
+      table.returnConfirmedAt,
     ),
   }),
 );

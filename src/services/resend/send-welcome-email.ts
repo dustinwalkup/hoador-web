@@ -1,3 +1,7 @@
+import {
+  getEmailLogoAttachment,
+  EMAIL_LOGO_HTML,
+} from "@/features/notifications/utils/email-logo";
 import { resend, RESEND_FROM_EMAIL } from ".";
 
 /**
@@ -13,6 +17,17 @@ export async function sendWelcomeEmail({
   communityName?: string;
 }) {
   try {
+    const logoAttachment = getEmailLogoAttachment();
+    const attachments = logoAttachment
+      ? [
+          {
+            filename: logoAttachment.filename,
+            content: logoAttachment.content,
+            contentId: logoAttachment.contentId,
+          },
+        ]
+      : undefined;
+
     const { data, error } = await resend.emails.send({
       from: RESEND_FROM_EMAIL,
       to: [to],
@@ -26,9 +41,7 @@ export async function sendWelcomeEmail({
             <title>Welcome to Hoador!</title>
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <img src="https://hoador-web.vercel.app/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-            </div>
+            ${EMAIL_LOGO_HTML}
             
             <h1 style="color: #2563eb; text-align: center; margin-bottom: 30px;">
               🎉 Welcome to Hoador${firstName ? `, ${firstName}` : ""}!
@@ -62,6 +75,7 @@ export async function sendWelcomeEmail({
           </body>
         </html>
       `,
+      ...(attachments && { attachments }),
     });
 
     if (error) {

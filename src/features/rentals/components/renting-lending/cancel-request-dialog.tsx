@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { XCircle, Loader2 } from "lucide-react";
 
 import {
@@ -11,8 +12,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 import { useCancelRentalRequest } from "@/features/rentals/hooks/use-rental-mutations";
+
+const CANCEL_REASON_MAX_LENGTH = 1000;
 
 interface CancelRequestDialogProps {
   open: boolean;
@@ -29,14 +34,23 @@ export function CancelRequestDialog({
   listingName,
   onSuccess,
 }: CancelRequestDialogProps) {
+  const [reason, setReason] = useState("");
   const cancelMutation = useCancelRentalRequest();
 
-  const handleCancel = async () => {
-    try {
-      await cancelMutation.mutateAsync(requestId);
+  const isReasonValid = reason.trim().length > 0;
+  const canSubmit = isReasonValid && !cancelMutation.isPending;
 
-      // Close dialog and trigger success callback
+  const handleCancel = async () => {
+    if (!canSubmit) return;
+
+    try {
+      await cancelMutation.mutateAsync({
+        rentalId: requestId,
+        reason: reason.trim(),
+      });
+
       onOpenChange(false);
+      setReason("");
       onSuccess?.();
     } catch {
       // Error toast is already shown by the mutation hook
@@ -56,6 +70,27 @@ export function CancelRequestDialog({
             {listingName}? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="cancel-request-reason">
+              Reason for cancellation (required)
+            </Label>
+            <Textarea
+              id="cancel-request-reason"
+              placeholder="Please provide a reason for cancelling..."
+              value={reason}
+              onChange={(e) =>
+                setReason(e.target.value.slice(0, CANCEL_REASON_MAX_LENGTH))
+              }
+              className="min-h-[100px]"
+              maxLength={CANCEL_REASON_MAX_LENGTH}
+              required
+            />
+            <p className="text-muted-foreground text-right text-xs">
+              {reason.length}/{CANCEL_REASON_MAX_LENGTH}
+            </p>
+          </div>
+        </div>
         <DialogFooter>
           <Button
             type="button"
@@ -68,7 +103,7 @@ export function CancelRequestDialog({
           <Button
             type="button"
             onClick={handleCancel}
-            disabled={cancelMutation.isPending}
+            disabled={!canSubmit}
             variant="destructive"
           >
             {cancelMutation.isPending ? (

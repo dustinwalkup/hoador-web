@@ -1,0 +1,1 @@
+ALTER TABLE "rental_requests" ADD COLUMN "cancellation_notes" text;

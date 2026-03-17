@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { tryCatch } from "@walkup/walkup-utils";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
-import { tryCatch } from "@walkup/walkup-utils";
+import { setDefaultPaymentMethod } from "@/services/stripe/payment-method";
 
 /**
  * POST /api/stripe/set-default-payment-method
@@ -37,18 +37,14 @@ async function postHandler(request: NextRequest) {
       );
     }
 
-    const { data, error } = await tryCatch(
-      PAYMENT_SERVER_INSTANCE.customers.update(user.stripeCustomerId, {
-        invoice_settings: {
-          default_payment_method: paymentMethodId,
-        },
-      }),
+    const { error } = await tryCatch(
+      setDefaultPaymentMethod(user.stripeCustomerId, paymentMethodId, user.id),
     );
 
-    if (error || !data) {
+    if (error) {
       console.error("Error setting default payment method:", error);
       return NextResponse.json(
-        { error: error?.message || "Failed to set default payment method" },
+        { error: error.message || "Failed to set default payment method" },
         { status: 500 },
       );
     }

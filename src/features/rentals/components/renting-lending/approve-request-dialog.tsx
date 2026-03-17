@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   Dialog,
@@ -60,19 +59,12 @@ export function ApproveRequestDialog({
       setPickupInstructions("");
       setReturnInstructions("");
       onSuccess?.();
-    } catch (error) {
-      // Check if it's a payment failure
-      if ((error as Error & { paymentFailed?: boolean }).paymentFailed) {
-        toast.error("Payment Failed", {
-          description:
-            error instanceof Error
-              ? error.message
-              : "Payment could not be processed.",
-          duration: 10000, // Longer duration for important message
-        });
-        // Keep dialog open so owner can see the instructions
-      }
-      // Error toast is already shown by the mutation hook
+    } catch {
+      // Error toast is already shown by the mutation hook's onError handler.
+      // Close the dialog since the approval attempt is complete.
+      onOpenChange(false);
+      setPickupInstructions("");
+      setReturnInstructions("");
     }
   };
 

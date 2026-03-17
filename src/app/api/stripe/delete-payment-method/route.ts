@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { tryCatch } from "@walkup/walkup-utils";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
-import { tryCatch } from "@walkup/walkup-utils";
+import { detachPaymentMethod } from "@/services/stripe/payment-method";
 
 /**
  * DELETE /api/stripe/delete-payment-method
@@ -29,13 +29,11 @@ async function deleteHandler(request: NextRequest) {
       );
     }
 
-    const { data, error } = await tryCatch(
-      PAYMENT_SERVER_INSTANCE.paymentMethods.detach(paymentMethodId),
-    );
+    const { error } = await tryCatch(detachPaymentMethod(paymentMethodId));
 
-    if (error || !data) {
+    if (error) {
       return NextResponse.json(
-        { error: error?.message || "Failed to delete payment method" },
+        { error: error.message || "Failed to delete payment method" },
         { status: 500 },
       );
     }

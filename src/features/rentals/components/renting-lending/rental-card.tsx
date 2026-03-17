@@ -176,6 +176,23 @@ export function RentalCard({
               </div>
             )}
 
+            {/* Payment Failed */}
+            {isRequest && rental.paymentStatus === "failed" && (
+              <div className="mb-4 rounded-md border border-orange-200 bg-orange-50 p-3">
+                <p className="text-sm text-orange-800">
+                  <strong>Payment failed:</strong>{" "}
+                  {rental.paymentFailureReason ||
+                    "Payment could not be processed."}{" "}
+                  <Link
+                    href="/dashboard/payments"
+                    className="font-medium underline"
+                  >
+                    Update payment method
+                  </Link>
+                </p>
+              </div>
+            )}
+
             {/* Message Section for requests */}
             {isRequest && rental.message && (
               <div className="mb-6 rounded-md border border-blue-200 bg-blue-50 p-4">
@@ -332,6 +349,22 @@ export function RentalCard({
               <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3">
                 <p className="text-sm text-red-800">
                   <strong>Denial reason:</strong> {rental.denialReason}
+                </p>
+              </div>
+            )}
+
+            {isRequest && rental.paymentStatus === "failed" && (
+              <div className="mb-3 rounded-md border border-orange-200 bg-orange-50 p-3">
+                <p className="text-sm text-orange-800">
+                  <strong>Payment failed:</strong>{" "}
+                  {rental.paymentFailureReason ||
+                    "Payment could not be processed."}{" "}
+                  <Link
+                    href="/dashboard/payments"
+                    className="font-medium underline"
+                  >
+                    Update payment method
+                  </Link>
                 </p>
               </div>
             )}

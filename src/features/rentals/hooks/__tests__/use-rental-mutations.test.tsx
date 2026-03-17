@@ -526,14 +526,22 @@ describe("useCancelRentalRequest", () => {
       ),
     });
 
-    await result.current.mutateAsync("rental-123");
+    await result.current.mutateAsync({
+      rentalId: "rental-123",
+      reason: "Change of plans",
+    });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("/api/rentals/rental-123/cancel", {
-        method: "POST",
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/rentals/rental-123/cancel",
+        expect.objectContaining({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: "Change of plans" }),
+        }),
+      );
       expect(toast.success).toHaveBeenCalledWith(
-        "Rental request cancelled",
+        "Rental cancelled successfully",
         expect.objectContaining({ duration: 3000 }),
       );
     });
@@ -553,7 +561,10 @@ describe("useCancelRentalRequest", () => {
       ),
     });
 
-    await result.current.mutateAsync("rental-123");
+    await result.current.mutateAsync({
+      rentalId: "rental-123",
+      reason: "Need to cancel",
+    });
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
@@ -576,9 +587,12 @@ describe("useCancelRentalRequest", () => {
       ),
     });
 
-    await expect(result.current.mutateAsync("rental-123")).rejects.toThrow(
-      "Cannot cancel this rental",
-    );
+    await expect(
+      result.current.mutateAsync({
+        rentalId: "rental-123",
+        reason: "Change of plans",
+      }),
+    ).rejects.toThrow("Cannot cancel this rental");
   });
 });
 

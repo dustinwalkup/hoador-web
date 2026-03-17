@@ -21,6 +21,7 @@ import type { DisputeWithRelations } from "@/dal/types";
 import { CancelRequestDialog } from "@/features/rentals/components/renting-lending/cancel-request-dialog";
 import {
   ApproveRequestDialog,
+  CancelApprovedRentalDialog,
   DeclineRequestDialog,
   UpdateInstructionsDialog,
   StartRentalDialog,
@@ -52,6 +53,11 @@ export function RentalActions({
 }: RentalActionsProps) {
   const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showCancelApprovedDialog, setShowCancelApprovedDialog] =
+    useState(false);
+  const [cancelApprovedRole, setCancelApprovedRole] = useState<
+    "renter" | "owner"
+  >("renter");
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
   const [showUpdateInstructionsDialog, setShowUpdateInstructionsDialog] =
@@ -61,24 +67,28 @@ export function RentalActions({
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showFileDisputeDialog, setShowFileDisputeDialog] = useState(false);
 
-  // Determine if dispute can be filed
-  // Disputes can be filed for: active, completed, cancelled, denied rentals
-  // But not if an active dispute already exists
-  // And not if the dispute filing time window has expired
-  const isFilingWindowExpired =
-    TimeWindowValidation.isDisputeFilingWindowExpired(
-      new Date(rentalDetails.startDate),
-      new Date(rentalDetails.endDate),
-    );
+  const startDate = new Date(rentalDetails.startDate);
+  const returnConfirmedAt = rentalDetails.returnConfirmedAt
+    ? new Date(rentalDetails.returnConfirmedAt)
+    : null;
+  const now = new Date();
 
-  const canFileDispute =
-    (isRenter || isOwner) &&
-    !activeDispute &&
-    (rentalDetails.status === "active" ||
-      rentalDetails.status === "completed" ||
-      rentalDetails.status === "cancelled" ||
-      rentalDetails.status === "denied") &&
-    !isFilingWindowExpired;
+  const canFileDispute = (() => {
+    if (!(isRenter || isOwner) || !!activeDispute) return false;
+
+    const status = rentalDetails.status;
+    if (status === "approved" && now >= startDate) return true;
+    if (status === "active") return true;
+    if (status === "completed") {
+      if (!returnConfirmedAt) return false;
+      return TimeWindowValidation.isDisputeFilingWindowOpen(
+        startDate,
+        returnConfirmedAt,
+        now,
+      );
+    }
+    return false;
+  })();
 
   const handleInstructionsUpdated = () => {
     router.refresh();
@@ -121,6 +131,20 @@ export function RentalActions({
               >
                 <XCircle className="mr-2 h-4 w-4" />
                 Cancel Request
+              </Button>
+            )}
+
+            {rentalDetails.status === "approved" && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => {
+                  setCancelApprovedRole("renter");
+                  setShowCancelApprovedDialog(true);
+                }}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Cancel Rental
               </Button>
             )}
 
@@ -184,6 +208,20 @@ export function RentalActions({
               </>
             )}
 
+            {rentalDetails.status === "approved" && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => {
+                  setCancelApprovedRole("owner");
+                  setShowCancelApprovedDialog(true);
+                }}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Cancel Rental
+              </Button>
+            )}
+
             {rentalDetails.status === "approved" && isStartDateReached() && (
               <Button
                 className="w-full"
@@ -242,12 +280,24 @@ export function RentalActions({
         </Button>
       </CardContent>
 
-      {/* Cancel Request Dialog */}
+      {/* Cancel Request Dialog (pending only) */}
       <CancelRequestDialog
         open={showCancelDialog}
         onOpenChange={setShowCancelDialog}
         requestId={rentalDetails.id}
         listingName={rentalDetails.listingName}
+        onSuccess={handleRentalStatusChanged}
+      />
+
+      {/* Cancel Approved Rental Dialog */}
+      <CancelApprovedRentalDialog
+        open={showCancelApprovedDialog}
+        onOpenChange={setShowCancelApprovedDialog}
+        requestId={rentalDetails.id}
+        listingName={rentalDetails.listingName}
+        startDate={rentalDetails.startDate}
+        role={cancelApprovedRole}
+        onSuccess={handleRentalStatusChanged}
       />
 
       {/* Approve Request Dialog */}
@@ -319,6 +369,8 @@ export function RentalActions({
         rentalId={rentalDetails.id}
         listingName={rentalDetails.listingName}
         disputePolicyUrl={disputePolicyUrl}
+        rentalStatus={rentalDetails.status}
+        startDate={startDate}
       />
     </Card>
   );

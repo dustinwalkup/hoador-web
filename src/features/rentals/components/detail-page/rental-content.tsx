@@ -39,6 +39,7 @@ export function RentalContent({
         <RentalStatusCard
           rentalDetails={rentalDetails}
           activeDispute={activeDispute}
+          isRenter={isRenter}
         />
         <RentalListingInfo rentalDetails={rentalDetails} />
         <RentalDetailsCard rentalDetails={rentalDetails} />

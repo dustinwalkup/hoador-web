@@ -482,7 +482,11 @@ import type {
   financialOperationStatusEnum,
   userStatusEnum,
   userTypeEnum,
+  cancellationReasonEnum,
 } from "@/db/schemas/_enums";
+
+export type CancellationReason =
+  (typeof cancellationReasonEnum.enumValues)[number];
 
 export type DisputeStatus = (typeof disputeStatusEnum.enumValues)[number];
 export type DisputeReasonCode =

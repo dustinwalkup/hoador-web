@@ -48,7 +48,7 @@ export function PendingReviewListings() {
   const listings = (pendingListings || []) as unknown as PendingReviewListing[];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {listings && listings.length > 0 ? (
         listings.map((listing) => (
           <RentalCard

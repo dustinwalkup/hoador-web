@@ -1,33 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
+import { verifyCronSecret } from "@/lib/api/verify-cron-secret";
 import { notificationsDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 
 /**
- * Cron job to clean up old notifications
- * Runs daily at 2 AM UTC via Vercel Cron
- * Deletes notifications older than 90 days
+ * Cron job to clean up old notifications.
+ * Deletes notifications older than 90 days.
+ * Schedule: 0 2 * * * (daily at 2 AM UTC)
  */
 async function getHandler(request: NextRequest) {
+  const auth = verifyCronSecret(request);
+  if (!auth.authorized) return auth.response;
+
   try {
-    // Verify cron secret
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret) {
-      console.error("CRON_SECRET not configured");
-      return NextResponse.json(
-        { error: "Cron secret not configured" },
-        { status: 500 },
-      );
-    }
-
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      console.error("Invalid cron secret");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Delete notifications older than 90 days
     const { data: deletedCount, error } = await tryCatch(
       notificationsDAL.deleteOldNotifications(90),
     );
@@ -61,6 +47,7 @@ async function getHandler(request: NextRequest) {
     );
   }
 }
+
 export const GET = withRequestLogging(
   getHandler,
   "GET /api/cron/cleanup-notifications",

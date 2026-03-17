@@ -3,6 +3,7 @@ export * from "./rental-card";
 export * from "./lending-list";
 export * from "./lending-card";
 export * from "./approve-request-dialog";
+export * from "./cancel-approved-rental-dialog";
 export * from "./decline-request-dialog";
 export * from "./update-instructions-dialog";
 export * from "./start-rental-dialog";

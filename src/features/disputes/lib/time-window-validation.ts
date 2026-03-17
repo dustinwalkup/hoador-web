@@ -123,17 +123,42 @@ export class TimeWindowValidation {
    * Check if the dispute filing window has expired for all possible dispute types
    * Uses the longest possible filing window (30 days for payment issues) as the cutoff
    *
+   * @deprecated Use `isDisputeFilingWindowOpen` instead, which uses the unified 24h window
    * @param startDate - Rental start date
    * @param endDate - Rental end date
    * @returns True if the longest filing window has expired, false otherwise
    */
   static isDisputeFilingWindowExpired(startDate: Date, endDate: Date): boolean {
-    // The longest filing window is 30 days for payment issues (calculated from endDate)
-    // If this window has expired, all other dispute types are also expired
     const longestDeadline = new Date(endDate);
     longestDeadline.setDate(longestDeadline.getDate() + 30);
 
     const now = new Date();
     return now > longestDeadline;
+  }
+
+  /**
+   * Unified filing window check based on Phase 3 requirements.
+   *
+   * - If `returnConfirmedAt` is set the window is 24 hours after that timestamp.
+   * - If `returnConfirmedAt` is not set (pre-return / no-show), the window opens
+   *   once `now >= startDate` and has no deadline (caller restricts to approved/active).
+   *
+   * @param startDate - Rental start date
+   * @param returnConfirmedAt - When the owner confirmed the return (null if not yet returned)
+   * @param now - Current date (injectable for testing)
+   * @returns True if the filing window is currently open
+   */
+  static isDisputeFilingWindowOpen(
+    startDate: Date,
+    returnConfirmedAt: Date | null | undefined,
+    now: Date = new Date(),
+  ): boolean {
+    if (returnConfirmedAt) {
+      const deadline = new Date(
+        returnConfirmedAt.getTime() + 24 * 60 * 60 * 1000,
+      );
+      return now <= deadline;
+    }
+    return now >= startDate;
   }
 }

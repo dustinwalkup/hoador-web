@@ -45,7 +45,10 @@ export const metadata = {
 
 /** Defaults when a fetch group fails so the rest of the page can render. */
 function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
-  return fn().catch(() => fallback);
+  return fn().catch((err) => {
+    console.error("[Dashboard] Widget data fetch failed:", err);
+    return fallback;
+  });
 }
 
 export default async function DashboardPage() {

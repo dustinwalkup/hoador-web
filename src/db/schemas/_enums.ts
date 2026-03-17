@@ -120,6 +120,8 @@ export const disputeReasonCodeEnum = pgEnum("dispute_reason_code", [
   "quality_issue",
   "cancellation",
   "payment_issue",
+  "renter_no_show",
+  "owner_no_show",
   "other",
 ]);
 
@@ -176,3 +178,46 @@ export const pushSubscriptionPlatformEnum = pgEnum(
   "push_subscription_platform",
   ["web", "ios", "android"],
 );
+
+/** Deposit hold lifecycle status for rental_payment_lifecycle. */
+export const depositHoldStatusEnum = pgEnum("deposit_hold_status", [
+  "scheduled", // Hold scheduled, waiting for 48hrs-before-pickup cron
+  "held", // Auth hold placed successfully
+  "released", // Hold cancelled on clean return
+  "expired", // Hold expired (>7 days) — detected by monitoring cron
+  "release_failed", // Attempted release failed
+  "failed", // Hold placement failed — awaiting renter payment method update
+  "captured", // Hold captured for damage (Phase 3)
+  "not_applicable", // No security deposit on this rental
+]);
+
+/** Owner transfer status for rental_payment_lifecycle. */
+export const ownerTransferStatusEnum = pgEnum("owner_transfer_status", [
+  "pending", // Awaiting transfer after dispute window
+  "processing", // Transfer in progress
+  "completed", // Transfer succeeded
+  "failed", // Transfer failed — ops notified
+  "frozen", // Frozen due to open dispute
+]);
+
+/** Payout status for rental_payment_lifecycle (concurrency lock). */
+export const payoutStatusEnum = pgEnum("payout_status", [
+  "pending", // Awaiting payout processing
+  "processing", // Cron has claimed this rental — concurrency lock
+  "completed", // All payout operations succeeded
+  "failed", // One or more operations failed
+]);
+
+/** Payment type discriminator for the payments table. */
+export const paymentTypeEnum = pgEnum("payment_type", [
+  "rental_charge", // Main rental payment
+  "security_deposit_hold", // Deposit auth hold
+]);
+
+/** Cancellation reason for rental_requests (Phase 2). */
+export const cancellationReasonEnum = pgEnum("cancellation_reason", [
+  "renter_cancellation", // Renter cancelled after approval (pre-pickup)
+  "owner_cancellation", // Owner cancelled after approval
+  "renter_no_show", // Renter did not show up — ops-applied
+  "owner_no_show", // Owner did not show up — ops-applied
+]);

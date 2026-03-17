@@ -1,0 +1,219 @@
+{
+  "info": {
+    "name": "Hoador Payment Lifecycle (Phase 1)",
+    "description": "Test collection for Stripe Connect payment lifecycle cron jobs, webhooks, and API endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "cronSecret",
+      "value": "your-cron-secret-here",
+      "type": "string",
+      "description": "Value of CRON_SECRET env var"
+    },
+    {
+      "key": "rentalRequestId",
+      "value": "",
+      "type": "string",
+      "description": "Rental request ID for confirm-return"
+    }
+  ],
+  "item": [
+    {
+      "name": "Cron Jobs",
+      "description": "Hourly cron endpoints. All require Bearer {{cronSecret}} auth.",
+      "item": [
+        {
+          "name": "Schedule Deposit Holds",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/schedule-deposit-holds",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "schedule-deposit-holds"]
+            },
+            "description": "Finds rentals with depositHoldStatus='scheduled' and startDate within 48hrs. Places auth holds via Stripe. Batch limit: 20."
+          },
+          "response": []
+        },
+        {
+          "name": "Process Payouts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/process-payouts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "process-payouts"]
+            },
+            "description": "Finds completed rentals where returnConfirmedAt > 24hrs ago, payoutStatus='pending', no disputes. Releases deposit hold, creates owner transfer. Batch limit: 20."
+          },
+          "response": []
+        },
+        {
+          "name": "Monitor Deposit Expiry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/monitor-deposit-expiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "monitor-deposit-expiry"]
+            },
+            "description": "Finds deposits held > 6 days. Checks Stripe PaymentIntent status. Marks expired holds and alerts ops."
+          },
+          "response": []
+        },
+        {
+          "name": "Cleanup Notifications (existing)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/cleanup-notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "cleanup-notifications"]
+            },
+            "description": "Pre-existing daily cron. Cleans up old notifications."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cron Jobs (No Auth — Expect 401)",
+      "description": "Verify cron endpoints reject unauthenticated requests.",
+      "item": [
+        {
+          "name": "Schedule Deposit Holds (no auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('returns 401 without auth', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/schedule-deposit-holds",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "schedule-deposit-holds"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Process Payouts (no auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('returns 401 without auth', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/process-payouts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "process-payouts"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Monitor Deposit Expiry (no auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('returns 401 without auth', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/monitor-deposit-expiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "monitor-deposit-expiry"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Rental Lifecycle",
+      "description": "API endpoints for the rental payment lifecycle.",
+      "item": [
+        {
+          "name": "Confirm Return",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/rentals/{{rentalRequestId}}/confirm-return",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "rentals",
+                "{{rentalRequestId}}",
+                "confirm-return"
+              ]
+            },
+            "description": "Owner confirms tool return. Sets returnConfirmedAt, status → 'completed'. Requires authenticated session (cookie). Starts 24-hour dispute window."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

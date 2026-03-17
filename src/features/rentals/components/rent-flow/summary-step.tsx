@@ -62,9 +62,11 @@ export function SummaryStep({ pricing, legalDocuments }: SummaryStepProps) {
           <div className="flex justify-between py-2">
             <span>Rental Period:</span>
             <span className="font-medium">
-              {startDate &&
-                endDate &&
-                `${formatDate(startDate, "MMM d")} - ${formatDate(endDate, "MMM d")} (${pricing.days} days)`}
+              {startDate && endDate
+                ? pricing.days === 1
+                  ? `${formatDate(startDate, "MMM d")} (1 day)`
+                  : `${formatDate(startDate, "MMM d")} - ${formatDate(endDate, "MMM d")} (${pricing.days} days)`
+                : "—"}
             </span>
           </div>
 

@@ -198,6 +198,18 @@ export function LendingCard({ request }: LendingCardProps) {
               </div>
             )}
 
+            {/* Payment Failed */}
+            {request.paymentStatus === "failed" && (
+              <div className="mb-4 rounded-md border border-orange-200 bg-orange-50 p-3">
+                <p className="text-sm text-orange-800">
+                  <strong>Payment failed:</strong>{" "}
+                  {request.paymentFailureReason ||
+                    "Payment could not be processed."}{" "}
+                  The renter has been notified to update their payment method.
+                </p>
+              </div>
+            )}
+
             {/* Action Buttons - Vertical Stack */}
             <div className="space-y-3">
               {request.status === "pending" && (
@@ -352,6 +364,18 @@ export function LendingCard({ request }: LendingCardProps) {
                     <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
                       <p className="text-sm text-red-800">
                         <strong>Denial reason:</strong> {request.denialReason}
+                      </p>
+                    </div>
+                  )}
+
+                  {request.paymentStatus === "failed" && (
+                    <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                      <p className="text-sm text-orange-800">
+                        <strong>Payment failed:</strong>{" "}
+                        {request.paymentFailureReason ||
+                          "Payment could not be processed."}{" "}
+                        The renter has been notified to update their payment
+                        method.
                       </p>
                     </div>
                   )}
