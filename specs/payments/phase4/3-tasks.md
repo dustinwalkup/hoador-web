@@ -250,7 +250,7 @@ Phases 1–3 infrastructure is in place: payment lifecycle table and DAL, deposi
 
 ### Phase 12: Admin UI — Components
 
-- [ ] 34. Create PaymentMetricsCards component
+- [x] 34. Create PaymentMetricsCards component
   - Create `src/features/admin/components/payments/payment-metrics-cards.tsx`
   - Client component using `usePaymentMetrics()` hook
   - Render grid of metric cards: Payouts (pending, processing, completed, failed), Transfers (pending, completed, failed, frozen), Deposits (scheduled, held, released, expired, failed, captured)
@@ -258,7 +258,7 @@ Phases 1–3 infrastructure is in place: payment lifecycle table and DAL, deposi
   - Loading skeleton while fetching
   - _Requirements: 3.2_
 
-- [ ] 35. Create PaymentLifecycleListClient component
+- [x] 35. Create PaymentLifecycleListClient component
   - Create `src/features/admin/components/payments/payment-lifecycle-list-client.tsx`
   - Client component with URL state sync for filters (depositHoldStatus, ownerTransferStatus, payoutStatus, search, page)
   - Read filter state from `useSearchParams()`, update URL via `router.push()` (follow admin users pattern)
@@ -270,25 +270,25 @@ Phases 1–3 infrastructure is in place: payment lifecycle table and DAL, deposi
   - Use `usePaymentLifecycleList()` hook for data fetching
   - _Requirements: 1.4, 1.6_
 
-- [ ] 36. Create PaymentLifecycleDetailClient component
+- [x] 36. Create PaymentLifecycleDetailClient component
   - Create `src/features/admin/components/payments/payment-lifecycle-detail-client.tsx`
   - Client component using `usePaymentLifecycleDetail(rentalId)` hook
-  - [ ] 36.1 Status summary bar
+  - [x] 36.1 Status summary bar
     - Display depositHoldStatus, ownerTransferStatus, payoutStatus as color-coded badges
-  - [ ] 36.2 Payment timeline
+  - [x] 36.2 Payment timeline
     - Vertical timeline of events: rental charge captured, deposit hold placed/scheduled/failed, return confirmed, dispute filed (if any, link to dispute review), deposit released/captured/expired, owner transfer completed/failed
     - Show amounts, Stripe IDs, and timestamps
-  - [ ] 36.3 Override actions panel
+  - [x] 36.3 Override actions panel
     - "Reset Payout Status" button — visible when payoutStatus is `'processing'` or `'failed'`; opens confirmation dialog with optional reason input; calls `useResetPayoutStatus()` mutation
     - "Reset Transfer Status" button — visible when ownerTransferStatus is `'failed'`; same confirmation pattern; calls `useResetTransferStatus()` mutation
     - "Release Deposit" button — visible when depositHoldStatus is `'held'`; same confirmation pattern; calls `useReleaseDeposit()` mutation
     - Show toast on success/failure via the mutation hook
-  - [ ] 36.4 Audit log section
+  - [x] 36.4 Audit log section
     - Display recent audit log entries for this rental (from the detail API response)
     - Show: timestamp, admin, action, previous/new state, reason
   - _Requirements: 2.2, 6.1, 7.1, 8.1, 10.4_
 
-- [ ] 37. Create CronRunHistoryClient component
+- [x] 37. Create CronRunHistoryClient component
   - Create `src/features/admin/components/payments/cron-run-history-client.tsx`
   - Client component using `useCronRunHistory()` hook
   - Job name filter dropdown (all, process-payouts, schedule-deposit-holds, monitor-deposit-expiry, detect-stale-processing)
@@ -299,7 +299,7 @@ Phases 1–3 infrastructure is in place: payment lifecycle table and DAL, deposi
 
 ### Phase 13: Admin Sidebar Update
 
-- [ ] 38. Add "Payments" section to admin sidebar
+- [x] 38. Add "Payments" section to admin sidebar
   - Modify the admin sidebar component (e.g. `src/features/admin/components/admin-sidebar.tsx` or equivalent)
   - Add new top-level nav item "Payments" with `CreditCard` icon from lucide-react
   - Sub-items: "Lifecycle" → `/admin/dashboard/payments`, "Cron History" → `/admin/dashboard/payments/cron-history`
@@ -308,28 +308,28 @@ Phases 1–3 infrastructure is in place: payment lifecycle table and DAL, deposi
 
 ### Phase 14: GitHub Actions Configuration
 
-- [ ] 39. Add stale detection cron to GitHub Actions
+- [x] 39. Add stale detection cron to GitHub Actions
   - Add a new scheduled workflow (or add a step to existing cron workflow) that hits `GET /api/cron/detect-stale-processing` with the `CRON_SECRET` bearer token
   - Schedule: hourly (same cadence as other payment crons)
   - _Requirements: 4.2_
 
 ### Phase 15: Testing
 
-- [ ] 40. Write unit tests for PaymentLifecycleAdminService overrides
+- [x] 40. Write unit tests for PaymentLifecycleAdminService overrides
   - Create `src/features/admin/services/__tests__/payment-lifecycle-admin-service.test.ts`
-  - [ ] 40.1 Test `resetPayoutStatus`
+  - [x] 40.1 Test `resetPayoutStatus`
     - Valid: payoutStatus 'processing' → reset to 'pending', audit log created
     - Valid: payoutStatus 'failed' → reset to 'pending'
     - Invalid: payoutStatus 'completed' → ValidationError
     - Invalid: payoutStatus 'pending' → ValidationError
     - Not found: lifecycle not found → NotFoundError
     - _Requirements: 6.1, 6.2, 6.3_
-  - [ ] 40.2 Test `resetTransferStatus`
+  - [x] 40.2 Test `resetTransferStatus`
     - Valid: ownerTransferStatus 'failed' → reset to 'pending', audit log created
     - Valid: ownerTransferStatus 'failed' + payoutStatus 'failed' → both reset to 'pending'
     - Invalid: ownerTransferStatus 'pending' → ValidationError
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
-  - [ ] 40.3 Test `releaseDeposit`
+  - [x] 40.3 Test `releaseDeposit`
     - Valid: depositHoldStatus 'held' → Stripe cancel succeeds → 'released', audit log, renter notified
     - Valid: depositHoldStatus 'held' but Stripe says "already canceled" → still set 'released'
     - Stripe error: real failure → audit log with 'failed', ops alert, return { success: false }
@@ -337,54 +337,54 @@ Phases 1–3 infrastructure is in place: payment lifecycle table and DAL, deposi
     - Missing PaymentIntent ID → NotFoundError
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 41. Write unit tests for StaleProcessingDetectionService
+- [x] 41. Write unit tests for StaleProcessingDetectionService
   - Create `src/features/admin/services/__tests__/stale-processing-detection-service.test.ts`
   - Test: stale records found → ops alert sent with rental ids and count
   - Test: no stale records → no alert, return staleCount 0
   - Test: threshold from env var vs default
   - _Requirements: 4.1, 4.3, 4.4, 5.1, 5.2, 5.3_
 
-- [ ] 42. Write unit tests for CronRunHistoryService
+- [x] 42. Write unit tests for CronRunHistoryService
   - Create `src/features/admin/services/__tests__/cron-run-history-service.test.ts`
   - Test: `recordRun` succeeds → DAL create called
   - Test: `recordRun` DAL throws → error logged, does not propagate
   - Test: `getRecentRuns` delegates to DAL
   - _Requirements: 9.1, 9.3_
 
-- [ ] 43. Write integration tests for admin payment lifecycle routes
+- [x] 43. Write integration tests for admin payment lifecycle routes
   - Create `src/app/api/admin/payments/__tests__/lifecycle.test.ts`
   - Test GET lifecycle list: returns paginated results, filters work, non-admin gets 403
   - Test GET lifecycle detail: returns full detail, not-found returns 404, non-admin gets 403
   - Test GET metrics: returns aggregate counts, non-admin gets 403
   - _Requirements: 1, 2, 3_
 
-- [ ] 44. Write integration tests for admin override routes
+- [x] 44. Write integration tests for admin override routes
   - Create `src/app/api/admin/payments/__tests__/overrides.test.ts`
   - Test POST reset-payout-status: valid state → 200, invalid state → 400, non-admin → 403, not found → 404
   - Test POST reset-transfer-status: valid → 200, invalid → 400
   - Test POST release-deposit: valid → 200 (mock Stripe), Stripe fail → 500, invalid state → 400
   - _Requirements: 6, 7, 8_
 
-- [ ] 45. Write integration tests for stale detection cron
+- [x] 45. Write integration tests for stale detection cron
   - Test GET with valid cron secret: returns stale count, records cron history
   - Test with stale records: ops alert sent
   - Test without cron secret: 401
   - _Requirements: 4, 5_
 
-- [ ] 46. Write integration tests for cron history route and recording
+- [x] 46. Write integration tests for cron history route and recording
   - Test GET cron history: returns recent runs, filterable by job name
   - Test cron history recording: run a payment cron, verify history record created
   - _Requirements: 9_
 
 ### Phase 16: Final Verification
 
-- [ ] 47. Run linting and type checking
+- [x] 47. Run linting and type checking
   - Run `bun run lint` and fix any issues
   - Run `bun run type-check` and fix any type errors
   - Ensure all new files follow existing code style
   - _Requirements: Code quality_
 
-- [ ] 48. Verify all imports, exports, and navigation
+- [x] 48. Verify all imports, exports, and navigation
   - Check all new files have correct imports
   - Verify services are importable from route handlers
   - Verify DAL exports from `src/dal/index.ts`
@@ -392,7 +392,7 @@ Phases 1–3 infrastructure is in place: payment lifecycle table and DAL, deposi
   - Ensure no circular dependencies
   - _Requirements: Code quality_
 
-- [ ] 49. Verify environment configuration
+- [x] 49. Verify environment configuration
   - Document `STALE_PROCESSING_THRESHOLD_MINUTES` env var (default 60)
   - Verify existing env vars (`OPS_ALERT_EMAIL`, `CRON_SECRET`) are set
   - Add GitHub Actions workflow for `detect-stale-processing` cron (or update existing workflow)

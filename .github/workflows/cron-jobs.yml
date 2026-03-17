@@ -33,6 +33,12 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/monitor-deposit-expiry
 
+      - name: Detect stale processing
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-processing
+
   daily:
     if: github.event.schedule == '0 2 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

@@ -15,6 +15,7 @@ import * as rentalAgreementDocuments from "./rental-agreement-documents.schema";
 import * as userActivity from "./user-activity.schema";
 import * as auditLogs from "./audit-logs.schema";
 import * as rentalPaymentLifecycle from "./rental-payment-lifecycle.schema";
+import * as cronRunHistory from "./cron-run-history.schema";
 
 export const schema = {
   ...user,
@@ -31,4 +32,5 @@ export const schema = {
   ...userActivity,
   ...auditLogs,
   ...rentalPaymentLifecycle,
+  ...cronRunHistory,
 };

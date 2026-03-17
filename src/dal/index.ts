@@ -16,6 +16,7 @@ import { DisputeDAL } from "./dispute.dal";
 import { UserActivityDAL } from "./user-activity.dal";
 import { AuditLogDAL } from "./audit-log.dal";
 import { PaymentLifecycleDAL } from "./payment-lifecycle.dal";
+import { CronRunHistoryDAL } from "./cron-run-history.dal";
 
 // Create singleton instances
 export const userDAL = new UserDAL();
@@ -35,3 +36,4 @@ export const disputeDAL = new DisputeDAL();
 export const userActivityDAL = new UserActivityDAL();
 export const auditLogDAL = new AuditLogDAL();
 export const paymentLifecycleDAL = new PaymentLifecycleDAL();
+export const cronRunHistoryDAL = new CronRunHistoryDAL();

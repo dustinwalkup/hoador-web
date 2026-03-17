@@ -15,6 +15,7 @@ import {
   Bell,
   Shield,
   CreditCard,
+  History,
   Repeat,
   MessageSquare,
   Home,
@@ -49,7 +50,7 @@ interface AdminSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: UserProfile;
 }
 
-const adminNavItems = [
+const adminNavItemsBeforePayments = [
   {
     title: "Dashboard",
     url: "/admin/dashboard",
@@ -65,6 +66,18 @@ const adminNavItems = [
     url: "/admin/dashboard/disputes/review",
     icon: Scale,
   },
+];
+
+const paymentsNavItems = [
+  { title: "Lifecycle", url: "/admin/dashboard/payments", icon: CreditCard },
+  {
+    title: "Cron History",
+    url: "/admin/dashboard/payments/cron-history",
+    icon: History,
+  },
+];
+
+const adminNavItemsAfterPayments = [
   {
     title: "Legal Documents",
     url: "/admin/dashboard/legal",
@@ -152,21 +165,15 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {adminNavItems.map((item) => {
-                // Dashboard should only be active on exact match
-                // Other items can be active on exact match or sub-routes
+              {adminNavItemsBeforePayments.map((item) => {
                 const isActive =
                   item.url === "/admin/dashboard"
                     ? pathname === item.url
                     : pathname === item.url ||
                       pathname.startsWith(item.url + "/");
-
-                // Check if this is the Listing Review item and has pending reviews
                 const isListingReview =
                   item.url === "/admin/dashboard/listings/review";
                 const hasPendingReviews = isListingReview && pendingCount > 0;
-
-                // Check if this is the Dispute Review item and has pending disputes
                 const isDisputeReview =
                   item.url === "/admin/dashboard/disputes/review";
                 const hasPendingDisputes =
@@ -200,6 +207,76 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                               : pendingDisputesCount}
                           </Badge>
                         )}
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <Collapsible
+          defaultOpen={pathname.startsWith("/admin/dashboard/payments")}
+        >
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "group text-sidebar-foreground/70 ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full shrink-0 cursor-pointer items-center rounded-md px-2 text-left text-xs font-medium outline-hidden transition-[margin,opacity] duration-200 ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+                )}
+              >
+                <CreditCard className="size-4" />
+                <span className="ml-2 text-sm font-medium">Payments</span>
+                <ChevronDown
+                  className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180"
+                  aria-hidden
+                />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {paymentsNavItems.map((item) => {
+                    const isActive =
+                      pathname === item.url ||
+                      pathname.startsWith(item.url + "/");
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <Link href={item.url}>
+                          <SidebarMenuButton
+                            size="lg"
+                            tooltip={item.title}
+                            isActive={isActive}
+                          >
+                            {item.icon && <item.icon className="size-5!" />}
+                            <span>{item.title}</span>
+                          </SidebarMenuButton>
+                        </Link>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {adminNavItemsAfterPayments.map((item) => {
+                const isActive =
+                  pathname === item.url || pathname.startsWith(item.url + "/");
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <Link href={item.url}>
+                      <SidebarMenuButton
+                        size="lg"
+                        tooltip={item.title}
+                        isActive={isActive}
+                      >
+                        {item.icon && <item.icon className="size-5!" />}
+                        <span>{item.title}</span>
                       </SidebarMenuButton>
                     </Link>
                   </SidebarMenuItem>

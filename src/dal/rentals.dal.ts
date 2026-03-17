@@ -2435,6 +2435,35 @@ export class RentalDAL extends BaseDAL {
   }
 
   /**
+   * Get renterId and securityDepositAuthId for a rental (e.g. admin manual deposit release).
+   * Returns null if rental not found or securityDepositAuthId is null.
+   */
+  async getRentalDepositReleaseContext(
+    rentalId: string,
+  ): Promise<{ renterId: string; securityDepositAuthId: string } | null> {
+    try {
+      const [rental] = await this.db
+        .select({
+          renterId: rentals.renterId,
+          securityDepositAuthId: rentals.securityDepositAuthId,
+        })
+        .from(rentals)
+        .where(eq(rentals.id, rentalId))
+        .limit(1);
+
+      if (!rental || !rental.securityDepositAuthId || !rental.renterId) {
+        return null;
+      }
+      return {
+        renterId: rental.renterId,
+        securityDepositAuthId: rental.securityDepositAuthId,
+      };
+    } catch (error) {
+      this.handleError(error, "getRentalDepositReleaseContext");
+    }
+  }
+
+  /**
    * Rental request row for pickup/return reminder cron.
    * Requirements: 13.1, 13.2, 13.3
    */
