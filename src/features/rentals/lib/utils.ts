@@ -44,45 +44,45 @@ export function getRentalHeaderConfig(pathname: string): RentalHeaderConfig {
   const configs: Record<string, Record<string, RentalHeaderConfig>> = {
     renting: {
       requests: {
-        title: "Renting",
+        title: "Renter",
         description: "Items you've requested to rent",
       },
       approved: {
-        title: "Renting",
+        title: "Renter",
         description: "Items you're approved to rent",
       },
       active: {
-        title: "Renting",
+        title: "Renter",
         description: "Items you're currently renting",
       },
       completed: {
-        title: "Renting",
+        title: "Renter",
         description: "Items you've finished renting",
       },
       denied: {
-        title: "Renting",
+        title: "Renter",
         description: "Your denied rental requests",
       },
     },
     lending: {
       incoming: {
-        title: "Lending",
+        title: "Owner",
         description: "Requests to rent your items",
       },
       approved: {
-        title: "Lending",
+        title: "Owner",
         description: "Your items approved for rental",
       },
       active: {
-        title: "Lending",
+        title: "Owner",
         description: "Your items currently being rented",
       },
       completed: {
-        title: "Lending",
+        title: "Owner",
         description: "Your items that were rented",
       },
       denied: {
-        title: "Lending",
+        title: "Owner",
         description: "Rental requests you've denied",
       },
     },

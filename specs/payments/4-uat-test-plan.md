@@ -52,7 +52,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   - Rental request status becomes approved/active per product flow.
   - One charge (rental + service fee) captured; one deposit hold in reserved state.
   - Lifecycle record exists with correct statuses.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-02: Deposit scheduled when startDate more than 48 hours away
 
@@ -67,7 +67,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   4. (Optional) Run or wait for schedule-deposit-holds cron when within 48h of startDate; verify status becomes 'held'.
 - **Expected results:**
   - Charge captured at approval; deposit status 'scheduled' until within 48h window.
-- [ ] Pass / [ ] Fail
+- [x+] Pass / [ ] Fail
 
 ### UAT-P1-03: Zero security deposit — not_applicable
 
@@ -81,7 +81,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. Verify no deposit PaymentIntent is created; lifecycle shows depositHoldStatus = 'not_applicable'.
 - **Expected results:**
   - One charge only; no deposit hold; depositHoldStatus = 'not_applicable'.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-04: Duplicate approval does not double-charge (idempotency)
 
@@ -95,7 +95,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. Check lifecycle: single record, no duplicate charges.
 - **Expected results:**
   - Second approval is rejected or no-op; no second charge or second hold.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-05: Renter payment method declined at approval
 
@@ -110,7 +110,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   4. Verify renter is notified of payment failure.
 - **Expected results:**
   - No charge captured; renter notified; request not approved.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-06: Retry on retryable Stripe error (rate limit / API error)
 
@@ -124,7 +124,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. If second call succeeds, verify charge and deposit are created.
 - **Expected results:**
   - One retry occurs; no duplicate charge if retry succeeds.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -141,7 +141,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Verify depositHoldStatus = 'held' and deposit_hold_placed_at is set immediately (no cron wait).
 - **Expected results:**
   - Hold placed at approval time when within 48h.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-08: Deposit hold failure — rental proceeds, both parties notified
 

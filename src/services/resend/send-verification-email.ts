@@ -1,3 +1,7 @@
+import {
+  getEmailLogoAttachment,
+  EMAIL_LOGO_HTML,
+} from "@/features/notifications/utils/email-logo";
 import { resend, RESEND_FROM_EMAIL, PRIMARY_COLOR } from ".";
 
 /**
@@ -16,6 +20,17 @@ export async function sendVerificationEmail({
   console.log("Verification URL:", verificationUrl);
   console.log("First name:", firstName);
   try {
+    const logoAttachment = getEmailLogoAttachment();
+    const attachments = logoAttachment
+      ? [
+          {
+            filename: logoAttachment.filename,
+            content: logoAttachment.content,
+            contentId: logoAttachment.contentId,
+          },
+        ]
+      : undefined;
+
     const { data, error } = await resend.emails.send({
       from: RESEND_FROM_EMAIL,
       to: [to],
@@ -29,9 +44,7 @@ export async function sendVerificationEmail({
             <title>Verify your Hoador account</title>
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <img src="https://hoador-web.vercel.app/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-            </div>
+            ${EMAIL_LOGO_HTML}
             
             <h1 style="color: ${PRIMARY_COLOR}; text-align: center; margin-bottom: 30px;">
               Welcome to Hoador${firstName ? `, ${firstName}` : ""}!
@@ -73,6 +86,7 @@ This verification link will expire in 24 hours.
 
 If you didn't create a Hoador account, you can safely ignore this email.
       `.trim(),
+      ...(attachments && { attachments }),
     });
 
     if (error) {

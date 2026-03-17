@@ -1,3 +1,4 @@
+import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 
 /**
@@ -51,9 +52,7 @@ export async function sendPaymentFailureNotificationToRenter({
             <title>Payment Failed</title>
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-            </div>
+            ${EMAIL_LOGO_HTML}
             
             <div style="background-color: #fee; border-left: 4px solid #dc2626; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
               <h2 style="color: #dc2626; margin-top: 0;">⚠️ Payment Failed</h2>
@@ -90,7 +89,7 @@ export async function sendPaymentFailureNotificationToRenter({
             </ol>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${baseUrl}/dashboard/profile" 
+              <a href="${baseUrl}/dashboard/payments" 
                  style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
                 Update Payment Method
               </a>
@@ -186,9 +185,7 @@ export async function sendPaymentFailureNotificationToOwner({
             <title>Payment Could Not Be Processed</title>
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-            </div>
+            ${EMAIL_LOGO_HTML}
             
             <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
               <h2 style="color: #92400e; margin-top: 0;">⚠️ Payment Could Not Be Processed</h2>

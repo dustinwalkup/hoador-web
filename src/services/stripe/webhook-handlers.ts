@@ -133,7 +133,7 @@ async function handlePaymentIntentFailed(
         message:
           "A payment for your rental has failed. Please update your payment method.",
         data: { rentalId: existingPayment.rentalId },
-        linkUrl: "/dashboard/profile/payments",
+        linkUrl: "/dashboard/payments",
         category: "payments",
       });
     } catch (notifError) {

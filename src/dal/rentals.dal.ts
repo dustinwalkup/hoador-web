@@ -92,6 +92,8 @@ export interface RentalRequestItem {
   approvedAt?: Date | null;
   conversationId?: string | null;
   canLeaveReview?: boolean;
+  paymentStatus?: string | null;
+  paymentFailureReason?: string | null;
 }
 
 export interface LendingRequestItem {
@@ -124,6 +126,8 @@ export interface LendingRequestItem {
   denialReason?: string | null;
   approvedAt?: Date | null;
   conversationId?: string | null;
+  paymentStatus?: string | null;
+  paymentFailureReason?: string | null;
 }
 
 /**
@@ -218,6 +222,8 @@ export interface RentalDetails {
   extensionApproved?: boolean;
   returnConfirmedAt?: Date;
   status: string;
+  paymentStatus?: string | null;
+  paymentFailureReason?: string | null;
   createdAt: Date;
   approvedAt?: Date;
   deniedAt?: Date;
@@ -255,6 +261,8 @@ export type RentalStatusInfo = Pick<
   | "denialReason"
   | "actualStartDate"
   | "actualEndDate"
+  | "paymentStatus"
+  | "paymentFailureReason"
 >;
 export type RentalListingInfo = Pick<
   RentalDetails,
@@ -513,6 +521,7 @@ export class RentalDAL extends BaseDAL {
     message: string | null;
     paymentIntentId: string | null;
     paymentMethodId: string | null;
+    paymentStatus: string | null;
     status: string;
     createdAt: Date;
   }> {
@@ -544,6 +553,7 @@ export class RentalDAL extends BaseDAL {
           message: rentalRequests.message,
           paymentIntentId: rentalRequests.paymentIntentId,
           paymentMethodId: rentalRequests.paymentMethodId,
+          paymentStatus: rentalRequests.paymentStatus,
           status: rentalRequests.status,
           createdAt: rentalRequests.createdAt,
         })
@@ -633,6 +643,8 @@ export class RentalDAL extends BaseDAL {
           denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
           conversationId: conversations.id,
+          paymentStatus: rentalRequests.paymentStatus,
+          paymentFailureReason: rentalRequests.paymentFailureReason,
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
@@ -724,6 +736,8 @@ export class RentalDAL extends BaseDAL {
           denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
           conversationId: conversations.id,
+          paymentStatus: rentalRequests.paymentStatus,
+          paymentFailureReason: rentalRequests.paymentFailureReason,
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
@@ -1184,6 +1198,8 @@ export class RentalDAL extends BaseDAL {
           denialReason: rentalRequests.denialReason,
           approvedAt: rentalRequests.approvedAt,
           conversationId: conversations.id,
+          paymentStatus: rentalRequests.paymentStatus,
+          paymentFailureReason: rentalRequests.paymentFailureReason,
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
@@ -1617,6 +1633,8 @@ export class RentalDAL extends BaseDAL {
           approvedAt: rentalRequests.approvedAt,
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,
+          paymentStatus: rentalRequests.paymentStatus,
+          paymentFailureReason: rentalRequests.paymentFailureReason,
           // Join with rentals table to get pickup/return instructions and actual dates if approved
           pickupInstructions: rentals.pickupInstructions,
           returnInstructions: rentals.returnInstructions,
@@ -1829,6 +1847,8 @@ export class RentalDAL extends BaseDAL {
           approvedAt: request.approvedAt || undefined,
           deniedAt: request.deniedAt || undefined,
           denialReason: request.denialReason || undefined,
+          paymentStatus: request.paymentStatus || undefined,
+          paymentFailureReason: request.paymentFailureReason || undefined,
           actualStartDate: request.actualStartDate || undefined,
           actualEndDate: request.actualEndDate || undefined,
           returnConfirmedAt: request.returnConfirmedAt || undefined,

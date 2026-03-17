@@ -1,3 +1,4 @@
+import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 
 /**
@@ -50,9 +51,7 @@ export async function sendPaymentSucceededNotificationToRenter({
             <title>Payment Confirmed</title>
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-            </div>
+            ${EMAIL_LOGO_HTML}
             
             <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
               <h2 style="color: #065f46; margin-top: 0;">✅ Payment Confirmed</h2>
@@ -172,9 +171,7 @@ export async function sendPaymentSucceededNotificationToOwner({
             <title>Payment Received</title>
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <img src="${baseUrl}/hoador-logo.svg" alt="Hoador" style="height: 50px;">
-            </div>
+            ${EMAIL_LOGO_HTML}
             
             <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
               <h2 style="color: #065f46; margin-top: 0;">💰 Payment Received</h2>

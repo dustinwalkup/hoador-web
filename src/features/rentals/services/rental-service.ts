@@ -373,7 +373,12 @@ export class RentalService {
       );
     }
 
-    let paymentMethodIdToUse: string | null = rentalRequest.paymentMethodId;
+    // On retry after payment failure, re-fetch the renter's current default
+    // payment method instead of reusing the stored (failed) one.
+    const isRetryAfterFailure = rentalRequest.paymentStatus === "failed";
+    let paymentMethodIdToUse: string | null = isRetryAfterFailure
+      ? null
+      : rentalRequest.paymentMethodId;
     if (!paymentMethodIdToUse) {
       const { data: defaultOrFirstPm } = await tryCatch(
         resolveRenterPaymentMethod(stripeCustomerId),
@@ -386,7 +391,10 @@ export class RentalService {
       );
     }
 
-    if (!rentalRequest.paymentMethodId && paymentMethodIdToUse) {
+    if (
+      (!rentalRequest.paymentMethodId || isRetryAfterFailure) &&
+      paymentMethodIdToUse
+    ) {
       await rentalDAL.updateRentalRequestPaymentMethod(
         rentalId,
         paymentMethodIdToUse,
@@ -427,7 +435,11 @@ export class RentalService {
       listingName: rentalRequest.listingName,
     };
 
-    const idempotencyKey = `rental-charge-${rentalRequest.id}`;
+    // On retry after failure, use a new idempotency key since the payment
+    // method may have changed. Append timestamp to make it unique.
+    const idempotencyKey = isRetryAfterFailure
+      ? `rental-charge-${rentalRequest.id}-retry-${Date.now()}`
+      : `rental-charge-${rentalRequest.id}`;
 
     let rentalPaymentAttempts = 0;
     let rentalPaymentResult = await tryCatch(

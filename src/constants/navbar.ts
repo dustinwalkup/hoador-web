@@ -43,7 +43,7 @@ export const MAIN_NAV: MainNavItem[] = [
     icon: CalendarIcon,
     items: [
       {
-        label: "Renting",
+        label: "Renter",
         items: [
           { title: "Requests", url: "/dashboard/renting/requests" },
           { title: "Approved", url: "/dashboard/renting/approved" },
@@ -53,7 +53,7 @@ export const MAIN_NAV: MainNavItem[] = [
         ],
       },
       {
-        label: "Lending",
+        label: "Owner",
         items: [
           { title: "Incoming", url: "/dashboard/lending/incoming" },
           { title: "Approved", url: "/dashboard/lending/approved" },

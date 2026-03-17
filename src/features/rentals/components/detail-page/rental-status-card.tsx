@@ -10,12 +10,18 @@ import { Button } from "@/components/ui/button";
 interface RentalStatusCardProps {
   rentalDetails: RentalStatusInfo;
   activeDispute?: DisputeWithRelations | null;
+  isRenter?: boolean;
 }
 
-const getStatusDescription = (status: string) => {
+const getStatusDescription = (
+  status: string,
+  paymentStatus?: string | null,
+) => {
   switch (status) {
     case "pending":
-      return "Waiting for owner approval";
+      return paymentStatus === "failed"
+        ? "Payment was declined — awaiting updated payment method"
+        : "Waiting for owner approval";
     case "approved":
       return "Approved";
     case "active":
@@ -34,6 +40,7 @@ const getStatusDescription = (status: string) => {
 export function RentalStatusCard({
   rentalDetails,
   activeDispute,
+  isRenter,
 }: RentalStatusCardProps) {
   // Calculate time remaining for evidence deadline if applicable
   const getEvidenceDeadlineInfo = () => {
@@ -75,7 +82,10 @@ export function RentalStatusCard({
           <div>
             <h2 className="mb-1 text-xl font-semibold">Rental Status</h2>
             <p className="text-gray-600">
-              {getStatusDescription(rentalDetails.status)}
+              {getStatusDescription(
+                rentalDetails.status,
+                rentalDetails.paymentStatus,
+              )}
             </p>
           </div>
           {activeDispute && (
@@ -188,12 +198,44 @@ export function RentalStatusCard({
               )}
             </div>
           )}
-          {rentalDetails.status === "pending" && (
-            <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-gray-300"></div>
-              <span className="text-sm text-gray-500">
-                Waiting for approval...
-              </span>
+          {rentalDetails.status === "pending" &&
+            rentalDetails.paymentStatus !== "failed" && (
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 rounded-full bg-gray-300"></div>
+                <span className="text-sm text-gray-500">
+                  Waiting for approval...
+                </span>
+              </div>
+            )}
+          {rentalDetails.paymentStatus === "failed" && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 rounded-full bg-orange-500"></div>
+                <span className="text-sm font-medium text-orange-700">
+                  Payment declined
+                </span>
+              </div>
+              <div className="ml-5 rounded-md border border-orange-200 bg-orange-50 p-3">
+                <p className="text-sm text-orange-800">
+                  {rentalDetails.paymentFailureReason && (
+                    <>
+                      <strong>Reason:</strong>{" "}
+                      {rentalDetails.paymentFailureReason}
+                    </>
+                  )}
+                  {isRenter && (
+                    <>
+                      {rentalDetails.paymentFailureReason && " "}
+                      <Link
+                        href="/dashboard/payments"
+                        className="font-medium underline"
+                      >
+                        Update payment method
+                      </Link>
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
           )}
         </div>
