@@ -44,9 +44,10 @@ Neither amount is transferred to the owner at this stage.
 
 - If the auth hold fails, the rental **still proceeds** — it is not cancelled.
 - Both renter and owner are notified once: renter is told to update their payment method, owner is told the rental is proceeding without deposit protection.
-- `depositHoldStatus` is set to `'failed'` — the cron will **not** retry while in this state.
-- The renter can manually retry the deposit hold via the **"Retry Deposit Hold"** button on the rental detail page (`POST /api/rentals/[id]/retry-deposit`). The button is only shown when `depositHoldStatus = 'failed'` and the rental has not yet started. The retry uses the renter's current default payment method and attempts the hold immediately (no cron involved).
-- If the retry succeeds, `depositHoldStatus` moves to `'held'`. If it fails, an error is returned to the renter in the UI and status remains `'failed'` — no additional notifications are sent automatically.
+- `depositHoldStatus` is set to `'failed'`.
+- There are two retry paths:
+  - **Manual (renter-triggered):** The rental detail page shows a **"Retry Deposit Hold"** button when `depositHoldStatus = 'failed'` and the rental has not yet started. Clicking it (`POST /api/rentals/[id]/retry-deposit`) immediately attempts the hold using the renter's current default payment method. On success: `'held'`. On failure: an error is shown inline; status stays `'failed'`; no additional notifications are sent.
+  - **Automatic (cron):** The schedule-deposit-holds cron also picks up `'failed'` deposits within the 48h pickup window and retries the hold with the renter's current payment method. On success: `'held'`. On failure: status stays `'failed'`; ops is alerted; renter and owner are **not** re-notified (initial notification was already sent).
 
 ### Release (Clean Return)
 

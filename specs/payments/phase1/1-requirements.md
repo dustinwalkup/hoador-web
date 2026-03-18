@@ -233,7 +233,7 @@ Phase 1 introduces a platform-hold payment model where rental payments are captu
 4. The rental detail page SHALL display a "Retry Deposit Hold" button WHEN `depositHoldStatus` is `'failed'` AND the rental `startDate` has not passed
 5. WHEN the renter clicks "Retry Deposit Hold" (`POST /api/rentals/[id]/retry-deposit`) THEN the system SHALL immediately attempt to place the deposit hold using the renter's current default payment method — no cron involvement
 6. IF the retry succeeds THEN `depositHoldStatus` SHALL be set to `'held'` and `depositHoldPlacedAt` recorded; IF the retry fails THEN an error SHALL be returned to the renter in the UI and `depositHoldStatus` SHALL remain `'failed'` — no additional notifications are sent automatically
-7. WHILE `depositHoldStatus` is `'failed'` the deposit scheduling cron SHALL NOT attempt to place the hold and SHALL NOT send additional notifications
+7. WHEN the deposit scheduling cron encounters a rental with `depositHoldStatus: 'failed'` within the 48h pickup window, it SHALL attempt the hold using the renter's current payment method. On success it SHALL set `depositHoldStatus: 'held'`. On failure it SHALL keep `depositHoldStatus: 'failed'`, send an ops alert, and SHALL NOT send additional notifications to renter or owner (suppressed because the initial failure notification was already sent)
 
 ## Non-Functional Requirements
 

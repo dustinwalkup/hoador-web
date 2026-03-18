@@ -193,24 +193,31 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   5. Verify the button is no longer shown after success.
 - **Expected results:**
   - Deposit hold placed directly on retry; status moves to 'held' without waiting for cron.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
-### UAT-P1-10: Deposit hold retry fails — error shown to renter
+### UAT-P1-10: Deposit hold retry fails — error shown to renter, no duplicate notifications
 
 - **Phase:** 1
 - **Actor:** Renter, System
 - **Overview:** §2 Deposit Handling
 - **Preconditions:** Rental with depositHoldStatus = 'failed'; renter's payment method is still invalid or will decline.
-- **Steps:**
+- **Note:** There are two retry paths — the renter-triggered button (`POST /api/rentals/[id]/retry-deposit`) and the schedule-deposit-holds cron (which also processes 'failed' deposits within the 48h window). This test covers both.
+- **Steps (button path):**
   1. As renter, click "Retry Deposit Hold" on the rental detail page.
   2. Verify the hold fails; an inline error message is shown to the renter.
   3. Verify depositHoldStatus remains 'failed'.
-  4. Verify no duplicate notifications are sent to renter or owner; no automatic ops alert from the retry endpoint.
+  4. Verify no notifications are sent to renter or owner from the button retry endpoint.
+- **Steps (cron path):**
+  1. With a rental in depositHoldStatus = 'failed' and startDate within 48h, run the schedule-deposit-holds cron.
+  2. Verify the cron attempts the hold with the renter's current payment method.
+  3. Verify the hold fails; depositHoldStatus remains 'failed'; ops receives an email alert (OPS_ALERT_EMAIL).
+  4. Verify renter and owner do NOT receive duplicate notifications (since status was already 'failed' before the cron ran).
 - **Expected results:**
-  - Retry failure surfaces as an error to the renter in the UI; status stays 'failed'; renter may update payment method and try again.
+  - Button retry: failure shown inline to renter; no notifications sent.
+  - Cron retry: failure keeps status 'failed'; ops alerted; no duplicate renter/owner notifications.
 - [ ] Pass / [ ] Fail
 
-### UAT-P1-11: Deposit released after 24h dispute window (clean return)
+### \*\*UAT-P1-11: Deposit released after 24h dispute window (clean return)
 
 - **Phase:** 1
 - **Actor:** Owner, System
@@ -279,17 +286,20 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   - Cron runs; holds placed for eligible rentals; status updated.
 - [ ] Pass / [ ] Fail
 
-### UAT-P1-16: Schedule-deposit-holds skips failed deposits
+### UAT-P1-16: Schedule-deposit-holds retries failed deposits within 48h window
 
 - **Phase:** 1
 - **Actor:** System
 - **Overview:** §2 Deposit Handling
-- **Preconditions:** Rental with depositHoldStatus = 'failed' (awaiting renter payment method update).
+- **Preconditions:** Rental with depositHoldStatus = 'failed' and startDate within 48 hours; renter has a valid (or updated) payment method.
 - **Steps:**
   1. Run schedule-deposit-holds cron.
-  2. Verify this rental is not processed; depositHoldStatus remains 'failed'.
+  2. Verify the cron picks up the rental (status 'failed' is included in eligible query).
+  3. Verify it attempts the hold with the renter's current default payment method.
+  4. If the hold succeeds: verify depositHoldStatus = 'held' and depositHoldPlacedAt is set.
+  5. If the hold fails again: verify depositHoldStatus remains 'failed'; ops receives an email alert; renter and owner do NOT receive duplicate notifications.
 - **Expected results:**
-  - Cron does not retry 'failed' deposits until renter updates payment method.
+  - Cron retries 'failed' deposits within the 48h window using the renter's current payment method; renter/owner notifications are suppressed on repeat failures (ops-only alert).
 - [ ] Pass / [ ] Fail
 
 ### UAT-P1-17: Deposit hold is authorization only (no capture until dispute)
@@ -303,7 +313,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Confirm renter's card shows authorization hold, not a completed charge.
 - **Expected results:**
   - Hold only; no capture unless dispute resolution requires it (Phase 3).
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-18: Zero deposit listing — cron skips deposit, proceeds to transfer when eligible
 
@@ -333,9 +343,9 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Verify no transfer has been created to the owner for this rental.
 - **Expected results:**
   - Funds in platform account only; no transfer yet.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
-### UAT-P1-20: Payout only after completed + 24h + no dispute
+### \*\* UAT-P1-20: Payout only after completed + 24h + no dispute
 
 - **Phase:** 1
 - **Actor:** Owner, System
@@ -418,7 +428,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   4. Verify no payout or deposit release happens at this time (still within 24h window).
 - **Expected results:**
   - returnConfirmedAt set; renter notified; no immediate payout/deposit action.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-26: Duplicate return confirmation rejected
 

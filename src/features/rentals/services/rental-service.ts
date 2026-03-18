@@ -592,13 +592,13 @@ export class RentalService {
       if (hoursUntilPickup <= 48) {
         // Place deposit hold immediately
         const holdResult = await placeDepositHold({
-          rentalId: "", // Will be set after rental creation — use request ID for idempotency temporarily
+          rentalId: rentalRequest.id,
           customerId: stripeCustomerId,
           paymentMethodId: paymentMethodIdToUse,
           amount: securityDepositAmount,
           metadata: {
             rentalRequestId: rentalRequest.id,
-            rentalId: rentalRequest.id, // Placeholder; updated after rental creation
+            rentalId: rentalRequest.id,
             listingId: rentalRequest.listingId,
             renterId: rentalRequest.renterId,
           },

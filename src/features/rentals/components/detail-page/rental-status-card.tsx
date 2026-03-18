@@ -165,6 +165,12 @@ export function RentalStatusCard({
               </span>
             </div>
           )}
+          {rentalDetails.depositHoldStatus === "held" && (
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-green-600"></div>
+              <span className="text-sm">Security deposit hold placed</span>
+            </div>
+          )}
           {rentalDetails.actualStartDate && (
             <div className="flex items-center gap-3">
               <div className="h-2 w-2 rounded-full bg-green-600"></div>
@@ -267,12 +273,6 @@ export function RentalStatusCard({
                   </div>
                 )}
               </div>
-            </div>
-          )}
-          {rentalDetails.depositHoldStatus === "held" && (
-            <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-green-600"></div>
-              <span className="text-sm">Security deposit hold placed</span>
             </div>
           )}
         </div>
