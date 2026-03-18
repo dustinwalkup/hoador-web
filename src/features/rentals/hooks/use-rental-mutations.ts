@@ -1,5 +1,6 @@
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   useCreateMutation,
   handleMutationSuccess,
@@ -98,15 +99,26 @@ export function useApproveRentalRequest() {
 
       return response.json();
     },
-    successMessage:
-      "Request approved successfully! Payment has been processed.",
     invalidateQueryKeys: [
       rentalKeys.all,
       rentalKeys.renting(),
       rentalKeys.lending(),
       ["garage"], // Invalidate garage to update listing availability
     ],
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
+      // Show amber warning toast if deposit hold failed, green success otherwise
+      if (data?.depositHoldStatus === "failed") {
+        toast.warning(
+          "Request approved, but the security deposit hold failed. The renter has been notified to update their payment method.",
+          { duration: 6000 },
+        );
+      } else {
+        toast.success(
+          "Request approved successfully! Payment has been processed.",
+          { duration: 3000 },
+        );
+      }
+
       // Invalidate specific rental detail query (for any client-side usage)
       queryClient.invalidateQueries({
         queryKey: rentalKeys.detail(variables.rentalId),

@@ -224,6 +224,7 @@ export interface RentalDetails {
   status: string;
   paymentStatus?: string | null;
   paymentFailureReason?: string | null;
+  depositHoldStatus?: string | null;
   createdAt: Date;
   approvedAt?: Date;
   deniedAt?: Date;
@@ -263,6 +264,7 @@ export type RentalStatusInfo = Pick<
   | "actualEndDate"
   | "paymentStatus"
   | "paymentFailureReason"
+  | "depositHoldStatus"
 >;
 export type RentalListingInfo = Pick<
   RentalDetails,
@@ -1642,9 +1644,14 @@ export class RentalDAL extends BaseDAL {
           actualEndDate: rentals.actualEndDate,
           returnConfirmedAt: rentals.returnConfirmedAt,
           conversationId: conversations.id,
+          depositHoldStatus: rentalPaymentLifecycle.depositHoldStatus,
         })
         .from(rentalRequests)
         .leftJoin(rentals, eq(rentals.requestId, rentalRequests.id))
+        .leftJoin(
+          rentalPaymentLifecycle,
+          eq(rentalPaymentLifecycle.rentalId, rentals.id),
+        )
         .leftJoin(
           conversations,
           and(
@@ -1849,6 +1856,7 @@ export class RentalDAL extends BaseDAL {
           denialReason: request.denialReason || undefined,
           paymentStatus: request.paymentStatus || undefined,
           paymentFailureReason: request.paymentFailureReason || undefined,
+          depositHoldStatus: request.depositHoldStatus || undefined,
           actualStartDate: request.actualStartDate || undefined,
           actualEndDate: request.actualEndDate || undefined,
           returnConfirmedAt: request.returnConfirmedAt || undefined,
@@ -1886,8 +1894,13 @@ export class RentalDAL extends BaseDAL {
           returnConfirmedAt: rentals.returnConfirmedAt,
           createdAt: rentals.createdAt,
           conversationId: conversations.id,
+          depositHoldStatus: rentalPaymentLifecycle.depositHoldStatus,
         })
         .from(rentals)
+        .leftJoin(
+          rentalPaymentLifecycle,
+          eq(rentalPaymentLifecycle.rentalId, rentals.id),
+        )
         .leftJoin(
           conversations,
           and(
@@ -2107,6 +2120,7 @@ export class RentalDAL extends BaseDAL {
         extensionApproved: rentalData.extensionApproved || false,
         returnConfirmedAt: rentalData.returnConfirmedAt || undefined,
         status: request[0]?.status || "approved",
+        depositHoldStatus: rentalData.depositHoldStatus || undefined,
         createdAt: rentalData.createdAt,
         currentUserId: userId || "",
         conversationId: rentalData.conversationId || null,

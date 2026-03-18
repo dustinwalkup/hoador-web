@@ -8,6 +8,9 @@ const mockFindExpiringDeposits = vi.fn();
 const mockUpdateDepositHoldStatus = vi.fn();
 const mockUpdateOwnerTransferStatus = vi.fn();
 const mockUpdatePayoutStatus = vi.fn();
+const mockGetByRentalId = vi.fn();
+const mockGetRentalRequestById = vi.fn();
+const mockGetRentalByRequestId = vi.fn();
 
 vi.mock("@/dal", () => ({
   paymentLifecycleDAL: {
@@ -23,6 +26,13 @@ vi.mock("@/dal", () => ({
     updateOwnerTransferStatus: (...args: unknown[]) =>
       mockUpdateOwnerTransferStatus(...args),
     updatePayoutStatus: (...args: unknown[]) => mockUpdatePayoutStatus(...args),
+    getByRentalId: (...args: unknown[]) => mockGetByRentalId(...args),
+  },
+  rentalDAL: {
+    getRentalRequestById: (...args: unknown[]) =>
+      mockGetRentalRequestById(...args),
+    getRentalByRequestId: (...args: unknown[]) =>
+      mockGetRentalByRequestId(...args),
   },
 }));
 
@@ -69,14 +79,27 @@ const mockDbUpdate = vi.fn().mockReturnValue({
     where: vi.fn().mockResolvedValue(undefined),
   }),
 });
+const mockDbSelectResult: unknown[] = [];
+const mockDbSelect = vi.fn().mockReturnValue({
+  from: vi.fn().mockReturnValue({
+    where: vi.fn().mockReturnValue({
+      limit: vi.fn().mockImplementation(() => mockDbSelectResult),
+    }),
+  }),
+});
 vi.mock("@/db/db", () => ({
   db: {
     update: (...args: unknown[]) => mockDbUpdate(...args),
+    select: (...args: unknown[]) => mockDbSelect(...args),
   },
 }));
 
 vi.mock("@/db/schemas/rentals.schema", () => ({
   rentals: { id: "id" },
+}));
+
+vi.mock("@/db/schemas/user.schema", () => ({
+  user: { id: "id", stripeCustomerId: "stripeCustomerId" },
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -735,5 +758,256 @@ describe("PaymentLifecycleService.monitorDepositExpiry", () => {
 
     expect(result.expiredCount).toBe(1);
     expect(result.checkedCount).toBe(2);
+  });
+});
+
+// =====================
+// retryDepositHold
+// =====================
+describe("PaymentLifecycleService.retryDepositHold", () => {
+  const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const mockRentalRequest = {
+    id: "req-1",
+    renterId: "renter-1",
+    startDate: futureDate,
+    paymentMethodId: "pm_456",
+    securityDeposit: "200.00",
+    listingId: "listing-1",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetRentalRequestById.mockResolvedValue(mockRentalRequest);
+    mockGetRentalByRequestId.mockResolvedValue({ id: "rental-1" });
+    mockGetByRentalId.mockResolvedValue({ depositHoldStatus: "failed" });
+    mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+    // Mock db.select for user lookup
+    mockDbSelectResult.length = 0;
+    mockDbSelectResult.push({ stripeCustomerId: "cus_123" });
+  });
+
+  it("returns success when deposit hold is placed successfully", async () => {
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_new",
+    });
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result).toEqual({ success: true });
+    expect(mockPlaceDepositHold).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rentalId: "rental-1",
+        customerId: "cus_123",
+        paymentMethodId: "pm_456",
+        amount: 200,
+      }),
+    );
+  });
+
+  it("updates deposit status to 'held' on success", async () => {
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_new",
+    });
+
+    await PaymentLifecycleService.retryDepositHold("req-1", "renter-1");
+
+    expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+      "rental-1",
+      "held",
+      expect.objectContaining({ depositHoldPlacedAt: expect.any(Date) }),
+    );
+  });
+
+  it("updates rentals table with security deposit auth ID on success", async () => {
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_new",
+    });
+
+    await PaymentLifecycleService.retryDepositHold("req-1", "renter-1");
+
+    expect(mockDbUpdate).toHaveBeenCalled();
+  });
+
+  it("returns error when rental request not found", async () => {
+    mockGetRentalRequestById.mockRejectedValue(new Error("not found"));
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-999",
+      "renter-1",
+    );
+
+    expect(result).toEqual({ success: false, error: "Rental not found" });
+    expect(mockPlaceDepositHold).not.toHaveBeenCalled();
+  });
+
+  it("returns error when user is not the renter", async () => {
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "different-user",
+    );
+
+    expect(result).toEqual({ success: false, error: "Not authorized" });
+    expect(mockPlaceDepositHold).not.toHaveBeenCalled();
+  });
+
+  it("returns error when rental not found by request ID", async () => {
+    mockGetRentalByRequestId.mockResolvedValue(null);
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result).toEqual({ success: false, error: "Rental not found" });
+  });
+
+  it("returns error when deposit status is not 'failed'", async () => {
+    mockGetByRentalId.mockResolvedValue({ depositHoldStatus: "held" });
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Deposit hold is not in a failed state",
+    });
+  });
+
+  it("returns error when lifecycle record not found", async () => {
+    mockGetByRentalId.mockResolvedValue(null);
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Deposit hold is not in a failed state",
+    });
+  });
+
+  it("returns error when rental has already started", async () => {
+    const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    mockGetRentalRequestById.mockResolvedValue({
+      ...mockRentalRequest,
+      startDate: pastDate,
+    });
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Rental has already started",
+    });
+  });
+
+  it("returns error when renter has no Stripe customer ID", async () => {
+    mockDbSelectResult.length = 0;
+    mockDbSelectResult.push({ stripeCustomerId: null });
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "No payment account found",
+    });
+  });
+
+  it("resolves payment method from Stripe when not stored on request", async () => {
+    mockGetRentalRequestById.mockResolvedValue({
+      ...mockRentalRequest,
+      paymentMethodId: null,
+    });
+    mockCustomersRetrieve.mockResolvedValue({
+      invoice_settings: { default_payment_method: "pm_default" },
+    });
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_new",
+    });
+
+    await PaymentLifecycleService.retryDepositHold("req-1", "renter-1");
+
+    expect(mockPlaceDepositHold).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentMethodId: "pm_default" }),
+    );
+  });
+
+  it("falls back to first card when no default payment method", async () => {
+    mockGetRentalRequestById.mockResolvedValue({
+      ...mockRentalRequest,
+      paymentMethodId: null,
+    });
+    mockCustomersRetrieve.mockResolvedValue({
+      invoice_settings: { default_payment_method: null },
+    });
+    mockPaymentMethodsList.mockResolvedValue({
+      data: [{ id: "pm_card_fallback" }],
+    });
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_new",
+    });
+
+    await PaymentLifecycleService.retryDepositHold("req-1", "renter-1");
+
+    expect(mockPlaceDepositHold).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentMethodId: "pm_card_fallback" }),
+    );
+  });
+
+  it("returns error when no payment method can be resolved", async () => {
+    mockGetRentalRequestById.mockResolvedValue({
+      ...mockRentalRequest,
+      paymentMethodId: null,
+    });
+    mockCustomersRetrieve.mockResolvedValue({
+      invoice_settings: { default_payment_method: null },
+    });
+    mockPaymentMethodsList.mockResolvedValue({ data: [] });
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "No payment method found. Please add a payment method first.",
+    });
+  });
+
+  it("returns error from placeDepositHold on failure", async () => {
+    mockPlaceDepositHold.mockResolvedValue({
+      success: false,
+      error: "Card was declined",
+    });
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Card was declined",
+    });
+    expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalled();
   });
 });

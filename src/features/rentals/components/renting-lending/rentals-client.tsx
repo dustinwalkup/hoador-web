@@ -241,7 +241,7 @@ export function RentalsClient({
           { value: "denied", label: "Denied" },
         ]
       : [
-          { value: "incoming", label: "Incoming" },
+          { value: "incoming", label: "Requests" },
           { value: "approved", label: "Approved" },
           { value: "active", label: "Active" },
           { value: "completed", label: "Completed" },
@@ -262,7 +262,7 @@ export function RentalsClient({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            Renting
+            Renter
           </button>
           <button
             onClick={() => handleTypeChange("lending")}
@@ -273,7 +273,7 @@ export function RentalsClient({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            Lending
+            Owner
           </button>
         </div>
 

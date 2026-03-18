@@ -230,9 +230,10 @@ Phase 1 introduces a platform-hold payment model where rental payments are captu
 1. WHEN a deposit auth hold fails THEN the system SHALL notify the renter once with a message explaining the hold failed and prompting them to verify or update their payment method
 2. WHEN a deposit auth hold fails THEN the system SHALL notify the owner once that the deposit hold could not be placed and the rental is proceeding without deposit protection
 3. The system SHALL provide the renter a path to update their payment method via the existing payment methods management UI (`/dashboard/profile/payments`)
-4. WHEN the renter updates their payment method AND the rental has `depositHoldStatus: 'failed'` AND the rental `startDate` has not passed THEN the system SHALL reset `depositHoldStatus` to `'scheduled'` — this allows the deposit scheduling cron to pick it up on the next hourly run and retry the hold with the new payment method
-5. WHILE `depositHoldStatus` is `'failed'` the deposit scheduling cron SHALL NOT attempt to place the hold and SHALL NOT send additional notifications — the status acts as a gate preventing repeated retries and alerts
-6. IF the deposit hold fails a second time (after renter updated payment method and status was reset to `'scheduled'`) THEN the system SHALL set `depositHoldStatus: 'failed'` again, notify the renter once more, and alert the operations team
+4. The rental detail page SHALL display a "Retry Deposit Hold" button WHEN `depositHoldStatus` is `'failed'` AND the rental `startDate` has not passed
+5. WHEN the renter clicks "Retry Deposit Hold" (`POST /api/rentals/[id]/retry-deposit`) THEN the system SHALL immediately attempt to place the deposit hold using the renter's current default payment method — no cron involvement
+6. IF the retry succeeds THEN `depositHoldStatus` SHALL be set to `'held'` and `depositHoldPlacedAt` recorded; IF the retry fails THEN an error SHALL be returned to the renter in the UI and `depositHoldStatus` SHALL remain `'failed'` — no additional notifications are sent automatically
+7. WHILE `depositHoldStatus` is `'failed'` the deposit scheduling cron SHALL NOT attempt to place the hold and SHALL NOT send additional notifications
 
 ## Non-Functional Requirements
 

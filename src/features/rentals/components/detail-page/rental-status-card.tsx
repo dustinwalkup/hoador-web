@@ -6,8 +6,10 @@ import { capitalize } from "@/lib/utils";
 import { DisputeStatusBadge } from "@/features/disputes/components/dispute-status-badge";
 import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RetryDepositButton } from "./retry-deposit-button";
 
 interface RentalStatusCardProps {
+  rentalId: string;
   rentalDetails: RentalStatusInfo;
   activeDispute?: DisputeWithRelations | null;
   isRenter?: boolean;
@@ -38,6 +40,7 @@ const getStatusDescription = (
 };
 
 export function RentalStatusCard({
+  rentalId,
   rentalDetails,
   activeDispute,
   isRenter,
@@ -236,6 +239,40 @@ export function RentalStatusCard({
                   )}
                 </p>
               </div>
+            </div>
+          )}
+          {rentalDetails.depositHoldStatus === "failed" && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 rounded-full bg-amber-500"></div>
+                <span className="text-sm font-medium text-amber-700">
+                  Security deposit hold failed
+                </span>
+              </div>
+              <div className="ml-5 space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm text-amber-800">
+                  {isRenter
+                    ? "The security deposit hold could not be placed on your payment method. Update your payment method and retry."
+                    : "The security deposit hold could not be placed. The rental is proceeding without deposit protection."}
+                </p>
+                {isRenter && (
+                  <div className="flex items-center justify-between gap-3">
+                    <Link
+                      href="/dashboard/profile/payments"
+                      className="text-sm font-medium text-amber-800 underline"
+                    >
+                      Update payment method
+                    </Link>
+                    <RetryDepositButton rentalId={rentalId} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {rentalDetails.depositHoldStatus === "held" && (
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-green-600"></div>
+              <span className="text-sm">Security deposit hold placed</span>
             </div>
           )}
         </div>

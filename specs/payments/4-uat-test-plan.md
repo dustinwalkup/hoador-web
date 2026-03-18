@@ -157,35 +157,57 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   5. Verify only one notification per party (no duplicate alerts).
 - **Expected results:**
   - Rental proceeds; deposit 'failed'; both notified once.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
-### UAT-P1-09: Renter updates payment method — deposit retry scheduled
+**How to simulate (recommended):** The rental charge is captured before the deposit hold; a single Stripe test card cannot succeed for the charge and then fail only for the hold. Use the app’s UAT simulation instead:
+
+1. **Environment:** In your test environment (e.g. `.env.local` or staging), set:
+   ```bash
+   UAT_SIMULATE_DEPOSIT_HOLD_FAILURE=1
+   ```
+2. **Restart** the app so the env is picked up.
+3. **Data:** Create (or use) a rental request where:
+   - Listing has **security deposit > 0**.
+   - **Start date is within 48 hours** of now (so the deposit hold is attempted immediately at approval, not scheduled for cron).
+   - Renter has a **valid** payment method (e.g. Stripe test card `4242 4242 4242 4242`) so the rental charge succeeds.
+4. **Execute:** As owner, approve the rental request. The rental charge will succeed; the deposit hold will be forced to fail by the simulator.
+5. **Verify:**
+   - Rental is approved and active (not cancelled).
+   - In DB or admin lifecycle: `depositHoldStatus = 'failed'`.
+   - Renter has one notification: "Security Deposit Hold Failed" with link to update payment method (`/dashboard/profile/payments`).
+   - Owner has one notification: "Deposit Hold Not Placed" — rental proceeds without deposit protection.
+   - No duplicate notifications for either party.
+6. **Cleanup:** Unset `UAT_SIMULATE_DEPOSIT_HOLD_FAILURE` (or set to `0`) and restart before other UAT or production use.
+
+### UAT-P1-09: Renter retries deposit hold from rental detail page
 
 - **Phase:** 1
 - **Actor:** Renter, System
 - **Overview:** §2 Deposit Handling
-- **Preconditions:** Rental with depositHoldStatus = 'failed'; renter has updated payment method at /dashboard/profile/payments.
+- **Preconditions:** Rental with depositHoldStatus = 'failed'; rental startDate has not yet passed; renter has a valid payment method on file.
 - **Steps:**
-  1. As renter, add or set a valid default payment method in profile/payments.
-  2. Verify lifecycle depositHoldStatus is reset to 'scheduled' (or equivalent so cron will retry).
-  3. Run schedule-deposit-holds cron (or wait for next run); verify hold is placed and status becomes 'held'.
+  1. As renter, navigate to the rental detail page.
+  2. Verify the "Retry Deposit Hold" button is visible (shown only when depositHoldStatus = 'failed' and startDate > now).
+  3. Click "Retry Deposit Hold".
+  4. Verify the deposit hold is placed immediately (no cron required); depositHoldStatus = 'held' and depositHoldPlacedAt is set.
+  5. Verify the button is no longer shown after success.
 - **Expected results:**
-  - After payment method update, next cron run places hold; status moves to 'held'.
+  - Deposit hold placed directly on retry; status moves to 'held' without waiting for cron.
 - [ ] Pass / [ ] Fail
 
-### UAT-P1-10: Deposit hold retry fails again — ops alerted
+### UAT-P1-10: Deposit hold retry fails — error shown to renter
 
 - **Phase:** 1
-- **Actor:** Renter, System, Ops
-- **Overview:** §2 Deposit Handling, §10 Operations Alerting
-- **Preconditions:** Rental had deposit 'failed'; renter updated payment method; next hold attempt also fails (e.g. card still invalid).
+- **Actor:** Renter, System
+- **Overview:** §2 Deposit Handling
+- **Preconditions:** Rental with depositHoldStatus = 'failed'; renter's payment method is still invalid or will decline.
 - **Steps:**
-  1. Trigger deposit hold (cron or equivalent) after payment method update.
-  2. Verify hold fails again; depositHoldStatus remains 'failed' or returns to 'failed'.
-  3. Verify renter and owner are notified again.
-  4. Verify ops receives email alert (OPS_ALERT_EMAIL).
+  1. As renter, click "Retry Deposit Hold" on the rental detail page.
+  2. Verify the hold fails; an inline error message is shown to the renter.
+  3. Verify depositHoldStatus remains 'failed'.
+  4. Verify no duplicate notifications are sent to renter or owner; no automatic ops alert from the retry endpoint.
 - **Expected results:**
-  - Retry failure; both parties notified again; ops email received.
+  - Retry failure surfaces as an error to the renter in the UI; status stays 'failed'; renter may update payment method and try again.
 - [ ] Pass / [ ] Fail
 
 ### UAT-P1-11: Deposit released after 24h dispute window (clean return)

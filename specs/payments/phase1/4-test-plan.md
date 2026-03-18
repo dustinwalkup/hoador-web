@@ -214,13 +214,14 @@ This test plan maps all tests to specific requirements from `specs/payments/1-re
 
 - Integration tests: Failed hold notifies renter once with instructions to update payment method
 - Integration tests: Failed hold notifies owner once that deposit protection is not in place
-- Integration tests: Renter updates payment method → `depositHoldStatus` reset to `'scheduled'`
-- Integration tests: PM update only resets deposits where `startDate > now` (not past rentals)
 - Integration tests: Cron does NOT process `depositHoldStatus: 'failed'` (status gate)
 - Integration tests: Cron does NOT re-notify while `depositHoldStatus` is `'failed'`
-- Integration tests: After reset to `'scheduled'`, cron retries hold on next run
-- Integration tests: Second failure sets `'failed'` again, notifies renter, escalates to ops
-- E2E tests: Complete failure recovery flow (fail → PM update → retry → success)
+- Integration tests: `POST /api/rentals/[id]/retry-deposit` places hold immediately using renter's current payment method
+- Integration tests: Retry rejected if `depositHoldStatus` is not `'failed'`
+- Integration tests: Retry rejected if rental `startDate` has already passed
+- Integration tests: Successful retry sets `depositHoldStatus: 'held'` and `depositHoldPlacedAt`
+- Integration tests: Failed retry returns error to caller; `depositHoldStatus` remains `'failed'`; no additional notifications sent
+- E2E tests: Complete failure recovery flow (fail → update payment method → click retry → success)
 
 ## Test Types and Strategy
 

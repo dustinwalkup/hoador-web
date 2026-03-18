@@ -37,6 +37,7 @@ export function RentalContent({
       {/* Main Content */}
       <div className="space-y-6 lg:col-span-2">
         <RentalStatusCard
+          rentalId={rentalDetails.id}
           rentalDetails={rentalDetails}
           activeDispute={activeDispute}
           isRenter={isRenter}
