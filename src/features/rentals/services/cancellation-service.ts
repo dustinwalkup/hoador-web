@@ -5,7 +5,6 @@ import {
   userDAL,
   auditLogDAL,
 } from "@/dal";
-import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
 import type { CancellationReason } from "@/dal/types";
 import { processRefund } from "@/services/stripe/refund";
@@ -205,16 +204,13 @@ export async function cancelApprovedRental(
 
   let ownerTransferAmountDollars: number | undefined;
   if (calc.ownerTransferAmountCents > 0 && ctx.ownerConnectedAccountId) {
-    const retainedDollars =
-      calc.ownerTransferAmountCents / 100 / (1 - PLATFORM_FEE_PERCENTAGE);
     const transferResult = await createOwnerTransfer({
       rentalId: ctx.rentalId,
       rentalRequestId: ctx.rentalRequestId,
       ownerId: ctx.ownerId,
       ownerConnectedAccountId: ctx.ownerConnectedAccountId,
       rentalChargeId: ctx.rentalChargeId,
-      totalAmount: retainedDollars,
-      platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
+      ownerPayoutAmount: calc.ownerTransferAmountCents / 100,
     });
     if (transferResult.success) {
       ownerTransferAmountDollars = calc.ownerTransferAmountCents / 100;
@@ -420,16 +416,13 @@ export async function applyNoShow(
     ctx.ownerConnectedAccountId &&
     noShowType === "renter_no_show"
   ) {
-    const retainedDollars =
-      calc.ownerTransferAmountCents / 100 / (1 - PLATFORM_FEE_PERCENTAGE);
     const transferResult = await createOwnerTransfer({
       rentalId: ctx.rentalId,
       rentalRequestId: ctx.rentalRequestId,
       ownerId: ctx.ownerId,
       ownerConnectedAccountId: ctx.ownerConnectedAccountId,
       rentalChargeId: ctx.rentalChargeId,
-      totalAmount: retainedDollars,
-      platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
+      ownerPayoutAmount: calc.ownerTransferAmountCents / 100,
     });
     if (transferResult.success) {
       ownerTransferAmountDollars = calc.ownerTransferAmountCents / 100;

@@ -149,6 +149,7 @@ function createMockPayoutRental(overrides = {}) {
     ownerId: "owner-1",
     ownerConnectedAccountId: "acct_123",
     totalAmount: "100.00",
+    ownerPayout: "80.00",
     securityDepositAuthId: "pi_dep_123",
     ...overrides,
   };
@@ -288,8 +289,7 @@ describe("PaymentLifecycleService.processPayouts", () => {
         ownerId: "owner-1",
         ownerConnectedAccountId: "acct_123",
         rentalChargeId: "ch_abc",
-        totalAmount: 100,
-        platformFeePercentage: 0.2,
+        ownerPayoutAmount: 80,
       }),
     );
   });

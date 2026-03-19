@@ -5,7 +5,6 @@ import {
   placeDepositHold,
 } from "@/services/stripe/deposit-hold";
 import { createOwnerTransfer } from "@/services/stripe/payout";
-import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { getLogger } from "@/lib/logger";
@@ -139,8 +138,7 @@ export class PaymentLifecycleService {
             ownerId: rental.ownerId,
             ownerConnectedAccountId: rental.ownerConnectedAccountId,
             rentalChargeId: rental.lifecycle.rentalChargeId,
-            totalAmount: Number(rental.totalAmount),
-            platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
+            ownerPayoutAmount: Number(rental.ownerPayout),
           });
 
           if (!transferResult.success) {

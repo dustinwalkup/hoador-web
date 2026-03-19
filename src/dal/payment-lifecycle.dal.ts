@@ -146,6 +146,7 @@ export interface PayoutEligibleRental {
   ownerId: string;
   ownerConnectedAccountId: string | null;
   totalAmount: string;
+  ownerPayout: string;
   securityDepositAuthId: string | null;
 }
 
@@ -350,6 +351,7 @@ export class PaymentLifecycleDAL extends BaseDAL {
           ownerId: rentals.ownerId,
           ownerConnectedAccountId: user.stripeConnectedAccountId,
           totalAmount: rentalRequests.totalAmount,
+          ownerPayout: rentalRequests.ownerPayout,
           securityDepositAuthId: rentals.securityDepositAuthId,
         })
         .from(rentalPaymentLifecycle)
