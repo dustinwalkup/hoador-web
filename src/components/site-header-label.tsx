@@ -34,7 +34,7 @@ export function SiteHeaderLabel() {
 
   // Set settled state after delay, resets automatically when pathname changes
   useEffect(() => {
-    const timeout = setTimeout(() => setSettledPathname(pathname), 100);
+    const timeout = setTimeout(() => setSettledPathname(pathname), 150);
     return () => clearTimeout(timeout);
   }, [pathname]);
 
@@ -88,6 +88,7 @@ export function SiteHeaderLabel() {
         )}
         style={{
           transitionDuration,
+          willChange: "opacity",
         }}
         title={displayLabel || undefined} // Show full title on hover for truncated text
       >

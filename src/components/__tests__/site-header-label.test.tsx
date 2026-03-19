@@ -86,9 +86,9 @@ describe("SiteHeaderLabel", () => {
       // Act
       render(<SiteHeaderLabel />);
 
-      // Advance past the 100ms settling delay
+      // Advance past the 150ms settling delay
       act(() => {
-        vi.advanceTimersByTime(100);
+        vi.advanceTimersByTime(150);
       });
 
       // Assert
