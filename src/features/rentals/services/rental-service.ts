@@ -692,26 +692,24 @@ export class RentalService {
         );
       }
 
-      // If deposit hold failed, notify both parties with email
+      // If deposit hold failed, notify both parties
       if (depositHoldStatus === "failed") {
         try {
           const [renterUser, ownerUser] = await Promise.all([
             userDAL.getUserById(rentalRequest.renterId),
             userDAL.getUserById(rentalRequest.ownerId),
           ]);
-          const {
-            sendDepositHoldFailureNotificationToRenter,
-            sendDepositHoldFailureNotificationToOwner,
-          } =
-            await import("@/features/rentals/notifications/deposit-hold-failure");
           if (renterUser) {
-            sendDepositHoldFailureNotificationToRenter({
+            const { sendNotification } =
+              await import("@/features/notifications/utils/send-notification");
+            sendNotification({
               userId: renterUser.id,
-              to: renterUser.email,
-              renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-              listingName: rentalRequest.listingName,
-              rentalId: rentalRequest.id,
-              securityDeposit: rentalRequest.securityDeposit,
+              type: "payment_failed",
+              title: "Security Deposit Hold Failed",
+              message: `The security deposit hold for "${rentalRequest.listingName}" could not be placed. Please verify or update your payment method.`,
+              data: { rentalId: createdRental.id },
+              linkUrl: "/dashboard/profile/payments",
+              category: "payments",
             }).catch((err) =>
               captureNonCriticalError(err, {
                 route: "RentalService.approveRentalRequest",
@@ -719,15 +717,16 @@ export class RentalService {
               }),
             );
           }
-          if (ownerUser && renterUser) {
-            sendDepositHoldFailureNotificationToOwner({
+          if (ownerUser) {
+            const { sendNotification } =
+              await import("@/features/notifications/utils/send-notification");
+            sendNotification({
               userId: ownerUser.id,
-              to: ownerUser.email,
-              ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-              renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-              listingName: rentalRequest.listingName,
-              rentalId: rentalRequest.id,
-              securityDeposit: rentalRequest.securityDeposit,
+              type: "payment_failed",
+              title: "Deposit Hold Not Placed",
+              message: `The security deposit hold for "${rentalRequest.listingName}" could not be placed. The rental is proceeding without deposit protection.`,
+              data: { rentalId: createdRental.id },
+              category: "payments",
             }).catch((err) =>
               captureNonCriticalError(err, {
                 route: "RentalService.approveRentalRequest",

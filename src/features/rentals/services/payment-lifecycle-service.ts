@@ -327,6 +327,7 @@ export class PaymentLifecycleService {
           try {
             const { sendNotification } =
               await import("@/features/notifications/utils/send-notification");
+
             sendNotification({
               userId: rental.renterId,
               type: "payment_failed",
@@ -343,7 +344,6 @@ export class PaymentLifecycleService {
               }),
             );
 
-            // Also notify owner
             if (rental.ownerId) {
               sendNotification({
                 userId: rental.ownerId,
@@ -489,7 +489,6 @@ export class PaymentLifecycleService {
     rentalRequestId: string,
     userId: string,
   ): Promise<{ success: boolean; error?: string }> {
-    // Look up the rental request to verify ownership
     const { data: rentalRequest, error: requestError } = await tryCatch(
       rentalDAL.getRentalRequestById(rentalRequestId),
     );
@@ -500,30 +499,20 @@ export class PaymentLifecycleService {
       return { success: false, error: "Not authorized" };
     }
 
-    // Get the actual rental ID from the request
     const rental = await rentalDAL.getRentalByRequestId(rentalRequestId);
     if (!rental) {
       return { success: false, error: "Rental not found" };
     }
 
-    // Verify deposit status is failed
     const lifecycle = await paymentLifecycleDAL.getByRentalId(rental.id);
     if (!lifecycle || lifecycle.depositHoldStatus !== "failed") {
-      return {
-        success: false,
-        error: "Deposit hold is not in a failed state",
-      };
+      return { success: false, error: "Deposit hold is not in a failed state" };
     }
 
-    // Verify start date is still in the future
     if (new Date(rentalRequest.startDate) <= new Date()) {
-      return {
-        success: false,
-        error: "Rental has already started",
-      };
+      return { success: false, error: "Rental has already started" };
     }
 
-    // Resolve the renter's current payment method
     const { user: userSchema } = await import("@/db/schemas/user.schema");
     const { eq } = await import("drizzle-orm");
     const { db } = await import("@/db/db");
@@ -572,7 +561,6 @@ export class PaymentLifecycleService {
       };
     }
 
-    // Place the deposit hold
     const holdResult = await placeDepositHold({
       rentalId: rental.id,
       customerId: renterRecord.stripeCustomerId,
@@ -591,7 +579,6 @@ export class PaymentLifecycleService {
         depositHoldPlacedAt: new Date(),
       });
 
-      // Update the rentals table with the security deposit auth ID
       const { rentals } = await import("@/db/schemas/rentals.schema");
       await db
         .update(rentals)

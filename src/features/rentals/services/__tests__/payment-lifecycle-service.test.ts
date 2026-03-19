@@ -101,7 +101,6 @@ vi.mock("@/db/schemas/rentals.schema", () => ({
 vi.mock("@/db/schemas/user.schema", () => ({
   user: { id: "id", stripeCustomerId: "stripeCustomerId" },
 }));
-
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
 }));
