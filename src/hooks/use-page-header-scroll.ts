@@ -1,5 +1,35 @@
-import { useState, useEffect } from "react";
+import { useReducer, useEffect, useRef } from "react";
 import { usePageHeaderContext } from "@/contexts/page-header-context";
+
+type ObserverState = {
+  isPageHeaderVisible: boolean;
+  hasObserverFired: boolean;
+};
+type ObserverAction =
+  | { type: "FIRED"; isIntersecting: boolean }
+  | { type: "RESET" };
+
+function observerReducer(
+  state: ObserverState,
+  action: ObserverAction,
+): ObserverState {
+  switch (action.type) {
+    case "FIRED":
+      return {
+        isPageHeaderVisible: action.isIntersecting,
+        hasObserverFired: true,
+      };
+    case "RESET":
+      return { isPageHeaderVisible: true, hasObserverFired: false };
+    default:
+      return state;
+  }
+}
+
+const INITIAL_OBSERVER_STATE: ObserverState = {
+  isPageHeaderVisible: true,
+  hasObserverFired: false,
+};
 
 /**
  * Return value interface for usePageHeaderScroll hook.
@@ -42,12 +72,13 @@ export function usePageHeaderScroll(): UsePageHeaderScrollReturn {
   const pageHeaderRef = context?.ref || null;
   const title = context?.title || null;
 
-  // Initialize state to true (assuming visible until observer updates)
-  // Observer callback will update this asynchronously when intersection changes
-  const [isPageHeaderVisible, setIsPageHeaderVisible] = useState(true);
+  const [{ isPageHeaderVisible, hasObserverFired }, dispatch] = useReducer(
+    observerReducer,
+    INITIAL_OBSERVER_STATE,
+  );
 
-  // Track whether observer has fired at least once with stable layout data
-  const [hasObserverFired, setHasObserverFired] = useState(false);
+  // Debounce ref to coalesce rapid observer firings (iOS address bar, rubber-band scroll)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // If no context or no PageHeader, no observer needed
@@ -74,10 +105,14 @@ export function usePageHeaderScroll(): UsePageHeaderScrollReturn {
         // threshold: 0 triggers when any part of the element crosses the threshold
         observer = new IntersectionObserver(
           ([entry]) => {
-            // entry.isIntersecting is true when PageHeader is visible above the site header
-            // false when it has scrolled past the site header
-            setIsPageHeaderVisible(entry.isIntersecting);
-            setHasObserverFired(true);
+            // Debounce rapid firings caused by iOS address bar show/hide and
+            // rubber-band scrolling near the threshold. Each new firing cancels
+            // the previous pending dispatch so only the final stable state fires.
+            if (debounceRef.current !== null) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+              debounceRef.current = null;
+              dispatch({ type: "FIRED", isIntersecting: entry.isIntersecting });
+            }, 50);
           },
           {
             root: null, // viewport
@@ -90,13 +125,16 @@ export function usePageHeaderScroll(): UsePageHeaderScrollReturn {
       });
     });
 
-    // Cleanup: cancel RAFs, disconnect observer, and reset state on unmount/ref change
+    // Cleanup: cancel RAFs, cancel pending debounce, disconnect observer, reset state
     return () => {
       cancelAnimationFrame(rafId1);
       if (rafId2) cancelAnimationFrame(rafId2);
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
       observer?.disconnect();
-      // Reset hasObserverFired so new PageHeader doesn't inherit old state
-      setHasObserverFired(false);
+      dispatch({ type: "RESET" });
     };
   }, [context, pageHeaderRef]);
 
