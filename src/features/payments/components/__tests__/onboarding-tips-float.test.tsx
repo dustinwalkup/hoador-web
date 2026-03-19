@@ -27,7 +27,6 @@ vi.mock("react-dom", async () => {
   return { ...actual, createPortal: (node: ReactNode) => node };
 });
 
-
 const TIPS: OnboardingTip[] = [
   { label: 'Select "Individual"', detail: "" },
   { label: "Use hoador.com", detail: "for website" },
@@ -66,7 +65,9 @@ describe("TipsList", () => {
   });
 
   it("renders tip labels in bold", () => {
-    render(<TipsList tips={[{ label: "Bold label", detail: "some detail" }]} />);
+    render(
+      <TipsList tips={[{ label: "Bold label", detail: "some detail" }]} />,
+    );
     const bold = screen.getByText("Bold label");
     expect(bold.tagName).toBe("STRONG");
   });
@@ -83,22 +84,24 @@ describe("OnboardingTipsFloat", () => {
 
     it("renders the trigger when visible is true", () => {
       render(<OnboardingTipsFloat tips={TIPS} visible={true} />);
-      expect(
-        screen.getByText("Need help with this form?"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Need help with this form?")).toBeInTheDocument();
     });
   });
 
   describe("collapsed state (default)", () => {
     it("starts collapsed", () => {
       render(<OnboardingTipsFloat tips={TIPS} visible={true} />);
-      const content = document.querySelector("[data-slot='collapsible-content']");
+      const content = document.querySelector(
+        "[data-slot='collapsible-content']",
+      );
       expect(content).toHaveAttribute("data-state", "closed");
     });
 
     it("has collapsed data-state on the content when closed", () => {
       render(<OnboardingTipsFloat tips={TIPS} visible={true} />);
-      const content = document.querySelector("[data-slot='collapsible-content']");
+      const content = document.querySelector(
+        "[data-slot='collapsible-content']",
+      );
       expect(content).toHaveAttribute("data-state", "closed");
     });
   });
@@ -107,7 +110,9 @@ describe("OnboardingTipsFloat", () => {
     it("has open data-state on the content when trigger is clicked", () => {
       render(<OnboardingTipsFloat tips={TIPS} visible={true} />);
       fireEvent.click(screen.getByRole("button"));
-      const content = document.querySelector("[data-slot='collapsible-content']");
+      const content = document.querySelector(
+        "[data-slot='collapsible-content']",
+      );
       expect(content).toHaveAttribute("data-state", "open");
     });
 
@@ -131,7 +136,9 @@ describe("OnboardingTipsFloat", () => {
       const button = screen.getByRole("button");
       fireEvent.click(button); // open
       fireEvent.click(button); // close
-      const content = document.querySelector("[data-slot='collapsible-content']");
+      const content = document.querySelector(
+        "[data-slot='collapsible-content']",
+      );
       expect(content).toHaveAttribute("data-state", "closed");
     });
   });
