@@ -21,10 +21,10 @@ describe("QuickActionsBar", () => {
     expect(screen.getByRole("link", { name: /Messages/i })).toBeInTheDocument();
   });
 
-  it("should point List something to garage", () => {
+  it("should point List something to listings/rentals", () => {
     render(<QuickActionsBar />);
     const link = screen.getByRole("link", { name: /List something/i });
-    expect(link).toHaveAttribute("href", "/dashboard/garage");
+    expect(link).toHaveAttribute("href", "/dashboard/listings/rentals");
   });
 
   it("should point Browse listings to explore", () => {
@@ -49,7 +49,7 @@ describe("QuickActionsBar", () => {
     render(<QuickActionsBar />);
     expect(screen.getByRole("link", { name: /Rentals/i })).toHaveAttribute(
       "href",
-      "/dashboard/renting/requests",
+      "/dashboard/rentals/outgoing/requests",
     );
     expect(screen.getByRole("link", { name: /Profile/i })).toHaveAttribute(
       "href",

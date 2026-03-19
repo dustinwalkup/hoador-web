@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Info, Loader2 } from "lucide-react";
 import {
   ConnectAccountOnboarding,
@@ -17,12 +17,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  OnboardingTipsFloat,
+  TipsList,
+  type OnboardingTip,
+} from "./onboarding-tips-float";
 
 const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
 if (!STRIPE_PUBLISHABLE_KEY) {
   throw new Error("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set");
 }
+
+const ONBOARDING_TIPS: OnboardingTip[] = [
+  { label: 'Select "Individual"', detail: "" },
+  { label: "Use hoador.com", detail: "for website" },
+  { label: "Enter your legal name", detail: "(matches your ID)" },
+  { label: "SSN + DOB are required", detail: "(secure verification)" },
+  { label: "Use a bank account", detail: "in your name" },
+];
 
 interface ConnectOnboardingProps {
   onComplete?: () => void;
@@ -33,6 +46,8 @@ export function ConnectOnboarding({ onComplete }: ConnectOnboardingProps) {
   const [error, setError] = useState<string | null>(null);
   const [connectInstance, setConnectInstance] =
     useState<StripeConnectInstance | null>(null);
+  const [showFloat, setShowFloat] = useState(false);
+  const tipsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Initialize Stripe Connect
@@ -70,6 +85,17 @@ export function ConnectOnboarding({ onComplete }: ConnectOnboardingProps) {
 
     initializeConnect();
   }, []);
+
+  useEffect(() => {
+    const el = tipsRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowFloat(!entry.isIntersecting),
+      { threshold: 0.5 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [connectInstance]);
 
   const handleComplete = async () => {
     // Update user status in database
@@ -126,50 +152,35 @@ export function ConnectOnboarding({ onComplete }: ConnectOnboardingProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Stripe Connect Setup Required</CardTitle>
-        <CardDescription>
-          Set up your payment account to list items and receive payouts from
-          rentals. This process is secure and takes just a few minutes.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Alert className="bg-primary/10">
-          <Info className="size-4" />
-          <AlertTitle className="text-primary font-semibold">
-            Before you start
-          </AlertTitle>
-          <AlertDescription>
-            <ol className="list-inside list-decimal space-y-1.5 text-sm">
-              <li>
-                <strong>Select &quot;Individual&quot;</strong> — most users are
-                individuals.
-              </li>
-              <li>
-                <strong>Website:</strong> enter <strong>hoador.com</strong>.
-              </li>
-              <li>
-                <strong>Name:</strong> use your legal name (as on your ID).
-              </li>
-              <li>
-                <strong>Date of birth &amp; SSN:</strong> enter your real
-                details — Stripe uses them for identity verification.
-              </li>
-              <li>
-                <strong>Payouts:</strong> use a bank account in your name.
-              </li>
-            </ol>
-          </AlertDescription>
-        </Alert>
-        <p className="text-muted-foreground text-sm">
-          Stripe verifies this information; mismatches can delay or block
-          payouts.
-        </p>
-        <ConnectComponentsProvider connectInstance={connectInstance}>
-          <ConnectAccountOnboarding onExit={handleComplete} />
-        </ConnectComponentsProvider>
-      </CardContent>
-    </Card>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Set up payouts to start earning</CardTitle>
+          <CardDescription>
+            Secure Stripe setup. Takes ~2 minutes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div ref={tipsRef}>
+            <Alert className="bg-primary/10">
+              <Info className="size-4" />
+              <AlertTitle className="text-primary font-semibold">
+                Quick tips - keep these handy
+              </AlertTitle>
+              <AlertDescription className="mt-2">
+                <TipsList tips={ONBOARDING_TIPS} />
+              </AlertDescription>
+            </Alert>
+          </div>
+          <p className="text-muted-foreground text-sm">
+            Info must match your ID to avoid payout delays.
+          </p>
+          <ConnectComponentsProvider connectInstance={connectInstance}>
+            <ConnectAccountOnboarding onExit={handleComplete} />
+          </ConnectComponentsProvider>
+        </CardContent>
+      </Card>
+      <OnboardingTipsFloat tips={ONBOARDING_TIPS} visible={showFloat} />
+    </>
   );
 }

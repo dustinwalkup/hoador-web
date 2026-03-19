@@ -16,8 +16,8 @@ export function GarageClient() {
   return (
     <div className="container pb-6">
       <PageHeader
-        title="Garage"
-        description="Manage your listings and rentals in one place"
+        title="My Rentals"
+        description="Manage your rental listings in one place"
       >
         <Link href="/dashboard/listings/add">
           <Button size="sm" className="h-9">

@@ -231,7 +231,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   - Deposit released via cancel; lifecycle updated; no charge to renter.
 - [ ] Pass / [ ] Fail
 
-### UAT-P1-12: Deposit not released while dispute is open
+### \*\* UAT-P1-12: Deposit not released while dispute is open
 
 - **Phase:** 1 (and 3)
 - **Actor:** Owner, Renter, System
@@ -245,7 +245,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   - Payout cron skips deposit release and transfer while dispute is open.
 - [ ] Pass / [ ] Fail
 
-### UAT-P1-13: Deposit expiry — hold older than 6 days, cron sets expired
+### \*\* UAT-P1-13: Deposit expiry — hold older than 6 days, cron sets expired
 
 - **Phase:** 1
 - **Actor:** System, Ops
@@ -259,7 +259,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   - Status 'expired'; ops alerted; no user notification.
 - [ ] Pass / [ ] Fail
 
-### UAT-P1-14: Deposit expiry — hold not yet expired, no change
+### \*\* UAT-P1-14: Deposit expiry — hold not yet expired, no change
 
 - **Phase:** 1
 - **Actor:** System
@@ -272,7 +272,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   - No state change; no alert.
 - [ ] Pass / [ ] Fail
 
-### UAT-P1-15: Schedule-deposit-holds cron places hold when within 48h
+### \*\* UAT-P1-15: Schedule-deposit-holds cron places hold when within 48h
 
 - **Phase:** 1
 - **Actor:** System
@@ -315,7 +315,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   - Hold only; no capture unless dispute resolution requires it (Phase 3).
 - [x] Pass / [ ] Fail
 
-### UAT-P1-18: Zero deposit listing — cron skips deposit, proceeds to transfer when eligible
+### \*\*UAT-P1-18: Zero deposit listing — cron skips deposit, proceeds to transfer when eligible
 
 - **Phase:** 1
 - **Actor:** System
@@ -359,7 +359,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   - Transfer created; lifecycle updated; owner receives funds per fee rules.
 - [ ] Pass / [ ] Fail
 
-### UAT-P1-21: Payout cron does not run before 24h after return
+### \*\* UAT-P1-21: Payout cron does not run before 24h after return
 
 - **Phase:** 1
 - **Actor:** System

@@ -83,7 +83,7 @@ export function PendingRequestsWidget({
             size="sm"
             className="ml-auto text-xs font-medium text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30"
           >
-            <Link href="/dashboard/lending/incoming">
+            <Link href="/dashboard/rentals/incoming/requests">
               View All
               <ArrowRight className="ml-1 h-3 w-3" />
             </Link>

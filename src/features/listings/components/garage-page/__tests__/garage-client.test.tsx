@@ -79,8 +79,8 @@ describe("GarageClient", () => {
 
       expect(PageHeader).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Garage",
-          description: "Manage your listings and rentals in one place",
+          title: "My Rentals",
+          description: "Manage your rental listings in one place",
         }),
         undefined,
       );
@@ -92,7 +92,7 @@ describe("GarageClient", () => {
       render(<GarageClient />);
 
       expect(screen.getByTestId("page-header-title")).toHaveTextContent(
-        "Garage",
+        "My Rentals",
       );
     });
 
@@ -102,7 +102,7 @@ describe("GarageClient", () => {
       render(<GarageClient />);
 
       expect(screen.getByTestId("page-header-description")).toHaveTextContent(
-        "Manage your listings and rentals in one place",
+        "Manage your rental listings in one place",
       );
     });
 

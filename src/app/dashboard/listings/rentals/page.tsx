@@ -6,11 +6,11 @@ import { InitiateStripeOnboarding } from "@/features/payments/components/initiat
 import { PageHeader } from "@/components/page-header";
 
 export const metadata = {
-  title: "Garage",
+  title: "My Rentals",
   description: "Manage your tool listings and inventory",
 };
 
-export default async function GaragePage() {
+export default async function ListingsRentalsPage() {
   const user = await getCurrentUser();
   if (!user) {
     return <div>Loading...</div>;
@@ -25,8 +25,8 @@ export default async function GaragePage() {
         <>
           <div className="container pb-6">
             <PageHeader
-              title="Garage"
-              description="Manage your listings and rentals in one place"
+              title="My Rentals"
+              description="Manage your rental listings in one place"
             />
             <InitiateStripeOnboarding />{" "}
           </div>{" "}

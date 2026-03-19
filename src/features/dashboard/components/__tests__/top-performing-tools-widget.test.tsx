@@ -42,12 +42,12 @@ describe("TopPerformingToolsWidget", () => {
     expect(drillLink).toHaveAttribute("href", "/dashboard/listings/listing-1");
   });
 
-  it("should link View Garage to /dashboard/garage", () => {
+  it("should link View Garage to /dashboard/listings/rentals", () => {
     const listings = [
       { listingId: "l1", name: "Drill", metricText: "1 rental" },
     ];
     render(<TopPerformingToolsWidget listings={listings} />);
     const viewGarage = screen.getByRole("link", { name: /View Garage/i });
-    expect(viewGarage).toHaveAttribute("href", "/dashboard/garage");
+    expect(viewGarage).toHaveAttribute("href", "/dashboard/listings/rentals");
   });
 });

@@ -141,7 +141,7 @@ describe("useListingFormSubmit", () => {
         "Listing and images uploaded successfully!",
       );
       expect(mockOnSuccess).toHaveBeenCalled();
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/garage");
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/listings/rentals");
     });
 
     it("should handle missing listingId from create response", async () => {
@@ -183,7 +183,7 @@ describe("useListingFormSubmit", () => {
         "Images failed to upload. Redirecting to edit your listing...",
       );
       expect(mockPush).toHaveBeenCalledWith(
-        "/dashboard/garage/edit/new-listing-123",
+        "/dashboard/listings/new-listing-123/edit",
       );
     });
   });
@@ -244,7 +244,7 @@ describe("useListingFormSubmit", () => {
         data: expect.objectContaining({ name: formData.name }),
       });
       expect(mockDeleteImage).toHaveBeenCalledWith("img-1", { silent: true });
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/garage");
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/listings/rentals");
     });
 
     it("should allow edit with only existing images (no new uploads)", async () => {
@@ -266,7 +266,7 @@ describe("useListingFormSubmit", () => {
 
       expect(mockUpdateMutateAsync).toHaveBeenCalled();
       // No new images to upload, so fetch should not be called for upload
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/garage");
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/listings/rentals");
     });
   });
 

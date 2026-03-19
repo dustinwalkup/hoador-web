@@ -4,28 +4,22 @@ import type { RentalType } from "@/features/rentals/lib/types";
  * Rental route configuration
  *
  * Available URLs:
- * - /dashboard/renting/requests
- * - /dashboard/renting/active
- * - /dashboard/renting/completed
- * - /dashboard/renting/denied
- * - /dashboard/lending/incoming
- * - /dashboard/lending/active
- * - /dashboard/lending/completed
- * - /dashboard/lending/denied
+ * - /dashboard/rentals/outgoing/requests, approved, active, completed, denied
+ * - /dashboard/rentals/incoming/requests, approved, active, completed, denied
  */
 
 export const RENTAL_ROUTES = {
   RENTING: {
-    REQUESTS: "/dashboard/renting/requests",
-    ACTIVE: "/dashboard/renting/active",
-    COMPLETED: "/dashboard/renting/completed",
-    DENIED: "/dashboard/renting/denied",
+    REQUESTS: "/dashboard/rentals/outgoing/requests",
+    ACTIVE: "/dashboard/rentals/outgoing/active",
+    COMPLETED: "/dashboard/rentals/outgoing/completed",
+    DENIED: "/dashboard/rentals/outgoing/denied",
   },
   LENDING: {
-    INCOMING: "/dashboard/lending/incoming",
-    ACTIVE: "/dashboard/lending/active",
-    COMPLETED: "/dashboard/lending/completed",
-    DENIED: "/dashboard/lending/denied",
+    INCOMING: "/dashboard/rentals/incoming/requests",
+    ACTIVE: "/dashboard/rentals/incoming/active",
+    COMPLETED: "/dashboard/rentals/incoming/completed",
+    DENIED: "/dashboard/rentals/incoming/denied",
   },
 } as const;
 
@@ -35,10 +29,28 @@ export const DEFAULT_RENTAL_ROUTES = {
 } as const;
 
 /**
+ * Maps internal type + status to URL direction + status.
+ * Lending "incoming" -> URL "requests"
+ */
+function toUrlDirectionAndStatus(
+  type: RentalType,
+  status: string,
+): { direction: "incoming" | "outgoing"; status: string } {
+  const direction = type === "lending" ? "incoming" : "outgoing";
+  const urlStatus =
+    type === "lending" && status === "incoming" ? "requests" : status;
+  return { direction, status: urlStatus };
+}
+
+/**
  * Helper function to build rental route URLs
  */
 export function buildRentalRoute(type: RentalType, status: string): string {
-  return `/dashboard/${type}/${status}`;
+  const { direction, status: urlStatus } = toUrlDirectionAndStatus(
+    type,
+    status,
+  );
+  return `/dashboard/rentals/${direction}/${urlStatus}`;
 }
 
 /**
@@ -49,17 +61,17 @@ export function getDefaultRentalRoute(type: RentalType): string {
 }
 
 /**
- * Helper function to validate rental route parameters
+ * Helper function to validate rental route parameters (direction + status)
  */
-export function isValidRentalRoute(type: string, status: string): boolean {
-  const validTypes = ["renting", "lending"];
-  const validStatuses = {
-    renting: ["requests", "active", "completed", "denied"],
-    lending: ["incoming", "active", "completed", "denied"],
-  };
+export function isValidRentalRoute(direction: string, status: string): boolean {
+  const validDirections = ["incoming", "outgoing"];
+  const validStatuses = [
+    "requests",
+    "approved",
+    "active",
+    "completed",
+    "denied",
+  ];
 
-  return (
-    validTypes.includes(type) &&
-    validStatuses[type as keyof typeof validStatuses]?.includes(status)
-  );
+  return validDirections.includes(direction) && validStatuses.includes(status);
 }

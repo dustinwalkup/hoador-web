@@ -44,14 +44,26 @@ export function RentalsClient({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Derive active type and status from URL pathname (supports browser back/forward)
+  // URL: /dashboard/rentals/incoming/requests or /dashboard/rentals/outgoing/requests
   const { activeType, activeStatus } = useMemo(() => {
-    const pathParts = pathname.split("/");
-    if (pathParts.length >= 4) {
-      const type = pathParts[2] as "renting" | "lending";
-      const status = pathParts[3];
-      return { activeType: type, activeStatus: status };
+    const pathParts = pathname.split("/").filter(Boolean);
+    const rentalsIndex = pathParts.indexOf("rentals");
+    if (rentalsIndex !== -1 && pathParts.length >= rentalsIndex + 3) {
+      const direction = pathParts[rentalsIndex + 1];
+      const urlStatus = pathParts[rentalsIndex + 2];
+      if (direction === "incoming") {
+        return {
+          activeType: "lending" as const,
+          activeStatus: urlStatus === "requests" ? "incoming" : urlStatus,
+        };
+      }
+      if (direction === "outgoing") {
+        return {
+          activeType: "renting" as const,
+          activeStatus: urlStatus,
+        };
+      }
     }
-    // Fallback to initial props
     return { activeType: initialType, activeStatus: initialStatus };
   }, [pathname, initialType, initialStatus]);
 
@@ -107,9 +119,9 @@ export function RentalsClient({
         scrollContainerRef.current.scrollLeft.toString(),
       );
     }
-    // Set appropriate default status for the type
-    const defaultStatus = newType === "renting" ? "requests" : "incoming";
-    router.push(`/dashboard/${newType}/${defaultStatus}`);
+    const direction = newType === "renting" ? "outgoing" : "incoming";
+    const defaultStatus = newType === "renting" ? "requests" : "requests";
+    router.push(`/dashboard/rentals/${direction}/${defaultStatus}`);
   };
 
   const handleStatusChange = (newStatus: string) => {
@@ -120,7 +132,12 @@ export function RentalsClient({
         scrollContainerRef.current.scrollLeft.toString(),
       );
     }
-    router.push(`/dashboard/${activeType}/${newStatus}`);
+    const direction = activeType === "renting" ? "outgoing" : "incoming";
+    const urlStatus =
+      activeType === "lending" && newStatus === "incoming"
+        ? "requests"
+        : newStatus;
+    router.push(`/dashboard/rentals/${direction}/${urlStatus}`);
   };
 
   // Restore scroll position after mount and navigation
@@ -254,17 +271,6 @@ export function RentalsClient({
         {/* Type Toggle (Renting/Lending) */}
         <div className="bg-muted inline-flex items-center rounded-lg p-1">
           <button
-            onClick={() => handleTypeChange("renting")}
-            className={cn(
-              "rounded-md px-4 py-2 text-sm font-medium transition-all",
-              activeType === "renting"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Renter
-          </button>
-          <button
             onClick={() => handleTypeChange("lending")}
             className={cn(
               "rounded-md px-4 py-2 text-sm font-medium transition-all",
@@ -274,6 +280,17 @@ export function RentalsClient({
             )}
           >
             Owner
+          </button>
+          <button
+            onClick={() => handleTypeChange("renting")}
+            className={cn(
+              "rounded-md px-4 py-2 text-sm font-medium transition-all",
+              activeType === "renting"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Renter
           </button>
         </div>
 

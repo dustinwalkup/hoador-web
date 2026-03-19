@@ -74,7 +74,7 @@ export function TopPerformingToolsWidget({
           size="sm"
           className="text-xs font-medium text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/20"
         >
-          <Link href="/dashboard/garage">
+          <Link href="/dashboard/listings/rentals">
             View Garage
             <ArrowRight className="ml-1 h-3 w-3" />
           </Link>

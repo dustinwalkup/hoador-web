@@ -244,7 +244,7 @@ export default async function RentalConfirmationPage({
         </Card>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Link href="/dashboard/garage">
+          <Link href="/dashboard/listings/rentals">
             <Button variant="outline" className="w-full bg-transparent">
               <Calendar className="mr-2 h-4 w-4" />
               My Rentals

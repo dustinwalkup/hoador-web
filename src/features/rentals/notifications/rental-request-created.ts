@@ -90,7 +90,7 @@ export async function sendRentalRequestCreatedNotification({
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${baseUrl}/dashboard/lending/incoming" 
+              <a href="${baseUrl}/dashboard/rentals/incoming/requests" 
                  style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
                 Review Request
               </a>
@@ -123,7 +123,7 @@ Next Steps:
 2. Check ${renterName}'s profile and ratings
 3. Approve or decline the request
 
-Review Request: ${baseUrl}/dashboard/lending/incoming
+Review Request: ${baseUrl}/dashboard/rentals/incoming/requests
 
 Please respond to this request as soon as possible to help ${renterName} plan their rental.
 

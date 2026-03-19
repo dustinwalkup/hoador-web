@@ -230,7 +230,9 @@ describe("index.ts", () => {
     it("returns path for valid relative paths", () => {
       expect(getSafeCallbackUrl("/dashboard")).toBe("/dashboard");
       expect(getSafeCallbackUrl("/join-code")).toBe("/join-code");
-      expect(getSafeCallbackUrl("/dashboard/garage")).toBe("/dashboard/garage");
+      expect(getSafeCallbackUrl("/dashboard/listings/rentals")).toBe(
+        "/dashboard/listings/rentals",
+      );
     });
 
     it("returns path for relative path with safe query string", () => {

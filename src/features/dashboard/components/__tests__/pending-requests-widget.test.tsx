@@ -57,7 +57,10 @@ describe("PendingRequestsWidget", () => {
     render(<PendingRequestsWidget items={items} totalCount={10} />);
 
     const viewAll = screen.getByRole("link", { name: /View All/i });
-    expect(viewAll).toHaveAttribute("href", "/dashboard/lending/incoming");
+    expect(viewAll).toHaveAttribute(
+      "href",
+      "/dashboard/rentals/incoming/requests",
+    );
   });
 
   it("should not show View All when totalCount equals items length", () => {
