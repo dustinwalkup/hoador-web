@@ -605,7 +605,10 @@ describe("RentalDAL", () => {
       // Build the chain for the first query (rental requests with left joins)
       const mockLimit1 = vi.fn().mockResolvedValue([mockRentalRequestData]);
       const mockWhere1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
-      const mockLeftJoin2 = vi.fn().mockReturnValue({ where: mockWhere1 });
+      const mockLeftJoin3 = vi.fn().mockReturnValue({ where: mockWhere1 });
+      const mockLeftJoin2 = vi
+        .fn()
+        .mockReturnValue({ leftJoin: mockLeftJoin3 });
       const mockLeftJoin1 = vi
         .fn()
         .mockReturnValue({ leftJoin: mockLeftJoin2 });
@@ -688,13 +691,16 @@ describe("RentalDAL", () => {
       // Arrange
       const rentalId = "non-existent-rental";
 
-      // Mock select().from().leftJoin().leftJoin().where().limit() chain returning empty for rentalRequests query
+      // Mock select().from().leftJoin().leftJoin().leftJoin().where().limit() chain returning empty for rentalRequests query
       const mockLimit1 = vi.fn().mockResolvedValue([]);
       const mockWhere1 = vi.fn().mockReturnValue({
         limit: mockLimit1,
       });
-      const mockLeftJoin2_1 = vi.fn().mockReturnValue({
+      const mockLeftJoin3_1 = vi.fn().mockReturnValue({
         where: mockWhere1,
+      });
+      const mockLeftJoin2_1 = vi.fn().mockReturnValue({
+        leftJoin: mockLeftJoin3_1,
       });
       const mockLeftJoin1_1 = vi.fn().mockReturnValue({
         leftJoin: mockLeftJoin2_1,
@@ -703,7 +709,7 @@ describe("RentalDAL", () => {
         leftJoin: mockLeftJoin1_1,
       });
 
-      // Mock select().from().leftJoin().where().limit() chain returning empty for rentals query
+      // Mock select().from().leftJoin().leftJoin().where().limit() chain returning empty for rentals query
       // This is the fallback query when rentalRequests query returns empty
       const mockLimit2 = vi.fn().mockResolvedValue([]);
       const mockWhere2 = vi.fn().mockReturnValue({
@@ -712,8 +718,11 @@ describe("RentalDAL", () => {
       const mockLeftJoin2_2 = vi.fn().mockReturnValue({
         where: mockWhere2,
       });
-      const mockFrom2 = vi.fn().mockReturnValue({
+      const mockLeftJoin1_2 = vi.fn().mockReturnValue({
         leftJoin: mockLeftJoin2_2,
+      });
+      const mockFrom2 = vi.fn().mockReturnValue({
+        leftJoin: mockLeftJoin1_2,
       });
 
       // Mock select to handle multiple calls
@@ -775,8 +784,11 @@ describe("RentalDAL", () => {
       ];
       const mockLimit1 = vi.fn().mockResolvedValue([]);
       const mockWhere1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
-      const mockLeftJoin2_first = vi.fn().mockReturnValue({
+      const mockLeftJoin3_first = vi.fn().mockReturnValue({
         where: mockWhere1,
+      });
+      const mockLeftJoin2_first = vi.fn().mockReturnValue({
+        leftJoin: mockLeftJoin3_first,
       });
       const mockLeftJoin1_first = vi.fn().mockReturnValue({
         leftJoin: mockLeftJoin2_first,
@@ -789,8 +801,11 @@ describe("RentalDAL", () => {
       const mockLeftJoin2_second = vi.fn().mockReturnValue({
         where: mockWhere2,
       });
-      const mockFrom2 = vi.fn().mockReturnValue({
+      const mockLeftJoin1_second = vi.fn().mockReturnValue({
         leftJoin: mockLeftJoin2_second,
+      });
+      const mockFrom2 = vi.fn().mockReturnValue({
+        leftJoin: mockLeftJoin1_second,
       });
       const mockLimit3 = vi.fn().mockResolvedValue(requestRow);
       const mockWhere3 = vi.fn().mockReturnValue({ limit: mockLimit3 });
@@ -858,7 +873,10 @@ describe("RentalDAL", () => {
       };
       const mockLimit1 = vi.fn().mockResolvedValue([mockRentalRequestData]);
       const mockWhere1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
-      const mockLeftJoin2 = vi.fn().mockReturnValue({ where: mockWhere1 });
+      const mockLeftJoin3 = vi.fn().mockReturnValue({ where: mockWhere1 });
+      const mockLeftJoin2 = vi
+        .fn()
+        .mockReturnValue({ leftJoin: mockLeftJoin3 });
       const mockLeftJoin1 = vi
         .fn()
         .mockReturnValue({ leftJoin: mockLeftJoin2 });
@@ -947,7 +965,10 @@ describe("RentalDAL", () => {
       };
       const mockLimit1 = vi.fn().mockResolvedValue([mockRentalRequestData]);
       const mockWhere1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
-      const mockLeftJoin2 = vi.fn().mockReturnValue({ where: mockWhere1 });
+      const mockLeftJoin3 = vi.fn().mockReturnValue({ where: mockWhere1 });
+      const mockLeftJoin2 = vi
+        .fn()
+        .mockReturnValue({ leftJoin: mockLeftJoin3 });
       const mockLeftJoin1 = vi
         .fn()
         .mockReturnValue({ leftJoin: mockLeftJoin2 });

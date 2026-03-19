@@ -13,6 +13,7 @@ export async function sendPaymentSucceededNotificationToRenter({
   rentalId,
   totalAmount,
   securityDeposit,
+  depositHoldStatus,
 }: {
   userId: string;
   to: string;
@@ -22,6 +23,7 @@ export async function sendPaymentSucceededNotificationToRenter({
   rentalId: string;
   totalAmount: string;
   securityDeposit: string;
+  depositHoldStatus?: string;
 }) {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
@@ -75,12 +77,23 @@ export async function sendPaymentSucceededNotificationToRenter({
               </ul>
             </div>
             
-            <div style="background-color: #e0f2fe; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            ${
+              depositHoldStatus === "failed"
+                ? `<div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <h3 style="color: #92400e; margin-top: 0;">Security Deposit Hold Failed</h3>
+              <p style="margin: 0; color: #78350f;">
+                We were unable to place the security deposit hold of $${securityDeposit} on your payment method. Please <a href="${baseUrl}/dashboard/profile/payments" style="color: #92400e; font-weight: 600;">update your payment method</a> so the deposit can be retried. The rental is proceeding, but deposit protection is not yet active.
+              </p>
+            </div>`
+                : depositHoldStatus === "not_applicable"
+                  ? ""
+                  : `<div style="background-color: #e0f2fe; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0; border-radius: 4px;">
               <h3 style="color: #1e40af; margin-top: 0;">About Your Security Deposit</h3>
               <p style="margin: 0; color: #1e3a8a;">
                 The security deposit of $${securityDeposit} has been authorized on your payment method. It will only be charged if there is damage to the item. Otherwise, it will be released when the rental is completed.
               </p>
-            </div>
+            </div>`
+            }
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${baseUrl}/dashboard/rental/${rentalId}?view=renting" 
@@ -110,8 +123,15 @@ Payment Summary:
 - Rental Amount: $${totalAmount}
 - Security Deposit: $${securityDeposit}
 
-About Your Security Deposit:
-The security deposit of $${securityDeposit} has been authorized on your payment method. It will only be charged if there is damage to the item. Otherwise, it will be released when the rental is completed.
+${
+  depositHoldStatus === "failed"
+    ? `Security Deposit Hold Failed:
+We were unable to place the security deposit hold of $${securityDeposit} on your payment method. Please update your payment method at ${baseUrl}/dashboard/profile/payments so the deposit can be retried. The rental is proceeding, but deposit protection is not yet active.`
+    : depositHoldStatus === "not_applicable"
+      ? ""
+      : `About Your Security Deposit:
+The security deposit of $${securityDeposit} has been authorized on your payment method. It will only be charged if there is damage to the item. Otherwise, it will be released when the rental is completed.`
+}
 
 View Rental Details: ${baseUrl}/dashboard/rental/${rentalId}?view=renting
 

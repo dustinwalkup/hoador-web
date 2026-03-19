@@ -158,7 +158,7 @@ export async function sendPaymentFailureNotificationToOwner({
 }) {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
-  const linkUrl = `${baseUrl}/dashboard/lending/incoming`;
+  const linkUrl = `${baseUrl}/dashboard/rentals/incoming/requests`;
 
   return await sendNotification({
     userId,
@@ -222,7 +222,7 @@ export async function sendPaymentFailureNotificationToOwner({
             </ul>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${baseUrl}/dashboard/lending/incoming" 
+              <a href="${baseUrl}/dashboard/rentals/incoming/requests" 
                  style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
                 View Pending Requests
               </a>
@@ -257,7 +257,7 @@ What happens next:
 - Once ${renterName} updates their payment method, they will contact you
 - You can then retry the approval to process the payment
 
-View Pending Requests: ${baseUrl}/dashboard/lending/incoming
+View Pending Requests: ${baseUrl}/dashboard/rentals/incoming/requests
 
 No action is required from you at this time. We'll keep you updated when ${renterName} is ready to proceed.
 

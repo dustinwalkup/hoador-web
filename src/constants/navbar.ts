@@ -1,6 +1,6 @@
 import type { FunctionComponent, SVGProps } from "react";
 import {
-  WarehouseIcon,
+  TagIcon,
   // HeartIcon,
   UserIcon,
   MailIcon,
@@ -11,7 +11,7 @@ import {
   HelpCircleIcon,
   SearchIcon,
   SettingsIcon,
-  CalendarIcon,
+  ActivityIcon,
   DollarSign,
 } from "lucide-react";
 import DoorIcon from "@/components/ui/door-icon";
@@ -39,32 +39,51 @@ export const MAIN_NAV: MainNavItem[] = [
   // TODO: Add Favorites
   // { title: "Favorites", url: "/dashboard/favorites", icon: HeartIcon },
   {
-    title: "Rentals",
-    icon: CalendarIcon,
+    title: "Activity",
+    icon: ActivityIcon,
     items: [
       {
-        label: "Renter",
+        label: "RENTALS",
         items: [
-          { title: "Requests", url: "/dashboard/renting/requests" },
-          { title: "Approved", url: "/dashboard/renting/approved" },
-          { title: "Active", url: "/dashboard/renting/active" },
-          { title: "Completed", url: "/dashboard/renting/completed" },
-          { title: "Denied", url: "/dashboard/renting/denied" },
+          {
+            title: "Incoming requests",
+            url: "/dashboard/rentals/incoming/requests",
+          },
+          {
+            title: "Outgoing requests",
+            url: "/dashboard/rentals/outgoing/requests",
+          },
         ],
       },
       {
-        label: "Owner",
+        label: "SERVICES",
         items: [
-          { title: "Incoming", url: "/dashboard/lending/incoming" },
-          { title: "Approved", url: "/dashboard/lending/approved" },
-          { title: "Active", url: "/dashboard/lending/active" },
-          { title: "Completed", url: "/dashboard/lending/completed" },
-          { title: "Denied", url: "/dashboard/lending/denied" },
+          {
+            title: "Incoming requests",
+            url: "/dashboard/services/incoming",
+          },
+          {
+            title: "Outgoing requests",
+            url: "/dashboard/services/outgoing",
+          },
         ],
       },
     ],
   },
-  { title: "Garage", url: "/dashboard/garage", icon: WarehouseIcon },
+  {
+    title: "Listings",
+    icon: TagIcon,
+    items: [
+      {
+        label: "RENTALS",
+        items: [{ title: "My rentals", url: "/dashboard/listings/rentals" }],
+      },
+      {
+        label: "SERVICES",
+        items: [{ title: "My services", url: "/dashboard/listings/services" }],
+      },
+    ],
+  },
   { title: "Mailbox", url: "/dashboard/mailbox", icon: MailIcon },
   { title: "Payments", url: "/dashboard/payments", icon: DollarSign },
   { title: "Profile", url: "/dashboard/profile", icon: UserIcon },

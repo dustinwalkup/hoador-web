@@ -81,7 +81,7 @@ async function postHandler(
 
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
-    const garageUrl = `${baseUrl}/dashboard/garage`;
+    const garageUrl = `${baseUrl}/dashboard/listings/rentals`;
 
     const ownerName = ownerUser.firstName || "there";
 

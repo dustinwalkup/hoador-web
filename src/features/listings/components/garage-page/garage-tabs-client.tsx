@@ -35,7 +35,9 @@ export function GarageTabsClient({ currentTab }: GarageTabsClientProps) {
       params.delete("rentalStatus");
     }
 
-    router.replace(`/dashboard/garage?${params.toString()}`, { scroll: false });
+    router.replace(`/dashboard/listings/rentals?${params.toString()}`, {
+      scroll: false,
+    });
   };
 
   return (

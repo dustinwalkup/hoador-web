@@ -12,15 +12,16 @@ export const metadata = {
 
 interface RentalsPageProps {
   params: Promise<{
-    type: "renting" | "lending";
-    status: "requests" | "active" | "completed" | "denied" | "incoming";
+    direction: "incoming" | "outgoing";
+    status: "requests" | "approved" | "active" | "completed" | "denied";
   }>;
 }
 
-// Valid routes configuration
-const validRoutes: Record<string, string[]> = {
-  renting: ["requests", "approved", "active", "completed", "denied"],
-  lending: ["incoming", "approved", "active", "completed", "denied"],
+// Valid routes: incoming = lending (owner), outgoing = renting (renter)
+// For incoming (lending): status "requests" maps to internal "incoming"
+const validStatusByDirection: Record<string, string[]> = {
+  incoming: ["requests", "approved", "active", "completed", "denied"],
+  outgoing: ["requests", "approved", "active", "completed", "denied"],
 };
 
 function RentalsPageSkeleton() {
@@ -51,13 +52,37 @@ function RentalsPageSkeleton() {
   );
 }
 
+/** Map URL direction+status to internal type and status for RentalsClient */
+function mapToInternalType(
+  direction: string,
+  status: string,
+): { type: "renting" | "lending"; status: string } {
+  if (direction === "incoming") {
+    // Lending = owner view; "requests" in URL = "incoming" internally
+    return {
+      type: "lending",
+      status: status === "requests" ? "incoming" : status,
+    };
+  }
+  // Outgoing = renting = renter view
+  return { type: "renting", status };
+}
+
 export default async function RentalsStatusPage({ params }: RentalsPageProps) {
-  const { type, status } = await params;
+  const { direction, status } = await params;
 
   // Validate route parameters
-  if (!validRoutes[type] || !validRoutes[type].includes(status)) {
+  if (
+    !validStatusByDirection[direction] ||
+    !validStatusByDirection[direction].includes(status)
+  ) {
     notFound();
   }
+
+  const { type: initialType, status: initialStatus } = mapToInternalType(
+    direction,
+    status,
+  );
 
   // Fetch the review policy document
   let reviewPolicyUrl: string | undefined;
@@ -77,8 +102,8 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
     <div className="space-y-6">
       <Suspense fallback={<RentalsPageSkeleton />}>
         <RentalsClient
-          initialType={type as "renting" | "lending"}
-          initialStatus={status}
+          initialType={initialType}
+          initialStatus={initialStatus}
           reviewPolicyUrl={reviewPolicyUrl}
         />
       </Suspense>

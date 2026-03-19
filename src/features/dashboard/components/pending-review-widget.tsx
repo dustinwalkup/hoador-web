@@ -55,7 +55,7 @@ function PendingReviewWidgetContent({ count }: { count: number }) {
           size="sm"
           className="ml-auto text-xs font-medium text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30"
         >
-          <Link href="/dashboard/garage?tab=pending_review">
+          <Link href="/dashboard/listings/rentals?tab=pending_review">
             View Listings
             <ArrowRight className="ml-1 h-3 w-3" />
           </Link>

@@ -17,30 +17,32 @@ interface RentalHeaderConfig {
 
 /**
  * Get the appropriate header title and description based on the rental route
- * @param pathname - The current pathname (e.g., /dashboard/renting/requests)
+ * @param pathname - The current pathname (e.g., /dashboard/rentals/incoming/requests)
  * @returns Object with title and description for the page header
  */
 export function getRentalHeaderConfig(pathname: string): RentalHeaderConfig {
-  // Extract type and status from pathname
-  // Examples: /dashboard/renting/requests, /dashboard/lending/incoming
+  // Extract direction and status from pathname
+  // Examples: /dashboard/rentals/incoming/requests, /dashboard/rentals/outgoing/requests
   const pathParts = pathname.split("/").filter(Boolean);
-  const typeIndex =
-    pathParts.indexOf("renting") !== -1
-      ? pathParts.indexOf("renting")
-      : pathParts.indexOf("lending");
+  const rentalsIndex = pathParts.indexOf("rentals");
 
-  if (typeIndex === -1) {
-    // Fallback to default
+  if (rentalsIndex === -1 || pathParts.length < rentalsIndex + 3) {
     return {
       title: "Rentals",
       description: "Manage your rentals",
     };
   }
 
-  const type = pathParts[typeIndex]; // "renting" or "lending"
-  const status = pathParts[typeIndex + 1]; // "requests", "incoming", "approved", etc.
+  const direction = pathParts[rentalsIndex + 1]; // "incoming" or "outgoing"
+  const urlStatus = pathParts[rentalsIndex + 2]; // "requests", "approved", etc.
+  // Map URL status to internal: incoming + "requests" -> "incoming"
+  const status =
+    direction === "incoming" && urlStatus === "requests"
+      ? "incoming"
+      : urlStatus;
 
-  // Map to appropriate header content
+  // Map to appropriate header content (incoming=owner/lending, outgoing=renter/renting)
+  const typeKey = direction === "incoming" ? "lending" : "renting";
   const configs: Record<string, Record<string, RentalHeaderConfig>> = {
     renting: {
       requests: {
@@ -89,8 +91,8 @@ export function getRentalHeaderConfig(pathname: string): RentalHeaderConfig {
   };
 
   return (
-    configs[type]?.[status] || {
-      title: type === "renting" ? "Renting" : "Lending",
+    configs[typeKey]?.[status] || {
+      title: direction === "outgoing" ? "Renter" : "Owner",
       description: "Manage your rentals",
     }
   );

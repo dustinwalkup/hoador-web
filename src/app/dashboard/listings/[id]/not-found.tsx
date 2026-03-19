@@ -21,7 +21,7 @@ export default function ToolNotFound() {
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
             <Button asChild variant="outline">
-              <Link href="/dashboard/garage">
+              <Link href="/dashboard/listings/rentals">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Garage
               </Link>

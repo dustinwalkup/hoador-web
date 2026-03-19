@@ -117,6 +117,7 @@ async function postHandler(
       success: true,
       paymentIntentId: data.paymentIntentId,
       securityDepositAuthId: data.securityDepositAuthId,
+      depositHoldStatus: data.depositHoldStatus,
     });
   } catch (error) {
     return handleApiError(error);

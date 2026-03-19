@@ -124,7 +124,7 @@ export function useListingFormSubmit({
             toast.success("Listing updated successfully!");
           }
 
-          router.push("/dashboard/garage");
+          router.push("/dashboard/listings/rentals");
         } else {
           // Create new listing
           const result = await createMutation.mutateAsync(listingData);
@@ -141,17 +141,17 @@ export function useListingFormSubmit({
             toast.error(
               "Images failed to upload. Redirecting to edit your listing...",
             );
-            router.push(`/dashboard/garage/edit/${newListingId}`);
+            router.push(`/dashboard/listings/${newListingId}/edit`);
           } else if (uploadResult.failed > 0) {
             toast.warning(
               `${uploadResult.succeeded} of ${uploadResult.total} images uploaded. You can add more from the edit page.`,
             );
             onSuccess?.();
-            router.push("/dashboard/garage");
+            router.push("/dashboard/listings/rentals");
           } else {
             toast.success("Listing and images uploaded successfully!");
             onSuccess?.();
-            router.push("/dashboard/garage");
+            router.push("/dashboard/listings/rentals");
           }
         }
       } catch (error) {

@@ -46,10 +46,9 @@ export function InitiateStripeOnboarding({
       <Card className="border-primary/50 bg-primary/5">
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <CardHeader className="w-full flex-1">
-            <CardTitle>Stripe Connect Setup Required</CardTitle>
+            <CardTitle>Set up payouts to start earning</CardTitle>
             <CardDescription>
-              Complete your payment setup to access earnings, payouts, and
-              financial documents. This secure process takes just a few minutes.
+              Secure Stripe setup. Takes ~2 minutes.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-end">
@@ -58,7 +57,7 @@ export function InitiateStripeOnboarding({
               size="lg"
               className="w-full"
             >
-              Complete Payment Setup
+              Continue to Stripe
             </Button>
           </CardContent>
         </div>

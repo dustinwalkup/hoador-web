@@ -268,9 +268,12 @@ describe("GarageTabsClient", () => {
       // Simulate tab change to "active"
       handleTabChange("active");
 
-      expect(mockRouter.replace).toHaveBeenCalledWith("/dashboard/garage?", {
-        scroll: false,
-      });
+      expect(mockRouter.replace).toHaveBeenCalledWith(
+        "/dashboard/listings/rentals?",
+        {
+          scroll: false,
+        },
+      );
     });
 
     it("should handle tab change to inactive (adds tab parameter)", () => {
@@ -289,7 +292,7 @@ describe("GarageTabsClient", () => {
       handleTabChange("inactive");
 
       expect(mockRouter.replace).toHaveBeenCalledWith(
-        "/dashboard/garage?tab=inactive",
+        "/dashboard/listings/rentals?tab=inactive",
         { scroll: false },
       );
     });
@@ -317,7 +320,7 @@ describe("GarageTabsClient", () => {
       handleTabChange("inactive");
 
       expect(mockRouter.replace).toHaveBeenCalledWith(
-        "/dashboard/garage?tab=inactive",
+        "/dashboard/listings/rentals?tab=inactive",
         { scroll: false },
       );
     });
@@ -350,7 +353,7 @@ describe("GarageTabsClient", () => {
       handleTabChange("inactive");
 
       expect(mockRouter.replace).toHaveBeenCalledWith(
-        "/dashboard/garage?q=drill&category=power-tools&tab=inactive",
+        "/dashboard/listings/rentals?q=drill&category=power-tools&tab=inactive",
         { scroll: false },
       );
     });
@@ -372,7 +375,7 @@ describe("GarageTabsClient", () => {
       handleTabChange("active");
 
       expect(mockRouter.replace).toHaveBeenCalledWith(
-        "/dashboard/garage?rentalStatus=available",
+        "/dashboard/listings/rentals?rentalStatus=available",
         { scroll: false },
       );
     });
@@ -398,7 +401,7 @@ describe("GarageTabsClient", () => {
       handleTabChange("pending_review");
 
       expect(mockRouter.replace).toHaveBeenCalledWith(
-        "/dashboard/garage?tab=pending_review",
+        "/dashboard/listings/rentals?tab=pending_review",
         { scroll: false },
       );
     });
@@ -476,7 +479,7 @@ describe("GarageTabsClient", () => {
       handleTabChange("inactive");
 
       expect(mockRouter.replace).toHaveBeenCalledWith(
-        "/dashboard/garage?q=hammer&sortBy=name&tab=inactive",
+        "/dashboard/listings/rentals?q=hammer&sortBy=name&tab=inactive",
         { scroll: false },
       );
     });

@@ -25,7 +25,7 @@ const mockRouter = {
   prefetch: vi.fn(),
 };
 
-const mockPathname = "/dashboard/garage";
+const mockPathname = "/dashboard/listings/rentals";
 
 let mockSearchParams: URLSearchParams;
 
@@ -456,7 +456,7 @@ describe("useGarageFilters", () => {
     });
 
     expect(mockRouter.replace).toHaveBeenCalledWith(
-      "/dashboard/garage?q=drill&category=power-tools&sortBy=newest&sortOrder=desc",
+      "/dashboard/listings/rentals?q=drill&category=power-tools&sortBy=newest&sortOrder=desc",
       { scroll: false },
     );
   });
@@ -476,7 +476,7 @@ describe("useGarageFilters", () => {
 
     // The URL may have a trailing ? when all params are removed
     expect(mockRouter.replace).toHaveBeenCalledWith(
-      expect.stringMatching(/^\/dashboard\/garage\??$/),
+      expect.stringMatching(/^\/dashboard\/listings\/rentals\??$/),
       { scroll: false },
     );
   });
@@ -492,7 +492,7 @@ describe("useGarageFilters", () => {
 
     // Should remove page parameter - URLSearchParams uses + for spaces
     expect(mockRouter.replace).toHaveBeenCalledWith(
-      "/dashboard/garage?q=new+search",
+      "/dashboard/listings/rentals?q=new+search",
       { scroll: false },
     );
   });

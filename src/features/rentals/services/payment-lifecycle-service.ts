@@ -1,5 +1,5 @@
 import { tryCatch } from "@walkup/walkup-utils";
-import { paymentLifecycleDAL } from "@/dal";
+import { paymentLifecycleDAL, rentalDAL } from "@/dal";
 import {
   releaseDepositHold,
   placeDepositHold,
@@ -316,53 +316,56 @@ export class PaymentLifecycleService {
 
         successCount++;
       } else {
+        const previousStatus = rental.lifecycle.depositHoldStatus;
         await paymentLifecycleDAL.updateDepositHoldStatus(
           rental.rentalId,
           "failed",
         );
 
-        // Notify renter and owner once about the failure
-        try {
-          const { sendNotification } =
-            await import("@/features/notifications/utils/send-notification");
-          sendNotification({
-            userId: rental.renterId,
-            type: "payment_failed",
-            title: "Security Deposit Hold Failed",
-            message:
-              "The security deposit hold could not be placed. Please verify or update your payment method.",
-            data: { rentalId: rental.rentalId },
-            linkUrl: "/dashboard/profile/payments",
-            category: "payments",
-          }).catch((err) =>
-            captureNonCriticalError(err, {
-              route: "cron/schedule-deposit-holds",
-              action: "notify_renter_deposit_failed",
-            }),
-          );
+        // Only notify on first failure (not on retries where status was already "failed")
+        if (previousStatus !== "failed") {
+          try {
+            const { sendNotification } =
+              await import("@/features/notifications/utils/send-notification");
 
-          // Also notify owner
-          if (rental.ownerId) {
             sendNotification({
-              userId: rental.ownerId,
+              userId: rental.renterId,
               type: "payment_failed",
-              title: "Deposit Hold Not Placed",
+              title: "Security Deposit Hold Failed",
               message:
-                "The security deposit hold could not be placed for an upcoming rental. The rental is proceeding without deposit protection.",
+                "The security deposit hold could not be placed. Please verify or update your payment method.",
               data: { rentalId: rental.rentalId },
+              linkUrl: "/dashboard/profile/payments",
               category: "payments",
             }).catch((err) =>
               captureNonCriticalError(err, {
                 route: "cron/schedule-deposit-holds",
-                action: "notify_owner_deposit_failed",
+                action: "notify_renter_deposit_failed",
               }),
             );
+
+            if (rental.ownerId) {
+              sendNotification({
+                userId: rental.ownerId,
+                type: "payment_failed",
+                title: "Deposit Hold Not Placed",
+                message:
+                  "The security deposit hold could not be placed for an upcoming rental. The rental is proceeding without deposit protection.",
+                data: { rentalId: rental.rentalId },
+                category: "payments",
+              }).catch((err) =>
+                captureNonCriticalError(err, {
+                  route: "cron/schedule-deposit-holds",
+                  action: "notify_owner_deposit_failed",
+                }),
+              );
+            }
+          } catch (notifyError) {
+            captureNonCriticalError(notifyError, {
+              route: "cron/schedule-deposit-holds",
+              action: "deposit_failure_notifications",
+            });
           }
-        } catch (notifyError) {
-          captureNonCriticalError(notifyError, {
-            route: "cron/schedule-deposit-holds",
-            action: "deposit_failure_notifications",
-          });
         }
 
         // Ops escalation
@@ -475,6 +478,119 @@ export class PaymentLifecycleService {
     return {
       checkedCount: atRiskDeposits.length,
       expiredCount,
+    };
+  }
+
+  /**
+   * Retry a failed deposit hold for a rental.
+   * Called by the renter after updating their payment method.
+   */
+  static async retryDepositHold(
+    rentalRequestId: string,
+    userId: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const { data: rentalRequest, error: requestError } = await tryCatch(
+      rentalDAL.getRentalRequestById(rentalRequestId),
+    );
+    if (requestError || !rentalRequest) {
+      return { success: false, error: "Rental not found" };
+    }
+    if (rentalRequest.renterId !== userId) {
+      return { success: false, error: "Not authorized" };
+    }
+
+    const rental = await rentalDAL.getRentalByRequestId(rentalRequestId);
+    if (!rental) {
+      return { success: false, error: "Rental not found" };
+    }
+
+    const lifecycle = await paymentLifecycleDAL.getByRentalId(rental.id);
+    if (!lifecycle || lifecycle.depositHoldStatus !== "failed") {
+      return { success: false, error: "Deposit hold is not in a failed state" };
+    }
+
+    if (new Date(rentalRequest.startDate) <= new Date()) {
+      return { success: false, error: "Rental has already started" };
+    }
+
+    const { user: userSchema } = await import("@/db/schemas/user.schema");
+    const { eq } = await import("drizzle-orm");
+    const { db } = await import("@/db/db");
+    const [renterRecord] = await db
+      .select({ stripeCustomerId: userSchema.stripeCustomerId })
+      .from(userSchema)
+      .where(eq(userSchema.id, userId))
+      .limit(1);
+
+    if (!renterRecord?.stripeCustomerId) {
+      return { success: false, error: "No payment account found" };
+    }
+
+    let paymentMethodId = rentalRequest.paymentMethodId;
+    if (!paymentMethodId) {
+      const { PAYMENT_SERVER_INSTANCE } =
+        await import("@/services/stripe/server");
+      const { data: customer } = await tryCatch(
+        PAYMENT_SERVER_INSTANCE.customers.retrieve(
+          renterRecord.stripeCustomerId,
+        ),
+      );
+      if (customer && !("deleted" in customer && customer.deleted)) {
+        const defaultPm =
+          typeof customer.invoice_settings?.default_payment_method === "string"
+            ? customer.invoice_settings.default_payment_method
+            : customer.invoice_settings?.default_payment_method?.id;
+        if (defaultPm) {
+          paymentMethodId = defaultPm;
+        } else {
+          const { data: methods } = await tryCatch(
+            PAYMENT_SERVER_INSTANCE.paymentMethods.list({
+              customer: renterRecord.stripeCustomerId,
+              type: "card",
+            }),
+          );
+          paymentMethodId = methods?.data?.[0]?.id ?? null;
+        }
+      }
+    }
+
+    if (!paymentMethodId) {
+      return {
+        success: false,
+        error: "No payment method found. Please add a payment method first.",
+      };
+    }
+
+    const holdResult = await placeDepositHold({
+      rentalId: rental.id,
+      customerId: renterRecord.stripeCustomerId,
+      paymentMethodId,
+      amount: Number(rentalRequest.securityDeposit),
+      metadata: {
+        rentalRequestId: rentalRequest.id,
+        rentalId: rental.id,
+        listingId: rentalRequest.listingId,
+        renterId: rentalRequest.renterId,
+      },
+    });
+
+    if (holdResult.success) {
+      await paymentLifecycleDAL.updateDepositHoldStatus(rental.id, "held", {
+        depositHoldPlacedAt: new Date(),
+      });
+
+      const { rentals } = await import("@/db/schemas/rentals.schema");
+      await db
+        .update(rentals)
+        .set({ securityDepositAuthId: holdResult.paymentIntentId })
+        .where(eq(rentals.id, rental.id));
+
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: holdResult.error || "Failed to place deposit hold",
     };
   }
 }

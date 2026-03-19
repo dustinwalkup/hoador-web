@@ -413,7 +413,10 @@ export class PaymentLifecycleDAL extends BaseDAL {
         .innerJoin(user, eq(rentals.renterId, user.id))
         .where(
           and(
-            eq(rentalPaymentLifecycle.depositHoldStatus, "scheduled"),
+            or(
+              eq(rentalPaymentLifecycle.depositHoldStatus, "scheduled"),
+              eq(rentalPaymentLifecycle.depositHoldStatus, "failed"),
+            ),
             lte(rentals.startDate, fortyEightHoursFromNow),
             sql`${rentals.startDate} > ${now}`,
           ),

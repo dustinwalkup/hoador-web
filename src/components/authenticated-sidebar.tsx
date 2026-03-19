@@ -73,7 +73,7 @@ export function AuthenticatedSidebar({
                       tooltip="Admin"
                       isActive={pathname.startsWith("/admin")}
                     >
-                      <Shield className="size-5!" />
+                      <Shield className="text-primary size-5!" />
                       <span>Admin</span>
                     </SidebarMenuButton>
                   </Link>
