@@ -6,8 +6,7 @@ interface CreateOwnerTransferParams {
   ownerId: string;
   ownerConnectedAccountId: string;
   rentalChargeId: string; // Stripe Charge ID for source_transaction
-  totalAmount: number; // in dollars — the rental charge amount
-  platformFeePercentage: number; // e.g. 0.2
+  ownerPayoutAmount: number; // in dollars — precomputed owner payout amount
 }
 
 type TransferResult =
@@ -16,7 +15,7 @@ type TransferResult =
 
 /**
  * Create a manual transfer to the owner's connected account.
- * Platform fee is deducted from the transfer amount.
+ * Uses the precomputed owner payout amount from rental request pricing.
  * Uses deterministic idempotency key: transfer-owner-{rentalId}.
  */
 export async function createOwnerTransfer(
@@ -24,12 +23,7 @@ export async function createOwnerTransfer(
 ): Promise<TransferResult> {
   try {
     const idempotencyKey = `transfer-owner-${params.rentalId}`;
-
-    const totalAmountCents = Math.round(params.totalAmount * 100);
-    const platformFeeCents = Math.round(
-      params.totalAmount * params.platformFeePercentage * 100,
-    );
-    const transferAmountCents = totalAmountCents - platformFeeCents;
+    const transferAmountCents = Math.round(params.ownerPayoutAmount * 100);
 
     const transfer = await PAYMENT_SERVER_INSTANCE.transfers.create(
       {

@@ -229,7 +229,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. Verify renter is not charged (hold was never captured).
 - **Expected results:**
   - Deposit released via cancel; lifecycle updated; no charge to renter.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-12: Deposit not released while dispute is open
 
@@ -243,7 +243,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. Verify owner transfer is not created (ownerTransferStatus = 'frozen' or remains pending and skipped).
 - **Expected results:**
   - Payout cron skips deposit release and transfer while dispute is open.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-13: Deposit expiry — hold older than 6 days, cron sets expired
 
@@ -270,7 +270,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Verify depositHoldStatus remains 'held'; no alert.
 - **Expected results:**
   - No state change; no alert.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-15: Schedule-deposit-holds cron places hold when within 48h
 
@@ -284,7 +284,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. In Stripe, verify new PaymentIntents (or confirm existing) for deposit holds.
 - **Expected results:**
   - Cron runs; holds placed for eligible rentals; status updated.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-16: Schedule-deposit-holds retries failed deposits within 48h window
 
@@ -326,7 +326,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Verify no deposit operation; owner transfer is created if other criteria met.
 - **Expected results:**
   - Deposit step skipped; transfer created as normal.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -343,7 +343,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Verify no transfer has been created to the owner for this rental.
 - **Expected results:**
   - Funds in platform account only; no transfer yet.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-20: Payout only after completed + 24h + no dispute
 
@@ -370,7 +370,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Verify this rental is not processed; no transfer created; payoutStatus remains 'pending'.
 - **Expected results:**
   - Rental excluded from payout until 24h window elapsed.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-22: Platform fee deducted correctly
 
@@ -468,7 +468,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. After 24h from returnConfirmedAt, run cron again; verify transfer is created.
 - **Expected results:**
   - Payout only after 24h elapsed.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 

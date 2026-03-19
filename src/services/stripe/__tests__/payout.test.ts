@@ -23,8 +23,7 @@ describe("PayoutService", () => {
     ownerId: "owner-1",
     ownerConnectedAccountId: "acct_123",
     rentalChargeId: "ch_abc",
-    totalAmount: 100.0,
-    platformFeePercentage: 0.2,
+    ownerPayoutAmount: 80.0,
   };
 
   describe("createOwnerTransfer", () => {
@@ -70,24 +69,23 @@ describe("PayoutService", () => {
       expect(createArgs.destination).toBe("acct_123");
     });
 
-    it("calculates transfer amount: totalAmount - platformFee in cents", async () => {
+    it("calculates transfer amount from ownerPayoutAmount in cents", async () => {
       mockTransfersCreate.mockResolvedValue({ id: "tr_123" });
 
-      // $100 total, 20% fee = $20 fee, $80 transfer = 8000 cents
+      // $80 owner payout = 8000 cents
       await createOwnerTransfer(defaultParams);
 
       const createArgs = mockTransfersCreate.mock.calls[0][0];
       expect(createArgs.amount).toBe(8000);
     });
 
-    it("platform fee = Math.round(totalAmount * 0.2 * 100) cents", async () => {
+    it("rounds ownerPayoutAmount dollars to transfer cents", async () => {
       mockTransfersCreate.mockResolvedValue({ id: "tr_123" });
 
-      // $75.50 total → fee = Math.round(75.50 * 0.2 * 100) = 1510 cents
-      // transfer = Math.round(75.50 * 100) - 1510 = 7550 - 1510 = 6040 cents
+      // $60.40 owner payout = 6040 cents
       await createOwnerTransfer({
         ...defaultParams,
-        totalAmount: 75.5,
+        ownerPayoutAmount: 60.4,
       });
 
       const createArgs = mockTransfersCreate.mock.calls[0][0];
@@ -140,10 +138,10 @@ describe("PayoutService", () => {
     it("handles edge case: small transfer amounts correctly", async () => {
       mockTransfersCreate.mockResolvedValue({ id: "tr_123" });
 
-      // $1.00 total, 20% fee = $0.20, transfer = $0.80 = 80 cents
+      // $0.80 owner payout = 80 cents
       await createOwnerTransfer({
         ...defaultParams,
-        totalAmount: 1.0,
+        ownerPayoutAmount: 0.8,
       });
 
       const createArgs = mockTransfersCreate.mock.calls[0][0];
@@ -153,11 +151,10 @@ describe("PayoutService", () => {
     it("handles rounding correctly for fractional cents", async () => {
       mockTransfersCreate.mockResolvedValue({ id: "tr_123" });
 
-      // $33.33 total → fee = Math.round(33.33 * 0.2 * 100) = Math.round(666.6) = 667 cents
-      // transfer = Math.round(33.33 * 100) - 667 = 3333 - 667 = 2666 cents
+      // $26.66 owner payout = 2666 cents
       await createOwnerTransfer({
         ...defaultParams,
-        totalAmount: 33.33,
+        ownerPayoutAmount: 26.66,
       });
 
       const createArgs = mockTransfersCreate.mock.calls[0][0];
