@@ -208,6 +208,16 @@ export function RentalActions({
               </>
             )}
 
+            {rentalDetails.status === "approved" && isStartDateReached() && (
+              <Button
+                className="w-full"
+                onClick={() => setShowStartRentalDialog(true)}
+              >
+                <PlayCircle className="mr-2 h-4 w-4" />
+                Start Rental
+              </Button>
+            )}
+
             {rentalDetails.status === "approved" && (
               <Button
                 variant="destructive"
@@ -219,16 +229,6 @@ export function RentalActions({
               >
                 <XCircle className="mr-2 h-4 w-4" />
                 Cancel Rental
-              </Button>
-            )}
-
-            {rentalDetails.status === "approved" && isStartDateReached() && (
-              <Button
-                className="w-full"
-                onClick={() => setShowStartRentalDialog(true)}
-              >
-                <PlayCircle className="mr-2 h-4 w-4" />
-                Start Rental
               </Button>
             )}
 

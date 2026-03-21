@@ -359,6 +359,39 @@ describe("PaymentLifecycleService.processPayouts", () => {
     );
   });
 
+  /**
+   * UAT-P1-23 (process-payouts cron): transfer API failure — ownerTransferStatus and
+   * payoutStatus set to failed, ops email via sendOpsAlert. createOwnerTransfer is
+   * invoked once per run (no in-loop retry); a later cron pass will not re-attempt
+   * transfer while eligibility excludes non-pending ownerTransferStatus.
+   */
+  it("UAT-P1-23: createOwnerTransfer failure sets ownerTransfer + payout failed and ops alert", async () => {
+    const rental = createMockPayoutRental();
+    mockFindEligibleForPayout.mockResolvedValue([rental]);
+    mockReleaseDepositHold.mockResolvedValue(undefined);
+    mockCreateOwnerTransfer.mockResolvedValue({
+      success: false,
+      error: "Connected account no longer valid",
+    });
+
+    await PaymentLifecycleService.processPayouts(20);
+
+    expect(mockUpdateOwnerTransferStatus).toHaveBeenCalledWith(
+      "rental-1",
+      "failed",
+    );
+    expect(mockUpdatePayoutStatus).toHaveBeenCalledWith("rental-1", "failed");
+    expect(mockCreateOwnerTransfer).toHaveBeenCalledTimes(1);
+    expect(mockSendOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "transfer_failed",
+        rentalId: "rental-1",
+        sendEmailAlert: true,
+        message: expect.stringContaining("Owner transfer failed"),
+      }),
+    );
+  });
+
   it("processes each rental independently (one failure doesn't block others)", async () => {
     const rental1 = createMockPayoutRental({ rentalId: "rental-1" });
     const rental2 = createMockPayoutRental({
@@ -532,6 +565,46 @@ describe("PaymentLifecycleService.scheduleDepositHolds", () => {
     );
   });
 
+  /**
+   * UAT-P1-16: Eligible row with depositHoldStatus = 'failed' is returned by
+   * findScheduledDepositsNearPickup (simulated here). Cron retries with renter's
+   * payment method; success transitions to held with timestamp. No failure
+   * notifications or ops alert on success.
+   */
+  it("UAT-P1-16: retries previously failed deposit — hold succeeds, held + depositHoldPlacedAt, no ops alert", async () => {
+    const rental = createMockDepositRental({
+      lifecycle: { depositHoldStatus: "failed" },
+    });
+    mockFindScheduledDepositsNearPickup.mockResolvedValue([rental]);
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_retry_ok",
+    });
+
+    const result = await PaymentLifecycleService.scheduleDepositHolds(20);
+
+    expect(mockPlaceDepositHold).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rentalId: "rental-1",
+        customerId: "cus_123",
+        paymentMethodId: "pm_456",
+        amount: 200,
+      }),
+    );
+    expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+      "rental-1",
+      "held",
+      expect.objectContaining({ depositHoldPlacedAt: expect.any(Date) }),
+    );
+    expect(mockSendNotification).not.toHaveBeenCalled();
+    expect(mockSendOpsAlert).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      processedCount: 1,
+      successCount: 1,
+      failureCount: 0,
+    });
+  });
+
   it("updates depositHoldStatus to 'failed' on hold failure", async () => {
     const rental = createMockDepositRental();
     mockFindScheduledDepositsNearPickup.mockResolvedValue([rental]);
@@ -654,6 +727,33 @@ describe("PaymentLifecycleService.scheduleDepositHolds", () => {
 
     await PaymentLifecycleService.scheduleDepositHolds(20);
 
+    expect(mockSendOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "deposit_hold_failed",
+        rentalId: "rental-1",
+        sendEmailAlert: true,
+      }),
+    );
+  });
+
+  /** UAT-P1-16 step 5: repeat failure — status stays failed, ops alert, no duplicate renter/owner alerts. */
+  it("does not re-notify renter or owner when hold fails again and status was already failed", async () => {
+    const rental = createMockDepositRental({
+      lifecycle: { depositHoldStatus: "failed" },
+    });
+    mockFindScheduledDepositsNearPickup.mockResolvedValue([rental]);
+    mockPlaceDepositHold.mockResolvedValue({
+      success: false,
+      error: "Card declined",
+    });
+
+    await PaymentLifecycleService.scheduleDepositHolds(20);
+
+    expect(mockSendNotification).not.toHaveBeenCalled();
+    expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+      "rental-1",
+      "failed",
+    );
     expect(mockSendOpsAlert).toHaveBeenCalledWith(
       expect.objectContaining({
         event: "deposit_hold_failed",
@@ -1008,5 +1108,6 @@ describe("PaymentLifecycleService.retryDepositHold", () => {
       error: "Card was declined",
     });
     expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalled();
+    expect(mockSendNotification).not.toHaveBeenCalled();
   });
 });
