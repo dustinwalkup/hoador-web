@@ -14,7 +14,7 @@ import { conversations } from "@/db/schemas/messages.schema";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BaseDAL } from "./base";
-import { NotFoundError } from "./errors";
+import { ConflictError, NotFoundError } from "./errors";
 import type { CancellationReason } from "./types";
 import { ReviewDAL } from "./review.dal";
 
@@ -2364,6 +2364,11 @@ export class RentalDAL extends BaseDAL {
 
       // Verify that the rental is in active status
       if (request.status !== "active") {
+        if (request.status === "completed") {
+          throw new ConflictError(
+            "Return has already been confirmed for this rental.",
+          );
+        }
         throw new Error("Only active rentals can be ended");
       }
 

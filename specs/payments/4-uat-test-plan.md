@@ -157,7 +157,8 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   5. Verify only one notification per party (no duplicate alerts).
 - **Expected results:**
   - Rental proceeds; deposit 'failed'; both notified once.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
+- **Automated coverage (Vitest):** [`src/features/rentals/services/approve-rental-request-deposit.test.ts`](../../src/features/rentals/services/approve-rental-request-deposit.test.ts)
 
 **How to simulate (recommended):** The rental charge is captured before the deposit hold; a single Stripe test card cannot succeed for the charge and then fail only for the hold. Use the app’s UAT simulation instead:
 
@@ -215,7 +216,8 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
 - **Expected results:**
   - Button retry: failure shown inline to renter; no notifications sent.
   - Cron retry: failure keeps status 'failed'; ops alerted; no duplicate renter/owner notifications.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
+- **Automated coverage (Vitest):** [`src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts`](../../src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts) (`scheduleDepositHolds`, `retryDepositHold`); [`src/features/rentals/components/detail-page/__tests__/retry-deposit-button.test.tsx`](../../src/features/rentals/components/detail-page/__tests__/retry-deposit-button.test.tsx)
 
 ### UAT-P1-11: Deposit released after 24h dispute window (clean return)
 
@@ -300,7 +302,8 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   5. If the hold fails again: verify depositHoldStatus remains 'failed'; ops receives an email alert; renter and owner do NOT receive duplicate notifications.
 - **Expected results:**
   - Cron retries 'failed' deposits within the 48h window using the renter's current payment method; renter/owner notifications are suppressed on repeat failures (ops-only alert).
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
+- **Automated coverage (Vitest):** [`src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts`](../../src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts) — `UAT-P1-16: retries previously failed deposit` (success path); `does not re-notify renter or owner when hold fails again and status was already failed` (repeat failure / ops-only).
 
 ### UAT-P1-17: Deposit hold is authorization only (no capture until dispute)
 
@@ -313,7 +316,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Confirm renter's card shows authorization hold, not a completed charge.
 - **Expected results:**
   - Hold only; no capture unless dispute resolution requires it (Phase 3).
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-18: Zero deposit listing — cron skips deposit, proceeds to transfer when eligible
 
@@ -397,7 +400,8 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. Verify ops receives email alert.
 - **Expected results:**
   - Status updated to failed; ops alerted; no automatic retry.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
+- **Automated coverage (Vitest):** [`src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts`](../../src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts) — `UAT-P1-23: createOwnerTransfer failure`; [`src/services/stripe/__tests__/webhook-handlers.test.ts`](../../src/services/stripe/__tests__/webhook-handlers.test.ts) — `transfer.reversed` (owner transfer failed + ops alert; no payout row update — “if applicable”).
 
 ### UAT-P1-24: Transfer uses source_transaction (Charge ID)
 
@@ -409,7 +413,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   1. After successful payout, in Stripe Dashboard verify the transfer has source_transaction equal to the rental's charge ID.
 - **Expected results:**
   - Transfer linked to original charge for correct balance handling.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -428,7 +432,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   4. Verify no payout or deposit release happens at this time (still within 24h window).
 - **Expected results:**
   - returnConfirmedAt set; renter notified; no immediate payout/deposit action.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-26: Duplicate return confirmation rejected
 
@@ -441,7 +445,8 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Verify API returns 409 Conflict or equivalent; returnConfirmedAt unchanged.
 - **Expected results:**
   - Duplicate confirmation rejected; no duplicate audit or notification.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
+- **Automated coverage (Vitest):** [`src/dal/__tests__/rentals.dal.test.ts`](../../src/dal/__tests__/rentals.dal.test.ts) — `ConflictError` when request status is `completed`; [`src/app/api/rentals/[id]/end/__tests__/route.test.ts`](../../src/app/api/rentals/[id]/end/__tests__/route.test.ts) — `POST` returns 409 and skips activity + `sendRentalEndedNotification`.
 
 ### UAT-P1-27: Audit log entry on return confirmation
 

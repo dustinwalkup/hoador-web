@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
+import { auditLogDAL } from "@/dal";
 import { RentalDAL } from "@/dal/rentals.dal";
 import {
   handleApiError,
   captureNonCriticalError,
   requireAuthResponse,
+  getClientIP,
+  getUserAgent,
 } from "@/lib/api/route-helpers";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalEndedNotification } from "@/features/rentals/notifications/rental-ended";
@@ -72,6 +75,18 @@ async function postHandler(
         { status: 500 },
       );
     }
+
+    const ipAddress = getClientIP(request);
+    const userAgent = getUserAgent(request);
+    await auditLogDAL.create({
+      entityType: "rental_request",
+      entityId: rentalId,
+      action: "rental_request.return_confirmed",
+      userId: currentUserId,
+      metadata: { listingId: rentalRequest.listingId },
+      ipAddress: ipAddress ?? undefined,
+      userAgent: userAgent ?? undefined,
+    });
 
     trackActivity(currentUserId, "rental_completed", {
       rentalId,

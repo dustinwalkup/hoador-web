@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { rentalDAL } from "../index";
-import { NotFoundError, DALError } from "../errors";
+import { ConflictError, DALError, NotFoundError } from "../errors";
 import { mockRentalRequest, mockRentalDetails } from "@/test/fixtures/rentals";
 import { db } from "@/db/db";
 
@@ -1187,6 +1187,26 @@ describe("RentalDAL", () => {
       await expect(
         rentalDAL.endRental("rental-123", "user-123"),
       ).rejects.toThrow(/only active rentals can be ended/i);
+    });
+
+    /** UAT-P1-26: duplicate return confirmation — 409 Conflict; no DB updates. */
+    it("should throw ConflictError when rental is already completed (return already confirmed)", async () => {
+      vi.clearAllMocks();
+
+      const mockLimit = vi
+        .fn()
+        .mockResolvedValue([
+          { ...mockRentalRequest, ownerId: "user-123", status: "completed" },
+        ]);
+      const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      await expect(
+        rentalDAL.endRental("rental-123", "user-123"),
+      ).rejects.toThrow(ConflictError);
+
+      expect(vi.mocked(db.update)).not.toHaveBeenCalled();
     });
   });
 

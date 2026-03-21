@@ -412,6 +412,7 @@ describe("handleWebhookEvent", () => {
     });
   });
 
+  /** UAT-P1-23 (webhook path): transfer.reversed → owner transfer failed + ops alert; no payoutStatus update. */
   describe("transfer.reversed", () => {
     it("sets ownerTransferStatus to 'failed'", async () => {
       mockPaymentLifecycleGetByTransferId.mockResolvedValue({
