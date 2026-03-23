@@ -211,6 +211,27 @@
       "when": 1773617560502,
       "tag": "0029_flashy_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1774128437556,
+      "tag": "0030_lucky_la_nuit",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1774129532811,
+      "tag": "0031_curly_puck",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1774200000000,
+      "tag": "0032_service_listing_owner_policy_ack",
+      "breakpoints": true
     }
   ]
 }

@@ -91,8 +91,8 @@ sequenceDiagram
     alt Admin rejects
         Provider->>API: POST /api/admin/services/listings/[id]/reject
         API->>SLS: rejectListing(listingId, adminId, reason)
-        SLS->>DB: SET status = 'rejected'
-        SLS->>Notif: Notify provider — listing rejected with reason
+        SLS->>DB: SET status = 'denied'
+        SLS->>Notif: Notify provider — listing denied with reason
     end
 ```
 
@@ -224,7 +224,7 @@ export const serviceListingStatusEnum = pgEnum("service_listing_status", [
   "pending_approval", // Submitted by provider, awaiting admin review
   "active", // Approved and visible to HOA residents
   "inactive", // Deactivated by provider
-  "rejected", // Admin rejected — provider notified with reason
+  "denied", // Admin denied — provider notified with reason
 ]);
 
 export const servicePricingTypeEnum = pgEnum("service_pricing_type", [
@@ -301,7 +301,7 @@ export const serviceListings = pgTable(
       .default("pending_approval")
       .notNull(),
     adminNote: text("admin_note"), // Internal note on approval (optional)
-    rejectionReason: text("rejection_reason"), // Required when status = 'rejected'
+    rejectionReason: text("rejection_reason"), // Required when status = 'denied'
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -521,7 +521,7 @@ Services is a standalone section in the dashboard nav — `/dashboard/explore` r
 
 - Same form as create, pre-populated with current values
 - Edits to an approved listing do not require re-approval in Phase 1
-- **Deactivate** button: sets status to `inactive`, removes from browse; available on any non-rejected listing
+- **Deactivate** button: sets status to `inactive`, removes from browse; available on any non-denied listing
 
 #### Booking Request Flow (`/dashboard/services/listings/[id]/book`)
 
@@ -638,7 +638,7 @@ export class ServiceListingService {
     note?: string,
   ): Promise<void>;
 
-  /** Admin rejects a listing (status: rejected). Reason required. Notifies provider. */
+  /** Admin rejects a listing (status: denied). Reason required. Notifies provider. */
   static async rejectListing(
     listingId: string,
     adminId: string,

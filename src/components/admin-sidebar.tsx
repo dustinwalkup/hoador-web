@@ -10,6 +10,7 @@ import {
   Users,
   Settings,
   ClipboardCheck,
+  ClipboardList,
   Scale,
   BookOpen,
   Bell,
@@ -60,6 +61,11 @@ const adminNavItemsBeforePayments = [
     title: "Listing Review",
     url: "/admin/dashboard/listings/review",
     icon: ClipboardCheck,
+  },
+  {
+    title: "Service listings",
+    url: "/admin/dashboard/services/listings/review",
+    icon: ClipboardList,
   },
   {
     title: "Dispute Review",

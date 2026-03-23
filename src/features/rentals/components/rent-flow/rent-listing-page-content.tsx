@@ -125,12 +125,7 @@ export function RentListingPageContent({
     const rentalCharges = subtotal + deliveryFeeAmount + setupFeeAmount;
     const serviceFee = calculateServiceFee(rentalCharges);
     const securityDeposit = listing.securityDeposit;
-    const total =
-      subtotal +
-      deliveryFeeAmount +
-      setupFeeAmount +
-      serviceFee +
-      securityDeposit;
+    const total = subtotal + deliveryFeeAmount + setupFeeAmount + serviceFee;
 
     return {
       days,

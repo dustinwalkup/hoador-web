@@ -19,8 +19,15 @@ import {
 import { ConflictError, NotFoundError } from "./errors";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
-const { user, userPreferences, userAddresses, reviews, rentals, listings } =
-  schema;
+const {
+  user,
+  userPreferences,
+  userAddresses,
+  userPaymentMethods,
+  reviews,
+  rentals,
+  listings,
+} = schema;
 
 type UpdateUserPreferencesDTO = Partial<
   Omit<
@@ -370,6 +377,81 @@ export class UserDAL extends BaseDAL {
       return Number(result[0]?.total ?? 0);
     } catch (error) {
       this.handleError(error, "getTotalUserCount");
+    }
+  }
+
+  /**
+   * Active admin and superadmin accounts for staff-facing notifications (e.g. service listing review).
+   */
+  async getStaffNotificationRecipients(): Promise<
+    Array<{
+      id: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+    }>
+  > {
+    try {
+      return await this.db
+        .select({
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(user)
+        .where(
+          and(
+            eq(user.status, "active"),
+            or(eq(user.userType, "admin"), eq(user.userType, "superadmin")),
+          ),
+        );
+    } catch (error) {
+      this.handleError(error, "getStaffNotificationRecipients");
+    }
+  }
+
+  /**
+   * Stripe customer id and primary active payment method for off-session charges.
+   */
+  async getStripeCustomerAndDefaultPaymentMethod(
+    userId: string,
+  ): Promise<{ customerId: string; paymentMethodId: string } | null> {
+    try {
+      const [u] = await this.db
+        .select({ stripeCustomerId: user.stripeCustomerId })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1);
+
+      if (!u?.stripeCustomerId) {
+        return null;
+      }
+
+      const [pm] = await this.db
+        .select({
+          stripePaymentMethodId: userPaymentMethods.stripePaymentMethodId,
+        })
+        .from(userPaymentMethods)
+        .where(
+          and(
+            eq(userPaymentMethods.userId, userId),
+            eq(userPaymentMethods.isPrimary, true),
+            eq(userPaymentMethods.isActive, true),
+          ),
+        )
+        .limit(1);
+
+      if (!pm?.stripePaymentMethodId) {
+        return null;
+      }
+
+      return {
+        customerId: u.stripeCustomerId,
+        paymentMethodId: pm.stripePaymentMethodId,
+      };
+    } catch (error) {
+      this.handleError(error, "getStripeCustomerAndDefaultPaymentMethod");
     }
   }
 

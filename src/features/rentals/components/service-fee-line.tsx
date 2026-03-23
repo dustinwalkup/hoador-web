@@ -21,7 +21,7 @@ export function ServiceFeeLine({ amount, className }: ServiceFeeLineProps) {
   return (
     <div className={`flex items-center justify-between ${className ?? ""}`}>
       <span className="flex items-center gap-1">
-        Service fee
+        <span className="text-xs">Service fee</span>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

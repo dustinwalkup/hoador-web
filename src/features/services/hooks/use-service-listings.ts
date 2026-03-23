@@ -1,0 +1,135 @@
+import { useQuery } from "@tanstack/react-query";
+import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
+import type {
+  ServiceListingBrowseItem,
+  ServiceListingWithCategoryAndProvider,
+} from "@/dal/service-listing.dal";
+import type { CreateListingInput } from "@/features/services/types";
+
+/** React Query keys for HOA service listings (client cache). */
+export const serviceListingsKeys = {
+  all: ["service-listings"] as const,
+  list: (communityId: string, filters?: { categoryId?: string }) =>
+    [...serviceListingsKeys.all, "list", communityId, filters ?? {}] as const,
+  detail: (listingId: string) =>
+    [...serviceListingsKeys.all, "detail", listingId] as const,
+};
+
+/**
+ * Active listings for the signed-in user's community (GET /api/services/listings).
+ *
+ * @param communityId - Used for cache scoping (must match session community for correct data)
+ * @param filters - Optional category filter
+ */
+export function useServiceListings(
+  communityId: string | null | undefined,
+  filters?: { categoryId?: string },
+) {
+  return useQuery({
+    queryKey: serviceListingsKeys.list(communityId ?? "", filters),
+    queryFn: async (): Promise<ServiceListingBrowseItem[]> => {
+      const params = new URLSearchParams();
+      if (filters?.categoryId) {
+        params.set("categoryId", filters.categoryId);
+      }
+      const res = await fetch(`/api/services/listings?${params.toString()}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to load listings");
+      }
+      const data = (await res.json()) as {
+        listings: ServiceListingBrowseItem[];
+      };
+      return data.listings ?? [];
+    },
+    enabled: Boolean(communityId),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Single listing detail (GET /api/services/listings/[id]).
+ */
+export function useServiceListing(listingId: string | null | undefined) {
+  return useQuery({
+    queryKey: serviceListingsKeys.detail(listingId ?? ""),
+    queryFn: async (): Promise<ServiceListingWithCategoryAndProvider> => {
+      const res = await fetch(`/api/services/listings/${listingId}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to load listing");
+      }
+      return res.json() as Promise<ServiceListingWithCategoryAndProvider>;
+    },
+    enabled: Boolean(listingId),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * POST /api/services/listings — create listing (pending approval).
+ */
+export function useCreateServiceListing() {
+  return useCreateMutation({
+    mutationFn: async (input: CreateListingInput) => {
+      const res = await fetch("/api/services/listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to create listing");
+      }
+      return data as { listingId: string; status: string };
+    },
+    invalidateQueryKeys: [serviceListingsKeys.all],
+    successMessage:
+      "Your listing has been submitted for review. You'll be notified when it's approved.",
+  });
+}
+
+/**
+ * PATCH /api/services/listings/[id]
+ */
+export function useEditServiceListing(listingId: string) {
+  return useCreateMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const res = await fetch(`/api/services/listings/${listingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to update listing");
+      }
+      return data;
+    },
+    invalidateQueryKeys: [serviceListingsKeys.all],
+    successMessage: "Listing updated.",
+  });
+}
+
+/**
+ * POST /api/services/listings/[id]/deactivate
+ */
+export function useDeactivateServiceListing(listingId: string) {
+  return useCreateMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        `/api/services/listings/${listingId}/deactivate`,
+        { method: "POST" },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to deactivate listing");
+      }
+      return data as { status: "inactive" };
+    },
+    invalidateQueryKeys: [serviceListingsKeys.all],
+    successMessage: "Listing deactivated.",
+  });
+}

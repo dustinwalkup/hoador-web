@@ -70,6 +70,15 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "dispute_evidence_deadline_expired",
   "dispute_resolved",
   "re_engagement",
+  "service_booking_requested",
+  "service_booking_accepted",
+  "service_booking_declined",
+  "service_booking_completed",
+  "service_payout_sent",
+  "service_listing_approved",
+  "service_listing_rejected",
+  "service_listing_pending",
+  "service_no_show_reported",
 ]);
 
 /** User activity types for admin activity log and inactivity filtering. */
@@ -212,6 +221,7 @@ export const payoutStatusEnum = pgEnum("payout_status", [
 export const paymentTypeEnum = pgEnum("payment_type", [
   "rental_charge", // Main rental payment
   "security_deposit_hold", // Deposit auth hold
+  "service_charge", // HOA service booking payment
 ]);
 
 /** Cancellation reason for rental_requests (Phase 2). */
@@ -220,4 +230,32 @@ export const cancellationReasonEnum = pgEnum("cancellation_reason", [
   "owner_cancellation", // Owner cancelled after approval
   "renter_no_show", // Renter did not show up — ops-applied
   "owner_no_show", // Owner did not show up — ops-applied
+]);
+
+export const serviceListingStatusEnum = pgEnum("service_listing_status", [
+  "pending_approval",
+  "active",
+  "inactive",
+  "denied",
+]);
+
+export const servicePricingTypeEnum = pgEnum("service_pricing_type", [
+  "fixed",
+  "hourly",
+]);
+
+export const serviceBookingStatusEnum = pgEnum("service_booking_status", [
+  "pending",
+  "accepted",
+  "declined",
+  "payment_failed",
+  "completed",
+  "cancelled",
+]);
+
+export const servicePayoutStatusEnum = pgEnum("service_payout_status", [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
 ]);

@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
 
 export const metadata = {
   title: "My Services",
@@ -10,10 +13,18 @@ export default function ListingsServicesPage() {
     <div className="container pb-6">
       <PageHeader
         title="My Services"
-        description="Service listings coming soon. You'll be able to create and manage your service offerings here."
+        description="Browse the marketplace or manage listings you offer."
       />
-      <div className="text-muted-foreground rounded-lg border border-dashed p-12 text-center">
-        Coming soon
+      <div className="flex flex-wrap gap-3">
+        <Button asChild>
+          <Link href="/dashboard/services">Browse services</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/dashboard/services/listings/create">Create listing</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/dashboard/services/bookings">My service bookings</Link>
+        </Button>
       </div>
     </div>
   );

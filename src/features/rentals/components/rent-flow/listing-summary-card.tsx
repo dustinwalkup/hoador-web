@@ -94,7 +94,7 @@ export function ListingSummaryCard({
               />
               <Separator />
               <div className="flex justify-between font-semibold">
-                <span>Total</span>
+                <span>Total due now</span>
                 <span>${pricing.total.toFixed(2)}</span>
               </div>
             </div>

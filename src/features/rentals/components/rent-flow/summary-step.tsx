@@ -117,7 +117,7 @@ export function SummaryStep({ pricing, legalDocuments }: SummaryStepProps) {
           <SecurityDepositLine amount={pricing.securityDeposit} />
           <Separator />
           <div className="flex justify-between text-lg font-semibold">
-            <span>Total</span>
+            <span>Total due now</span>
             <span>${pricing.total.toFixed(2)}</span>
           </div>
         </div>

@@ -70,6 +70,25 @@ export class ChargebackService {
       return;
     }
 
+    if (!payment.rentalId) {
+      logger.warn(
+        {
+          stripeDisputeId,
+          chargeId,
+          serviceBookingId: payment.serviceBookingId,
+        },
+        "charge.dispute.created: payment is not linked to a rental — skipping rental dispute flow",
+      );
+      await sendOpsAlert({
+        event: "chargeback_non_rental_payment",
+        serviceBookingId: payment.serviceBookingId ?? undefined,
+        message: `Stripe chargeback ${stripeDisputeId} on non-rental payment (service booking or legacy). Manual review required.`,
+        metadata: { stripeDisputeId, chargeId, paymentIntentId },
+        sendEmailAlert: true,
+      }).catch(() => {});
+      return;
+    }
+
     const rentalId = payment.rentalId;
 
     const existingDispute = await disputeDAL.getActiveByRentalId(rentalId);
@@ -198,7 +217,7 @@ export class ChargebackService {
     let rentalId = "unknown";
     if (paymentIntentId) {
       const payment = await paymentDAL.getByPaymentIntentId(paymentIntentId);
-      if (payment) {
+      if (payment?.rentalId) {
         rentalId = payment.rentalId;
       }
     }

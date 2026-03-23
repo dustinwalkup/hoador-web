@@ -186,6 +186,28 @@ describe("ChargebackService", () => {
         }),
       );
     });
+
+    it("37.4 handleChargebackCreated for service booking payment skips rental dispute flow", async () => {
+      const mockPayment = {
+        id: "payment-svc",
+        rentalId: null,
+        serviceBookingId: "sb-123",
+        stripeChargeId: "ch_123",
+      };
+
+      vi.mocked(paymentDAL.getByChargeId).mockResolvedValue(mockPayment as any);
+
+      await ChargebackService.handleChargebackCreated(mockStripeDispute);
+
+      expect(disputeDAL.create).not.toHaveBeenCalled();
+      expect(paymentLifecycleDAL.freezeForDispute).not.toHaveBeenCalled();
+      expect(sendOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "chargeback_non_rental_payment",
+          serviceBookingId: "sb-123",
+        }),
+      );
+    });
   });
 
   describe("submitEvidence", () => {

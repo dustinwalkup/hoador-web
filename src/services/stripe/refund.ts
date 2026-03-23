@@ -1,8 +1,11 @@
 import { PAYMENT_SERVER_INSTANCE } from "./server";
 
-interface ProcessRefundParams {
-  rentalId: string;
-  /** Stripe Charge ID (from rentalChargeId on lifecycle record). */
+export interface ProcessRefundParams {
+  /** Rental flow: set with Stripe charge id from lifecycle. */
+  rentalId?: string;
+  /** Service booking flow: set with Stripe charge id from booking. */
+  serviceBookingId?: string;
+  /** Stripe Charge ID (e.g. ch_xxx). */
   chargeId: string;
   refundAmountCents: number;
   reason: string;
@@ -15,24 +18,39 @@ type RefundResult =
 
 /**
  * Process a refund via Stripe.
- * Uses deterministic idempotency key: refund-rental-{rentalId}.
+ * Idempotency: `refund-rental-{rentalId}` or `refund-service-{serviceBookingId}`.
  *
- * @param params - Refund parameters (rentalId, chargeId, amount in cents, reason)
- * @returns Success with refund ID, or failure with error message
+ * @param params - Exactly one of rentalId or serviceBookingId must be set.
  */
 export async function processRefund(
   params: ProcessRefundParams,
 ): Promise<RefundResult> {
   try {
-    const idempotencyKey = `refund-rental-${params.rentalId}`;
+    const hasRental =
+      params.rentalId != null && String(params.rentalId).length > 0;
+    const hasService =
+      params.serviceBookingId != null &&
+      String(params.serviceBookingId).length > 0;
+    if (hasRental === hasService) {
+      return {
+        success: false,
+        error: "Exactly one of rentalId or serviceBookingId is required",
+      };
+    }
+
+    const idempotencyKey = hasService
+      ? `refund-service-${params.serviceBookingId}`
+      : `refund-rental-${params.rentalId}`;
 
     const refund = await PAYMENT_SERVER_INSTANCE.refunds.create(
       {
         charge: params.chargeId,
         amount: params.refundAmountCents,
         metadata: {
-          rentalId: params.rentalId,
           reason: params.reason,
+          ...(hasService
+            ? { serviceBookingId: params.serviceBookingId! }
+            : { rentalId: params.rentalId! }),
           ...params.metadata,
         },
       },

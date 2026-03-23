@@ -165,11 +165,11 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   1. Navigate to the admin listing review queue.
   2. Click Reject; enter reason "Service not HOA-related".
   3. Confirm the action.
-  4. Verify the listing status becomes `rejected`.
+  4. Verify the listing status becomes `denied`.
   5. Verify the listing does NOT appear on the browse page.
-  6. Verify the provider receives a notification: listing rejected with the reason text.
+  6. Verify the provider receives a notification: listing denied with the reason text.
 - **Expected results:**
-  - Listing rejected; not visible; provider notified with reason.
+  - Listing denied; not visible; provider notified with reason.
 - [ ] Pass / [ ] Fail
 
 ---

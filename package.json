@@ -31,6 +31,8 @@
     "generate:rental-agreement": "tsx scripts/generate-rental-agreement-pdf.ts",
     "db:seed:users": "./src/db/seeds/users.ts",
     "seed": "tsx src/db/seeds/seed.ts",
+    "seed:service-categories": "tsx src/db/seeds/service-categories.seed.ts",
+    "seed:service-listings": "tsx src/db/seeds/service-listings.seed.ts",
     "seed:user": "tsx src/db/seeds/existing-user.seed.ts",
     "e2e:setup": "tsx scripts/e2e-setup.ts",
     "e2e:seed": "tsx src/db/seeds/e2e.seed.ts",

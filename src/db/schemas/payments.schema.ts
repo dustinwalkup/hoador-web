@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { rentals } from "./rentals.schema";
+import { serviceBookings } from "./services.schema";
 import { user } from "./user.schema";
 import { paymentStatusEnum, paymentTypeEnum } from "./_enums";
 import { relations } from "drizzle-orm";
@@ -17,9 +18,15 @@ export const payments = pgTable(
   "payments",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    rentalId: uuid("rental_id")
-      .references(() => rentals.id, { onDelete: "cascade" })
-      .notNull(),
+    /** Set for rental flows; null when {@link serviceBookingId} is set. */
+    rentalId: uuid("rental_id").references(() => rentals.id, {
+      onDelete: "cascade",
+    }),
+    /** Set for HOA service booking charges; null when {@link rentalId} is set. */
+    serviceBookingId: uuid("service_booking_id").references(
+      () => serviceBookings.id,
+      { onDelete: "cascade" },
+    ),
     payerId: text("payer_id")
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
@@ -45,6 +52,9 @@ export const payments = pgTable(
   },
   (table) => ({
     rentalIdIdx: index("payments_rental_id_idx").on(table.rentalId),
+    serviceBookingIdIdx: index("payments_service_booking_id_idx").on(
+      table.serviceBookingId,
+    ),
     payerIdIdx: index("payments_payer_id_idx").on(table.payerId),
     payeeIdIdx: index("payments_payee_id_idx").on(table.payeeId),
     statusIdx: index("payments_status_idx").on(table.status),
@@ -58,6 +68,10 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   rental: one(rentals, {
     fields: [payments.rentalId],
     references: [rentals.id],
+  }),
+  serviceBooking: one(serviceBookings, {
+    fields: [payments.serviceBookingId],
+    references: [serviceBookings.id],
   }),
   payer: one(user, {
     fields: [payments.payerId],

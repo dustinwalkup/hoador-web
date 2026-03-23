@@ -24,7 +24,6 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
   const securityDeposit = parseFloat(rentalDetails.securityDeposit);
   const totalAmount = parseFloat(rentalDetails.totalAmount);
   const subtotal = totalAmount - serviceFee - deliveryTotal - setupTotal;
-  const grandTotal = totalAmount + securityDeposit;
 
   return (
     <Card>
@@ -205,8 +204,8 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
             <SecurityDepositLine amount={securityDeposit} />
             <Separator />
             <div className="flex justify-between font-semibold">
-              <span>Total</span>
-              <span className="text-primary">${grandTotal.toFixed(2)}</span>
+              <span>Total due now</span>
+              <span className="text-primary">${totalAmount.toFixed(2)}</span>
             </div>
           </div>
         </div>
