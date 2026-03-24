@@ -260,6 +260,13 @@
       "when": 1742688000003,
       "tag": "0036_ensure_category_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1742688000004,
+      "tag": "0037_ensure_category_ids_final",
+      "breakpoints": true
     }
   ]
 }
