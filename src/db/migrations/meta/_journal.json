@@ -236,36 +236,43 @@
     {
       "idx": 33,
       "version": "7",
-      "when": 1742688000000,
+      "when": 1774200100000,
       "tag": "0033_fix_listing_category_ids",
       "breakpoints": true
     },
     {
       "idx": 34,
       "version": "7",
-      "when": 1742688000001,
+      "when": 1774200200000,
       "tag": "0034_fix_service_category_ids",
       "breakpoints": true
     },
     {
       "idx": 35,
       "version": "7",
-      "when": 1742688000002,
+      "when": 1774200300000,
       "tag": "0035_fix_category_ids_and_listings",
       "breakpoints": true
     },
     {
       "idx": 36,
       "version": "7",
-      "when": 1742688000003,
+      "when": 1774200400000,
       "tag": "0036_ensure_category_ids",
       "breakpoints": true
     },
     {
       "idx": 37,
       "version": "7",
-      "when": 1742688000004,
+      "when": 1774200500000,
       "tag": "0037_ensure_category_ids_final",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1774200600000,
+      "tag": "0038_migration_smoke_test",
       "breakpoints": true
     }
   ]
