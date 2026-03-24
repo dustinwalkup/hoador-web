@@ -125,7 +125,7 @@ export function GarageFiltersClient({ currentTab }: GarageFiltersClientProps) {
       <div className="relative flex w-full max-w-sm items-center">
         <Search className="text-muted-foreground absolute left-3 h-4 w-4" />
         <Input
-          placeholder="Search Listings..."
+          placeholder="Search rentals..."
           className="pr-8 pl-9"
           value={searchQuery}
           onChange={handleSearchChange}

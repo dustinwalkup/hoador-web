@@ -107,7 +107,7 @@ describe("GarageFiltersClient", () => {
     it("should render search input", () => {
       renderWithQueryClient(<GarageFiltersClient currentTab="active" />);
 
-      const searchInput = screen.getByPlaceholderText("Search Listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
       expect(searchInput).toBeInTheDocument();
     });
 
@@ -198,7 +198,7 @@ describe("GarageFiltersClient", () => {
 
       renderWithQueryClient(<GarageFiltersClient currentTab="active" />);
 
-      const searchInput = screen.getByPlaceholderText("Search Listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
       expect(searchInput).toHaveValue("drill");
     });
 
@@ -206,7 +206,7 @@ describe("GarageFiltersClient", () => {
       const user = userEvent.setup();
       renderWithQueryClient(<GarageFiltersClient currentTab="active" />);
 
-      const searchInput = screen.getByPlaceholderText("Search Listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
       await user.type(searchInput, "hammer");
 
       expect(searchInput).toHaveValue("hammer");
@@ -216,7 +216,7 @@ describe("GarageFiltersClient", () => {
       const user = userEvent.setup();
       renderWithQueryClient(<GarageFiltersClient currentTab="active" />);
 
-      const searchInput = screen.getByPlaceholderText("Search Listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
       await user.type(searchInput, "drill");
 
       // Wait for debounce
@@ -528,7 +528,7 @@ describe("GarageFiltersClient", () => {
       renderWithQueryClient(<GarageFiltersClient currentTab="active" />);
 
       // Find the container by finding the div that contains the search input
-      const searchInput = screen.getByPlaceholderText("Search Listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
       const container = searchInput.closest(".mt-6.flex.flex-col");
       expect(container).toHaveClass(
         "mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
@@ -539,7 +539,7 @@ describe("GarageFiltersClient", () => {
       renderWithQueryClient(<GarageFiltersClient currentTab="active" />);
 
       // Find the search container by finding the div that contains the search input
-      const searchInput = screen.getByPlaceholderText("Search Listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
       const searchContainer = searchInput.parentElement;
       expect(searchContainer).toHaveClass(
         "relative flex w-full max-w-sm items-center",
@@ -574,7 +574,7 @@ describe("GarageFiltersClient", () => {
     it("should have accessible search input", () => {
       renderWithQueryClient(<GarageFiltersClient currentTab="active" />);
 
-      const searchInput = screen.getByPlaceholderText("Search Listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
       expect(searchInput).toBeInTheDocument();
       expect(searchInput.tagName.toLowerCase()).toBe("input");
     });
