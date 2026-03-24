@@ -4,6 +4,7 @@ import type {
   ServiceListingBrowseItem,
   ServiceListingWithCategoryAndProvider,
 } from "@/dal/service-listing.dal";
+import type { ServiceListing } from "@/db/schemas/services.schema";
 import type { CreateListingInput } from "@/features/services/types";
 
 /** React Query keys for HOA service listings (client cache). */
@@ -113,11 +114,84 @@ export function useEditServiceListing(listingId: string) {
   });
 }
 
+/** React Query keys for the signed-in user's own service listings. */
+export const myServiceListingsKeys = {
+  all: ["my-service-listings"] as const,
+  byStatus: (status: string) => [...myServiceListingsKeys.all, status] as const,
+};
+
+/**
+ * GET /api/services/listings/my?status= — provider's own listings by status.
+ */
+export function useMyServiceListings(status: string) {
+  return useQuery({
+    queryKey: myServiceListingsKeys.byStatus(status),
+    queryFn: async (): Promise<ServiceListing[]> => {
+      const res = await fetch(
+        `/api/services/listings/my?status=${encodeURIComponent(status)}`,
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string }).error ?? "Failed to load listings",
+        );
+      }
+      const data = (await res.json()) as { listings: ServiceListing[] };
+      return data.listings ?? [];
+    },
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Count of pending_approval listings (used for the tab badge).
+ */
+export function useMyPendingServiceListingsCount() {
+  return useQuery({
+    queryKey: myServiceListingsKeys.byStatus("pending_approval"),
+    queryFn: async (): Promise<ServiceListing[]> => {
+      const res = await fetch(
+        `/api/services/listings/my?status=pending_approval`,
+      );
+      if (!res.ok) return [];
+      const data = (await res.json()) as { listings: ServiceListing[] };
+      return data.listings ?? [];
+    },
+    select: (data) => data.length,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * POST /api/services/listings/[id]/reactivate
+ */
+export function useReactivateServiceListing(listingId: string) {
+  return useCreateMutation<{ status: "active" }, void>({
+    mutationFn: async () => {
+      const res = await fetch(
+        `/api/services/listings/${listingId}/reactivate`,
+        { method: "POST" },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string }).error ?? "Failed to reactivate listing",
+        );
+      }
+      return data as { status: "active" };
+    },
+    invalidateQueryKeys: [serviceListingsKeys.all, myServiceListingsKeys.all],
+    successMessage: "Listing reactivated.",
+  });
+}
+
 /**
  * POST /api/services/listings/[id]/deactivate
  */
 export function useDeactivateServiceListing(listingId: string) {
-  return useCreateMutation({
+  return useCreateMutation<{ status: "inactive" }, void>({
     mutationFn: async () => {
       const res = await fetch(
         `/api/services/listings/${listingId}/deactivate`,
@@ -129,7 +203,7 @@ export function useDeactivateServiceListing(listingId: string) {
       }
       return data as { status: "inactive" };
     },
-    invalidateQueryKeys: [serviceListingsKeys.all],
+    invalidateQueryKeys: [serviceListingsKeys.all, myServiceListingsKeys.all],
     successMessage: "Listing deactivated.",
   });
 }

@@ -13,7 +13,6 @@ import {
   SettingsIcon,
   ActivityIcon,
   DollarSign,
-  Briefcase,
 } from "lucide-react";
 import DoorIcon from "@/components/ui/door-icon";
 
@@ -28,18 +27,30 @@ export interface MainNavItem {
   readonly title: string;
   readonly url?: string; // Optional for parent items with children
   readonly icon: IconComponent;
+  readonly defaultOpen?: boolean;
   readonly items?: {
-    readonly label: string;
+    readonly label?: string;
     readonly items: readonly SubNavItem[];
   }[]; // Support grouped sub-items
 }
 
 export const MAIN_NAV: MainNavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: HomeIcon },
-  { title: "Explore", url: "/dashboard/explore", icon: DoorIcon },
-  { title: "Services", url: "/dashboard/services", icon: Briefcase },
   // TODO: Add Favorites
   // { title: "Favorites", url: "/dashboard/favorites", icon: HeartIcon },
+  {
+    title: "Explore",
+    icon: DoorIcon,
+    defaultOpen: true,
+    items: [
+      {
+        items: [
+          { title: "Browse rentals", url: "/dashboard/explore" },
+          { title: "Browse services", url: "/dashboard/services" },
+        ],
+      },
+    ],
+  },
   {
     title: "Activity",
     icon: ActivityIcon,
@@ -48,11 +59,11 @@ export const MAIN_NAV: MainNavItem[] = [
         label: "RENTALS",
         items: [
           {
-            title: "Incoming requests",
+            title: "Owner",
             url: "/dashboard/rentals/incoming/requests",
           },
           {
-            title: "Outgoing requests",
+            title: "Renter",
             url: "/dashboard/rentals/outgoing/requests",
           },
         ],
@@ -61,11 +72,11 @@ export const MAIN_NAV: MainNavItem[] = [
         label: "SERVICES",
         items: [
           {
-            title: "Incoming requests",
+            title: "Provider",
             url: "/dashboard/services/incoming",
           },
           {
-            title: "Outgoing requests",
+            title: "Client",
             url: "/dashboard/services/outgoing",
           },
         ],

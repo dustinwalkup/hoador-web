@@ -89,7 +89,7 @@ export function useCreateServiceBooking() {
  * POST /api/services/bookings/[id]/accept
  */
 export function useAcceptServiceBooking(bookingId: string) {
-  return useCreateMutation({
+  return useCreateMutation<{ status: string }, void>({
     mutationFn: async () => {
       const res = await fetch(`/api/services/bookings/${bookingId}/accept`, {
         method: "POST",
@@ -131,7 +131,7 @@ export function useDeclineServiceBooking(bookingId: string) {
  * POST /api/services/bookings/[id]/complete
  */
 export function useCompleteServiceBooking(bookingId: string) {
-  return useCreateMutation({
+  return useCreateMutation<{ status: string }, void>({
     mutationFn: async () => {
       const res = await fetch(`/api/services/bookings/${bookingId}/complete`, {
         method: "POST",

@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,15 +15,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { OwnerPoliciesAcknowledgment } from "@/components/legal/owner-policies-acknowledgment";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ServiceListing } from "@/db/schemas/services.schema";
+import { AlertTriangle, DollarSign, Package } from "lucide-react";
 
 interface CategoryOption {
   id: string;
@@ -48,9 +50,9 @@ interface ServiceListingFormProps {
   initial?: Partial<ServiceListing>;
 }
 
-const serviceListingFormSchema = z.object({
+const baseSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
-  categoryId: z.string().uuid().optional(),
+  categoryId: z.string().optional(),
   pricingType: z.enum(["fixed", "hourly"]),
   price: z.number().nonnegative("Price must be 0 or higher"),
   description: z.string().min(1, "Description is required").max(20000),
@@ -60,7 +62,18 @@ const serviceListingFormSchema = z.object({
   }),
 });
 
-type ServiceListingFormValues = z.infer<typeof serviceListingFormSchema>;
+// Create mode requires categoryId; superRefine keeps the inferred type identical to baseSchema
+const createSchema = baseSchema.superRefine((data, ctx) => {
+  if (!data.categoryId) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Category is required.",
+      path: ["categoryId"],
+    });
+  }
+});
+
+type ServiceListingFormValues = z.infer<typeof baseSchema>;
 
 /**
  * Create or edit a service listing (POST /api/services/listings or PATCH .../[id]).
@@ -74,10 +87,10 @@ export function ServiceListingForm({
 }: ServiceListingFormProps) {
   const router = useRouter();
   const form = useForm<ServiceListingFormValues>({
-    resolver: zodResolver(serviceListingFormSchema),
+    resolver: zodResolver(mode === "create" ? createSchema : baseSchema),
     defaultValues: {
       title: initial?.title ?? "",
-      categoryId: initial?.categoryId ?? undefined,
+      ...(mode === "create" ? { categoryId: "" } : {}),
       pricingType: initial?.pricingType ?? "fixed",
       price: initial?.price != null ? Number(initial.price) : 0,
       description: initial?.description ?? "",
@@ -88,11 +101,6 @@ export function ServiceListingForm({
   });
 
   async function onSubmit(values: ServiceListingFormValues) {
-    if (mode === "create" && !values.categoryId) {
-      form.setError("categoryId", { message: "Category is required." });
-      return;
-    }
-
     try {
       if (mode === "create") {
         const res = await fetch("/api/services/listings", {
@@ -156,7 +164,10 @@ export function ServiceListingForm({
       >
         <Card>
           <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="text-primary h-5 w-5" />
+              Basic Information
+            </CardTitle>
             <CardDescription>
               Tell neighbors about your service.
             </CardDescription>
@@ -169,8 +180,15 @@ export function ServiceListingForm({
                 <FormItem>
                   <FormLabel>Listing title *</FormLabel>
                   <FormControl>
-                    <Input maxLength={200} {...field} />
+                    <Input
+                      maxLength={200}
+                      placeholder="e.g., Lawn mowing, furniture assembly, dog walking"
+                      {...field}
+                    />
                   </FormControl>
+                  <FormDescription>
+                    A clear title helps neighbors find your service.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -185,8 +203,10 @@ export function ServiceListingForm({
                     <FormLabel>Category *</FormLabel>
                     <Select
                       value={field.value}
-                      onValueChange={field.onChange}
-                      required
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        field.onBlur();
+                      }}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -201,6 +221,9 @@ export function ServiceListingForm({
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormDescription>
+                      Choose the category that best describes what you offer.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -214,8 +237,16 @@ export function ServiceListingForm({
                 <FormItem>
                   <FormLabel>Description *</FormLabel>
                   <FormControl>
-                    <Textarea rows={5} {...field} />
+                    <Textarea
+                      rows={5}
+                      placeholder="Describe what you offer, your experience, any requirements or limitations..."
+                      {...field}
+                    />
                   </FormControl>
+                  <FormDescription>
+                    Describe what you offer, any requirements, and your
+                    availability.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -225,7 +256,9 @@ export function ServiceListingForm({
 
         <Card>
           <CardHeader>
-            <CardTitle>Pricing</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="text-primary h-5 w-5" /> Pricing
+            </CardTitle>
             <CardDescription>
               Set how you charge for this service.
             </CardDescription>
@@ -248,6 +281,9 @@ export function ServiceListingForm({
                       <SelectItem value="hourly">Hourly</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormDescription>
+                    Fixed = flat fee per job. Hourly = billed by the hour.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -260,19 +296,28 @@ export function ServiceListingForm({
                 <FormItem>
                   <FormLabel>Price (USD) *</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step={0.01}
-                      value={field.value || 0}
-                      onChange={(event) => {
-                        field.onChange(
-                          Number.parseFloat(event.target.value) || 0,
-                        );
-                      }}
-                    />
+                    <div className="relative">
+                      <DollarSign className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step={0.01}
+                        placeholder="0.00"
+                        className="pl-9"
+                        value={field.value || 0}
+                        onChange={(event) => {
+                          field.onChange(
+                            Number.parseFloat(event.target.value) || 0,
+                          );
+                        }}
+                      />
+                    </div>
                   </FormControl>
+                  <FormDescription>
+                    Enter 0 if your pricing varies — add details in Service
+                    Notes.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -285,8 +330,17 @@ export function ServiceListingForm({
                 <FormItem>
                   <FormLabel>Service notes (optional)</FormLabel>
                   <FormControl>
-                    <Textarea rows={3} {...field} value={field.value ?? ""} />
+                    <Textarea
+                      rows={3}
+                      placeholder="e.g., I travel within 5 miles, 24-hour advance booking required"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
                   </FormControl>
+                  <FormDescription>
+                    Optional: mention travel limits, materials needed, booking
+                    requirements, etc.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -294,85 +348,40 @@ export function ServiceListingForm({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Owner Policies</CardTitle>
-            <CardDescription>
-              Review and accept these policies to continue.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <ul className="text-primary list-inside list-disc space-y-1 text-sm">
-              <li>
-                <Link href="/documents/terms-of-service.pdf" target="_blank">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link href="/documents/privacy-policy.pdf" target="_blank">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/documents/payments-and-payouts-policy.pdf"
-                  target="_blank"
-                >
-                  Payments &amp; Payouts Policy
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/documents/safety-and-liability-package.pdf"
-                  target="_blank"
-                >
-                  Safety and Liability Package
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/documents/prohibited-items-and-listing-content-policy.pdf"
-                  target="_blank"
-                >
-                  Prohibited Items and Listing Content Policy
-                </Link>
-              </li>
-            </ul>
+        <OwnerPoliciesAcknowledgment
+          control={form.control}
+          fieldName="ownerPoliciesAcknowledged"
+          showAdminReviewCallout={mode === "create"}
+          introText="Please review the following policies before submitting your service listing."
+          adminReviewMessage="Your service listing will be reviewed by an admin before being published. You'll receive a notification once it's approved."
+          className="space-y-6 rounded-lg border p-6"
+        />
 
-            <FormField
-              control={form.control}
-              name="ownerPoliciesAcknowledged"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-y-0 space-x-3">
-                  <FormControl>
-                    <Checkbox
-                      id="ownerPoliciesAcknowledged"
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1">
-                    <FormLabel
-                      htmlFor="ownerPoliciesAcknowledged"
-                      className="cursor-pointer"
-                    >
-                      I have read and agree to the owner policies listed above.
-                    </FormLabel>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
+        {form.formState.submitCount > 0 &&
+          Object.keys(form.formState.errors).length > 0 && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Please review the errors above before submitting.
+              </AlertDescription>
+            </Alert>
+          )}
 
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting
-            ? "Saving..."
-            : mode === "create"
-              ? "Submit for review"
-              : "Save"}
-        </Button>
+        <div className="flex w-full justify-end">
+          <Button
+            type="submit"
+            disabled={
+              form.formState.isSubmitting ||
+              (mode === "edit" && !form.formState.isDirty)
+            }
+          >
+            {form.formState.isSubmitting
+              ? "Saving..."
+              : mode === "create"
+                ? "Submit for review"
+                : "Save"}
+          </Button>
+        </div>
       </form>
     </Form>
   );

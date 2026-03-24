@@ -105,6 +105,13 @@ describe("LegalDocumentAcknowledgments", () => {
 
     // Check that modal content is visible
     expect(screen.getByText(/View full document/i)).toBeInTheDocument();
+
+    const iframe = document.querySelector("iframe");
+    expect(iframe).toBeInTheDocument();
+    expect(iframe).toHaveAttribute(
+      "src",
+      "/documents/safety-and-liability-package.pdf",
+    );
   });
 
   it("should display document summary in modal", async () => {

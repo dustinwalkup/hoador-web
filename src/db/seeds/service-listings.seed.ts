@@ -11,7 +11,8 @@ import {
   serviceListings,
 } from "../schemas/services.schema";
 
-const TARGET_JOIN_CODE = "TEST-123";
+// const TARGET_JOIN_CODE = "TEST-123";
+const TARGET_JOIN_CODE = "VERONA-HILLS-2026";
 
 const CATEGORY_NAMES = [
   "Lawn & Yard",

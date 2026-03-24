@@ -252,14 +252,14 @@ export function RentalsClient({
     activeType === "renting"
       ? [
           { value: "requests", label: "Requests" },
-          { value: "approved", label: "Approved" },
+          { value: "approved", label: "Scheduled" },
           { value: "active", label: "Active" },
           { value: "completed", label: "Completed" },
           { value: "denied", label: "Denied" },
         ]
       : [
           { value: "incoming", label: "Requests" },
-          { value: "approved", label: "Approved" },
+          { value: "approved", label: "Scheduled" },
           { value: "active", label: "Active" },
           { value: "completed", label: "Completed" },
           { value: "denied", label: "Denied" },

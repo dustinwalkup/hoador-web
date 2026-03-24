@@ -232,6 +232,20 @@
       "when": 1774200000000,
       "tag": "0032_service_listing_owner_policy_ack",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1742688000000,
+      "tag": "0033_fix_listing_category_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1742688000001,
+      "tag": "0034_fix_service_category_ids",
+      "breakpoints": true
     }
   ]
 }

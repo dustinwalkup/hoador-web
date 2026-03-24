@@ -158,6 +158,37 @@ export class ServiceListingService {
   }
 
   /**
+   * Provider reactivates a previously deactivated listing.
+   */
+  static async reactivateListing(
+    listingId: string,
+    providerId: string,
+    context: AuditContext,
+  ): Promise<void> {
+    const existing = await serviceListingDAL.getById(listingId);
+    if (!existing || existing.providerId !== providerId) {
+      throw new ForbiddenError("You do not own this listing");
+    }
+    if (existing.status !== "inactive") {
+      throw new ValidationError(
+        "Only inactive listings can be reactivated",
+        "status",
+      );
+    }
+
+    await serviceListingDAL.update(listingId, { status: "active" });
+
+    await auditLogDAL.create({
+      entityType: "service_listing",
+      entityId: listingId,
+      action: "service_listing.reactivated",
+      userId: providerId,
+      ipAddress: context.ipAddress ?? undefined,
+      userAgent: context.userAgent ?? undefined,
+    });
+  }
+
+  /**
    * Admin approves a pending listing.
    */
   static async approveListing(
