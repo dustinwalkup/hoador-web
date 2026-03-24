@@ -253,6 +253,13 @@
       "when": 1742688000002,
       "tag": "0035_fix_category_ids_and_listings",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1742688000003,
+      "tag": "0036_ensure_category_ids",
+      "breakpoints": true
     }
   ]
 }
