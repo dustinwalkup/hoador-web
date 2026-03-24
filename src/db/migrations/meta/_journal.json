@@ -274,6 +274,13 @@
       "when": 1774200600000,
       "tag": "0038_migration_smoke_test",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1774200700000,
+      "tag": "0039_cleanup_migration_smoke_test",
+      "breakpoints": true
     }
   ]
 }
