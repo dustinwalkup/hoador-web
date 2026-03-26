@@ -3,18 +3,17 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PageHeader } from "@/components/page-header";
+import { BackButton } from "@/components/back-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import {
-  communityDAL,
-  serviceListingDAL,
-  serviceReviewDAL,
-  userDAL,
-} from "@/dal";
+import { communityDAL, serviceListingDAL, serviceReviewDAL } from "@/dal";
 import { formatServiceUsd } from "@/features/services/lib/service-labels";
 import { getCurrentUserId } from "@/features/auth/utils/session";
+import { getStripeCustomerContext } from "@/services/stripe/payment-method";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { AlertCircle, Star } from "lucide-react";
 
 export const metadata = {
   title: "Service listing",
@@ -50,7 +49,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
   const [providerProfile, reviews, paymentMethod] = await Promise.all([
     serviceReviewDAL.getProviderProfileByUserId(listing.providerId),
     serviceReviewDAL.findByListing(listing.id),
-    userDAL.getStripeCustomerAndDefaultPaymentMethod(userId),
+    getStripeCustomerContext(userId),
   ]);
 
   const providerName = [listing.provider.firstName, listing.provider.lastName]
@@ -64,141 +63,246 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
     ? (listing.photos as string[])
     : [];
 
-  return (
-    <div className="container max-w-3xl pb-10">
-      <PageHeader title={listing.title} description={listing.category.name} />
+  const initials =
+    (listing.provider.firstName?.[0] ?? "") +
+    (listing.provider.lastName?.[0] ?? "");
 
+  const hasValidRating =
+    rating != null && Number.isFinite(rating) && rating > 0;
+
+  const hasPaymentMethod = Boolean(paymentMethod);
+
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-8">
+      <BackButton />
       <div className="space-y-8">
+        {/* Header Section */}
+        <header className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs font-normal">
+              {listing.category.name}
+            </Badge>
+            {listing.status !== "active" && (
+              <Badge variant="outline" className="text-xs">
+                {listing.status}
+              </Badge>
+            )}
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+            {listing.title}
+          </h1>
+        </header>
+
+        {/* Photo Gallery */}
         {photos.length > 0 && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {photos.map((url) => (
+            {photos.map((url, index) => (
               <div
                 key={url}
-                className="bg-muted relative aspect-video overflow-hidden rounded-md"
+                className={`bg-muted relative aspect-[4/3] overflow-hidden rounded-lg ${
+                  index === 0 && photos.length > 2
+                    ? "col-span-2 row-span-2 aspect-square sm:aspect-[4/3]"
+                    : ""
+                }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- user-supplied URLs */}
-                <img src={url} alt="" className="size-full object-cover" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`${listing.title} photo ${index + 1}`}
+                  className="h-full w-full object-cover transition-transform hover:scale-105"
+                />
               </div>
             ))}
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="size-12">
-              <AvatarImage
-                src={listing.provider.profileImageUrl ?? undefined}
-                alt=""
-              />
-              <AvatarFallback>
-                {(listing.provider.firstName?.[0] ?? "") +
-                  (listing.provider.lastName?.[0] ?? "")}
-              </AvatarFallback>
-            </Avatar>
-            <div>
+        {/* Provider Card */}
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
               <Link
                 href={`/dashboard/services/providers/${listing.providerId}`}
-                className="font-medium hover:underline"
+                className="group flex items-center gap-4"
               >
-                {providerName || "Provider"}
+                <Avatar className="border-background h-14 w-14 flex-shrink-0 border-2 shadow-sm">
+                  <AvatarImage
+                    src={listing.provider.profileImageUrl ?? undefined}
+                    alt={providerName}
+                  />
+                  <AvatarFallback className="bg-muted text-sm font-medium">
+                    {initials || "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="text-foreground font-medium group-hover:underline">
+                    {providerName || "Provider"}
+                  </p>
+                  {hasValidRating ? (
+                    <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      <span className="text-foreground font-medium">
+                        {rating.toFixed(1)}
+                      </span>
+                      {providerProfile?.reviewCount != null && (
+                        <span>({providerProfile.reviewCount} reviews)</span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      New provider
+                    </p>
+                  )}
+                </div>
               </Link>
-              {rating != null && Number.isFinite(rating) && rating > 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  ★ {rating.toFixed(1)}
-                  {providerProfile?.reviewCount != null
-                    ? ` (${providerProfile.reviewCount} reviews)`
-                    : ""}
-                </p>
-              ) : (
-                <p className="text-muted-foreground text-sm">New provider</p>
-              )}
-            </div>
-          </div>
-          <div className="text-lg font-semibold">
-            {listing.pricingType === "hourly"
-              ? `${formatServiceUsd(listing.price)}/hr`
-              : formatServiceUsd(listing.price)}{" "}
-            <span className="text-muted-foreground text-base font-normal">
-              · {listing.pricingType === "hourly" ? "Hourly" : "Fixed price"}
-            </span>
-          </div>
-        </div>
 
-        <section>
-          <h2 className="mb-2 font-semibold">About</h2>
-          <p className="text-muted-foreground whitespace-pre-wrap">
+              {/* Price Display */}
+              <div className="bg-muted/50 flex items-baseline gap-1 rounded-lg px-4 py-3 sm:text-right">
+                <span className="text-2xl font-semibold tracking-tight">
+                  {formatServiceUsd(listing.price)}
+                </span>
+                {listing.pricingType === "hourly" && (
+                  <span className="text-muted-foreground">/hr</span>
+                )}
+                <div className="text-muted-foreground ml-3 flex items-center gap-1 text-sm">
+                  {listing.pricingType === "fixed" && <span>Flat rate</span>}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* About Section */}
+        <section className="space-y-3">
+          <h2 className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+            About this service
+          </h2>
+          <p className="text-foreground leading-relaxed whitespace-pre-wrap">
             {listing.description}
           </p>
         </section>
 
-        {listing.serviceNotes ? (
-          <section>
-            <h2 className="mb-2 font-semibold">Service notes</h2>
-            <p className="text-muted-foreground whitespace-pre-wrap">
-              {listing.serviceNotes}
-            </p>
+        {/* Service Notes */}
+        {listing.serviceNotes && (
+          <section className="space-y-3">
+            <h2 className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+              Service notes
+            </h2>
+            <div className="bg-muted/30 rounded-lg border p-4">
+              <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                {listing.serviceNotes}
+              </p>
+            </div>
           </section>
-        ) : null}
+        )}
 
         <Separator />
 
-        <section>
-          <h2 className="mb-3 font-semibold">Reviews</h2>
+        {/* Reviews Section */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+              Reviews
+            </h2>
+            {reviews.length > 0 && (
+              <span className="text-muted-foreground text-sm">
+                {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+
           {reviews.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No reviews yet.</p>
+            <div className="rounded-lg border border-dashed py-8 text-center">
+              <p className="text-muted-foreground text-sm">
+                No reviews yet. Be the first to book this service!
+              </p>
+            </div>
           ) : (
-            <ul className="space-y-4">
-              {reviews.map((r) => (
-                <li key={r.id} className="rounded-md border p-3">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium">
-                      {r.reviewer.firstName} {r.reviewer.lastName}
-                    </span>
-                    <span className="text-sm">★ {r.rating}</span>
-                  </div>
-                  {r.comment ? (
-                    <p className="text-muted-foreground text-sm">{r.comment}</p>
-                  ) : null}
-                </li>
+            <div className="space-y-3">
+              {reviews.map((review) => (
+                <Card key={review.id} className="shadow-none">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarFallback className="bg-muted text-xs">
+                            {(review.reviewer.firstName?.[0] ?? "") +
+                              (review.reviewer.lastName?.[0] ?? "")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {review.reviewer.firstName}{" "}
+                            {review.reviewer.lastName}
+                          </p>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-3 w-3 ${
+                                  i < review.rating
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "fill-muted text-muted"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {review.comment && (
+                      <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+                        {review.comment}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
               ))}
-            </ul>
+            </div>
           )}
         </section>
 
         <Separator />
 
-        {isProvider ? (
-          <div className="flex flex-wrap gap-2">
-            <p className="text-muted-foreground w-full text-sm">
-              This is your listing.
-            </p>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/services/listings/${listing.id}/edit`}>
-                Edit listing
+        {/* Action Section */}
+        <section className="pb-4">
+          {isProvider ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <p className="text-muted-foreground text-sm">
+                This is your listing.
+              </p>
+              <Button variant="outline" asChild>
+                <Link href={`/dashboard/services/listings/${listing.id}/edit`}>
+                  Edit listing
+                </Link>
+              </Button>
+            </div>
+          ) : listing.status !== "active" ? (
+            <div className="rounded-lg border border-dashed py-6 text-center">
+              <p className="text-muted-foreground text-sm">
+                This listing is not accepting bookings at this time.
+              </p>
+            </div>
+          ) : !hasPaymentMethod ? (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  Add a payment method to request this service
+                </p>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href="/dashboard/payments">Go to Payments</Link>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button size="lg" className="w-full sm:w-auto" asChild>
+              <Link href={`/dashboard/services/listings/${listing.id}/book`}>
+                Request booking
               </Link>
             </Button>
-          </div>
-        ) : listing.status !== "active" ? (
-          <p className="text-muted-foreground text-sm">
-            This listing is not accepting bookings.
-          </p>
-        ) : !paymentMethod ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
-            <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">
-              Add a payment method to request this service
-            </p>
-            <Button asChild size="sm" variant="outline">
-              <Link href="/dashboard/payments">Go to Payments</Link>
-            </Button>
-          </div>
-        ) : (
-          <Button asChild size="lg">
-            <Link href={`/dashboard/services/listings/${listing.id}/book`}>
-              Request booking
-            </Link>
-          </Button>
-        )}
+          )}
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

@@ -6,11 +6,13 @@ import {
   useRentingRequests,
   useRentingActive,
   useRentingCompleted,
+  useRentingCancelled,
   useLendingIncoming,
   useLendingDenied,
   useLendingActive,
   useLendingCompleted,
   useLendingApproved,
+  useLendingCancelled,
 } from "@/features/rentals/hooks/use-rentals";
 import {
   RentalList,
@@ -71,12 +73,14 @@ export function RentalsClient({
   const rentingRequests = useRentingRequests("pending");
   const rentingApproved = useRentingRequests("approved");
   const rentingDenied = useRentingRequests("denied");
+  const rentingCancelled = useRentingCancelled();
   const rentingActive = useRentingActive();
   const rentingCompleted = useRentingCompleted();
 
   const lendingIncoming = useLendingIncoming();
-  const lendingApproved = useLendingApproved(); // Use proper approved hook for lending
+  const lendingApproved = useLendingApproved();
   const lendingDenied = useLendingDenied();
+  const lendingCancelled = useLendingCancelled();
   const lendingActive = useLendingActive();
   const lendingCompleted = useLendingCompleted();
 
@@ -90,6 +94,8 @@ export function RentalsClient({
         return rentingApproved;
       case "renting-denied":
         return rentingDenied;
+      case "renting-cancelled":
+        return rentingCancelled;
       case "renting-active":
         return rentingActive;
       case "renting-completed":
@@ -100,6 +106,8 @@ export function RentalsClient({
         return lendingApproved;
       case "lending-denied":
         return lendingDenied;
+      case "lending-cancelled":
+        return lendingCancelled;
       case "lending-active":
         return lendingActive;
       case "lending-completed":
@@ -208,7 +216,8 @@ export function RentalsClient({
       const isRequest =
         activeStatus === "requests" ||
         activeStatus === "approved" ||
-        activeStatus === "denied";
+        activeStatus === "denied" ||
+        activeStatus === "cancelled";
 
       return (
         <RentalList
@@ -222,7 +231,9 @@ export function RentalsClient({
                 ? "No approved requests."
                 : activeStatus === "denied"
                   ? "No denied requests."
-                  : `No ${activeStatus} rentals.`
+                  : activeStatus === "cancelled"
+                    ? "No cancelled rentals."
+                    : `No ${activeStatus} rentals.`
           }
           emptyStateAction={
             activeStatus === "requests"
@@ -241,7 +252,9 @@ export function RentalsClient({
               ? "No incoming requests."
               : activeStatus === "approved"
                 ? "No approved requests."
-                : `No ${activeStatus} requests.`
+                : activeStatus === "cancelled"
+                  ? "No cancelled rentals."
+                  : `No ${activeStatus} requests.`
           }
         />
       );
@@ -256,6 +269,7 @@ export function RentalsClient({
           { value: "active", label: "Active" },
           { value: "completed", label: "Completed" },
           { value: "denied", label: "Denied" },
+          { value: "cancelled", label: "Cancelled" },
         ]
       : [
           { value: "incoming", label: "Requests" },
@@ -263,6 +277,7 @@ export function RentalsClient({
           { value: "active", label: "Active" },
           { value: "completed", label: "Completed" },
           { value: "denied", label: "Denied" },
+          { value: "cancelled", label: "Cancelled" },
         ];
 
   return (

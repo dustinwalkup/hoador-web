@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils/date.utils";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { rentalDAL } from "@/dal";
-import { ServiceFeeLine } from "@/features/rentals/components/service-fee-line";
+import { ServiceFeeLine } from "@/components/payments/service-fee-line";
 import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
 
 export const metadata = {

@@ -67,8 +67,8 @@ Currently, the site header label displays the page title based on the current ro
    - Garage page (needs PageHeader)
    - Mailbox page (needs PageHeader)
    - Profile page (already has PageHeader)
-   - Rentals pages (already has PageHeader in layout)
-3. WHERE a page has conditional PageHeader rendering (e.g., rentals layout with `hideRentalHeader`), THEN the system SHALL respect those conditions
+   - Rentals list flow at `/dashboard/rentals/*` (PageHeader in `(rentals)/(flow)/layout.tsx`, direction-based title/description)
+3. WHERE a page has conditional PageHeader rendering, THEN the system SHALL respect those conditions (e.g. pages that omit PageHeader by design)
 4. Each added PageHeader SHALL have a descriptive title that matches the page's purpose
 5. Each added PageHeader SHALL have an optional description that provides context
 

@@ -73,11 +73,11 @@ export const MAIN_NAV: MainNavItem[] = [
         items: [
           {
             title: "Provider",
-            url: "/dashboard/services/incoming",
+            url: "/dashboard/services/incoming/pending",
           },
           {
             title: "Client",
-            url: "/dashboard/services/outgoing",
+            url: "/dashboard/services/outgoing/pending",
           },
         ],
       },

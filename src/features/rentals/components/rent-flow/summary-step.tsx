@@ -16,7 +16,7 @@ import { type RentalFormData } from "@/features/rentals/lib/rental-form.schema";
 import type { CurrentDocumentVersion } from "@/dal/types";
 import { LegalDisclosures } from "@/features/rentals/components/rent-flow/legal-disclosures";
 import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
-import { ServiceFeeLine } from "@/features/rentals/components/service-fee-line";
+import { ServiceFeeLine } from "@/components/payments/service-fee-line";
 
 interface SummaryStepProps {
   pricing: {

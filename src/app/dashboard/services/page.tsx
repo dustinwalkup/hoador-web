@@ -48,7 +48,7 @@ export default async function ServicesBrowsePage() {
 
   return (
     <div className="container pb-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-0 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Services"
           description="Book trusted help from neighbors in your community."

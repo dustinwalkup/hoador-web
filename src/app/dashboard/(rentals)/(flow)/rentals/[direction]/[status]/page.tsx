@@ -13,15 +13,35 @@ export const metadata = {
 interface RentalsPageProps {
   params: Promise<{
     direction: "incoming" | "outgoing";
-    status: "requests" | "approved" | "active" | "completed" | "denied";
+    status:
+      | "requests"
+      | "approved"
+      | "active"
+      | "completed"
+      | "denied"
+      | "cancelled";
   }>;
 }
 
 // Valid routes: incoming = lending (owner), outgoing = renting (renter)
 // For incoming (lending): status "requests" maps to internal "incoming"
 const validStatusByDirection: Record<string, string[]> = {
-  incoming: ["requests", "approved", "active", "completed", "denied"],
-  outgoing: ["requests", "approved", "active", "completed", "denied"],
+  incoming: [
+    "requests",
+    "approved",
+    "active",
+    "completed",
+    "denied",
+    "cancelled",
+  ],
+  outgoing: [
+    "requests",
+    "approved",
+    "active",
+    "completed",
+    "denied",
+    "cancelled",
+  ],
 };
 
 function RentalsPageSkeleton() {

@@ -259,7 +259,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. Verify ops receives alert (email); no notification to renter/owner.
 - **Expected results:**
   - Status 'expired'; ops alerted; no user notification.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-14: Deposit expiry — hold not yet expired, no change
 

@@ -4,14 +4,12 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { Briefcase } from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ServiceListingBrowseItem } from "@/dal/service-listing.dal";
-import { formatServiceUsd } from "@/features/services/lib/service-labels";
 import { useServiceBrowseFilters } from "@/features/services/hooks/use-service-browse-filters";
 import { cn } from "@/lib/utils";
 import { ServiceBrowseFilters } from "./service-browse-filters";
+import { ListingCard } from "./listing-card";
 
 interface CategoryOption {
   id: string;
@@ -27,51 +25,6 @@ interface ServiceBrowseClientProps {
 function providerName(first: string | null, last: string | null): string {
   const parts = [first, last].filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : "Provider";
-}
-
-function ListingCard({ item }: { item: ServiceListingBrowseItem }) {
-  const name = providerName(item.providerFirstName, item.providerLastName);
-  const initials =
-    `${item.providerFirstName?.[0] ?? ""}${item.providerLastName?.[0] ?? ""}` ||
-    "?";
-  const rating =
-    item.aggregateRating != null && Number(item.aggregateRating) > 0
-      ? Number.parseFloat(item.aggregateRating)
-      : null;
-  const isNew = !rating && item.reviewCount === 0;
-
-  return (
-    <Link
-      href={`/dashboard/services/listings/${item.id}`}
-      className="bg-card hover:border-primary/50 flex flex-col rounded-lg border p-4 shadow-sm transition-colors"
-    >
-      <div className="mb-3 flex items-start gap-3">
-        <Avatar className="size-10">
-          <AvatarImage src={item.providerProfileImageUrl ?? undefined} alt="" />
-          <AvatarFallback>{initials}</AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <p className="text-muted-foreground truncate text-sm">{name}</p>
-          <h3 className="leading-snug font-semibold">{item.title}</h3>
-        </div>
-      </div>
-      <div className="text-muted-foreground mt-auto flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span>
-          {item.pricingType === "hourly"
-            ? `${formatServiceUsd(item.price)}/hr`
-            : formatServiceUsd(item.price)}{" "}
-          · {item.pricingType === "hourly" ? "Hourly" : "Fixed"}
-        </span>
-        {isNew ? (
-          <Badge variant="secondary">New</Badge>
-        ) : (
-          <span className="text-foreground">
-            ★ {rating?.toFixed(1)} ({item.reviewCount})
-          </span>
-        )}
-      </div>
-    </Link>
-  );
 }
 
 /**
@@ -198,9 +151,11 @@ export function ServiceBrowseClient({
           ) : null}
         </div>
       ) : (
-        <div className={cn("grid gap-4 sm:grid-cols-2", "lg:grid-cols-3")}>
+        <div
+          className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3")}
+        >
           {filtered.map((item) => (
-            <ListingCard key={item.id} item={item} />
+            <ListingCard key={item.id} listing={item} />
           ))}
         </div>
       )}

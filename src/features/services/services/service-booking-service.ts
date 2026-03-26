@@ -18,6 +18,7 @@ import {
   sendNoShowReportAdminNotification,
 } from "@/features/services/notifications/service-notifications";
 import { chargeServicePayment } from "@/services/stripe/service-payments";
+import { getStripeCustomerContext } from "@/services/stripe/payment-method";
 import { getPaymentErrorMessage } from "@/services/stripe/rental-payments";
 import { processRefund } from "@/services/stripe/refund";
 
@@ -77,8 +78,7 @@ export class ServiceBookingService {
       throw new ForbiddenError("cannot_book_own_listing");
     }
 
-    const pm =
-      await userDAL.getStripeCustomerAndDefaultPaymentMethod(requesterId);
+    const pm = await getStripeCustomerContext(requesterId);
     if (!pm) {
       throw new ValidationError("payment_method_required", "paymentMethod");
     }
@@ -176,9 +176,7 @@ export class ServiceBookingService {
       );
     }
 
-    const stripeCtx = await userDAL.getStripeCustomerAndDefaultPaymentMethod(
-      detail.requesterId,
-    );
+    const stripeCtx = await getStripeCustomerContext(detail.requesterId);
     if (!stripeCtx) {
       throw new ValidationError("payment_method_required", "paymentMethod");
     }

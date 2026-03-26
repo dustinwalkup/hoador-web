@@ -28,7 +28,7 @@ export function ServiceFeeLine({ amount, className }: ServiceFeeLineProps) {
               <Info className="text-muted-foreground h-3.5 w-3.5 cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="">
-              <p>This fee covers Stripe&apos;s payment processing costs.</p>
+              <p>This fee covers secure payment processing.</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

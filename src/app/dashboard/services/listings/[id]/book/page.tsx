@@ -2,10 +2,12 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { communityDAL, serviceListingDAL, userDAL } from "@/dal";
+import { communityDAL, serviceListingDAL } from "@/dal";
+import { listStripeCardPaymentMethodsForUser } from "@/services/stripe/payment-method";
 import { ServiceBookingFlow } from "@/features/services/components/service-booking-flow";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
@@ -50,8 +52,8 @@ export default async function BookServicePage({ params }: PageProps) {
     notFound();
   }
 
-  const pm = await userDAL.getStripeCustomerAndDefaultPaymentMethod(userId);
-  if (!pm) {
+  const paymentMethods = await listStripeCardPaymentMethodsForUser(userId);
+  if (paymentMethods.length === 0) {
     return (
       <div className="container max-w-lg pb-10">
         <PageHeader
@@ -69,16 +71,47 @@ export default async function BookServicePage({ params }: PageProps) {
   }
 
   return (
-    <div className="container max-w-lg pb-10">
-      <PageHeader title="Request booking" description={listing.title} />
-      <ServiceBookingFlow
-        listingId={listing.id}
-        listing={{
-          pricingType: listing.pricingType,
-          price: listing.price,
-          title: listing.title,
-        }}
-      />
-    </div>
+    <main className="bg-muted/30 min-h-screen py-8">
+      <div className="mx-auto max-w-2xl px-4">
+        {/* Back Link */}
+        <Link
+          href={`/dashboard/services/listings/${listing.id}`}
+          className="text-muted-foreground hover:text-foreground mb-6 inline-flex items-center gap-1.5 text-sm transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to listing
+        </Link>
+
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-foreground text-2xl font-semibold">
+            Book Service
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {listing.title} with {listing.provider.firstName}{" "}
+            {listing.provider.lastName}
+          </p>
+        </div>
+
+        {/* Booking Flow */}
+        <ServiceBookingFlow
+          listing={{
+            id: listing.id,
+            title: listing.title,
+            price: Number.parseFloat(String(listing.price)),
+            pricingType: listing.pricingType,
+            provider: {
+              firstName: listing.provider.firstName ?? "",
+              lastName: listing.provider.lastName ?? "",
+              profileImageUrl: listing.provider.profileImageUrl,
+            },
+          }}
+          paymentMethods={paymentMethods}
+          priceInCents={false}
+          addPaymentMethodHref="/dashboard/payments/add"
+          bookingSuccessHref="/dashboard/services/bookings"
+        />
+      </div>
+    </main>
   );
 }

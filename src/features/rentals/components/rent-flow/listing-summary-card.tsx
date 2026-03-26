@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { ServiceFeeLine } from "@/features/rentals/components/service-fee-line";
+import { ServiceFeeLine } from "@/components/payments/service-fee-line";
 import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
 
 interface ListingSummaryCardProps {

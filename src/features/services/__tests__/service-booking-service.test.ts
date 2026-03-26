@@ -36,9 +36,11 @@ vi.mock("@/dal", () => ({
   serviceListingDAL: { getById: (...a: unknown[]) => mockListingGetById(...a) },
   userDAL: {
     getUserById: (...a: unknown[]) => mockGetUserById(...a),
-    getStripeCustomerAndDefaultPaymentMethod: (...a: unknown[]) =>
-      mockGetStripePm(...a),
   },
+}));
+
+vi.mock("@/services/stripe/payment-method", () => ({
+  getStripeCustomerContext: (...a: unknown[]) => mockGetStripePm(...a),
 }));
 
 vi.mock("@/services/stripe/service-payments", () => ({

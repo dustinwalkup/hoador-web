@@ -264,64 +264,67 @@ export function ServiceListingForm({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="pricingType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pricing type *</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="fixed">Fixed</SelectItem>
-                      <SelectItem value="hourly">Hourly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Fixed = flat fee per job. Hourly = billed by the hour.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="pricingType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pricing type *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="fixed">Flat rate</SelectItem>
+                        <SelectItem value="hourly">Hourly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Flat rate = one price for the whole job. Hourly = billed
+                      by the hour.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="price"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Price (USD) *</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step={0.01}
-                        placeholder="0.00"
-                        className="pl-9"
-                        value={field.value || 0}
-                        onChange={(event) => {
-                          field.onChange(
-                            Number.parseFloat(event.target.value) || 0,
-                          );
-                        }}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    Enter 0 if your pricing varies — add details in Service
-                    Notes.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Price (USD) *</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <DollarSign className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          step={0.01}
+                          placeholder="0.00"
+                          className="pl-9"
+                          value={field.value || 0}
+                          onChange={(event) => {
+                            field.onChange(
+                              Number.parseFloat(event.target.value) || 0,
+                            );
+                          }}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Enter 0 if your pricing varies — add details in Service
+                      Notes.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}

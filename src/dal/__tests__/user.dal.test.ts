@@ -1456,4 +1456,42 @@ describe("UserDAL", () => {
       expect(result?.id).toBe("user-123");
     });
   });
+
+  describe("getStripeCustomerId", () => {
+    it("returns the stripeCustomerId when found", async () => {
+      const mockWhere = vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([{ stripeCustomerId: "cus_abc" }]),
+      });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      const result = await userDAL.getStripeCustomerId("user-1");
+
+      expect(result).toBe("cus_abc");
+    });
+
+    it("returns null when user is not found", async () => {
+      const mockWhere = vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([]),
+      });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      const result = await userDAL.getStripeCustomerId("user-missing");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null when stripeCustomerId is null", async () => {
+      const mockWhere = vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([{ stripeCustomerId: null }]),
+      });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      const result = await userDAL.getStripeCustomerId("user-1");
+
+      expect(result).toBeNull();
+    });
+  });
 });

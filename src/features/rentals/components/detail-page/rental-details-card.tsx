@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { RentalDetailsInfo } from "@/dal/rentals.dal";
-import { ServiceFeeLine } from "@/features/rentals/components/service-fee-line";
+import { ServiceFeeLine } from "@/components/payments/service-fee-line";
 import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
 
 interface RentalDetailsCardProps {

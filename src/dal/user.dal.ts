@@ -19,15 +19,8 @@ import {
 import { ConflictError, NotFoundError } from "./errors";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
-const {
-  user,
-  userPreferences,
-  userAddresses,
-  userPaymentMethods,
-  reviews,
-  rentals,
-  listings,
-} = schema;
+const { user, userPreferences, userAddresses, reviews, rentals, listings } =
+  schema;
 
 type UpdateUserPreferencesDTO = Partial<
   Omit<
@@ -412,46 +405,18 @@ export class UserDAL extends BaseDAL {
   }
 
   /**
-   * Stripe customer id and primary active payment method for off-session charges.
+   * Returns the user's Stripe customer ID, or null if none exists.
    */
-  async getStripeCustomerAndDefaultPaymentMethod(
-    userId: string,
-  ): Promise<{ customerId: string; paymentMethodId: string } | null> {
+  async getStripeCustomerId(userId: string): Promise<string | null> {
     try {
       const [u] = await this.db
         .select({ stripeCustomerId: user.stripeCustomerId })
         .from(user)
         .where(eq(user.id, userId))
         .limit(1);
-
-      if (!u?.stripeCustomerId) {
-        return null;
-      }
-
-      const [pm] = await this.db
-        .select({
-          stripePaymentMethodId: userPaymentMethods.stripePaymentMethodId,
-        })
-        .from(userPaymentMethods)
-        .where(
-          and(
-            eq(userPaymentMethods.userId, userId),
-            eq(userPaymentMethods.isPrimary, true),
-            eq(userPaymentMethods.isActive, true),
-          ),
-        )
-        .limit(1);
-
-      if (!pm?.stripePaymentMethodId) {
-        return null;
-      }
-
-      return {
-        customerId: u.stripeCustomerId,
-        paymentMethodId: pm.stripePaymentMethodId,
-      };
+      return u?.stripeCustomerId ?? null;
     } catch (error) {
-      this.handleError(error, "getStripeCustomerAndDefaultPaymentMethod");
+      this.handleError(error, "getStripeCustomerId");
     }
   }
 

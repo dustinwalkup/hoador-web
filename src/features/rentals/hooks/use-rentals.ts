@@ -20,7 +20,7 @@ export const rentalKeys = {
 
 // Renting hooks
 export function useRentingRequests(
-  status: "pending" | "approved" | "denied" = "pending",
+  status: "pending" | "approved" | "denied" | "cancelled" = "pending",
 ) {
   return useQuery({
     queryKey: rentalKeys.rentingByStatus(`requests-${status}`),
@@ -81,7 +81,8 @@ export function useLendingRequests(
     | "approved"
     | "denied"
     | "active"
-    | "completed" = "pending",
+    | "completed"
+    | "cancelled" = "pending",
 ) {
   return useQuery({
     queryKey: rentalKeys.lendingByStatus(`requests-${status}`),
@@ -120,6 +121,14 @@ export function useLendingActive() {
 
 export function useLendingCompleted() {
   return useLendingRequests("completed");
+}
+
+export function useRentingCancelled() {
+  return useRentingRequests("cancelled");
+}
+
+export function useLendingCancelled() {
+  return useLendingRequests("cancelled");
 }
 
 // Individual rental details
@@ -166,6 +175,7 @@ export function useAllRentingData() {
   const requests = useRentingRequests("pending");
   const approved = useRentingRequests("approved");
   const denied = useRentingRequests("denied");
+  const cancelled = useRentingCancelled();
   const active = useRentingActive();
   const completed = useRentingCompleted();
 
@@ -173,18 +183,21 @@ export function useAllRentingData() {
     requests,
     approved,
     denied,
+    cancelled,
     active,
     completed,
     isLoading:
       requests.isLoading ||
       approved.isLoading ||
       denied.isLoading ||
+      cancelled.isLoading ||
       active.isLoading ||
       completed.isLoading,
     hasError:
       requests.error ||
       approved.error ||
       denied.error ||
+      cancelled.error ||
       active.error ||
       completed.error,
   };
@@ -195,6 +208,7 @@ export function useAllLendingData() {
   const incoming = useLendingIncoming();
   const approved = useLendingApproved();
   const denied = useLendingDenied();
+  const cancelled = useLendingCancelled();
   const active = useLendingActive();
   const completed = useLendingCompleted();
 
@@ -202,18 +216,21 @@ export function useAllLendingData() {
     incoming,
     approved,
     denied,
+    cancelled,
     active,
     completed,
     isLoading:
       incoming.isLoading ||
       approved.isLoading ||
       denied.isLoading ||
+      cancelled.isLoading ||
       active.isLoading ||
       completed.isLoading,
     hasError:
       incoming.error ||
       approved.error ||
       denied.error ||
+      cancelled.error ||
       active.error ||
       completed.error,
   };
