@@ -181,7 +181,7 @@ export function AddListingForm({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="bg-background/80 fixed inset-0 z-50 flex items-end justify-center pb-8 backdrop-blur-sm"
+              className="bg-background/80 fixed inset-0 z-9999 flex items-end justify-center pb-8 backdrop-blur-sm"
             >
               <div className="bg-background flex w-64 flex-col items-center gap-4 rounded-xl border p-6 shadow-xl">
                 {uploadProgress ? (
