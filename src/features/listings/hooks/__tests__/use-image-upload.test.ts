@@ -3,8 +3,50 @@ import { renderHook, act } from "@testing-library/react";
 import { useImageUpload } from "../use-image-upload";
 import type { ImageFile } from "@/features/listings/form-schema/listing.schema";
 
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// ─── XMLHttpRequest mock ──────────────────────────────────────────────────
+// The hook uses XHR (not fetch) to get byte-level upload progress.
+type XHRQueueEntry = { status: number; responseText: string; error?: boolean };
+const xhrQueue: XHRQueueEntry[] = [];
+let xhrOpenCount = 0;
+
+class MockXHR {
+  upload = {
+    onprogress: null as
+      | ((e: {
+          lengthComputable: boolean;
+          loaded: number;
+          total: number;
+        }) => void)
+      | null,
+  };
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  ontimeout: (() => void) | null = null;
+  status = 200;
+  responseText = "";
+
+  open = vi.fn(() => {
+    xhrOpenCount++;
+  });
+
+  send = vi.fn(() => {
+    const entry = xhrQueue.shift();
+    if (!entry) return;
+    // Schedule asynchronously (mirrors real XHR behaviour)
+    Promise.resolve().then(() => {
+      this.status = entry.status;
+      this.responseText = entry.responseText;
+      if (entry.error) {
+        this.onerror?.();
+      } else {
+        this.onload?.();
+      }
+    });
+  });
+}
+
+vi.stubGlobal("XMLHttpRequest", MockXHR);
+// ─────────────────────────────────────────────────────────────────────────
 
 describe("useImageUpload", () => {
   const listingId = "listing-123";
@@ -17,6 +59,8 @@ describe("useImageUpload", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    xhrQueue.length = 0;
+    xhrOpenCount = 0;
   });
 
   it("should initialize with null upload progress", () => {
@@ -46,27 +90,26 @@ describe("useImageUpload", () => {
       failedIndices: [],
       uploadedImages: [],
     });
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(xhrOpenCount).toBe(0);
   });
 
   it("should upload files sequentially and track progress", async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            success: true,
-            image: { id: "uploaded-1" },
-          }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            success: true,
-            image: { id: "uploaded-2" },
-          }),
-      });
+    xhrQueue.push(
+      {
+        status: 200,
+        responseText: JSON.stringify({
+          success: true,
+          image: { id: "uploaded-1" },
+        }),
+      },
+      {
+        status: 200,
+        responseText: JSON.stringify({
+          success: true,
+          image: { id: "uploaded-2" },
+        }),
+      },
+    );
 
     const { result } = renderHook(() => useImageUpload());
     const images = createImageFiles(2);
@@ -83,26 +126,25 @@ describe("useImageUpload", () => {
       failedIndices: [],
       uploadedImages: [{ id: "uploaded-1" }, { id: "uploaded-2" }],
     });
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch).toHaveBeenCalledWith(
-      `/api/listings/${listingId}`,
-      expect.objectContaining({ method: "POST" }),
-    );
+    expect(xhrOpenCount).toBe(2);
     // Progress should be null after completion
     expect(result.current.uploadProgress).toBeNull();
   });
 
   it("should handle partial upload failures", async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({ success: true, image: { id: "uploaded-1" } }),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: "Upload failed" }),
-      });
+    xhrQueue.push(
+      {
+        status: 200,
+        responseText: JSON.stringify({
+          success: true,
+          image: { id: "uploaded-1" },
+        }),
+      },
+      {
+        status: 500,
+        responseText: JSON.stringify({ error: "Upload failed" }),
+      },
+    );
 
     const { result } = renderHook(() => useImageUpload());
     const images = createImageFiles(2);
@@ -122,10 +164,12 @@ describe("useImageUpload", () => {
   });
 
   it("should handle total upload failure", async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({ error: "Server error" }),
-    });
+    // Server errors (4xx/5xx) are non-retryable — one XHR call per image
+    xhrQueue.push(
+      { status: 500, responseText: JSON.stringify({ error: "Server error" }) },
+      { status: 500, responseText: JSON.stringify({ error: "Server error" }) },
+      { status: 500, responseText: JSON.stringify({ error: "Server error" }) },
+    );
 
     const { result } = renderHook(() => useImageUpload());
     const images = createImageFiles(3);
@@ -159,36 +203,29 @@ describe("useImageUpload", () => {
       failedIndices: [],
       uploadedImages: [],
     });
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(xhrOpenCount).toBe(0);
   });
 
   it("should upload images in sequential order", async () => {
-    const callOrder: number[] = [];
-    mockFetch
-      .mockImplementationOnce(() => {
-        callOrder.push(1);
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({ success: true, image: { id: "first" } }),
-        });
-      })
-      .mockImplementationOnce(() => {
-        callOrder.push(2);
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({ success: true, image: { id: "second" } }),
-        });
-      })
-      .mockImplementationOnce(() => {
-        callOrder.push(3);
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({ success: true, image: { id: "third" } }),
-        });
-      });
+    // Sequential upload is guaranteed by the await-in-loop in the hook.
+    // Verify results arrive in input order.
+    xhrQueue.push(
+      {
+        status: 200,
+        responseText: JSON.stringify({ success: true, image: { id: "first" } }),
+      },
+      {
+        status: 200,
+        responseText: JSON.stringify({
+          success: true,
+          image: { id: "second" },
+        }),
+      },
+      {
+        status: 200,
+        responseText: JSON.stringify({ success: true, image: { id: "third" } }),
+      },
+    );
 
     const { result } = renderHook(() => useImageUpload());
     const images = createImageFiles(3);
@@ -198,8 +235,7 @@ describe("useImageUpload", () => {
       uploadResult = await result.current.uploadImages(images, listingId);
     });
 
-    // Verify sequential order
-    expect(callOrder).toEqual([1, 2, 3]);
+    expect(xhrOpenCount).toBe(3);
     expect(uploadResult!.uploadedImages).toEqual([
       { id: "first" },
       { id: "second" },

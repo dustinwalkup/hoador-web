@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -37,8 +37,10 @@ export function useListingFormSubmit({
   const createMutation = useCreateListing();
   const updateMutation = useUpdateListing();
   const { uploadImages, uploadProgress } = useImageUpload();
+  const [isHandlingSubmit, setIsHandlingSubmit] = useState(false);
 
   const isSubmitting =
+    isHandlingSubmit ||
     createMutation.isPending ||
     updateMutation.isPending ||
     uploadProgress !== null;
@@ -82,6 +84,7 @@ export function useListingFormSubmit({
         }
       }
 
+      setIsHandlingSubmit(true);
       try {
         if (isEdit && listingId) {
           // Update existing listing
@@ -178,6 +181,8 @@ export function useListingFormSubmit({
             ? `Failed to update listing: ${message}`
             : `Failed to create listing: ${message}`,
         );
+      } finally {
+        setIsHandlingSubmit(false);
       }
     },
     [
@@ -191,6 +196,7 @@ export function useListingFormSubmit({
       reorderImages,
       onSuccess,
       router,
+      setIsHandlingSubmit,
     ],
   );
 

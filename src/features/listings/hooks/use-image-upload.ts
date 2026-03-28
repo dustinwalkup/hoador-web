@@ -19,6 +19,7 @@ export function useImageUpload() {
   const [uploadProgress, setUploadProgress] = useState<{
     current: number;
     total: number;
+    percent: number;
   } | null>(null);
 
   const uploadImages = useCallback(
@@ -34,10 +35,57 @@ export function useImageUpload() {
           uploadedImages: [],
         };
 
-      setUploadProgress({ current: 0, total });
+      setUploadProgress({ current: 0, total, percent: 0 });
       let completed = 0;
       const uploadedImages: UploadedImage[] = [];
       const failedIndices: number[] = [];
+
+      // Upload a single file via XHR (for byte-level progress) with retry on network errors
+      const uploadFileWithXhr = (
+        file: File,
+        onProgress: (percent: number) => void,
+      ): Promise<UploadedImage> => {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const formData = new FormData();
+          formData.append("file", file);
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+          };
+
+          xhr.onload = () => {
+            let body: Record<string, unknown> = {};
+            try {
+              body = JSON.parse(xhr.responseText) as Record<string, unknown>;
+            } catch {
+              // non-JSON response
+            }
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve((body as { image: UploadedImage }).image);
+            } else {
+              // Server error — non-retryable
+              reject(
+                Object.assign(
+                  new Error(
+                    `Image upload failed (HTTP ${xhr.status}): ${JSON.stringify(body)}`,
+                  ),
+                  { isServerError: true, status: xhr.status, body },
+                ),
+              );
+            }
+          };
+
+          xhr.onerror = () =>
+            reject(new Error("Network error during image upload"));
+          xhr.ontimeout = () => reject(new Error("Image upload timed out"));
+
+          xhr.open("POST", `/api/listings/${listingId}`);
+          xhr.send(formData);
+        });
+      };
 
       for (let i = 0; i < filesToUpload.length; i++) {
         const image = filesToUpload[i];
@@ -52,44 +100,46 @@ export function useImageUpload() {
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
           try {
-            const formData = new FormData();
-            formData.append("file", image.file);
+            const uploadedImage = await uploadFileWithXhr(
+              image.file,
+              (percent) => {
+                setUploadProgress({ current: completed, total, percent });
+              },
+            );
 
-            const res = await fetch(`/api/listings/${listingId}`, {
-              method: "POST",
-              body: formData,
-            });
+            completed++;
+            setUploadProgress({ current: completed, total, percent: 100 });
+            uploadedImages.push(uploadedImage);
+            uploaded = true;
+            break;
+          } catch (error) {
+            lastError = error;
+            const isServerError =
+              error instanceof Error &&
+              "isServerError" in error &&
+              error.isServerError;
 
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              const serverError = new Error(
-                `Image upload failed (HTTP ${res.status}): ${JSON.stringify(err)}`,
-              );
-              console.error(`Failed to upload image ${image.file.name}`, err);
-              Sentry.captureException(serverError, {
+            if (isServerError) {
+              // Non-retryable — log and break immediately
+              const e = error as unknown as Error & {
+                status: number;
+                body: Record<string, unknown>;
+              };
+              console.error(`Failed to upload image ${image.file.name}`, e);
+              Sentry.captureException(e, {
                 tags: { error_type: "image_upload_server_error" },
                 extra: {
                   fileName: image.file.name,
                   fileSize: image.file.size,
                   fileType: image.file.type,
                   listingId,
-                  status: res.status,
-                  response: err,
+                  status: e.status,
+                  response: e.body,
                 },
               });
-              // Server errors are non-retryable
-              lastError = serverError;
               break;
             }
 
-            completed++;
-            setUploadProgress({ current: completed, total });
-            const json = await res.json();
-            uploadedImages.push(json.image);
-            uploaded = true;
-            break;
-          } catch (error) {
-            lastError = error;
             const isLastAttempt = attempt === MAX_RETRIES;
             if (isLastAttempt) {
               console.error(
@@ -117,7 +167,7 @@ export function useImageUpload() {
 
         if (!uploaded) {
           failedIndices.push(i);
-          void lastError; // already logged above
+          void lastError;
         }
       }
 
