@@ -2,10 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
 
-import { PageHeader } from "@/components/page-header";
+import { BackButton } from "@/components/back-button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { serviceListingDAL } from "@/dal";
 import { ServiceListingForm } from "@/features/services/components/service-listing-form";
-import { ServiceListingDeactivateButton } from "@/features/services/components/service-listing-deactivate-button";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
 export const metadata = {
@@ -28,16 +28,28 @@ export default async function EditServiceListingPage({ params }: PageProps) {
 
   const categories = await serviceListingDAL.listCategories();
 
-  const showDeactivate = listing.status !== "denied";
-
   return (
     <div className="container max-w-2xl pb-10">
-      <PageHeader title="Edit listing" description={listing.title} />
-      <div className="mb-6 flex flex-wrap gap-3">
-        {showDeactivate ? (
-          <ServiceListingDeactivateButton listingId={listing.id} />
-        ) : null}
+      <div className="mb-6">
+        <BackButton />
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold sm:text-3xl">Edit Listing</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
+            {listing.title}
+          </p>
+        </div>
       </div>
+      {listing.status === "denied" ? (
+        <div className="mb-6">
+          <Alert variant="destructive">
+            <AlertDescription>
+              Your listing was denied by an admin. Update it and click Save and
+              resubmit for review to send it back for approval.
+            </AlertDescription>
+          </Alert>
+        </div>
+      ) : null}
+
       <ServiceListingForm
         mode="edit"
         listingId={listing.id}

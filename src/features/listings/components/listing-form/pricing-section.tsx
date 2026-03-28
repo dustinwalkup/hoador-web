@@ -1,7 +1,7 @@
 import { Calendar, DollarSign, Shield } from "lucide-react";
 import { Control } from "react-hook-form";
 
-import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
+import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 
 import {
   Card,
@@ -10,7 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import {
+  NumericInput,
+  toNumericInputValue,
+} from "@/components/ui/numeric-input";
 import { Separator } from "@/components/ui/separator";
 import {
   FormField,
@@ -21,7 +24,7 @@ import {
 } from "@/components/ui/form";
 
 interface PricingSectionProps {
-  control: Control<CreateListingFormDataClientType>;
+  control: Control<CreateListingFormClientValues>;
 }
 
 export function PricingSection({ control }: PricingSectionProps) {
@@ -45,16 +48,16 @@ export function PricingSection({ control }: PricingSectionProps) {
               <FormControl>
                 <div className="relative">
                   <DollarSign className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumericInput
+                    variant="decimal"
+                    maxFractionDigits={2}
                     placeholder="0.00"
                     className="pl-9 text-base"
-                    {...field}
-                    value={field.value || ""}
-                    onChange={(e) =>
-                      field.onChange(Number.parseFloat(e.target.value) || 0)
-                    }
+                    name={field.name}
+                    ref={field.ref}
+                    value={toNumericInputValue(field.value)}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
                   />
                 </div>
               </FormControl>
@@ -135,16 +138,16 @@ export function PricingSection({ control }: PricingSectionProps) {
               <FormControl>
                 <div className="relative">
                   <Shield className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumericInput
+                    variant="decimal"
+                    maxFractionDigits={2}
                     placeholder="0.00"
                     className="pl-9 text-base"
-                    {...field}
-                    value={field.value || ""}
-                    onChange={(e) =>
-                      field.onChange(Number.parseFloat(e.target.value) || 0)
-                    }
+                    name={field.name}
+                    ref={field.ref}
+                    value={toNumericInputValue(field.value)}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
                   />
                 </div>
               </FormControl>
@@ -168,16 +171,14 @@ export function PricingSection({ control }: PricingSectionProps) {
               <FormItem>
                 <FormLabel>Minimum Rental (days)</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min="1"
+                  <NumericInput
+                    variant="integer"
                     className="text-base"
-                    {...field}
-                    value={field.value || 1}
-                    onChange={(e) =>
-                      field.onChange(Number.parseInt(e.target.value) || 1)
-                    }
+                    name={field.name}
+                    ref={field.ref}
+                    value={toNumericInputValue(field.value)}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
                   />
                 </FormControl>
                 <FormMessage />
@@ -191,16 +192,14 @@ export function PricingSection({ control }: PricingSectionProps) {
               <FormItem>
                 <FormLabel>Maximum Rental (days)</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min="1"
+                  <NumericInput
+                    variant="integer"
                     className="text-base"
-                    {...field}
-                    value={field.value || 30}
-                    onChange={(e) =>
-                      field.onChange(Number.parseInt(e.target.value) || 30)
-                    }
+                    name={field.name}
+                    ref={field.ref}
+                    value={toNumericInputValue(field.value)}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
                   />
                 </FormControl>
                 <FormMessage />

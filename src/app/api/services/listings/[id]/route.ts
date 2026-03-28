@@ -129,6 +129,47 @@ async function patchHandler(
   }
 }
 
+/**
+ * DELETE /api/services/listings/[id]
+ * Provider deletes their listing when no bookings exist.
+ */
+async function deleteHandler(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const authError = await requireAuthResponse();
+    if (authError) return authError;
+
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
+    const { id } = await params;
+    const ipAddress = getClientIP(request);
+    const userAgent = getUserAgent(request);
+
+    const { error } = await tryCatch(
+      ServiceListingService.deleteListing(id, userId, {
+        ipAddress,
+        userAgent,
+      }),
+    );
+
+    if (error) {
+      return handleApiError(error);
+    }
+
+    return NextResponse.json({ success: true as const });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
 export const GET = withRequestLogging(
   getHandler,
   "GET /api/services/listings/[id]",
@@ -136,4 +177,8 @@ export const GET = withRequestLogging(
 export const PATCH = withRequestLogging(
   patchHandler,
   "PATCH /api/services/listings/[id]",
+);
+export const DELETE = withRequestLogging(
+  deleteHandler,
+  "DELETE /api/services/listings/[id]",
 );

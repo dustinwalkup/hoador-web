@@ -65,6 +65,78 @@ export function useRejectListing() {
 }
 
 /**
+ * Approve a pending HOA service listing (admin).
+ */
+export function useApproveServiceListing() {
+  return useCreateMutation({
+    mutationFn: async ({
+      listingId,
+      note,
+    }: {
+      listingId: string;
+      note?: string;
+    }) => {
+      const response = await fetch(
+        `/api/admin/services/listings/${listingId}/approve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: note ?? undefined }),
+        },
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to approve service listing");
+      }
+
+      return response.json();
+    },
+    successMessage: undefined,
+    invalidateQueryKeys: [
+      ["admin", "pending-service-review-count"],
+      ["admin", "service-review-history"],
+    ],
+  });
+}
+
+/**
+ * Reject a pending HOA service listing (admin).
+ */
+export function useRejectServiceListing() {
+  return useCreateMutation({
+    mutationFn: async ({
+      listingId,
+      reason,
+    }: {
+      listingId: string;
+      reason: string;
+    }) => {
+      const response = await fetch(
+        `/api/admin/services/listings/${listingId}/reject`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        },
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to reject service listing");
+      }
+
+      return response.json();
+    },
+    successMessage: undefined,
+    invalidateQueryKeys: [
+      ["admin", "pending-service-review-count"],
+      ["admin", "service-review-history"],
+    ],
+  });
+}
+
+/**
  * Upload a legal document version
  */
 export function useUploadLegalDocument() {

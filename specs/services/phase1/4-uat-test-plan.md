@@ -47,7 +47,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
 - **Expected results:**
   - Form is blocked; user sees onboarding prompt.
   - No listing is created.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -67,7 +67,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   - Listing created with `status: pending_approval`.
   - Not visible to other residents.
   - Admin notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -83,7 +83,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   4. Verify the listing is created with `status: pending_approval`.
 - **Expected results:**
   - Hourly listing created; pricing type and rate stored correctly.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -100,7 +100,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   5. Verify the listing status is unchanged (no re-approval triggered).
 - **Expected results:**
   - Listing fields updated; no status change; no re-approval notification sent.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -116,7 +116,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   4. Verify the listing detail page shows `status: inactive`.
 - **Expected results:**
   - Listing removed from browse; status becomes `inactive`.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -137,7 +137,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   7. Verify the provider receives a notification: listing approved.
 - **Expected results:**
   - Listing active; visible to residents; provider notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -152,7 +152,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify the form does not submit; error is shown ("Reason is required").
 - **Expected results:**
   - Rejection blocked without a reason.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -170,7 +170,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   6. Verify the provider receives a notification: listing denied with the reason text.
 - **Expected results:**
   - Listing denied; not visible; provider notified with reason.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -184,7 +184,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   2. Verify the empty state message is shown: "No listings pending review".
 - **Expected results:**
   - Empty state displayed; no listing rows.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -201,7 +201,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify listings from other communities are NOT shown.
 - **Expected results:**
   - Correct listings shown; cross-community listings absent.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -217,7 +217,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   4. Click a different category; verify the grid updates.
 - **Expected results:**
   - Grid filters correctly by category.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -231,7 +231,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   2. Verify the detail page shows: title, full description, service notes, photo gallery, provider summary (avatar + name + rating → links to provider profile), reviews section, and a booking CTA.
 - **Expected results:**
   - All content rendered; booking CTA visible.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -246,7 +246,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify a label "This is your listing" is shown instead.
 - **Expected results:**
   - Booking CTA absent for listing owner.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 

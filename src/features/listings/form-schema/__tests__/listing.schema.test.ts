@@ -304,9 +304,7 @@ describe("listing.schema.ts", () => {
 
         const result = createListingSchemaServer.safeParse(data);
         expect(result.success).toBe(false);
-        expect(result.error?.issues[0]?.message).toBe(
-          "Invalid input: expected number, received undefined",
-        );
+        expect(result.error?.issues[0]?.message).toBe("Daily rate is required");
       });
     });
 

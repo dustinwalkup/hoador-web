@@ -6,18 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import {
-  CheckCircle2,
-  XCircle,
-  Mail,
-  Calendar,
-  Star,
-  Package,
-} from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { ApproveRejectDialog } from "./approve-reject-dialog";
 import { formatDistanceToNow } from "date-fns";
 import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
+import { formatActorName } from "@/lib/utils";
 import { useState } from "react";
+import {
+  OwnerInformation,
+  type AdminOwnerInformationRating,
+} from "./owner-information";
+import { ReviewHistoryMetadata } from "./review-history-metadata";
 
 interface ListingReviewCardProps {
   listing: PendingReviewListing | ReviewedListing;
@@ -52,6 +51,8 @@ export function ListingReviewCard({
     const d = typeof date === "string" ? new Date(date) : date;
     return formatDistanceToNow(d, { addSuffix: true });
   };
+
+  const reviewEvents = listing.reviewEvents ?? [];
 
   return (
     <Card className="overflow-hidden">
@@ -115,36 +116,62 @@ export function ListingReviewCard({
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="w-full space-y-6">
         {/* Review Metadata */}
+        {reviewEvents.length > 0 && (
+          <div className="bg-muted/50 rounded-lg border p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold">Review history</h3>
+              <span className="text-muted-foreground text-xs">
+                {reviewEvents.length} entr
+                {reviewEvents.length === 1 ? "y" : "ies"}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {reviewEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="bg-background rounded-md border p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="capitalize">
+                          {event.eventType === "provider_resubmitted"
+                            ? "Resubmitted"
+                            : event.eventType}
+                        </Badge>
+                        <span className="text-muted-foreground text-xs">
+                          {formatDate(event.createdAt)}
+                        </span>
+                      </div>
+
+                      <div className="text-muted-foreground mt-1 text-xs">
+                        By {formatActorName(event.actor)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {event.note && event.note.trim().length > 0 && (
+                    <div className="mt-2 text-sm whitespace-pre-wrap">
+                      <span className="font-medium">Note:</span>{" "}
+                      <span>{sanitizeForDisplay(event.note)}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {showReviewMetadata && reviewedListing && (
           <div className="bg-muted/50 rounded-lg border p-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {reviewedListing.reviewedBy && (
-                <div>
-                  <span className="text-sm font-medium">Reviewed by:</span>
-                  <div className="text-muted-foreground text-sm">
-                    {reviewedListing.reviewedBy.firstName}{" "}
-                    {reviewedListing.reviewedBy.lastName}
-                  </div>
-                </div>
-              )}
-              {reviewedListing.reviewedAt && (
-                <div>
-                  <span className="text-sm font-medium">Reviewed at:</span>
-                  <div className="text-muted-foreground text-sm">
-                    {formatDate(reviewedListing.reviewedAt)}
-                  </div>
-                </div>
-              )}
-              {reviewedListing.rejectionReason && (
-                <div className="col-span-full">
-                  <span className="text-sm font-medium">Rejection reason:</span>
-                  <div className="border-destructive/20 bg-destructive/5 mt-1 rounded-md border p-3 text-sm">
-                    {sanitizeForDisplay(reviewedListing.rejectionReason)}
-                  </div>
-                </div>
-              )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <ReviewHistoryMetadata
+                submittedAt={reviewedListing.createdAt}
+                reviewedBy={reviewedListing.reviewedBy}
+                reviewedAt={reviewedListing.reviewedAt}
+              />
             </div>
           </div>
         )}
@@ -263,76 +290,24 @@ export function ListingReviewCard({
 
         <Separator />
 
-        {/* Owner Information */}
-        <div>
-          <h3 className="mb-3 text-sm font-semibold">Owner Information</h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex items-start gap-3">
-              {listing.owner.profileImageUrl ? (
-                <Image
-                  src={listing.owner.profileImageUrl}
-                  alt={`${listing.owner.firstName} ${listing.owner.lastName}`}
-                  width={48}
-                  height={48}
-                  className="rounded-full"
-                />
-              ) : (
-                <div className="bg-muted flex h-12 w-12 items-center justify-center rounded-full">
-                  <span className="text-sm font-semibold">
-                    {listing.owner.firstName.charAt(0)}
-                    {listing.owner.lastName.charAt(0)}
-                  </span>
-                </div>
-              )}
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">
-                    {listing.owner.firstName} {listing.owner.lastName}
-                  </span>
-                  {listing.owner.isVerified && (
-                    <Badge variant="default" className="text-xs">
-                      Verified
-                    </Badge>
-                  )}
-                </div>
-                <div className="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
-                  <Mail className="h-3 w-3" />
-                  {listing.owner.email}
-                </div>
-                <div className="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
-                  <Calendar className="h-3 w-3" />
-                  Joined {formatDate(listing.owner.createdAt)}
-                </div>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Package className="text-muted-foreground h-4 w-4" />
-                <span className="text-sm">
-                  <span className="font-medium">
-                    {listing.owner.otherListingsCount}
-                  </span>{" "}
-                  other listing
-                  {listing.owner.otherListingsCount !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-yellow-500" />
-                <span className="text-sm">
-                  <span className="font-medium">
-                    {listing.owner.rentalHistory.averageRating.toFixed(1)}
-                  </span>{" "}
-                  average rating (
-                  <span className="font-medium">
-                    {listing.owner.rentalHistory.totalRentals}
-                  </span>{" "}
-                  rental
-                  {listing.owner.rentalHistory.totalRentals !== 1 ? "s" : ""})
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <OwnerInformation
+          owner={{
+            firstName: listing.owner.firstName,
+            lastName: listing.owner.lastName,
+            profileImageUrl: listing.owner.profileImageUrl,
+            isVerified: listing.owner.isVerified,
+            email: listing.owner.email,
+            createdAt: listing.owner.createdAt,
+            otherListingsCount: listing.owner.otherListingsCount,
+          }}
+          rating={
+            {
+              averageRating: listing.owner.rentalHistory.averageRating,
+              totalCount: listing.owner.rentalHistory.totalRentals,
+              totalCountNoun: "rental",
+            } satisfies AdminOwnerInformationRating
+          }
+        />
       </CardContent>
 
       {/* Dialogs */}

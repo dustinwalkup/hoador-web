@@ -25,6 +25,27 @@ export function capitalize(word: string) {
  * @param value - The raw phone string (may contain non-digit characters)
  * @returns The formatted phone number string
  */
+/**
+ * Formats an actor's full name from first/last name fields.
+ * Returns "Unknown" when both fields are absent.
+ */
+export function formatActorName(
+  actor:
+    | { firstName?: string | null; lastName?: string | null }
+    | null
+    | undefined,
+): string {
+  const first = actor?.firstName?.trim() ?? "";
+  const last = actor?.lastName?.trim() ?? "";
+  const full = `${first} ${last}`.trim();
+  return full || "Unknown";
+}
+
+/**
+ * Formats a numeric phone string into (XXX) XXX-XXXX
+ * @param value - The raw phone string (may contain non-digit characters)
+ * @returns The formatted phone number string
+ */
 export function formatPhoneNumber(value: string): string {
   const digits = value.replace(/\D/g, "");
 

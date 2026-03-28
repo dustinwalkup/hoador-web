@@ -270,7 +270,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
               <p className="text-muted-foreground text-sm">
                 This is your listing.
               </p>
-              <Button variant="outline" asChild>
+              <Button asChild>
                 <Link href={`/dashboard/services/listings/${listing.id}/edit`}>
                   Edit listing
                 </Link>

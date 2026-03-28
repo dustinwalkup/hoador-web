@@ -55,6 +55,7 @@ async function getHandler(request: NextRequest) {
     const { data, error } = await tryCatch(
       serviceListingDAL.findByCommunityForBrowse(membership.community.id, {
         categoryId,
+        excludeProviderId: userId,
       }),
     );
 

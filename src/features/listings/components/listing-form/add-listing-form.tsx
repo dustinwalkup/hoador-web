@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { Info } from "lucide-react";
 
-import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
+import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 import { useListingForm } from "@/features/listings/hooks/use-listing-form";
 import { useListingImages } from "@/features/listings/hooks/use-listing-images";
 import { useListingFormSubmit } from "@/features/listings/hooks/use-listing-form-submit";
@@ -31,7 +31,7 @@ interface Category {
 
 interface AddListingFormProps {
   categories: Category[];
-  initialValues?: Partial<CreateListingFormDataClientType>;
+  initialValues?: Partial<CreateListingFormClientValues>;
   ownerPolicyDocuments?: OwnerPolicyDocuments;
   isEdit?: boolean;
   listingId?: string;

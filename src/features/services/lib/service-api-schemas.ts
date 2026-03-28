@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { rejectionReasonSchema } from "@/features/admin/schemas/listing-review.schema";
+
 /** POST /api/services/listings */
 export const createServiceListingSchema = z.object({
   communityId: z.string().uuid(),
@@ -63,7 +65,7 @@ export const approveServiceListingSchema = z.object({
 
 /** POST /api/admin/services/listings/[id]/reject */
 export const rejectServiceListingSchema = z.object({
-  reason: z.string().min(1).max(2000),
+  reason: rejectionReasonSchema,
 });
 
 /** PATCH /api/services/providers/[userId] */

@@ -1,222 +1,250 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { Eye, Clock, XCircle } from "lucide-react";
-import { useState } from "react";
+import {
+  Eye,
+  Clock,
+  XCircle,
+  Pencil,
+  MoreHorizontal,
+  AlertCircle,
+  Calendar,
+} from "lucide-react";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import type { ServiceListing as ServiceListingRow } from "@/db/schemas/services.schema";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-import type { ServiceListing } from "@/db/schemas/services.schema";
-import { formatServiceUsd } from "@/features/services/lib/service-labels";
-import {
-  useDeactivateServiceListing,
-  useReactivateServiceListing,
-} from "@/features/services/hooks/use-service-listings";
+type ServiceListingStatus = ServiceListingRow["status"];
 
-type ServiceListingStatus = ServiceListing["status"];
+/** Fields used by this card; `price` matches DB `numeric` (string or number at runtime). */
+export type ServiceListingCardListing = Pick<
+  ServiceListingRow,
+  "id" | "title" | "status" | "price" | "pricingType" | "rejectionReason"
+> & {
+  bookingsCount?: number;
+  createdAt?: Date | string;
+};
 
-function StatusBadge({ status }: { status: ServiceListingStatus }) {
+interface ProviderListingCardProps {
+  listing: ServiceListingCardListing;
+  formatPrice?: (price: number) => string;
+  onManage?: (listing: ServiceListingCardListing) => void;
+  /** Optional: pass your parseAppendReviewScalar function for rejection reasons */
+  parseRejectionReason?: (reason: string | null | undefined) => {
+    chunks: Array<{ label?: string; message: string; timestamp?: string }>;
+  };
+}
+
+/** Formats listing price in USD (dollars), consistent with browse listing cards. */
+function defaultFormatPrice(price: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: price % 1 === 0 ? 0 : 2,
+  }).format(price);
+}
+
+function StatusIndicator({ status }: { status: ServiceListingStatus }) {
   switch (status) {
     case "active":
       return (
-        <Badge
-          variant="outline"
-          className="border-green-200 bg-green-50 text-xs text-green-700 hover:bg-green-50 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
-        >
-          Available
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+            <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
+          </span>
+          <span className="text-primary text-xs font-medium dark:text-emerald-400">
+            Active
+          </span>
+        </div>
       );
     case "inactive":
       return (
-        <Badge
-          variant="secondary"
-          className="bg-gray-100 text-xs text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400"
-        >
-          Inactive
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <span className="bg-muted-foreground/40 h-2 w-2 rounded-full" />
+          <span className="text-muted-foreground text-xs font-medium">
+            Inactive
+          </span>
+        </div>
       );
     case "pending_approval":
       return (
-        <Badge
-          variant="secondary"
-          className="flex items-center gap-1 border border-yellow-200 bg-yellow-100 text-xs text-yellow-800 hover:bg-yellow-100 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400"
-        >
-          <Clock className="h-3 w-3" />
-          Pending Review
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Clock className="h-3 w-3 text-amber-500" />
+          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            Pending Review
+          </span>
+        </div>
       );
     case "denied":
       return (
-        <Badge
-          variant="destructive"
-          className="flex items-center gap-1 border border-red-200 bg-red-100 text-xs text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
-        >
-          <XCircle className="h-3 w-3" />
-          Denied
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <XCircle className="text-destructive h-3 w-3" />
+          <span className="text-destructive text-xs font-medium">Denied</span>
+        </div>
       );
     default:
       return null;
   }
 }
 
-interface ServiceListingCardProps {
-  listing: ServiceListing;
-}
+export function ServiceListingCard({
+  listing,
+  formatPrice = defaultFormatPrice,
+  onManage,
+  parseRejectionReason,
+}: ProviderListingCardProps) {
+  const priceDollars = Number(listing.price);
 
-export function ServiceListingCard({ listing }: ServiceListingCardProps) {
-  const [deactivateOpen, setDeactivateOpen] = useState(false);
-  const [reactivateOpen, setReactivateOpen] = useState(false);
+  const showDenialReasons =
+    listing.status === "denied" || listing.status === "pending_approval";
 
-  const deactivateMutation = useDeactivateServiceListing(listing.id);
-  const reactivateMutation = useReactivateServiceListing(listing.id);
-
-  const imageUrl =
-    Array.isArray(listing.photos) && listing.photos.length > 0
-      ? listing.photos[0]
-      : null;
-
-  const priceLabel =
-    listing.pricingType === "hourly"
-      ? `${formatServiceUsd(listing.price)}/hr`
-      : `${formatServiceUsd(listing.price)} fixed`;
-
-  const handleDeactivate = async () => {
-    await deactivateMutation.mutateAsync();
-    setDeactivateOpen(false);
-  };
-
-  const handleReactivate = async () => {
-    await reactivateMutation.mutateAsync();
-    setReactivateOpen(false);
-  };
+  const denialChunks =
+    showDenialReasons && parseRejectionReason
+      ? parseRejectionReason(listing.rejectionReason)
+      : { chunks: [] };
 
   return (
-    <Card className="overflow-hidden pt-0 pb-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
-      <div className="bg-muted relative aspect-4/3 overflow-hidden">
-        <Image
-          src={imageUrl ?? "/images/placeholder.jpg"}
-          alt={listing.title}
-          width={300}
-          height={200}
-          className="h-full w-full object-contain"
-        />
-        <Link
-          href={`/dashboard/services/listings/${listing.id}`}
-          className="text-muted-foreground/40 hover:text-muted-foreground absolute top-0 right-0 p-2 transition-colors"
-        >
-          <Tooltip delayDuration={600}>
-            <TooltipTrigger className="cursor-pointer">
-              <Eye className="size-5" />
-            </TooltipTrigger>
-            <TooltipContent className="text-xs">
-              <p className="text-muted-foreground text-xs">Preview</p>
-            </TooltipContent>
-          </Tooltip>
-        </Link>
-      </div>
+    <Card className="group relative overflow-hidden transition-all duration-200 hover:shadow-md">
+      <div className="p-4">
+        {/* Header Row */}
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-2">
+              <StatusIndicator status={listing.status} />
+            </div>
+            <h3 className="text-foreground truncate text-base font-semibold">
+              {listing.title}
+            </h3>
+          </div>
 
-      <CardContent className="p-4">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <h3 className="truncate font-medium">{listing.title}</h3>
-          <StatusBadge status={listing.status} />
+          {/* Actions Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">Actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem asChild>
+                <Link href={`/dashboard/services/listings/${listing.id}`}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/dashboard/services/listings/${listing.id}/edit`}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onManage?.(listing)}
+                className="text-primary focus:text-primary"
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                Manage
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        <div className="text-primary mb-3 font-medium">{priceLabel}</div>
+        {/* Price & Type */}
+        <div className="mb-4 flex items-center gap-3">
+          <div className="bg-primary/10 flex items-baseline gap-1.5 rounded-md px-2.5 py-1">
+            <span className="text-primary text-sm font-semibold">
+              {formatPrice(priceDollars)}
+              {listing.pricingType === "hourly" ? (
+                <span className="font-normal">/hr</span>
+              ) : (
+                <>
+                  {" "}
+                  <span className="font-normal">·</span>{" "}
+                  <span className="text-sm font-normal">flat rate</span>
+                </>
+              )}
+            </span>
+          </div>
+        </div>
 
-        {listing.rejectionReason && (
-          <div className="mb-3 rounded-md bg-red-50 p-2 text-xs text-red-800 dark:bg-red-900/20 dark:text-red-400">
-            <p className="font-medium">Denial Reason:</p>
-            <p>{listing.rejectionReason}</p>
+        {/* Denial Reasons */}
+        {denialChunks.chunks.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {denialChunks.chunks.map((chunk, index) => (
+              <div
+                key={`${index}-${chunk.timestamp ?? chunk.message}`}
+                className="border-destructive/20 bg-destructive/5 flex items-start gap-2 rounded-md border p-2.5"
+              >
+                <AlertCircle className="text-destructive mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  {chunk.label && (
+                    <span className="text-destructive text-[11px] font-medium">
+                      {chunk.label}
+                    </span>
+                  )}
+                  <p className="text-destructive/90 text-xs leading-relaxed">
+                    {chunk.message}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
+        {/* Action Buttons */}
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm" className="flex-1">
             <Link href={`/dashboard/services/listings/${listing.id}/edit`}>
+              <Pencil className="mr-1.5 h-3.5 w-3.5" />
               Edit
             </Link>
           </Button>
-
-          {listing.status === "active" && (
-            <AlertDialog open={deactivateOpen} onOpenChange={setDeactivateOpen}>
-              <AlertDialogTrigger asChild>
-                <Button size="sm" className="flex-1">
-                  Manage
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Deactivate listing?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will hide your listing from the marketplace. You can
-                    reactivate it at any time.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeactivate}
-                    disabled={deactivateMutation.isPending}
-                  >
-                    {deactivateMutation.isPending
-                      ? "Deactivating…"
-                      : "Deactivate"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-
-          {listing.status === "inactive" && (
-            <AlertDialog open={reactivateOpen} onOpenChange={setReactivateOpen}>
-              <AlertDialogTrigger asChild>
-                <Button size="sm" className="flex-1">
-                  Reactivate
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reactivate listing?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Your listing will be visible in the marketplace again.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleReactivate}
-                    disabled={reactivateMutation.isPending}
-                  >
-                    {reactivateMutation.isPending
-                      ? "Reactivating…"
-                      : "Reactivate"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+          <Button
+            size="sm"
+            className="flex-1"
+            onClick={() => onManage?.(listing)}
+          >
+            Manage
+          </Button>
         </div>
-      </CardContent>
+      </div>
     </Card>
+  );
+}
+
+// Empty state card for adding new listing
+export function AddListingCard({
+  href = "/dashboard/services/listings/new",
+}: {
+  href?: string;
+}) {
+  return (
+    <Link href={href} className="block">
+      <Card className="border-muted-foreground/20 bg-muted/30 hover:border-primary/40 hover:bg-muted/50 flex h-full min-h-[180px] flex-col items-center justify-center border-2 border-dashed p-6 transition-all duration-200">
+        <div className="bg-primary/10 mb-3 flex h-10 w-10 items-center justify-center rounded-full">
+          <span className="text-primary text-xl font-light">+</span>
+        </div>
+        <h3 className="text-foreground mb-1 text-sm font-semibold">
+          List a New Service
+        </h3>
+        <p className="text-muted-foreground text-center text-xs">
+          Offer your skills to your community
+        </p>
+      </Card>
+    </Link>
   );
 }

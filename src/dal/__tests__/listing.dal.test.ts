@@ -850,6 +850,13 @@ describe("ListingDAL", () => {
         where: vi.fn().mockResolvedValue([{ count: 0 }]),
       });
 
+      // Mock review events query - from().where().orderBy()
+      const mockReviewEventsFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue([]),
+        }),
+      });
+
       // Complete mock implementation with all query types
       vi.mocked(db.select).mockImplementation(() => {
         selectCallCount++;
@@ -859,6 +866,8 @@ describe("ListingDAL", () => {
           return { from: mockListingsFrom } as any; // Listings query
         } else if (selectCallCount === 3) {
           return { from: mockImageFrom } as any; // Images query
+        } else if (selectCallCount === 6) {
+          return { from: mockReviewEventsFrom } as any; // Review events query
         } else if (selectCallCount % 2 === 0) {
           return { from: mockOtherListingsFrom } as any; // Other listings count
         } else {
@@ -939,6 +948,13 @@ describe("ListingDAL", () => {
         where: vi.fn().mockResolvedValue([{ count: 0 }]),
       });
 
+      // Mock review events query - from().where().orderBy()
+      const mockReviewEventsFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue([]),
+        }),
+      });
+
       // Mock rental history query - from().leftJoin().where()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
         leftJoin: vi.fn().mockReturnValue({
@@ -957,6 +973,8 @@ describe("ListingDAL", () => {
           return { from: mockListingsFrom } as any; // Listings query
         } else if (selectCallCount === 3) {
           return { from: mockImageFrom } as any; // Images query
+        } else if (selectCallCount === 6) {
+          return { from: mockReviewEventsFrom } as any; // Review events query
         } else if (selectCallCount % 2 === 0) {
           return { from: mockOtherListingsFrom } as any; // Other listings count
         } else {

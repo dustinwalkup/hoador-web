@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/page-header";
 import { serviceListingDAL } from "@/dal";
 import { requireAdmin } from "@/features/auth/utils/guards";
-import { AdminServiceListingsReview } from "@/features/services/components/admin-service-listings-review";
+import { AdminServiceListingsReviewTabs } from "../../../../../../features/services/components/admin-service-listings-review-tabs";
 
 export const metadata = {
   title: "Service listings review",
@@ -19,7 +19,7 @@ export default async function AdminServiceListingsReviewPage() {
         title="Service listings"
         description="Approve or reject HOA service listings."
       />
-      <AdminServiceListingsReview listings={pending} />
+      <AdminServiceListingsReviewTabs listings={pending} />
     </div>
   );
 }

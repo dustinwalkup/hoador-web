@@ -1,7 +1,7 @@
 import { DollarSign, MapPin, Truck } from "lucide-react";
 import { Control, useWatch } from "react-hook-form";
 
-import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
+import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 
 import {
   Card,
@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 
 interface PickupDeliverySectionProps {
-  control: Control<CreateListingFormDataClientType>;
+  control: Control<CreateListingFormClientValues>;
 }
 
 export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {

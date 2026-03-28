@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { userAddresses, userPreferences, user } from "@/db/schemas/user.schema";
+import type { ReviewEvent } from "./review-events.dal";
 
 // Data Transfer Objects (DTOs)
 export interface CreateUserDTO {
@@ -404,6 +405,11 @@ export interface PendingReviewListing {
       averageRating: number;
     };
   };
+  /**
+   * Optional full, chronological review history (admin decisions + provider
+   * resubmissions) for showing an append-only timeline.
+   */
+  reviewEvents?: ReviewEvent[];
 }
 
 export interface ReviewedListing extends PendingReviewListing {

@@ -8,6 +8,7 @@ import {
   useCreateServiceListing,
   useEditServiceListing,
   useMyServiceListings,
+  useMyDeniedServiceListingsCount,
   useMyPendingServiceListingsCount,
   useReactivateServiceListing,
   useDeactivateServiceListing,
@@ -516,7 +517,7 @@ describe("useMyPendingServiceListingsCount", () => {
     expect(result.current.data).toBe(0);
   });
 
-  it("returns 0 on API error (silent fallback)", async () => {
+  it("enters error state on API error", async () => {
     mockFetch.mockResolvedValue({
       ok: false,
       json: async () => ({ error: "Unauthorized" }),
@@ -528,8 +529,75 @@ describe("useMyPendingServiceListingsCount", () => {
       ),
     });
 
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.isSuccess).toBe(false);
+    expect(result.current.data).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useMyDeniedServiceListingsCount
+// ---------------------------------------------------------------------------
+
+describe("useMyDeniedServiceListingsCount", () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = createTestQueryClient();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    queryClient.clear();
+  });
+
+  it("returns count of denied listings", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ listings: [{}, {}] }),
+    });
+
+    const { result } = renderHook(() => useMyDeniedServiceListingsCount(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toBe(2);
+  });
+
+  it("returns 0 when there are no denied listings", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ listings: [] }),
+    });
+
+    const { result } = renderHook(() => useMyDeniedServiceListingsCount(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBe(0);
+  });
+
+  it("enters error state on API error", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: "Unauthorized" }),
+    });
+
+    const { result } = renderHook(() => useMyDeniedServiceListingsCount(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.isSuccess).toBe(false);
+    expect(result.current.data).toBeUndefined();
   });
 });
 

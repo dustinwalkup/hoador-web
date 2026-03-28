@@ -19,7 +19,7 @@ import { Camera, Upload, Loader2 } from "lucide-react";
 import { Control, UseFormGetValues } from "react-hook-form";
 
 import type {
-  CreateListingFormDataClientType,
+  CreateListingFormClientValues,
   ImageFile,
 } from "@/features/listings/form-schema/listing.schema";
 import { processSelectedFiles } from "@/lib/image/process-selected-files";
@@ -43,8 +43,8 @@ import { MAX_IMAGES, PhotoTips } from "./photo-tips";
 import { SortableImageItem } from "./sortable-image-item";
 
 interface PhotosSectionProps {
-  control: Control<CreateListingFormDataClientType>;
-  getValues: UseFormGetValues<CreateListingFormDataClientType>;
+  control: Control<CreateListingFormClientValues>;
+  getValues: UseFormGetValues<CreateListingFormClientValues>;
   addImage: (file?: File) => void;
   removeImage: (index: number) => void;
   setImages: (images: ImageFile[]) => void;

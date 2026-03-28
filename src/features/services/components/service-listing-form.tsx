@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod";
+import { type input, type output, z } from "zod";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,10 @@ import {
 } from "@/components/ui/form";
 import { OwnerPoliciesAcknowledgment } from "@/components/legal/owner-policies-acknowledgment";
 import { Input } from "@/components/ui/input";
+import {
+  NumericInput,
+  toNumericInputValue,
+} from "@/components/ui/numeric-input";
 import {
   Select,
   SelectContent,
@@ -54,7 +58,29 @@ const baseSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
   categoryId: z.string().optional(),
   pricingType: z.enum(["fixed", "hourly"]),
-  price: z.number().nonnegative("Price must be 0 or higher"),
+  price: z
+    .union([z.literal(""), z.number()])
+    .superRefine((val, ctx) => {
+      if (val === "") {
+        ctx.addIssue({
+          code: "custom",
+          message: "Price is required",
+        });
+        return;
+      }
+      if (val < 0) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Price must be 0 or higher",
+        });
+      }
+    })
+    .transform((val): number => {
+      if (val === "") {
+        throw new Error("invalid price");
+      }
+      return val;
+    }),
   description: z.string().min(1, "Description is required").max(20000),
   serviceNotes: z.string().max(5000).optional(),
   ownerPoliciesAcknowledged: z.boolean().refine((value) => value === true, {
@@ -73,7 +99,8 @@ const createSchema = baseSchema.superRefine((data, ctx) => {
   }
 });
 
-type ServiceListingFormValues = z.infer<typeof baseSchema>;
+type ServiceListingFormInput = input<typeof baseSchema>;
+type ServiceListingFormValues = output<typeof baseSchema>;
 
 /**
  * Create or edit a service listing (POST /api/services/listings or PATCH .../[id]).
@@ -86,7 +113,12 @@ export function ServiceListingForm({
   initial,
 }: ServiceListingFormProps) {
   const router = useRouter();
-  const form = useForm<ServiceListingFormValues>({
+  const isResubmittingDenied = mode === "edit" && initial?.status === "denied";
+  const form = useForm<
+    ServiceListingFormInput,
+    unknown,
+    ServiceListingFormValues
+  >({
     resolver: zodResolver(mode === "create" ? createSchema : baseSchema),
     defaultValues: {
       title: initial?.title ?? "",
@@ -100,7 +132,7 @@ export function ServiceListingForm({
     mode: "onTouched",
   });
 
-  async function onSubmit(values: ServiceListingFormValues) {
+  async function onSubmit(values: ServiceListingFormValues): Promise<void> {
     try {
       if (mode === "create") {
         const res = await fetch("/api/services/listings", {
@@ -125,7 +157,7 @@ export function ServiceListingForm({
         toast.success(
           "Your listing has been submitted for review. You'll be notified when it's approved.",
         );
-        router.push("/dashboard/services");
+        router.push("/dashboard/listings/services");
         router.refresh();
         return;
       }
@@ -148,8 +180,12 @@ export function ServiceListingForm({
         toast.error(data.error ?? "Could not save listing");
         return;
       }
-      toast.success("Listing updated.");
-      router.push(`/dashboard/services/listings/${listingId}`);
+      toast.success(
+        isResubmittingDenied
+          ? "Your changes have been submitted for review. You'll be notified when it's approved."
+          : "Listing updated.",
+      );
+      router.push("/dashboard/listings/services");
       router.refresh();
     } finally {
       form.reset(values, { keepValues: true });
@@ -300,19 +336,16 @@ export function ServiceListingForm({
                     <FormControl>
                       <div className="relative">
                         <DollarSign className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          step={0.01}
+                        <NumericInput
+                          variant="decimal"
+                          maxFractionDigits={2}
                           placeholder="0.00"
                           className="pl-9"
-                          value={field.value || 0}
-                          onChange={(event) => {
-                            field.onChange(
-                              Number.parseFloat(event.target.value) || 0,
-                            );
-                          }}
+                          name={field.name}
+                          ref={field.ref}
+                          value={toNumericInputValue(field.value)}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
                         />
                       </div>
                     </FormControl>
@@ -382,7 +415,9 @@ export function ServiceListingForm({
               ? "Saving..."
               : mode === "create"
                 ? "Submit for review"
-                : "Save"}
+                : isResubmittingDenied
+                  ? "Save and resubmit for review"
+                  : "Save"}
           </Button>
         </div>
       </form>

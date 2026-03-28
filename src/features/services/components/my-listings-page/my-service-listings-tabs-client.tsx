@@ -5,7 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 import type { ServiceListingCategoryInfo } from "@/dal/service-listing.dal";
-import { useMyPendingServiceListingsCount } from "@/features/services/hooks/use-service-listings";
+import {
+  useMyDeniedServiceListingsCount,
+  useMyPendingServiceListingsCount,
+} from "@/features/services/hooks/use-service-listings";
 
 import type { ServiceListingFilters } from "./active-service-listings";
 import { ActiveServiceListings } from "./active-service-listings";
@@ -25,6 +28,7 @@ export function MyServiceListingsTabsClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: pendingCount = 0 } = useMyPendingServiceListingsCount();
+  const { data: deniedCount = 0 } = useMyDeniedServiceListingsCount();
 
   const [filters, setFilters] = useState<ServiceListingFilters>({});
 
@@ -52,6 +56,11 @@ export function MyServiceListingsTabsClient({
           {pendingCount > 0 && (
             <span className="ml-2 rounded-full bg-yellow-500 px-1.5 py-0.5 text-xs font-medium text-white">
               {pendingCount}
+            </span>
+          )}
+          {deniedCount > 0 && (
+            <span className="ml-2 rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
+              {deniedCount}
             </span>
           )}
         </TabsTrigger>

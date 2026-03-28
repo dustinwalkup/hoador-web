@@ -19,6 +19,7 @@ import * as cronRunHistory from "./cron-run-history.schema";
 import * as services from "./services.schema";
 import * as serviceReviews from "./service-reviews.schema";
 import * as serviceNoShowReports from "./service-no-show-reports.schema";
+import * as reviewEvents from "./review-events.schema";
 
 export const schema = {
   ...user,
@@ -39,4 +40,5 @@ export const schema = {
   ...services,
   ...serviceReviews,
   ...serviceNoShowReports,
+  ...reviewEvents,
 };

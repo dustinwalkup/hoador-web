@@ -20,6 +20,7 @@ import { CronRunHistoryDAL } from "./cron-run-history.dal";
 import { ServiceListingDAL } from "./service-listing.dal";
 import { ServiceBookingDAL } from "./service-booking.dal";
 import { ServiceReviewDAL } from "./service-review.dal";
+import { ReviewEventsDAL } from "./review-events.dal";
 
 // Create singleton instances
 export const userDAL = new UserDAL();
@@ -43,3 +44,4 @@ export const cronRunHistoryDAL = new CronRunHistoryDAL();
 export const serviceListingDAL = new ServiceListingDAL();
 export const serviceBookingDAL = new ServiceBookingDAL();
 export const serviceReviewDAL = new ServiceReviewDAL();
+export const reviewEventsDAL = new ReviewEventsDAL();

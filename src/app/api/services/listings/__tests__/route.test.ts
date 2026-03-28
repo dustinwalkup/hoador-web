@@ -74,7 +74,7 @@ describe("GET /api/services/listings", () => {
     expect(body.listings).toHaveLength(1);
     expect(mockFindBrowse).toHaveBeenCalledWith(
       "comm-1",
-      expect.objectContaining({}),
+      expect.objectContaining({ excludeProviderId: "user-1" }),
     );
   });
 
@@ -92,6 +92,7 @@ describe("GET /api/services/listings", () => {
 
     expect(mockFindBrowse).toHaveBeenCalledWith("comm-1", {
       categoryId: "123e4567-e89b-12d3-a456-426614174000",
+      excludeProviderId: "user-1",
     });
   });
 });

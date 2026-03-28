@@ -281,6 +281,20 @@
       "when": 1774200700000,
       "tag": "0039_cleanup_migration_smoke_test",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1774498400000,
+      "tag": "0040_append_only_review_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1774498500000,
+      "tag": "0041_review_events_enums",
+      "breakpoints": true
     }
   ]
 }

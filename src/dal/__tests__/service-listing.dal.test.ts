@@ -222,16 +222,34 @@ describe("ServiceListingDAL", () => {
           email: "a@b.com",
         },
       };
+      // First query: select + innerJoin + innerJoin + leftJoin + where + orderBy
       const mockOrderBy = vi.fn().mockResolvedValue([row]);
       const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-      const innerJoinUser = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+      const innerJoinUser = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
       const innerJoinCategory = vi
         .fn()
         .mockReturnValue({ innerJoin: innerJoinUser });
       const mockFrom = vi
         .fn()
         .mockReturnValue({ innerJoin: innerJoinCategory });
-      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as never);
+
+      // Second query: select + from + where + groupBy (counts per provider)
+      const mockGroupBy = vi.fn().mockResolvedValue([]);
+      const mockWhere2 = vi.fn().mockReturnValue({ groupBy: mockGroupBy });
+      const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
+
+      // Third query: select + from + where + orderBy (review events timeline)
+      const mockEventsOrderBy = vi.fn().mockResolvedValue([]);
+      const mockEventsWhere = vi.fn().mockReturnValue({
+        orderBy: mockEventsOrderBy,
+      });
+      const mockFrom3 = vi.fn().mockReturnValue({ where: mockEventsWhere });
+
+      vi.mocked(db.select)
+        .mockReturnValueOnce({ from: mockFrom } as never)
+        .mockReturnValueOnce({ from: mockFrom2 } as never)
+        .mockReturnValueOnce({ from: mockFrom3 } as never);
 
       const result = await serviceListingDAL.findPendingApproval();
 

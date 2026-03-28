@@ -138,3 +138,26 @@ export const formatDate = (
       return new Date(date).toLocaleDateString();
   }
 };
+
+/**
+ * Format a date/time using a consistent local representation.
+ *
+ * This is intentionally `Date | string` friendly because many values arrive
+ * from the API as serialized ISO strings (where `instanceof Date` checks
+ * would fail in the UI).
+ *
+ * @param date - Date-like value to format.
+ * @returns A human-friendly local date/time string, or `—` for invalid dates.
+ */
+export const formatDateTimeLocal = (date: DateInput): string => {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+};

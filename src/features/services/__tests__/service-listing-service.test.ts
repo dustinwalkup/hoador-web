@@ -6,7 +6,11 @@ const mockGetUserById = vi.fn();
 const mockListingCreate = vi.fn();
 const mockListingGetById = vi.fn();
 const mockListingUpdate = vi.fn();
+const mockListingDelete = vi.fn();
+const mockBookingCountByListing = vi.fn();
 const mockAuditCreate = vi.fn();
+const mockReviewEventsCreate = vi.fn();
+const mockReviewEventsDelete = vi.fn();
 const mockSendPending = vi.fn();
 const mockSendApproved = vi.fn();
 const mockSendRejected = vi.fn();
@@ -17,8 +21,16 @@ vi.mock("@/dal", () => ({
     create: (...a: unknown[]) => mockListingCreate(...a),
     getById: (...a: unknown[]) => mockListingGetById(...a),
     update: (...a: unknown[]) => mockListingUpdate(...a),
+    delete: (...a: unknown[]) => mockListingDelete(...a),
+  },
+  serviceBookingDAL: {
+    countByListingId: (...a: unknown[]) => mockBookingCountByListing(...a),
   },
   auditLogDAL: { create: (...a: unknown[]) => mockAuditCreate(...a) },
+  reviewEventsDAL: {
+    createEvent: (...a: unknown[]) => mockReviewEventsCreate(...a),
+    deleteEventsForEntity: (...a: unknown[]) => mockReviewEventsDelete(...a),
+  },
 }));
 
 vi.mock("@/features/services/notifications/service-notifications", () => ({
@@ -152,6 +164,45 @@ describe("ServiceListingService", () => {
       );
       expect(mockListingUpdate.mock.calls[0][1]).not.toHaveProperty("status");
     });
+
+    it("resubmits denied listing to pending_approval on edit", async () => {
+      const denied = {
+        ...listing,
+        status: "denied" as const,
+        rejectionReason: "bad",
+      };
+      const resubmitted = {
+        ...denied,
+        status: "pending_approval" as const,
+        title: "New title",
+      };
+
+      mockListingGetById.mockResolvedValue(denied);
+      mockListingUpdate.mockResolvedValue(resubmitted);
+
+      await ServiceListingService.editListing(
+        "list-1",
+        "prov-1",
+        { title: "New title" },
+        ctx,
+      );
+
+      expect(mockListingUpdate).toHaveBeenCalledWith(
+        "list-1",
+        expect.objectContaining({
+          title: "New title",
+          status: "pending_approval",
+        }),
+      );
+      expect(mockReviewEventsCreate).toHaveBeenCalledWith({
+        entityKind: "service_listing",
+        entityId: "list-1",
+        eventType: "provider_resubmitted",
+        actorUserId: "prov-1",
+        note: null,
+      });
+      expect(mockSendPending).toHaveBeenCalledWith(resubmitted);
+    });
   });
 
   describe("approveListing", () => {
@@ -168,6 +219,24 @@ describe("ServiceListingService", () => {
 
       expect(out.status).toBe("active");
       expect(mockSendApproved).toHaveBeenCalledWith("prov-1", active);
+      expect(mockReviewEventsCreate).toHaveBeenCalledWith({
+        entityKind: "service_listing",
+        entityId: "list-1",
+        eventType: "approved",
+        actorUserId: "admin-1",
+        note: "ok",
+      });
+    });
+
+    it("throws when listing is not pending_approval", async () => {
+      mockListingGetById.mockResolvedValue({
+        ...listing,
+        status: "active" as const,
+      });
+
+      await expect(
+        ServiceListingService.approveListing("list-1", "admin-1"),
+      ).rejects.toThrow("Only pending listings can be approved");
     });
 
     it("persists optional admin note on approve", async () => {
@@ -185,9 +254,16 @@ describe("ServiceListingService", () => {
         "list-1",
         expect.objectContaining({
           status: "active",
-          adminNote: "reviewed",
+          adminNote: expect.stringContaining("reviewed"),
         }),
       );
+      expect(mockReviewEventsCreate).toHaveBeenCalledWith({
+        entityKind: "service_listing",
+        entityId: "list-1",
+        eventType: "approved",
+        actorUserId: "admin-1",
+        note: "reviewed",
+      });
     });
   });
 
@@ -217,6 +293,24 @@ describe("ServiceListingService", () => {
 
       expect(out.status).toBe("denied");
       expect(mockSendRejected).toHaveBeenCalledWith("prov-1", denied, "policy");
+      expect(mockReviewEventsCreate).toHaveBeenCalledWith({
+        entityKind: "service_listing",
+        entityId: "list-1",
+        eventType: "rejected",
+        actorUserId: "admin-1",
+        note: "policy",
+      });
+    });
+
+    it("throws when listing is not pending_approval", async () => {
+      mockListingGetById.mockResolvedValue({
+        ...listing,
+        status: "denied" as const,
+      });
+
+      await expect(
+        ServiceListingService.rejectListing("list-1", "admin-1", "policy"),
+      ).rejects.toThrow("Only pending listings can be rejected");
     });
   });
 
@@ -238,6 +332,49 @@ describe("ServiceListingService", () => {
       expect(mockListingUpdate).toHaveBeenCalledWith("list-1", {
         status: "inactive",
       });
+    });
+  });
+
+  describe("deleteListing", () => {
+    it("enforces ownership", async () => {
+      mockListingGetById.mockResolvedValue({ ...listing, providerId: "other" });
+
+      await expect(
+        ServiceListingService.deleteListing("list-1", "prov-1", ctx),
+      ).rejects.toThrow(ForbiddenError);
+    });
+
+    it("blocks deletion when bookings exist", async () => {
+      mockListingGetById.mockResolvedValue(listing);
+      mockBookingCountByListing.mockResolvedValue(2);
+
+      await expect(
+        ServiceListingService.deleteListing("list-1", "prov-1", ctx),
+      ).rejects.toThrow(ValidationError);
+
+      expect(mockListingDelete).not.toHaveBeenCalled();
+    });
+
+    it("deletes review events and listing when no bookings exist", async () => {
+      mockListingGetById.mockResolvedValue(listing);
+      mockBookingCountByListing.mockResolvedValue(0);
+      mockReviewEventsDelete.mockResolvedValue(undefined);
+      mockListingDelete.mockResolvedValue(undefined);
+
+      await ServiceListingService.deleteListing("list-1", "prov-1", ctx);
+
+      expect(mockReviewEventsDelete).toHaveBeenCalledWith(
+        "service_listing",
+        "list-1",
+      );
+      expect(mockListingDelete).toHaveBeenCalledWith("list-1");
+      expect(mockAuditCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "service_listing.deleted",
+          entityId: "list-1",
+          userId: "prov-1",
+        }),
+      );
     });
   });
 

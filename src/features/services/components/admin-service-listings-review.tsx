@@ -2,24 +2,182 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { CheckCircle2, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import type { ServiceListingWithCategoryAndProvider } from "@/dal/service-listing.dal";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import type { ServiceListingReviewWithCategoryAndProvider } from "@/dal/service-listing.dal";
 import { formatServiceUsd } from "@/features/services/lib/service-labels";
+import {
+  OwnerInformation,
+  type AdminOwnerInformationRating,
+} from "@/features/admin/components/listing-review/owner-information";
+import { ServiceListingApproveRejectDialog } from "@/features/admin/components/listing-review/service-listing-approve-reject-dialog";
+import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
+import { formatDateTimeLocal } from "@/lib/utils/date.utils";
+import { formatActorName } from "@/lib/utils";
 
 interface AdminServiceListingsReviewProps {
-  listings: ServiceListingWithCategoryAndProvider[];
+  listings: ServiceListingReviewWithCategoryAndProvider[];
+}
+
+interface PendingServiceListingRowProps {
+  listing: ServiceListingReviewWithCategoryAndProvider;
+  onMutationSuccess: () => void;
+}
+
+/**
+ * Single pending service listing row with approve/reject dialogs (matches rental review card pattern).
+ */
+function PendingServiceListingRow({
+  listing,
+  onMutationSuccess,
+}: PendingServiceListingRowProps) {
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+
+  const submitted = formatDateTimeLocal(listing.createdAt);
+
+  return (
+    <>
+      <div className="flex flex-col gap-4 rounded-lg border p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 space-y-2">
+            <p className="font-medium">{listing.title}</p>
+            <p className="text-muted-foreground text-sm">
+              {listing.category.name} ·{" "}
+              {listing.pricingType === "hourly"
+                ? `${formatServiceUsd(listing.price)}/hr`
+                : formatServiceUsd(listing.price)}{" "}
+              · Submitted {submitted}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 gap-2 self-start">
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => setApproveDialogOpen(true)}
+              className="bg-primary hover:bg-green-700"
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setRejectDialogOpen(true)}
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              Reject
+            </Button>
+          </div>
+        </div>
+
+        {/* About + notes (admin review context) */}
+        <section className="space-y-3">
+          <h2 className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+            About this service
+          </h2>
+          <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+            {sanitizeForDisplay(listing.description)}
+          </p>
+
+          {listing.serviceNotes && (
+            <>
+              <h2 className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+                Service notes
+              </h2>
+              <div className="bg-muted/30 rounded-lg border p-4">
+                <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                  {sanitizeForDisplay(listing.serviceNotes)}
+                </p>
+              </div>
+            </>
+          )}
+        </section>
+
+        <Separator />
+
+        {listing.reviewEvents && listing.reviewEvents.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+              Review history
+            </h2>
+            <div className="space-y-2">
+              {listing.reviewEvents.map((event) => (
+                <div key={event.id} className="rounded-lg border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="capitalize">
+                          {event.eventType === "provider_resubmitted"
+                            ? "Resubmitted"
+                            : event.eventType}
+                        </Badge>
+                        <span className="text-muted-foreground text-xs">
+                          {formatDateTimeLocal(event.createdAt)}
+                        </span>
+                      </div>
+                      <div className="text-muted-foreground text-xs">
+                        By {formatActorName(event.actor)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {event.note && event.note.trim().length > 0 && (
+                    <div className="mt-2 text-sm whitespace-pre-wrap">
+                      <span className="font-medium">Note:</span>{" "}
+                      <span>{sanitizeForDisplay(event.note)}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="w-full">
+          <OwnerInformation
+            owner={{
+              firstName: listing.provider.firstName,
+              lastName: listing.provider.lastName,
+              profileImageUrl: listing.provider.profileImageUrl,
+              isVerified: listing.provider.isVerified,
+              email: listing.provider.email,
+              createdAt: listing.provider.createdAt,
+              otherListingsCount: listing.provider.otherListingsCount,
+            }}
+            rating={
+              {
+                averageRating: listing.provider.averageRating,
+                totalCount: listing.provider.totalReviews,
+                totalCountNoun: "review",
+              } satisfies AdminOwnerInformationRating
+            }
+          />
+        </div>
+      </div>
+
+      <ServiceListingApproveRejectDialog
+        listingId={listing.id}
+        listingName={listing.title}
+        action="approve"
+        open={approveDialogOpen}
+        onOpenChange={setApproveDialogOpen}
+        onMutationSuccess={onMutationSuccess}
+      />
+      <ServiceListingApproveRejectDialog
+        listingId={listing.id}
+        listingName={listing.title}
+        action="reject"
+        open={rejectDialogOpen}
+        onOpenChange={setRejectDialogOpen}
+        onMutationSuccess={onMutationSuccess}
+      />
+    </>
+  );
 }
 
 /**
@@ -29,67 +187,6 @@ export function AdminServiceListingsReview({
   listings,
 }: AdminServiceListingsReviewProps) {
   const router = useRouter();
-  const [approveId, setApproveId] = useState<string | null>(null);
-  const [rejectId, setRejectId] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [reason, setReason] = useState("");
-  const [pending, setPending] = useState(false);
-
-  async function approve() {
-    if (!approveId) return;
-    setPending(true);
-    try {
-      const res = await fetch(
-        `/api/admin/services/listings/${approveId}/approve`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ note: note.trim() || undefined }),
-        },
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data.error ?? "Approve failed");
-        return;
-      }
-      toast.success("Listing approved.");
-      setApproveId(null);
-      setNote("");
-      router.refresh();
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function reject() {
-    if (!rejectId) return;
-    if (!reason.trim()) {
-      toast.error("Reason is required.");
-      return;
-    }
-    setPending(true);
-    try {
-      const res = await fetch(
-        `/api/admin/services/listings/${rejectId}/reject`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason: reason.trim() }),
-        },
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data.error ?? "Reject failed");
-        return;
-      }
-      toast.success("Listing rejected.");
-      setRejectId(null);
-      setReason("");
-      router.refresh();
-    } finally {
-      setPending(false);
-    }
-  }
 
   if (listings.length === 0) {
     return (
@@ -100,98 +197,14 @@ export function AdminServiceListingsReview({
   }
 
   return (
-    <>
-      <div className="space-y-4">
-        {listings.map((listing) => {
-          const providerName =
-            [listing.provider.firstName, listing.provider.lastName]
-              .filter(Boolean)
-              .join(" ") || listing.provider.email;
-          const submitted =
-            listing.createdAt instanceof Date
-              ? listing.createdAt.toLocaleString()
-              : String(listing.createdAt);
-          return (
-            <div
-              key={listing.id}
-              className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0 space-y-1">
-                <p className="font-medium">{listing.title}</p>
-                <p className="text-muted-foreground text-sm">{providerName}</p>
-                <p className="text-muted-foreground text-sm">
-                  {listing.category.name} ·{" "}
-                  {listing.pricingType === "hourly"
-                    ? `${formatServiceUsd(listing.price)}/hr`
-                    : formatServiceUsd(listing.price)}{" "}
-                  · Submitted {submitted}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <Button
-                  size="sm"
-                  variant="default"
-                  onClick={() => setApproveId(listing.id)}
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRejectId(listing.id)}
-                >
-                  Reject
-                </Button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <Dialog open={!!approveId} onOpenChange={() => setApproveId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Approve listing</DialogTitle>
-          </DialogHeader>
-          <Label htmlFor="note">Internal note (optional)</Label>
-          <Input
-            id="note"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApproveId(null)}>
-              Cancel
-            </Button>
-            <Button onClick={approve} disabled={pending}>
-              Approve
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!rejectId} onOpenChange={() => setRejectId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject listing</DialogTitle>
-          </DialogHeader>
-          <Label htmlFor="reason">Reason (required)</Label>
-          <Textarea
-            id="reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={3}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectId(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={reject} disabled={pending}>
-              Reject
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <div className="space-y-4">
+      {listings.map((listing) => (
+        <PendingServiceListingRow
+          key={listing.id}
+          listing={listing}
+          onMutationSuccess={() => router.refresh()}
+        />
+      ))}
+    </div>
   );
 }

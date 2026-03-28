@@ -239,6 +239,19 @@ export const serviceListingStatusEnum = pgEnum("service_listing_status", [
   "denied",
 ]);
 
+/** Discriminator for append-only review_events rows (tool vs HOA service listing). */
+export const reviewEntityKindEnum = pgEnum("review_entity_kind", [
+  "service_listing",
+  "tool_listing",
+]);
+
+/** Review timeline event types (admin decisions + provider resubmit). */
+export const reviewEventTypeEnum = pgEnum("review_event_type", [
+  "provider_resubmitted",
+  "rejected",
+  "approved",
+]);
+
 export const servicePricingTypeEnum = pgEnum("service_pricing_type", [
   "fixed",
   "hourly",

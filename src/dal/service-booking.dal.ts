@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   getTableColumns,
@@ -176,6 +177,22 @@ export class ServiceBookingDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "ServiceBookingDAL.getById");
+    }
+  }
+
+  /**
+   * Counts bookings that reference a listing.
+   */
+  async countByListingId(listingId: string): Promise<number> {
+    try {
+      const [row] = await this.db
+        .select({ count: count() })
+        .from(serviceBookings)
+        .where(eq(serviceBookings.listingId, listingId));
+
+      return row?.count ?? 0;
+    } catch (error) {
+      this.handleError(error, "ServiceBookingDAL.countByListingId");
     }
   }
 

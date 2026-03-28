@@ -154,7 +154,37 @@ export function useMyPendingServiceListingsCount() {
       const res = await fetch(
         `/api/services/listings/my?status=pending_approval`,
       );
-      if (!res.ok) return [];
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string }).error ??
+            "Failed to fetch pending listings",
+        );
+      }
+      const data = (await res.json()) as { listings: ServiceListing[] };
+      return data.listings ?? [];
+    },
+    select: (data) => data.length,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Count of denied listings (used for the tab badge).
+ */
+export function useMyDeniedServiceListingsCount() {
+  return useQuery({
+    queryKey: myServiceListingsKeys.byStatus("denied"),
+    queryFn: async (): Promise<ServiceListing[]> => {
+      const res = await fetch(`/api/services/listings/my?status=denied`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string }).error ??
+            "Failed to fetch denied listings",
+        );
+      }
       const data = (await res.json()) as { listings: ServiceListing[] };
       return data.listings ?? [];
     },
@@ -205,5 +235,27 @@ export function useDeactivateServiceListing(listingId: string) {
     },
     invalidateQueryKeys: [serviceListingsKeys.all, myServiceListingsKeys.all],
     successMessage: "Listing deactivated.",
+  });
+}
+
+/**
+ * DELETE /api/services/listings/[id]
+ */
+export function useDeleteServiceListing(listingId: string) {
+  return useCreateMutation<{ success: true }, void>({
+    mutationFn: async () => {
+      const res = await fetch(`/api/services/listings/${listingId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string }).error ?? "Failed to delete listing",
+        );
+      }
+      return data as { success: true };
+    },
+    invalidateQueryKeys: [serviceListingsKeys.all, myServiceListingsKeys.all],
+    successMessage: "Listing deleted.",
   });
 }

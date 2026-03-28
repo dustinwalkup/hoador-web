@@ -6,12 +6,12 @@ import {
   OwnerPoliciesAcknowledgment,
   type OwnerPolicyDocuments,
 } from "@/components/legal/owner-policies-acknowledgment";
-import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
+import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 
 export type { OwnerPolicyDocuments };
 
 interface LegalDocumentAcknowledgmentsProps {
-  control: Control<CreateListingFormDataClientType>;
+  control: Control<CreateListingFormClientValues>;
   ownerPolicyDocuments?: OwnerPolicyDocuments;
 }
 
