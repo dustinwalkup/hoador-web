@@ -1,11 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getDashboardActivityFeed } from "../activity-feed";
-import { rentalDAL, reviewDAL, listingDAL } from "@/dal";
+import {
+  listingDAL,
+  rentalDAL,
+  reviewDAL,
+  serviceBookingDAL,
+  serviceListingDAL,
+  serviceReviewDAL,
+} from "@/dal";
 
 vi.mock("@/dal", () => ({
   rentalDAL: { getRecentRentalActivity: vi.fn() },
   reviewDAL: { getRecentReviews: vi.fn() },
   listingDAL: { getUserListings: vi.fn() },
+  serviceBookingDAL: {
+    findByRequesterForDashboard: vi.fn(),
+    findByProviderForDashboard: vi.fn(),
+  },
+  serviceReviewDAL: { findByReviewee: vi.fn() },
+  serviceListingDAL: { findByProvider: vi.fn() },
 }));
 
 vi.mock("@/lib/utils/date.utils", () => ({
@@ -20,6 +33,14 @@ describe("getDashboardActivityFeed", () => {
     vi.mocked(rentalDAL.getRecentRentalActivity).mockResolvedValue([]);
     vi.mocked(reviewDAL.getRecentReviews).mockResolvedValue([]);
     vi.mocked(listingDAL.getUserListings).mockResolvedValue([]);
+    vi.mocked(serviceBookingDAL.findByRequesterForDashboard).mockResolvedValue(
+      [],
+    );
+    vi.mocked(serviceBookingDAL.findByProviderForDashboard).mockResolvedValue(
+      [],
+    );
+    vi.mocked(serviceReviewDAL.findByReviewee).mockResolvedValue([]);
+    vi.mocked(serviceListingDAL.findByProvider).mockResolvedValue([]);
   });
 
   it("should call DALs with correct userId and limit", async () => {
@@ -33,6 +54,16 @@ describe("getDashboardActivityFeed", () => {
       limit: expect.any(Number),
     });
     expect(listingDAL.getUserListings).toHaveBeenCalledWith(userId);
+    expect(serviceBookingDAL.findByRequesterForDashboard).toHaveBeenCalledWith(
+      userId,
+    );
+    expect(serviceBookingDAL.findByProviderForDashboard).toHaveBeenCalledWith(
+      userId,
+    );
+    expect(serviceReviewDAL.findByReviewee).toHaveBeenCalledWith(userId, {
+      limit: expect.any(Number),
+    });
+    expect(serviceListingDAL.findByProvider).toHaveBeenCalledWith(userId);
   });
 
   it("should return ActivityFeedItem shape with title, relativeTime, linkTo", async () => {
@@ -64,5 +95,38 @@ describe("getDashboardActivityFeed", () => {
   it("should return empty array when no activity", async () => {
     const result = await getDashboardActivityFeed(userId, 10);
     expect(result).toEqual([]);
+  });
+
+  it("should include service booking activity when present", async () => {
+    const updatedAt = new Date("2025-01-15T12:00:00Z");
+    vi.mocked(serviceBookingDAL.findByRequesterForDashboard).mockResolvedValue([
+      {
+        id: "sb-1",
+        listingId: "sl-1",
+        requesterId: userId,
+        providerId: "other",
+        communityId: "c1",
+        proposedDate: "2025-01-20",
+        proposedTime: "10:00",
+        servicePrice: "100",
+        serviceFee: "10",
+        totalAmount: "110",
+        status: "pending",
+        createdAt: updatedAt,
+        updatedAt,
+        listingTitle: "Lawn mowing",
+        counterparty: {} as any,
+      } as any,
+    ]);
+
+    const result = await getDashboardActivityFeed(userId, 10);
+
+    expect(result.some((i) => i.id === "service-booking-sb-1")).toBe(true);
+    const row = result.find((i) => i.id === "service-booking-sb-1");
+    expect(row).toMatchObject({
+      title: "Service booking requested",
+      description: "Lawn mowing",
+      linkTo: "/dashboard/services/bookings/sb-1",
+    });
   });
 });

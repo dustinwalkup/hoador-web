@@ -108,7 +108,7 @@ export default async function BookServicePage({ params }: PageProps) {
           }}
           paymentMethods={paymentMethods}
           priceInCents={false}
-          addPaymentMethodHref="/dashboard/payments/add"
+          addPaymentMethodHref="/dashboard/payments"
           bookingSuccessHref="/dashboard/services/bookings"
         />
       </div>

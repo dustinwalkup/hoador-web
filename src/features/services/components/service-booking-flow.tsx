@@ -503,13 +503,6 @@ export function ServiceBookingFlow({
                           <CreditCard className="text-muted-foreground h-4 w-4" />
                           Payment Method
                         </h3>
-                        <Link
-                          href={addPaymentMethodHref}
-                          className="text-primary flex items-center gap-1 text-xs hover:underline"
-                        >
-                          <Plus className="h-3 w-3" />
-                          Add new
-                        </Link>
                       </div>
                       {paymentMethods.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
@@ -585,7 +578,7 @@ export function ServiceBookingFlow({
               <div className="bg-muted/30 rounded-lg border p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground text-sm">
-                    Total estimated charge
+                    Total charge
                   </span>
                   <span className="text-foreground text-lg font-semibold">
                     {formatUsd(total)}

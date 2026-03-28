@@ -45,47 +45,49 @@ export function RecentActivityFeed({ items }: RecentActivityFeedProps) {
             </p>
           </div>
         ) : (
-          <ul className="relative space-y-1">
-            {items.map((item, index) => {
-              const content = (
-                <div className="flex gap-3">
-                  <div className="relative flex flex-col items-center">
-                    <div className="z-10 h-2.5 w-2.5 rounded-full bg-indigo-500" />
-                    {index < items.length - 1 && (
-                      <div className="absolute top-3 h-full w-px bg-indigo-200 dark:bg-indigo-800" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1 pb-4">
-                    <h4 className="text-sm font-medium">{item.title}</h4>
-                    {item.description && (
-                      <p className="text-muted-foreground mt-0.5 text-xs">
-                        {item.description}
+          <div className="max-h-80 overflow-y-auto pr-1">
+            <ul className="relative space-y-1">
+              {items.map((item, index) => {
+                const content = (
+                  <div className="flex gap-3">
+                    <div className="relative flex flex-col items-center">
+                      <div className="z-10 h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                      {index < items.length - 1 && (
+                        <div className="absolute top-3 h-full w-px bg-indigo-200 dark:bg-indigo-800" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 pb-4">
+                      <h4 className="text-sm font-medium">{item.title}</h4>
+                      {item.description && (
+                        <p className="text-muted-foreground mt-0.5 text-xs">
+                          {item.description}
+                        </p>
+                      )}
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        {item.relativeTime}
                       </p>
-                    )}
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      {item.relativeTime}
-                    </p>
+                    </div>
                   </div>
-                </div>
-              );
+                );
 
-              return (
-                <li key={item.id}>
-                  {item.linkTo ? (
-                    <Link
-                      href={item.linkTo}
-                      className="group flex items-center rounded-lg p-2 transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/20"
-                    >
-                      <div className="flex-1">{content}</div>
-                      <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-                    </Link>
-                  ) : (
-                    <div className="rounded-lg p-2">{content}</div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                return (
+                  <li key={item.id}>
+                    {item.linkTo ? (
+                      <Link
+                        href={item.linkTo}
+                        className="group flex items-center rounded-lg p-2 transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/20"
+                      >
+                        <div className="flex-1">{content}</div>
+                        <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                      </Link>
+                    ) : (
+                      <div className="rounded-lg p-2">{content}</div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
       </CardContent>
     </Card>
