@@ -16,7 +16,6 @@ import {
   ArrowLeft,
   Loader2,
   CreditCard,
-  Plus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +36,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { HowPaymentsWorkModal } from "@/components/payments/how-payments-work-modal";
 import { ServiceFeeLine } from "@/components/payments/service-fee-line";
 import { calculateServiceFee } from "@/constants/payments";
 import {
@@ -266,8 +266,13 @@ export function ServiceBookingFlow({
           <Card>
             <CardHeader>
               <CardTitle>Booking Details</CardTitle>
-              <CardDescription>
-                Choose when you&apos;d like to schedule this service
+              <CardDescription className="space-y-1">
+                <span className="block">
+                  Pick your preferred date and time
+                </span>
+                <span className="block">
+                  You won&apos;t be charged until the provider accepts.
+                </span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -282,7 +287,7 @@ export function ServiceBookingFlow({
                         className="flex items-center gap-2"
                       >
                         <CalendarDays className="text-muted-foreground h-4 w-4" />
-                        Proposed Date
+                        Preferred date
                       </FormLabel>
                       <FormControl>
                         <Input
@@ -306,7 +311,7 @@ export function ServiceBookingFlow({
                         className="flex items-center gap-2"
                       >
                         <Clock className="text-muted-foreground h-4 w-4" />
-                        Proposed Time
+                        Preferred time
                       </FormLabel>
                       <FormControl>
                         <Input id="time" type="time" {...field} />
@@ -360,11 +365,14 @@ export function ServiceBookingFlow({
                       className="flex items-center gap-2"
                     >
                       <FileText className="text-muted-foreground h-4 w-4" />
-                      Notes for Provider
+                      Add a note
                       <span className="text-muted-foreground font-normal">
                         (optional)
                       </span>
                     </FormLabel>
+                    <p className="text-muted-foreground text-xs">
+                      Share any details to help the provider prepare
+                    </p>
                     <FormControl>
                       <Textarea
                         id="notes"
@@ -403,7 +411,7 @@ export function ServiceBookingFlow({
             <CardContent className="space-y-5">
               <div className="bg-muted/30 rounded-lg border p-4">
                 <h3 className="text-foreground mb-3 text-sm font-medium">
-                  Booking Details
+                  Your booking details
                 </h3>
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -438,7 +446,7 @@ export function ServiceBookingFlow({
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">
-                      Service{" "}
+                      Service cost{" "}
                       {isHourly &&
                         `(${formatUsd(priceInDollars)}/hr × ${hoursNum} hr${hoursNum !== 1 ? "s" : ""})`}
                     </dt>
@@ -454,6 +462,9 @@ export function ServiceBookingFlow({
                     </dd>
                   </div>
                 </dl>
+                <p className="text-muted-foreground mt-3 text-xs">
+                  You&apos;ll be charged after the provider accepts your request
+                </p>
               </div>
 
               {notes ? (
@@ -585,8 +596,10 @@ export function ServiceBookingFlow({
                   </span>
                 </div>
                 <p className="text-muted-foreground mt-2 text-xs">
-                  You will be charged when the provider accepts your request.
+                  You won&apos;t be charged until the provider accepts. Payment
+                  is held securely until the service is completed.
                 </p>
+                <HowPaymentsWorkModal className="mt-1" />
               </div>
 
               <div className="flex justify-between gap-3 pt-2">
