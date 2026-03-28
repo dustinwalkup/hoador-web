@@ -267,9 +267,7 @@ export function ServiceBookingFlow({
             <CardHeader>
               <CardTitle>Booking Details</CardTitle>
               <CardDescription className="space-y-1">
-                <span className="block">
-                  Pick your preferred date and time
-                </span>
+                <span className="block">Pick your preferred date and time</span>
                 <span className="block">
                   You won&apos;t be charged until the provider accepts.
                 </span>
