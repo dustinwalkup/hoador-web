@@ -3,12 +3,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { getMockToolImage } from "../../../constants/garage";
 import {
   createListingSchemaClient,
+  type CreateListingFormClientValues,
   type CreateListingFormDataClientType,
   type ImageFile,
 } from "../form-schema/listing.schema";
 
 export function useListingForm(
-  initialValues?: Partial<CreateListingFormDataClientType>,
+  initialValues?: Partial<CreateListingFormClientValues>,
 ) {
   const defaultValues = {
     name: "",
@@ -34,11 +35,14 @@ export function useListingForm(
     setupFee: 0,
     ownerPoliciesAcknowledged: false,
     ...initialValues,
-  } as unknown as CreateListingFormDataClientType;
+  } as CreateListingFormClientValues;
 
-  const form = useForm<CreateListingFormDataClientType>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(createListingSchemaClient) as any,
+  const form = useForm<
+    CreateListingFormClientValues,
+    unknown,
+    CreateListingFormDataClientType
+  >({
+    resolver: zodResolver(createListingSchemaClient),
     defaultValues,
     mode: "onTouched",
   });

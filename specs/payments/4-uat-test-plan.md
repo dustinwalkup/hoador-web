@@ -259,7 +259,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. Verify ops receives alert (email); no notification to renter/owner.
 - **Expected results:**
   - Status 'expired'; ops alerted; no user notification.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-14: Deposit expiry — hold not yet expired, no change
 
@@ -360,7 +360,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   3. Verify lifecycle: ownerTransferStatus = 'completed', payoutStatus = 'completed', stripe_transfer_id and owner_transferred_at set.
 - **Expected results:**
   - Transfer created; lifecycle updated; owner receives funds per fee rules.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-21: Payout cron does not run before 24h after return
 
@@ -386,7 +386,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Verify platform retains the 20% (e.g. in Stripe Dashboard).
 - **Expected results:**
   - Transfer amount matches spec; platform fee retained.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-23: Transfer failure — status failed, ops alerted
 
@@ -459,7 +459,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   2. Verify an audit log entry exists with owner's user ID and timestamp for the confirm-return action.
 - **Expected results:**
   - Audit trail of who confirmed and when.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ### UAT-P1-28: Payout runs only after 24h from return confirmation
 

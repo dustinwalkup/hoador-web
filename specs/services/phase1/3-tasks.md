@@ -10,7 +10,7 @@ This document breaks down the Phase 1 Services Marketplace implementation into d
 
 - [ ] 1. Add new enums to schema definitions
   - Open `src/db/schemas/_enums.ts`
-  - Add `serviceListingStatusEnum` with values: `pending_approval`, `active`, `inactive`, `rejected`
+  - Add `serviceListingStatusEnum` with values: `pending_approval`, `active`, `inactive`, `denied`
   - Add `servicePricingTypeEnum` with values: `fixed`, `hourly`
   - Add `serviceBookingStatusEnum` with values: `pending`, `accepted`, `declined`, `payment_failed`, `completed`, `cancelled`
   - Add `servicePayoutStatusEnum` with values: `pending`, `processing`, `completed`, `failed`
@@ -177,7 +177,7 @@ This document breaks down the Phase 1 Services Marketplace implementation into d
     - Call `sendListingApprovedNotification(listing.providerId, listing)`
   - Implement `static async rejectListing(listingId, adminId, reason)`:
     - Validate `reason` is non-empty
-    - Set `status: 'rejected'`, store `rejectionReason`
+    - Set `status: 'denied'`, store `rejectionReason`
     - Create audit log
     - Call `sendListingRejectedNotification(listing.providerId, listing, reason)`
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2_
@@ -323,7 +323,7 @@ This document breaks down the Phase 1 Services Marketplace implementation into d
   - Create `src/app/api/admin/services/listings/[id]/approve/route.ts`
   - `POST`: require auth + admin role; parse optional body (Zod — note); call `ServiceListingService.approveListing()`; return `{ status: 'active' }`
   - Create `src/app/api/admin/services/listings/[id]/reject/route.ts`
-  - `POST`: require auth + admin role; parse body (Zod — reason required); call `ServiceListingService.rejectListing()`; return `{ status: 'rejected' }`
+  - `POST`: require auth + admin role; parse body (Zod — reason required); call `ServiceListingService.rejectListing()`; return `{ status: 'denied' }`
   - _Requirements: 2.5, 3.1, 3.2_
 
 ---
@@ -380,7 +380,7 @@ This document breaks down the Phase 1 Services Marketplace implementation into d
   - Create `src/app/dashboard/services/listings/[id]/edit/page.tsx`
   - Server component: fetch listing; verify ownership (redirect if not provider)
   - Pre-populate form with current values; same fields as create form
-  - Deactivate button: visible on any non-rejected listing; calls POST `/api/services/listings/[id]/deactivate`
+  - Deactivate button: visible on any non-denied listing; calls POST `/api/services/listings/[id]/deactivate`
   - On save: PATCH `/api/services/listings/[id]`
   - _Requirements: 2.3, 2.4_
 
@@ -522,7 +522,7 @@ This document breaks down the Phase 1 Services Marketplace implementation into d
   - Create `src/features/services/__tests__/service-listing-service.test.ts`
   - Test `createListing()` — blocked when no active Stripe Connect; succeeds with Connect; sends admin notification
   - Test `approveListing()` — sets status active; sends provider notification
-  - Test `rejectListing()` — requires reason; sets status rejected; sends provider notification with reason
+  - Test `rejectListing()` — requires reason; sets status denied; sends provider notification with reason
   - Test `deactivateListing()` — ownership enforced; sets status inactive
   - Mock DAL calls and notification helpers
   - _Requirements: 2.1, 2.5, 3.1, 3.2_

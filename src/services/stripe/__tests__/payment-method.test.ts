@@ -2,18 +2,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockPaymentMethodsAttach = vi.fn();
 const mockPaymentMethodsDetach = vi.fn();
+const mockPaymentMethodsList = vi.fn();
 const mockCustomersUpdate = vi.fn();
+const mockCustomersRetrieve = vi.fn();
 const mockFindFailedDepositsForRenter = vi.fn();
 const mockUpdateDepositHoldStatus = vi.fn();
+const mockGetStripeCustomerId = vi.fn();
 
 vi.mock("@/services/stripe/server", () => ({
   PAYMENT_SERVER_INSTANCE: {
     paymentMethods: {
       attach: (...args: unknown[]) => mockPaymentMethodsAttach(...args),
       detach: (...args: unknown[]) => mockPaymentMethodsDetach(...args),
+      list: (...args: unknown[]) => mockPaymentMethodsList(...args),
     },
     customers: {
       update: (...args: unknown[]) => mockCustomersUpdate(...args),
+      retrieve: (...args: unknown[]) => mockCustomersRetrieve(...args),
     },
   },
 }));
@@ -25,6 +30,10 @@ vi.mock("@/dal", () => ({
     updateDepositHoldStatus: (...args: unknown[]) =>
       mockUpdateDepositHoldStatus(...args),
   },
+  userDAL: {
+    getStripeCustomerId: (...args: unknown[]) =>
+      mockGetStripeCustomerId(...args),
+  },
 }));
 
 import {
@@ -32,6 +41,8 @@ import {
   setDefaultPaymentMethod,
   detachPaymentMethod,
   recoverFailedDeposits,
+  getStripeCustomerContext,
+  listStripeCardPaymentMethodsForUser,
 } from "../payment-method";
 
 describe("PaymentMethodService", () => {
@@ -192,6 +203,161 @@ describe("PaymentMethodService", () => {
       mockUpdateDepositHoldStatus.mockRejectedValue(new Error("Update failed"));
 
       await expect(recoverFailedDeposits("renter-1")).resolves.toBeUndefined();
+    });
+  });
+
+  describe("getStripeCustomerContext", () => {
+    const mockCustomer = {
+      id: "cus_123",
+      deleted: false,
+      invoice_settings: { default_payment_method: "pm_default" },
+    };
+
+    beforeEach(() => {
+      mockGetStripeCustomerId.mockResolvedValue("cus_123");
+      mockCustomersRetrieve.mockResolvedValue(mockCustomer);
+      mockPaymentMethodsList.mockResolvedValue({ data: [] });
+    });
+
+    it("returns null when user has no stripeCustomerId", async () => {
+      mockGetStripeCustomerId.mockResolvedValue(null);
+
+      const result = await getStripeCustomerContext("user-1");
+
+      expect(result).toBeNull();
+      expect(mockCustomersRetrieve).not.toHaveBeenCalled();
+    });
+
+    it("returns null when Stripe customer is deleted", async () => {
+      mockCustomersRetrieve.mockResolvedValue({ id: "cus_123", deleted: true });
+
+      const result = await getStripeCustomerContext("user-1");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns customerId and default paymentMethodId when default is set", async () => {
+      const result = await getStripeCustomerContext("user-1");
+
+      expect(result).toEqual({
+        customerId: "cus_123",
+        paymentMethodId: "pm_default",
+      });
+      expect(mockPaymentMethodsList).not.toHaveBeenCalled();
+    });
+
+    it("falls back to first card when no default payment method is set", async () => {
+      mockCustomersRetrieve.mockResolvedValue({
+        id: "cus_123",
+        deleted: false,
+        invoice_settings: { default_payment_method: null },
+      });
+      mockPaymentMethodsList.mockResolvedValue({
+        data: [{ id: "pm_fallback" }],
+      });
+
+      const result = await getStripeCustomerContext("user-1");
+
+      expect(result).toEqual({
+        customerId: "cus_123",
+        paymentMethodId: "pm_fallback",
+      });
+      expect(mockPaymentMethodsList).toHaveBeenCalledWith({
+        customer: "cus_123",
+        type: "card",
+        limit: 1,
+      });
+    });
+
+    it("returns null when no default and no cards on file", async () => {
+      mockCustomersRetrieve.mockResolvedValue({
+        id: "cus_123",
+        deleted: false,
+        invoice_settings: { default_payment_method: null },
+      });
+      mockPaymentMethodsList.mockResolvedValue({ data: [] });
+
+      const result = await getStripeCustomerContext("user-1");
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("listStripeCardPaymentMethodsForUser", () => {
+    it("returns empty array when user has no stripeCustomerId", async () => {
+      mockGetStripeCustomerId.mockResolvedValue(null);
+
+      const result = await listStripeCardPaymentMethodsForUser("user-1");
+
+      expect(result).toEqual([]);
+      expect(mockCustomersRetrieve).not.toHaveBeenCalled();
+    });
+
+    it("returns empty array when customer is deleted", async () => {
+      mockGetStripeCustomerId.mockResolvedValue("cus_123");
+      mockCustomersRetrieve.mockResolvedValue({ id: "cus_123", deleted: true });
+
+      const result = await listStripeCardPaymentMethodsForUser("user-1");
+
+      expect(result).toEqual([]);
+    });
+
+    it("maps cards and marks default from invoice_settings", async () => {
+      mockGetStripeCustomerId.mockResolvedValue("cus_123");
+      mockCustomersRetrieve.mockResolvedValue({
+        id: "cus_123",
+        deleted: false,
+        invoice_settings: { default_payment_method: "pm_a" },
+      });
+      mockPaymentMethodsList.mockResolvedValue({
+        data: [
+          {
+            id: "pm_a",
+            type: "card",
+            card: {
+              brand: "visa",
+              last4: "4242",
+              exp_month: 12,
+              exp_year: 2030,
+            },
+          },
+          {
+            id: "pm_b",
+            type: "card",
+            card: {
+              brand: "mastercard",
+              last4: "4444",
+              exp_month: 6,
+              exp_year: 2028,
+            },
+          },
+        ],
+      });
+
+      const result = await listStripeCardPaymentMethodsForUser("user-1");
+
+      expect(result).toEqual([
+        {
+          id: "pm_a",
+          brand: "visa",
+          last4: "4242",
+          expMonth: 12,
+          expYear: 2030,
+          isDefault: true,
+        },
+        {
+          id: "pm_b",
+          brand: "mastercard",
+          last4: "4444",
+          expMonth: 6,
+          expYear: 2028,
+          isDefault: false,
+        },
+      ]);
+      expect(mockPaymentMethodsList).toHaveBeenCalledWith({
+        customer: "cus_123",
+        type: "card",
+      });
     });
   });
 });

@@ -165,7 +165,7 @@ describe("Complete Listing Approval User Flow (E2E)", () => {
       ...rejectedListing,
       ...updatedListingData,
       approvalStatus: "pending_review", // Status resets to pending after edit
-      rejectionReason: null,
+      rejectionReason,
     } as any);
 
     const updatedListing = await listingDAL.updateListing(
@@ -174,7 +174,7 @@ describe("Complete Listing Approval User Flow (E2E)", () => {
       userId,
     );
     expect(updatedListing.approvalStatus).toBe("pending_review");
-    expect(updatedListing.rejectionReason).toBeNull();
+    expect(updatedListing.rejectionReason).toBe(rejectionReason);
 
     // Step 8: Dashboard shows pending count
     vi.mocked(listingDAL.getUserListingsByApprovalStatus).mockResolvedValue([

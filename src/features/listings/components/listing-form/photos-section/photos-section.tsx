@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -16,10 +16,10 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { Camera, Upload, Loader2 } from "lucide-react";
-import { Control, UseFormGetValues } from "react-hook-form";
+import { Control, UseFormGetValues, useWatch } from "react-hook-form";
 
 import type {
-  CreateListingFormDataClientType,
+  CreateListingFormClientValues,
   ImageFile,
 } from "@/features/listings/form-schema/listing.schema";
 import { processSelectedFiles } from "@/lib/image/process-selected-files";
@@ -43,12 +43,13 @@ import { MAX_IMAGES, PhotoTips } from "./photo-tips";
 import { SortableImageItem } from "./sortable-image-item";
 
 interface PhotosSectionProps {
-  control: Control<CreateListingFormDataClientType>;
-  getValues: UseFormGetValues<CreateListingFormDataClientType>;
+  control: Control<CreateListingFormClientValues>;
+  getValues: UseFormGetValues<CreateListingFormClientValues>;
   addImage: (file?: File) => void;
   removeImage: (index: number) => void;
   setImages: (images: ImageFile[]) => void;
   isLoadingImages?: boolean;
+  onProcessingChange?: (isProcessing: boolean) => void;
 }
 
 export function PhotosSection({
@@ -58,15 +59,23 @@ export function PhotosSection({
   removeImage,
   setImages,
   isLoadingImages = false,
+  onProcessingChange,
 }: PhotosSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [processingCount, setProcessingCount] = useState(0);
+  const [currentStage, setCurrentStage] = useState<
+    "converting" | "compressing" | null
+  >(null);
   // Map original source file key → converted file key to catch HEIC re-selection
   // (converted files have different name/size/lastModified than the source)
   const sourceToConvertedRef = useRef(new Map<string, string>());
 
-  const images = getValues("images");
+  const images = useWatch({ control, name: "images" }) ?? [];
+
+  useEffect(() => {
+    onProcessingChange?.(processingCount > 0);
+  }, [processingCount, onProcessingChange]);
   const imageCount = images.length;
   const remainingSlots = MAX_IMAGES - imageCount;
   const isAtLimit = remainingSlots <= 0;
@@ -162,8 +171,14 @@ export function PhotosSection({
 
       const result = await processSelectedFiles(filesToProcess, {
         onFileProcessing: (_fileName, stage) => {
-          if (stage === "done" || stage === "error") {
-            setProcessingCount((c) => Math.max(0, c - 1));
+          if (stage === "converting" || stage === "compressing") {
+            setCurrentStage(stage);
+          } else if (stage === "done" || stage === "error") {
+            setProcessingCount((c) => {
+              const next = Math.max(0, c - 1);
+              if (next === 0) setCurrentStage(null);
+              return next;
+            });
           }
         },
       });
@@ -225,8 +240,10 @@ export function PhotosSection({
     [handleFileSelect],
   );
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleFileSelect(e.target.files);
+  const handleFileInputChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    await handleFileSelect(e.target.files);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -297,8 +314,11 @@ export function PhotosSection({
             >
               <div className="bg-primary/5 text-muted-foreground flex items-center gap-2 rounded-lg px-3 py-2 text-sm">
                 <Loader2 className="text-primary h-4 w-4 animate-spin" />
-                Processing {processingCount} photo
-                {processingCount !== 1 ? "s" : ""}...
+                {currentStage === "converting"
+                  ? "Converting..."
+                  : currentStage === "compressing"
+                    ? "Optimizing..."
+                    : `Processing ${processingCount} photo${processingCount !== 1 ? "s" : ""}...`}
               </div>
             </motion.div>
           )}

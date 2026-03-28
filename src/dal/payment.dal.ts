@@ -6,6 +6,7 @@ import { rentals } from "@/db/schemas/rentals.schema";
 import { listings } from "@/db/schemas/listings.schema";
 import { rentalPaymentLifecycle } from "@/db/schemas/rental-payment-lifecycle.schema";
 import { BaseDAL } from "./base";
+import { ValidationError } from "./errors";
 import { type RentalPayment, type PaginatedResult } from "./types";
 
 /**
@@ -66,7 +67,7 @@ export class PaymentDAL extends BaseDAL {
       // Convert to RentalPayment format
       const data = paymentRecords.map((payment) => ({
         id: payment.id,
-        rentalId: payment.rentalId,
+        rentalId: payment.rentalId!,
         listingId: payment.listingId,
         listingName: payment.listingName,
         amount: payment.amount,
@@ -312,6 +313,7 @@ export class PaymentDAL extends BaseDAL {
         .select({
           id: payments.id,
           rentalId: payments.rentalId,
+          serviceBookingId: payments.serviceBookingId,
           payerId: payments.payerId,
           payeeId: payments.payeeId,
           amount: payments.amount,
@@ -342,7 +344,8 @@ export class PaymentDAL extends BaseDAL {
   }
 
   async createPayment(data: {
-    rentalId: string;
+    rentalId?: string | null;
+    serviceBookingId?: string | null;
     payerId: string;
     payeeId: string;
     amount: string;
@@ -351,13 +354,26 @@ export class PaymentDAL extends BaseDAL {
     stripePaymentIntentId: string;
     status: "pending" | "succeeded" | "failed" | "refunded";
     paidAt?: Date;
-    paymentType?: "rental_charge" | "security_deposit_hold";
+    paymentType?: "rental_charge" | "security_deposit_hold" | "service_charge";
   }): Promise<InferSelectModel<typeof payments>> {
     try {
+      const hasRental =
+        data.rentalId != null && String(data.rentalId).length > 0;
+      const hasService =
+        data.serviceBookingId != null &&
+        String(data.serviceBookingId).length > 0;
+      if (hasRental === hasService) {
+        throw new ValidationError(
+          "Exactly one of rentalId or serviceBookingId is required",
+          "rentalId",
+        );
+      }
+
       const [payment] = await this.db
         .insert(payments)
         .values({
-          rentalId: data.rentalId,
+          rentalId: hasRental ? data.rentalId! : null,
+          serviceBookingId: hasService ? data.serviceBookingId! : null,
           payerId: data.payerId,
           payeeId: data.payeeId,
           amount: data.amount,

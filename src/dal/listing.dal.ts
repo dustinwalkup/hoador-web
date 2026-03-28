@@ -39,7 +39,23 @@ const {
   userAddresses,
   rentals,
   rentalRequests,
+  reviewEvents,
 } = schema;
+
+function appendReviewScalar(
+  existing: string | null | undefined,
+  next: string,
+  label: string,
+): string {
+  const trimmed = next.trim();
+  if (!trimmed) return existing ?? "";
+
+  const timestamp = new Date().toISOString();
+  const nextChunk = `${label} (${timestamp}): ${trimmed}`;
+
+  if (!existing || existing.trim().length === 0) return nextChunk;
+  return `${existing}\n\n---\n${nextChunk}`;
+}
 
 type ListingDb = typeof listings.$inferSelect;
 type OwnerDb = {
@@ -599,22 +615,19 @@ export class ListingDAL extends BaseDAL {
       // Handle approval status reset based on listing state:
       // - Approved listings: significant edits require re-review
       // - Rejected listings: ANY edit resubmits for review (owner is fixing issues)
+      let didResubmit = false;
       if (currentListing.approvalStatus === "rejected") {
         // Rejected listings reset to pending_review on any edit
         // This allows owners to fix issues and resubmit
         updateData.approvalStatus = "pending_review";
-        updateData.reviewedBy = null;
-        updateData.reviewedAt = null;
-        updateData.rejectionReason = null;
+        didResubmit = true;
       } else if (
         hasSignificantChanges &&
         currentListing.approvalStatus === "approved"
       ) {
         // Approved listings only reset on significant changes
         updateData.approvalStatus = "pending_review";
-        updateData.reviewedBy = null;
-        updateData.reviewedAt = null;
-        updateData.rejectionReason = null;
+        didResubmit = true;
       }
       if (updates.dailyRate !== undefined)
         updateData.dailyRate = updates.dailyRate.toString();
@@ -637,6 +650,16 @@ export class ListingDAL extends BaseDAL {
 
       if (!updatedListing) {
         throw new NotFoundError("Listing", id);
+      }
+
+      if (didResubmit) {
+        await this.db.insert(reviewEvents).values({
+          entityKind: "tool_listing",
+          entityId: id,
+          eventType: "provider_resubmitted",
+          actorUserId: userId,
+          note: null,
+        });
       }
 
       return this.getListingById(id, userId);
@@ -1701,8 +1724,58 @@ export class ListingDAL extends BaseDAL {
         },
       );
 
+      // Attach append-only review event timelines for each listing.
+      const reviewEventListingIds = transformed.map((t) => t.id);
+      const events =
+        reviewEventListingIds.length > 0
+          ? await this.db
+              .select({
+                id: reviewEvents.id,
+                entityKind: reviewEvents.entityKind,
+                entityId: reviewEvents.entityId,
+                eventType: reviewEvents.eventType,
+                actorUserId: reviewEvents.actorUserId,
+                note: reviewEvents.note,
+                createdAt: reviewEvents.createdAt,
+              })
+              .from(reviewEvents)
+              .where(
+                and(
+                  eq(reviewEvents.entityKind, "tool_listing"),
+                  inArray(reviewEvents.entityId, reviewEventListingIds),
+                ),
+              )
+              .orderBy(asc(reviewEvents.createdAt))
+          : [];
+
+      const eventsByListingId = new Map<string, typeof events>();
+      for (const event of events) {
+        const key = event.entityId;
+        if (!eventsByListingId.has(key)) eventsByListingId.set(key, []);
+        eventsByListingId.get(key)!.push(event);
+      }
+
+      const transformedWithEvents: PendingReviewListing[] = transformed.map(
+        (listing) => {
+          const entityEvents = eventsByListingId.get(listing.id) ?? [];
+          return {
+            ...listing,
+            reviewEvents: entityEvents.map((event) => ({
+              id: event.id,
+              entityKind: event.entityKind,
+              entityId: event.entityId,
+              eventType: event.eventType,
+              actorUserId: event.actorUserId,
+              note: event.note,
+              createdAt: event.createdAt,
+              actor: null,
+            })),
+          };
+        },
+      );
+
       return this.createPaginatedResult(
-        transformed,
+        transformedWithEvents,
         total,
         pagination.page,
         pagination.limit,
@@ -1932,8 +2005,59 @@ export class ListingDAL extends BaseDAL {
         };
       });
 
+      // Attach append-only review event timelines for each reviewed listing.
+      const reviewEventListingIds = transformed.map((t) => t.id);
+      const events =
+        reviewEventListingIds.length > 0
+          ? await this.db
+              .select({
+                id: reviewEvents.id,
+                entityKind: reviewEvents.entityKind,
+                entityId: reviewEvents.entityId,
+                eventType: reviewEvents.eventType,
+                actorUserId: reviewEvents.actorUserId,
+                note: reviewEvents.note,
+                createdAt: reviewEvents.createdAt,
+              })
+              .from(reviewEvents)
+              .where(
+                and(
+                  eq(reviewEvents.entityKind, "tool_listing"),
+                  inArray(reviewEvents.entityId, reviewEventListingIds),
+                ),
+              )
+              .orderBy(asc(reviewEvents.createdAt))
+          : [];
+
+      const eventsByListingId = new Map<string, typeof events>();
+      for (const event of events) {
+        if (!eventsByListingId.has(event.entityId)) {
+          eventsByListingId.set(event.entityId, []);
+        }
+        eventsByListingId.get(event.entityId)!.push(event);
+      }
+
+      const transformedWithEvents: ReviewedListing[] = transformed.map(
+        (listing) => {
+          const entityEvents = eventsByListingId.get(listing.id) ?? [];
+          return {
+            ...listing,
+            reviewEvents: entityEvents.map((event) => ({
+              id: event.id,
+              entityKind: event.entityKind,
+              entityId: event.entityId,
+              eventType: event.eventType,
+              actorUserId: event.actorUserId,
+              note: event.note,
+              createdAt: event.createdAt,
+              actor: null,
+            })),
+          };
+        },
+      );
+
       return this.createPaginatedResult(
-        transformed,
+        transformedWithEvents,
         total,
         pagination.page,
         pagination.limit,
@@ -1989,10 +2113,12 @@ export class ListingDAL extends BaseDAL {
             "Rejection reason is required for rejections",
           );
         }
-        updateData.rejectionReason = rejectionReason;
+        updateData.rejectionReason = appendReviewScalar(
+          listing.rejectionReason,
+          rejectionReason,
+          "Rejection reason",
+        );
       } else {
-        // Clear rejection reason on approval
-        updateData.rejectionReason = null;
         // When approving, set status to "available" if it's currently "inactive"
         if (listing.status === "inactive") {
           updateData.status = "available";
@@ -2019,6 +2145,15 @@ export class ListingDAL extends BaseDAL {
           "Listing has already been reviewed by another admin",
         );
       }
+
+      // Append review event after a successful status update.
+      await this.db.insert(reviewEvents).values({
+        entityKind: "tool_listing",
+        entityId: listingId,
+        eventType: status,
+        actorUserId: adminUserId,
+        note: status === "rejected" ? (rejectionReason ?? null) : null,
+      });
     } catch (error) {
       this.handleError(error, "updateApprovalStatus");
     }

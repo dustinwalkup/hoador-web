@@ -49,7 +49,7 @@ export function NavMain() {
                 <Collapsible
                   key={item.title}
                   asChild
-                  defaultOpen={hasActiveChild}
+                  defaultOpen={item.defaultOpen || hasActiveChild}
                   className="group/collapsible"
                 >
                   <SidebarMenuItem>
@@ -67,13 +67,15 @@ export function NavMain() {
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         {item.items.map((group, groupIndex) => (
-                          <div key={group.label}>
+                          <div key={group.label ?? groupIndex}>
                             {groupIndex > 0 && (
                               <div className="bg-sidebar-border my-2 h-px" />
                             )}
-                            <SidebarGroupLabel className="mb-1 px-2">
-                              {group.label}
-                            </SidebarGroupLabel>
+                            {group.label && (
+                              <SidebarGroupLabel className="mb-1 px-2">
+                                {group.label}
+                              </SidebarGroupLabel>
+                            )}
                             {group.items.map((subItem) => {
                               const isSubItemActive =
                                 pathname === subItem.url ||

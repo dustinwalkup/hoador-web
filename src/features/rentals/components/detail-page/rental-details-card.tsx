@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { RentalDetailsInfo } from "@/dal/rentals.dal";
-import { ServiceFeeLine } from "@/features/rentals/components/service-fee-line";
+import { ServiceFeeLine } from "@/components/payments/service-fee-line";
 import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
 
 interface RentalDetailsCardProps {
@@ -24,7 +24,6 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
   const securityDeposit = parseFloat(rentalDetails.securityDeposit);
   const totalAmount = parseFloat(rentalDetails.totalAmount);
   const subtotal = totalAmount - serviceFee - deliveryTotal - setupTotal;
-  const grandTotal = totalAmount + securityDeposit;
 
   return (
     <Card>
@@ -205,8 +204,8 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
             <SecurityDepositLine amount={securityDeposit} />
             <Separator />
             <div className="flex justify-between font-semibold">
-              <span>Total</span>
-              <span className="text-primary">${grandTotal.toFixed(2)}</span>
+              <span>Total due now</span>
+              <span className="text-primary">${totalAmount.toFixed(2)}</span>
             </div>
           </div>
         </div>

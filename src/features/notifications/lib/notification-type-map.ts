@@ -47,4 +47,14 @@ export const NOTIFICATION_TYPE_TO_CATEGORY: Record<
   review_received: "bookings",
   system: "bookings",
   re_engagement: "bookings",
+  // HOA services marketplace
+  service_booking_requested: "bookings",
+  service_booking_accepted: "bookings",
+  service_booking_declined: "bookings",
+  service_booking_completed: "bookings",
+  service_payout_sent: "payments",
+  service_listing_approved: "bookings",
+  service_listing_rejected: "bookings",
+  service_listing_pending: "bookings",
+  service_no_show_reported: "disputes",
 };

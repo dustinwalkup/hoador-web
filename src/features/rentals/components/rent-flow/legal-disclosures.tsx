@@ -11,6 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { HowPaymentsWorkModal } from "@/components/payments/how-payments-work-modal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -214,6 +215,9 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
                       </li>
                     ))}
                   </ul>
+                  {policy.id === "payment" ? (
+                    <HowPaymentsWorkModal className="mt-2" />
+                  ) : null}
                 </div>
               </div>
             </CardContent>

@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Info } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
-import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
+import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 import { useListingForm } from "@/features/listings/hooks/use-listing-form";
 import { useListingImages } from "@/features/listings/hooks/use-listing-images";
 import { useListingFormSubmit } from "@/features/listings/hooks/use-listing-form-submit";
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
+import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { BasicInformationSection } from "./basic-information-section";
@@ -31,7 +33,7 @@ interface Category {
 
 interface AddListingFormProps {
   categories: Category[];
-  initialValues?: Partial<CreateListingFormDataClientType>;
+  initialValues?: Partial<CreateListingFormClientValues>;
   ownerPolicyDocuments?: OwnerPolicyDocuments;
   isEdit?: boolean;
   listingId?: string;
@@ -52,6 +54,8 @@ export function AddListingForm({
     isLoading: isLoadingImages,
   } = useListingImages(listingId || "");
 
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
+
   const form = useListingForm(initialValues);
   const {
     handleSubmit,
@@ -70,8 +74,6 @@ export function AddListingForm({
     handleSubmit: handleFormSubmit,
     isSubmitting,
     uploadProgress,
-    isCreatePending,
-    isUpdatePending,
   } = useListingFormSubmit({
     isEdit: !!isEdit,
     listingId,
@@ -105,7 +107,10 @@ export function AddListingForm({
 
   return (
     <Form {...form}>
-      <form className="space-y-8" onSubmit={handleSubmit(handleFormSubmit)}>
+      <form
+        className="relative space-y-8"
+        onSubmit={handleSubmit(handleFormSubmit)}
+      >
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
           <BasicInformationSection control={control} categories={categories} />
           <PricingSection control={control} />
@@ -118,6 +123,7 @@ export function AddListingForm({
           removeImage={removeImage}
           setImages={setImages}
           isLoadingImages={isLoadingImages}
+          onProcessingChange={setIsProcessingImages}
         />
 
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
@@ -150,26 +156,59 @@ export function AddListingForm({
         <div className="flex justify-end">
           <Button
             type="submit"
-            disabled={
-              isSubmitting ||
-              isLoadingImages ||
-              isCreatePending ||
-              isUpdatePending
-            }
+            disabled={isSubmitting || isLoadingImages || isProcessingImages}
             size="lg"
             className="w-full sm:w-auto"
           >
             {uploadProgress
-              ? `Uploading image ${uploadProgress.current} of ${uploadProgress.total}...`
-              : isSubmitting || isCreatePending || isUpdatePending
-                ? isEdit
-                  ? "Saving..."
-                  : "Adding Listing..."
-                : isEdit
-                  ? "Save Changes"
-                  : "Add Listing"}
+              ? `Uploading ${uploadProgress.current + 1} of ${uploadProgress.total}...`
+              : isProcessingImages
+                ? "Processing Photos..."
+                : isSubmitting
+                  ? isEdit
+                    ? "Saving..."
+                    : "Adding Listing..."
+                  : isEdit
+                    ? "Save Changes"
+                    : "Add Listing"}
           </Button>
         </div>
+        {/* Submit overlay */}
+        <AnimatePresence>
+          {isSubmitting && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-background/80 fixed inset-0 z-9999 flex items-end justify-center pb-8 backdrop-blur-sm"
+            >
+              <div className="bg-background flex w-64 flex-col items-center gap-4 rounded-xl border p-6 shadow-xl">
+                {uploadProgress ? (
+                  <>
+                    <p className="text-sm font-medium">
+                      Uploading photo {uploadProgress.current + 1} of{" "}
+                      {uploadProgress.total}
+                    </p>
+                    <Progress
+                      value={Math.round(
+                        ((uploadProgress.current +
+                          uploadProgress.percent / 100) /
+                          uploadProgress.total) *
+                          100,
+                      )}
+                      className="w-full"
+                    />
+                  </>
+                ) : (
+                  <p className="animate-pulse text-sm font-medium">
+                    {isEdit ? "Saving changes..." : "Creating listing..."}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </form>
     </Form>
   );

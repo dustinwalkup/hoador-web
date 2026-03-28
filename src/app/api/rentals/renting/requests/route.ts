@@ -22,8 +22,11 @@ async function getHandler(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const status =
-      (searchParams.get("status") as "pending" | "approved" | "denied") ||
-      "pending";
+      (searchParams.get("status") as
+        | "pending"
+        | "approved"
+        | "denied"
+        | "cancelled") || "pending";
 
     const { data, error } = await tryCatch(
       (async () => {

@@ -45,27 +45,29 @@ export function OverdueAlertsWidget({ items }: OverdueAlertsWidgetProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <ul className="space-y-2 text-sm">
-          {items.map((item) => (
-            <li key={item.id}>
-              <Link
-                href={item.linkTo}
-                className="group flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-red-100/70 dark:hover:bg-red-900/20"
-              >
-                <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />
-                <div className="min-w-0 flex-1">
-                  <span className="font-medium text-red-700 dark:text-red-400">
-                    {item.listingName}
-                  </span>
-                  <p className="text-xs text-red-600/80 dark:text-red-400/80">
-                    {item.statusText} &middot; {item.otherPartyName}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-red-400 opacity-0 transition-opacity group-hover:opacity-100" />
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="max-h-60 overflow-y-auto pr-1">
+          <ul className="space-y-2 text-sm">
+            {items.map((item) => (
+              <li key={item.id}>
+                <Link
+                  href={item.linkTo}
+                  className="group flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-red-100/70 dark:hover:bg-red-900/20"
+                >
+                  <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                  <div className="min-w-0 flex-1">
+                    <span className="font-medium text-red-700 dark:text-red-400">
+                      {item.listingName}
+                    </span>
+                    <p className="text-xs text-red-600/80 dark:text-red-400/80">
+                      {item.statusText} &middot; {item.otherPartyName}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-red-400 opacity-0 transition-opacity group-hover:opacity-100" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       </CardContent>
     </Card>
   );

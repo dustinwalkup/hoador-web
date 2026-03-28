@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, Settings, X } from "lucide-react";
 import { Control, UseFormGetValues } from "react-hook-form";
 
-import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
+import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 
 import {
   Card,
@@ -24,8 +24,8 @@ import {
 } from "@/components/ui/form";
 
 interface AdditionalDetailsSectionProps {
-  control: Control<CreateListingFormDataClientType>;
-  getValues: UseFormGetValues<CreateListingFormDataClientType>;
+  control: Control<CreateListingFormClientValues>;
+  getValues: UseFormGetValues<CreateListingFormClientValues>;
   addSpecification: (
     key: string,
     value: string | number | boolean | string[],
@@ -86,26 +86,28 @@ export function AdditionalDetailsSection({
             </Button>
           </div>
         </div>
-        {Object.entries(getValues("specifications")).length > 0 && (
+        {Object.entries(getValues("specifications") ?? {}).length > 0 && (
           <div className="space-y-2">
-            {Object.entries(getValues("specifications")).map(([key, value]) => (
-              <div
-                key={key}
-                className="flex items-center justify-between rounded-lg border p-3"
-              >
-                <div className="text-sm">
-                  <span className="font-medium">{key}:</span> {String(value)}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeSpecification(key)}
+            {Object.entries(getValues("specifications") ?? {}).map(
+              ([key, value]) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between rounded-lg border p-3"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  <div className="text-sm">
+                    <span className="font-medium">{key}:</span> {String(value)}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeSpecification(key)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ),
+            )}
           </div>
         )}
         <Separator />

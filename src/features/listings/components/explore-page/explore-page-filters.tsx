@@ -276,7 +276,7 @@ export function ExplorePageFilters({
           <Input
             value={localQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search listings..."
+            placeholder="Search rentals..."
             className="pr-8 pl-9"
           />
           {localQuery && (

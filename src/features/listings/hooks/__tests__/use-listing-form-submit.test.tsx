@@ -23,9 +23,34 @@ vi.mock("sonner", () => ({
 
 import { toast } from "sonner";
 
-// Mock fetch for useImageUpload
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// ─── XMLHttpRequest mock (hook uses XHR, not fetch) ──────────────────────
+type XHRQueueEntry = { status: number; responseText: string; error?: boolean };
+const xhrQueue: XHRQueueEntry[] = [];
+
+class MockXHR {
+  upload = { onprogress: null as (() => void) | null };
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  ontimeout: (() => void) | null = null;
+  status = 200;
+  responseText = "";
+  open = vi.fn();
+  send = vi.fn(() => {
+    const entry = xhrQueue.shift();
+    if (!entry) return;
+    Promise.resolve().then(() => {
+      this.status = entry.status;
+      this.responseText = entry.responseText;
+      if (entry.error) {
+        this.onerror?.();
+      } else {
+        this.onload?.();
+      }
+    });
+  });
+}
+vi.stubGlobal("XMLHttpRequest", MockXHR);
+// ─────────────────────────────────────────────────────────────────────────
 
 // Mock mutations
 const mockCreateMutateAsync = vi.fn();
@@ -83,14 +108,16 @@ describe("useListingFormSubmit", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    xhrQueue.length = 0;
+    // Default: seed enough success responses for any test that uploads images
     let uploadCounter = 0;
-    mockFetch.mockImplementation(() => {
+    for (let i = 0; i < 10; i++) {
       const id = `uploaded-${++uploadCounter}`;
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ success: true, image: { id } }),
+      xhrQueue.push({
+        status: 200,
+        responseText: JSON.stringify({ success: true, image: { id } }),
       });
-    });
+    }
   });
 
   it("should initialize with default state", () => {
@@ -165,10 +192,14 @@ describe("useListingFormSubmit", () => {
       mockCreateMutateAsync.mockResolvedValue({
         listingId: "new-listing-123",
       });
-      mockFetch.mockResolvedValue({
-        ok: false,
-        json: () => Promise.resolve({ error: "Upload failed" }),
-      });
+      // Override queue with failure responses
+      xhrQueue.length = 0;
+      for (let i = 0; i < 10; i++) {
+        xhrQueue.push({
+          status: 500,
+          responseText: JSON.stringify({ error: "Upload failed" }),
+        });
+      }
 
       const { result } = renderHook(
         () => useListingFormSubmit(defaultOptions),

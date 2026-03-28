@@ -170,6 +170,7 @@ describe("AddListingForm", () => {
 
     it("should show loading state when create mutation is pending", () => {
       mockFormSubmitHook.isCreatePending = true;
+      mockFormSubmitHook.isSubmitting = true;
 
       renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
@@ -185,9 +186,9 @@ describe("AddListingForm", () => {
       renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
-        name: /uploading image/i,
+        name: /uploading 3 of 5/i,
       });
-      expect(submitButton).toHaveTextContent("Uploading image 2 of 5...");
+      expect(submitButton).toHaveTextContent("Uploading 3 of 5...");
     });
 
     it("should disable submit when loading images", () => {
@@ -232,6 +233,7 @@ describe("AddListingForm", () => {
 
     it("should show 'Saving...' when update is pending in edit mode", () => {
       mockFormSubmitHook.isUpdatePending = true;
+      mockFormSubmitHook.isSubmitting = true;
 
       renderWithQueryClient(
         <AddListingForm

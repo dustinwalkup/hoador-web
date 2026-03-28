@@ -27,7 +27,8 @@ async function getHandler(request: NextRequest) {
         | "approved"
         | "denied"
         | "active"
-        | "completed") || "pending";
+        | "completed"
+        | "cancelled") || "pending";
 
     const { data, error } = await tryCatch(
       (async () => {

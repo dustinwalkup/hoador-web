@@ -1,4 +1,88 @@
-import { z } from "zod";
+import { type input, type output, z } from "zod";
+
+/** Allows empty string while editing numeric inputs; output is always a number. */
+const dailyRateFormField = z.preprocess(
+  (val: unknown) => (val === undefined ? "" : val),
+  z
+    .union([z.literal(""), z.number()])
+    .superRefine((val, ctx) => {
+      if (val === "") {
+        ctx.addIssue({
+          code: "custom",
+          message: "Daily rate is required",
+        });
+        return;
+      }
+      if (val < 0.01) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Daily rate must be greater than 0",
+        });
+      }
+    })
+    .transform((val): number => {
+      if (val === "") {
+        throw new Error("invalid daily rate");
+      }
+      return val;
+    }),
+);
+
+const securityDepositFormField = z
+  .union([z.literal(""), z.number()])
+  .transform((val) => (val === "" ? 0 : val))
+  .pipe(z.number().min(0, "Security deposit cannot be negative"))
+  .default(0);
+
+const minimumRentalPeriodFormField = z
+  .union([z.literal(""), z.number()])
+  .superRefine((val, ctx) => {
+    if (val === "") {
+      ctx.addIssue({
+        code: "custom",
+        message: "Minimum rental period is required",
+      });
+      return;
+    }
+    if (val < 1) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Minimum rental period must be at least 1 day",
+      });
+    }
+  })
+  .transform((val): number => {
+    if (val === "") {
+      throw new Error("invalid minimum rental period");
+    }
+    return val;
+  })
+  .default(1);
+
+const maximumRentalPeriodFormField = z
+  .union([z.literal(""), z.number()])
+  .superRefine((val, ctx) => {
+    if (val === "") {
+      ctx.addIssue({
+        code: "custom",
+        message: "Maximum rental period is required",
+      });
+      return;
+    }
+    if (val < 1) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Maximum rental period must be at least 1 day",
+      });
+    }
+  })
+  .transform((val): number => {
+    if (val === "") {
+      throw new Error("invalid maximum rental period");
+    }
+    return val;
+  })
+  .default(30);
 
 export const listingConditionSchema = z.enum(["new", "good", "fair", "poor"]);
 
@@ -16,13 +100,10 @@ const baseListingSchema = z.object({
   brand: z.string().optional(),
   model: z.string().optional(),
   condition: listingConditionSchema,
-  dailyRate: z.number().min(0.01, "Daily rate must be greater than 0"),
+  dailyRate: dailyRateFormField,
   weeklyRate: z.number().min(0.01).optional(),
   monthlyRate: z.number().min(0.01).optional(),
-  securityDeposit: z
-    .number()
-    .min(0, "Security deposit cannot be negative")
-    .default(0),
+  securityDeposit: securityDepositFormField,
   specifications: z
     .record(
       z.string(),
@@ -31,14 +112,8 @@ const baseListingSchema = z.object({
     .default({}),
   instructions: z.string().optional(),
   safetyNotes: z.string().optional(),
-  minimumRentalPeriod: z
-    .number()
-    .min(1, "Minimum rental period must be at least 1 day")
-    .default(1),
-  maximumRentalPeriod: z
-    .number()
-    .min(1, "Maximum rental period must be at least 1 day")
-    .default(30),
+  minimumRentalPeriod: minimumRentalPeriodFormField,
+  maximumRentalPeriod: maximumRentalPeriodFormField,
   deliveryMode: deliveryModeSchema.default("pickup_only"),
   deliveryFee: z.number().min(0, "Delivery fee cannot be negative").default(0),
   deliveryRadius: z
@@ -106,10 +181,15 @@ export const createListingSchemaClient = withServiceValidation(
   }),
 );
 
-export type CreateListingFormDataClientType = z.infer<
+/** Parsed listing form values (API / submit). */
+export type CreateListingFormDataClientType = output<
   typeof createListingSchemaClient
 >;
-export type CreateListingFormDataServerType = z.infer<
+/** Raw react-hook-form values (numeric fields may be "" while editing). */
+export type CreateListingFormClientValues = input<
+  typeof createListingSchemaClient
+>;
+export type CreateListingFormDataServerType = output<
   typeof createListingSchemaServer
 >;
 export type ImageFile = z.infer<typeof imageFileSchema>;

@@ -374,6 +374,53 @@ export class UserDAL extends BaseDAL {
   }
 
   /**
+   * Active admin and superadmin accounts for staff-facing notifications (e.g. service listing review).
+   */
+  async getStaffNotificationRecipients(): Promise<
+    Array<{
+      id: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+    }>
+  > {
+    try {
+      return await this.db
+        .select({
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(user)
+        .where(
+          and(
+            eq(user.status, "active"),
+            or(eq(user.userType, "admin"), eq(user.userType, "superadmin")),
+          ),
+        );
+    } catch (error) {
+      this.handleError(error, "getStaffNotificationRecipients");
+    }
+  }
+
+  /**
+   * Returns the user's Stripe customer ID, or null if none exists.
+   */
+  async getStripeCustomerId(userId: string): Promise<string | null> {
+    try {
+      const [u] = await this.db
+        .select({ stripeCustomerId: user.stripeCustomerId })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1);
+      return u?.stripeCustomerId ?? null;
+    } catch (error) {
+      this.handleError(error, "getStripeCustomerId");
+    }
+  }
+
+  /**
    * Get user profile with extra counts for admin detail view.
    */
   async getUserDetailsForAdmin(userId: string): Promise<AdminUserDetail> {

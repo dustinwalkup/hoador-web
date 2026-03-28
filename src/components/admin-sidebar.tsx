@@ -36,14 +36,18 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { UserProfile } from "@/dal/types";
 import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
 import { usePendingReviewCount } from "@/features/admin/hooks/use-pending-review-count";
 import { usePendingDisputesCount } from "@/features/admin/hooks/use-pending-disputes-count";
+import { usePendingServiceReviewCount } from "@/features/admin/hooks/use-pending-service-review-count";
 import { NavUser } from "./nav-user";
 
 interface AdminSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -55,11 +59,6 @@ const adminNavItemsBeforePayments = [
     title: "Dashboard",
     url: "/admin/dashboard",
     icon: LayoutDashboard,
-  },
-  {
-    title: "Listing Review",
-    url: "/admin/dashboard/listings/review",
-    icon: ClipboardCheck,
   },
   {
     title: "Dispute Review",
@@ -133,7 +132,19 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
   useMobileSidebarClose();
   const pathname = usePathname();
   const { data: pendingCount = 0 } = usePendingReviewCount();
+  const { data: pendingServiceCount = 0 } = usePendingServiceReviewCount();
   const { data: pendingDisputesCount = 0 } = usePendingDisputesCount();
+
+  const rentalsReviewUrl = "/admin/dashboard/listings/review";
+  const servicesReviewUrl = "/admin/dashboard/services/listings/review";
+  const isRentalsReviewActive =
+    pathname === rentalsReviewUrl ||
+    pathname.startsWith(rentalsReviewUrl + "/");
+  const isServicesReviewActive =
+    pathname === servicesReviewUrl ||
+    pathname.startsWith(servicesReviewUrl + "/");
+  const isListingReviewActive = isRentalsReviewActive || isServicesReviewActive;
+  const pendingTotalCount = pendingCount + pendingServiceCount;
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -171,9 +182,6 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                     ? pathname === item.url
                     : pathname === item.url ||
                       pathname.startsWith(item.url + "/");
-                const isListingReview =
-                  item.url === "/admin/dashboard/listings/review";
-                const hasPendingReviews = isListingReview && pendingCount > 0;
                 const isDisputeReview =
                   item.url === "/admin/dashboard/disputes/review";
                 const hasPendingDisputes =
@@ -189,14 +197,6 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                       >
                         {item.icon && <item.icon className="size-5!" />}
                         <span>{item.title}</span>
-                        {hasPendingReviews && (
-                          <Badge
-                            variant="destructive"
-                            className="ml-auto h-5 min-w-5 px-1.5 text-xs"
-                          >
-                            {pendingCount > 99 ? "99+" : pendingCount}
-                          </Badge>
-                        )}
                         {hasPendingDisputes && (
                           <Badge
                             variant="destructive"
@@ -213,6 +213,63 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                 );
               })}
             </SidebarMenu>
+
+            <Collapsible
+              defaultOpen={isListingReviewActive}
+              className="group/collapsible"
+            >
+              <CollapsibleTrigger asChild>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    size="lg"
+                    tooltip="Listing review"
+                    isActive={isListingReviewActive}
+                  >
+                    <ClipboardCheck className="size-5!" />
+                    <span>Listing review</span>
+                    {pendingTotalCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                      >
+                        {pendingTotalCount > 99 ? "99+" : pendingTotalCount}
+                      </Badge>
+                    )}
+                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      size="md"
+                      isActive={isRentalsReviewActive}
+                    >
+                      <Link href={rentalsReviewUrl}>
+                        <span>{`Rentals (${
+                          pendingCount > 99 ? "99+" : pendingCount
+                        })`}</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      size="md"
+                      isActive={isServicesReviewActive}
+                    >
+                      <Link href={servicesReviewUrl}>
+                        <span>{`Services (${
+                          pendingServiceCount > 99 ? "99+" : pendingServiceCount
+                        })`}</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </Collapsible>
           </SidebarGroupContent>
         </SidebarGroup>
         <Collapsible

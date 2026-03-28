@@ -40,13 +40,13 @@ This test plan maps all tests to specific requirements from `specs/services/phas
 - Unit tests: `ServiceListingService.approveListing()` optionally stores `adminNote`
 - Unit tests: `ServiceListingService.approveListing()` calls `sendListingApprovedNotification()` with provider ID
 - Unit tests: `ServiceListingService.rejectListing()` requires non-empty reason (ValidationError if empty)
-- Unit tests: `ServiceListingService.rejectListing()` sets `status: 'rejected'`, stores `rejectionReason`
+- Unit tests: `ServiceListingService.rejectListing()` sets `status: 'denied'`, stores `rejectionReason`
 - Unit tests: `ServiceListingService.rejectListing()` calls `sendListingRejectedNotification()` with reason
 - Integration tests: POST `/api/admin/services/listings/[id]/approve` by non-admin → 403
 - Integration tests: POST `/api/admin/services/listings/[id]/approve` → status becomes `'active'`, provider notified
 - Integration tests: Approved listing is returned by `findByCommunity()` with `status: 'active'` filter
 - Integration tests: POST `/api/admin/services/listings/[id]/reject` without reason → 400
-- Integration tests: POST `/api/admin/services/listings/[id]/reject` with reason → status becomes `'rejected'`, provider notified with reason
+- Integration tests: POST `/api/admin/services/listings/[id]/reject` with reason → status becomes `'denied'`, provider notified with reason
 - Integration tests: Rejected listing is NOT returned by `findByCommunity()`
 
 ---
@@ -684,7 +684,7 @@ Feature: Service Listing Creation
   Scenario: Admin rejects a listing with a reason
     Given a listing with status "pending_approval"
     When admin rejects the listing with reason "Service not HOA-related"
-    Then the listing status becomes "rejected"
+    Then the listing status becomes "denied"
     And the provider receives a "service_listing_rejected" notification with the reason
     And the listing does NOT appear in browse results
 ```

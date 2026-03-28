@@ -27,17 +27,30 @@ export interface MainNavItem {
   readonly title: string;
   readonly url?: string; // Optional for parent items with children
   readonly icon: IconComponent;
+  readonly defaultOpen?: boolean;
   readonly items?: {
-    readonly label: string;
+    readonly label?: string;
     readonly items: readonly SubNavItem[];
   }[]; // Support grouped sub-items
 }
 
 export const MAIN_NAV: MainNavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: HomeIcon },
-  { title: "Explore", url: "/dashboard/explore", icon: DoorIcon },
   // TODO: Add Favorites
   // { title: "Favorites", url: "/dashboard/favorites", icon: HeartIcon },
+  {
+    title: "Explore",
+    icon: DoorIcon,
+    defaultOpen: true,
+    items: [
+      {
+        items: [
+          { title: "Browse rentals", url: "/dashboard/explore" },
+          { title: "Browse services", url: "/dashboard/services" },
+        ],
+      },
+    ],
+  },
   {
     title: "Activity",
     icon: ActivityIcon,
@@ -46,11 +59,11 @@ export const MAIN_NAV: MainNavItem[] = [
         label: "RENTALS",
         items: [
           {
-            title: "Incoming requests",
+            title: "Owner",
             url: "/dashboard/rentals/incoming/requests",
           },
           {
-            title: "Outgoing requests",
+            title: "Renter",
             url: "/dashboard/rentals/outgoing/requests",
           },
         ],
@@ -59,12 +72,12 @@ export const MAIN_NAV: MainNavItem[] = [
         label: "SERVICES",
         items: [
           {
-            title: "Incoming requests",
-            url: "/dashboard/services/incoming",
+            title: "Provider",
+            url: "/dashboard/services/incoming/pending",
           },
           {
-            title: "Outgoing requests",
-            url: "/dashboard/services/outgoing",
+            title: "Client",
+            url: "/dashboard/services/outgoing/pending",
           },
         ],
       },

@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { FormProvider } from "react-hook-form";
+import { FormProvider, useWatch } from "react-hook-form";
 import { PhotosSection } from "../photos-section";
+
+vi.mock("react-hook-form", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-hook-form")>();
+  return {
+    ...actual,
+    useWatch: vi.fn().mockReturnValue([]),
+  };
+});
 import {
   createMockForm,
   createMockImageFiles,
@@ -69,6 +77,7 @@ describe("PhotosSection", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useWatch).mockReturnValue([]);
   });
 
   const renderPhotosSection = (overrides: Record<string, any> = {}) => {
@@ -130,6 +139,7 @@ describe("PhotosSection", () => {
       if (field === "images") return mockImages;
       return createMockFormData();
     });
+    vi.mocked(useWatch).mockReturnValue(mockImages);
 
     renderPhotosSection();
 
@@ -142,6 +152,7 @@ describe("PhotosSection", () => {
       if (field === "images") return mockImages;
       return createMockFormData();
     });
+    vi.mocked(useWatch).mockReturnValue(mockImages);
 
     renderPhotosSection();
 
@@ -175,6 +186,7 @@ describe("PhotosSection", () => {
       if (field === "images") return mockImages;
       return createMockFormData();
     });
+    vi.mocked(useWatch).mockReturnValue(mockImages);
 
     const { container } = renderPhotosSection();
 
@@ -257,6 +269,7 @@ describe("PhotosSection", () => {
       if (field === "images") return mockImages;
       return createMockFormData();
     });
+    vi.mocked(useWatch).mockReturnValue(mockImages);
 
     const { container } = renderPhotosSection();
 
@@ -269,6 +282,7 @@ describe("PhotosSection", () => {
       if (field === "images") return mockImages;
       return createMockFormData();
     });
+    vi.mocked(useWatch).mockReturnValue(mockImages);
 
     renderPhotosSection();
 
@@ -310,6 +324,7 @@ describe("PhotosSection", () => {
       if (field === "images") return mockImages;
       return createMockFormData();
     });
+    vi.mocked(useWatch).mockReturnValue(mockImages);
 
     renderPhotosSection();
 
@@ -321,6 +336,7 @@ describe("PhotosSection", () => {
       if (field === "images") return mockImages;
       return createMockFormData();
     });
+    vi.mocked(useWatch).mockReturnValue(mockImages);
 
     renderPhotosSection();
 
@@ -332,6 +348,7 @@ describe("PhotosSection", () => {
       if (field === "images") return mockImages;
       return createMockFormData();
     });
+    vi.mocked(useWatch).mockReturnValue(mockImages);
 
     const { container } = renderPhotosSection();
 

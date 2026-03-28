@@ -211,6 +211,90 @@
       "when": 1773617560502,
       "tag": "0029_flashy_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1774128437556,
+      "tag": "0030_lucky_la_nuit",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1774129532811,
+      "tag": "0031_curly_puck",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1774200000000,
+      "tag": "0032_service_listing_owner_policy_ack",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1774200100000,
+      "tag": "0033_fix_listing_category_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1774200200000,
+      "tag": "0034_fix_service_category_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1774200300000,
+      "tag": "0035_fix_category_ids_and_listings",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1774200400000,
+      "tag": "0036_ensure_category_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1774200500000,
+      "tag": "0037_ensure_category_ids_final",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1774200600000,
+      "tag": "0038_migration_smoke_test",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1774200700000,
+      "tag": "0039_cleanup_migration_smoke_test",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1774498400000,
+      "tag": "0040_append_only_review_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1774498500000,
+      "tag": "0041_review_events_enums",
+      "breakpoints": true
     }
   ]
 }

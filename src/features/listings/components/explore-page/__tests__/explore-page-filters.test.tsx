@@ -80,7 +80,7 @@ describe("ExplorePageFilters", () => {
     it("should render search input", () => {
       render(<ExplorePageFilters />);
 
-      const searchInput = screen.getByPlaceholderText("Search listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
       expect(searchInput).toBeInTheDocument();
     });
 
@@ -120,7 +120,7 @@ describe("ExplorePageFilters", () => {
 
       render(<ExplorePageFilters />);
 
-      const searchInput = screen.getByPlaceholderText("Search listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
       expect(searchInput).toHaveValue("drill");
     });
 
@@ -128,7 +128,7 @@ describe("ExplorePageFilters", () => {
       const user = userEvent.setup();
       render(<ExplorePageFilters />);
 
-      const searchInput = screen.getByPlaceholderText("Search listings...");
+      const searchInput = screen.getByPlaceholderText("Search rentals...");
 
       await user.type(searchInput, "hammer");
 
@@ -620,7 +620,7 @@ describe("ExplorePageFilters", () => {
 
       // Component should render without issues
       expect(
-        screen.getByPlaceholderText("Search listings..."),
+        screen.getByPlaceholderText("Search rentals..."),
       ).toBeInTheDocument();
     });
   });

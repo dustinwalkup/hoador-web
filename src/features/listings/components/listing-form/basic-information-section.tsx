@@ -1,7 +1,7 @@
 import { Package } from "lucide-react";
 import { Control } from "react-hook-form";
 
-import type { CreateListingFormDataClientType } from "@/features/listings/form-schema/listing.schema";
+import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 import { emojiMap } from "@/constants/garage";
 
 import {
@@ -36,7 +36,7 @@ interface Category {
 }
 
 interface BasicInformationSectionProps {
-  control: Control<CreateListingFormDataClientType>;
+  control: Control<CreateListingFormClientValues>;
   categories: Category[];
 }
 

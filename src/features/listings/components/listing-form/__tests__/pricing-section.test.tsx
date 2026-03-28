@@ -95,21 +95,22 @@ describe("PricingSection", () => {
       'input[placeholder="0.00"]',
     );
     expect(inputsWithPlaceholders.length).toBeGreaterThanOrEqual(2); // daily, deposit
-    expect(dailyRateInput).toHaveAttribute("type", "number");
-    expect(dailyRateInput).toHaveAttribute("inputMode", "decimal");
+    // NumericInput uses type="text" + inputMode so decimals/backspace behave correctly
+    expect(dailyRateInput).toHaveAttribute("type", "text");
+    expect(dailyRateInput).toHaveAttribute("inputmode", "decimal");
   });
 
-  it("should render number inputs for all price fields", () => {
+  it("should render numeric text inputs for all price fields", () => {
     render(
       <FormProvider {...(mockForm as any)}>
         <PricingSection control={mockForm.control as any} />
       </FormProvider>,
     );
 
-    // All number inputs have role="spinbutton"
+    // NumericInput uses native text inputs (role textbox), not type="number" spinbuttons
     // daily, deposit, min period, max period (weekly/monthly commented out)
-    const numberInputs = screen.getAllByRole("spinbutton");
-    expect(numberInputs.length).toBeGreaterThanOrEqual(4);
+    const numericInputs = screen.getAllByRole("textbox");
+    expect(numericInputs.length).toBeGreaterThanOrEqual(4);
   });
 
   it("should render rental terms section", () => {
@@ -141,8 +142,10 @@ describe("PricingSection", () => {
 
     expect(minPeriodInput).toBeInTheDocument();
     expect(maxPeriodInput).toBeInTheDocument();
-    expect(minPeriodInput).toHaveAttribute("type", "number");
-    expect(maxPeriodInput).toHaveAttribute("type", "number");
+    expect(minPeriodInput).toHaveAttribute("type", "text");
+    expect(maxPeriodInput).toHaveAttribute("type", "text");
+    expect(minPeriodInput).toHaveAttribute("inputmode", "numeric");
+    expect(maxPeriodInput).toHaveAttribute("inputmode", "numeric");
   });
 
   it("should render security deposit input", () => {
@@ -157,7 +160,7 @@ describe("PricingSection", () => {
       'input[name="securityDeposit"]',
     );
     expect(securityInput).toBeInTheDocument();
-    expect(securityInput).toHaveAttribute("type", "number");
+    expect(securityInput).toHaveAttribute("type", "text");
 
     // Also verify the label text is present
     expect(screen.getByText(/security deposit/i)).toBeInTheDocument();
@@ -205,7 +208,7 @@ describe("PricingSection", () => {
     expect(screen.getByText(/security deposit/i)).toBeInTheDocument();
 
     // Check that inputs are present (daily, deposit, min, max — weekly/monthly commented out)
-    const inputs = screen.getAllByRole("spinbutton");
+    const inputs = screen.getAllByRole("textbox");
     expect(inputs.length).toBeGreaterThanOrEqual(4);
   });
 
@@ -220,7 +223,7 @@ describe("PricingSection", () => {
     // daily + deposit (weekly/monthly commented out)
     const inputs = screen
       .getAllByDisplayValue("")
-      .filter((input) => input.getAttribute("inputMode") === "decimal");
+      .filter((input) => input.getAttribute("inputmode") === "decimal");
     expect(inputs.length).toBeGreaterThanOrEqual(2);
   });
 

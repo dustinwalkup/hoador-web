@@ -3,6 +3,7 @@ import {
   isHeicFile,
   convertHeicToJpeg,
 } from "./image.utils";
+import { compressImage } from "./compress-image";
 
 export interface FileError {
   fileName: string;
@@ -14,7 +15,7 @@ export interface FileError {
 export interface ProcessSelectedFilesOptions {
   onFileProcessing?: (
     fileName: string,
-    stage: "validating" | "converting" | "done" | "error",
+    stage: "validating" | "converting" | "compressing" | "done" | "error",
   ) => void;
 }
 
@@ -38,44 +39,56 @@ export async function processSelectedFiles(
     heicConversionCount: 0,
   };
 
-  for (const file of Array.from(files)) {
-    options?.onFileProcessing?.(file.name, "validating");
+  await Promise.all(
+    Array.from(files).map(async (file) => {
+      options?.onFileProcessing?.(file.name, "validating");
 
-    const error = validateImageFile(file);
-    if (error) {
-      const isTooLarge = file.size > 10 * 1024 * 1024;
-      result.errors.push({
-        fileName: file.name,
-        reason: isTooLarge ? "too-large" : "invalid-type",
-        message: isTooLarge
-          ? `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Maximum is 10MB.`
-          : `${file.name}: ${error}`,
-        fileSize: file.size,
-      });
-      options?.onFileProcessing?.(file.name, "error");
-      continue;
-    }
-
-    if (isHeicFile(file)) {
-      try {
-        options?.onFileProcessing?.(file.name, "converting");
-        const converted = await convertHeicToJpeg(file);
-        result.files.push(converted);
-        result.heicConversionCount++;
-        options?.onFileProcessing?.(file.name, "done");
-      } catch {
+      const error = validateImageFile(file);
+      if (error) {
+        const isTooLarge = file.size > 10 * 1024 * 1024;
         result.errors.push({
           fileName: file.name,
-          reason: "conversion-failed",
-          message: `Failed to convert ${file.name}. Please try a JPEG or PNG instead.`,
+          reason: isTooLarge ? "too-large" : "invalid-type",
+          message: isTooLarge
+            ? `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Maximum is 10MB.`
+            : `${file.name}: ${error}`,
+          fileSize: file.size,
         });
         options?.onFileProcessing?.(file.name, "error");
+        return;
       }
-    } else {
-      result.files.push(file);
-      options?.onFileProcessing?.(file.name, "done");
-    }
-  }
+
+      if (isHeicFile(file)) {
+        try {
+          options?.onFileProcessing?.(file.name, "converting");
+          const converted = await convertHeicToJpeg(file);
+          result.heicConversionCount++;
+          options?.onFileProcessing?.(file.name, "compressing");
+          const compressed = await compressImage(converted);
+          result.files.push(compressed);
+          options?.onFileProcessing?.(file.name, "done");
+        } catch {
+          result.errors.push({
+            fileName: file.name,
+            reason: "conversion-failed",
+            message: `Failed to convert ${file.name}. Please try a JPEG or PNG instead.`,
+          });
+          options?.onFileProcessing?.(file.name, "error");
+        }
+      } else {
+        try {
+          options?.onFileProcessing?.(file.name, "compressing");
+          const compressed = await compressImage(file);
+          result.files.push(compressed);
+          options?.onFileProcessing?.(file.name, "done");
+        } catch {
+          // compressImage never throws, but guard just in case
+          result.files.push(file);
+          options?.onFileProcessing?.(file.name, "done");
+        }
+      }
+    }),
+  );
 
   return result;
 }
