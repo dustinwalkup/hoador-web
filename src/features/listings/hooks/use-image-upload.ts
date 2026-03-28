@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 import type { ImageFile } from "@/features/listings/form-schema/listing.schema";
 
 export interface UploadedImage {
@@ -45,29 +46,78 @@ export function useImageUpload() {
           continue;
         }
 
-        try {
-          const formData = new FormData();
-          formData.append("file", image.file);
+        const MAX_RETRIES = 2;
+        let lastError: unknown = null;
+        let uploaded = false;
 
-          const res = await fetch(`/api/listings/${listingId}`, {
-            method: "POST",
-            body: formData,
-          });
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            const formData = new FormData();
+            formData.append("file", image.file);
 
-          if (!res.ok) {
-            const err = await res.json();
-            console.error(`Failed to upload image ${image.file.name}`, err);
-            failedIndices.push(i);
-            continue;
+            const res = await fetch(`/api/listings/${listingId}`, {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              const serverError = new Error(
+                `Image upload failed (HTTP ${res.status}): ${JSON.stringify(err)}`,
+              );
+              console.error(`Failed to upload image ${image.file.name}`, err);
+              Sentry.captureException(serverError, {
+                tags: { error_type: "image_upload_server_error" },
+                extra: {
+                  fileName: image.file.name,
+                  fileSize: image.file.size,
+                  fileType: image.file.type,
+                  listingId,
+                  status: res.status,
+                  response: err,
+                },
+              });
+              // Server errors are non-retryable
+              lastError = serverError;
+              break;
+            }
+
+            completed++;
+            setUploadProgress({ current: completed, total });
+            const json = await res.json();
+            uploadedImages.push(json.image);
+            uploaded = true;
+            break;
+          } catch (error) {
+            lastError = error;
+            const isLastAttempt = attempt === MAX_RETRIES;
+            if (isLastAttempt) {
+              console.error(
+                `Failed to upload image ${image.file?.name} after ${MAX_RETRIES + 1} attempts`,
+                error,
+              );
+              Sentry.captureException(error, {
+                tags: { error_type: "image_upload_network_error" },
+                extra: {
+                  fileName: image.file?.name,
+                  fileSize: image.file?.size,
+                  fileType: image.file?.type,
+                  listingId,
+                  attempts: attempt + 1,
+                },
+              });
+            } else {
+              // Brief delay before retry (500ms, 1000ms)
+              await new Promise((resolve) =>
+                setTimeout(resolve, 500 * (attempt + 1)),
+              );
+            }
           }
+        }
 
-          completed++;
-          setUploadProgress({ current: completed, total });
-          const json = await res.json();
-          uploadedImages.push(json.image);
-        } catch (error) {
-          console.error(`Failed to upload image ${image.file?.name}`, error);
+        if (!uploaded) {
           failedIndices.push(i);
+          void lastError; // already logged above
         }
       }
 

@@ -225,8 +225,10 @@ export function PhotosSection({
     [handleFileSelect],
   );
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleFileSelect(e.target.files);
+  const handleFileInputChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    await handleFileSelect(e.target.files);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }

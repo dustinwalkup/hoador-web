@@ -116,8 +116,18 @@ export function useListingFormSubmit({
           }
 
           // Single consolidated toast
-          if (uploadResult && uploadResult.failed > 0) {
+          if (
+            uploadResult &&
+            uploadResult.failed > 0 &&
+            uploadResult.succeeded === 0
+          ) {
+            // All new images failed — stay on edit page so user can retry
             toast.error(
+              `Images failed to upload. Please check your connection and try again.`,
+            );
+            return;
+          } else if (uploadResult && uploadResult.failed > 0) {
+            toast.warning(
               `${uploadResult.succeeded} of ${uploadResult.total} images uploaded. Failed images can be re-uploaded from the edit page.`,
             );
           } else {
