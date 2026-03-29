@@ -91,7 +91,7 @@ function lastActiveDisplay(lastActiveAt: Date | null | string): {
   }
 
   let className: string;
-  if (diffDays < 7) className = "text-emerald-600 dark:text-emerald-400";
+  if (diffDays < 7) className = "text-primary dark:text-emerald-400";
   else if (diffDays < 30) className = "text-amber-600 dark:text-amber-400";
   else if (diffDays < 90) className = "text-orange-600 dark:text-orange-400";
   else className = "text-red-600 dark:text-red-400";
@@ -453,24 +453,28 @@ export function AdminUsersClient() {
                     return (
                       <div
                         key={u.id}
-                        className="flex flex-nowrap items-center justify-between gap-4 rounded-lg border p-4"
+                        className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                       >
-                        <div className="flex min-w-0 flex-1 items-center gap-4">
-                          <Checkbox
-                            checked={selectedIds.has(u.id)}
-                            onCheckedChange={() => toggleUser(u.id)}
-                            aria-label={`Select ${u.name}`}
-                          />
-                          <Users className="text-muted-foreground h-5 w-5 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-medium break-words">
+                        {/* Mobile: CSS grid so the text column gets minmax(0,1fr) and fills the card; sm+ restores flex row */}
+                        <div className="grid w-full max-w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 sm:flex sm:min-w-0 sm:flex-1 sm:items-center sm:gap-4">
+                          <div className="flex shrink-0 items-start gap-3 pt-0.5 sm:items-center">
+                            <Checkbox
+                              checked={selectedIds.has(u.id)}
+                              onCheckedChange={() => toggleUser(u.id)}
+                              aria-label={`Select ${u.name}`}
+                            />
+                            <Users className="text-muted-foreground h-5 w-5 shrink-0" />
+                          </div>
+                          <div className="max-w-full min-w-0 space-y-1">
+                            <h3 className="font-medium wrap-break-word">
                               {u.name}
                             </h3>
-                            <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                              <span className="break-all">{u.email}</span>
-                              <span>•</span>
+                            <p className="text-muted-foreground text-sm wrap-anywhere">
+                              {u.email}
+                            </p>
+                            <div className="text-muted-foreground flex flex-col gap-1 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1">
                               <span>Joined: {formatDate(u.createdAt)}</span>
-                              <span>•</span>
+                              <span className="hidden sm:inline">•</span>
                               <span
                                 className={lastActive.className}
                                 title={
@@ -484,7 +488,7 @@ export function AdminUsersClient() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex shrink-0 flex-nowrap items-center gap-3">
+                        <div className="flex w-full min-w-0 shrink-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end sm:gap-3">
                           <Badge
                             variant={
                               u.status === "active"
@@ -517,12 +521,12 @@ export function AdminUsersClient() {
             </div>
 
             {pagination && data.data.length > 0 && (
-              <div className="mt-6 flex items-center justify-between">
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-muted-foreground text-sm">
                   Page {pagination.page} of {pagination.totalPages} (
                   {pagination.total} total)
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
