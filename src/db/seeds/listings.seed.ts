@@ -647,6 +647,28 @@ async function main(): Promise<void> {
       createdAt: new Date(),
       updatedAt: new Date(),
     },
+    {
+      id: "99a5cce9-e320-4a34-ad35-3583522e8f69",
+      name: "Miscellaneous",
+      description: "General items that do not fit other categories",
+      icon: "misc",
+      parentId: null,
+      sortOrder: 9,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: "886d768f-bad8-496d-b225-9abb59fe89df",
+      name: "Kids & Baby",
+      description: "Gear and equipment for children and infants",
+      icon: "kids",
+      parentId: null,
+      sortOrder: 10,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
   ];
 
   await db.insert(listingCategories).values(categories);

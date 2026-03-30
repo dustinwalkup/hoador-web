@@ -122,6 +122,7 @@ export function AdditionalDetailsSection({
                   placeholder="How to use this tool safely and effectively..."
                   rows={3}
                   {...field}
+                  value={field.value ?? ""}
                   className="resize-none text-base"
                 />
               </FormControl>
@@ -140,6 +141,7 @@ export function AdditionalDetailsSection({
                   placeholder="Important safety information and warnings..."
                   rows={3}
                   {...field}
+                  value={field.value ?? ""}
                   className="resize-none text-base"
                 />
               </FormControl>

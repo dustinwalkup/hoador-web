@@ -122,7 +122,11 @@ export function BasicInformationSection({
               <FormItem>
                 <FormLabel>Brand</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., DeWalt, Makita, Bosch" {...field} />
+                  <Input
+                    placeholder="e.g., DeWalt, Makita, Bosch"
+                    {...field}
+                    value={field.value ?? ""}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -135,7 +139,11 @@ export function BasicInformationSection({
               <FormItem>
                 <FormLabel>Model</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., DWE575SB" {...field} />
+                  <Input
+                    placeholder="e.g., DWE575SB"
+                    {...field}
+                    value={field.value ?? ""}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
