@@ -35,15 +35,11 @@ export default defineConfig({
     },
     // Explicit pool configuration to prevent worker crashes
     pool: "threads",
-    poolOptions: {
-      threads: {
-        singleThread: false,
-        isolate: true,
-        // Limit concurrent workers to prevent memory exhaustion
-        maxThreads: 4,
-        minThreads: 1,
-      },
-    },
+    singleThread: false,
+    isolate: true,
+    // Limit concurrent workers to prevent memory exhaustion
+    maxWorkers: 4,
+    minWorkers: 1,
     // Increase test timeout for slower tests
     testTimeout: 10000,
     // Note: Uncaught exceptions from XSS sanitization tests are handled in src/test/setup.ts
