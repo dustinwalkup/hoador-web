@@ -99,9 +99,9 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
             {photos.map((url, index) => (
               <div
                 key={url}
-                className={`bg-muted relative aspect-[4/3] overflow-hidden rounded-lg ${
+                className={`bg-muted relative aspect-4/3 overflow-hidden rounded-lg ${
                   index === 0 && photos.length > 2
-                    ? "col-span-2 row-span-2 aspect-square sm:aspect-[4/3]"
+                    ? "col-span-2 row-span-2 aspect-square sm:aspect-4/3"
                     : ""
                 }`}
               >
@@ -124,7 +124,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
                 href={`/dashboard/services/providers/${listing.providerId}`}
                 className="group flex items-center gap-4"
               >
-                <Avatar className="border-background h-14 w-14 flex-shrink-0 border-2 shadow-sm">
+                <Avatar className="border-background h-14 w-14 shrink-0 border-2 shadow-sm">
                   <AvatarImage
                     src={listing.provider.profileImageUrl ?? undefined}
                     alt={providerName}
@@ -284,7 +284,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
             </div>
           ) : !hasPaymentMethod ? (
             <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
-              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
               <div className="space-y-2">
                 <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
                   Add a payment method to request this service

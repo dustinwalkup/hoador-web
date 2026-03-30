@@ -254,7 +254,7 @@ export function ServiceBookingFlow({
                     </span>
                   </div>
                   {index < steps.length - 1 && (
-                    <ChevronRight className="text-muted-foreground/50 mx-2 h-4 w-4 flex-shrink-0 sm:mx-4" />
+                    <ChevronRight className="text-muted-foreground/50 mx-2 h-4 w-4 shrink-0 sm:mx-4" />
                   )}
                 </li>
               );
@@ -570,7 +570,7 @@ export function ServiceBookingFlow({
 
               <div className="border-primary/20 bg-primary/5 rounded-lg border p-4">
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="text-primary mt-0.5 h-5 w-5 flex-shrink-0" />
+                  <CheckCircle2 className="text-primary mt-0.5 h-5 w-5 shrink-0" />
                   <div className="space-y-1">
                     <p className="text-foreground text-sm font-medium">
                       Ready to submit your booking request

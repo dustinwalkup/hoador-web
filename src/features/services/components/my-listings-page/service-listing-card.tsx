@@ -132,7 +132,7 @@ export function ServiceListingCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+                className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
               >
                 <MoreHorizontal className="h-4 w-4" />
                 <span className="sr-only">Actions</span>
@@ -189,7 +189,7 @@ export function ServiceListingCard({
                 key={`${index}-${chunk.timestamp ?? chunk.message}`}
                 className="border-destructive/20 bg-destructive/5 flex items-start gap-2 rounded-md border p-2.5"
               >
-                <AlertCircle className="text-destructive mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                <AlertCircle className="text-destructive mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div className="min-w-0 flex-1">
                   {chunk.label && (
                     <span className="text-destructive text-[11px] font-medium">
