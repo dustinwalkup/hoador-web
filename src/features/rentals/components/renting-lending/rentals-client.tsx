@@ -69,20 +69,44 @@ export function RentalsClient({
     return { activeType: initialType, activeStatus: initialStatus };
   }, [pathname, initialType, initialStatus]);
 
-  // Data fetching hooks - only fetch what we need based on current tab
-  const rentingRequests = useRentingRequests("pending");
-  const rentingApproved = useRentingRequests("approved");
-  const rentingDenied = useRentingRequests("denied");
-  const rentingCancelled = useRentingCancelled();
-  const rentingActive = useRentingActive();
-  const rentingCompleted = useRentingCompleted();
+  // Data fetching hooks - only fetch the currently active tab
+  const rentingRequests = useRentingRequests("pending", {
+    enabled: activeType === "renting" && activeStatus === "requests",
+  });
+  const rentingApproved = useRentingRequests("approved", {
+    enabled: activeType === "renting" && activeStatus === "approved",
+  });
+  const rentingDenied = useRentingRequests("denied", {
+    enabled: activeType === "renting" && activeStatus === "denied",
+  });
+  const rentingCancelled = useRentingCancelled({
+    enabled: activeType === "renting" && activeStatus === "cancelled",
+  });
+  const rentingActive = useRentingActive({
+    enabled: activeType === "renting" && activeStatus === "active",
+  });
+  const rentingCompleted = useRentingCompleted({
+    enabled: activeType === "renting" && activeStatus === "completed",
+  });
 
-  const lendingIncoming = useLendingIncoming();
-  const lendingApproved = useLendingApproved();
-  const lendingDenied = useLendingDenied();
-  const lendingCancelled = useLendingCancelled();
-  const lendingActive = useLendingActive();
-  const lendingCompleted = useLendingCompleted();
+  const lendingIncoming = useLendingIncoming({
+    enabled: activeType === "lending" && activeStatus === "incoming",
+  });
+  const lendingApproved = useLendingApproved({
+    enabled: activeType === "lending" && activeStatus === "approved",
+  });
+  const lendingDenied = useLendingDenied({
+    enabled: activeType === "lending" && activeStatus === "denied",
+  });
+  const lendingCancelled = useLendingCancelled({
+    enabled: activeType === "lending" && activeStatus === "cancelled",
+  });
+  const lendingActive = useLendingActive({
+    enabled: activeType === "lending" && activeStatus === "active",
+  });
+  const lendingCompleted = useLendingCompleted({
+    enabled: activeType === "lending" && activeStatus === "completed",
+  });
 
   // Get current query based on active tab
   const getCurrentQuery = () => {

@@ -672,21 +672,27 @@ export class RentalDAL extends BaseDAL {
         )
         .orderBy(rentalRequests.createdAt);
 
-      // Get images for all listings
+      // Get images for all listings in a single batched query
       const listingIds = [
         ...new Set(requests.map((request) => request.listingId)),
       ];
+      const allImages =
+        listingIds.length > 0
+          ? await this.db
+              .select({
+                listingId: listingImages.listingId,
+                imageUrl: listingImages.imageUrl,
+              })
+              .from(listingImages)
+              .where(inArray(listingImages.listingId, listingIds))
+              .orderBy(listingImages.listingId, listingImages.orderIndex)
+          : [];
+
       const listingImagesMap = new Map<string, string | null>();
-
-      for (const listingId of listingIds) {
-        const [firstImage] = await this.db
-          .select({ imageUrl: listingImages.imageUrl })
-          .from(listingImages)
-          .where(eq(listingImages.listingId, listingId))
-          .orderBy(listingImages.orderIndex)
-          .limit(1);
-
-        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
+      for (const image of allImages) {
+        if (image.listingId && !listingImagesMap.has(image.listingId)) {
+          listingImagesMap.set(image.listingId, image.imageUrl);
+        }
       }
 
       // Add listing images to requests
@@ -765,21 +771,27 @@ export class RentalDAL extends BaseDAL {
         )
         .orderBy(rentalRequests.createdAt);
 
-      // Get images for all listings
+      // Get images for all listings in a single batched query
       const listingIds = [
         ...new Set(requests.map((request) => request.listingId)),
       ];
+      const allImages =
+        listingIds.length > 0
+          ? await this.db
+              .select({
+                listingId: listingImages.listingId,
+                imageUrl: listingImages.imageUrl,
+              })
+              .from(listingImages)
+              .where(inArray(listingImages.listingId, listingIds))
+              .orderBy(listingImages.listingId, listingImages.orderIndex)
+          : [];
+
       const listingImagesMap = new Map<string, string | null>();
-
-      for (const listingId of listingIds) {
-        const [firstImage] = await this.db
-          .select({ imageUrl: listingImages.imageUrl })
-          .from(listingImages)
-          .where(eq(listingImages.listingId, listingId))
-          .orderBy(listingImages.orderIndex)
-          .limit(1);
-
-        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
+      for (const image of allImages) {
+        if (image.listingId && !listingImagesMap.has(image.listingId)) {
+          listingImagesMap.set(image.listingId, image.imageUrl);
+        }
       }
 
       // Add listing images to requests
@@ -1091,21 +1103,27 @@ export class RentalDAL extends BaseDAL {
         )
         .orderBy(rentalRequests.startDate);
 
-      // Get images for all listings
+      // Get images for all listings in a single batched query
       const listingIds = [
         ...new Set(rentalsList.map((rental) => rental.listingId)),
       ];
+      const allImages =
+        listingIds.length > 0
+          ? await this.db
+              .select({
+                listingId: listingImages.listingId,
+                imageUrl: listingImages.imageUrl,
+              })
+              .from(listingImages)
+              .where(inArray(listingImages.listingId, listingIds))
+              .orderBy(listingImages.listingId, listingImages.orderIndex)
+          : [];
+
       const listingImagesMap = new Map<string, string | null>();
-
-      for (const listingId of listingIds) {
-        const [firstImage] = await this.db
-          .select({ imageUrl: listingImages.imageUrl })
-          .from(listingImages)
-          .where(eq(listingImages.listingId, listingId))
-          .orderBy(listingImages.orderIndex)
-          .limit(1);
-
-        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
+      for (const image of allImages) {
+        if (image.listingId && !listingImagesMap.has(image.listingId)) {
+          listingImagesMap.set(image.listingId, image.imageUrl);
+        }
       }
 
       // For completed rentals, check review eligibility
@@ -1227,21 +1245,27 @@ export class RentalDAL extends BaseDAL {
         )
         .orderBy(rentalRequests.createdAt);
 
-      // Get images for all listings
+      // Get images for all listings in a single batched query
       const listingIds = [
         ...new Set(rentalsList.map((rental) => rental.listingId)),
       ];
+      const allImages =
+        listingIds.length > 0
+          ? await this.db
+              .select({
+                listingId: listingImages.listingId,
+                imageUrl: listingImages.imageUrl,
+              })
+              .from(listingImages)
+              .where(inArray(listingImages.listingId, listingIds))
+              .orderBy(listingImages.listingId, listingImages.orderIndex)
+          : [];
+
       const listingImagesMap = new Map<string, string | null>();
-
-      for (const listingId of listingIds) {
-        const [firstImage] = await this.db
-          .select({ imageUrl: listingImages.imageUrl })
-          .from(listingImages)
-          .where(eq(listingImages.listingId, listingId))
-          .orderBy(listingImages.orderIndex)
-          .limit(1);
-
-        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
+      for (const image of allImages) {
+        if (image.listingId && !listingImagesMap.has(image.listingId)) {
+          listingImagesMap.set(image.listingId, image.imageUrl);
+        }
       }
 
       // Add listing images to rentals
