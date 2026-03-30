@@ -97,7 +97,7 @@ async function postHandler(
     }
 
     // Update approval status
-    const { error: updateError } = await tryCatch(
+    const { data: updateResult, error: updateError } = await tryCatch(
       listingDAL.updateApprovalStatus(
         listingId,
         "rejected",
@@ -108,6 +108,11 @@ async function postHandler(
 
     if (updateError) {
       return handleApiError(updateError);
+    }
+
+    // Idempotent: listing was already rejected (e.g. retry after network error)
+    if (!updateResult?.updated) {
+      return NextResponse.json({ success: true });
     }
 
     const baseUrl =

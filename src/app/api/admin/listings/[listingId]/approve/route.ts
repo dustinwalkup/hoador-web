@@ -69,12 +69,17 @@ async function postHandler(
     }
 
     // Update approval status
-    const { error: updateError } = await tryCatch(
+    const { data: updateResult, error: updateError } = await tryCatch(
       listingDAL.updateApprovalStatus(listingId, "approved", adminId),
     );
 
     if (updateError) {
       return handleApiError(updateError);
+    }
+
+    // Idempotent: listing was already approved (e.g. retry after network error)
+    if (!updateResult?.updated) {
+      return NextResponse.json({ success: true });
     }
 
     trackActivity(listing.owner.id, "listing_published", { listingId });

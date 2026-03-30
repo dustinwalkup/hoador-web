@@ -1,9 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
 
 /**
  * Approve a listing
  */
 export function useApproveListing() {
+  const queryClient = useQueryClient();
+
   return useCreateMutation({
     mutationFn: async (listingId: string) => {
       const response = await fetch(`/api/admin/listings/${listingId}/approve`, {
@@ -24,6 +27,14 @@ export function useApproveListing() {
       ["admin", "review-history"],
       ["admin", "pending-review-count"],
     ],
+    // On network error (e.g. Mobile Safari "Load failed") the server may have
+    // already applied the action. Refetch so the card disappears if processed.
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "pending-reviews"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "pending-review-count"],
+      });
+    },
   });
 }
 
@@ -31,6 +42,8 @@ export function useApproveListing() {
  * Reject a listing
  */
 export function useRejectListing() {
+  const queryClient = useQueryClient();
+
   return useCreateMutation({
     mutationFn: async ({
       listingId,
@@ -61,6 +74,14 @@ export function useRejectListing() {
       ["admin", "review-history"],
       ["admin", "pending-review-count"],
     ],
+    // On network error the server may have already applied the rejection — refetch
+    // so the card disappears if the listing was already processed.
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "pending-reviews"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "pending-review-count"],
+      });
+    },
   });
 }
 

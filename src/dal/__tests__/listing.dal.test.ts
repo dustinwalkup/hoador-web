@@ -1151,12 +1151,37 @@ describe("ListingDAL", () => {
       expect(db.update).toHaveBeenCalled();
     });
 
-    it("should throw ValidationError when listing is already reviewed", async () => {
+    it("should return { updated: false } when listing is already in the requested state (idempotent no-op)", async () => {
       // Arrange
       const listingId = "listing-reviewed-123";
       const mockListing = {
         id: listingId,
-        approvalStatus: "approved" as const, // Already reviewed
+        approvalStatus: "approved" as const, // Already approved
+        status: "available" as const,
+      };
+
+      // Mock select query (to check listing exists)
+      const mockSelectFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([mockListing]),
+      });
+
+      vi.mocked(db.select).mockReturnValue({ from: mockSelectFrom } as any);
+
+      // Act & Assert — same action as current status is a no-op, not an error
+      const result = await listingDAL.updateApprovalStatus(
+        listingId,
+        "approved",
+        "admin-user-123",
+      );
+      expect(result).toEqual({ updated: false });
+    });
+
+    it("should throw ValidationError when listing has been reviewed with a conflicting action", async () => {
+      // Arrange — listing is approved but caller wants to reject it
+      const listingId = "listing-reviewed-123";
+      const mockListing = {
+        id: listingId,
+        approvalStatus: "approved" as const,
         status: "available" as const,
       };
 
@@ -1171,8 +1196,9 @@ describe("ListingDAL", () => {
       await expect(
         listingDAL.updateApprovalStatus(
           listingId,
-          "approved",
+          "rejected",
           "admin-user-123",
+          "some reason",
         ),
       ).rejects.toThrow(ValidationError);
     });
