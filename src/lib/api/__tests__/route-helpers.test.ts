@@ -215,7 +215,6 @@ describe("route-helpers", () => {
 
       const request = new NextRequest("http://localhost:3000/api/test", {
         method: "POST",
-        headers: { "Content-Type": "multipart/form-data" },
         body: formData,
       });
 
@@ -226,14 +225,15 @@ describe("route-helpers", () => {
     });
 
     it("should parse URL-encoded FormData", async () => {
-      const formData = new FormData();
-      formData.append("name", "Test");
-      formData.append("email", "test@example.com");
+      const body = new URLSearchParams({
+        name: "Test",
+        email: "test@example.com",
+      });
 
       const request = new NextRequest("http://localhost:3000/api/test", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: formData,
+        body: body.toString(),
       });
 
       const result = await parseFormData(request);
@@ -250,7 +250,6 @@ describe("route-helpers", () => {
 
       const request = new NextRequest("http://localhost:3000/api/test", {
         method: "POST",
-        headers: { "Content-Type": "multipart/form-data" },
         body: formData,
       });
 
@@ -267,7 +266,6 @@ describe("route-helpers", () => {
 
       const request = new NextRequest("http://localhost:3000/api/test", {
         method: "POST",
-        headers: { "Content-Type": "multipart/form-data" },
         body: formData,
       });
 
@@ -314,7 +312,6 @@ describe("route-helpers", () => {
 
       const request = new NextRequest("http://localhost:3000/api/test", {
         method: "POST",
-        headers: { "Content-Type": "multipart/form-data" },
         body: formData,
       });
 
