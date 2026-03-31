@@ -8,6 +8,12 @@ interface AdminMetrics {
   totalUsers: number;
   activeListings: number;
   pendingSupportTickets: number;
+  membershipByCommunity: Array<{
+    communityId: string;
+    communityName: string;
+    membershipCount: number;
+  }>;
+  usersWithoutCommunity: number;
 }
 
 const cardConfig = [
@@ -42,7 +48,7 @@ const cardConfig = [
 
 /**
  * Admin dashboard metrics cards: total users, active listings, support tickets.
- * Fetches live data from /api/admin/metrics; support tickets are hardcoded to 0.
+ * Fetches live data from /api/admin/metrics (including membership breakdown).
  */
 export function AdminMetricsCards() {
   const { data, isLoading, error } = useQuery<AdminMetrics>({
@@ -125,6 +131,33 @@ export function AdminMetricsCards() {
                   {values[i]}
                 </p>
                 <p className="text-muted-foreground text-xs">{card.sub}</p>
+                {card.key === "total-users" && (
+                  <div className="mt-3 space-y-1.5 border-t pt-3">
+                    <ul className="max-h-36 space-y-1 overflow-y-auto text-xs">
+                      {data.membershipByCommunity.map((row) => (
+                        <li
+                          key={row.communityId}
+                          className="flex justify-between gap-2"
+                        >
+                          <span className="min-w-0 truncate">
+                            {row.communityName}
+                          </span>
+                          <span className="text-muted-foreground shrink-0 tabular-nums">
+                            {row.membershipCount}
+                          </span>
+                        </li>
+                      ))}
+                      {data.usersWithoutCommunity > 0 && (
+                        <li className="flex justify-between gap-2">
+                          <span className="min-w-0 truncate">No community</span>
+                          <span className="text-muted-foreground shrink-0 tabular-nums">
+                            {data.usersWithoutCommunity}
+                          </span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

@@ -84,7 +84,7 @@ export const MAIN_NAV: MainNavItem[] = [
     ],
   },
   {
-    title: "Listings",
+    title: "Manage Listings",
     icon: TagIcon,
     items: [
       {

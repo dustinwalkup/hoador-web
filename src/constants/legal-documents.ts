@@ -23,6 +23,7 @@ export const LEGAL_DOCUMENT_IDS = {
 
   // Transactional
   PER_RENTAL_AGREEMENT: "per_rental_agreement",
+  PER_SERVICE_AGREEMENT: "per_service_agreement",
   CANCELLATION_REFUND: "cancellation_refund",
   DISPUTE_POLICY: "dispute_policy",
 
@@ -89,6 +90,10 @@ export const LEGAL_DOCUMENT_METADATA: Partial<
   // Transactional
   [LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT]: {
     name: "Per-Rental Agreement",
+    category: LEGAL_DOCUMENT_CATEGORIES.TRANSACTIONAL,
+  },
+  [LEGAL_DOCUMENT_IDS.PER_SERVICE_AGREEMENT]: {
+    name: "Per-Service Agreement",
     category: LEGAL_DOCUMENT_CATEGORIES.TRANSACTIONAL,
   },
   [LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND]: {

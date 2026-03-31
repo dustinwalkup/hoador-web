@@ -387,6 +387,7 @@ export function ServiceListingForm({
         <OwnerPoliciesAcknowledgment
           control={form.control}
           fieldName="ownerPoliciesAcknowledged"
+          listingType="service"
           showAdminReviewCallout={mode === "create"}
           introText="Please review the following policies before submitting your service listing."
           adminReviewMessage="Your service listing will be reviewed by an admin before being published. You'll receive a notification once it's approved."

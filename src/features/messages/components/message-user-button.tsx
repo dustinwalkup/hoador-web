@@ -9,7 +9,10 @@ import { MessageUserModal } from "@/features/messages/components/message-user-mo
 interface MessageUserButtonProps {
   recipientId: string;
   recipientName: string;
-  listingId: string;
+  /** Tool rental listing id (`listings.id`). */
+  listingId?: string;
+  /** Service listing id (`service_listings.id`). */
+  serviceListingId?: string;
   listingName: string;
   existingConversationId?: string | null;
   buttonText?: string;
@@ -19,6 +22,7 @@ export function MessageUserButton({
   recipientId,
   recipientName,
   listingId,
+  serviceListingId,
   listingName,
   existingConversationId,
   buttonText = "Message Owner",
@@ -43,6 +47,7 @@ export function MessageUserButton({
         recipientId={recipientId}
         recipientName={recipientName}
         listingId={listingId}
+        serviceListingId={serviceListingId}
         listingName={listingName}
         existingConversationId={existingConversationId}
       />

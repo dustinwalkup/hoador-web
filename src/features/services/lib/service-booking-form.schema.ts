@@ -36,6 +36,14 @@ export function createServiceBookingFormSchema(isHourly: boolean) {
         .max(5000, "Notes must be 5000 characters or less")
         .optional(),
       paymentMethodId: z.string().min(1, "Please select a payment method"),
+      serviceAgreementAccepted: z.boolean().refine((val) => val === true, {
+        message:
+          "You must accept the Service Agreement and all policies to continue",
+      }),
+      cancellationRefundAcknowledged: z.boolean().optional(),
+      safetyLiabilityAccepted: z.boolean().optional(),
+      paymentPayoutAccepted: z.boolean().optional(),
+      platformTermsAccepted: z.boolean().optional(),
     })
     .refine(
       (data) => {

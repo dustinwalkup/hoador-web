@@ -136,6 +136,11 @@ export function AdminUserDetailClient({ userId }: AdminUserDetailClientProps) {
               <span className="text-muted-foreground">Joined:</span>{" "}
               {formatDate(user.createdAt)}
             </p>
+            <p className="text-primary">
+              {user.communities?.length
+                ? user.communities.map((c) => c.name).join(", ")
+                : "No community"}
+            </p>
             <p>
               <span className="text-muted-foreground">ID verified:</span>{" "}
               {user.idVerified ? "Yes" : "No"}

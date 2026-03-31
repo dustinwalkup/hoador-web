@@ -14,7 +14,7 @@ import {
 import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
 import { ValidationError, NotFoundError } from "./errors";
-import type { PaginatedResult } from "./types";
+import type { MembershipByCommunityRow, PaginatedResult } from "./types";
 
 export class CommunityDAL extends BaseDAL {
   // ============================
@@ -639,6 +639,59 @@ export class CommunityDAL extends BaseDAL {
       return !!membership;
     } catch (error) {
       this.handleError(error, "isUserMemberOfCommunity");
+    }
+  }
+
+  /**
+   * Returns membership counts per community (sum across communities = total memberships).
+   */
+  async getMembershipCountsByCommunity(): Promise<MembershipByCommunityRow[]> {
+    try {
+      const rows = await this.db
+        .select({
+          communityId: communities.id,
+          communityName: communities.name,
+          membershipCount: count(communityMemberships.id),
+        })
+        .from(communityMemberships)
+        .innerJoin(
+          communities,
+          eq(communityMemberships.communityId, communities.id),
+        )
+        .groupBy(communities.id, communities.name)
+        .orderBy(desc(count(communityMemberships.id)));
+
+      return rows.map((r) => ({
+        communityId: r.communityId,
+        communityName: r.communityName,
+        membershipCount: Number(r.membershipCount),
+      }));
+    } catch (error) {
+      this.handleError(error, "getMembershipCountsByCommunity");
+    }
+  }
+
+  /**
+   * Lists communities for a user (earliest membership first).
+   */
+  async listCommunitiesForUser(
+    userId: string,
+  ): Promise<Array<{ id: string; name: string }>> {
+    try {
+      return await this.db
+        .select({
+          id: communities.id,
+          name: communities.name,
+        })
+        .from(communityMemberships)
+        .innerJoin(
+          communities,
+          eq(communityMemberships.communityId, communities.id),
+        )
+        .where(eq(communityMemberships.userId, userId))
+        .orderBy(asc(communityMemberships.createdAt));
+    } catch (error) {
+      this.handleError(error, "listCommunitiesForUser");
     }
   }
 

@@ -1,10 +1,12 @@
 import {
   auditLogDAL,
+  legalDocumentDAL,
   paymentDAL,
   serviceBookingDAL,
   serviceListingDAL,
   userDAL,
 } from "@/dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/dal/errors";
 import { calculateServiceFee } from "@/constants/payments";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
@@ -146,6 +148,118 @@ export class ServiceBookingService {
 
     await sendNewBookingRequestNotification(listingDetail.providerId, booking);
 
+    if (
+      formData.serviceAgreementAccepted ||
+      formData.cancellationRefundAcknowledged ||
+      formData.safetyLiabilityAccepted ||
+      formData.paymentPayoutAccepted ||
+      formData.platformTermsAccepted
+    ) {
+      try {
+        const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
+        const acceptancePromises = [];
+
+        if (
+          formData.serviceAgreementAccepted &&
+          documentVersions[LEGAL_DOCUMENT_IDS.PER_SERVICE_AGREEMENT]
+        ) {
+          const doc =
+            documentVersions[LEGAL_DOCUMENT_IDS.PER_SERVICE_AGREEMENT];
+          acceptancePromises.push(
+            legalDocumentDAL.recordAcceptance(
+              requesterId,
+              LEGAL_DOCUMENT_IDS.PER_SERVICE_AGREEMENT,
+              doc.version,
+              context.ipAddress ?? null,
+              context.userAgent ?? null,
+              "service_booking_checkout",
+              undefined,
+              formData.listingId,
+            ),
+          );
+        }
+        if (
+          formData.cancellationRefundAcknowledged &&
+          documentVersions[LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND]
+        ) {
+          const doc = documentVersions[LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND];
+          acceptancePromises.push(
+            legalDocumentDAL.recordAcceptance(
+              requesterId,
+              LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND,
+              doc.version,
+              context.ipAddress ?? null,
+              context.userAgent ?? null,
+              "service_booking_checkout",
+              undefined,
+              formData.listingId,
+            ),
+          );
+        }
+        if (
+          formData.safetyLiabilityAccepted &&
+          documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]
+        ) {
+          const doc =
+            documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE];
+          acceptancePromises.push(
+            legalDocumentDAL.recordAcceptance(
+              requesterId,
+              LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
+              doc.version,
+              context.ipAddress ?? null,
+              context.userAgent ?? null,
+              "service_booking_checkout",
+              undefined,
+              formData.listingId,
+            ),
+          );
+        }
+        if (
+          formData.paymentPayoutAccepted &&
+          documentVersions[LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS]
+        ) {
+          const doc = documentVersions[LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS];
+          acceptancePromises.push(
+            legalDocumentDAL.recordAcceptance(
+              requesterId,
+              LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS,
+              doc.version,
+              context.ipAddress ?? null,
+              context.userAgent ?? null,
+              "service_booking_checkout",
+              undefined,
+              formData.listingId,
+            ),
+          );
+        }
+        if (
+          formData.platformTermsAccepted &&
+          documentVersions[LEGAL_DOCUMENT_IDS.TOS]
+        ) {
+          const doc = documentVersions[LEGAL_DOCUMENT_IDS.TOS];
+          acceptancePromises.push(
+            legalDocumentDAL.recordAcceptance(
+              requesterId,
+              LEGAL_DOCUMENT_IDS.TOS,
+              doc.version,
+              context.ipAddress ?? null,
+              context.userAgent ?? null,
+              "service_booking_checkout",
+              undefined,
+              formData.listingId,
+            ),
+          );
+        }
+        await Promise.allSettled(acceptancePromises);
+      } catch (error) {
+        captureNonCriticalError(error, {
+          route: "ServiceBookingService.createBooking",
+          action: "record_legal_acceptances",
+        });
+      }
+    }
+
     return booking;
   }
 
@@ -227,6 +341,28 @@ export class ServiceBookingService {
       });
 
       await sendBookingAcceptedNotification(detail.requesterId, updated);
+
+      const internalSecret = process.env.INTERNAL_API_SECRET;
+      const baseUrl =
+        process.env.VERCEL_URL != null
+          ? `https://${process.env.VERCEL_URL}`
+          : process.env.NEXT_PUBLIC_APP_URL;
+      if (internalSecret && baseUrl) {
+        fetch(`${baseUrl}/api/internal/generate-service-agreement`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${internalSecret}`,
+          },
+          body: JSON.stringify({ serviceBookingId: bookingId }),
+          signal: AbortSignal.timeout(5000),
+        }).catch((err) => {
+          captureNonCriticalError(err, {
+            route: "ServiceBookingService.acceptBooking",
+            action: "trigger_service_agreement_pdf",
+          });
+        });
+      }
 
       return updated;
     } catch (error) {

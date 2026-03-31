@@ -29,6 +29,7 @@
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "generate:rental-agreement": "tsx scripts/generate-rental-agreement-pdf.ts",
+    "generate:service-agreement": "tsx scripts/generate-service-agreement-pdf.ts",
     "db:seed:users": "./src/db/seeds/users.ts",
     "seed": "tsx src/db/seeds/seed.ts",
     "seed:fix-listing-categories": "tsx src/db/seeds/fix-listing-categories.seed.ts",

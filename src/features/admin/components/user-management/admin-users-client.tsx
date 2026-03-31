@@ -472,6 +472,9 @@ export function AdminUsersClient() {
                             <p className="text-muted-foreground text-sm wrap-anywhere">
                               {u.email}
                             </p>
+                            <p className="text-primary text-sm wrap-anywhere">
+                              {u.communityNamesLabel ?? "No community"}
+                            </p>
                             <div className="text-muted-foreground flex flex-col gap-1 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1">
                               <span>Joined: {formatDate(u.createdAt)}</span>
                               <span className="hidden sm:inline">•</span>

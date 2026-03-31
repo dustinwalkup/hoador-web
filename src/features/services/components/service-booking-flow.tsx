@@ -43,6 +43,10 @@ import {
   createServiceBookingFormSchema,
   type ServiceBookingFormValues,
 } from "@/features/services/lib/service-booking-form.schema";
+import {
+  ServiceLegalDisclosures,
+  type ServiceLegalDocuments,
+} from "@/features/services/components/service-legal-disclosures";
 
 interface PaymentMethod {
   id: string;
@@ -70,6 +74,7 @@ interface ServiceBookingFlowProps {
   paymentMethods: PaymentMethod[];
   addPaymentMethodHref: string;
   bookingSuccessHref: string;
+  legalDocuments: ServiceLegalDocuments;
   /** Set to true if price is in cents (will divide by 100) */
   priceInCents?: boolean;
 }
@@ -102,6 +107,7 @@ export function ServiceBookingFlow({
   paymentMethods,
   addPaymentMethodHref,
   bookingSuccessHref,
+  legalDocuments,
   priceInCents = true,
 }: ServiceBookingFlowProps) {
   const router = useRouter();
@@ -124,6 +130,11 @@ export function ServiceBookingFlow({
       hours: "1",
       notes: "",
       paymentMethodId: defaultPaymentMethodId(paymentMethods),
+      serviceAgreementAccepted: false,
+      cancellationRefundAcknowledged: false,
+      safetyLiabilityAccepted: false,
+      paymentPayoutAccepted: false,
+      platformTermsAccepted: false,
     },
     mode: "onTouched",
   });
@@ -190,6 +201,12 @@ export function ServiceBookingFlow({
         proposedDate: values.proposedDate,
         proposedTime: values.proposedTime,
         notes: values.notes?.trim() || null,
+        serviceAgreementAccepted: values.serviceAgreementAccepted,
+        cancellationRefundAcknowledged:
+          values.cancellationRefundAcknowledged ?? false,
+        safetyLiabilityAccepted: values.safetyLiabilityAccepted ?? false,
+        paymentPayoutAccepted: values.paymentPayoutAccepted ?? false,
+        platformTermsAccepted: values.platformTermsAccepted ?? false,
       };
       if (isHourly) {
         body.hours = Number.parseFloat(String(values.hours));
@@ -599,6 +616,8 @@ export function ServiceBookingFlow({
                 </p>
                 <HowPaymentsWorkModal className="mt-1" />
               </div>
+
+              <ServiceLegalDisclosures legalDocuments={legalDocuments} />
 
               <div className="flex justify-between gap-3 pt-2">
                 <Button

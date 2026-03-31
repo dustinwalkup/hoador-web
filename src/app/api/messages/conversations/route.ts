@@ -11,15 +11,23 @@ import {
 } from "@/lib/api/route-helpers";
 import { sendMessageReceivedNotification } from "@/features/messages/notifications/message-received";
 
-const startConversationSchema = z.object({
-  recipientId: z.string().min(1, "Recipient ID is required"),
-  listingId: z.string().min(1, "Listing ID is required"),
-  listingName: z.string().min(1, "Listing name is required"),
-  message: z
-    .string()
-    .min(10, "Message must be at least 10 characters")
-    .max(5000, "Message must be less than 5000 characters"),
-});
+const startConversationSchema = z
+  .object({
+    recipientId: z.string().min(1, "Recipient ID is required"),
+    /** Tool rental listing (`listings.id`). */
+    listingId: z.string().uuid().optional(),
+    /** Service listing (`service_listings.id`). */
+    serviceListingId: z.string().uuid().optional(),
+    listingName: z.string().min(1, "Listing name is required"),
+    message: z
+      .string()
+      .min(10, "Message must be at least 10 characters")
+      .max(5000, "Message must be less than 5000 characters"),
+  })
+  .refine((data) => !(data.listingId && data.serviceListingId), {
+    message: "Send at most one of listingId or serviceListingId",
+    path: ["listingId"],
+  });
 
 /**
  * GET /api/messages/conversations
@@ -88,6 +96,7 @@ async function postHandler(request: NextRequest) {
         validated.recipientId,
         validated.message,
         validated.listingId,
+        validated.serviceListingId,
       ),
     );
 

@@ -248,6 +248,11 @@ describe("useCreateServiceBooking", () => {
     listingId: "listing-1",
     proposedDate: "2026-04-01",
     proposedTime: "10:00",
+    serviceAgreementAccepted: true,
+    cancellationRefundAcknowledged: true,
+    safetyLiabilityAccepted: true,
+    paymentPayoutAccepted: true,
+    platformTermsAccepted: true,
   };
 
   it("posts booking and returns bookingId + status", async () => {

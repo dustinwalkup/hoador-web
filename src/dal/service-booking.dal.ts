@@ -7,6 +7,7 @@ import {
   getTableColumns,
   isNotNull,
   lt,
+  sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
@@ -21,6 +22,7 @@ import {
   type ServiceNoShowReport,
 } from "@/db/schemas/service-no-show-reports.schema";
 import { user } from "@/db/schemas/user.schema";
+import { conversations } from "@/db/schemas/messages.schema";
 
 import { BaseDAL } from "./base";
 import { NotFoundError } from "./errors";
@@ -66,6 +68,8 @@ export type ServiceBookingWithDetails = ServiceBooking & {
   listing: typeof serviceListings.$inferSelect;
   requester: ServiceBookingUserInfo;
   provider: ServiceBookingUserInfo;
+  /** Conversation between requester and provider, if any. */
+  conversationId: string | null;
 };
 
 /** Booking row for dashboard lists with listing title and counterparty summary. */
@@ -148,6 +152,7 @@ export class ServiceBookingDAL extends BaseDAL {
             profileImageUrl: bookingProvider.profileImageUrl,
             email: bookingProvider.email,
           },
+          conversationId: conversations.id,
         })
         .from(serviceBookings)
         .innerJoin(
@@ -162,6 +167,19 @@ export class ServiceBookingDAL extends BaseDAL {
           bookingProvider,
           eq(serviceBookings.providerId, bookingProvider.id),
         )
+        .leftJoin(
+          conversations,
+          and(
+            eq(
+              conversations.user1Id,
+              sql`LEAST(${serviceBookings.requesterId}, ${serviceBookings.providerId})`,
+            ),
+            eq(
+              conversations.user2Id,
+              sql`GREATEST(${serviceBookings.requesterId}, ${serviceBookings.providerId})`,
+            ),
+          ),
+        )
         .where(eq(serviceBookings.id, bookingId))
         .limit(1);
 
@@ -174,6 +192,7 @@ export class ServiceBookingDAL extends BaseDAL {
         listing: row.listing,
         requester: row.requester,
         provider: row.provider,
+        conversationId: row.conversationId ?? null,
       };
     } catch (error) {
       this.handleError(error, "ServiceBookingDAL.getById");

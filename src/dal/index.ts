@@ -11,6 +11,7 @@ import {
 } from "./notifications.dal";
 import { LegalDocumentDAL } from "./legal-document.dal";
 import { RentalAgreementDocumentDAL } from "./rental-agreement-document.dal";
+import { ServiceAgreementDocumentDAL } from "./service-agreement-document.dal";
 import { PaymentDAL } from "./payment.dal";
 import { DisputeDAL } from "./dispute.dal";
 import { UserActivityDAL } from "./user-activity.dal";
@@ -35,6 +36,7 @@ export const notificationCategoryPreferencesDAL =
 export const pushSubscriptionDAL = new PushSubscriptionDAL();
 export const legalDocumentDAL = new LegalDocumentDAL();
 export const rentalAgreementDocumentDAL = new RentalAgreementDocumentDAL();
+export const serviceAgreementDocumentDAL = new ServiceAgreementDocumentDAL();
 export const paymentDAL = new PaymentDAL();
 export const disputeDAL = new DisputeDAL();
 export const userActivityDAL = new UserActivityDAL();
