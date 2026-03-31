@@ -258,7 +258,7 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
 
         <motion.div variants={fieldVariants}>
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-start gap-2">
               <motion.div
                 whileHover={!isFormPending ? { scale: 1.05 } : {}}
                 whileTap={!isFormPending ? { scale: 0.95 } : {}}
@@ -276,10 +276,10 @@ export function SignupForm({ documentUrls, errorMessage }: SignupFormProps) {
                   disabled={isFormPending}
                 />
               </motion.div>
-              <div className="grid gap-1.5 leading-none">
+              <div className="grid gap-1.5">
                 <Label
                   htmlFor="legalAccepted"
-                  className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  className="block text-sm leading-5 font-medium whitespace-normal peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   I agree to the{" "}
                   <Link
