@@ -296,6 +296,8 @@ describe("ChatArea", () => {
           senderName: i % 2 === 0 ? "You" : "Other User",
           listingId: null,
           listingName: null,
+          serviceListingId: null,
+          serviceListingName: null,
         })),
     };
 

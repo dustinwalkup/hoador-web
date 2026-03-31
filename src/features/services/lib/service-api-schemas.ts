@@ -35,6 +35,15 @@ export const createServiceBookingSchema = z.object({
   proposedTime: z.string().min(1).max(32),
   hours: z.number().positive().optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
+  paymentMethodId: z.string().optional(),
+  serviceAgreementAccepted: z.boolean().refine((val) => val === true, {
+    message:
+      "You must accept the Service Agreement and all policies to continue",
+  }),
+  cancellationRefundAcknowledged: z.boolean().optional(),
+  safetyLiabilityAccepted: z.boolean().optional(),
+  paymentPayoutAccepted: z.boolean().optional(),
+  platformTermsAccepted: z.boolean().optional(),
 });
 
 /** POST /api/services/bookings/[id]/decline */

@@ -27,4 +27,10 @@ export interface CreateBookingInput {
   proposedTime: string;
   hours?: number | null;
   notes?: string | null;
+  paymentMethodId?: string;
+  serviceAgreementAccepted: boolean;
+  cancellationRefundAcknowledged?: boolean;
+  safetyLiabilityAccepted?: boolean;
+  paymentPayoutAccepted?: boolean;
+  platformTermsAccepted?: boolean;
 }

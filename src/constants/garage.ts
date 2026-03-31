@@ -22,4 +22,6 @@ export const emojiMap: Record<string, string> = {
   shovel: "🪴",
   vacuum: "🧹",
   hammer: "🔨",
+  misc: "📦",
+  kids: "🧸",
 };

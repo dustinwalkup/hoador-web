@@ -78,7 +78,7 @@ function AvatarImage({
   src,
   alt,
   sizes = "40px",
-  onLoadingComplete,
+  onLoad,
   onError,
   ...rest
 }: AvatarImageProps) {
@@ -119,9 +119,9 @@ function AvatarImage({
         "aspect-square size-full rounded-full object-cover",
         className,
       )}
-      onLoadingComplete={(result) => {
+      onLoad={(result) => {
         setImageState("loaded");
-        onLoadingComplete?.(result);
+        onLoad?.(result);
       }}
       onError={(e) => {
         setFailed(true);

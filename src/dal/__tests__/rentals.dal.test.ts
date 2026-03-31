@@ -1465,10 +1465,11 @@ describe("RentalDAL", () => {
       const mockFrom1 = vi.fn().mockReturnValue({
         innerJoin: mockInnerJoin1,
       });
-      const mockLimit = vi
+      const mockOrderByImg = vi
         .fn()
-        .mockResolvedValue([{ imageUrl: "https://example.com/1.jpg" }]);
-      const mockOrderByImg = vi.fn().mockReturnValue({ limit: mockLimit });
+        .mockResolvedValue([
+          { listingId: "listing-1", imageUrl: "https://example.com/1.jpg" },
+        ]);
       const mockWhereImg = vi.fn().mockReturnValue({
         orderBy: mockOrderByImg,
       });
@@ -1533,10 +1534,11 @@ describe("RentalDAL", () => {
       const mockFrom1 = vi.fn().mockReturnValue({
         innerJoin: mockInnerJoin1,
       });
-      const mockLimit = vi
+      const mockOrderByImg = vi
         .fn()
-        .mockResolvedValue([{ imageUrl: "https://example.com/img.jpg" }]);
-      const mockOrderByImg = vi.fn().mockReturnValue({ limit: mockLimit });
+        .mockResolvedValue([
+          { listingId: "listing-1", imageUrl: "https://example.com/img.jpg" },
+        ]);
       const mockWhereImg = vi.fn().mockReturnValue({
         orderBy: mockOrderByImg,
       });
@@ -1650,10 +1652,11 @@ describe("RentalDAL", () => {
       const mockFrom1 = vi.fn().mockReturnValue({
         innerJoin: mockInnerJoin1,
       });
-      const mockLimit = vi
+      const mockOrderByImg = vi
         .fn()
-        .mockResolvedValue([{ imageUrl: "https://example.com/img.jpg" }]);
-      const mockOrderByImg = vi.fn().mockReturnValue({ limit: mockLimit });
+        .mockResolvedValue([
+          { listingId: "listing-1", imageUrl: "https://example.com/img.jpg" },
+        ]);
       const mockWhereImg = vi.fn().mockReturnValue({
         orderBy: mockOrderByImg,
       });
@@ -1715,10 +1718,11 @@ describe("RentalDAL", () => {
       const mockFrom1 = vi.fn().mockReturnValue({
         innerJoin: mockInnerJoin1,
       });
-      const mockLimit = vi
+      const mockOrderByImg = vi
         .fn()
-        .mockResolvedValue([{ imageUrl: "https://example.com/img.jpg" }]);
-      const mockOrderByImg = vi.fn().mockReturnValue({ limit: mockLimit });
+        .mockResolvedValue([
+          { listingId: "listing-1", imageUrl: "https://example.com/img.jpg" },
+        ]);
       const mockWhereImg = vi.fn().mockReturnValue({
         orderBy: mockOrderByImg,
       });

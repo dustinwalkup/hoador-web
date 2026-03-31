@@ -118,6 +118,8 @@ export const mockConversationDetails = {
       senderName: "John Doe",
       listingId: null,
       listingName: null,
+      serviceListingId: null,
+      serviceListingName: null,
     },
     {
       id: "message-124",
@@ -127,6 +129,8 @@ export const mockConversationDetails = {
       senderName: "Jane Smith",
       listingId: null,
       listingName: null,
+      serviceListingId: null,
+      serviceListingName: null,
     },
   ],
   unread: false,

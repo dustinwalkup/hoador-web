@@ -204,6 +204,15 @@ export interface AdminUserListItem {
   userType: UserType;
   createdAt: Date;
   lastActiveAt: Date | null;
+  /** Comma-separated community names (membership order); null if none. */
+  communityNamesLabel: string | null;
+}
+
+/** Membership counts per community (admin metrics). */
+export interface MembershipByCommunityRow {
+  communityId: string;
+  communityName: string;
+  membershipCount: number;
 }
 
 /** User profile plus listing/rental counts for admin detail view. */
@@ -213,6 +222,8 @@ export interface AdminUserDetail extends UserProfile {
   rentalsAsOwnerCount: number;
   /** Set by API when merging dispute count; not returned by DAL. */
   totalDisputesCount?: number;
+  /** Set by GET /api/admin/users/[userId] from community memberships. */
+  communities?: Array<{ id: string; name: string }>;
 }
 
 export interface ListingDetails {
@@ -360,6 +371,9 @@ export interface ConversationDetails {
     senderName: string;
     listingId?: string | null;
     listingName?: string | null;
+    /** HOA service listing (`service_listings.id` / `title`). */
+    serviceListingId?: string | null;
+    serviceListingName?: string | null;
   }>;
   unread: boolean;
   archived: boolean;

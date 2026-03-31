@@ -394,6 +394,8 @@ export function ChatArea({
               senderName: string;
               listingId?: string | null;
               listingName?: string | null;
+              serviceListingId?: string | null;
+              serviceListingName?: string | null;
             }) => (
               <div
                 key={message.id}
@@ -407,7 +409,7 @@ export function ChatArea({
                         : "bg-gray-100 text-gray-900"
                     }`}
                   >
-                    {message.listingId && message.listingName && (
+                    {message.listingId && message.listingName ? (
                       <Link
                         href={`/dashboard/listings/${message.listingId}`}
                         className={`mb-2 flex items-center gap-1 text-xs font-medium underline underline-offset-2 ${
@@ -421,7 +423,22 @@ export function ChatArea({
                           Re: {sanitizeForDisplay(message.listingName)}
                         </span>
                       </Link>
-                    )}
+                    ) : null}
+                    {message.serviceListingId && message.serviceListingName ? (
+                      <Link
+                        href={`/dashboard/services/listings/${message.serviceListingId}`}
+                        className={`mb-2 flex items-center gap-1 text-xs font-medium underline underline-offset-2 ${
+                          message.sender === "me"
+                            ? "text-white/90 hover:text-white"
+                            : "text-gray-600 hover:text-gray-900"
+                        }`}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        <span>
+                          Re: {sanitizeForDisplay(message.serviceListingName)}
+                        </span>
+                      </Link>
+                    ) : null}
                     <p className="text-sm">
                       {sanitizeForDisplay(message.content)}
                     </p>

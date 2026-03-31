@@ -183,7 +183,7 @@ describe("LegalDocumentAcknowledgments", () => {
     expect(checkbox).toHaveAttribute("id", "ownerPoliciesAcknowledged");
     expect(checkbox).toHaveAttribute(
       "aria-label",
-      "I have read and agree to the Owner Policies listed above",
+      "I have read and agree to the Owner Policies listed above.",
     );
 
     // Verify checkbox is enabled and interactive

@@ -13,6 +13,7 @@ import { messageStatusEnum } from "./_enums";
 import { user } from "./user.schema";
 import { rentals } from "./rentals.schema";
 import { listings } from "./listings.schema";
+import { serviceListings } from "./services.schema";
 
 // Conversations table (1-to-1 only)
 export const conversations = pgTable(
@@ -65,7 +66,11 @@ export const messages = pgTable(
     // Optional: Link to listing for context (e.g., when starting a conversation about a listing)
     listingId: uuid("listing_id").references(() => listings.id, {
       onDelete: "set null",
-    }), // nullable
+    }), // nullable — tool listing
+    serviceListingId: uuid("service_listing_id").references(
+      () => serviceListings.id,
+      { onDelete: "set null" },
+    ), // nullable — HOA service listing
     editedAt: timestamp("edited_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -76,6 +81,9 @@ export const messages = pgTable(
     senderIdIdx: index("messages_sender_id_idx").on(table.senderId),
     rentalIdIdx: index("messages_rental_id_idx").on(table.rentalId),
     listingIdIdx: index("messages_listing_id_idx").on(table.listingId),
+    serviceListingIdIdx: index("messages_service_listing_id_idx").on(
+      table.serviceListingId,
+    ),
     createdAtIdx: index("messages_created_at_idx").on(table.createdAt),
     lastMessageAtIdx: index("messages_last_message_at_idx").on(table.createdAt),
   }),
@@ -115,5 +123,9 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   listing: one(listings, {
     fields: [messages.listingId],
     references: [listings.id],
+  }),
+  serviceListing: one(serviceListings, {
+    fields: [messages.serviceListingId],
+    references: [serviceListings.id],
   }),
 }));

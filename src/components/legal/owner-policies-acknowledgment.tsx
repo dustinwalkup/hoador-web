@@ -135,6 +135,8 @@ export interface OwnerPoliciesAcknowledgmentProps<T extends FieldValues> {
   control: Control<T>;
   /** Form field for the required owner-policies checkbox (must validate to true upstream). */
   fieldName: Path<T>;
+  /** Copy variant for rental listings (owner) or service listings (provider). */
+  listingType?: "rental" | "service";
   ownerPolicyDocuments?: OwnerPolicyDocuments;
   /** When true, shows admin review notice below the checkbox. */
   showAdminReviewCallout?: boolean;
@@ -159,6 +161,7 @@ const DEFAULT_ADMIN_REVIEW =
 export function OwnerPoliciesAcknowledgment<T extends FieldValues>({
   control,
   fieldName,
+  listingType = "rental",
   ownerPolicyDocuments,
   showAdminReviewCallout = false,
   introText = DEFAULT_INTRO,
@@ -166,6 +169,10 @@ export function OwnerPoliciesAcknowledgment<T extends FieldValues>({
   className,
   checkboxId = "ownerPoliciesAcknowledged",
 }: OwnerPoliciesAcknowledgmentProps<T>) {
+  const policyRole = listingType === "service" ? "Provider" : "Owner";
+  const policiesTitle = `${policyRole} Policies`;
+  const acknowledgmentCopy = `I have read and agree to the ${policiesTitle} listed above.`;
+
   const documentNames = DOCUMENT_IDS.map(
     (id) => LEGAL_DOCUMENT_METADATA[id]?.name || id,
   );
@@ -173,7 +180,7 @@ export function OwnerPoliciesAcknowledgment<T extends FieldValues>({
   return (
     <div className={className ?? "space-y-6 p-4"}>
       <div className="space-y-2">
-        <h3 className="text-lg font-semibold">Owner Policies</h3>
+        <h3 className="text-lg font-semibold">{policiesTitle}</h3>
         <p className="text-muted-foreground text-sm">{introText}</p>
       </div>
 
@@ -207,7 +214,7 @@ export function OwnerPoliciesAcknowledgment<T extends FieldValues>({
             <FormControl>
               <Checkbox
                 id={checkboxId}
-                aria-label="I have read and agree to the Owner Policies listed above"
+                aria-label={acknowledgmentCopy}
                 checked={field.value}
                 onCheckedChange={field.onChange}
                 className="mt-0.5"
@@ -218,7 +225,7 @@ export function OwnerPoliciesAcknowledgment<T extends FieldValues>({
                 htmlFor={checkboxId}
                 className="cursor-pointer text-sm font-medium"
               >
-                I have read and agree to the Owner Policies listed above.
+                {acknowledgmentCopy}
               </FormLabel>
               <p className="text-muted-foreground text-xs">
                 This includes:{" "}

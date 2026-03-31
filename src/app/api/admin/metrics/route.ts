@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
-import { userDAL, listingDAL } from "@/dal";
+import { userDAL, listingDAL, communityDAL } from "@/dal";
 
 /**
  * GET /api/admin/metrics
- * Get platform metrics for admin dashboard (total users, active listings).
- * Support tickets are not implemented; always returns 0.
+ * Admin dashboard metrics: total users, active listings, membership counts per
+ * community, users with no community, pending support tickets (always 0).
  * Requires admin authentication.
  */
 async function getHandler() {
@@ -16,15 +16,24 @@ async function getHandler() {
       return adminError;
     }
 
-    const [totalUsers, activeListings] = await Promise.all([
+    const [
+      totalUsers,
+      activeListings,
+      membershipByCommunity,
+      usersWithoutCommunity,
+    ] = await Promise.all([
       userDAL.getTotalUserCount(),
       listingDAL.getActiveListingsCount(),
+      communityDAL.getMembershipCountsByCommunity(),
+      userDAL.countUsersWithNoCommunityMembership(),
     ]);
 
     return NextResponse.json({
       totalUsers,
       activeListings,
       pendingSupportTickets: 0,
+      membershipByCommunity,
+      usersWithoutCommunity,
     });
   } catch (error) {
     return handleApiError(error);

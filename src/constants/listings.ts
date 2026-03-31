@@ -39,4 +39,14 @@ export const STATIC_CATEGORIES = [
     name: "Party Equipment",
     icon: "⛺",
   },
+  {
+    id: "886d768f-bad8-496d-b225-9abb59fe89df",
+    name: "Kids & Baby",
+    icon: "🧸",
+  },
+  {
+    id: "99a5cce9-e320-4a34-ad35-3583522e8f69",
+    name: "Miscellaneous",
+    icon: "📦",
+  },
 ];

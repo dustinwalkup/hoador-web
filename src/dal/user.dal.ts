@@ -19,8 +19,15 @@ import {
 import { ConflictError, NotFoundError } from "./errors";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
-const { user, userPreferences, userAddresses, reviews, rentals, listings } =
-  schema;
+const {
+  user,
+  userPreferences,
+  userAddresses,
+  reviews,
+  rentals,
+  listings,
+  communityMemberships,
+} = schema;
 
 type UpdateUserPreferencesDTO = Partial<
   Omit<
@@ -343,6 +350,12 @@ export class UserDAL extends BaseDAL {
           userType: user.userType,
           createdAt: user.createdAt,
           lastActiveAt: user.lastActiveAt,
+          communityNamesLabel: sql<string | null>`(
+            SELECT string_agg("communities"."name"::text, ', ' ORDER BY "community_memberships"."created_at" ASC)
+            FROM "community_memberships"
+            INNER JOIN "communities" ON "communities"."id" = "community_memberships"."community_id"
+            WHERE "community_memberships"."user_id" = "user"."id"
+          )`.as("communityNamesLabel"),
         })
         .from(user)
         .where(whereClause)
@@ -370,6 +383,26 @@ export class UserDAL extends BaseDAL {
       return Number(result[0]?.total ?? 0);
     } catch (error) {
       this.handleError(error, "getTotalUserCount");
+    }
+  }
+
+  /**
+   * Users with no community membership (distinct accounts).
+   */
+  async countUsersWithNoCommunityMembership(): Promise<number> {
+    try {
+      const [row] = await this.db
+        .select({ count: count() })
+        .from(user)
+        .where(
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${communityMemberships}
+            WHERE ${communityMemberships.userId} = ${user.id}
+          )`,
+        );
+      return Number(row?.count ?? 0);
+    } catch (error) {
+      this.handleError(error, "countUsersWithNoCommunityMembership");
     }
   }
 

@@ -5,7 +5,7 @@ import {
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
-import { userDAL, disputeDAL, auditLogDAL } from "@/dal";
+import { userDAL, disputeDAL, auditLogDAL, communityDAL } from "@/dal";
 import { isSuperAdmin } from "@/features/auth/utils/guards";
 import type { UserStatus, UserType } from "@/dal/types";
 
@@ -25,13 +25,15 @@ async function getHandler(_request: NextRequest, context: RouteContext) {
     if (authResult instanceof NextResponse) return authResult;
 
     const { userId } = await context.params;
-    const [profile, disputeResult] = await Promise.all([
+    const [profile, disputeResult, communities] = await Promise.all([
       userDAL.getUserDetailsForAdmin(userId),
       disputeDAL.getUserDisputes(userId, { limit: 1 }),
+      communityDAL.listCommunitiesForUser(userId),
     ]);
     return NextResponse.json({
       ...profile,
       totalDisputesCount: disputeResult.pagination.total,
+      communities,
     });
   } catch (error) {
     return handleApiError(error);

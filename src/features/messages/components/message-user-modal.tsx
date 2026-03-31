@@ -21,7 +21,10 @@ interface MessageUserModalProps {
   onOpenChange: (open: boolean) => void;
   recipientId: string;
   recipientName: string;
-  listingId: string;
+  /** Tool rental listing id (`listings.id`). */
+  listingId?: string;
+  /** Service listing id (`service_listings.id`). */
+  serviceListingId?: string;
   listingName: string;
   existingConversationId?: string | null;
 }
@@ -42,6 +45,7 @@ export function MessageUserModal({
   recipientId,
   recipientName,
   listingId,
+  serviceListingId,
   listingName,
   existingConversationId,
 }: MessageUserModalProps) {
@@ -79,6 +83,7 @@ export function MessageUserModal({
       const result = await startConversationMutation.mutateAsync({
         recipientId,
         listingId,
+        serviceListingId,
         listingName,
         message,
       });

@@ -5,7 +5,10 @@ import type { ConversationDetails, ConversationSummary } from "@/dal/types";
 
 interface StartConversationData {
   recipientId: string;
-  listingId: string;
+  /** Tool rental listing id (`listings.id`). */
+  listingId?: string;
+  /** Service listing id (`service_listings.id`). */
+  serviceListingId?: string;
   listingName: string;
   message: string;
 }
@@ -115,6 +118,8 @@ export function useSendMessage() {
           senderName: "You",
           listingId: null,
           listingName: null,
+          serviceListingId: null,
+          serviceListingName: null,
         };
 
         queryClient.setQueryData<ConversationDetails>(
@@ -168,6 +173,8 @@ export function useSendMessage() {
                   senderName: "You",
                   listingId: null,
                   listingName: null,
+                  serviceListingId: null,
+                  serviceListingName: null,
                 }
               : msg,
           );

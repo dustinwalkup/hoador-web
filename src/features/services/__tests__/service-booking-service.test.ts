@@ -24,8 +24,15 @@ const mockCaptureError = vi.fn();
 const mockSendOpsAlert = vi.fn();
 const mockGetPaymentErrorMessage = vi.fn();
 
+const { mockLegalGetAllVersions } = vi.hoisted(() => ({
+  mockLegalGetAllVersions: vi.fn(),
+}));
+
 vi.mock("@/dal", () => ({
   auditLogDAL: { create: (...a: unknown[]) => mockAuditCreate(...a) },
+  legalDocumentDAL: {
+    getAllCurrentVersions: (...a: unknown[]) => mockLegalGetAllVersions(...a),
+  },
   paymentDAL: { createPayment: (...a: unknown[]) => mockPaymentCreate(...a) },
   serviceBookingDAL: {
     create: (...a: unknown[]) => mockBookingCreate(...a),
@@ -134,6 +141,7 @@ describe("ServiceBookingService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPaymentErrorMessage.mockReturnValue("card declined");
+    mockLegalGetAllVersions.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -146,6 +154,11 @@ describe("ServiceBookingService", () => {
       proposedDate: "2025-07-01",
       proposedTime: "09:00",
       notes: null as string | null,
+      serviceAgreementAccepted: true,
+      cancellationRefundAcknowledged: true,
+      safetyLiabilityAccepted: true,
+      paymentPayoutAccepted: true,
+      platformTermsAccepted: true,
     };
 
     it("throws NotFoundError when listing is not active", async () => {
@@ -252,6 +265,11 @@ describe("ServiceBookingService", () => {
           proposedTime: "09:00",
           hours: 2,
           notes: null,
+          serviceAgreementAccepted: true,
+          cancellationRefundAcknowledged: true,
+          safetyLiabilityAccepted: true,
+          paymentPayoutAccepted: true,
+          platformTermsAccepted: true,
         },
         "req-1",
         ctx,

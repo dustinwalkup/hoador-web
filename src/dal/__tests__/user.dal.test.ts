@@ -1028,6 +1028,7 @@ describe("UserDAL", () => {
           userType: "standard",
           createdAt: new Date(),
           lastActiveAt: null,
+          communityNamesLabel: null,
         },
       ]);
       const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });

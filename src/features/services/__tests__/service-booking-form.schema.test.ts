@@ -7,6 +7,11 @@ const basePayload = {
   proposedTime: "15:00",
   notes: "",
   paymentMethodId: "pm_test",
+  serviceAgreementAccepted: true,
+  cancellationRefundAcknowledged: true,
+  safetyLiabilityAccepted: true,
+  paymentPayoutAccepted: true,
+  platformTermsAccepted: true,
 };
 
 describe("createServiceBookingFormSchema", () => {
@@ -80,6 +85,16 @@ describe("createServiceBookingFormSchema", () => {
       ...basePayload,
       hours: "1",
       paymentMethodId: "",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("requires service agreement acceptance", () => {
+    const schema = createServiceBookingFormSchema(true);
+    const r = schema.safeParse({
+      ...basePayload,
+      hours: "1",
+      serviceAgreementAccepted: false,
     });
     expect(r.success).toBe(false);
   });

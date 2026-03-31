@@ -295,6 +295,34 @@
       "when": 1774498500000,
       "tag": "0041_review_events_enums",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1774700000000,
+      "tag": "0042_add_misc_kids_listing_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1774700000001,
+      "tag": "0043_ensure_misc_kids_listing_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1774700000002,
+      "tag": "0044_service_agreement_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1774800000000,
+      "tag": "0045_messages_service_listing_id",
+      "breakpoints": true
     }
   ]
 }

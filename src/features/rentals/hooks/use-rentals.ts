@@ -21,6 +21,7 @@ export const rentalKeys = {
 // Renting hooks
 export function useRentingRequests(
   status: "pending" | "approved" | "denied" | "cancelled" = "pending",
+  options?: { enabled?: boolean },
 ) {
   return useQuery({
     queryKey: rentalKeys.rentingByStatus(`requests-${status}`),
@@ -37,10 +38,11 @@ export function useRentingRequests(
     },
     staleTime: 1 * 60 * 1000, // 1 minute - user's own data
     refetchOnWindowFocus: false,
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useRentingActive() {
+export function useRentingActive(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: rentalKeys.rentingByStatus("active"),
     queryFn: async (): Promise<BorrowedListing[]> => {
@@ -54,10 +56,11 @@ export function useRentingActive() {
     },
     staleTime: 1 * 60 * 1000, // 1 minute
     refetchOnWindowFocus: false,
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useRentingCompleted() {
+export function useRentingCompleted(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: rentalKeys.rentingByStatus("completed"),
     queryFn: async (): Promise<BorrowedListing[]> => {
@@ -71,6 +74,7 @@ export function useRentingCompleted() {
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - completed data changes less
     refetchOnWindowFocus: false,
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -83,6 +87,7 @@ export function useLendingRequests(
     | "active"
     | "completed"
     | "cancelled" = "pending",
+  options?: { enabled?: boolean },
 ) {
   return useQuery({
     queryKey: rentalKeys.lendingByStatus(`requests-${status}`),
@@ -99,36 +104,37 @@ export function useLendingRequests(
     },
     staleTime: 1 * 60 * 1000, // 1 minute
     refetchOnWindowFocus: false,
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useLendingApproved() {
-  return useLendingRequests("approved");
+export function useLendingApproved(options?: { enabled?: boolean }) {
+  return useLendingRequests("approved", options);
 }
 
 // Convenience hooks for specific lending statuses
-export function useLendingIncoming() {
-  return useLendingRequests("pending");
+export function useLendingIncoming(options?: { enabled?: boolean }) {
+  return useLendingRequests("pending", options);
 }
 
-export function useLendingDenied() {
-  return useLendingRequests("denied");
+export function useLendingDenied(options?: { enabled?: boolean }) {
+  return useLendingRequests("denied", options);
 }
 
-export function useLendingActive() {
-  return useLendingRequests("active");
+export function useLendingActive(options?: { enabled?: boolean }) {
+  return useLendingRequests("active", options);
 }
 
-export function useLendingCompleted() {
-  return useLendingRequests("completed");
+export function useLendingCompleted(options?: { enabled?: boolean }) {
+  return useLendingRequests("completed", options);
 }
 
-export function useRentingCancelled() {
-  return useRentingRequests("cancelled");
+export function useRentingCancelled(options?: { enabled?: boolean }) {
+  return useRentingRequests("cancelled", options);
 }
 
-export function useLendingCancelled() {
-  return useLendingRequests("cancelled");
+export function useLendingCancelled(options?: { enabled?: boolean }) {
+  return useLendingRequests("cancelled", options);
 }
 
 // Individual rental details

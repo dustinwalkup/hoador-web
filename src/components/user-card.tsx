@@ -1,7 +1,7 @@
 import { User, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageUserButton } from "@/features/messages/components/message-user-button";
+import { MessageUserAction } from "@/features/messages/components/message-user-action";
 import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
 
 interface UserCardProps {
@@ -21,6 +21,7 @@ interface UserCardProps {
   recipientId?: string;
   recipientName?: string;
   listingId?: string;
+  serviceListingId?: string;
   listingName?: string;
   existingConversationId?: string | null;
 }
@@ -33,6 +34,7 @@ export function UserCard({
   recipientId,
   recipientName,
   listingId,
+  serviceListingId,
   listingName,
   existingConversationId,
 }: UserCardProps) {
@@ -91,24 +93,18 @@ export function UserCard({
           </div>
         </div>
 
-        {showActions &&
-          recipientId &&
-          recipientName &&
-          listingId &&
-          listingName && (
-            <div className="mt-4">
-              <MessageUserButton
-                recipientId={recipientId}
-                recipientName={recipientName}
-                listingId={listingId}
-                listingName={listingName}
-                existingConversationId={existingConversationId}
-                buttonText={
-                  title === "Renter" ? "Message Renter" : "Message Owner"
-                }
-              />
-            </div>
-          )}
+        {showActions && recipientId && recipientName && listingName && (
+          <MessageUserAction
+            className="mt-4"
+            recipientId={recipientId}
+            recipientName={recipientName}
+            listingId={listingId}
+            serviceListingId={serviceListingId}
+            listingName={listingName}
+            existingConversationId={existingConversationId}
+            buttonText={title === "Renter" ? "Message Renter" : "Message Owner"}
+          />
+        )}
       </CardContent>
     </Card>
   );

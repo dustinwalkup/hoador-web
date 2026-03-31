@@ -87,6 +87,7 @@ export class MessagesDAL extends BaseDAL {
     recipientId: string,
     content: string,
     listingId?: string,
+    serviceListingId?: string,
   ): Promise<{ conversationId: string; messageId: string }> {
     const { data, error } = await tryCatch(
       (async () => {
@@ -104,7 +105,8 @@ export class MessagesDAL extends BaseDAL {
             conversationId: conversation.id,
             senderId,
             content: sanitizedContent,
-            listingId, // Store listing reference for context
+            listingId,
+            serviceListingId,
           })
           .returning();
 
@@ -296,6 +298,12 @@ export class MessagesDAL extends BaseDAL {
                     name: true,
                   },
                 },
+                serviceListing: {
+                  columns: {
+                    id: true,
+                    title: true,
+                  },
+                },
               },
             },
           },
@@ -341,6 +349,8 @@ export class MessagesDAL extends BaseDAL {
             senderName: `${message.sender.firstName} ${message.sender.lastName}`,
             listingId: message.listing?.id ?? null,
             listingName: message.listing?.name ?? null,
+            serviceListingId: message.serviceListing?.id ?? null,
+            serviceListingName: message.serviceListing?.title ?? null,
           })),
           unread: isUnread,
           archived:

@@ -6,7 +6,8 @@ import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { communityDAL, serviceListingDAL } from "@/dal";
+import { communityDAL, legalDocumentDAL, serviceListingDAL } from "@/dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { listStripeCardPaymentMethodsForUser } from "@/services/stripe/payment-method";
 import { ServiceBookingFlow } from "@/features/services/components/service-booking-flow";
 import { getCurrentUserId } from "@/features/auth/utils/session";
@@ -51,6 +52,24 @@ export default async function BookServicePage({ params }: PageProps) {
   if (listing.status !== "active") {
     notFound();
   }
+
+  const [
+    serviceAgreement,
+    cancellationRefund,
+    safetyLiabilityPackage,
+    paymentPayout,
+    platformTerms,
+  ] = await Promise.all([
+    legalDocumentDAL.getCurrentVersion(
+      LEGAL_DOCUMENT_IDS.PER_SERVICE_AGREEMENT,
+    ),
+    legalDocumentDAL.getCurrentVersion(LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND),
+    legalDocumentDAL.getCurrentVersion(
+      LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
+    ),
+    legalDocumentDAL.getCurrentVersion(LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS),
+    legalDocumentDAL.getCurrentVersion(LEGAL_DOCUMENT_IDS.TOS),
+  ]);
 
   const paymentMethods = await listStripeCardPaymentMethodsForUser(userId);
   if (paymentMethods.length === 0) {
@@ -110,6 +129,13 @@ export default async function BookServicePage({ params }: PageProps) {
           priceInCents={false}
           addPaymentMethodHref="/dashboard/payments"
           bookingSuccessHref="/dashboard/services/bookings"
+          legalDocuments={{
+            serviceAgreement: serviceAgreement ?? undefined,
+            cancellationRefund: cancellationRefund ?? undefined,
+            safetyLiabilityPackage: safetyLiabilityPackage ?? undefined,
+            paymentPayout: paymentPayout ?? undefined,
+            platformTerms: platformTerms ?? undefined,
+          }}
         />
       </div>
     </main>

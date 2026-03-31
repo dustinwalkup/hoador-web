@@ -2070,13 +2070,15 @@ export class ListingDAL extends BaseDAL {
   /**
    * Update approval status for a listing
    * Uses optimistic locking to prevent concurrent reviews (WHERE clause check)
+   * Returns { updated: true } when the listing was updated, or { updated: false }
+   * when it was already in the requested state (idempotent no-op).
    */
   async updateApprovalStatus(
     listingId: string,
     status: "approved" | "rejected",
     adminUserId: string,
     rejectionReason?: string,
-  ): Promise<void> {
+  ): Promise<{ updated: boolean }> {
     try {
       // First, check if listing exists and is still pending
       const [listing] = await this.db
@@ -2088,7 +2090,12 @@ export class ListingDAL extends BaseDAL {
         throw new NotFoundError("Listing", listingId);
       }
 
-      // Check if already reviewed
+      // Idempotency: if the listing is already in the requested state, treat as success.
+      if (listing.approvalStatus === status) {
+        return { updated: false };
+      }
+
+      // Check if already reviewed with a conflicting action
       if (listing.approvalStatus !== "pending_review") {
         throw new ValidationError("Listing has already been reviewed");
       }
@@ -2154,8 +2161,12 @@ export class ListingDAL extends BaseDAL {
         actorUserId: adminUserId,
         note: status === "rejected" ? (rejectionReason ?? null) : null,
       });
+
+      return { updated: true };
     } catch (error) {
       this.handleError(error, "updateApprovalStatus");
+      // handleError always throws, but TypeScript needs an explicit return
+      return { updated: false };
     }
   }
 

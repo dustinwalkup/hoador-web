@@ -11,12 +11,18 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LEGAL_DOCUMENT_METADATA } from "@/constants/legal-documents";
+import {
+  LEGAL_DOCUMENT_CATEGORIES,
+  LEGAL_DOCUMENT_METADATA,
+  getDocumentsByCategory,
+} from "@/constants/legal-documents";
 import { validatePDFFile } from "@/lib/utils/document-validation";
 import { useUploadLegalDocument } from "../hooks/use-admin-mutations";
 
@@ -123,12 +129,35 @@ export function LegalDocumentUploadForm({
             <SelectTrigger className="mb-0 w-fit">
               <SelectValue placeholder="Select document type" />
             </SelectTrigger>
-            <SelectContent>
-              {Object.entries(LEGAL_DOCUMENT_METADATA).map(([id, metadata]) => (
-                <SelectItem key={id} value={id}>
-                  {metadata.name}
-                </SelectItem>
-              ))}
+            <SelectContent className="max-h-[min(24rem,70vh)]">
+              {Object.values(LEGAL_DOCUMENT_CATEGORIES).map((category) => {
+                const ids = getDocumentsByCategory(category).sort((a, b) =>
+                  (LEGAL_DOCUMENT_METADATA[a]?.name ?? "").localeCompare(
+                    LEGAL_DOCUMENT_METADATA[b]?.name ?? "",
+                    undefined,
+                    { sensitivity: "base" },
+                  ),
+                );
+                if (ids.length === 0) {
+                  return null;
+                }
+                return (
+                  <SelectGroup key={category}>
+                    <SelectLabel className="text-muted-foreground">
+                      {category}
+                    </SelectLabel>
+                    {ids.map((id) => {
+                      const meta = LEGAL_DOCUMENT_METADATA[id];
+                      if (!meta) return null;
+                      return (
+                        <SelectItem key={id} value={id}>
+                          {meta.name}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
