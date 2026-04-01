@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
+import { isSentryEnabled } from "@/lib/sentry/is-sentry-enabled";
 
 interface MyListingsErrorProps {
   error: Error;
@@ -9,6 +12,18 @@ interface MyListingsErrorProps {
 }
 
 export function MyListingsError({ error, onRetry }: MyListingsErrorProps) {
+  useEffect(() => {
+    if (isSentryEnabled) {
+      Sentry.captureException(error, {
+        tags: {
+          error_type: "feature_error",
+          route: "dashboard/services",
+          component: "MyListingsError",
+        },
+      });
+    }
+  }, [error]);
+
   return (
     <div className="flex flex-col items-center justify-center py-12">
       <div className="bg-destructive/10 mb-4 rounded-full p-3">

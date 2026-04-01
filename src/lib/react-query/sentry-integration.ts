@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import type { QueryClient } from "@tanstack/react-query";
+import { isSentryEnabled } from "@/lib/sentry/is-sentry-enabled";
 
 /**
  * Configure React Query to send errors to Sentry
@@ -8,8 +9,7 @@ import type { QueryClient } from "@tanstack/react-query";
 export function configureReactQuerySentryIntegration(
   queryClient: QueryClient,
 ): void {
-  // Only track errors in production
-  if (process.env.NODE_ENV !== "production") {
+  if (!isSentryEnabled) {
     return;
   }
 

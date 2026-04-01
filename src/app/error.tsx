@@ -3,6 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { isSentryEnabled } from "@/lib/sentry/is-sentry-enabled";
 
 export default function Error({
   error,
@@ -12,9 +13,14 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Only capture errors in production
-    if (process.env.NODE_ENV === "production") {
-      Sentry.captureException(error);
+    if (isSentryEnabled) {
+      Sentry.captureException(error, {
+        tags: {
+          error_type: "react_error_boundary",
+          route: "root",
+          ...(error.digest && { digest: error.digest }),
+        },
+      });
     }
   }, [error]);
 

@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
+import { isSentryEnabled } from "@/lib/sentry/is-sentry-enabled";
 
 interface GarageErrorProps {
   error: Error;
@@ -16,6 +19,18 @@ export function GarageError({
   title = "Failed to load listings",
   description,
 }: GarageErrorProps) {
+  useEffect(() => {
+    if (isSentryEnabled) {
+      Sentry.captureException(error, {
+        tags: {
+          error_type: "feature_error",
+          route: "dashboard/listings",
+          component: "GarageError",
+        },
+      });
+    }
+  }, [error]);
+
   return (
     <div className="flex flex-col items-center justify-center py-12">
       <div className="bg-destructive/10 mb-4 rounded-full p-3">
@@ -44,6 +59,18 @@ export function GarageFiltersError({
   error: Error;
   onRetry?: () => void;
 }) {
+  useEffect(() => {
+    if (isSentryEnabled) {
+      Sentry.captureException(error, {
+        tags: {
+          error_type: "feature_error",
+          route: "dashboard/listings",
+          component: "GarageFiltersError",
+        },
+      });
+    }
+  }, [error]);
+
   return (
     <div className="mt-6 flex flex-col items-center justify-center py-8">
       <div className="bg-destructive/10 mb-3 rounded-full p-2">
