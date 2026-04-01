@@ -267,9 +267,6 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
         <section className="pb-4">
           {isProvider ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <p className="text-muted-foreground text-sm">
-                This is your listing.
-              </p>
               <Button asChild>
                 <Link href={`/dashboard/services/listings/${listing.id}/edit`}>
                   Edit listing
@@ -283,11 +280,11 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
               </p>
             </div>
           ) : !hasPaymentMethod ? (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+            <div className="flex flex-row items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 sm:items-center dark:border-amber-900 dark:bg-amber-950/30">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-              <div className="space-y-2">
+              <div className="flex w-full flex-col items-end sm:flex-row sm:justify-between">
                 <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                  Add a payment method to request this service
+                  Add a payment method to request this servicessss
                 </p>
                 <Button size="sm" variant="outline" asChild>
                   <Link href="/dashboard/payments">Go to Payments</Link>

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useMyServiceListings } from "@/features/services/hooks/use-service-listings";
 import type { ServiceListing } from "@/db/schemas/services.schema";
 
-import { ServiceListingCard } from "./service-listing-card";
+import { ServiceListingCardWithManage } from "./service-listing-card-with-manage";
 import { MyListingsLoadingSkeleton } from "./my-listings-loading-skeleton";
 import { MyListingsError } from "./my-listings-error";
 
@@ -66,7 +66,7 @@ export function ActiveServiceListings({ filters }: ActiveServiceListingsProps) {
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {listings.length > 0 ? (
         listings.map((listing) => (
-          <ServiceListingCard key={listing.id} listing={listing} />
+          <ServiceListingCardWithManage key={listing.id} listing={listing} />
         ))
       ) : (
         <div className="col-span-full py-8 text-center">
