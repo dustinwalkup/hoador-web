@@ -5,11 +5,11 @@ import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { CronRunHistoryService } from "@/features/admin/services/cron-run-history-service";
 import { ServicePaymentLifecycleService } from "@/features/services/services/service-payment-lifecycle-service";
 
-const JOB_NAME = "process-service-payouts";
+const JOB_NAME = "detect-stale-service-processing";
 
 /**
- * Cron job: transfer net service fees to provider Connect accounts (24h+ after completion).
- * Schedule: hourly (see `.github/workflows/cron-jobs.yml` or `cron-process-service-payouts.yml`).
+ * Cron job: alert when service payment lifecycle rows are stuck in payout processing.
+ * Schedule: hourly (same cadence as rental stale detection).
  */
 async function getHandler(request: NextRequest) {
   const auth = verifyCronSecret(request);
@@ -18,22 +18,29 @@ async function getHandler(request: NextRequest) {
   const startedAt = new Date();
 
   try {
-    const summary = await ServicePaymentLifecycleService.processPayouts(20);
+    const result =
+      await ServicePaymentLifecycleService.detectStaleProcessing(60);
 
     await CronRunHistoryService.recordRun({
       jobName: JOB_NAME,
       startedAt,
       completedAt: new Date(),
       status: "success",
-      recordsEligible: summary.eligible,
-      recordsSucceeded: summary.succeeded,
-      recordsFailed: summary.failed,
+      recordsEligible: 0,
+      recordsSucceeded: 0,
+      recordsFailed: result.staleCount,
+      metadata:
+        result.bookingIds.length > 0
+          ? JSON.stringify({ bookingIds: result.bookingIds })
+          : null,
     });
 
     return NextResponse.json({
-      processedCount: summary.processed,
-      successCount: summary.succeeded,
-      failureCount: summary.failed,
+      success: true,
+      staleCount: result.staleCount,
+      bookingIds: result.bookingIds,
+      thresholdMinutes: result.thresholdMinutes,
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -46,10 +53,10 @@ async function getHandler(request: NextRequest) {
       errorMessage: message,
     });
 
-    console.error("Service payout processing cron error:", error);
+    console.error("Detect stale service processing cron error:", error);
 
     await sendOpsAlert({
-      event: "process_service_payouts_cron_failed",
+      event: "detect_stale_service_processing_cron_failed",
       message,
       sendEmailAlert: true,
       metadata: { jobName: JOB_NAME },
@@ -67,5 +74,5 @@ async function getHandler(request: NextRequest) {
 
 export const GET = withRequestLogging(
   getHandler,
-  "GET /api/cron/process-service-payouts",
+  "GET /api/cron/detect-stale-service-processing",
 );

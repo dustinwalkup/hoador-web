@@ -10,6 +10,7 @@ import {
   Clock,
   MessageCircle,
   Star,
+  CheckCircle,
   CheckCircle2,
   XCircle,
   AlertTriangle,
@@ -252,6 +253,7 @@ export function ServiceBookingDetailClient({
   const showNewBanner = searchParams.get("new") === "1";
 
   // Dialog states
+  const [acceptOpen, setAcceptOpen] = useState(false);
   const [declineOpen, setDeclineOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
@@ -395,10 +397,16 @@ export function ServiceBookingDetailClient({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Could not accept");
+        const body = data as { error?: string; paymentFailed?: boolean };
+        toast.error(
+          body.paymentFailed
+            ? "The payment method failed. The requester has been notified to update their payment method."
+            : (body.error ?? "Could not accept"),
+        );
         return;
       }
       toast.success("Booking accepted and payment processed.");
+      setAcceptOpen(false);
       await refresh();
     } finally {
       setPending(false);
@@ -450,12 +458,16 @@ export function ServiceBookingDetailClient({
   }
 
   async function postCancel() {
+    if (!cancelReason.trim()) {
+      toast.error("Reason is required.");
+      return;
+    }
     setPending(true);
     try {
       const res = await fetch(`/api/services/bookings/${booking.id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: cancelReason.trim() || undefined }),
+        body: JSON.stringify({ reason: cancelReason.trim() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -463,6 +475,7 @@ export function ServiceBookingDetailClient({
         return;
       }
       setCancelOpen(false);
+      setCancelReason("");
       toast.success("Booking cancelled.");
       await refresh();
     } finally {
@@ -829,7 +842,7 @@ export function ServiceBookingDetailClient({
               {booking.status === "pending" && isRequester && (
                 <Button
                   variant="outline"
-                  className="w-full justify-start"
+                  className="w-full"
                   onClick={() => setCancelOpen(true)}
                 >
                   <XCircle className="mr-2 h-4 w-4" />
@@ -837,38 +850,40 @@ export function ServiceBookingDetailClient({
                 </Button>
               )}
 
-              {/* Pending - Provider */}
-              {booking.status === "pending" && !isRequester && (
-                <>
-                  <Button
-                    className="w-full justify-start"
-                    onClick={postAccept}
-                    disabled={pending}
-                  >
-                    {pending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                    )}
-                    Accept Booking
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    className="w-full justify-start"
-                    onClick={() => setDeclineOpen(true)}
-                  >
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Decline Booking
-                  </Button>
-                </>
-              )}
+              {/* Pending or payment failed - Provider */}
+              {(booking.status === "pending" ||
+                booking.status === "payment_failed") &&
+                !isRequester && (
+                  <>
+                    <Button
+                      className="w-full"
+                      onClick={() => setAcceptOpen(true)}
+                      disabled={pending}
+                    >
+                      {pending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                      )}
+                      Accept Booking
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => setDeclineOpen(true)}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Decline Booking
+                    </Button>
+                  </>
+                )}
 
               {/* Accepted - Requester */}
               {booking.status === "accepted" && isRequester && (
                 <>
                   <Button
                     variant="outline"
-                    className="w-full justify-start"
+                    className="w-full"
                     onClick={() => setCancelOpen(true)}
                   >
                     <XCircle className="mr-2 h-4 w-4" />
@@ -876,7 +891,7 @@ export function ServiceBookingDetailClient({
                   </Button>
                   <Button
                     variant="outline"
-                    className="text-destructive hover:text-destructive w-full justify-start"
+                    className="text-destructive hover:text-destructive w-full"
                     onClick={() => setNoShowOpen(true)}
                   >
                     <AlertTriangle className="mr-2 h-4 w-4" />
@@ -889,7 +904,7 @@ export function ServiceBookingDetailClient({
               {booking.status === "accepted" && !isRequester && (
                 <>
                   <Button
-                    className="w-full justify-start"
+                    className="w-full"
                     onClick={() => setCompleteOpen(true)}
                     disabled={pending}
                   >
@@ -898,7 +913,7 @@ export function ServiceBookingDetailClient({
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-start"
+                    className="w-full"
                     onClick={() => setCancelOpen(true)}
                   >
                     <XCircle className="mr-2 h-4 w-4" />
@@ -911,7 +926,7 @@ export function ServiceBookingDetailClient({
               {booking.status === "completed" && isRequester && (
                 <Button
                   variant="outline"
-                  className="text-destructive hover:text-destructive w-full justify-start"
+                  className="text-destructive hover:text-destructive w-full"
                   onClick={() => setNoShowOpen(true)}
                 >
                   <AlertTriangle className="mr-2 h-4 w-4" />
@@ -920,11 +935,7 @@ export function ServiceBookingDetailClient({
               )}
 
               {/* View listing */}
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                asChild
-              >
+              <Button variant="outline" className="w-full" asChild>
                 <Link
                   href={`/dashboard/services/listings/${booking.listing.id}`}
                 >
@@ -971,6 +982,41 @@ export function ServiceBookingDetailClient({
       </div>
 
       {/* Dialogs */}
+      <Dialog open={acceptOpen} onOpenChange={setAcceptOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Accept Booking
+            </DialogTitle>
+            <DialogDescription>
+              Accepting this booking will charge the requester&apos;s payment
+              method. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAcceptOpen(false)}
+              disabled={pending}
+            >
+              Back
+            </Button>
+            <Button type="button" onClick={postAccept} disabled={pending}>
+              {pending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Accept Booking
+                </>
+              ) : (
+                "Accept Booking"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={declineOpen} onOpenChange={setDeclineOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1012,7 +1058,7 @@ export function ServiceBookingDetailClient({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="cancel-reason">Reason (optional)</Label>
+            <Label htmlFor="cancel-reason">Reason (required)</Label>
             <Textarea
               id="cancel-reason"
               placeholder="Let us know why you're cancelling..."

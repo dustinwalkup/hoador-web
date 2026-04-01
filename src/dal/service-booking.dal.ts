@@ -1,14 +1,4 @@
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  getTableColumns,
-  isNotNull,
-  lt,
-  sql,
-} from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import {
@@ -53,13 +43,6 @@ export interface ServiceBookingCancellationContext {
   requesterId: string;
   providerId: string;
 }
-
-/**
- * Completed booking row plus provider Stripe Connect id for payout transfer.
- */
-export type PayoutEligibleBooking = ServiceBooking & {
-  providerConnectedAccountId: string | null;
-};
 
 /**
  * Booking with listing and requester / provider user rows.
@@ -255,70 +238,6 @@ export class ServiceBookingDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "ServiceBookingDAL.getCancellationContext");
-    }
-  }
-
-  /**
-   * Atomically moves payout from pending → processing for concurrency-safe cron.
-   *
-   * @returns true if this call claimed the row
-   */
-  async claimForPayoutProcessing(bookingId: string): Promise<boolean> {
-    try {
-      const result = await this.db
-        .update(serviceBookings)
-        .set({
-          payoutStatus: "processing",
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(serviceBookings.id, bookingId),
-            eq(serviceBookings.payoutStatus, "pending"),
-          ),
-        )
-        .returning();
-
-      return result.length > 0;
-    } catch (error) {
-      this.handleError(error, "ServiceBookingDAL.claimForPayoutProcessing");
-    }
-  }
-
-  /**
-   * Bookings eligible for provider payout: completed before cutoff, payout pending.
-   */
-  async findEligibleForPayout(
-    cutoff: Date,
-    limit: number,
-  ): Promise<PayoutEligibleBooking[]> {
-    try {
-      const rows = await this.db
-        .select({
-          ...getTableColumns(serviceBookings),
-          providerConnectedAccountId: user.stripeConnectedAccountId,
-        })
-        .from(serviceBookings)
-        .innerJoin(user, eq(serviceBookings.providerId, user.id))
-        .where(
-          and(
-            isNotNull(serviceBookings.completedAt),
-            lt(serviceBookings.completedAt, cutoff),
-            eq(serviceBookings.payoutStatus, "pending"),
-          ),
-        )
-        .orderBy(asc(serviceBookings.completedAt))
-        .limit(limit);
-
-      return rows.map((row) => {
-        const { providerConnectedAccountId, ...booking } = row;
-        return {
-          ...booking,
-          providerConnectedAccountId,
-        };
-      });
-    } catch (error) {
-      this.handleError(error, "ServiceBookingDAL.findEligibleForPayout");
     }
   }
 

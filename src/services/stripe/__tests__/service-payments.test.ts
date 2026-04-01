@@ -231,6 +231,38 @@ describe("service-payments", () => {
       expect(amount).toBe(expected);
     });
 
+    it("uses providerPayoutAmount when set (skips fee recomputation)", async () => {
+      mockTransfersCreate.mockResolvedValue({ id: "tr_1" });
+
+      await createServiceTransfer({
+        bookingId: "b",
+        providerConnectedAccountId: "acct",
+        chargeId: "ch",
+        providerPayoutAmount: 79.99,
+        idempotencyKey: "service-transfer-b",
+      });
+
+      const amount = (
+        mockTransfersCreate.mock.calls[0][0] as { amount: number }
+      ).amount;
+      expect(amount).toBe(7999);
+    });
+
+    it("returns failure when neither servicePrice nor providerPayoutAmount is set", async () => {
+      const result = await createServiceTransfer({
+        bookingId: "b",
+        providerConnectedAccountId: "acct",
+        chargeId: "ch",
+        idempotencyKey: "service-transfer-b",
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: "Either servicePrice or providerPayoutAmount is required",
+      });
+      expect(mockTransfersCreate).not.toHaveBeenCalled();
+    });
+
     it("returns success with transferId", async () => {
       mockTransfersCreate.mockResolvedValue({ id: "tr_xyz" });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -48,6 +48,9 @@ type ServiceListingManagementFormData = z.infer<
 interface ServiceListingManagementModalProps {
   listing: ServiceListing;
   trigger?: React.ReactNode;
+  /** When both are set, dialog open state is controlled by the parent (no trigger required). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 function getStatusInfo(status: ServiceListing["status"]) {
@@ -95,8 +98,18 @@ function getStatusInfo(status: ServiceListing["status"]) {
 export function ServiceListingManagementModal({
   listing,
   trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: ServiceListingManagementModalProps) {
-  const [open, setOpen] = useState(false);
+  const isControlled =
+    controlledOpen !== undefined && controlledOnOpenChange !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setUncontrolledOpen(next);
+    controlledOnOpenChange?.(next);
+  };
+
   const [isSaving, setIsSaving] = useState(false);
   const formId = `service-listing-manage-form-${listing.id}`;
   const deactivateMutation = useDeactivateServiceListing(listing.id);
@@ -109,6 +122,13 @@ export function ServiceListingManagementModal({
       status: listing.status === "inactive" ? "inactive" : "active",
     },
   });
+
+  useEffect(() => {
+    if (!open) return;
+    form.reset({
+      status: listing.status === "inactive" ? "inactive" : "active",
+    });
+  }, [open, listing.id, listing.status, form]);
 
   const currentStatus = form.watch("status");
   const statusInfo = getStatusInfo(

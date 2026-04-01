@@ -2,11 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockProcessPayouts = vi.fn();
-vi.mock("@/features/services/services/service-payout-service", () => ({
-  ServicePayoutService: {
-    processPayouts: (...args: unknown[]) => mockProcessPayouts(...args),
-  },
-}));
+vi.mock(
+  "@/features/services/services/service-payment-lifecycle-service",
+  () => ({
+    ServicePaymentLifecycleService: {
+      processPayouts: (...args: unknown[]) => mockProcessPayouts(...args),
+    },
+  }),
+);
 
 vi.mock("@/features/admin/services/cron-run-history-service", () => ({
   CronRunHistoryService: {

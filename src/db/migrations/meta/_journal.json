@@ -323,6 +323,20 @@
       "when": 1774800000000,
       "tag": "0045_messages_service_listing_id",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1775005536620,
+      "tag": "0046_service_payment_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1775100000000,
+      "tag": "0047_service_payment_lifecycle_provider_payout",
+      "breakpoints": true
     }
   ]
 }

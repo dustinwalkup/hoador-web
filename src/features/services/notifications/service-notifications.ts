@@ -1,6 +1,7 @@
 import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { serviceListingDAL, userDAL } from "@/dal";
+import { formatPPP } from "@/lib/utils/date.utils";
 import type {
   ServiceBooking,
   ServiceListing,
@@ -19,10 +20,17 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * Formats `proposedDate` (ISO `YYYY-MM-DD`) for notification copy using long US style
+ * (e.g. April 15, 2026). Uses a noon local anchor to avoid UTC day-shift.
+ */
 function formatBookingDate(booking: ServiceBooking): string {
   const d = booking.proposedDate;
   const raw = typeof d === "string" ? d : String(d);
-  return raw;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+  return formatPPP(`${raw}T12:00:00`);
 }
 
 async function listingTitleForBooking(listingId: string): Promise<string> {
@@ -167,6 +175,7 @@ export async function sendBookingAcceptedNotification(
         bodyLines: [
           `Your booking for <strong>${escapeHtml(listingName)}</strong> was <strong>accepted</strong>.`,
           `We successfully processed your payment for <strong>$${escapeHtml(String(booking.totalAmount))}</strong>.`,
+          `Scheduled for: <strong>${escapeHtml(when)}</strong> at <strong>${escapeHtml(booking.proposedTime)}</strong>.`,
         ],
         cta: { label: "View booking", href: linkUrl },
       }),
@@ -175,6 +184,7 @@ export async function sendBookingAcceptedNotification(
         "",
         `Your booking for ${listingName} was accepted.`,
         `Payment processed: $${booking.totalAmount}.`,
+        `Scheduled for: ${when} at ${booking.proposedTime}.`,
         "",
         linkUrl,
       ].join("\n"),
@@ -489,6 +499,7 @@ export async function sendNoShowReportAdminNotification(
   const staff = await userDAL.getStaffNotificationRecipients();
   const listingName = await listingTitleForBooking(booking.listingId);
   const notes = report.notes?.trim() ? escapeHtml(report.notes.trim()) : "—";
+  const when = formatBookingDate(booking);
 
   await Promise.all(
     staff.map((admin) =>
@@ -496,7 +507,7 @@ export async function sendNoShowReportAdminNotification(
         userId: admin.id,
         type: "service_no_show_reported",
         title: "No-show reported",
-        message: `No-show reported for "${listingName}" (booking ${booking.id}).`,
+        message: `No-show reported for "${listingName}" (booking ${booking.id}). Scheduled: ${when} at ${booking.proposedTime}.`,
         data: {
           reportId: report.id,
           bookingId: booking.id,
@@ -511,6 +522,7 @@ export async function sendNoShowReportAdminNotification(
             greeting: `Hi ${escapeHtml([admin.firstName, admin.lastName].filter(Boolean).join(" ").trim() || "there")},`,
             bodyLines: [
               `A no-show was reported for booking <strong>${escapeHtml(booking.id)}</strong> (${escapeHtml(listingName)}).`,
+              `Scheduled: <strong>${escapeHtml(when)}</strong> at <strong>${escapeHtml(booking.proposedTime)}</strong>.`,
               `<strong>Notes:</strong> ${notes}`,
             ],
             cta: { label: "View booking", href: linkUrl },
@@ -518,6 +530,7 @@ export async function sendNoShowReportAdminNotification(
           text: [
             `No-show reported for ${listingName}.`,
             `Booking: ${booking.id}.`,
+            `Scheduled: ${when} at ${booking.proposedTime}.`,
             report.notes ? `Notes: ${report.notes}` : "",
             "",
             linkUrl,

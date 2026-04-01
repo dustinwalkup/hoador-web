@@ -54,6 +54,17 @@ describe("services phase 1 migration SQL (index names)", () => {
     expect(migrationSql).toContain("sb_requester_idx");
   });
 
+  const migrationSql0046 = readFileSync(
+    join(process.cwd(), "src/db/migrations/0046_service_payment_lifecycle.sql"),
+    "utf-8",
+  );
+
+  it("0046 adds service_payment_lifecycle and drops payout columns from service_bookings", () => {
+    expect(migrationSql0046).toContain("service_payment_lifecycle");
+    expect(migrationSql0046).toContain("spl_booking_id_idx");
+    expect(migrationSql0046).toContain('DROP COLUMN "payout_status"');
+  });
+
   it("includes service_reviews unique and lookup indexes", () => {
     expect(migrationSql).toContain("sr_reviewer_booking_idx");
     expect(migrationSql).toContain("sr_reviewee_idx");

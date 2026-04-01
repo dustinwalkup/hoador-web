@@ -272,3 +272,9 @@ export const servicePayoutStatusEnum = pgEnum("service_payout_status", [
   "completed",
   "failed",
 ]);
+
+/** Owner Connect transfer status for service_payment_lifecycle. */
+export const serviceOwnerTransferStatusEnum = pgEnum(
+  "service_owner_transfer_status",
+  ["pending", "processing", "completed", "failed", "frozen"],
+);

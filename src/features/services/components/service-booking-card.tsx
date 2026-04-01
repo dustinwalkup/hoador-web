@@ -4,17 +4,55 @@ import Link from "next/link";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { ServiceBookingDashboardRow } from "@/dal/service-booking.dal";
 import {
   formatServiceUsd,
+  serviceBookingStatusBadgeProps,
   serviceBookingStatusLabel,
 } from "@/features/services/lib/service-labels";
 
+function parseBookingProposedAt(row: ServiceBookingDashboardRow): Date | null {
+  const raw = row.proposedDate as unknown;
+  let datePart: string;
+  if (raw instanceof Date) {
+    datePart = raw.toISOString().slice(0, 10);
+  } else {
+    datePart = String(raw ?? "").slice(0, 10);
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    return null;
+  }
+
+  const timeRaw = String(row.proposedTime ?? "00:00").trim();
+  const [hStr, mStr] = timeRaw.split(":");
+  const hours = Number.parseInt(hStr ?? "0", 10);
+  const minutes = Number.parseInt(mStr ?? "0", 10);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+
+  const [y, mo, da] = datePart.split("-").map((x) => Number.parseInt(x, 10));
+  const d = new Date(y, mo - 1, da, hours, minutes, 0, 0);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Long-form scheduled date/time for booking list cards (e.g. "April 1, 2026, 9:00 AM").
+ */
 export function proposedDateLabel(row: ServiceBookingDashboardRow): string {
-  const d = row.proposedDate as unknown;
-  const dateStr =
-    d instanceof Date ? d.toISOString().slice(0, 10) : String(d ?? "");
-  return `${dateStr} ${row.proposedTime}`;
+  const d = parseBookingProposedAt(row);
+  if (!d) {
+    const raw = row.proposedDate as unknown;
+    const dateStr =
+      raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw ?? "");
+    return `${dateStr} ${row.proposedTime}`;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "long",
+    timeStyle: "short",
+  }).format(d);
 }
 
 export function ServiceBookingCard({
@@ -25,6 +63,7 @@ export function ServiceBookingCard({
   const cp = row.counterparty;
   const name = [cp.firstName, cp.lastName].filter(Boolean).join(" ") || "User";
   const initials = `${cp.firstName?.[0] ?? ""}${cp.lastName?.[0] ?? ""}` || "?";
+  const badgeProps = serviceBookingStatusBadgeProps(row.status);
 
   return (
     <Link
@@ -45,7 +84,12 @@ export function ServiceBookingCard({
         <span className="text-muted-foreground text-sm">
           {proposedDateLabel(row)}
         </span>
-        <Badge variant="outline">{serviceBookingStatusLabel(row.status)}</Badge>
+        <Badge
+          variant={badgeProps.variant}
+          className={cn(badgeProps.className)}
+        >
+          {serviceBookingStatusLabel(row.status)}
+        </Badge>
         <span className="text-muted-foreground text-sm">
           {formatServiceUsd(row.totalAmount)}
         </span>

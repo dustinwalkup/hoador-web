@@ -67,7 +67,11 @@ export function ServicesFlowClient({
 
   const statusFiltered = useMemo(() => {
     if (!query.data) return [];
-    return query.data.filter((row) => row.status === activeStatus);
+    return query.data.filter((row) =>
+      activeStatus === "pending"
+        ? row.status === "pending" || row.status === "payment_failed"
+        : row.status === activeStatus,
+    );
   }, [query.data, activeStatus]);
 
   const handleRoleChange = (newRole: "provider" | "requester") => {

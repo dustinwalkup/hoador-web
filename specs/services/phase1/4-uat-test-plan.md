@@ -268,7 +268,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   8. Verify no Stripe charge is created.
 - **Expected results:**
   - Booking created with `status: pending`; no payment captured; provider notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -284,7 +284,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   4. Submit and verify booking is created with `status: pending`.
 - **Expected results:**
   - Hourly total calculated correctly; booking created.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -300,7 +300,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   4. Verify the booking form is not accessible without a payment method.
 - **Expected results:**
   - Booking blocked; user prompted to add a payment method.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -315,7 +315,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify the system rejects the request with an error.
 - **Expected results:**
   - Booking rejected; error "cannot book your own listing" shown.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -330,7 +330,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify the booking card shows: provider name, listing title, proposed date, status badge "Pending".
 - **Expected results:**
   - Booking visible in Booked tab with correct data.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -349,7 +349,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   5. Verify the requester receives a notification: booking accepted with payment confirmation.
 - **Expected results:**
   - Booking `accepted`; charge captured; no transfer_data; requester notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -365,7 +365,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   4. Verify no Stripe charge is captured.
 - **Expected results:**
   - Status `payment_failed`; no charge; both parties notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -380,7 +380,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify the form does not submit; error is shown ("Reason is required").
 - **Expected results:**
   - Decline blocked without a reason.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -397,7 +397,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   5. Verify no payment is taken.
 - **Expected results:**
   - Status `declined`; reason stored; requester notified; no charge.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -412,7 +412,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify the booking card shows: requester name, listing title, proposed date, status badge.
 - **Expected results:**
   - Booking visible in Providing tab with correct data.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 

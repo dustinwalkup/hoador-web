@@ -56,9 +56,6 @@ const baseBooking = {
   cancelledBy: null,
   cancellationReason: null,
   completedAt: null,
-  payoutStatus: null,
-  stripeTransferId: null,
-  ownerTransferredAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -111,6 +108,19 @@ describe("service-notifications (sendNotification delegation)", () => {
     );
   });
 
+  it("sendNewBookingRequestNotification formats proposed date as long US style", async () => {
+    await sendNewBookingRequestNotification("prov-1", baseBooking as never);
+    const payload = mockSendNotification.mock.calls[0][0] as {
+      message: string;
+      data: { proposedDate: string };
+      email: { html: string; text: string };
+    };
+    expect(payload.message).toContain("April 15, 2026");
+    expect(payload.data.proposedDate).toBe("April 15, 2026");
+    expect(payload.email.html).toContain("April 15, 2026");
+    expect(payload.email.text).toContain("April 15, 2026");
+  });
+
   it("sendBookingAcceptedNotification uses type service_booking_accepted", async () => {
     await sendBookingAcceptedNotification("req-1", {
       ...baseBooking,
@@ -119,6 +129,23 @@ describe("service-notifications (sendNotification delegation)", () => {
     expect(mockSendNotification).toHaveBeenCalledWith(
       expect.objectContaining({ type: "service_booking_accepted" }),
     );
+  });
+
+  it("sendBookingAcceptedNotification includes formatted date in message and email", async () => {
+    await sendBookingAcceptedNotification("req-1", {
+      ...baseBooking,
+      status: "accepted",
+    } as never);
+    const payload = mockSendNotification.mock.calls[0][0] as {
+      message: string;
+      data: { proposedDate: string };
+      email: { html: string; text: string };
+    };
+    expect(payload.message).toContain("April 15, 2026");
+    expect(payload.data.proposedDate).toBe("April 15, 2026");
+    expect(payload.email.html).toContain("April 15, 2026");
+    expect(payload.email.text).toContain("April 15, 2026");
+    expect(payload.email.text).toContain("Scheduled for:");
   });
 
   it("sendBookingDeclinedNotification uses type service_booking_declined", async () => {
@@ -146,7 +173,6 @@ describe("service-notifications (sendNotification delegation)", () => {
     await sendServicePayoutNotification("prov-1", {
       ...baseBooking,
       status: "completed",
-      payoutStatus: "completed",
     } as never);
     expect(mockSendNotification).toHaveBeenCalledWith(
       expect.objectContaining({ type: "service_payout_sent" }),
@@ -192,5 +218,25 @@ describe("service-notifications (sendNotification delegation)", () => {
     expect(mockSendNotification).toHaveBeenCalledWith(
       expect.objectContaining({ type: "service_no_show_reported" }),
     );
+  });
+
+  it("sendNoShowReportAdminNotification includes formatted scheduled date", async () => {
+    await sendNoShowReportAdminNotification(
+      {
+        id: "ns-1",
+        bookingId: "book-1",
+        reportedBy: "req-1",
+        notes: null,
+        reportedAt: new Date(),
+      } as never,
+      baseBooking as never,
+    );
+    const payload = mockSendNotification.mock.calls[0][0] as {
+      message: string;
+      email: { html: string; text: string };
+    };
+    expect(payload.message).toContain("April 15, 2026");
+    expect(payload.email.html).toContain("April 15, 2026");
+    expect(payload.email.text).toContain("April 15, 2026");
   });
 });

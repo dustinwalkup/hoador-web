@@ -18,6 +18,7 @@ import * as auditLogs from "./audit-logs.schema";
 import * as rentalPaymentLifecycle from "./rental-payment-lifecycle.schema";
 import * as cronRunHistory from "./cron-run-history.schema";
 import * as services from "./services.schema";
+import * as servicePaymentLifecycle from "./service-payment-lifecycle.schema";
 import * as serviceReviews from "./service-reviews.schema";
 import * as serviceNoShowReports from "./service-no-show-reports.schema";
 import * as reviewEvents from "./review-events.schema";
@@ -40,6 +41,7 @@ export const schema = {
   ...rentalPaymentLifecycle,
   ...cronRunHistory,
   ...services,
+  ...servicePaymentLifecycle,
   ...serviceReviews,
   ...serviceNoShowReports,
   ...reviewEvents,

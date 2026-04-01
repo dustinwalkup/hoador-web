@@ -157,7 +157,7 @@ export function ServiceListingForm({
         toast.success(
           "Your listing has been submitted for review. You'll be notified when it's approved.",
         );
-        router.push("/dashboard/listings/services");
+        router.push("/dashboard/listings/services?tab=pending_review");
         router.refresh();
         return;
       }
