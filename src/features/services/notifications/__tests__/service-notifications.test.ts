@@ -56,9 +56,6 @@ const baseBooking = {
   cancelledBy: null,
   cancellationReason: null,
   completedAt: null,
-  payoutStatus: null,
-  stripeTransferId: null,
-  ownerTransferredAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -176,7 +173,6 @@ describe("service-notifications (sendNotification delegation)", () => {
     await sendServicePayoutNotification("prov-1", {
       ...baseBooking,
       status: "completed",
-      payoutStatus: "completed",
     } as never);
     expect(mockSendNotification).toHaveBeenCalledWith(
       expect.objectContaining({ type: "service_payout_sent" }),

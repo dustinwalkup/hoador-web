@@ -16,7 +16,6 @@ import { relations } from "drizzle-orm";
 import {
   serviceBookingStatusEnum,
   serviceListingStatusEnum,
-  servicePayoutStatusEnum,
   servicePricingTypeEnum,
 } from "./_enums";
 import { communities } from "./communities.schema";
@@ -109,14 +108,10 @@ export const serviceBookings = pgTable(
     cancelledBy: text("cancelled_by").references(() => user.id),
     cancellationReason: text("cancellation_reason"),
     completedAt: timestamp("completed_at"),
-    payoutStatus: servicePayoutStatusEnum("payout_status"),
-    stripeTransferId: varchar("stripe_transfer_id", { length: 255 }),
-    ownerTransferredAt: timestamp("owner_transferred_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    payoutStatusIdx: index("sb_payout_status_idx").on(table.payoutStatus),
     completedAtIdx: index("sb_completed_at_idx").on(table.completedAt),
     providerIdx: index("sb_provider_idx").on(table.providerId),
     requesterIdx: index("sb_requester_idx").on(table.requesterId),

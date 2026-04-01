@@ -16,9 +16,14 @@ import { useCronRunHistory } from "@/features/admin/hooks/use-cron-run-history";
 const JOB_OPTIONS = [
   { value: "", label: "All jobs" },
   { value: "process-payouts", label: "Process payouts" },
+  { value: "process-service-payouts", label: "Process service payouts" },
   { value: "schedule-deposit-holds", label: "Schedule deposit holds" },
   { value: "monitor-deposit-expiry", label: "Monitor deposit expiry" },
   { value: "detect-stale-processing", label: "Detect stale processing" },
+  {
+    value: "detect-stale-service-processing",
+    label: "Detect stale service processing",
+  },
 ];
 
 function formatDate(d: Date | string) {
@@ -197,7 +202,7 @@ export function CronRunHistoryClient() {
                                 </p>
                               )}
                               {run.metadata && (
-                                <pre className="text-muted-foreground mt-1 overflow-auto break-words whitespace-pre-wrap">
+                                <pre className="text-muted-foreground mt-1 overflow-auto wrap-break-word whitespace-pre-wrap">
                                   {run.metadata}
                                 </pre>
                               )}

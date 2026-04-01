@@ -4,9 +4,11 @@ import Link from "next/link";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { ServiceBookingDashboardRow } from "@/dal/service-booking.dal";
 import {
   formatServiceUsd,
+  serviceBookingStatusBadgeProps,
   serviceBookingStatusLabel,
 } from "@/features/services/lib/service-labels";
 
@@ -61,6 +63,7 @@ export function ServiceBookingCard({
   const cp = row.counterparty;
   const name = [cp.firstName, cp.lastName].filter(Boolean).join(" ") || "User";
   const initials = `${cp.firstName?.[0] ?? ""}${cp.lastName?.[0] ?? ""}` || "?";
+  const badgeProps = serviceBookingStatusBadgeProps(row.status);
 
   return (
     <Link
@@ -81,7 +84,12 @@ export function ServiceBookingCard({
         <span className="text-muted-foreground text-sm">
           {proposedDateLabel(row)}
         </span>
-        <Badge variant="outline">{serviceBookingStatusLabel(row.status)}</Badge>
+        <Badge
+          variant={badgeProps.variant}
+          className={cn(badgeProps.className)}
+        >
+          {serviceBookingStatusLabel(row.status)}
+        </Badge>
         <span className="text-muted-foreground text-sm">
           {formatServiceUsd(row.totalAmount)}
         </span>

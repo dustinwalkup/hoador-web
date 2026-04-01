@@ -23,6 +23,10 @@ const mockSendJobCompleted = vi.fn();
 const mockCaptureError = vi.fn();
 const mockSendOpsAlert = vi.fn();
 const mockGetPaymentErrorMessage = vi.fn();
+const mockLifecycleCreate = vi.fn();
+const mockLifecycleUpdatePayout = vi.fn();
+const mockLifecycleGetByBookingId = vi.fn();
+const mockLifecycleMarkCancelled = vi.fn();
 
 const { mockLegalGetAllVersions } = vi.hoisted(() => ({
   mockLegalGetAllVersions: vi.fn(),
@@ -41,6 +45,12 @@ vi.mock("@/dal", () => ({
     createNoShowReport: (...a: unknown[]) => mockCreateNoShow(...a),
   },
   serviceListingDAL: { getById: (...a: unknown[]) => mockListingGetById(...a) },
+  servicePaymentLifecycleDAL: {
+    create: (...a: unknown[]) => mockLifecycleCreate(...a),
+    updatePayoutStatus: (...a: unknown[]) => mockLifecycleUpdatePayout(...a),
+    getByBookingId: (...a: unknown[]) => mockLifecycleGetByBookingId(...a),
+    markCancelled: (...a: unknown[]) => mockLifecycleMarkCancelled(...a),
+  },
   userDAL: {
     getUserById: (...a: unknown[]) => mockGetUserById(...a),
   },
@@ -125,9 +135,6 @@ const bookingPending = {
   cancelledBy: null,
   cancellationReason: null,
   completedAt: null,
-  payoutStatus: null,
-  stripeTransferId: null,
-  ownerTransferredAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   listing: {} as never,
@@ -142,6 +149,8 @@ describe("ServiceBookingService", () => {
     vi.clearAllMocks();
     mockGetPaymentErrorMessage.mockReturnValue("card declined");
     mockLegalGetAllVersions.mockResolvedValue({});
+    mockLifecycleCreate.mockResolvedValue({});
+    mockLifecycleGetByBookingId.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -345,6 +354,47 @@ describe("ServiceBookingService", () => {
           status: "succeeded",
         }),
       );
+      expect(mockLifecycleCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bookingId: "book-1",
+          chargeId: "ch_1",
+          providerPayout: "80",
+          payoutStatus: "pending",
+        }),
+      );
+    });
+
+    it("uses retry idempotency key when booking status is payment_failed", async () => {
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        status: "payment_failed" as const,
+      });
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm",
+      });
+      mockChargeServicePayment.mockResolvedValue({
+        paymentIntent: { id: "pi_1", status: "succeeded" },
+        chargeId: "ch_1",
+      });
+      const accepted = { ...bookingPending, status: "accepted" as const };
+      mockBookingUpdate.mockResolvedValue(accepted);
+
+      await ServiceBookingService.acceptBooking("book-1", "prov-1", ctx);
+
+      expect(mockChargeServicePayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: expect.stringMatching(
+            /^service-charge-book-1-retry-\d+$/,
+          ),
+        }),
+      );
+      expect(mockSendAccepted).toHaveBeenCalled();
     });
 
     it("sets payment_failed and notifies both parties on charge error", async () => {
@@ -366,7 +416,7 @@ describe("ServiceBookingService", () => {
 
       await expect(
         ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
-      ).rejects.toThrow("fail");
+      ).rejects.toThrow(/could not process the requester's payment/i);
 
       expect(mockBookingUpdate).toHaveBeenCalledWith(
         "book-1",
@@ -378,14 +428,13 @@ describe("ServiceBookingService", () => {
   });
 
   describe("completeBooking", () => {
-    it("sets completed, payout pending, and notifies requester", async () => {
+    it("sets completed, payout pending on lifecycle, and notifies requester", async () => {
       const accepted = { ...bookingPending, status: "accepted" as const };
       mockBookingGetById.mockResolvedValue(accepted);
       const completed = {
         ...accepted,
         status: "completed" as const,
         completedAt: new Date(),
-        payoutStatus: "pending" as const,
       };
       mockBookingUpdate.mockResolvedValue(completed);
 
@@ -396,6 +445,10 @@ describe("ServiceBookingService", () => {
       );
 
       expect(out.status).toBe("completed");
+      expect(mockLifecycleUpdatePayout).toHaveBeenCalledWith(
+        "book-1",
+        "pending",
+      );
       expect(mockSendJobCompleted).toHaveBeenCalledWith("req-1", completed);
     });
   });
@@ -411,6 +464,7 @@ describe("ServiceBookingService", () => {
       await ServiceBookingService.cancelBooking("book-1", "req-1", "n", ctx);
 
       expect(mockProcessRefund).not.toHaveBeenCalled();
+      expect(mockLifecycleMarkCancelled).not.toHaveBeenCalled();
     });
 
     const accepted = {
@@ -432,6 +486,7 @@ describe("ServiceBookingService", () => {
       vi.setSystemTime(new Date("2025-12-18T12:00:00Z"));
 
       mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
       mockProcessRefund.mockResolvedValue({
         success: true,
         refundId: "re_1",
@@ -440,6 +495,7 @@ describe("ServiceBookingService", () => {
 
       await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
 
+      expect(mockLifecycleMarkCancelled).toHaveBeenCalledWith("book-1");
       expect(mockProcessRefund).toHaveBeenCalledWith(
         expect.objectContaining({ refundAmountCents: 10000 }),
       );
@@ -450,6 +506,7 @@ describe("ServiceBookingService", () => {
       vi.setSystemTime(new Date("2025-12-20T13:00:00Z"));
 
       mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
       mockProcessRefund.mockResolvedValue({
         success: true,
         refundId: "re_1",
@@ -458,6 +515,7 @@ describe("ServiceBookingService", () => {
 
       await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
 
+      expect(mockLifecycleMarkCancelled).toHaveBeenCalledWith("book-1");
       expect(mockProcessRefund).toHaveBeenCalledWith(
         expect.objectContaining({ refundAmountCents: 5000 }),
       );
@@ -468,6 +526,7 @@ describe("ServiceBookingService", () => {
       vi.setSystemTime(new Date("2025-12-20T13:00:00Z"));
 
       mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
       mockProcessRefund.mockResolvedValue({
         success: true,
         refundId: "re_1",
@@ -476,6 +535,7 @@ describe("ServiceBookingService", () => {
 
       await ServiceBookingService.cancelBooking("book-1", "prov-1", "bye", ctx);
 
+      expect(mockLifecycleMarkCancelled).toHaveBeenCalledWith("book-1");
       expect(mockProcessRefund).toHaveBeenCalledWith(
         expect.objectContaining({ refundAmountCents: 10000 }),
       );
@@ -493,6 +553,25 @@ describe("ServiceBookingService", () => {
 
     it("sets declined and notifies requester", async () => {
       mockBookingGetById.mockResolvedValue(bookingPending);
+      const declined = { ...bookingPending, status: "declined" as const };
+      mockBookingUpdate.mockResolvedValue(declined);
+
+      const out = await ServiceBookingService.declineBooking(
+        "book-1",
+        "prov-1",
+        "busy",
+        ctx,
+      );
+
+      expect(out.status).toBe("declined");
+      expect(mockSendDeclined).toHaveBeenCalledWith("req-1", declined, "busy");
+    });
+
+    it("declines when status is payment_failed", async () => {
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        status: "payment_failed" as const,
+      });
       const declined = { ...bookingPending, status: "declined" as const };
       mockBookingUpdate.mockResolvedValue(declined);
 

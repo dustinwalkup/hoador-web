@@ -15,6 +15,7 @@ import {
   NotFoundError,
   ValidationError,
   ConflictError,
+  ServiceBookingPaymentFailedError,
 } from "@/dal/errors";
 import { setSentryUser } from "@/lib/sentry/user-context";
 
@@ -104,6 +105,16 @@ export function handleApiError(
     return NextResponse.json(
       { error: error.message || "Conflict" },
       { status: 409 },
+    );
+  }
+
+  if (error instanceof ServiceBookingPaymentFailedError) {
+    return NextResponse.json(
+      {
+        error: error.message || "Payment failed",
+        paymentFailed: true,
+      },
+      { status: 400 },
     );
   }
 

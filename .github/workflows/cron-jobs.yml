@@ -39,6 +39,18 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-processing
 
+      - name: Process service payouts
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/process-service-payouts
+
+      - name: Detect stale service processing
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-service-processing
+
   daily:
     if: github.event.schedule == '0 2 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

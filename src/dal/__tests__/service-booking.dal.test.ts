@@ -35,9 +35,6 @@ const bookingRow = {
   cancelledBy: null as string | null,
   cancellationReason: null as string | null,
   completedAt: null as Date | null,
-  payoutStatus: "pending" as const,
-  stripeTransferId: null as string | null,
-  ownerTransferredAt: null as Date | null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -76,9 +73,6 @@ describe("ServiceBookingDAL", () => {
         cancelledBy: null,
         cancellationReason: null,
         completedAt: null,
-        payoutStatus: null,
-        stripeTransferId: null,
-        ownerTransferredAt: null,
       });
 
       expect(result).toEqual(bookingRow);
@@ -113,9 +107,6 @@ describe("ServiceBookingDAL", () => {
           cancelledBy: null,
           cancellationReason: null,
           completedAt: null,
-          payoutStatus: null,
-          stripeTransferId: null,
-          ownerTransferredAt: null,
         }),
       ).rejects.toThrow(NotFoundError);
     });
@@ -157,54 +148,6 @@ describe("ServiceBookingDAL", () => {
 
       const ctx = await serviceBookingDAL.getCancellationContext("missing");
       expect(ctx).toBeNull();
-    });
-  });
-
-  describe("claimForPayoutProcessing", () => {
-    it("returns true when a row was updated", async () => {
-      const mockReturning = vi.fn().mockResolvedValue([bookingRow]);
-      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
-      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
-      vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
-
-      const claimed =
-        await serviceBookingDAL.claimForPayoutProcessing("book-1");
-      expect(claimed).toBe(true);
-    });
-
-    it("returns false when no row matched (already processing)", async () => {
-      const mockReturning = vi.fn().mockResolvedValue([]);
-      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
-      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
-      vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
-
-      const claimed =
-        await serviceBookingDAL.claimForPayoutProcessing("book-1");
-      expect(claimed).toBe(false);
-    });
-  });
-
-  describe("findEligibleForPayout", () => {
-    it("orders by completedAt asc and respects limit", async () => {
-      const eligible = {
-        ...bookingRow,
-        completedAt: new Date("2025-01-01T12:00:00Z"),
-        payoutStatus: "pending" as const,
-        providerConnectedAccountId: "acct_123",
-      };
-      const mockLimit = vi.fn().mockResolvedValue([eligible]);
-      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
-      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-      const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
-      const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
-      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as never);
-
-      const cutoff = new Date("2025-01-02T00:00:00Z");
-      const rows = await serviceBookingDAL.findEligibleForPayout(cutoff, 3);
-
-      expect(rows).toHaveLength(1);
-      expect(rows[0].providerConnectedAccountId).toBe("acct_123");
-      expect(mockLimit).toHaveBeenCalledWith(3);
     });
   });
 });

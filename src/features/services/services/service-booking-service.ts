@@ -4,11 +4,20 @@ import {
   paymentDAL,
   serviceBookingDAL,
   serviceListingDAL,
+  servicePaymentLifecycleDAL,
   userDAL,
 } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/dal/errors";
-import { calculateServiceFee } from "@/constants/payments";
+import {
+  ForbiddenError,
+  NotFoundError,
+  ServiceBookingPaymentFailedError,
+  ValidationError,
+} from "@/dal/errors";
+import {
+  calculateServiceFee,
+  PLATFORM_FEE_PERCENTAGE,
+} from "@/constants/payments";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
@@ -128,9 +137,6 @@ export class ServiceBookingService {
       cancelledBy: null,
       cancellationReason: null,
       completedAt: null,
-      payoutStatus: null,
-      stripeTransferId: null,
-      ownerTransferredAt: null,
     });
 
     await auditLogDAL.create({
@@ -278,7 +284,7 @@ export class ServiceBookingService {
     if (detail.providerId !== providerId) {
       throw new ForbiddenError("You are not the provider for this booking");
     }
-    if (detail.status !== "pending") {
+    if (detail.status !== "pending" && detail.status !== "payment_failed") {
       throw new ValidationError("Booking is not pending", "status");
     }
 
@@ -295,6 +301,11 @@ export class ServiceBookingService {
       throw new ValidationError("payment_method_required", "paymentMethod");
     }
 
+    const chargeIdempotencyKey =
+      detail.status === "payment_failed"
+        ? `service-charge-${detail.id}-retry-${Date.now()}`
+        : `service-charge-${detail.id}`;
+
     try {
       const { paymentIntent, chargeId } = await chargeServicePayment({
         customerId: stripeCtx.customerId,
@@ -307,7 +318,7 @@ export class ServiceBookingService {
           providerId: detail.providerId,
           requesterId: detail.requesterId,
         },
-        idempotencyKey: `service-charge-${detail.id}`,
+        idempotencyKey: chargeIdempotencyKey,
       });
 
       const updated = await serviceBookingDAL.update(bookingId, {
@@ -328,6 +339,19 @@ export class ServiceBookingService {
         status: "succeeded",
         paidAt: new Date(),
         paymentType: "service_charge",
+      });
+
+      const providerPayout =
+        Math.round(
+          Number(detail.servicePrice) * (1 - PLATFORM_FEE_PERCENTAGE) * 100,
+        ) / 100;
+
+      await servicePaymentLifecycleDAL.create({
+        bookingId: detail.id,
+        chargeId,
+        providerPayout: String(providerPayout),
+        ownerTransferStatus: "pending",
+        payoutStatus: "pending",
       });
 
       await auditLogDAL.create({
@@ -407,7 +431,9 @@ export class ServiceBookingService {
         userAgent: context.userAgent ?? undefined,
       });
 
-      throw error;
+      throw new ServiceBookingPaymentFailedError(
+        "We could not process the requester's payment for this booking.",
+      );
     }
   }
 
@@ -432,7 +458,7 @@ export class ServiceBookingService {
     if (detail.providerId !== providerId) {
       throw new ForbiddenError("You are not the provider for this booking");
     }
-    if (detail.status !== "pending") {
+    if (detail.status !== "pending" && detail.status !== "payment_failed") {
       throw new ValidationError("Booking is not pending", "status");
     }
 
@@ -482,8 +508,9 @@ export class ServiceBookingService {
     const updated = await serviceBookingDAL.update(bookingId, {
       status: "completed",
       completedAt: now,
-      payoutStatus: "pending",
     });
+
+    await servicePaymentLifecycleDAL.updatePayoutStatus(bookingId, "pending");
 
     await auditLogDAL.create({
       entityType: "service_booking",
@@ -544,6 +571,12 @@ export class ServiceBookingService {
     const refundAmountCents = Math.round(total * refundFraction * 100);
     let stripeRefundId: string | null = null;
     let refundAmountStr: string | null = null;
+
+    const existingLifecycle =
+      await servicePaymentLifecycleDAL.getByBookingId(bookingId);
+    if (existingLifecycle) {
+      await servicePaymentLifecycleDAL.markCancelled(bookingId);
+    }
 
     if (refundAmountCents > 0 && detail.stripeChargeId) {
       const refundResult = await processRefund({

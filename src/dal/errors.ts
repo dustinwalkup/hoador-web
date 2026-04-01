@@ -39,3 +39,14 @@ export class ConflictError extends DALError {
     super(message, "CONFLICT", 409);
   }
 }
+
+/**
+ * Thrown when a service booking accept charge fails after status was set to
+ * `payment_failed`. API responses include `paymentFailed: true` in the JSON body.
+ */
+export class ServiceBookingPaymentFailedError extends DALError {
+  constructor(message: string) {
+    super(message, "SERVICE_BOOKING_PAYMENT_FAILED", 400);
+    this.name = "ServiceBookingPaymentFailedError";
+  }
+}

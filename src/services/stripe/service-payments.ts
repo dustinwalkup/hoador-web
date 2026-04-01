@@ -48,8 +48,16 @@ export interface CreateServiceTransferParams {
   providerConnectedAccountId: string;
   /** Stripe Charge id (`ch_*`) used as `source_transaction`. */
   chargeId: string;
-  /** Service price in dollars (not total with fees). */
-  servicePrice: number;
+  /**
+   * Service price in dollars (gross before platform cut). Used when
+   * {@link CreateServiceTransferParams.providerPayoutAmount} is omitted.
+   */
+  servicePrice?: number;
+  /**
+   * Locked net payout in dollars (e.g. from DB at charge time). When set, transfer uses
+   * this amount and skips recomputing from {@link servicePrice} and platform fee.
+   */
+  providerPayoutAmount?: number;
   idempotencyKey: string;
 }
 
@@ -148,17 +156,30 @@ export async function chargeServicePayment(
 
 /**
  * Transfers net service amount to the provider's Connect account using the original charge
- * as `source_transaction`. Transfer cents =
+ * as `source_transaction`.
+ *
+ * If `providerPayoutAmount` is set, transfer cents = `round(providerPayoutAmount * 100)`.
+ * Otherwise transfer cents =
  * `round(servicePrice * 100) - round(servicePrice * 100 * PLATFORM_FEE_PERCENTAGE)`.
  */
 export async function createServiceTransfer(
   params: CreateServiceTransferParams,
 ): Promise<ServiceTransferResult> {
-  const grossCents = Math.round(params.servicePrice * 100);
-  const platformFeeCents = Math.round(
-    params.servicePrice * 100 * PLATFORM_FEE_PERCENTAGE,
-  );
-  const transferAmountCents = grossCents - platformFeeCents;
+  let transferAmountCents: number;
+  if (params.providerPayoutAmount != null) {
+    transferAmountCents = Math.round(params.providerPayoutAmount * 100);
+  } else if (params.servicePrice != null) {
+    const grossCents = Math.round(params.servicePrice * 100);
+    const platformFeeCents = Math.round(
+      params.servicePrice * 100 * PLATFORM_FEE_PERCENTAGE,
+    );
+    transferAmountCents = grossCents - platformFeeCents;
+  } else {
+    return {
+      success: false,
+      error: "Either servicePrice or providerPayoutAmount is required",
+    };
+  }
 
   if (transferAmountCents <= 0) {
     return {

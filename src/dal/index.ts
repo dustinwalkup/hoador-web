@@ -20,6 +20,7 @@ import { PaymentLifecycleDAL } from "./payment-lifecycle.dal";
 import { CronRunHistoryDAL } from "./cron-run-history.dal";
 import { ServiceListingDAL } from "./service-listing.dal";
 import { ServiceBookingDAL } from "./service-booking.dal";
+import { ServicePaymentLifecycleDAL } from "./service-payment-lifecycle.dal";
 import { ServiceReviewDAL } from "./service-review.dal";
 import { ReviewEventsDAL } from "./review-events.dal";
 
@@ -45,5 +46,6 @@ export const paymentLifecycleDAL = new PaymentLifecycleDAL();
 export const cronRunHistoryDAL = new CronRunHistoryDAL();
 export const serviceListingDAL = new ServiceListingDAL();
 export const serviceBookingDAL = new ServiceBookingDAL();
+export const servicePaymentLifecycleDAL = new ServicePaymentLifecycleDAL();
 export const serviceReviewDAL = new ServiceReviewDAL();
 export const reviewEventsDAL = new ReviewEventsDAL();
