@@ -108,6 +108,10 @@ export const serviceBookings = pgTable(
     cancelledBy: text("cancelled_by").references(() => user.id),
     cancellationReason: text("cancellation_reason"),
     completedAt: timestamp("completed_at"),
+    /** Stripe payment method id chosen at booking time (used when provider accepts). */
+    selectedPaymentMethodId: varchar("selected_payment_method_id", {
+      length: 255,
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

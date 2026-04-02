@@ -337,6 +337,13 @@
       "when": 1775100000000,
       "tag": "0047_service_payment_lifecycle_provider_payout",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1775110000000,
+      "tag": "0048_service_booking_payment_method",
+      "breakpoints": true
     }
   ]
 }

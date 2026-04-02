@@ -119,7 +119,7 @@ export function RequestHoadorModal({ trigger }: RequestHoadorModalProps) {
       <span onClick={() => setOpen(true)} className="inline-flex">
         {trigger}
       </span>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="scrollbar-hover-reveal max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <AnimatePresence mode="wait">
           {showSuccess ? (
             <motion.div

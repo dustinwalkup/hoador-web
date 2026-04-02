@@ -381,7 +381,7 @@ export function ChatArea({
 
       {/* Messages Container */}
       <div
-        className="scrollbar-hide flex-1 overflow-y-auto"
+        className="scrollbar-hover-reveal flex-1 overflow-y-auto"
         ref={messagesContainerRef}
       >
         <div className="space-y-4 p-4">

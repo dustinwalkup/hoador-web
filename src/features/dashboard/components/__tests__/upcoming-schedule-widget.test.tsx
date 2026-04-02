@@ -13,24 +13,31 @@ describe("UpcomingScheduleWidget", () => {
   it("should show empty state when entries length is 0", () => {
     render(<UpcomingScheduleWidget entries={[]} />);
     expect(screen.getByText("Nothing scheduled")).toBeInTheDocument();
+    expect(screen.getByText("0 items")).toBeInTheDocument();
     expect(
-      screen.getByText("Upcoming pickups and returns will show here"),
+      screen.getByText("Upcoming rentals and services will show here"),
     ).toBeInTheDocument();
   });
 
-  it("should render entries with date, description and link", () => {
+  it("should render entries with date, description, role badge, and link", () => {
     const entries = [
       {
+        id: "rental-req-1-return-renter",
         date: new Date("2024-06-15"),
-        description: "Return due: Power Drill",
+        description: "Return to Mike Owner",
+        subtitle: "Power Drill",
         linkTo: "/dashboard/rental/req-1",
         type: "return" as const,
+        role: "renter" as const,
       },
     ];
     render(<UpcomingScheduleWidget entries={entries} />);
 
-    expect(screen.getByText("Return due: Power Drill")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /Return due: Power Drill/i });
+    expect(screen.getByText("Return to Mike Owner")).toBeInTheDocument();
+    expect(screen.getByText("Power Drill")).toBeInTheDocument();
+    expect(screen.getByText("1 item")).toBeInTheDocument();
+    expect(screen.getByText("Renter")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /Return to Mike Owner/i });
     expect(link).toHaveAttribute("href", "/dashboard/rental/req-1");
   });
 

@@ -22,7 +22,7 @@ export function OverdueAlertsWidget({ items }: OverdueAlertsWidgetProps) {
   if (items.length === 0) return null;
 
   return (
-    <Card className="border-l-4 border-red-200 border-l-red-500 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20">
+    <Card className="border-t-4 border-red-200 border-t-red-500 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-medium text-red-700 dark:text-red-400">
@@ -45,7 +45,7 @@ export function OverdueAlertsWidget({ items }: OverdueAlertsWidgetProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="max-h-60 overflow-y-auto pr-1">
+        <div className="scrollbar-hover-reveal max-h-60 overflow-y-auto">
           <ul className="space-y-2 text-sm">
             {items.map((item) => (
               <li key={item.id}>

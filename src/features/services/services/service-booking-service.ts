@@ -137,6 +137,7 @@ export class ServiceBookingService {
       cancelledBy: null,
       cancellationReason: null,
       completedAt: null,
+      selectedPaymentMethodId: formData.paymentMethodId ?? null,
     });
 
     await auditLogDAL.create({
@@ -301,6 +302,9 @@ export class ServiceBookingService {
       throw new ValidationError("payment_method_required", "paymentMethod");
     }
 
+    const paymentMethodId =
+      detail.selectedPaymentMethodId ?? stripeCtx.paymentMethodId;
+
     const chargeIdempotencyKey =
       detail.status === "payment_failed"
         ? `service-charge-${detail.id}-retry-${Date.now()}`
@@ -309,7 +313,7 @@ export class ServiceBookingService {
     try {
       const { paymentIntent, chargeId } = await chargeServicePayment({
         customerId: stripeCtx.customerId,
-        paymentMethodId: stripeCtx.paymentMethodId,
+        paymentMethodId,
         amount: Number(detail.totalAmount),
         metadata: {
           paymentType: "service_charge",
@@ -334,7 +338,7 @@ export class ServiceBookingService {
         payeeId: detail.providerId,
         amount: String(detail.totalAmount),
         platformFee: String(detail.serviceFee),
-        paymentMethodId: stripeCtx.paymentMethodId,
+        paymentMethodId,
         stripePaymentIntentId: paymentIntent.id,
         status: "succeeded",
         paidAt: new Date(),

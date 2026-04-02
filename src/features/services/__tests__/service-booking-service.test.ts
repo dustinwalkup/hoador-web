@@ -135,6 +135,7 @@ const bookingPending = {
   cancelledBy: null,
   cancellationReason: null,
   completedAt: null,
+  selectedPaymentMethodId: null as string | null,
   createdAt: new Date(),
   updatedAt: new Date(),
   listing: {} as never,
@@ -251,6 +252,26 @@ describe("ServiceBookingService", () => {
       expect(total).toBe(Math.round((sp + fee) * 100) / 100);
     });
 
+    it("stores selectedPaymentMethodId when form includes paymentMethodId", async () => {
+      mockListingGetById.mockResolvedValue(listingActive);
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus_1",
+        paymentMethodId: "pm_default",
+      });
+      mockBookingCreate.mockResolvedValue(bookingPending);
+
+      await ServiceBookingService.createBooking(
+        { ...form, paymentMethodId: "pm_user_selected" },
+        "req-1",
+        ctx,
+      );
+
+      const createArg = mockBookingCreate.mock.calls[0][0] as {
+        selectedPaymentMethodId: string | null;
+      };
+      expect(createArg.selectedPaymentMethodId).toBe("pm_user_selected");
+    });
+
     it("creates hourly booking with hours and correct totals", async () => {
       const hourlyListing = {
         ...listingActive,
@@ -313,6 +334,21 @@ describe("ServiceBookingService", () => {
       ).rejects.toThrow(ValidationError);
     });
 
+    it("does not charge Stripe on a duplicate acceptance attempt (UAT-SVC-26)", async () => {
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        status: "accepted" as const,
+        stripePaymentIntentId: "pi_already_captured",
+        stripeChargeId: "ch_already_captured",
+      });
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(ValidationError);
+
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
     it("charges and sets accepted on success", async () => {
       mockBookingGetById.mockResolvedValue(bookingPending);
       mockGetUserById.mockResolvedValue({
@@ -360,6 +396,42 @@ describe("ServiceBookingService", () => {
           chargeId: "ch_1",
           providerPayout: "80",
           payoutStatus: "pending",
+        }),
+      );
+    });
+
+    it("charges selectedPaymentMethodId from booking over Stripe default", async () => {
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        selectedPaymentMethodId: "pm_from_booking",
+      });
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm_default",
+      });
+      mockChargeServicePayment.mockResolvedValue({
+        paymentIntent: { id: "pi_1", status: "succeeded" },
+        chargeId: "ch_1",
+      });
+      const accepted = { ...bookingPending, status: "accepted" as const };
+      mockBookingUpdate.mockResolvedValue(accepted);
+
+      await ServiceBookingService.acceptBooking("book-1", "prov-1", ctx);
+
+      expect(mockChargeServicePayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customerId: "cus",
+          paymentMethodId: "pm_from_booking",
+        }),
+      );
+      expect(mockPaymentCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentMethodId: "pm_from_booking",
         }),
       );
     });

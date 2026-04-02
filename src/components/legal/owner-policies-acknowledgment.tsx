@@ -102,7 +102,7 @@ function OwnerPolicyDocumentModal({
           <span>{metadata.name}</span>
         </button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="scrollbar-hover-reveal max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{metadata.name}</DialogTitle>
           <DialogDescription>{metadata.category}</DialogDescription>

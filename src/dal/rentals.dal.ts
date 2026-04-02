@@ -54,6 +54,8 @@ export interface BorrowedListing {
   listingImageUrl: string | null;
   ownerId: string;
   ownerName: string;
+  /** Whether the renter requested owner delivery (affects schedule copy). */
+  deliveryRequested: boolean;
   startDate: Date;
   endDate: Date;
   totalAmount: string;
@@ -387,6 +389,7 @@ export class RentalDAL extends BaseDAL {
           listingName: listings.name,
           ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+          deliveryRequested: rentalRequests.deliveryRequested,
           startDate: rentalRequests.startDate,
           endDate: rentalRequests.endDate,
           totalAmount: rentalRequests.totalAmount,

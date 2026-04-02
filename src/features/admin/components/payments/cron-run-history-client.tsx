@@ -202,7 +202,7 @@ export function CronRunHistoryClient() {
                                 </p>
                               )}
                               {run.metadata && (
-                                <pre className="text-muted-foreground mt-1 overflow-auto wrap-break-word whitespace-pre-wrap">
+                                <pre className="scrollbar-hover-reveal text-muted-foreground mt-1 overflow-auto wrap-break-word whitespace-pre-wrap">
                                   {run.metadata}
                                 </pre>
                               )}

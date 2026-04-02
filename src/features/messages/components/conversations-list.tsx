@@ -208,7 +208,7 @@ export function ConversationsList({
   ]);
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="scrollbar-hover-reveal flex-1 overflow-y-auto">
       {conversationItems}
 
       {/* Infinite scroll trigger */}

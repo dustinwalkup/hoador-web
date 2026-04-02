@@ -429,7 +429,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify the charge is held in the platform account.
 - **Expected results:**
   - No `transfer_data`; funds in platform account.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -443,7 +443,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   2. Verify metadata includes: `paymentType: service_charge`, `bookingId`, `serviceId`, `providerId`, `requesterId`.
 - **Expected results:**
   - All metadata fields present and correct.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -472,7 +472,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   2. For the hourly listing: verify Stripe charge = ($40 × 3) + `calculateServiceFee($120)` = $120 + service fee.
 - **Expected results:**
   - Charge amounts match expected calculations for each pricing type.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 

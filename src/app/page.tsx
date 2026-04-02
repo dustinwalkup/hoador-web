@@ -1,9 +1,7 @@
-import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { Coins, Home } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
   AnimatedSection,
   HomeHeader,
@@ -196,7 +194,7 @@ export default function HomePage() {
       {/* Community Section */}
       <div className="mobile-padding py-16 md:py-24">
         <AnimatedSection>
-          <div className="container mx-auto flex flex-col items-center justify-center">
+          <div className="container mx-auto flex flex-col items-center justify-center pb-8">
             <div className="mb-16 max-w-3xl text-center">
               <div className="bg-primary/10 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full">
                 <Home className="text-primary h-10 w-10" />
@@ -225,12 +223,6 @@ export default function HomePage() {
                 </StaggeredItem>
               ))}
             </StaggeredChildren>
-
-            <div className="mt-12 text-center">
-              <Button asChild size="lg" className="rounded-full">
-                <Link href="/signup">{community.buttonLabel}</Link>
-              </Button>
-            </div>
           </div>
         </AnimatedSection>
       </div>

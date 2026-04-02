@@ -45,15 +45,15 @@ function statusColor(status: string): string {
 }
 
 /**
- * Active disputes with colored status badges, orange top border, and graceful empty state.
+ * Active disputes with colored status badges, orange left border, and graceful empty state.
  */
 export function ActiveDisputesWidget({
   disputes,
   totalCount,
 }: ActiveDisputesWidgetProps) {
   return (
-    <Card className="border-t-4 border-t-orange-500">
-      <CardHeader className="pb-2">
+    <Card className="flex h-full min-h-80 flex-col border-t-0 border-l-4 border-l-orange-500">
+      <CardHeader className="shrink-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-base font-medium">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/10">
             <AlertCircle
@@ -64,62 +64,64 @@ export function ActiveDisputesWidget({
           Active Disputes
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {totalCount === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
-              <ShieldAlert className="h-6 w-6 text-orange-400" />
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-0 pt-0">
+        <div className="scrollbar-hover-reveal min-h-0 flex-1 space-y-3 overflow-y-auto">
+          {totalCount === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
+                <ShieldAlert className="h-6 w-6 text-orange-400" />
+              </div>
+              <p className="text-muted-foreground mt-3 text-sm">
+                No active disputes
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                Everything looks good!
+              </p>
             </div>
-            <p className="text-muted-foreground mt-3 text-sm">
-              No active disputes
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Everything looks good!
-            </p>
-          </div>
-        ) : (
-          <>
-            <Badge className="bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-              {totalCount} {totalCount === 1 ? "dispute" : "disputes"}
-            </Badge>
-            <ul className="space-y-1">
-              {disputes.map((d) => (
-                <li key={d.id}>
-                  <Link
-                    href={`/dashboard/disputes/${d.id}`}
-                    className="group flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-orange-50 dark:hover:bg-orange-950/20"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium">
-                        {d.rental?.listing?.name ?? "Dispute"}
-                      </span>
-                      <div className="mt-1">
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor(d.status)}`}
-                        >
-                          {formatStatus(d.status)}
+          ) : (
+            <>
+              <Badge className="bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                {totalCount} {totalCount === 1 ? "dispute" : "disputes"}
+              </Badge>
+              <ul className="space-y-1">
+                {disputes.map((d) => (
+                  <li key={d.id}>
+                    <Link
+                      href={`/dashboard/disputes/${d.id}`}
+                      className="group flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium">
+                          {d.rental?.listing?.name ?? "Dispute"}
                         </span>
+                        <div className="mt-1">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor(d.status)}`}
+                          >
+                            {formatStatus(d.status)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            {totalCount > disputes.length && (
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="text-xs font-medium text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/20"
-              >
-                <Link href="/dashboard/disputes">
-                  View All Disputes
-                  <ArrowRight className="ml-1 h-3 w-3" />
-                </Link>
-              </Button>
-            )}
-          </>
+                      <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+        {totalCount > 0 && totalCount > disputes.length && (
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="mt-2 shrink-0 text-xs font-medium text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/20"
+          >
+            <Link href="/dashboard/disputes">
+              View All Disputes
+              <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
+          </Button>
         )}
       </CardContent>
     </Card>

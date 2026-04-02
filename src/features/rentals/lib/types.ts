@@ -75,6 +75,7 @@ export interface BorrowedListing {
   listingImageUrl: string | null;
   ownerId: string;
   ownerName: string;
+  deliveryRequested: boolean;
   startDate: Date;
   endDate: Date;
   totalAmount: string;

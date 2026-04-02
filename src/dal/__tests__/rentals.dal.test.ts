@@ -143,6 +143,7 @@ describe("RentalDAL", () => {
           listingName: "Test Drill",
           ownerId: "user-123",
           ownerName: "John Doe",
+          deliveryRequested: false,
           startDate: new Date("2024-02-01"),
           endDate: new Date("2024-02-05"),
           totalAmount: "60.00",
