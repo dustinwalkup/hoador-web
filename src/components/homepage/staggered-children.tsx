@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import type { ReactNode } from "react";
 import { motion, type Variants } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,9 @@ interface StaggeredChildrenProps {
   children: ReactNode;
   className?: string;
   staggerDelay?: number;
+  /** Milliseconds before the first child animates (maps to `delayChildren`) */
+  delay?: number;
+  onScroll?: React.UIEventHandler<HTMLDivElement>;
 }
 
 export const itemVariants: Variants = {
@@ -29,20 +33,30 @@ export const itemVariants: Variants = {
   },
 };
 
-export default function StaggeredChildren({
-  children,
-  className,
-  staggerDelay = 0.15,
-}: StaggeredChildrenProps) {
+/**
+ * Staggers entrance animations for direct child `StaggeredItem` components.
+ *
+ * @param props - Layout, stagger timing, and optional delay before children run
+ * @returns A motion container that orchestrates child variants
+ */
+const StaggeredChildren = React.forwardRef<
+  HTMLDivElement,
+  StaggeredChildrenProps
+>(function StaggeredChildren(
+  { children, className, staggerDelay = 0.15, delay = 100, onScroll },
+  ref,
+) {
   return (
     <motion.div
+      ref={ref}
+      onScroll={onScroll}
       variants={{
         hidden: { opacity: 0 },
         visible: {
           opacity: 1,
           transition: {
             staggerChildren: staggerDelay,
-            delayChildren: 0.1,
+            delayChildren: delay / 1000,
           },
         },
       }}
@@ -54,7 +68,9 @@ export default function StaggeredChildren({
       {children}
     </motion.div>
   );
-}
+});
+
+export default StaggeredChildren;
 
 // Wrapper for individual staggered items
 export function StaggeredItem({

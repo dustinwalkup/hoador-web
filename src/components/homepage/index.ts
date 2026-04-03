@@ -1,6 +1,10 @@
 export { default as AnimatedSection } from "./animated-section";
 export { default as CategoryCard } from "./category-card";
+export { CategoryScroll } from "./category-scroll";
 export { default as FeatureCard } from "./feature-card";
 export { default as FadeIn } from "./fade-in";
 export { default as HomeHeader } from "./home-header";
+export { HomepageListingCarousel } from "./homepage-listing-carousel";
+export { HomepageServiceCarousel } from "./homepage-service-carousel";
+export { HomepageServiceCard } from "./homepage-service-card";
 export { default as StaggeredChildren } from "./staggered-children";

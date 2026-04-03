@@ -35,15 +35,15 @@ function Tooltip({
     setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
   }, []);
 
-  // For touch devices, control the state manually
-  const tooltipProps = isTouchDevice
-    ? { open: isOpen, onOpenChange: setIsOpen, ...props }
-    : props;
-
   return (
     <TooltipProvider>
       <TooltipContext.Provider value={{ isOpen, setIsOpen, isTouchDevice }}>
-        <TooltipPrimitive.Root data-slot="tooltip" {...tooltipProps} />
+        <TooltipPrimitive.Root
+          data-slot="tooltip"
+          open={isOpen}
+          onOpenChange={setIsOpen}
+          {...props}
+        />
       </TooltipContext.Provider>
     </TooltipProvider>
   );
