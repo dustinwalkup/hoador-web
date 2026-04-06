@@ -102,7 +102,7 @@
     "sanitize-html": "^2.17.2",
     "sharp": "^0.34.5",
     "sonner": "^2.0.7",
-    "stripe": "^21.0.1",
+    "stripe": "^22.0.0",
     "tailwind-merge": "^3.5.0",
     "web-push": "^3.6.7",
     "zod": "^4.3.6"
