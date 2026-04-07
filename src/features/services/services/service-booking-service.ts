@@ -28,7 +28,10 @@ import {
   sendNewBookingRequestNotification,
   sendNoShowReportAdminNotification,
 } from "@/features/services/notifications/service-notifications";
-import { chargeServicePayment } from "@/services/stripe/service-payments";
+import {
+  chargeServicePayment,
+  createServiceTransfer,
+} from "@/services/stripe/service-payments";
 import { getStripeCustomerContext } from "@/services/stripe/payment-method";
 import { getPaymentErrorMessage } from "@/services/stripe/rental-payments";
 import { processRefund } from "@/services/stripe/refund";
@@ -553,7 +556,8 @@ export class ServiceBookingService {
     }
 
     const isRequester = detail.requesterId === userId;
-    const total = Number(detail.totalAmount);
+    const servicePriceNum = Number(detail.servicePrice);
+    const totalAmountNum = Number(detail.totalAmount);
     let refundFraction = 0;
 
     if (detail.status === "accepted" && detail.stripeChargeId) {
@@ -572,7 +576,10 @@ export class ServiceBookingService {
       }
     }
 
-    const refundAmountCents = Math.round(total * refundFraction * 100);
+    // Partial refunds: base on servicePrice — service fee is non-refundable
+    // Full refunds (>24hr client cancel or provider cancel): refund totalAmount including service fee
+    const refundBase = refundFraction < 1 ? servicePriceNum : totalAmountNum;
+    const refundAmountCents = Math.round(refundBase * refundFraction * 100);
     let stripeRefundId: string | null = null;
     let refundAmountStr: string | null = null;
 
@@ -604,6 +611,46 @@ export class ServiceBookingService {
       } else {
         stripeRefundId = refundResult.refundId;
         refundAmountStr = (refundAmountCents / 100).toFixed(2);
+      }
+    }
+
+    // If requester cancels within 24hr, transfer provider's retained portion (50% - 20% fee = 30%)
+    if (isRequester && refundFraction === 0.5 && detail.stripeChargeId) {
+      const providerUser = await userDAL.getUserById(detail.providerId);
+      const providerConnectedAccountId =
+        providerUser?.stripeConnectedAccountId ?? null;
+      const providerPayoutAmount =
+        Math.round(
+          servicePriceNum * (refundFraction - PLATFORM_FEE_PERCENTAGE) * 100,
+        ) / 100;
+
+      if (providerConnectedAccountId && providerPayoutAmount > 0) {
+        const transferResult = await createServiceTransfer({
+          bookingId,
+          idempotencyKey: `service-cancel-transfer-${bookingId}`,
+          chargeId: detail.stripeChargeId,
+          providerConnectedAccountId,
+          providerPayoutAmount,
+        });
+
+        if (transferResult.success) {
+          await servicePaymentLifecycleDAL.updateOwnerTransferStatus(
+            bookingId,
+            "completed",
+            { stripeTransferId: transferResult.transferId },
+          );
+        } else {
+          captureNonCriticalError(new Error(transferResult.error), {
+            route: "/api/services/bookings",
+            action: "cancel_booking_provider_transfer_failed",
+          });
+          await sendOpsAlert({
+            event: "service_booking_cancel_transfer_failed",
+            serviceBookingId: detail.id,
+            message: transferResult.error,
+            sendEmailAlert: true,
+          });
+        }
       }
     }
 

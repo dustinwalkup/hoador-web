@@ -140,6 +140,22 @@ export const formatDate = (
 };
 
 /**
+ * Format a date-only string (YYYY-MM-DD) as a full local date.
+ * Avoids the UTC-midnight timezone shift that occurs with new Date("YYYY-MM-DD").
+ * @param dateStr - ISO date-only string, e.g. "2026-04-07"
+ * @returns e.g. "Tuesday, April 7, 2026"
+ */
+export const formatLocalDate = (dateStr: string): string => {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+};
+
+/**
  * Format a date/time using a consistent local representation.
  *
  * This is intentionally `Date | string` friendly because many values arrive

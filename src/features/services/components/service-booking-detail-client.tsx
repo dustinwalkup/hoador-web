@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useMemo } from "react";
+import { z } from "zod";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatLocalDate } from "@/lib/utils/date.utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -105,6 +107,8 @@ interface ServiceBookingDetailClientProps {
   isRequester: boolean;
   reviews: ReviewInfo[];
   myReview: ReviewInfo | null;
+  /** Current published Cancellation & Refund policy URL (e.g. PDF), when configured. */
+  cancellationPolicyUrl?: string;
   /**
    * Set to true only if numeric props are in cents. Server-serialized bookings
    * use dollar amounts from the DB (numeric scale 2); default is false.
@@ -122,6 +126,41 @@ function formatUsd(amount: number): string {
     currency: "USD",
   }).format(amount);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Client-side form validation schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+const declineFormSchema = z.object({
+  reason: z
+    .string()
+    .min(1, "Reason is required")
+    .max(2000, "Reason must be 2,000 characters or less"),
+});
+
+const cancelFormSchema = z.object({
+  reason: z
+    .string()
+    .min(1, "Reason is required")
+    .max(1000, "Reason must be 1,000 characters or less"),
+});
+
+const noShowFormSchema = z.object({
+  notes: z
+    .string()
+    .max(2000, "Notes must be 2,000 characters or less")
+    .optional(),
+});
+
+const reviewFormSchema = z.object({
+  rating: z.number().int().min(1, "Please select a rating").max(5),
+  comment: z
+    .string()
+    .max(5000, "Comment must be 5,000 characters or less")
+    .optional(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   ServiceBookingPayload["status"],
@@ -246,6 +285,7 @@ export function ServiceBookingDetailClient({
   isRequester,
   reviews,
   myReview,
+  cancellationPolicyUrl,
   priceInCents = false,
 }: ServiceBookingDetailClientProps) {
   const router = useRouter();
@@ -270,6 +310,18 @@ export function ServiceBookingDetailClient({
   const [comment, setComment] = useState("");
   const [reviewPending, setReviewPending] = useState(false);
 
+  // Field validation errors
+  const [declineReasonError, setDeclineReasonError] = useState<string | null>(
+    null,
+  );
+  const [cancelReasonError, setCancelReasonError] = useState<string | null>(
+    null,
+  );
+  const [noShowNotesError, setNoShowNotesError] = useState<string | null>(null);
+  const [reviewCommentError, setReviewCommentError] = useState<string | null>(
+    null,
+  );
+
   // Price conversion
   const toUsd = (amount: number) =>
     formatUsd(priceInCents ? amount / 100 : amount);
@@ -289,12 +341,7 @@ export function ServiceBookingDetailClient({
   // Format date
   const formattedDate = useMemo(() => {
     try {
-      return new Date(booking.proposedDate).toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
+      return formatLocalDate(booking.proposedDate);
     } catch {
       return booking.proposedDate;
     }
@@ -414,10 +461,12 @@ export function ServiceBookingDetailClient({
   }
 
   async function postDecline() {
-    if (!declineReason.trim()) {
-      toast.error("Reason is required.");
+    const result = declineFormSchema.safeParse({ reason: declineReason });
+    if (!result.success) {
+      setDeclineReasonError(result.error.issues[0]?.message ?? "Invalid input");
       return;
     }
+    setDeclineReasonError(null);
     setPending(true);
     try {
       const res = await fetch(`/api/services/bookings/${booking.id}/decline`, {
@@ -458,10 +507,12 @@ export function ServiceBookingDetailClient({
   }
 
   async function postCancel() {
-    if (!cancelReason.trim()) {
-      toast.error("Reason is required.");
+    const result = cancelFormSchema.safeParse({ reason: cancelReason });
+    if (!result.success) {
+      setCancelReasonError(result.error.issues[0]?.message ?? "Invalid input");
       return;
     }
+    setCancelReasonError(null);
     setPending(true);
     try {
       const res = await fetch(`/api/services/bookings/${booking.id}/cancel`, {
@@ -484,6 +535,14 @@ export function ServiceBookingDetailClient({
   }
 
   async function postNoShow() {
+    const result = noShowFormSchema.safeParse({
+      notes: noShowNotes || undefined,
+    });
+    if (!result.success) {
+      setNoShowNotesError(result.error.issues[0]?.message ?? "Invalid input");
+      return;
+    }
+    setNoShowNotesError(null);
     setPending(true);
     try {
       const res = await fetch(`/api/services/bookings/${booking.id}/no-show`, {
@@ -505,6 +564,18 @@ export function ServiceBookingDetailClient({
   }
 
   async function postReview() {
+    const result = reviewFormSchema.safeParse({
+      rating,
+      comment: comment || undefined,
+    });
+    if (!result.success) {
+      const commentIssue = result.error.issues.find(
+        (i) => i.path[0] === "comment",
+      );
+      if (commentIssue) setReviewCommentError(commentIssue.message);
+      return;
+    }
+    setReviewCommentError(null);
     setReviewPending(true);
     try {
       const res = await fetch(`/api/services/bookings/${booking.id}/reviews`, {
@@ -773,9 +844,18 @@ export function ServiceBookingDetailClient({
                     id="review-comment"
                     placeholder="Share your experience..."
                     value={comment}
-                    onChange={(e) => setComment(e.target.value)}
+                    aria-invalid={!!reviewCommentError}
+                    onChange={(e) => {
+                      setComment(e.target.value);
+                      if (reviewCommentError) setReviewCommentError(null);
+                    }}
                     rows={3}
                   />
+                  {reviewCommentError && (
+                    <p className="text-destructive mt-1 text-[0.8rem] font-medium">
+                      {reviewCommentError}
+                    </p>
+                  )}
                 </div>
                 <Button
                   onClick={postReview}
@@ -1017,7 +1097,16 @@ export function ServiceBookingDetailClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={declineOpen} onOpenChange={setDeclineOpen}>
+      <Dialog
+        open={declineOpen}
+        onOpenChange={(open) => {
+          setDeclineOpen(open);
+          if (!open) {
+            setDeclineReason("");
+            setDeclineReasonError(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Decline Booking</DialogTitle>
@@ -1031,9 +1120,18 @@ export function ServiceBookingDetailClient({
               id="decline-reason"
               placeholder="e.g., I'm not available at this time..."
               value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
+              aria-invalid={!!declineReasonError}
+              onChange={(e) => {
+                setDeclineReason(e.target.value);
+                if (declineReasonError) setDeclineReasonError(null);
+              }}
               rows={3}
             />
+            {declineReasonError && (
+              <p className="text-destructive text-[0.8rem] font-medium">
+                {declineReasonError}
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeclineOpen(false)}>
@@ -1047,7 +1145,16 @@ export function ServiceBookingDetailClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+      <Dialog
+        open={cancelOpen}
+        onOpenChange={(open) => {
+          setCancelOpen(open);
+          if (!open) {
+            setCancelReason("");
+            setCancelReasonError(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel Booking</DialogTitle>
@@ -1063,22 +1170,46 @@ export function ServiceBookingDetailClient({
               id="cancel-reason"
               placeholder="Let us know why you're cancelling..."
               value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
+              aria-invalid={!!cancelReasonError}
+              onChange={(e) => {
+                setCancelReason(e.target.value);
+                if (cancelReasonError) setCancelReasonError(null);
+              }}
               rows={2}
             />
+            {cancelReasonError && (
+              <p className="text-destructive text-[0.8rem] font-medium">
+                {cancelReasonError}
+              </p>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelOpen(false)}>
-              Back
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={postCancel}
-              disabled={pending}
-            >
-              {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirm Cancel
-            </Button>
+            <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2">
+              {cancellationPolicyUrl ? (
+                <Link
+                  href={cancellationPolicyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary inline-flex shrink-0 items-center gap-1 text-sm hover:underline"
+                >
+                  Read cancellation policy
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              ) : null}
+              <div className="ml-auto flex shrink-0 gap-2">
+                <Button variant="outline" onClick={() => setCancelOpen(false)}>
+                  Back
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={postCancel}
+                  disabled={pending}
+                >
+                  {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Confirm Cancel
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1104,7 +1235,16 @@ export function ServiceBookingDetailClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={noShowOpen} onOpenChange={setNoShowOpen}>
+      <Dialog
+        open={noShowOpen}
+        onOpenChange={(open) => {
+          setNoShowOpen(open);
+          if (!open) {
+            setNoShowNotes("");
+            setNoShowNotesError(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Report No-Show</DialogTitle>
@@ -1119,9 +1259,18 @@ export function ServiceBookingDetailClient({
               id="noshow-notes"
               placeholder="Describe what happened..."
               value={noShowNotes}
-              onChange={(e) => setNoShowNotes(e.target.value)}
+              aria-invalid={!!noShowNotesError}
+              onChange={(e) => {
+                setNoShowNotes(e.target.value);
+                if (noShowNotesError) setNoShowNotesError(null);
+              }}
               rows={3}
             />
+            {noShowNotesError && (
+              <p className="text-destructive text-[0.8rem] font-medium">
+                {noShowNotesError}
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNoShowOpen(false)}>

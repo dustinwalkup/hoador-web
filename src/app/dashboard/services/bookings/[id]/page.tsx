@@ -4,7 +4,8 @@ import { Suspense, type ComponentProps } from "react";
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
-import { serviceBookingDAL, serviceReviewDAL } from "@/dal";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+import { legalDocumentDAL, serviceBookingDAL, serviceReviewDAL } from "@/dal";
 import type { ServiceBookingWithDetails } from "@/dal/service-booking.dal";
 import type { ServiceReviewWithReviewer } from "@/dal/service-review.dal";
 import { ServiceBookingDetailClient } from "@/features/services/components/service-booking-detail-client";
@@ -120,7 +121,10 @@ export default async function ServiceBookingDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const reviewsRaw = await serviceReviewDAL.findByBooking(id);
+  const [reviewsRaw, cancellationRefund] = await Promise.all([
+    serviceReviewDAL.findByBooking(id),
+    legalDocumentDAL.getCurrentVersion(LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND),
+  ]);
   const reviews = reviewsRaw.map(serializeReview);
   const myReview = reviews.find((r) => r.reviewerId === userId) ?? null;
 
@@ -137,6 +141,7 @@ export default async function ServiceBookingDetailPage({ params }: PageProps) {
           isRequester={booking.requesterId === userId}
           reviews={reviews}
           myReview={myReview}
+          cancellationPolicyUrl={cancellationRefund?.url}
         />
       </Suspense>
     </div>

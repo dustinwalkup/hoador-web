@@ -5,6 +5,7 @@ import {
   formatPPP,
   formatDistanceToNow,
   formatDate,
+  formatLocalDate,
 } from "../date.utils";
 
 describe("date.utils", () => {
@@ -235,6 +236,33 @@ describe("date.utils", () => {
       const date = new Date("2024-01-05T12:00:00Z");
       const result = formatDate(date, undefined);
       expect(result).toBe("1/5/2024"); // Default US locale format
+    });
+  });
+
+  describe("formatLocalDate", () => {
+    it("should format a date-only string with weekday", () => {
+      expect(formatLocalDate("2026-04-07")).toBe("Tuesday, April 7, 2026");
+    });
+
+    it("should not shift the date due to UTC midnight offset", () => {
+      // This is the core bug fix: "2026-04-07" must not display as April 6
+      expect(formatLocalDate("2026-04-07")).toContain("April 7");
+    });
+
+    it("should format the first of the month", () => {
+      expect(formatLocalDate("2024-01-01")).toBe("Monday, January 1, 2024");
+    });
+
+    it("should format the last day of the year", () => {
+      expect(formatLocalDate("2024-12-31")).toBe("Tuesday, December 31, 2024");
+    });
+
+    it("should handle leap day", () => {
+      expect(formatLocalDate("2024-02-29")).toBe("Thursday, February 29, 2024");
+    });
+
+    it("should handle single-digit day", () => {
+      expect(formatLocalDate("2024-06-05")).toBe("Wednesday, June 5, 2024");
     });
   });
 

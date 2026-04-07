@@ -86,6 +86,25 @@
           "response": []
         },
         {
+          "name": "Process Service Payouts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/process-service-payouts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "process-service-payouts"]
+            },
+            "description": "Processes pending service payouts. Runs hourly via GitHub Actions on production and staging. Requires Bearer {{cronSecret}} auth."
+          },
+          "response": []
+        },
+        {
           "name": "Cleanup Notifications (existing)",
           "request": {
             "method": "GET",
@@ -158,6 +177,32 @@
               "raw": "{{baseUrl}}/api/cron/process-payouts",
               "host": ["{{baseUrl}}"],
               "path": ["api", "cron", "process-payouts"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Process Service Payouts (no auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('returns 401 without auth', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/process-service-payouts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "process-service-payouts"]
             }
           },
           "response": []
