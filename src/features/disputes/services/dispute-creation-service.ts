@@ -162,6 +162,16 @@ export class DisputeCreationService {
       );
     }
 
+    const priorDispute = await disputeDAL.getAnyByRentalId(actualRentalId);
+    if (
+      priorDispute &&
+      (priorDispute.status === "resolved" || priorDispute.status === "closed")
+    ) {
+      throw new ConflictError(
+        "A dispute for this rental has already been resolved",
+      );
+    }
+
     const filingCheck =
       await disputeDAL.validateFilingWindowUnified(actualRentalId);
     if (!filingCheck.valid) {
@@ -182,15 +192,23 @@ export class DisputeCreationService {
     );
     const policyVersion = disputePolicy?.version || "v1.0";
 
-    const dispute = await disputeDAL.create({
-      rentalId: actualRentalId,
-      serviceBookingId: null,
-      createdBy: userId,
-      createdByRole,
-      reasonCode,
-      description,
-      policyVersion,
-    });
+    let dispute: Awaited<ReturnType<typeof disputeDAL.create>>;
+    try {
+      dispute = await disputeDAL.create({
+        rentalId: actualRentalId,
+        serviceBookingId: null,
+        createdBy: userId,
+        createdByRole,
+        reasonCode,
+        description,
+        policyVersion,
+      });
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        throw new ConflictError("A dispute for this rental already exists");
+      }
+      throw err;
+    }
 
     await paymentLifecycleDAL.freezeForDispute(actualRentalId);
 
@@ -285,11 +303,33 @@ export class DisputeCreationService {
       createdByRole,
     );
 
+    if (
+      detail.status === "completed" &&
+      (reasonCode === "provider_no_show" || reasonCode === "requester_no_show")
+    ) {
+      throw new ValidationError(
+        `Cannot file "${reasonCode}" on a completed service booking`,
+        "reasonCode",
+      );
+    }
+
     const existing =
       await disputeDAL.getActiveByServiceBookingId(serviceBookingId);
     if (existing) {
       throw new ConflictError(
         "An active dispute already exists for this service booking",
+      );
+    }
+
+    const priorServiceDispute =
+      await disputeDAL.getAnyByServiceBookingId(serviceBookingId);
+    if (
+      priorServiceDispute &&
+      (priorServiceDispute.status === "resolved" ||
+        priorServiceDispute.status === "closed")
+    ) {
+      throw new ConflictError(
+        "A dispute for this service booking has already been resolved",
       );
     }
 
@@ -303,10 +343,25 @@ export class DisputeCreationService {
       detail.completedAt ?? null,
     );
     if (!window.valid) {
-      throw new ValidationError(
-        window.message ?? "Filing window has expired",
-        "status",
-      );
+      // S12: If booking was never marked completed and scheduled time has passed,
+      // allow the dispute to be filed but alert ops so the booking can be reviewed.
+      if (!detail.completedAt) {
+        await sendOpsAlert({
+          event: "dispute_filed_incomplete_booking",
+          serviceBookingId,
+          message:
+            "Dispute filed on a service booking that was never marked completed past its scheduled time",
+          metadata: { serviceBookingId, userId, reasonCode },
+        }).catch(() => {
+          /* non-critical */
+        });
+        // Allow the filing to proceed — ops will review the incomplete booking
+      } else {
+        throw new ValidationError(
+          window.message ?? "Filing window has expired",
+          "status",
+        );
+      }
     }
 
     const rateLimits = await disputeDAL.checkRateLimits(userId);
@@ -316,20 +371,47 @@ export class DisputeCreationService {
       );
     }
 
+    const lifecycle =
+      await servicePaymentLifecycleDAL.getByBookingId(serviceBookingId);
+    if (lifecycle?.ownerTransferStatus === "completed") {
+      await sendOpsAlert({
+        event: "dispute_filed_post_payout",
+        serviceBookingId,
+        message:
+          "Dispute filed after provider payout already completed — manual refund required",
+        metadata: { serviceBookingId, userId, reasonCode },
+      }).catch(() => {
+        /* non-critical */
+      });
+      throw new ConflictError(
+        "Provider payout was already transferred. An admin will manually review and issue a refund if applicable.",
+      );
+    }
+
     const disputePolicy = await legalDocumentDAL.getCurrentVersion(
       LEGAL_DOCUMENT_IDS.DISPUTE_POLICY,
     );
     const policyVersion = disputePolicy?.version || "v1.0";
 
-    const dispute = await disputeDAL.create({
-      rentalId: null,
-      serviceBookingId,
-      createdBy: userId,
-      createdByRole,
-      reasonCode,
-      description,
-      policyVersion,
-    });
+    let dispute: Awaited<ReturnType<typeof disputeDAL.create>>;
+    try {
+      dispute = await disputeDAL.create({
+        rentalId: null,
+        serviceBookingId,
+        createdBy: userId,
+        createdByRole,
+        reasonCode,
+        description,
+        policyVersion,
+      });
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        throw new ConflictError(
+          "A dispute for this service booking already exists",
+        );
+      }
+      throw err;
+    }
 
     await servicePaymentLifecycleDAL.freezeForDispute(serviceBookingId);
 

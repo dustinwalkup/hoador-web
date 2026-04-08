@@ -10,6 +10,9 @@ import { mockDispute } from "@/test/fixtures/disputes";
 vi.mock("@/dal", () => ({
   disputeDAL: {
     getActiveByRentalId: vi.fn(),
+    getAnyByRentalId: vi.fn().mockResolvedValue(null),
+    getActiveByServiceBookingId: vi.fn().mockResolvedValue(null),
+    getAnyByServiceBookingId: vi.fn().mockResolvedValue(null),
     validateFilingWindowUnified: vi.fn(),
     checkRateLimits: vi.fn(),
     create: vi.fn(),
@@ -26,6 +29,13 @@ vi.mock("@/dal", () => ({
     create: vi.fn(),
   },
   paymentLifecycleDAL: {
+    freezeForDispute: vi.fn(),
+  },
+  serviceBookingDAL: {
+    getById: vi.fn(),
+  },
+  servicePaymentLifecycleDAL: {
+    getByBookingId: vi.fn().mockResolvedValue(null),
     freezeForDispute: vi.fn(),
   },
 }));

@@ -2501,6 +2501,27 @@ export class RentalDAL extends BaseDAL {
   }
 
   /**
+   * Get the authorized security deposit amount (in dollars) for a rental.
+   * Used to validate that partial capture amounts don't exceed the hold.
+   */
+  async getSecurityDepositAmount(rentalId: string): Promise<number | null> {
+    try {
+      const [row] = await this.db
+        .select({
+          securityDeposit: rentalRequests.securityDeposit,
+        })
+        .from(rentals)
+        .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
+        .where(eq(rentals.id, rentalId))
+        .limit(1);
+
+      return row?.securityDeposit != null ? Number(row.securityDeposit) : null;
+    } catch (error) {
+      this.handleError(error, "getSecurityDepositAmount");
+    }
+  }
+
+  /**
    * Get renterId and securityDepositAuthId for a rental (e.g. admin manual deposit release).
    * Returns null if rental not found or securityDepositAuthId is null.
    */

@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { db } from "@/db/db";
-import { DALError, ValidationError } from "./errors";
+import { DALError, ValidationError, ConflictError } from "./errors";
 import { type PaginatedResult } from "./types";
 
 export abstract class BaseDAL<TTable = undefined> {
@@ -45,7 +45,7 @@ export abstract class BaseDAL<TTable = undefined> {
     // Handle database constraint errors
     if (error.code === "23505") {
       // Unique constraint violation
-      throw new ValidationError("A record with this value already exists");
+      throw new ConflictError("A record with this value already exists");
     }
 
     if (error.code === "23503") {

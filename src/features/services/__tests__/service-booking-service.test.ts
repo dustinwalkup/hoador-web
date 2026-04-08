@@ -34,6 +34,9 @@ const { mockLegalGetAllVersions } = vi.hoisted(() => ({
 
 vi.mock("@/dal", () => ({
   auditLogDAL: { create: (...a: unknown[]) => mockAuditCreate(...a) },
+  disputeDAL: {
+    getActiveByServiceBookingId: vi.fn().mockResolvedValue(null),
+  },
   legalDocumentDAL: {
     getAllCurrentVersions: (...a: unknown[]) => mockLegalGetAllVersions(...a),
   },

@@ -108,6 +108,21 @@ async function postHandler(
       );
     }
 
+    // Enforce per-participant evidence upload limit
+    const MAX_EVIDENCE_ITEMS = 10;
+    const existingCount = await disputeDAL.countEvidenceByDisputeAndUser(
+      disputeId,
+      userId,
+    );
+    if (existingCount >= MAX_EVIDENCE_ITEMS) {
+      return NextResponse.json(
+        {
+          error: `Maximum of ${MAX_EVIDENCE_ITEMS} evidence items per participant`,
+        },
+        { status: 422 },
+      );
+    }
+
     // Parse form data
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

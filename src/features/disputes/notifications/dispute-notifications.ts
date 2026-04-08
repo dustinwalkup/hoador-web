@@ -175,6 +175,12 @@ async function sendServiceBookingDisputeNotifications(
   }
 
   if (eventType === "resolved") {
+    const outcomeText = formatResolutionOutcome(dispute.resolutionOutcome);
+    const title =
+      dispute.resolutionOutcome === "dismissed"
+        ? "Dispute Dismissed"
+        : "Dispute Resolved";
+
     for (const u of [
       { id: detail.requesterId, user: requesterUser },
       { id: detail.providerId, user: providerUser },
@@ -182,8 +188,8 @@ async function sendServiceBookingDisputeNotifications(
       await sendNotification({
         userId: u.id,
         type: "dispute_resolved",
-        title: "Dispute Resolved",
-        message: `The dispute for ${detail.listingTitle} has been resolved.`,
+        title,
+        message: `The dispute for ${detail.listingTitle} has been resolved: ${outcomeText}`,
         data: {
           disputeId: dispute.id,
           serviceBookingId: dispute.serviceBookingId,
@@ -192,9 +198,9 @@ async function sendServiceBookingDisputeNotifications(
         linkUrl,
         email: {
           to: u.user.email,
-          subject: `Dispute Resolved: ${detail.listingTitle}`,
-          html: `<p>Your dispute has been resolved. <a href="${linkUrl}">View details</a></p>`,
-          text: `Dispute resolved. ${linkUrl}`,
+          subject: `${title}: ${detail.listingTitle}`,
+          html: `<p>Your dispute has been resolved: <strong>${outcomeText}</strong>. <a href="${linkUrl}">View details</a></p>`,
+          text: `Dispute resolved: ${outcomeText}. ${linkUrl}`,
         },
       }).catch(() => {
         /* non-critical */
@@ -595,12 +601,16 @@ The Hoador Team
         const resolvedByName = dispute.resolvedByUser
           ? `${dispute.resolvedByUser.firstName} ${dispute.resolvedByUser.lastName}`
           : "Hoador Support";
+        const resolvedTitle =
+          dispute.resolutionOutcome === "dismissed"
+            ? "Dispute Dismissed"
+            : "Dispute Resolved";
 
         // Notify renter
         await sendNotification({
           userId: rental.renterId,
           type: "dispute_resolved",
-          title: "Dispute Resolved",
+          title: resolvedTitle,
           message: `The dispute for ${rental.listingName} has been resolved: ${outcomeText}`,
           data: {
             disputeId: dispute.id,
@@ -689,7 +699,7 @@ The Hoador Team
         await sendNotification({
           userId: rental.ownerId,
           type: "dispute_resolved",
-          title: "Dispute Resolved",
+          title: resolvedTitle,
           message: `The dispute for ${rental.listingName} has been resolved: ${outcomeText}`,
           data: {
             disputeId: dispute.id,
@@ -793,11 +803,11 @@ function formatResolutionOutcome(outcome: string | null | undefined): string {
   if (!outcome) return "Resolved";
 
   const outcomeMap: Record<string, string> = {
-    favor_renter: "In Favor of Renter",
-    favor_provider: "In Favor of Provider",
-    partial_renter: "Partial Resolution - Favor Renter",
-    partial_provider: "Partial Resolution - Favor Provider",
-    dismissed: "Dismissed",
+    favor_renter: "In Favor of Renter / Requester",
+    favor_provider: "In Favor of Provider / Owner",
+    partial_renter: "Partial Resolution — Favor Renter",
+    partial_provider: "Partial Resolution — Favor Provider",
+    dismissed: "Dismissed — no funds captured",
   };
 
   return outcomeMap[outcome] || outcome;

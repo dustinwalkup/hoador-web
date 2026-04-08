@@ -252,6 +252,64 @@ export class DisputeDAL extends BaseDAL {
   }
 
   /**
+   * Get the most recent dispute for a rental regardless of status (including resolved/closed).
+   * Used to prevent re-filing after a dispute has already been resolved.
+   */
+  async getAnyByRentalId(
+    rentalId: string,
+  ): Promise<DisputeWithRelations | null> {
+    try {
+      const dispute = await this.db.query.disputes.findFirst({
+        where: eq(disputes.rentalId, rentalId),
+        orderBy: [desc(disputes.createdAt)],
+        with: {
+          createdByUser: {
+            columns: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return (dispute as DisputeWithRelations | null) ?? null;
+    } catch (error) {
+      this.handleError(error, "getAnyByRentalId");
+    }
+  }
+
+  /**
+   * Get the most recent dispute for a service booking regardless of status (including resolved/closed).
+   * Used to prevent re-filing after a dispute has already been resolved.
+   */
+  async getAnyByServiceBookingId(
+    serviceBookingId: string,
+  ): Promise<DisputeWithRelations | null> {
+    try {
+      const dispute = await this.db.query.disputes.findFirst({
+        where: eq(disputes.serviceBookingId, serviceBookingId),
+        orderBy: [desc(disputes.createdAt)],
+        with: {
+          createdByUser: {
+            columns: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return (dispute as DisputeWithRelations | null) ?? null;
+    } catch (error) {
+      this.handleError(error, "getAnyByServiceBookingId");
+    }
+  }
+
+  /**
    * Get user disputes with pagination
    * Filters by user role (renter or provider) based on rental relationship
    * @param userId - User ID to filter disputes for
@@ -700,6 +758,26 @@ export class DisputeDAL extends BaseDAL {
   }
 
   /**
+   * Set the additional evidence deadline on a dispute (used when transitioning to under_review).
+   */
+  async setAdditionalEvidenceDeadline(
+    id: string,
+    deadline: Date,
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(disputes)
+        .set({
+          additionalEvidenceDeadline: deadline,
+          updatedAt: new Date(),
+        })
+        .where(eq(disputes.id, id));
+    } catch (error) {
+      this.handleError(error, "setAdditionalEvidenceDeadline");
+    }
+  }
+
+  /**
    * Resolve a dispute
    * @param id - Dispute UUID
    * @param outcome - Resolution outcome (favor_renter, favor_provider, partial_renter, partial_provider, dismissed)
@@ -1026,6 +1104,30 @@ export class DisputeDAL extends BaseDAL {
       return evidence;
     } catch (error) {
       this.handleError(error, "createEvidence");
+    }
+  }
+
+  /**
+   * Count evidence items uploaded by a specific user for a dispute.
+   * Used to enforce per-participant upload limits.
+   */
+  async countEvidenceByDisputeAndUser(
+    disputeId: string,
+    userId: string,
+  ): Promise<number> {
+    try {
+      const result = await this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(disputeEvidence)
+        .where(
+          and(
+            eq(disputeEvidence.disputeId, disputeId),
+            eq(disputeEvidence.uploadedBy, userId),
+          ),
+        );
+      return result[0]?.count ?? 0;
+    } catch (error) {
+      this.handleError(error, "countEvidenceByDisputeAndUser");
     }
   }
 

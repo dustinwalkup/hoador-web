@@ -1,5 +1,6 @@
 import {
   auditLogDAL,
+  disputeDAL,
   legalDocumentDAL,
   paymentDAL,
   serviceBookingDAL,
@@ -9,6 +10,7 @@ import {
 } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import {
+  ConflictError,
   ForbiddenError,
   NotFoundError,
   ServiceBookingPaymentFailedError,
@@ -552,6 +554,14 @@ export class ServiceBookingService {
 
     if (detail.status !== "pending" && detail.status !== "accepted") {
       throw new ValidationError("Booking cannot be cancelled", "status");
+    }
+
+    const activeDispute =
+      await disputeDAL.getActiveByServiceBookingId(bookingId);
+    if (activeDispute) {
+      throw new ConflictError(
+        "Cannot cancel a booking with an active dispute. Resolve the dispute first.",
+      );
     }
 
     const isRequester = detail.requesterId === userId;
