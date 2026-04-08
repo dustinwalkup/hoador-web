@@ -7,7 +7,6 @@ const mockListingGetById = vi.fn();
 const mockBookingCreate = vi.fn();
 const mockBookingGetById = vi.fn();
 const mockBookingUpdate = vi.fn();
-const mockCreateNoShow = vi.fn();
 const mockGetStripePm = vi.fn();
 const mockGetUserById = vi.fn();
 const mockAuditCreate = vi.fn();
@@ -18,7 +17,6 @@ const mockSendNotification = vi.fn();
 const mockSendNewBooking = vi.fn();
 const mockSendAccepted = vi.fn();
 const mockSendDeclined = vi.fn();
-const mockSendNoShowAdmin = vi.fn();
 const mockSendJobCompleted = vi.fn();
 const mockCaptureError = vi.fn();
 const mockSendOpsAlert = vi.fn();
@@ -44,7 +42,6 @@ vi.mock("@/dal", () => ({
     create: (...a: unknown[]) => mockBookingCreate(...a),
     getById: (...a: unknown[]) => mockBookingGetById(...a),
     update: (...a: unknown[]) => mockBookingUpdate(...a),
-    createNoShowReport: (...a: unknown[]) => mockCreateNoShow(...a),
   },
   serviceListingDAL: { getById: (...a: unknown[]) => mockListingGetById(...a) },
   servicePaymentLifecycleDAL: {
@@ -95,8 +92,6 @@ vi.mock("@/features/services/notifications/service-notifications", () => ({
   sendBookingAcceptedNotification: (...a: unknown[]) => mockSendAccepted(...a),
   sendBookingDeclinedNotification: (...a: unknown[]) => mockSendDeclined(...a),
   sendJobCompletedNotification: (...a: unknown[]) => mockSendJobCompleted(...a),
-  sendNoShowReportAdminNotification: (...a: unknown[]) =>
-    mockSendNoShowAdmin(...a),
 }));
 
 const listingActive = {
@@ -768,30 +763,6 @@ describe("ServiceBookingService", () => {
 
       expect(out.status).toBe("declined");
       expect(mockSendDeclined).toHaveBeenCalledWith("req-1", declined, "busy");
-    });
-  });
-
-  describe("reportNoShow", () => {
-    it("creates report and notifies admin", async () => {
-      const accepted = {
-        ...bookingPending,
-        status: "accepted" as const,
-        listing: {} as never,
-        requester: {} as never,
-        provider: {} as never,
-      };
-      mockBookingGetById.mockResolvedValue(accepted);
-      const report = { id: "ns-1", bookingId: "book-1", reportedBy: "req-1" };
-      mockCreateNoShow.mockResolvedValue(report);
-
-      const out = await ServiceBookingService.reportNoShow(
-        "book-1",
-        "req-1",
-        "n",
-      );
-
-      expect(out).toEqual(report);
-      expect(mockSendNoShowAdmin).toHaveBeenCalledWith(report, accepted);
     });
   });
 });

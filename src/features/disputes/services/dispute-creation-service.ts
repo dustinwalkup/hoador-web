@@ -4,6 +4,8 @@ import {
   legalDocumentDAL,
   auditLogDAL,
   paymentLifecycleDAL,
+  serviceBookingDAL,
+  servicePaymentLifecycleDAL,
 } from "@/dal";
 import {
   NotFoundError,
@@ -19,12 +21,15 @@ import type {
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { sendDisputeNotifications } from "@/features/disputes/notifications/dispute-notifications";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
+import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
 
 const FILING_WINDOW_HOURS = 24;
 
 /** Parameters accepted by {@link DisputeCreationService.createDispute}. */
 export interface CreateDisputeParams {
-  rentalId: string;
+  /** Exactly one of `rentalId` or `serviceBookingId` is required. */
+  rentalId?: string;
+  serviceBookingId?: string;
   reasonCode: DisputeReasonCode;
   description: string;
   userId: string;
@@ -85,20 +90,45 @@ export function validateFilingWindow(
  */
 export class DisputeCreationService {
   /**
-   * Create a new dispute for a rental.
+   * Create a new dispute for a rental or a service booking.
    *
-   * @throws {NotFoundError} Rental not found or request not yet approved
-   * @throws {ForbiddenError} User is not renter or owner
-   * @throws {ConflictError} Active dispute already exists for this rental
-   * @throws {ValidationError} Filing window expired, rate limits exceeded, etc.
+   * @throws {NotFoundError} Rental/booking not found
+   * @throws {ForbiddenError} User is not a participant
+   * @throws {ConflictError} Active dispute already exists
+   * @throws {ValidationError} Filing window, reason/role mismatch, rate limits, etc.
    */
   static async createDispute(
     params: CreateDisputeParams,
   ): Promise<CreateDisputeResult> {
+    const { rentalId, serviceBookingId } = params;
+    const hasRental = Boolean(rentalId);
+    const hasService = Boolean(serviceBookingId);
+
+    if (hasRental === hasService) {
+      throw new ValidationError(
+        "Provide exactly one of rentalId or serviceBookingId",
+      );
+    }
+
+    if (hasRental) {
+      return DisputeCreationService.createRentalDispute({
+        ...params,
+        rentalId: rentalId!,
+      });
+    }
+
+    return DisputeCreationService.createServiceBookingDispute({
+      ...params,
+      serviceBookingId: serviceBookingId!,
+    });
+  }
+
+  private static async createRentalDispute(
+    params: CreateDisputeParams & { rentalId: string },
+  ): Promise<CreateDisputeResult> {
     const { rentalId, reasonCode, description, userId, ipAddress, userAgent } =
       params;
 
-    // --- 1. Load rental and resolve actual rental ID ---
     const rental = await rentalDAL.getRentalDetailsById(rentalId, userId);
     if (!rental) {
       throw new NotFoundError("Rental", rentalId);
@@ -115,7 +145,6 @@ export class DisputeCreationService {
       actualRentalId = actualRental.id;
     }
 
-    // --- 2. Authorization: user must be renter or owner ---
     const isRenter = rental.renterId === userId;
     const isProvider = rental.ownerId === userId;
     if (!isRenter && !isProvider) {
@@ -123,9 +152,8 @@ export class DisputeCreationService {
         "You can only create disputes for your own rentals",
       );
     }
-    const createdByRole: DisputeRole = isRenter ? "renter" : "provider";
+    const createdByRole: DisputeRole = isRenter ? "renter" : "owner";
 
-    // --- 3. No duplicate active dispute ---
     const existingDispute =
       await disputeDAL.getActiveByRentalId(actualRentalId);
     if (existingDispute) {
@@ -134,7 +162,6 @@ export class DisputeCreationService {
       );
     }
 
-    // --- 4. Unified filing window validation ---
     const filingCheck =
       await disputeDAL.validateFilingWindowUnified(actualRentalId);
     if (!filingCheck.valid) {
@@ -143,7 +170,6 @@ export class DisputeCreationService {
       );
     }
 
-    // --- 5. Rate limits ---
     const rateLimits = await disputeDAL.checkRateLimits(userId);
     if (!rateLimits.withinLimits) {
       throw new ValidationError(
@@ -151,15 +177,14 @@ export class DisputeCreationService {
       );
     }
 
-    // --- 6. Get current legal policy version ---
     const disputePolicy = await legalDocumentDAL.getCurrentVersion(
       LEGAL_DOCUMENT_IDS.DISPUTE_POLICY,
     );
     const policyVersion = disputePolicy?.version || "v1.0";
 
-    // --- 7. Create dispute ---
     const dispute = await disputeDAL.create({
       rentalId: actualRentalId,
+      serviceBookingId: null,
       createdBy: userId,
       createdByRole,
       reasonCode,
@@ -167,10 +192,8 @@ export class DisputeCreationService {
       policyVersion,
     });
 
-    // --- 8. Freeze owner transfer ---
     await paymentLifecycleDAL.freezeForDispute(actualRentalId);
 
-    // --- 9. Audit logs ---
     await auditLogDAL.create({
       entityType: "dispute",
       entityId: dispute.id,
@@ -188,19 +211,160 @@ export class DisputeCreationService {
       details: { reasonCode, createdByRole },
     });
 
-    // --- 10. Notifications (non-blocking) ---
     try {
       await sendDisputeNotifications(dispute, "created");
     } catch (error) {
       console.error("Failed to send dispute creation notifications:", error);
     }
 
-    // --- 11. Ops alert ---
     await sendOpsAlert({
       event: "dispute_created",
       rentalId: actualRentalId,
       message: `Dispute filed by ${createdByRole}: ${reasonCode}`,
       metadata: { disputeId: dispute.id, reasonCode, createdByRole },
+    }).catch(() => {
+      /* non-critical */
+    });
+
+    return { dispute };
+  }
+
+  private static validateServiceReasonAndRole(
+    reasonCode: DisputeReasonCode,
+    createdByRole: DisputeRole,
+  ): void {
+    if (reasonCode === "requester_no_show" && createdByRole !== "provider") {
+      throw new ValidationError(
+        'Reason "Requester no-show" can only be selected when filing as the provider',
+        "reasonCode",
+      );
+    }
+    if (reasonCode === "provider_no_show" && createdByRole !== "requester") {
+      throw new ValidationError(
+        'Reason "Provider no-show" can only be selected when filing as the client',
+        "reasonCode",
+      );
+    }
+  }
+
+  private static async createServiceBookingDispute(
+    params: CreateDisputeParams & { serviceBookingId: string },
+  ): Promise<CreateDisputeResult> {
+    const {
+      serviceBookingId,
+      reasonCode,
+      description,
+      userId,
+      ipAddress,
+      userAgent,
+    } = params;
+
+    const detail = await serviceBookingDAL.getById(serviceBookingId);
+    if (!detail) {
+      throw new NotFoundError("Service booking", serviceBookingId);
+    }
+
+    if (detail.status !== "accepted" && detail.status !== "completed") {
+      throw new ValidationError(
+        "Disputes can only be filed for accepted or completed service bookings",
+        "status",
+      );
+    }
+
+    const isRequester = detail.requesterId === userId;
+    const isProvider = detail.providerId === userId;
+    if (!isRequester && !isProvider) {
+      throw new ForbiddenError(
+        "You can only create disputes for your own service bookings",
+      );
+    }
+
+    const createdByRole: DisputeRole = isRequester ? "requester" : "provider";
+    DisputeCreationService.validateServiceReasonAndRole(
+      reasonCode,
+      createdByRole,
+    );
+
+    const existing =
+      await disputeDAL.getActiveByServiceBookingId(serviceBookingId);
+    if (existing) {
+      throw new ConflictError(
+        "An active dispute already exists for this service booking",
+      );
+    }
+
+    const pd = detail.proposedDate as string | Date;
+    const proposedDateStr =
+      typeof pd === "string" ? pd : pd.toISOString().slice(0, 10);
+
+    const window = TimeWindowValidation.validateServiceFilingWindow(
+      proposedDateStr,
+      detail.proposedTime,
+      detail.completedAt ?? null,
+    );
+    if (!window.valid) {
+      throw new ValidationError(
+        window.message ?? "Filing window has expired",
+        "status",
+      );
+    }
+
+    const rateLimits = await disputeDAL.checkRateLimits(userId);
+    if (!rateLimits.withinLimits) {
+      throw new ValidationError(
+        `Rate limit exceeded (${rateLimits.monthlyCount}/3 monthly, ${rateLimits.yearlyCount}/10 yearly)`,
+      );
+    }
+
+    const disputePolicy = await legalDocumentDAL.getCurrentVersion(
+      LEGAL_DOCUMENT_IDS.DISPUTE_POLICY,
+    );
+    const policyVersion = disputePolicy?.version || "v1.0";
+
+    const dispute = await disputeDAL.create({
+      rentalId: null,
+      serviceBookingId,
+      createdBy: userId,
+      createdByRole,
+      reasonCode,
+      description,
+      policyVersion,
+    });
+
+    await servicePaymentLifecycleDAL.freezeForDispute(serviceBookingId);
+
+    await auditLogDAL.create({
+      entityType: "dispute",
+      entityId: dispute.id,
+      action: "dispute.opened",
+      userId,
+      metadata: { reasonCode, createdByRole, serviceBookingId },
+      ipAddress,
+      userAgent,
+    });
+
+    await disputeDAL.createAuditLog({
+      disputeId: dispute.id,
+      actionType: "dispute_created",
+      userId,
+      details: { reasonCode, createdByRole, serviceBookingId },
+    });
+
+    try {
+      await sendDisputeNotifications(dispute, "created");
+    } catch (error) {
+      console.error("Failed to send dispute creation notifications:", error);
+    }
+
+    await sendOpsAlert({
+      event: "dispute_created",
+      serviceBookingId,
+      message: `Service dispute filed by ${createdByRole}: ${reasonCode}`,
+      metadata: {
+        disputeId: dispute.id,
+        reasonCode,
+        createdByRole,
+      },
     }).catch(() => {
       /* non-critical */
     });

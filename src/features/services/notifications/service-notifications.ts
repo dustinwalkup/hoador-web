@@ -6,7 +6,6 @@ import type {
   ServiceBooking,
   ServiceListing,
 } from "@/db/schemas/services.schema";
-import type { ServiceNoShowReport } from "@/db/schemas/service-no-show-reports.schema";
 
 function appBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
@@ -481,62 +480,6 @@ export async function sendListingPendingAdminNotification(
             "",
             linkUrl,
           ].join("\n"),
-        },
-      }),
-    ),
-  );
-}
-
-/**
- * Notify staff that a no-show was reported on a booking.
- */
-export async function sendNoShowReportAdminNotification(
-  report: ServiceNoShowReport,
-  booking: ServiceBooking,
-): Promise<void> {
-  const baseUrl = appBaseUrl();
-  const linkUrl = `${baseUrl}/dashboard/services/bookings/${booking.id}`;
-  const staff = await userDAL.getStaffNotificationRecipients();
-  const listingName = await listingTitleForBooking(booking.listingId);
-  const notes = report.notes?.trim() ? escapeHtml(report.notes.trim()) : "—";
-  const when = formatBookingDate(booking);
-
-  await Promise.all(
-    staff.map((admin) =>
-      sendNotification({
-        userId: admin.id,
-        type: "service_no_show_reported",
-        title: "No-show reported",
-        message: `No-show reported for "${listingName}" (booking ${booking.id}). Scheduled: ${when} at ${booking.proposedTime}.`,
-        data: {
-          reportId: report.id,
-          bookingId: booking.id,
-          listingId: booking.listingId,
-        },
-        linkUrl,
-        email: {
-          to: admin.email,
-          subject: `No-show report: ${listingName}`,
-          html: compactEmailHtml({
-            heading: "No-show report",
-            greeting: `Hi ${escapeHtml([admin.firstName, admin.lastName].filter(Boolean).join(" ").trim() || "there")},`,
-            bodyLines: [
-              `A no-show was reported for booking <strong>${escapeHtml(booking.id)}</strong> (${escapeHtml(listingName)}).`,
-              `Scheduled: <strong>${escapeHtml(when)}</strong> at <strong>${escapeHtml(booking.proposedTime)}</strong>.`,
-              `<strong>Notes:</strong> ${notes}`,
-            ],
-            cta: { label: "View booking", href: linkUrl },
-          }),
-          text: [
-            `No-show reported for ${listingName}.`,
-            `Booking: ${booking.id}.`,
-            `Scheduled: ${when} at ${booking.proposedTime}.`,
-            report.notes ? `Notes: ${report.notes}` : "",
-            "",
-            linkUrl,
-          ]
-            .filter(Boolean)
-            .join("\n"),
         },
       }),
     ),

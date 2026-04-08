@@ -9,10 +9,12 @@ import {
   jsonb,
   serial,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { user } from "./user.schema";
 import { rentals } from "./rentals.schema";
+import { serviceBookings } from "./services.schema";
 import {
   disputeStatusEnum,
   disputeReasonCodeEnum,
@@ -30,10 +32,13 @@ export const disputes = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     referenceNumber: serial("reference_number"),
-    rentalId: uuid("rental_id")
-      .references(() => rentals.id, { onDelete: "restrict" })
-      .notNull()
-      .unique(),
+    rentalId: uuid("rental_id").references(() => rentals.id, {
+      onDelete: "restrict",
+    }),
+    serviceBookingId: uuid("service_booking_id").references(
+      () => serviceBookings.id,
+      { onDelete: "restrict" },
+    ),
     createdBy: text("created_by")
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
@@ -59,12 +64,25 @@ export const disputes = pgTable(
   },
   (table) => [
     uniqueIndex("disputes_reference_number_idx").on(table.referenceNumber),
+    uniqueIndex("disputes_rental_id_unique").on(table.rentalId),
+    uniqueIndex("disputes_service_booking_id_unique").on(
+      table.serviceBookingId,
+    ),
+    check(
+      "disputes_rental_xor_service_booking_ck",
+      sql`(${table.rentalId} IS NOT NULL AND ${table.serviceBookingId} IS NULL) OR (${table.rentalId} IS NULL AND ${table.serviceBookingId} IS NOT NULL)`,
+    ),
     index("disputes_rental_id_idx").on(table.rentalId),
+    index("disputes_service_booking_id_idx").on(table.serviceBookingId),
     index("disputes_created_by_idx").on(table.createdBy),
     index("disputes_status_idx").on(table.status),
     index("disputes_reason_code_idx").on(table.reasonCode),
     index("disputes_created_at_idx").on(table.createdAt),
     index("disputes_rental_id_status_idx").on(table.rentalId, table.status),
+    index("disputes_service_booking_id_status_idx").on(
+      table.serviceBookingId,
+      table.status,
+    ),
   ],
 );
 
@@ -176,6 +194,10 @@ export const disputesRelations = relations(disputes, ({ one, many }) => ({
   rental: one(rentals, {
     fields: [disputes.rentalId],
     references: [rentals.id],
+  }),
+  serviceBooking: one(serviceBookings, {
+    fields: [disputes.serviceBookingId],
+    references: [serviceBookings.id],
   }),
   createdByUser: one(user, {
     fields: [disputes.createdBy],

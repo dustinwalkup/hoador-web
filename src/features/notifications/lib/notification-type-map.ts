@@ -56,5 +56,4 @@ export const NOTIFICATION_TYPE_TO_CATEGORY: Record<
   service_listing_approved: "bookings",
   service_listing_rejected: "bookings",
   service_listing_pending: "bookings",
-  service_no_show_reported: "disputes",
 };

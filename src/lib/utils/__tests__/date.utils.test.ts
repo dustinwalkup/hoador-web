@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
+  timeMs,
   differenceInDays,
   formatMMMd,
   formatPPP,
@@ -9,6 +10,30 @@ import {
 } from "../date.utils";
 
 describe("date.utils", () => {
+  describe("timeMs", () => {
+    const fixed = new Date("2024-01-10T12:00:00.000Z");
+    const expectedMs = fixed.getTime();
+
+    it("returns epoch ms for a Date instance", () => {
+      expect(timeMs(fixed)).toBe(expectedMs);
+    });
+
+    it("returns epoch ms for an ISO string (JSON-deserialized dates)", () => {
+      expect(timeMs("2024-01-10T12:00:00.000Z")).toBe(expectedMs);
+    });
+
+    it("returns epoch ms for a numeric timestamp", () => {
+      expect(timeMs(expectedMs)).toBe(expectedMs);
+    });
+
+    it("matches comparison semantics used for sort and equality", () => {
+      const a = "2024-01-10T12:00:00.000Z";
+      const b = new Date("2024-01-11T12:00:00.000Z");
+      expect(timeMs(b) > timeMs(a)).toBe(true);
+      expect(timeMs(a) === timeMs("2024-01-10T12:00:00.000Z")).toBe(true);
+    });
+  });
+
   // Mock Date.now() to have consistent test results
   beforeEach(() => {
     vi.useFakeTimers();

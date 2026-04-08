@@ -1,9 +1,207 @@
 import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
-import { rentalDAL, userDAL } from "@/dal";
+import { rentalDAL, serviceBookingDAL, userDAL } from "@/dal";
 import type { DisputeWithRelations } from "@/dal/types";
 
 type DisputeEventType = "created" | "evidence_requested" | "resolved";
+
+/**
+ * Format dispute reason code for display
+ */
+function formatReasonCode(reasonCode: string | null | undefined): string {
+  if (!reasonCode) {
+    return "Unknown";
+  }
+
+  const reasonMap: Record<string, string> = {
+    damage: "Damage to Item",
+    non_delivery: "Non-Delivery",
+    quality_issue: "Quality Issue",
+    cancellation: "Cancellation",
+    payment_issue: "Payment Issue",
+    renter_no_show: "Renter No-Show",
+    owner_no_show: "Owner No-Show",
+    requester_no_show: "Client No-Show",
+    provider_no_show: "Provider No-Show",
+    other: "Other",
+  };
+
+  return reasonMap[reasonCode] || reasonCode;
+}
+
+/**
+ * Notifications for service-booking disputes (separate from rental flow).
+ */
+async function sendServiceBookingDisputeNotifications(
+  dispute: DisputeWithRelations,
+  eventType: DisputeEventType,
+): Promise<void> {
+  if (!dispute.serviceBookingId) {
+    return;
+  }
+
+  const detail = dispute.serviceBooking
+    ? {
+        requesterId: dispute.serviceBooking.requesterId,
+        providerId: dispute.serviceBooking.providerId,
+        listingTitle: dispute.serviceBooking.listing?.title ?? "Service",
+      }
+    : await (async () => {
+        const row = await serviceBookingDAL.getById(dispute.serviceBookingId!);
+        if (!row) {
+          console.error(
+            `Service booking ${dispute.serviceBookingId} not found for dispute ${dispute.id}`,
+          );
+          return null;
+        }
+        return {
+          requesterId: row.requesterId,
+          providerId: row.providerId,
+          listingTitle: row.listing.title,
+        };
+      })();
+
+  if (!detail) {
+    return;
+  }
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
+  const linkUrl = `${baseUrl}/dashboard/disputes/${dispute.id}`;
+
+  const requesterUser = await userDAL.getUserById(detail.requesterId);
+  const providerUser = await userDAL.getUserById(detail.providerId);
+  if (!requesterUser || !providerUser) {
+    console.error(
+      `Users not found for service dispute ${dispute.id}: requester=${detail.requesterId} provider=${detail.providerId}`,
+    );
+    return;
+  }
+
+  const createdByName = dispute.createdByUser
+    ? `${dispute.createdByUser.firstName} ${dispute.createdByUser.lastName}`
+    : "Unknown User";
+
+  if (eventType === "created") {
+    const notifyUserId =
+      dispute.createdByRole === "requester"
+        ? detail.providerId
+        : detail.requesterId;
+    const notifyUser =
+      dispute.createdByRole === "requester" ? providerUser : requesterUser;
+    const notifyName =
+      dispute.createdByRole === "requester"
+        ? `${providerUser.firstName ?? ""} ${providerUser.lastName ?? ""}`.trim()
+        : `${requesterUser.firstName ?? ""} ${requesterUser.lastName ?? ""}`.trim();
+
+    await sendNotification({
+      userId: notifyUserId,
+      type: "dispute_created",
+      title: "New Dispute Filed",
+      message: `${createdByName} has filed a dispute for ${detail.listingTitle}`,
+      data: {
+        disputeId: dispute.id,
+        serviceBookingId: dispute.serviceBookingId,
+        reasonCode: dispute.reasonCode,
+        createdByRole: dispute.createdByRole,
+        listingName: detail.listingTitle,
+      },
+      linkUrl,
+      email: {
+        to: notifyUser.email,
+        subject: `Dispute Filed for ${detail.listingTitle}`,
+        html: `
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Dispute Filed</title>
+                </head>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                  ${EMAIL_LOGO_HTML}
+                  <h1 style="color: #333;">Hi ${notifyName},</h1>
+                  <p>${createdByName} has filed a dispute regarding the service <strong>${detail.listingTitle}</strong>.</p>
+                  <p><strong>Reason:</strong> ${formatReasonCode(dispute.reasonCode)}</p>
+                  <p><strong>Description:</strong> ${dispute.description}</p>
+                  <p><a href="${linkUrl}">View Dispute</a></p>
+                  <p style="font-size: 12px; color: #999;">The Hoador Team</p>
+                </body>
+              </html>
+            `,
+        text: `Hi ${notifyName},\n\n${createdByName} filed a dispute for ${detail.listingTitle}.\nReason: ${formatReasonCode(dispute.reasonCode)}\n\nView: ${linkUrl}`,
+      },
+    }).catch((err) => {
+      console.error(
+        `Failed to send service dispute created notification:`,
+        err,
+      );
+    });
+    return;
+  }
+
+  if (eventType === "evidence_requested") {
+    const deadlineDate = dispute.evidenceDeadline
+      ? new Date(dispute.evidenceDeadline).toLocaleDateString()
+      : "N/A";
+
+    for (const u of [
+      { id: detail.requesterId, user: requesterUser },
+      { id: detail.providerId, user: providerUser },
+    ]) {
+      await sendNotification({
+        userId: u.id,
+        type: "dispute_evidence_requested",
+        title: "Evidence Requested for Dispute",
+        message: `Please submit evidence for the dispute regarding ${detail.listingTitle} by ${deadlineDate}`,
+        data: {
+          disputeId: dispute.id,
+          serviceBookingId: dispute.serviceBookingId,
+          evidenceDeadline: dispute.evidenceDeadline?.toISOString() ?? null,
+          listingName: detail.listingTitle,
+        },
+        linkUrl,
+        email: {
+          to: u.user.email,
+          subject: `Evidence Requested: ${detail.listingTitle}`,
+          html: `<p>Evidence requested for dispute. Deadline: ${deadlineDate}. <a href="${linkUrl}">View</a></p>`,
+          text: `Evidence requested. Deadline ${deadlineDate}. ${linkUrl}`,
+        },
+      }).catch(() => {
+        /* non-critical */
+      });
+    }
+    return;
+  }
+
+  if (eventType === "resolved") {
+    for (const u of [
+      { id: detail.requesterId, user: requesterUser },
+      { id: detail.providerId, user: providerUser },
+    ]) {
+      await sendNotification({
+        userId: u.id,
+        type: "dispute_resolved",
+        title: "Dispute Resolved",
+        message: `The dispute for ${detail.listingTitle} has been resolved.`,
+        data: {
+          disputeId: dispute.id,
+          serviceBookingId: dispute.serviceBookingId,
+          resolutionOutcome: dispute.resolutionOutcome,
+        },
+        linkUrl,
+        email: {
+          to: u.user.email,
+          subject: `Dispute Resolved: ${detail.listingTitle}`,
+          html: `<p>Your dispute has been resolved. <a href="${linkUrl}">View details</a></p>`,
+          text: `Dispute resolved. ${linkUrl}`,
+        },
+      }).catch(() => {
+        /* non-critical */
+      });
+    }
+  }
+}
 
 /**
  * Send dispute notifications to relevant parties
@@ -14,6 +212,16 @@ export async function sendDisputeNotifications(
   eventType: DisputeEventType,
 ): Promise<void> {
   try {
+    if (dispute.serviceBookingId) {
+      await sendServiceBookingDisputeNotifications(dispute, eventType);
+      return;
+    }
+
+    if (!dispute.rentalId) {
+      console.error(`Dispute ${dispute.id} has no rental or service booking`);
+      return;
+    }
+
     // Get rental details to access renter and owner information
     const rental = await rentalDAL.getRentalDetailsById(
       dispute.rentalId,
@@ -576,24 +784,6 @@ The Hoador Team
     );
     // Don't throw - notifications are non-critical
   }
-}
-
-/**
- * Format dispute reason code for display
- */
-function formatReasonCode(reasonCode: string | null | undefined): string {
-  if (!reasonCode) return "Unknown";
-
-  const reasonMap: Record<string, string> = {
-    damage: "Damage to Item",
-    non_delivery: "Non-Delivery",
-    quality_issue: "Quality Issue",
-    cancellation: "Cancellation",
-    payment_issue: "Payment Issue",
-    other: "Other",
-  };
-
-  return reasonMap[reasonCode] || reasonCode;
 }
 
 /**

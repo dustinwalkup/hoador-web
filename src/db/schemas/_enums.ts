@@ -78,7 +78,6 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "service_listing_approved",
   "service_listing_rejected",
   "service_listing_pending",
-  "service_no_show_reported",
 ]);
 
 /** User activity types for admin activity log and inactivity filtering. */
@@ -131,10 +130,17 @@ export const disputeReasonCodeEnum = pgEnum("dispute_reason_code", [
   "payment_issue",
   "renter_no_show",
   "owner_no_show",
+  "requester_no_show",
+  "provider_no_show",
   "other",
 ]);
 
-export const disputeRoleEnum = pgEnum("dispute_role", ["renter", "provider"]);
+export const disputeRoleEnum = pgEnum("dispute_role", [
+  "renter",
+  "owner",
+  "provider",
+  "requester",
+]);
 
 export const disputeResolutionOutcomeEnum = pgEnum(
   "dispute_resolution_outcome",

@@ -159,11 +159,16 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
     }
   }
 
-  /** Updates owner Connect transfer status and optional Stripe ids. */
+  /** Updates owner Connect transfer status and optional Stripe ids / transfer amount. */
   async updateOwnerTransferStatus(
     bookingId: string,
     status: ServiceOwnerTransferStatus,
-    extra?: { stripeTransferId?: string; ownerTransferredAt?: Date },
+    extra?: {
+      stripeTransferId?: string;
+      ownerTransferredAt?: Date;
+      /** USD amount actually transferred to the provider Connect account. */
+      transferAmount?: number;
+    },
   ): Promise<void> {
     try {
       await this.db
@@ -175,6 +180,9 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
           }),
           ...(extra?.ownerTransferredAt != null && {
             ownerTransferredAt: extra.ownerTransferredAt,
+          }),
+          ...(extra?.transferAmount != null && {
+            transferAmount: String(extra.transferAmount),
           }),
           updatedAt: new Date(),
         })

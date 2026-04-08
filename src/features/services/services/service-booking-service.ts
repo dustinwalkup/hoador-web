@@ -26,7 +26,6 @@ import {
   sendBookingDeclinedNotification,
   sendJobCompletedNotification,
   sendNewBookingRequestNotification,
-  sendNoShowReportAdminNotification,
 } from "@/features/services/notifications/service-notifications";
 import {
   chargeServicePayment,
@@ -637,7 +636,11 @@ export class ServiceBookingService {
           await servicePaymentLifecycleDAL.updateOwnerTransferStatus(
             bookingId,
             "completed",
-            { stripeTransferId: transferResult.transferId },
+            {
+              stripeTransferId: transferResult.transferId,
+              ownerTransferredAt: new Date(),
+              transferAmount: providerPayoutAmount,
+            },
           );
         } else {
           captureNonCriticalError(new Error(transferResult.error), {
@@ -705,38 +708,5 @@ export class ServiceBookingService {
     });
 
     return updated;
-  }
-
-  /**
-   * Report a no-show (accepted booking). Ops is notified; no automatic refund.
-   */
-  static async reportNoShow(
-    bookingId: string,
-    reportedBy: string,
-    notes?: string,
-  ) {
-    const detail = await serviceBookingDAL.getById(bookingId);
-    if (!detail) {
-      throw new NotFoundError("Service booking", bookingId);
-    }
-    if (detail.status !== "accepted") {
-      throw new ValidationError(
-        "No-show can only be reported for accepted bookings",
-        "status",
-      );
-    }
-    if (reportedBy !== detail.requesterId && reportedBy !== detail.providerId) {
-      throw new ForbiddenError("You cannot report this booking");
-    }
-
-    const report = await serviceBookingDAL.createNoShowReport({
-      bookingId: detail.id,
-      reportedBy,
-      notes: notes ?? null,
-    });
-
-    await sendNoShowReportAdminNotification(report, detail);
-
-    return report;
   }
 }

@@ -297,9 +297,9 @@ export function AdminStateControls({ disputeId }: AdminStateControlsProps) {
                       {getStateLabel(transitionState.targetState)}
                     </strong>
                     ?
-                    <p className="mt-2 text-sm">
+                    <span className="mt-2 text-sm">
                       {getStateDescription(transitionState.targetState)}
-                    </p>
+                    </span>
                   </>
                 )}
               </AlertDialogDescription>

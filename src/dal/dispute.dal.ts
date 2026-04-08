@@ -27,6 +27,7 @@ import {
   disputeFinancialOperations,
 } from "@/db/schemas/disputes.schema";
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
+import { serviceBookings } from "@/db/schemas/services.schema";
 
 export class DisputeDAL extends BaseDAL {
   /**
@@ -45,7 +46,8 @@ export class DisputeDAL extends BaseDAL {
       const [dispute] = await this.db
         .insert(disputes)
         .values({
-          rentalId: data.rentalId,
+          rentalId: data.rentalId ?? null,
+          serviceBookingId: data.serviceBookingId ?? null,
           createdBy: data.createdBy,
           createdByRole: data.createdByRole,
           reasonCode: data.reasonCode,
@@ -85,6 +87,20 @@ export class DisputeDAL extends BaseDAL {
               listing: {
                 columns: {
                   name: true,
+                },
+              },
+            },
+          },
+          serviceBooking: {
+            columns: {
+              id: true,
+              requesterId: true,
+              providerId: true,
+            },
+            with: {
+              listing: {
+                columns: {
+                  title: true,
                 },
               },
             },
@@ -192,6 +208,50 @@ export class DisputeDAL extends BaseDAL {
   }
 
   /**
+   * Get active dispute by service booking ID (status not closed).
+   */
+  async getActiveByServiceBookingId(
+    serviceBookingId: string,
+  ): Promise<DisputeWithRelations | null> {
+    try {
+      const dispute = await this.db.query.disputes.findFirst({
+        where: and(
+          eq(disputes.serviceBookingId, serviceBookingId),
+          ne(disputes.status, "closed"),
+        ),
+        with: {
+          serviceBooking: {
+            columns: {
+              id: true,
+              requesterId: true,
+              providerId: true,
+            },
+            with: {
+              listing: {
+                columns: {
+                  title: true,
+                },
+              },
+            },
+          },
+          createdByUser: {
+            columns: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return dispute as DisputeWithRelations | null;
+    } catch (error) {
+      this.handleError(error, "getActiveByServiceBookingId");
+    }
+  }
+
+  /**
    * Get user disputes with pagination
    * Filters by user role (renter or provider) based on rental relationship
    * @param userId - User ID to filter disputes for
@@ -210,25 +270,34 @@ export class DisputeDAL extends BaseDAL {
       // Build where conditions
       const conditions = [];
 
-      // Filter by role - user must be either renter or provider of the rental
+      // Filter by role — rentals (renter/owner) or service bookings (requester/provider)
       if (options.role === "renter") {
-        // User is renter - join with rentals to find disputes where rental.renterId = userId
         conditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${rentals} r
-            WHERE r.id = ${disputes.rentalId} AND r.renter_id = ${userId}
-          )`,
+          or(
+            sql`EXISTS (
+              SELECT 1 FROM ${rentals} r
+              WHERE r.id = ${disputes.rentalId} AND r.renter_id = ${userId}
+            )`,
+            sql`EXISTS (
+              SELECT 1 FROM ${serviceBookings} sb
+              WHERE sb.id = ${disputes.serviceBookingId} AND sb.requester_id = ${userId}
+            )`,
+          ),
         );
       } else if (options.role === "provider") {
-        // User is provider - join with rentals to find disputes where rental.ownerId = userId
         conditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${rentals} r
-            WHERE r.id = ${disputes.rentalId} AND r.owner_id = ${userId}
-          )`,
+          or(
+            sql`EXISTS (
+              SELECT 1 FROM ${rentals} r
+              WHERE r.id = ${disputes.rentalId} AND r.owner_id = ${userId}
+            )`,
+            sql`EXISTS (
+              SELECT 1 FROM ${serviceBookings} sb
+              WHERE sb.id = ${disputes.serviceBookingId} AND sb.provider_id = ${userId}
+            )`,
+          ),
         );
       } else {
-        // No role filter - user is either renter or provider
         conditions.push(
           or(
             sql`EXISTS (
@@ -238,6 +307,14 @@ export class DisputeDAL extends BaseDAL {
             sql`EXISTS (
               SELECT 1 FROM ${rentals} r
               WHERE r.id = ${disputes.rentalId} AND r.owner_id = ${userId}
+            )`,
+            sql`EXISTS (
+              SELECT 1 FROM ${serviceBookings} sb
+              WHERE sb.id = ${disputes.serviceBookingId} AND sb.requester_id = ${userId}
+            )`,
+            sql`EXISTS (
+              SELECT 1 FROM ${serviceBookings} sb
+              WHERE sb.id = ${disputes.serviceBookingId} AND sb.provider_id = ${userId}
             )`,
           ),
         );
@@ -275,6 +352,20 @@ export class DisputeDAL extends BaseDAL {
               listing: {
                 columns: {
                   name: true,
+                },
+              },
+            },
+          },
+          serviceBooking: {
+            columns: {
+              id: true,
+              requesterId: true,
+              providerId: true,
+            },
+            with: {
+              listing: {
+                columns: {
+                  title: true,
                 },
               },
             },
@@ -360,6 +451,20 @@ export class DisputeDAL extends BaseDAL {
               listing: {
                 columns: {
                   name: true,
+                },
+              },
+            },
+          },
+          serviceBooking: {
+            columns: {
+              id: true,
+              requesterId: true,
+              providerId: true,
+            },
+            with: {
+              listing: {
+                columns: {
+                  title: true,
                 },
               },
             },
@@ -518,6 +623,8 @@ export class DisputeDAL extends BaseDAL {
         payment_issue: 0,
         renter_no_show: 0,
         owner_no_show: 0,
+        requester_no_show: 0,
+        provider_no_show: 0,
         other: 0,
       };
 

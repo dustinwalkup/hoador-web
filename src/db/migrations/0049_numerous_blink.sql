@@ -1,0 +1,1 @@
+ALTER TABLE "service_payment_lifecycle" ADD COLUMN "transfer_amount" numeric(10, 2);

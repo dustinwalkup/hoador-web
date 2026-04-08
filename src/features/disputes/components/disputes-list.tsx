@@ -79,6 +79,8 @@ export function DisputesList({ isAdmin = false }: DisputesListProps) {
       payment_issue: "Payment Issue",
       renter_no_show: "Renter No-Show",
       owner_no_show: "Owner No-Show",
+      requester_no_show: "Client No-Show",
+      provider_no_show: "Provider No-Show",
       other: "Other",
     };
     return labels[code] || code;
@@ -186,6 +188,12 @@ export function DisputesList({ isAdmin = false }: DisputesListProps) {
                   <SelectItem value="quality_issue">Quality Issue</SelectItem>
                   <SelectItem value="cancellation">Cancellation</SelectItem>
                   <SelectItem value="payment_issue">Payment Issue</SelectItem>
+                  <SelectItem value="requester_no_show">
+                    Client No-Show
+                  </SelectItem>
+                  <SelectItem value="provider_no_show">
+                    Provider No-Show
+                  </SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -223,9 +231,13 @@ export function DisputesList({ isAdmin = false }: DisputesListProps) {
           ) : (
             <div className="space-y-4">
               {disputes.map((dispute) => {
+                const listingLabel =
+                  dispute.rental?.listing?.name ??
+                  dispute.serviceBooking?.listing?.title ??
+                  undefined;
                 const disputeIdentifier = formatDisputeIdentifier(
                   dispute.referenceNumber,
-                  dispute.rental?.listing?.name,
+                  listingLabel,
                 );
 
                 return (

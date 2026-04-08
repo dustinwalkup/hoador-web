@@ -4,7 +4,7 @@ import {
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
-import { disputeDAL, rentalDAL } from "@/dal";
+import { disputeDAL, rentalDAL, serviceBookingDAL } from "@/dal";
 
 /**
  * GET /api/disputes/[id]
@@ -32,28 +32,46 @@ async function getHandler(
       return NextResponse.json({ error: "Dispute not found" }, { status: 404 });
     }
 
-    // Verify user has access (renter, provider, or admin)
     if (!isAdmin) {
-      // Get rental to check user access
-      const rental = await rentalDAL.getRentalDetailsById(
-        dispute.rentalId,
-        userId,
-      );
-
-      if (!rental) {
-        return NextResponse.json(
-          { error: "Rental not found" },
-          { status: 404 },
+      if (dispute.serviceBookingId) {
+        const detail = await serviceBookingDAL.getById(
+          dispute.serviceBookingId,
         );
-      }
+        if (
+          !detail ||
+          (detail.requesterId !== userId && detail.providerId !== userId)
+        ) {
+          return NextResponse.json(
+            { error: "Access denied. You can only view your own disputes." },
+            { status: 403 },
+          );
+        }
+      } else if (dispute.rentalId) {
+        const rental = await rentalDAL.getRentalDetailsById(
+          dispute.rentalId,
+          userId,
+        );
 
-      const isRenter = rental.renterId === userId;
-      const isProvider = rental.ownerId === userId;
+        if (!rental) {
+          return NextResponse.json(
+            { error: "Rental not found" },
+            { status: 404 },
+          );
+        }
 
-      if (!isRenter && !isProvider) {
+        const isRenter = rental.renterId === userId;
+        const isProvider = rental.ownerId === userId;
+
+        if (!isRenter && !isProvider) {
+          return NextResponse.json(
+            { error: "Access denied. You can only view your own disputes." },
+            { status: 403 },
+          );
+        }
+      } else {
         return NextResponse.json(
-          { error: "Access denied. You can only view your own disputes." },
-          { status: 403 },
+          { error: "Dispute has no linked transaction" },
+          { status: 400 },
         );
       }
     }

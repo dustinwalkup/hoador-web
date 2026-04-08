@@ -72,20 +72,32 @@ export const GET = withRequestLogging(getHandler, "GET /api/disputes");
  * POST /api/disputes
  * Create a new dispute
  */
-const createDisputeSchema = z.object({
-  rentalId: z.string().uuid("Invalid rental ID"),
-  reasonCode: z.enum([
-    "damage",
-    "non_delivery",
-    "quality_issue",
-    "cancellation",
-    "payment_issue",
-    "renter_no_show",
-    "owner_no_show",
-    "other",
-  ]),
-  description: z.string().min(10, "Description must be at least 10 characters"),
-});
+const disputeReasonCodes = [
+  "damage",
+  "non_delivery",
+  "quality_issue",
+  "cancellation",
+  "payment_issue",
+  "renter_no_show",
+  "owner_no_show",
+  "requester_no_show",
+  "provider_no_show",
+  "other",
+] as const;
+
+const createDisputeSchema = z
+  .object({
+    rentalId: z.string().uuid("Invalid rental ID").optional(),
+    serviceBookingId: z.string().uuid("Invalid service booking ID").optional(),
+    reasonCode: z.enum(disputeReasonCodes),
+    description: z
+      .string()
+      .min(10, "Description must be at least 10 characters"),
+  })
+  .refine((data) => Boolean(data.rentalId) !== Boolean(data.serviceBookingId), {
+    message: "Provide exactly one of rentalId or serviceBookingId",
+    path: ["rentalId"],
+  });
 
 async function postHandler(request: NextRequest) {
   try {
@@ -106,10 +118,12 @@ async function postHandler(request: NextRequest) {
       );
     }
 
-    const { rentalId, reasonCode, description } = validationResult.data;
+    const { rentalId, serviceBookingId, reasonCode, description } =
+      validationResult.data;
 
     const { dispute } = await DisputeCreationService.createDispute({
       rentalId,
+      serviceBookingId,
       reasonCode,
       description,
       userId,

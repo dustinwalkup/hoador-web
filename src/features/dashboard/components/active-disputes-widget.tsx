@@ -16,7 +16,12 @@ export interface DisputeWithRelations {
     listing?: {
       name?: string;
     };
-  };
+  } | null;
+  serviceBooking?: {
+    listing?: {
+      title?: string;
+    };
+  } | null;
 }
 
 export interface ActiveDisputesWidgetProps {
@@ -92,7 +97,9 @@ export function ActiveDisputesWidget({
                     >
                       <div className="min-w-0 flex-1">
                         <span className="font-medium">
-                          {d.rental?.listing?.name ?? "Dispute"}
+                          {d.rental?.listing?.name ??
+                            d.serviceBooking?.listing?.title ??
+                            "Dispute"}
                         </span>
                         <div className="mt-1">
                           <span

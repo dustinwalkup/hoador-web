@@ -28,6 +28,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "@/lib/utils/date.utils";
+import { formatDisputeParticipantRole } from "@/features/disputes/lib/dispute-role-label";
 import { useDispute } from "../hooks";
 import { DisputeStatusBadge } from "./dispute-status-badge";
 import {
@@ -83,14 +84,20 @@ export function DisputeDetails({
       quality_issue: "Quality Issue",
       cancellation: "Cancellation",
       payment_issue: "Payment Issue",
+      renter_no_show: "Renter No-Show",
+      owner_no_show: "Owner No-Show",
+      requester_no_show: "Client No-Show",
+      provider_no_show: "Provider No-Show",
       other: "Other",
     };
     return labels[code] || code;
   };
 
-  const getRoleLabel = (role: string) => {
-    return role === "renter" ? "Renter" : "Provider";
-  };
+  const getRoleLabel = (role: string) =>
+    formatDisputeParticipantRole(role, {
+      rentalId: dispute?.rentalId,
+      serviceBookingId: dispute?.serviceBookingId,
+    });
 
   const getResolutionOutcomeLabel = (outcome: string | null) => {
     if (!outcome) return "N/A";
@@ -190,9 +197,14 @@ export function DisputeDetails({
     );
   }
 
+  const listingLabel =
+    dispute.rental?.listing?.name ??
+    dispute.serviceBooking?.listing?.title ??
+    undefined;
+
   const disputeIdentifier = formatDisputeIdentifier(
     dispute.referenceNumber,
-    dispute.rental?.listing?.name,
+    listingLabel,
   );
 
   const deadline = formatDeadline(dispute.evidenceDeadline);
@@ -218,6 +230,15 @@ export function DisputeDetails({
                 className="text-primary flex items-center gap-1 text-sm hover:underline"
               >
                 View Rental
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            )}
+            {dispute.serviceBooking && (
+              <Link
+                href={`/dashboard/services/bookings/${dispute.serviceBooking.id}`}
+                className="text-primary flex items-center gap-1 text-sm hover:underline"
+              >
+                View Service Booking
                 <ExternalLink className="h-3 w-3" />
               </Link>
             )}

@@ -7,10 +7,6 @@ import {
   type NewServiceBooking,
   type ServiceBooking,
 } from "@/db/schemas/services.schema";
-import {
-  serviceNoShowReports,
-  type ServiceNoShowReport,
-} from "@/db/schemas/service-no-show-reports.schema";
 import { user } from "@/db/schemas/user.schema";
 import { conversations } from "@/db/schemas/messages.schema";
 
@@ -350,34 +346,6 @@ export class ServiceBookingDAL extends BaseDAL {
       }));
     } catch (error) {
       this.handleError(error, "ServiceBookingDAL.findByProviderForDashboard");
-    }
-  }
-
-  /**
-   * Inserts a no-show report for a service booking.
-   */
-  async createNoShowReport(data: {
-    bookingId: string;
-    reportedBy: string;
-    notes?: string | null;
-  }): Promise<ServiceNoShowReport> {
-    try {
-      const [row] = await this.db
-        .insert(serviceNoShowReports)
-        .values({
-          bookingId: data.bookingId,
-          reportedBy: data.reportedBy,
-          notes: data.notes ?? null,
-        })
-        .returning();
-
-      if (!row) {
-        throw new Error("Failed to create no-show report");
-      }
-
-      return row;
-    } catch (error) {
-      this.handleError(error, "ServiceBookingDAL.createNoShowReport");
     }
   }
 }

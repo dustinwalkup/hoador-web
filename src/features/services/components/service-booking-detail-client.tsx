@@ -41,6 +41,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatLocalDate } from "@/lib/utils/date.utils";
+import { FileDisputeDialog } from "@/features/disputes/components/file-dispute-dialog";
+import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -109,6 +111,10 @@ interface ServiceBookingDetailClientProps {
   myReview: ReviewInfo | null;
   /** Current published Cancellation & Refund policy URL (e.g. PDF), when configured. */
   cancellationPolicyUrl?: string;
+  /** Dispute policy URL for filing a dispute. */
+  disputePolicyUrl?: string;
+  /** True when an open dispute already exists for this booking. */
+  hasActiveDispute?: boolean;
   /**
    * Set to true only if numeric props are in cents. Server-serialized bookings
    * use dollar amounts from the DB (numeric scale 2); default is false.
@@ -143,13 +149,6 @@ const cancelFormSchema = z.object({
     .string()
     .min(1, "Reason is required")
     .max(1000, "Reason must be 1,000 characters or less"),
-});
-
-const noShowFormSchema = z.object({
-  notes: z
-    .string()
-    .max(2000, "Notes must be 2,000 characters or less")
-    .optional(),
 });
 
 const reviewFormSchema = z.object({
@@ -286,6 +285,8 @@ export function ServiceBookingDetailClient({
   reviews,
   myReview,
   cancellationPolicyUrl,
+  disputePolicyUrl,
+  hasActiveDispute = false,
   priceInCents = false,
 }: ServiceBookingDetailClientProps) {
   const router = useRouter();
@@ -297,12 +298,11 @@ export function ServiceBookingDetailClient({
   const [declineOpen, setDeclineOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
-  const [noShowOpen, setNoShowOpen] = useState(false);
+  const [disputeOpen, setDisputeOpen] = useState(false);
 
   // Form states
   const [declineReason, setDeclineReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
-  const [noShowNotes, setNoShowNotes] = useState("");
   const [pending, setPending] = useState(false);
 
   // Review states
@@ -317,7 +317,6 @@ export function ServiceBookingDetailClient({
   const [cancelReasonError, setCancelReasonError] = useState<string | null>(
     null,
   );
-  const [noShowNotesError, setNoShowNotesError] = useState<string | null>(null);
   const [reviewCommentError, setReviewCommentError] = useState<string | null>(
     null,
   );
@@ -361,6 +360,29 @@ export function ServiceBookingDetailClient({
       return booking.proposedTime;
     }
   }, [booking.proposedTime]);
+
+  const canFileServiceDispute = useMemo(() => {
+    if (hasActiveDispute) {
+      return false;
+    }
+    if (booking.status !== "accepted" && booking.status !== "completed") {
+      return false;
+    }
+    const completedAtDate = booking.completedAt
+      ? new Date(booking.completedAt)
+      : null;
+    return TimeWindowValidation.validateServiceFilingWindow(
+      booking.proposedDate,
+      booking.proposedTime,
+      completedAtDate,
+    ).valid;
+  }, [
+    hasActiveDispute,
+    booking.status,
+    booking.proposedDate,
+    booking.proposedTime,
+    booking.completedAt,
+  ]);
 
   // Timeline events
   const timelineEvents = useMemo<TimelineEvent[]>(() => {
@@ -528,35 +550,6 @@ export function ServiceBookingDetailClient({
       setCancelOpen(false);
       setCancelReason("");
       toast.success("Booking cancelled.");
-      await refresh();
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function postNoShow() {
-    const result = noShowFormSchema.safeParse({
-      notes: noShowNotes || undefined,
-    });
-    if (!result.success) {
-      setNoShowNotesError(result.error.issues[0]?.message ?? "Invalid input");
-      return;
-    }
-    setNoShowNotesError(null);
-    setPending(true);
-    try {
-      const res = await fetch(`/api/services/bookings/${booking.id}/no-show`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: noShowNotes.trim() || undefined }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data.error ?? "Could not submit report");
-        return;
-      }
-      setNoShowOpen(false);
-      toast.success("Report submitted.");
       await refresh();
     } finally {
       setPending(false);
@@ -969,14 +962,16 @@ export function ServiceBookingDetailClient({
                     <XCircle className="mr-2 h-4 w-4" />
                     Cancel Booking
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="text-destructive hover:text-destructive w-full"
-                    onClick={() => setNoShowOpen(true)}
-                  >
-                    <AlertTriangle className="mr-2 h-4 w-4" />
-                    Report No-Show
-                  </Button>
+                  {canFileServiceDispute && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setDisputeOpen(true)}
+                    >
+                      <AlertTriangle className="mr-2 h-4 w-4" />
+                      File a Dispute
+                    </Button>
+                  )}
                 </>
               )}
 
@@ -999,18 +994,28 @@ export function ServiceBookingDetailClient({
                     <XCircle className="mr-2 h-4 w-4" />
                     Cancel Booking
                   </Button>
+                  {canFileServiceDispute && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setDisputeOpen(true)}
+                    >
+                      <AlertTriangle className="mr-2 h-4 w-4" />
+                      File a Dispute
+                    </Button>
+                  )}
                 </>
               )}
 
-              {/* Completed - Requester can still report no-show */}
-              {booking.status === "completed" && isRequester && (
+              {/* Completed — dispute window (both parties) */}
+              {booking.status === "completed" && canFileServiceDispute && (
                 <Button
                   variant="outline"
-                  className="text-destructive hover:text-destructive w-full"
-                  onClick={() => setNoShowOpen(true)}
+                  className="w-full"
+                  onClick={() => setDisputeOpen(true)}
                 >
                   <AlertTriangle className="mr-2 h-4 w-4" />
-                  Report Issue
+                  File a Dispute
                 </Button>
               )}
 
@@ -1235,58 +1240,14 @@ export function ServiceBookingDetailClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={noShowOpen}
-        onOpenChange={(open) => {
-          setNoShowOpen(open);
-          if (!open) {
-            setNoShowNotes("");
-            setNoShowNotesError(null);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Report No-Show</DialogTitle>
-            <DialogDescription>
-              Let us know what happened. We&apos;ll review and take appropriate
-              action.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="noshow-notes">Notes (optional)</Label>
-            <Textarea
-              id="noshow-notes"
-              placeholder="Describe what happened..."
-              value={noShowNotes}
-              aria-invalid={!!noShowNotesError}
-              onChange={(e) => {
-                setNoShowNotes(e.target.value);
-                if (noShowNotesError) setNoShowNotesError(null);
-              }}
-              rows={3}
-            />
-            {noShowNotesError && (
-              <p className="text-destructive text-[0.8rem] font-medium">
-                {noShowNotesError}
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNoShowOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={postNoShow}
-              disabled={pending}
-            >
-              {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Report
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FileDisputeDialog
+        open={disputeOpen}
+        onOpenChange={setDisputeOpen}
+        serviceBookingId={booking.id}
+        serviceFilerRole={isRequester ? "requester" : "provider"}
+        listingName={booking.listing.title}
+        disputePolicyUrl={disputePolicyUrl}
+      />
     </div>
   );
 }

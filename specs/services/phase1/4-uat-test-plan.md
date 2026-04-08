@@ -508,7 +508,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify no Stripe transfer is created for this booking.
 - **Expected results:**
   - Booking skipped by cron; payout window not yet closed.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -615,7 +615,7 @@ SETUP IN STAGING: booking id d404d276-8165-40dd-8dbd-99db2993a0e5
   7. Verify both parties receive a cancellation notification with refund details.
 - **Expected results:**
   - Full refund; both notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -636,7 +636,7 @@ SETUP IN STAGING: booking id b407a37b-d1ba-4ee1-a85c-d53849293a9c
   7. Verify both parties receive a cancellation notification.
 - **Expected results:**
   - 50% refund; both notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -656,7 +656,7 @@ SETUP IN STAGING: booking id 8ba0bf0f-d124-4688-ac30-cc666cafdc7f
   6. Verify both parties receive a cancellation notification.
 - **Expected results:**
   - Full refund on provider-initiated cancellation; both notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -671,7 +671,7 @@ SETUP IN STAGING: booking id 8ba0bf0f-d124-4688-ac30-cc666cafdc7f
   3. Verify the refund amount is displayed on the detail page.
 - **Expected results:**
   - Read-only state; refund amount shown.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -943,7 +943,7 @@ SETUP IN STAGING: booking id 8ba0bf0f-d124-4688-ac30-cc666cafdc7f
   4. Verify the active state is applied to the link on any `/dashboard/services/*` route.
 - **Expected results:**
   - Services nav link present and functional.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 

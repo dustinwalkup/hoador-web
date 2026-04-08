@@ -83,7 +83,7 @@ export class StripeDisputeService {
   ): Promise<FinancialOperationRecord> {
     try {
       // Get payment record from rental
-      const payment = await this.paymentDAL.getByRentalId(dispute.rentalId);
+      const payment = await this.paymentDAL.getByRentalId(dispute.rentalId!);
 
       if (!payment) {
         throw new Error("Payment record not found for rental");
@@ -112,7 +112,7 @@ export class StripeDisputeService {
         amount: Math.round(refundAmount * 100), // Convert to cents
         metadata: {
           disputeId: dispute.id,
-          rentalId: dispute.rentalId,
+          rentalId: dispute.rentalId!,
           operationType: operation.type,
         },
       });
@@ -183,7 +183,7 @@ export class StripeDisputeService {
   ): Promise<FinancialOperationRecord> {
     try {
       // Get payment record to get payment intent ID for reference
-      const payment = await this.paymentDAL.getByRentalId(dispute.rentalId);
+      const payment = await this.paymentDAL.getByRentalId(dispute.rentalId!);
 
       // Create financial operation record with succeeded status
       // Note: Actual hold is enforced by business logic preventing future payouts
@@ -237,7 +237,7 @@ export class StripeDisputeService {
   ): Promise<FinancialOperationRecord> {
     try {
       const lifecycle = await this.paymentLifecycleDAL.getByRentalId(
-        dispute.rentalId,
+        dispute.rentalId!,
       );
 
       if (lifecycle && lifecycle.depositHoldStatus !== "held") {
@@ -253,7 +253,7 @@ export class StripeDisputeService {
       }
 
       const securityDepositAuthId =
-        await this.rentalDAL.getSecurityDepositAuthId(dispute.rentalId);
+        await this.rentalDAL.getSecurityDepositAuthId(dispute.rentalId!);
 
       if (!securityDepositAuthId) {
         throw new Error("Security deposit authorization not found for rental");
@@ -271,7 +271,7 @@ export class StripeDisputeService {
           { idempotencyKey: `deposit-capture-${dispute.id}` },
         );
 
-      await this.paymentLifecycleDAL.markDepositCaptured(dispute.rentalId);
+      await this.paymentLifecycleDAL.markDepositCaptured(dispute.rentalId!);
 
       const financialOperation = await this.disputeDAL.createFinancialOperation(
         {
@@ -324,7 +324,7 @@ export class StripeDisputeService {
   ): Promise<FinancialOperationRecord> {
     try {
       const lifecycle = await this.paymentLifecycleDAL.getByRentalId(
-        dispute.rentalId,
+        dispute.rentalId!,
       );
 
       if (lifecycle && lifecycle.depositHoldStatus !== "held") {
@@ -340,7 +340,7 @@ export class StripeDisputeService {
       }
 
       const securityDepositAuthId =
-        await this.rentalDAL.getSecurityDepositAuthId(dispute.rentalId);
+        await this.rentalDAL.getSecurityDepositAuthId(dispute.rentalId!);
 
       if (!securityDepositAuthId) {
         throw new Error("Security deposit authorization not found for rental");
@@ -351,7 +351,7 @@ export class StripeDisputeService {
       );
 
       await this.paymentLifecycleDAL.updateDepositHoldStatus(
-        dispute.rentalId,
+        dispute.rentalId!,
         "released",
         { depositReleasedAt: new Date() },
       );

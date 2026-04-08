@@ -1,4 +1,10 @@
-import { disputeDAL, auditLogDAL, paymentLifecycleDAL, rentalDAL } from "@/dal";
+import {
+  disputeDAL,
+  auditLogDAL,
+  paymentLifecycleDAL,
+  rentalDAL,
+  servicePaymentLifecycleDAL,
+} from "@/dal";
 import { NotFoundError, ValidationError } from "@/dal/errors";
 import type {
   DisputeResolutionOutcome,
@@ -107,6 +113,22 @@ export class DisputeResolutionService {
       throw new ValidationError(
         "Partial amount is required for partial_provider or partial_renter outcomes",
       );
+    }
+
+    /** Service bookings: no rental deposit; unfreeze provider payout only. */
+    if (dispute.serviceBookingId) {
+      return DisputeResolutionService.resolveServiceBookingDispute({
+        dispute,
+        disputeId,
+        outcome,
+        reason,
+        adminId,
+        partialAmount,
+      });
+    }
+
+    if (!dispute.rentalId) {
+      throw new ValidationError("Dispute has no rental or service booking");
     }
 
     const lifecycle = await paymentLifecycleDAL.getByRentalId(dispute.rentalId);
@@ -232,6 +254,79 @@ export class DisputeResolutionService {
   }
 
   /**
+   * Resolve a service-booking dispute: no rental deposit; unfreeze provider payout.
+   */
+  private static async resolveServiceBookingDispute(args: {
+    dispute: DisputeWithRelations;
+    disputeId: string;
+    outcome: DisputeResolutionOutcome;
+    reason: string;
+    adminId: string;
+    partialAmount?: number;
+  }): Promise<ResolveDisputeResult> {
+    const { dispute, disputeId, outcome, reason, adminId, partialAmount } =
+      args;
+    const bookingId = dispute.serviceBookingId;
+    if (!bookingId) {
+      throw new ValidationError("Missing service booking on dispute");
+    }
+
+    const resolvedDispute = await disputeDAL.resolve(
+      disputeId,
+      outcome,
+      reason,
+      adminId,
+    );
+
+    await servicePaymentLifecycleDAL.unfreezeAfterResolution(bookingId);
+
+    await disputeDAL.createAuditLog({
+      disputeId,
+      actionType: "resolution",
+      userId: adminId,
+      previousState: dispute.status,
+      newState: "resolved",
+      details: {
+        outcome,
+        partialAmount,
+        context: "service_booking",
+      },
+      reason,
+    });
+
+    await auditLogDAL.create({
+      entityType: "dispute",
+      entityId: disputeId,
+      action: "dispute.resolved",
+      userId: adminId,
+      metadata: {
+        previousStatus: dispute.status,
+        newStatus: "resolved",
+        resolutionOutcome: outcome,
+      },
+    });
+
+    try {
+      const disputeWithRelations = await disputeDAL.getById(disputeId);
+      if (disputeWithRelations) {
+        await sendDisputeNotifications(disputeWithRelations, "resolved");
+      }
+    } catch (error) {
+      console.error("Failed to send dispute resolution notifications:", error);
+    }
+
+    await sendOpsAlert({
+      event: "dispute_resolved",
+      serviceBookingId: bookingId,
+      message: `Service dispute resolved: ${outcome}`,
+      metadata: { disputeId, outcome, depositOperationStatus: "skipped" },
+      sendEmailAlert: true,
+    }).catch(() => {});
+
+    return { dispute: resolvedDispute, depositOperationStatus: "skipped" };
+  }
+
+  /**
    * Capture the security deposit (full or partial) with idempotency.
    * Updates lifecycle on success; records failure in dispute_financial_operations.
    */
@@ -241,6 +336,7 @@ export class DisputeResolutionService {
     depositOp: DepositOperation,
     adminId: string,
   ): Promise<"captured" | "failed"> {
+    const rentalId = dispute.rentalId!;
     if (!securityDepositAuthId) {
       await disputeDAL.createFinancialOperation({
         disputeId: dispute.id,
@@ -267,7 +363,7 @@ export class DisputeResolutionService {
           { idempotencyKey: `deposit-capture-${dispute.id}` },
         );
 
-      await paymentLifecycleDAL.markDepositCaptured(dispute.rentalId);
+      await paymentLifecycleDAL.markDepositCaptured(rentalId);
 
       await disputeDAL.createFinancialOperation({
         disputeId: dispute.id,
@@ -306,6 +402,7 @@ export class DisputeResolutionService {
     securityDepositAuthId: string | null,
     adminId: string,
   ): Promise<"released" | "failed"> {
+    const rentalId = dispute.rentalId!;
     if (!securityDepositAuthId) {
       await disputeDAL.createFinancialOperation({
         disputeId: dispute.id,
@@ -321,13 +418,9 @@ export class DisputeResolutionService {
     try {
       await releaseSecurityDeposit(securityDepositAuthId);
 
-      await paymentLifecycleDAL.updateDepositHoldStatus(
-        dispute.rentalId,
-        "released",
-        {
-          depositReleasedAt: new Date(),
-        },
-      );
+      await paymentLifecycleDAL.updateDepositHoldStatus(rentalId, "released", {
+        depositReleasedAt: new Date(),
+      });
 
       await disputeDAL.createFinancialOperation({
         disputeId: dispute.id,

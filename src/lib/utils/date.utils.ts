@@ -19,7 +19,17 @@ type DateFormatPattern = "MMM d" | "PPP";
 /**
  * Valid date input types
  */
-type DateInput = Date | string | number;
+export type DateInput = Date | string | number;
+
+/**
+ * Epoch milliseconds for sorting and equality; supports JSON ISO strings from APIs.
+ *
+ * @param value - Date instance, timestamp number, or ISO string
+ * @returns Milliseconds since Unix epoch
+ */
+export function timeMs(value: DateInput): number {
+  return new Date(value).getTime();
+}
 
 /**
  * Calculate the number of full days between two dates

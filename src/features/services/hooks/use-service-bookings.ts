@@ -168,25 +168,3 @@ export function useCancelServiceBooking(bookingId: string) {
     successMessage: "Booking cancelled.",
   });
 }
-
-/**
- * POST /api/services/bookings/[id]/no-show
- */
-export function useNoShowServiceBooking(bookingId: string) {
-  return useCreateMutation({
-    mutationFn: async (variables?: { notes?: string }) => {
-      const res = await fetch(`/api/services/bookings/${bookingId}/no-show`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(variables ?? {}),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error ?? "Failed to submit report");
-      }
-      return data;
-    },
-    invalidateQueryKeys: [serviceBookingsKeys.all],
-    successMessage: "Report submitted.",
-  });
-}
