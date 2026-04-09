@@ -13,6 +13,7 @@ const authHandler = toNextJsHandler(auth);
 export async function GET(request: NextRequest) {
   const url = request.nextUrl;
   const isE2E =
+    process.env.NODE_ENV !== "production" &&
     process.env.E2E_TEST === "1" &&
     url.pathname === "/api/auth/callback/google" &&
     url.searchParams.get("code") === E2E_GOOGLE_CODE;

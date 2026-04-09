@@ -4,9 +4,29 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
+import { getAuthenticatedUserResponse } from "@/lib/api/route-helpers";
+import { listingDAL } from "@/dal";
 
-async function putHandler(request: NextRequest) {
+async function putHandler(
+  request: NextRequest,
+  { params }: { params: Promise<{ listingId: string }> },
+) {
   try {
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
+    const { listingId } = await params;
+
+    const listing = await listingDAL.getListingById(listingId);
+    if (!listing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    if (listing.owner.id !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { imageIds } = await request.json(); // Array of image IDs in new order
 
     // Update order indexes

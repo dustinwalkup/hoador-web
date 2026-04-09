@@ -5,13 +5,28 @@ import { eq, and } from "drizzle-orm";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
+import { getAuthenticatedUserResponse } from "@/lib/api/route-helpers";
+import { listingDAL } from "@/dal";
 
 async function deleteHandler(
   request: NextRequest,
   { params }: { params: Promise<{ listingId: string; imageId: string }> },
 ) {
   try {
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
     const { listingId, imageId } = await params;
+
+    const listing = await listingDAL.getListingById(listingId);
+    if (!listing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    if (listing.owner.id !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Get image from database
     const [image] = await db

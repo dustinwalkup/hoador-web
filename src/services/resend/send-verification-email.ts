@@ -3,6 +3,7 @@ import {
   EMAIL_LOGO_HTML,
 } from "@/features/notifications/utils/email-logo";
 import { resend, RESEND_FROM_EMAIL, PRIMARY_COLOR } from ".";
+import { escapeHtml } from "@/lib/utils/escape-html";
 
 /**
  * Send email verification email
@@ -47,7 +48,7 @@ export async function sendVerificationEmail({
             ${EMAIL_LOGO_HTML}
             
             <h1 style="color: ${PRIMARY_COLOR}; text-align: center; margin-bottom: 30px;">
-              Welcome to Hoador${firstName ? `, ${firstName}` : ""}!
+              Welcome to Hoador${firstName ? `, ${escapeHtml(firstName)}` : ""}!
             </h1>
             
             <p style="font-size: 16px; margin-bottom: 20px;">

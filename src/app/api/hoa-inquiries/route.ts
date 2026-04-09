@@ -9,6 +9,7 @@ import {
 import { sendEmail } from "@/features/notifications/utils/send-email";
 import { hoaInquirySchema } from "@/features/hoa-inquiries/schema/hoa-inquiry.schema";
 import { formatPhoneNumber } from "@/lib/utils";
+import { escapeHtml } from "@/lib/utils/escape-html";
 
 const NOTIFY_EMAIL =
   process.env.HOA_INQUIRY_NOTIFY_EMAIL ?? "dustin@hoador.com";
@@ -79,13 +80,13 @@ async function postHandler(request: NextRequest) {
         html: `
           <h2>New HOA Community Request</h2>
           <table style="border-collapse:collapse;font-family:Arial,sans-serif;">
-            <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">HOA Name</td><td>${data.hoaName}</td></tr>
-            <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Location</td><td>${data.city}, ${data.state}</td></tr>
-            <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Submitted By</td><td>${data.name} (${data.email})</td></tr>
-            ${formattedPhone ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Phone</td><td>${formattedPhone}</td></tr>` : ""}
-            ${data.hoaContactName ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;">HOA Contact</td><td>${data.hoaContactName}</td></tr>` : ""}
-            ${data.hoaContactEmail ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;">HOA Contact Email</td><td>${data.hoaContactEmail}</td></tr>` : ""}
-            ${formattedHoaContactPhone ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;">HOA Contact Phone</td><td>${formattedHoaContactPhone}</td></tr>` : ""}
+            <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">HOA Name</td><td>${escapeHtml(data.hoaName)}</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Location</td><td>${escapeHtml(data.city)}, ${escapeHtml(data.state)}</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Submitted By</td><td>${escapeHtml(data.name)} (${escapeHtml(data.email)})</td></tr>
+            ${formattedPhone ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Phone</td><td>${escapeHtml(formattedPhone)}</td></tr>` : ""}
+            ${data.hoaContactName ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;">HOA Contact</td><td>${escapeHtml(data.hoaContactName)}</td></tr>` : ""}
+            ${data.hoaContactEmail ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;">HOA Contact Email</td><td>${escapeHtml(data.hoaContactEmail)}</td></tr>` : ""}
+            ${formattedHoaContactPhone ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;">HOA Contact Phone</td><td>${escapeHtml(formattedHoaContactPhone)}</td></tr>` : ""}
           </table>
           <p style="color:#666;font-size:12px;margin-top:16px;">Submitted at ${timestamp}</p>
         `,

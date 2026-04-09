@@ -19,7 +19,7 @@ async function postHandler(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     const internalSecret = process.env.INTERNAL_API_SECRET;
 
-    if (!internalSecret) {
+    if (!internalSecret || internalSecret === "your-internal-api-secret-here") {
       console.error("INTERNAL_API_SECRET not configured");
       return NextResponse.json(
         { error: "Internal API secret not configured" },

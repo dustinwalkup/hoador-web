@@ -12,26 +12,8 @@ import {
 } from "@/features/listings/form-schema/listing.schema";
 import { ListingService } from "@/features/listings/services/listing-service";
 
-/**
- * Simple in-memory rate limiter for image uploads.
- * For multi-instance deployments, replace with Redis-based rate limiting (e.g., @upstash/ratelimit).
- */
-const uploadTimestamps = new Map<string, number[]>();
-const MAX_UPLOADS_PER_MINUTE = 20;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-
-function checkUploadRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const timestamps = uploadTimestamps.get(userId) || [];
-  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  if (recent.length >= MAX_UPLOADS_PER_MINUTE) {
-    uploadTimestamps.set(userId, recent);
-    return false;
-  }
-  recent.push(now);
-  uploadTimestamps.set(userId, recent);
-  return true;
-}
+// TODO: Add distributed rate limiting for image uploads (e.g., @upstash/ratelimit with Redis).
+// An in-memory limiter is ineffective on serverless (Vercel) deployments.
 
 /**
  * POST /api/listings/[listingId]
@@ -45,13 +27,6 @@ async function postHandler(
     const authResult = await getAuthenticatedUserResponse();
     if (authResult instanceof NextResponse) return authResult;
     const { userId } = authResult;
-
-    if (!checkUploadRateLimit(userId)) {
-      return NextResponse.json(
-        { error: "Too many uploads. Please wait a moment and try again." },
-        { status: 429 },
-      );
-    }
 
     const { listingId } = await params;
     if (!listingId || listingId === "") {

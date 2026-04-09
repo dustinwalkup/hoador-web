@@ -7,18 +7,6 @@ const nextConfig: NextConfig = {
       // Vercel Blob
       {
         protocol: "https",
-        hostname: "picsum.photos",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "cdn.jsdelivr.net",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
         hostname: "avatars.githubusercontent.com",
         port: "",
         pathname: "/**",
@@ -66,8 +54,8 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect-js.stripe.com", // Next.js requires unsafe-eval in dev, Stripe Connect
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
-              "img-src 'self' data: https: blob:",
-              "connect-src 'self' https:",
+              "img-src 'self' data: blob: https://hvom5mpictiugrk9.public.blob.vercel-storage.com https://thnd3cwzf3mlmu4a.public.blob.vercel-storage.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://picsum.photos",
+              "connect-src 'self' https://api.stripe.com https://connect-js.stripe.com https://*.sentry.io wss:",
               "frame-src 'self' https://js.stripe.com https://connect-js.stripe.com https://hooks.stripe.com", // Stripe Connect embedded components
               "worker-src 'self' blob:", // Allow service worker
               "manifest-src 'self'",
@@ -91,6 +79,10 @@ const nextConfig: NextConfig = {
           {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
           },
         ],
       },
