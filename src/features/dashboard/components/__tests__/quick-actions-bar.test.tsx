@@ -28,7 +28,7 @@ describe("QuickActionsBar", () => {
     const rentalLink = await screen.findByRole("link", {
       name: /List a rental/i,
     });
-    expect(rentalLink).toHaveAttribute("href", "/dashboard/listings/rentals");
+    expect(rentalLink).toHaveAttribute("href", "/dashboard/listings/add");
 
     const serviceLink = screen.getByRole("link", { name: /Offer a service/i });
     expect(serviceLink).toHaveAttribute(
