@@ -140,6 +140,7 @@ describe("ServicePaymentLifecycleService", () => {
       "completed",
       expect.objectContaining({
         stripeTransferId: "tr_1",
+        transferAmount: 80,
       }),
     );
     expect(mockUpdatePayout).toHaveBeenCalledWith("b1", "completed");

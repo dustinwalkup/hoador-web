@@ -28,6 +28,7 @@ import {
   sendListingPendingAdminNotification,
   sendListingRejectedNotification,
   sendNewBookingRequestNotification,
+  sendNoShowReportAdminNotification,
   sendServicePayoutNotification,
 } from "../service-notifications";
 
@@ -201,5 +202,47 @@ describe("service-notifications (sendNotification delegation)", () => {
     expect(mockSendNotification).toHaveBeenCalledWith(
       expect.objectContaining({ type: "service_listing_pending" }),
     );
+  });
+
+  it("sendNoShowReportAdminNotification uses type system with no-show data", async () => {
+    await sendNoShowReportAdminNotification(
+      {
+        id: "ns-1",
+        bookingId: "book-1",
+        reportedBy: "req-1",
+        notes: null,
+        reportedAt: new Date(),
+      } as never,
+      baseBooking as never,
+    );
+    expect(mockSendNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "system",
+        data: expect.objectContaining({
+          kind: "service_no_show_report",
+          bookingId: "book-1",
+        }),
+      }),
+    );
+  });
+
+  it("sendNoShowReportAdminNotification includes formatted scheduled date", async () => {
+    await sendNoShowReportAdminNotification(
+      {
+        id: "ns-1",
+        bookingId: "book-1",
+        reportedBy: "req-1",
+        notes: null,
+        reportedAt: new Date(),
+      } as never,
+      baseBooking as never,
+    );
+    const payload = mockSendNotification.mock.calls[0][0] as {
+      message: string;
+      email: { html: string; text: string };
+    };
+    expect(payload.message).toContain("April 15, 2026");
+    expect(payload.email.html).toContain("April 15, 2026");
+    expect(payload.email.text).toContain("April 15, 2026");
   });
 });
