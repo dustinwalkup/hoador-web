@@ -165,7 +165,7 @@ export function PreferencesTab() {
               </div>
               <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between md:hidden">
                 <div className="flex min-w-0 gap-2">
-                  <Bell className="text-muted-foreground mt-0.5 size-5 shrink-0" />
+                  <Bell className="text-muted-foreground mt-1.5 size-5 shrink-0" />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1">
                       <p className="font-medium">This device</p>
