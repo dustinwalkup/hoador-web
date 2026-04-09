@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { Bell } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -15,6 +19,7 @@ import {
   useUpdateNotificationPreferences,
 } from "@/features/notifications/hooks/use-notification-preferences";
 import type { NotificationCategory } from "@/features/notifications/lib/notification-type-map";
+import { enablePush } from "@/lib/pwa/enable-push";
 
 const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   bookings: "Bookings",
@@ -27,10 +32,32 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
 export function PreferencesTab() {
   const { data: preferences, isLoading } = useNotificationPreferences();
   const patchMutation = useUpdateNotificationPreferences();
+  const [enablingPush, setEnablingPush] = useState(false);
 
   const updateMaster = (field: "email" | "push", value: boolean) => {
     if (!preferences) return;
     patchMutation.mutate({ master: { [field]: value } });
+  };
+
+  const handleEnablePushOnDevice = async () => {
+    setEnablingPush(true);
+    try {
+      const result = await enablePush();
+      if (result.success) {
+        toast.success("This device is registered for push notifications");
+      } else if (result.reason === "denied") {
+        toast.error("Notifications blocked", {
+          description:
+            "Allow notifications for this site in your browser or system settings, then try again.",
+        });
+      } else {
+        toast.error("Could not enable push", {
+          description: result.message ?? result.reason,
+        });
+      }
+    } finally {
+      setEnablingPush(false);
+    }
   };
 
   const updateCategory = (
@@ -88,6 +115,26 @@ export function PreferencesTab() {
                   onCheckedChange={(v) => updateMaster("push", v)}
                   disabled={patchMutation.isPending}
                 />
+              </div>
+              <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-2">
+                  <Bell className="text-muted-foreground mt-0.5 size-5 shrink-0" />
+                  <div>
+                    <p className="font-medium">This device</p>
+                    <p className="text-muted-foreground text-sm">
+                      Turn the switches on above, then register this browser or
+                      PWA so pushes can reach this device.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleEnablePushOnDevice}
+                  disabled={enablingPush || patchMutation.isPending}
+                >
+                  {enablingPush ? "Enabling…" : "Enable push on this device"}
+                </Button>
               </div>
               <div className="border-t pt-4">
                 <h4 className="mb-3 font-medium">By category</h4>
