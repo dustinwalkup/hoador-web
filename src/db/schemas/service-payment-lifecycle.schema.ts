@@ -44,6 +44,14 @@ export const servicePaymentLifecycle = pgTable(
       .notNull(),
     stripeTransferId: varchar("stripe_transfer_id", { length: 255 }),
     ownerTransferredAt: timestamp("owner_transferred_at"),
+    /**
+     * Actual amount (USD) transferred to the provider Connect account when the transfer completed.
+     * May differ from providerPayout when the booking was cancelled with a partial provider share.
+     */
+    transferAmount: numeric("transfer_amount", {
+      precision: 10,
+      scale: 2,
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

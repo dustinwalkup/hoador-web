@@ -162,7 +162,7 @@ export default async function DashboardPage() {
 
       {/* Quick Actions - has its own internal stagger */}
       <AnimatedSection delay={0.1}>
-        <QuickActionsBar />
+        <QuickActionsBar unreadCount={unreadMessageCount} />
       </AnimatedSection>
 
       {/* Alerts row - full width for schedule when no overdue items */}
@@ -214,14 +214,14 @@ export default async function DashboardPage() {
         <MiniAnalyticsSection analytics={analytics} />
       </AnimatedSection>
 
-      <StaggerGrid className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <StaggerItem>
+      <StaggerGrid className="grid items-stretch gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <StaggerItem className="self-start">
           <TopPerformingToolsWidget listings={topPerformingListings} />
         </StaggerItem>
-        <StaggerItem>
+        <StaggerItem className="self-start">
           <NeighborhoodActivityWidget listings={neighborhoodListings} />
         </StaggerItem>
-        <StaggerItem>
+        <StaggerItem className="flex h-full min-h-0 flex-col">
           <ActiveDisputesWidget
             disputes={activeDisputesList}
             totalCount={activeDisputesCount}

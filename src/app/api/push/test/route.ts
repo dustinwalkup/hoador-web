@@ -6,7 +6,10 @@ import {
   handleApiError,
 } from "@/lib/api/route-helpers";
 import { buildPushPayload } from "@/features/notifications/lib/push-payload";
-import { sendPush } from "@/features/notifications/lib/push-service";
+import {
+  isPushVapidConfigured,
+  sendPush,
+} from "@/features/notifications/lib/push-service";
 import { pushSubscriptionDAL } from "@/dal";
 
 /**
@@ -27,9 +30,17 @@ async function postHandler(): Promise<NextResponse> {
     }
 
     const subscriptions = await pushSubscriptionDAL.getActiveByUserId(userId);
+    const subscriptionCount = subscriptions?.length ?? 0;
+    const vapidConfigured = isPushVapidConfigured();
+
     if (!subscriptions?.length) {
       return NextResponse.json(
-        { sent: false, error: "No active push subscriptions" },
+        {
+          sent: false,
+          error: "No active push subscriptions",
+          subscriptionCount: 0,
+          vapidConfigured,
+        },
         { status: 200 },
       );
     }
@@ -48,6 +59,8 @@ async function postHandler(): Promise<NextResponse> {
     return NextResponse.json({
       sent: true,
       message: "Test notification sent to your device(s)",
+      subscriptionCount,
+      vapidConfigured,
     });
   } catch (error) {
     return handleApiError(error);

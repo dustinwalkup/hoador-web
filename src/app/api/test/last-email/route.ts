@@ -19,7 +19,7 @@ type EmailType = "verification" | "reset";
  *     captured yet (e.g. no verification or reset email has been sent this run).
  */
 export async function GET(request: NextRequest) {
-  if (process.env.E2E_TEST !== "1") {
+  if (process.env.NODE_ENV === "production" || process.env.E2E_TEST !== "1") {
     return new Response(null, { status: 404 });
   }
 

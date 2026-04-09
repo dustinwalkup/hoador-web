@@ -4,7 +4,7 @@ import {
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
-import { disputeDAL, rentalDAL } from "@/dal";
+import { disputeDAL, rentalDAL, serviceBookingDAL } from "@/dal";
 import type { DisputeRole, EvidenceType } from "@/dal/types";
 import { uploadToBlob } from "@/services/vercel-blob";
 import {
@@ -37,28 +37,50 @@ async function postHandler(
       return NextResponse.json({ error: "Dispute not found" }, { status: 404 });
     }
 
-    // Verify user is renter or provider
-    const rental = await rentalDAL.getRentalDetailsById(
-      dispute.rentalId,
-      userId,
-    );
+    let uploadedByRole: DisputeRole;
 
-    if (!rental) {
-      return NextResponse.json({ error: "Rental not found" }, { status: 404 });
-    }
+    if (dispute.serviceBookingId) {
+      const detail = await serviceBookingDAL.getById(dispute.serviceBookingId);
+      if (
+        !detail ||
+        (detail.requesterId !== userId && detail.providerId !== userId)
+      ) {
+        return NextResponse.json(
+          { error: "You can only upload evidence for your own disputes" },
+          { status: 403 },
+        );
+      }
+      uploadedByRole = detail.requesterId === userId ? "requester" : "provider";
+    } else if (dispute.rentalId) {
+      const rental = await rentalDAL.getRentalDetailsById(
+        dispute.rentalId,
+        userId,
+      );
 
-    const isRenter = rental.renterId === userId;
-    const isProvider = rental.ownerId === userId;
+      if (!rental) {
+        return NextResponse.json(
+          { error: "Rental not found" },
+          { status: 404 },
+        );
+      }
 
-    if (!isRenter && !isProvider) {
+      const isRenter = rental.renterId === userId;
+      const isProvider = rental.ownerId === userId;
+
+      if (!isRenter && !isProvider) {
+        return NextResponse.json(
+          { error: "You can only upload evidence for your own disputes" },
+          { status: 403 },
+        );
+      }
+
+      uploadedByRole = isRenter ? "renter" : "owner";
+    } else {
       return NextResponse.json(
-        { error: "You can only upload evidence for your own disputes" },
-        { status: 403 },
+        { error: "Dispute has no linked transaction" },
+        { status: 400 },
       );
     }
-
-    // Determine user role
-    const uploadedByRole: DisputeRole = isRenter ? "renter" : "provider";
 
     // Verify dispute status allows evidence uploads
     if (
@@ -83,6 +105,21 @@ async function postHandler(
           deadline: deadlineCheck.deadline,
         },
         { status: 400 },
+      );
+    }
+
+    // Enforce per-participant evidence upload limit
+    const MAX_EVIDENCE_ITEMS = 10;
+    const existingCount = await disputeDAL.countEvidenceByDisputeAndUser(
+      disputeId,
+      userId,
+    );
+    if (existingCount >= MAX_EVIDENCE_ITEMS) {
+      return NextResponse.json(
+        {
+          error: `Maximum of ${MAX_EVIDENCE_ITEMS} evidence items per participant`,
+        },
+        { status: 422 },
       );
     }
 

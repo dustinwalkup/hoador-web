@@ -128,7 +128,11 @@ export async function proxy(request: NextRequest) {
 
   // E2E: proxy runs in Edge and cannot use E2E DB (Node pg). Let protected routes
   // through so dashboard layout (Node) does auth and status-based redirects.
-  if (process.env.E2E_TEST === "1" && isProtectedRoute(pathname)) {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.E2E_TEST === "1" &&
+    isProtectedRoute(pathname)
+  ) {
     return NextResponse.next();
   }
 

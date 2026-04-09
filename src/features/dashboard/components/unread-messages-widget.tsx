@@ -40,7 +40,7 @@ export function UnreadMessagesWidget({
   if (!hasAny) return null;
 
   return (
-    <Card className="border-l-4 border-l-sky-500">
+    <Card className="border-t-4 border-t-sky-500">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-medium">

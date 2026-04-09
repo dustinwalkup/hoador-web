@@ -1,4 +1,10 @@
-import { disputeDAL, auditLogDAL, paymentLifecycleDAL, rentalDAL } from "@/dal";
+import {
+  disputeDAL,
+  auditLogDAL,
+  paymentLifecycleDAL,
+  rentalDAL,
+  servicePaymentLifecycleDAL,
+} from "@/dal";
 import { NotFoundError, ValidationError } from "@/dal/errors";
 import type {
   DisputeResolutionOutcome,
@@ -109,8 +115,39 @@ export class DisputeResolutionService {
       );
     }
 
+    /** Service bookings: no rental deposit; unfreeze provider payout only. */
+    if (dispute.serviceBookingId) {
+      return DisputeResolutionService.resolveServiceBookingDispute({
+        dispute,
+        disputeId,
+        outcome,
+        reason,
+        adminId,
+        partialAmount,
+      });
+    }
+
+    if (!dispute.rentalId) {
+      throw new ValidationError("Dispute has no rental or service booking");
+    }
+
     const lifecycle = await paymentLifecycleDAL.getByRentalId(dispute.rentalId);
     const depositHoldStatus = lifecycle?.depositHoldStatus ?? "not_applicable";
+
+    if (
+      (outcome === "partial_provider" || outcome === "partial_renter") &&
+      partialAmount != null
+    ) {
+      const maxDeposit = await rentalDAL.getSecurityDepositAmount(
+        dispute.rentalId,
+      );
+      if (maxDeposit != null && partialAmount > maxDeposit) {
+        throw new ValidationError(
+          `Partial amount ($${partialAmount}) exceeds the authorized security deposit ($${maxDeposit})`,
+          "partialAmount",
+        );
+      }
+    }
 
     // --- 2. Determine and execute financial operations ---
     const depositOp = getDepositOperationForOutcome(
@@ -232,6 +269,244 @@ export class DisputeResolutionService {
   }
 
   /**
+   * Resolve a service-booking dispute with outcome-based financial operations.
+   *
+   * | Outcome          | Financial action                                    |
+   * |------------------|-----------------------------------------------------|
+   * | favor_provider   | Unfreeze lifecycle; cron pays out provider          |
+   * | favor_renter     | Full Stripe refund to requester; lifecycle closed   |
+   * | partial_provider | Partial refund to requester; reduce providerPayout  |
+   * | partial_renter   | Same as partial_provider                            |
+   * | dismissed        | Unfreeze lifecycle; cron pays out provider          |
+   */
+  private static async resolveServiceBookingDispute(args: {
+    dispute: DisputeWithRelations;
+    disputeId: string;
+    outcome: DisputeResolutionOutcome;
+    reason: string;
+    adminId: string;
+    partialAmount?: number;
+  }): Promise<ResolveDisputeResult> {
+    const { dispute, disputeId, outcome, reason, adminId, partialAmount } =
+      args;
+    const bookingId = dispute.serviceBookingId;
+    if (!bookingId) {
+      throw new ValidationError("Missing service booking on dispute");
+    }
+
+    const lifecycle =
+      await servicePaymentLifecycleDAL.getByBookingId(bookingId);
+
+    if (
+      (outcome === "partial_provider" || outcome === "partial_renter") &&
+      partialAmount != null &&
+      lifecycle?.providerPayout != null
+    ) {
+      const maxRefund = Number(lifecycle.providerPayout);
+      if (partialAmount > maxRefund) {
+        throw new ValidationError(
+          `Partial refund ($${partialAmount}) exceeds the provider payout ($${maxRefund})`,
+          "partialAmount",
+        );
+      }
+    }
+
+    // --- Financial operations based on outcome ---
+    let refundOperationStatus: "refunded" | "skipped" | "failed" = "skipped";
+
+    // favor_renter = favor the requester for service bookings (shared enum)
+    if (outcome === "favor_renter") {
+      refundOperationStatus =
+        await DisputeResolutionService.executeServiceRefund(
+          dispute,
+          lifecycle?.chargeId ?? null,
+          null, // full refund
+          adminId,
+        );
+
+      if (refundOperationStatus === "failed") {
+        await sendOpsAlert({
+          event: "dispute_financial_op_failed",
+          serviceBookingId: bookingId,
+          message: `Service refund failed during resolution of dispute ${disputeId}`,
+          metadata: { disputeId, outcome },
+          sendEmailAlert: true,
+        }).catch(() => {});
+
+        throw new ValidationError(
+          "Refund operation failed — dispute not resolved. Ops has been notified.",
+        );
+      }
+
+      await servicePaymentLifecycleDAL.markRefundedAfterDispute(bookingId);
+    } else if (outcome === "partial_provider" || outcome === "partial_renter") {
+      // partialAmount is the amount to refund to the requester (in dollars)
+      const refundAmountDollars = partialAmount ?? 0;
+
+      refundOperationStatus =
+        await DisputeResolutionService.executeServiceRefund(
+          dispute,
+          lifecycle?.chargeId ?? null,
+          refundAmountDollars,
+          adminId,
+        );
+
+      if (refundOperationStatus === "failed") {
+        await sendOpsAlert({
+          event: "dispute_financial_op_failed",
+          serviceBookingId: bookingId,
+          message: `Partial service refund failed during resolution of dispute ${disputeId}`,
+          metadata: { disputeId, outcome, refundAmountDollars },
+          sendEmailAlert: true,
+        }).catch(() => {});
+
+        throw new ValidationError(
+          "Partial refund operation failed — dispute not resolved. Ops has been notified.",
+        );
+      }
+
+      // Reduce provider payout by the refunded amount
+      const currentPayout = Number(lifecycle?.providerPayout ?? 0);
+      const newProviderPayout = Math.max(
+        0,
+        currentPayout - refundAmountDollars,
+      );
+      await servicePaymentLifecycleDAL.updateProviderPayout(
+        bookingId,
+        newProviderPayout,
+      );
+      await servicePaymentLifecycleDAL.unfreezeAfterResolution(bookingId);
+    } else {
+      // favor_provider or dismissed — provider receives full payout
+      await servicePaymentLifecycleDAL.unfreezeAfterResolution(bookingId);
+    }
+
+    const resolvedDispute = await disputeDAL.resolve(
+      disputeId,
+      outcome,
+      reason,
+      adminId,
+    );
+
+    await disputeDAL.createAuditLog({
+      disputeId,
+      actionType: "resolution",
+      userId: adminId,
+      previousState: dispute.status,
+      newState: "resolved",
+      details: {
+        outcome,
+        partialAmount,
+        refundOperationStatus,
+        context: "service_booking",
+      },
+      reason,
+    });
+
+    await auditLogDAL.create({
+      entityType: "dispute",
+      entityId: disputeId,
+      action: "dispute.resolved",
+      userId: adminId,
+      metadata: {
+        previousStatus: dispute.status,
+        newStatus: "resolved",
+        resolutionOutcome: outcome,
+        refundOperationStatus,
+      },
+    });
+
+    try {
+      const disputeWithRelations = await disputeDAL.getById(disputeId);
+      if (disputeWithRelations) {
+        await sendDisputeNotifications(disputeWithRelations, "resolved");
+      }
+    } catch (error) {
+      console.error("Failed to send dispute resolution notifications:", error);
+    }
+
+    await sendOpsAlert({
+      event: "dispute_resolved",
+      serviceBookingId: bookingId,
+      message: `Service dispute resolved: ${outcome}`,
+      metadata: { disputeId, outcome, refundOperationStatus },
+      sendEmailAlert: true,
+    }).catch(() => {});
+
+    return { dispute: resolvedDispute, depositOperationStatus: "skipped" };
+  }
+
+  /**
+   * Issue a Stripe refund for a service booking charge.
+   * @param chargeId Stripe charge ID from the service payment lifecycle
+   * @param refundAmountDollars Dollars to refund; null = full refund
+   */
+  private static async executeServiceRefund(
+    dispute: DisputeWithRelations,
+    chargeId: string | null,
+    refundAmountDollars: number | null,
+    adminId: string,
+  ): Promise<"refunded" | "failed"> {
+    const operationType =
+      refundAmountDollars !== null ? "refund_partial" : "refund_full";
+
+    if (!chargeId) {
+      await disputeDAL.createFinancialOperation({
+        disputeId: dispute.id,
+        operationType,
+        status: "failed",
+        errorMessage: "No Stripe charge ID on service payment lifecycle",
+        performedBy: adminId,
+      });
+      return "failed";
+    }
+
+    try {
+      const refundParams: { charge: string; amount?: number } = {
+        charge: chargeId,
+      };
+      if (refundAmountDollars !== null) {
+        refundParams.amount = Math.round(refundAmountDollars * 100);
+      }
+
+      const refund = await PAYMENT_SERVER_INSTANCE.refunds.create(
+        refundParams,
+        {
+          idempotencyKey: `service-refund-${dispute.id}${refundAmountDollars !== null ? `-partial` : ""}`,
+        },
+      );
+
+      await disputeDAL.createFinancialOperation({
+        disputeId: dispute.id,
+        operationType,
+        amount:
+          refundAmountDollars !== null
+            ? refundAmountDollars.toString()
+            : undefined,
+        stripeOperationId: refund.id,
+        status: "succeeded",
+        performedBy: adminId,
+      });
+
+      return "refunded";
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error("Service booking refund failed:", error);
+
+      await disputeDAL.createFinancialOperation({
+        disputeId: dispute.id,
+        operationType,
+        status: "failed",
+        errorMessage,
+        performedBy: adminId,
+      });
+
+      return "failed";
+    }
+  }
+
+  /**
    * Capture the security deposit (full or partial) with idempotency.
    * Updates lifecycle on success; records failure in dispute_financial_operations.
    */
@@ -241,6 +516,7 @@ export class DisputeResolutionService {
     depositOp: DepositOperation,
     adminId: string,
   ): Promise<"captured" | "failed"> {
+    const rentalId = dispute.rentalId!;
     if (!securityDepositAuthId) {
       await disputeDAL.createFinancialOperation({
         disputeId: dispute.id,
@@ -267,7 +543,7 @@ export class DisputeResolutionService {
           { idempotencyKey: `deposit-capture-${dispute.id}` },
         );
 
-      await paymentLifecycleDAL.markDepositCaptured(dispute.rentalId);
+      await paymentLifecycleDAL.markDepositCaptured(rentalId);
 
       await disputeDAL.createFinancialOperation({
         disputeId: dispute.id,
@@ -306,6 +582,7 @@ export class DisputeResolutionService {
     securityDepositAuthId: string | null,
     adminId: string,
   ): Promise<"released" | "failed"> {
+    const rentalId = dispute.rentalId!;
     if (!securityDepositAuthId) {
       await disputeDAL.createFinancialOperation({
         disputeId: dispute.id,
@@ -321,13 +598,9 @@ export class DisputeResolutionService {
     try {
       await releaseSecurityDeposit(securityDepositAuthId);
 
-      await paymentLifecycleDAL.updateDepositHoldStatus(
-        dispute.rentalId,
-        "released",
-        {
-          depositReleasedAt: new Date(),
-        },
-      );
+      await paymentLifecycleDAL.updateDepositHoldStatus(rentalId, "released", {
+        depositReleasedAt: new Date(),
+      });
 
       await disputeDAL.createFinancialOperation({
         disputeId: dispute.id,

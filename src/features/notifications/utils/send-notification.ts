@@ -1,5 +1,6 @@
 import { tryCatch } from "@walkup/walkup-utils";
 import { notificationsDAL } from "@/dal";
+import { getLogger } from "@/lib/logger";
 import { sendEmail } from "./send-email";
 import type { notifications } from "@/db/schemas/notifications.schema";
 import {
@@ -11,6 +12,8 @@ import { buildPushPayload } from "../lib/push-payload";
 import { sendPush } from "../lib/push-service";
 
 type NotificationType = (typeof notifications.type.enumValues)[number];
+
+const LOG_PUSH_DEBUG = process.env.LOG_PUSH_DEBUG === "true";
 
 interface SendNotificationOptions {
   userId: string;
@@ -105,8 +108,22 @@ export async function sendNotification({
 
   // Push: fire-and-forget after in-app notification is created (unless disabled)
   if (sendPushOption) {
-    shouldSendPush(userId, category).then((allowPush) => {
-      if (allowPush) {
+    shouldSendPush(userId, category)
+      .then((allowPush) => {
+        if (!allowPush) {
+          if (LOG_PUSH_DEBUG) {
+            getLogger({ userId }).info(
+              {
+                event: "push_skipped_preferences",
+                userId,
+                notificationType: type,
+                category,
+              },
+              "Push skipped: user or category preferences disallow push",
+            );
+          }
+          return;
+        }
         const payload = buildPushPayload(
           title,
           message,
@@ -115,10 +132,30 @@ export async function sendNotification({
           data,
         );
         sendPush(userId, payload).catch((err) => {
-          console.error("[sendNotification] push send failed:", err);
+          getLogger({ userId }).error(
+            {
+              err,
+              event: "push_send_failed",
+              userId,
+              notificationType: type,
+              category,
+            },
+            "[sendNotification] push send failed",
+          );
         });
-      }
-    });
+      })
+      .catch((err) => {
+        getLogger({ userId }).error(
+          {
+            err,
+            event: "shouldSendPush_failed",
+            userId,
+            notificationType: type,
+            category,
+          },
+          "shouldSendPush threw or rejected",
+        );
+      });
   }
 
   // TODO: Send SMS if provided (Twilio integration)

@@ -6,7 +6,6 @@ import type {
   ServiceBooking,
   ServiceListing,
 } from "@/db/schemas/services.schema";
-import type { ServiceNoShowReport } from "@/db/schemas/service-no-show-reports.schema";
 
 function appBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
@@ -487,6 +486,15 @@ export async function sendListingPendingAdminNotification(
   );
 }
 
+/** Shape of a no-show report row for admin notification emails. */
+export type ServiceNoShowReport = {
+  id: string;
+  bookingId: string;
+  reportedBy: string;
+  notes: string | null;
+  reportedAt: Date;
+};
+
 /**
  * Notify staff that a no-show was reported on a booking.
  */
@@ -505,10 +513,11 @@ export async function sendNoShowReportAdminNotification(
     staff.map((admin) =>
       sendNotification({
         userId: admin.id,
-        type: "service_no_show_reported",
+        type: "system",
         title: "No-show reported",
         message: `No-show reported for "${listingName}" (booking ${booking.id}). Scheduled: ${when} at ${booking.proposedTime}.`,
         data: {
+          kind: "service_no_show_report",
           reportId: report.id,
           bookingId: booking.id,
           listingId: booking.listingId,

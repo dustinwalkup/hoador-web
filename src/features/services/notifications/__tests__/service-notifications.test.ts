@@ -204,7 +204,7 @@ describe("service-notifications (sendNotification delegation)", () => {
     );
   });
 
-  it("sendNoShowReportAdminNotification uses type service_no_show_reported", async () => {
+  it("sendNoShowReportAdminNotification uses type system with no-show data", async () => {
     await sendNoShowReportAdminNotification(
       {
         id: "ns-1",
@@ -216,7 +216,13 @@ describe("service-notifications (sendNotification delegation)", () => {
       baseBooking as never,
     );
     expect(mockSendNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "service_no_show_reported" }),
+      expect.objectContaining({
+        type: "system",
+        data: expect.objectContaining({
+          kind: "service_no_show_report",
+          bookingId: "book-1",
+        }),
+      }),
     );
   });
 

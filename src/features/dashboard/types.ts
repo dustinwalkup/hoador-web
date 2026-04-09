@@ -47,12 +47,20 @@ export interface ActivityFeedItem {
   icon?: string;
 }
 
+/** User role for an upcoming schedule row (rentals vs services). */
+export type ScheduleEntryRole = "renter" | "owner" | "client" | "provider";
+
 /** Upcoming schedule entry for UpcomingScheduleWidget. */
 export interface ScheduleEntry {
+  /** Stable key (rental id + event kind + role, or service booking id). */
+  id: string;
   date: Date;
   description: string;
+  /** Tool name (rental) or service listing title; shown under the main line. */
+  subtitle?: string;
   linkTo?: string;
-  type: "return" | "pickup" | "other";
+  type: "return" | "pickup" | "service";
+  role: ScheduleEntryRole;
 }
 
 /** Top performing listing for TopPerformingToolsWidget. */

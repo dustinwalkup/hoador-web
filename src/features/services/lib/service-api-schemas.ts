@@ -56,11 +56,6 @@ export const cancelServiceBookingSchema = z.object({
   reason: z.string().max(1000).optional(),
 });
 
-/** POST /api/services/bookings/[id]/no-show */
-export const noShowServiceBookingSchema = z.object({
-  notes: z.string().max(2000).optional(),
-});
-
 /** POST /api/services/bookings/[id]/reviews */
 export const submitServiceReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),

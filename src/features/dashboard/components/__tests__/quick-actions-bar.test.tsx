@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { QuickActionsBar } from "../quick-actions-bar";
 
@@ -10,27 +11,44 @@ vi.mock("next/link", () => ({
 }));
 
 describe("QuickActionsBar", () => {
-  it("should render at least List something, Browse listings, Messages", () => {
+  it("should render List, Browse controls and Messages link", () => {
     render(<QuickActionsBar />);
+    expect(screen.getByRole("button", { name: /^List$/i })).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /List something/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /Browse listings/i }),
+      screen.getByRole("button", { name: /^Browse$/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Messages/i })).toBeInTheDocument();
   });
 
-  it("should point List something to listings/rentals", () => {
+  it("should point List dialog options to rental listings and service creation", async () => {
+    const user = userEvent.setup();
     render(<QuickActionsBar />);
-    const link = screen.getByRole("link", { name: /List something/i });
-    expect(link).toHaveAttribute("href", "/dashboard/listings/rentals");
+    await user.click(screen.getByRole("button", { name: /^List$/i }));
+
+    const rentalLink = await screen.findByRole("link", {
+      name: /List a rental/i,
+    });
+    expect(rentalLink).toHaveAttribute("href", "/dashboard/listings/add");
+
+    const serviceLink = screen.getByRole("link", { name: /Offer a service/i });
+    expect(serviceLink).toHaveAttribute(
+      "href",
+      "/dashboard/services/listings/create",
+    );
   });
 
-  it("should point Browse listings to explore", () => {
+  it("should point Browse popover options to explore and services", async () => {
+    const user = userEvent.setup();
     render(<QuickActionsBar />);
-    const link = screen.getByRole("link", { name: /Browse listings/i });
-    expect(link).toHaveAttribute("href", "/dashboard/explore");
+    await user.click(screen.getByRole("button", { name: /^Browse$/i }));
+
+    const rentalsLink = await screen.findByRole("link", {
+      name: /Browse rentals/i,
+    });
+    expect(rentalsLink).toHaveAttribute("href", "/dashboard/explore");
+
+    const servicesLink = screen.getByRole("link", { name: /Browse services/i });
+    expect(servicesLink).toHaveAttribute("href", "/dashboard/services");
   });
 
   it("should point Messages to mailbox", () => {
@@ -45,15 +63,8 @@ describe("QuickActionsBar", () => {
     expect(nav).toBeInTheDocument();
   });
 
-  it("should render Rentals and Profile links", () => {
-    render(<QuickActionsBar />);
-    expect(screen.getByRole("link", { name: /Rentals/i })).toHaveAttribute(
-      "href",
-      "/dashboard/rentals/outgoing/requests",
-    );
-    expect(screen.getByRole("link", { name: /Profile/i })).toHaveAttribute(
-      "href",
-      "/dashboard/profile",
-    );
+  it("should show unread badge on Messages when unreadCount is positive", () => {
+    render(<QuickActionsBar unreadCount={3} />);
+    expect(screen.getByLabelText(/3 unread messages/i)).toBeInTheDocument();
   });
 });

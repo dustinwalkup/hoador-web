@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
  *   removeProvider  - provider id to remove (e.g. "google")
  */
 export async function POST(request: NextRequest) {
-  if (process.env.E2E_TEST !== "1") {
+  if (process.env.NODE_ENV === "production" || process.env.E2E_TEST !== "1") {
     return new Response(null, { status: 404 });
   }
 

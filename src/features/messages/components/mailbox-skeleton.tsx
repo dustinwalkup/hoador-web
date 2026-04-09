@@ -18,7 +18,7 @@ export function MailboxSkeleton() {
           </div>
 
           {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="scrollbar-hover-reveal flex-1 overflow-y-auto">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
@@ -56,7 +56,7 @@ export function MailboxSkeleton() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <div className="scrollbar-hover-reveal flex-1 space-y-4 overflow-y-auto p-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
@@ -101,7 +101,7 @@ export function MailboxSkeleton() {
           </div>
 
           {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="scrollbar-hover-reveal flex-1 overflow-y-auto">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}

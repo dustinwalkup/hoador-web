@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
+import { isSentryEnabled } from "@/lib/sentry/is-sentry-enabled";
 import {
   Card,
   CardContent,
@@ -20,6 +23,18 @@ interface PaymentsPageErrorProps {
  * Displays user-friendly error message with retry option
  */
 export function PaymentsPageError({ error, onRetry }: PaymentsPageErrorProps) {
+  useEffect(() => {
+    if (isSentryEnabled) {
+      Sentry.captureException(new Error(error), {
+        tags: {
+          error_type: "feature_error",
+          route: "dashboard/payments",
+          component: "PaymentsPageError",
+        },
+      });
+    }
+  }, [error]);
+
   const handleRetry = () => {
     if (onRetry) {
       onRetry();

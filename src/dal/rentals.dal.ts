@@ -54,6 +54,8 @@ export interface BorrowedListing {
   listingImageUrl: string | null;
   ownerId: string;
   ownerName: string;
+  /** Whether the renter requested owner delivery (affects schedule copy). */
+  deliveryRequested: boolean;
   startDate: Date;
   endDate: Date;
   totalAmount: string;
@@ -387,6 +389,7 @@ export class RentalDAL extends BaseDAL {
           listingName: listings.name,
           ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+          deliveryRequested: rentalRequests.deliveryRequested,
           startDate: rentalRequests.startDate,
           endDate: rentalRequests.endDate,
           totalAmount: rentalRequests.totalAmount,
@@ -2494,6 +2497,27 @@ export class RentalDAL extends BaseDAL {
       return rental?.securityDepositAuthId || null;
     } catch (error) {
       this.handleError(error, "getSecurityDepositAuthId");
+    }
+  }
+
+  /**
+   * Get the authorized security deposit amount (in dollars) for a rental.
+   * Used to validate that partial capture amounts don't exceed the hold.
+   */
+  async getSecurityDepositAmount(rentalId: string): Promise<number | null> {
+    try {
+      const [row] = await this.db
+        .select({
+          securityDeposit: rentalRequests.securityDeposit,
+        })
+        .from(rentals)
+        .innerJoin(rentalRequests, eq(rentals.requestId, rentalRequests.id))
+        .where(eq(rentals.id, rentalId))
+        .limit(1);
+
+      return row?.securityDeposit != null ? Number(row.securityDeposit) : null;
+    } catch (error) {
+      this.handleError(error, "getSecurityDepositAmount");
     }
   }
 

@@ -41,6 +41,18 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ServiceListing } from "@/db/schemas/services.schema";
 import { AlertTriangle, DollarSign, Package } from "lucide-react";
 
+/** Map known category names to emojis. Falls back to 💼 for unknown names. */
+const CATEGORY_ICONS: Record<string, string> = {
+  "Lawn & Yard": "🌿",
+  Cleaning: "🧹",
+  Handyman: "🔧",
+  "Pet Care": "🐾",
+  Childcare: "👶",
+  "Moving Help": "📦",
+  Tutoring: "📚",
+  Errands: "🛒",
+};
+
 interface CategoryOption {
   id: string;
   name: string;
@@ -252,7 +264,12 @@ export function ServiceListingForm({
                       <SelectContent>
                         {categories.map((category) => (
                           <SelectItem key={category.id} value={category.id}>
-                            {category.name}
+                            <span className="flex items-center gap-2">
+                              <span>
+                                {CATEGORY_ICONS[category.name] ?? "💼"}
+                              </span>
+                              <span>{category.name}</span>
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>

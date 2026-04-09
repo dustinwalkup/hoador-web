@@ -32,6 +32,7 @@ import { useDispute } from "../hooks/use-dispute";
 import { validateImageFile } from "@/lib/image/image.utils";
 import { cn } from "@/lib/utils";
 import type { DisputeStatus } from "@/dal/types";
+import { formatDisputeParticipantRole } from "@/features/disputes/lib/dispute-role-label";
 
 interface EvidenceUploadProps {
   disputeId: string;
@@ -106,9 +107,11 @@ export function EvidenceUpload({
     });
   };
 
-  const getRoleLabel = (role: string) => {
-    return role === "renter" ? "Renter" : "Provider";
-  };
+  const getRoleLabel = (role: string) =>
+    formatDisputeParticipantRole(role, {
+      rentalId: dispute?.rentalId,
+      serviceBookingId: dispute?.serviceBookingId,
+    });
 
   // Handle file selection
   const handleFileSelect = useCallback(

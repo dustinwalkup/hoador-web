@@ -1,9 +1,293 @@
 import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
-import { rentalDAL, userDAL } from "@/dal";
+import { rentalDAL, serviceBookingDAL, userDAL } from "@/dal";
 import type { DisputeWithRelations } from "@/dal/types";
 
 type DisputeEventType = "created" | "evidence_requested" | "resolved";
+
+/**
+ * Notify all active admin/superadmin users that a new dispute was filed.
+ * Fire-and-forget — call with .catch() at the call site.
+ */
+async function sendAdminDisputeCreatedNotification(
+  dispute: DisputeWithRelations,
+  listingName: string,
+  entityType: "rental" | "service_booking",
+): Promise<void> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
+  const linkUrl = `${baseUrl}/admin/dashboard/disputes/review`;
+  const staff = await userDAL.getStaffNotificationRecipients();
+  const reasonLabel = formatReasonCode(dispute.reasonCode);
+
+  await Promise.all(
+    staff.map((admin) =>
+      sendNotification({
+        userId: admin.id,
+        type: "admin_dispute_created",
+        title: "New dispute filed",
+        message: `Dispute filed for "${listingName}": ${reasonLabel}`,
+        data: {
+          disputeId: dispute.id,
+          ...(dispute.rentalId ? { rentalId: dispute.rentalId } : {}),
+          ...(dispute.serviceBookingId
+            ? { serviceBookingId: dispute.serviceBookingId }
+            : {}),
+          reasonCode: dispute.reasonCode ?? "",
+          entityType,
+        },
+        linkUrl,
+        email: {
+          to: admin.email,
+          subject: `New dispute: ${reasonLabel} — ${listingName}`,
+          html: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+${EMAIL_LOGO_HTML}
+<div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 14px; margin-bottom: 22px; border-radius: 4px;">
+  <h2 style="color: #92400e; margin-top: 0;">New Dispute Filed</h2>
+</div>
+<h1 style="color: #333; margin-bottom: 12px; font-size: 22px;">Hi ${admin.firstName ?? "there"},</h1>
+<p style="font-size: 16px; margin-bottom: 14px;">A new dispute was filed for <strong>${listingName}</strong>.</p>
+<p style="font-size: 16px; margin-bottom: 14px;"><strong>Reason:</strong> ${reasonLabel}</p>
+<p style="font-size: 16px; margin-bottom: 14px;"><strong>Description:</strong> ${dispute.description}</p>
+<div style="text-align: center; margin: 28px 0;"><a href="${linkUrl}" style="background-color: #2563eb; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Review dispute</a></div>
+<p style="font-size: 12px; color: #94a3b8; margin-top: 28px; border-top: 1px solid #e2e8f0; padding-top: 16px;">The Hoador Team</p>
+</body>
+</html>`,
+          text: [
+            `New dispute filed for ${listingName}.`,
+            `Reason: ${reasonLabel}`,
+            `Description: ${dispute.description}`,
+            "",
+            linkUrl,
+          ].join("\n"),
+        },
+      }).catch((err) =>
+        console.error(
+          `Failed to send admin dispute notification for ${admin.id}:`,
+          err,
+        ),
+      ),
+    ),
+  );
+}
+
+/**
+ * Format dispute reason code for display
+ */
+function formatReasonCode(reasonCode: string | null | undefined): string {
+  if (!reasonCode) {
+    return "Unknown";
+  }
+
+  const reasonMap: Record<string, string> = {
+    damage: "Damage to Item",
+    non_delivery: "Non-Delivery",
+    quality_issue: "Quality Issue",
+    cancellation: "Cancellation",
+    payment_issue: "Payment Issue",
+    renter_no_show: "Renter No-Show",
+    owner_no_show: "Owner No-Show",
+    requester_no_show: "Client No-Show",
+    provider_no_show: "Provider No-Show",
+    other: "Other",
+  };
+
+  return reasonMap[reasonCode] || reasonCode;
+}
+
+/**
+ * Notifications for service-booking disputes (separate from rental flow).
+ */
+async function sendServiceBookingDisputeNotifications(
+  dispute: DisputeWithRelations,
+  eventType: DisputeEventType,
+): Promise<void> {
+  if (!dispute.serviceBookingId) {
+    return;
+  }
+
+  const detail = dispute.serviceBooking
+    ? {
+        requesterId: dispute.serviceBooking.requesterId,
+        providerId: dispute.serviceBooking.providerId,
+        listingTitle: dispute.serviceBooking.listing?.title ?? "Service",
+      }
+    : await (async () => {
+        const row = await serviceBookingDAL.getById(dispute.serviceBookingId!);
+        if (!row) {
+          console.error(
+            `Service booking ${dispute.serviceBookingId} not found for dispute ${dispute.id}`,
+          );
+          return null;
+        }
+        return {
+          requesterId: row.requesterId,
+          providerId: row.providerId,
+          listingTitle: row.listing.title,
+        };
+      })();
+
+  if (!detail) {
+    return;
+  }
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
+  const linkUrl = `${baseUrl}/dashboard/disputes/${dispute.id}`;
+
+  const requesterUser = await userDAL.getUserById(detail.requesterId);
+  const providerUser = await userDAL.getUserById(detail.providerId);
+  if (!requesterUser || !providerUser) {
+    console.error(
+      `Users not found for service dispute ${dispute.id}: requester=${detail.requesterId} provider=${detail.providerId}`,
+    );
+    return;
+  }
+
+  const createdByName = dispute.createdByUser
+    ? `${dispute.createdByUser.firstName} ${dispute.createdByUser.lastName}`
+    : "Unknown User";
+
+  if (eventType === "created") {
+    const notifyUserId =
+      dispute.createdByRole === "requester"
+        ? detail.providerId
+        : detail.requesterId;
+    const notifyUser =
+      dispute.createdByRole === "requester" ? providerUser : requesterUser;
+    const notifyName =
+      dispute.createdByRole === "requester"
+        ? `${providerUser.firstName ?? ""} ${providerUser.lastName ?? ""}`.trim()
+        : `${requesterUser.firstName ?? ""} ${requesterUser.lastName ?? ""}`.trim();
+
+    await sendNotification({
+      userId: notifyUserId,
+      type: "dispute_created",
+      title: "New Dispute Filed",
+      message: `${createdByName} has filed a dispute for ${detail.listingTitle}`,
+      data: {
+        disputeId: dispute.id,
+        serviceBookingId: dispute.serviceBookingId,
+        reasonCode: dispute.reasonCode,
+        createdByRole: dispute.createdByRole,
+        listingName: detail.listingTitle,
+      },
+      linkUrl,
+      email: {
+        to: notifyUser.email,
+        subject: `Dispute Filed for ${detail.listingTitle}`,
+        html: `
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Dispute Filed</title>
+                </head>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                  ${EMAIL_LOGO_HTML}
+                  <h1 style="color: #333;">Hi ${notifyName},</h1>
+                  <p>${createdByName} has filed a dispute regarding the service <strong>${detail.listingTitle}</strong>.</p>
+                  <p><strong>Reason:</strong> ${formatReasonCode(dispute.reasonCode)}</p>
+                  <p><strong>Description:</strong> ${dispute.description}</p>
+                  <p><a href="${linkUrl}">View Dispute</a></p>
+                  <p style="font-size: 12px; color: #999;">The Hoador Team</p>
+                </body>
+              </html>
+            `,
+        text: `Hi ${notifyName},\n\n${createdByName} filed a dispute for ${detail.listingTitle}.\nReason: ${formatReasonCode(dispute.reasonCode)}\n\nView: ${linkUrl}`,
+      },
+    }).catch((err) => {
+      console.error(
+        `Failed to send service dispute created notification:`,
+        err,
+      );
+    });
+
+    sendAdminDisputeCreatedNotification(
+      dispute,
+      detail.listingTitle,
+      "service_booking",
+    ).catch((err) =>
+      console.error(
+        `Failed to send admin dispute notification for dispute ${dispute.id}:`,
+        err,
+      ),
+    );
+    return;
+  }
+
+  if (eventType === "evidence_requested") {
+    const deadlineDate = dispute.evidenceDeadline
+      ? new Date(dispute.evidenceDeadline).toLocaleDateString()
+      : "N/A";
+
+    for (const u of [
+      { id: detail.requesterId, user: requesterUser },
+      { id: detail.providerId, user: providerUser },
+    ]) {
+      await sendNotification({
+        userId: u.id,
+        type: "dispute_evidence_requested",
+        title: "Evidence Requested for Dispute",
+        message: `Please submit evidence for the dispute regarding ${detail.listingTitle} by ${deadlineDate}`,
+        data: {
+          disputeId: dispute.id,
+          serviceBookingId: dispute.serviceBookingId,
+          evidenceDeadline: dispute.evidenceDeadline?.toISOString() ?? null,
+          listingName: detail.listingTitle,
+        },
+        linkUrl,
+        email: {
+          to: u.user.email,
+          subject: `Evidence Requested: ${detail.listingTitle}`,
+          html: `<p>Evidence requested for dispute. Deadline: ${deadlineDate}. <a href="${linkUrl}">View</a></p>`,
+          text: `Evidence requested. Deadline ${deadlineDate}. ${linkUrl}`,
+        },
+      }).catch(() => {
+        /* non-critical */
+      });
+    }
+    return;
+  }
+
+  if (eventType === "resolved") {
+    const outcomeText = formatResolutionOutcome(dispute.resolutionOutcome);
+    const title =
+      dispute.resolutionOutcome === "dismissed"
+        ? "Dispute Dismissed"
+        : "Dispute Resolved";
+
+    for (const u of [
+      { id: detail.requesterId, user: requesterUser },
+      { id: detail.providerId, user: providerUser },
+    ]) {
+      await sendNotification({
+        userId: u.id,
+        type: "dispute_resolved",
+        title,
+        message: `The dispute for ${detail.listingTitle} has been resolved: ${outcomeText}`,
+        data: {
+          disputeId: dispute.id,
+          serviceBookingId: dispute.serviceBookingId,
+          resolutionOutcome: dispute.resolutionOutcome,
+        },
+        linkUrl,
+        email: {
+          to: u.user.email,
+          subject: `${title}: ${detail.listingTitle}`,
+          html: `<p>Your dispute has been resolved: <strong>${outcomeText}</strong>. <a href="${linkUrl}">View details</a></p>`,
+          text: `Dispute resolved: ${outcomeText}. ${linkUrl}`,
+        },
+      }).catch(() => {
+        /* non-critical */
+      });
+    }
+  }
+}
 
 /**
  * Send dispute notifications to relevant parties
@@ -14,6 +298,16 @@ export async function sendDisputeNotifications(
   eventType: DisputeEventType,
 ): Promise<void> {
   try {
+    if (dispute.serviceBookingId) {
+      await sendServiceBookingDisputeNotifications(dispute, eventType);
+      return;
+    }
+
+    if (!dispute.rentalId) {
+      console.error(`Dispute ${dispute.id} has no rental or service booking`);
+      return;
+    }
+
     // Get rental details to access renter and owner information
     const rental = await rentalDAL.getRentalDetailsById(
       dispute.rentalId,
@@ -161,6 +455,17 @@ The Hoador Team
             err,
           );
         });
+
+        sendAdminDisputeCreatedNotification(
+          dispute,
+          rental.listingName,
+          "rental",
+        ).catch((err) =>
+          console.error(
+            `Failed to send admin dispute notification for dispute ${dispute.id}:`,
+            err,
+          ),
+        );
 
         break;
       }
@@ -387,12 +692,16 @@ The Hoador Team
         const resolvedByName = dispute.resolvedByUser
           ? `${dispute.resolvedByUser.firstName} ${dispute.resolvedByUser.lastName}`
           : "Hoador Support";
+        const resolvedTitle =
+          dispute.resolutionOutcome === "dismissed"
+            ? "Dispute Dismissed"
+            : "Dispute Resolved";
 
         // Notify renter
         await sendNotification({
           userId: rental.renterId,
           type: "dispute_resolved",
-          title: "Dispute Resolved",
+          title: resolvedTitle,
           message: `The dispute for ${rental.listingName} has been resolved: ${outcomeText}`,
           data: {
             disputeId: dispute.id,
@@ -481,7 +790,7 @@ The Hoador Team
         await sendNotification({
           userId: rental.ownerId,
           type: "dispute_resolved",
-          title: "Dispute Resolved",
+          title: resolvedTitle,
           message: `The dispute for ${rental.listingName} has been resolved: ${outcomeText}`,
           data: {
             disputeId: dispute.id,
@@ -579,35 +888,17 @@ The Hoador Team
 }
 
 /**
- * Format dispute reason code for display
- */
-function formatReasonCode(reasonCode: string | null | undefined): string {
-  if (!reasonCode) return "Unknown";
-
-  const reasonMap: Record<string, string> = {
-    damage: "Damage to Item",
-    non_delivery: "Non-Delivery",
-    quality_issue: "Quality Issue",
-    cancellation: "Cancellation",
-    payment_issue: "Payment Issue",
-    other: "Other",
-  };
-
-  return reasonMap[reasonCode] || reasonCode;
-}
-
-/**
  * Format resolution outcome for display
  */
 function formatResolutionOutcome(outcome: string | null | undefined): string {
   if (!outcome) return "Resolved";
 
   const outcomeMap: Record<string, string> = {
-    favor_renter: "In Favor of Renter",
-    favor_provider: "In Favor of Provider",
-    partial_renter: "Partial Resolution - Favor Renter",
-    partial_provider: "Partial Resolution - Favor Provider",
-    dismissed: "Dismissed",
+    favor_renter: "In Favor of Renter / Requester",
+    favor_provider: "In Favor of Provider / Owner",
+    partial_renter: "Partial Resolution — Favor Renter",
+    partial_provider: "Partial Resolution — Favor Provider",
+    dismissed: "Dismissed — no funds captured",
   };
 
   return outcomeMap[outcome] || outcome;

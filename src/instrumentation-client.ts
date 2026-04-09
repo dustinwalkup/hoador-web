@@ -51,20 +51,6 @@ if (isProduction) {
         }
       }
 
-      // Filter out errors with specific messages
-      if (error instanceof Error) {
-        const message = error.message.toLowerCase();
-        // Don't send validation errors, not found errors, or auth errors
-        if (
-          message.includes("not found") ||
-          message.includes("validation") ||
-          message.includes("unauthorized") ||
-          message.includes("authentication required")
-        ) {
-          return null;
-        }
-      }
-
       return event;
     },
   });
@@ -72,22 +58,19 @@ if (isProduction) {
   // Track unhandled promise rejections (client-side)
   if (typeof window !== "undefined") {
     window.addEventListener("unhandledrejection", (event) => {
-      // Only capture in production
-      if (process.env.NODE_ENV === "production") {
-        Sentry.captureException(event.reason, {
-          tags: {
-            error_type: "unhandled_promise_rejection",
+      Sentry.captureException(event.reason, {
+        tags: {
+          error_type: "unhandled_promise_rejection",
+        },
+        contexts: {
+          promise: {
+            reason:
+              event.reason instanceof Error
+                ? event.reason.message
+                : String(event.reason),
           },
-          contexts: {
-            promise: {
-              reason:
-                event.reason instanceof Error
-                  ? event.reason.message
-                  : String(event.reason),
-            },
-          },
-        });
-      }
+        },
+      });
     });
   }
 }

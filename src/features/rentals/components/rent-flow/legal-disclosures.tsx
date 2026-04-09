@@ -105,7 +105,7 @@ export function LegalDisclosures({ legalDocuments }: LegalDisclosuresProps) {
                 View All Policies
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
+            <DialogContent className="scrollbar-hover-reveal max-h-[80vh] max-w-3xl overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Rental Policies & Agreement</DialogTitle>
                 <DialogDescription>

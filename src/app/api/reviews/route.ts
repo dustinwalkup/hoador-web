@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { tryCatch } from "@walkup/walkup-utils";
-import { reviewDAL } from "@/dal";
-import { trackActivity } from "@/features/activity/lib/track-activity";
 import {
   reviewSchema,
   type ReviewFormData,
@@ -12,6 +9,7 @@ import {
   handleApiError,
   parseFormData,
 } from "@/lib/api/route-helpers";
+import { ReviewService } from "@/features/reviews/services/review-service";
 
 /**
  * POST /api/reviews
@@ -19,17 +17,14 @@ import {
  */
 async function postHandler(request: NextRequest) {
   try {
-    // Authenticate user
     const authResult = await getAuthenticatedUserResponse();
     if (authResult instanceof NextResponse) {
-      return authResult; // Returns 401
+      return authResult;
     }
     const { userId } = authResult;
 
-    // Parse FormData or JSON
     const body = await parseFormData(request);
 
-    // Parse numeric fields from FormData strings
     const data: ReviewFormData = {
       ...(body.rentalId ? { rentalId: body.rentalId as string } : {}),
       ...(body.requestId ? { requestId: body.requestId as string } : {}),
@@ -55,10 +50,8 @@ async function postHandler(request: NextRequest) {
         : undefined,
     };
 
-    // Validate with Zod schema
     const validatedData = reviewSchema.parse(data);
 
-    // Transform null to undefined for optional rating fields
     const reviewData = {
       ...validatedData,
       accuracyRating: validatedData.accuracyRating ?? undefined,
@@ -67,27 +60,12 @@ async function postHandler(request: NextRequest) {
         validatedData.ownerCommunicationRating ?? undefined,
     };
 
-    // Create review
-    const { data: review, error } = await tryCatch(
-      reviewDAL.createReview(userId, reviewData),
-    );
-
-    if (error) {
-      return handleApiError(error);
-    }
-
-    if (review?.id) {
-      trackActivity(userId, "review_created", {
-        reviewId: review.id,
-        rentalId: reviewData.rentalId,
-        requestId: reviewData.requestId,
-      });
-    }
+    const { reviewId } = await ReviewService.createReview(userId, reviewData);
 
     return NextResponse.json(
       {
         success: true,
-        reviewId: review?.id,
+        reviewId,
       },
       { status: 201 },
     );
@@ -103,7 +81,6 @@ export const POST = withRequestLogging(postHandler, "POST /api/reviews");
  */
 async function getHandler(request: NextRequest) {
   try {
-    // Authenticate user
     const authResult = await getAuthenticatedUserResponse();
     if (authResult instanceof NextResponse) {
       return authResult;
@@ -113,22 +90,10 @@ async function getHandler(request: NextRequest) {
     const rentalId = searchParams.get("rentalId");
     const requestId = searchParams.get("requestId");
 
-    if (!rentalId && !requestId) {
-      return NextResponse.json(
-        { error: "rentalId or requestId query parameter is required" },
-        { status: 400 },
-      );
-    }
-
-    const { data: review, error } = await tryCatch(
-      requestId
-        ? reviewDAL.getReviewByRequestId(requestId)
-        : reviewDAL.getReviewByRentalId(rentalId!),
-    );
-
-    if (error) {
-      return handleApiError(error);
-    }
+    const review = await ReviewService.getReviewByRentalOrRequest({
+      rentalId,
+      requestId,
+    });
 
     return NextResponse.json({ review: review || null });
   } catch (error) {

@@ -20,13 +20,7 @@ export interface ServiceAgreementData {
 
 const DEFAULT = "N/A";
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+import { escapeHtml } from "@/lib/utils/escape-html";
 
 export interface RenderServiceTemplateOptions {
   /** Base64 data URL for the logo image (e.g. data:image/png;base64,...). */

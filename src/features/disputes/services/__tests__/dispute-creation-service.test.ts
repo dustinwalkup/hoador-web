@@ -10,6 +10,9 @@ import { mockDispute } from "@/test/fixtures/disputes";
 vi.mock("@/dal", () => ({
   disputeDAL: {
     getActiveByRentalId: vi.fn(),
+    getAnyByRentalId: vi.fn().mockResolvedValue(null),
+    getActiveByServiceBookingId: vi.fn().mockResolvedValue(null),
+    getAnyByServiceBookingId: vi.fn().mockResolvedValue(null),
     validateFilingWindowUnified: vi.fn(),
     checkRateLimits: vi.fn(),
     create: vi.fn(),
@@ -26,6 +29,13 @@ vi.mock("@/dal", () => ({
     create: vi.fn(),
   },
   paymentLifecycleDAL: {
+    freezeForDispute: vi.fn(),
+  },
+  serviceBookingDAL: {
+    getById: vi.fn(),
+  },
+  servicePaymentLifecycleDAL: {
+    getByBookingId: vi.fn().mockResolvedValue(null),
     freezeForDispute: vi.fn(),
   },
 }));
@@ -244,6 +254,58 @@ describe("DisputeCreationService.createDispute", () => {
     ).rejects.toThrow(ValidationError);
 
     expect(disputeDAL.create).not.toHaveBeenCalled();
+  });
+
+  it("34.6a Listing owner files dispute → createdByRole is owner", async () => {
+    const actualRentalId = "rental-actual-owner";
+    const createdDispute = {
+      ...mockDispute,
+      id: "dispute-owner",
+      rentalId: actualRentalId,
+      createdBy: "user-owner",
+      createdByRole: "owner" as const,
+    };
+
+    vi.mocked(rentalDAL.getRentalDetailsById).mockResolvedValue(
+      mockRentalDetails as never,
+    );
+    vi.mocked(rentalDAL.getRentalByRequestId).mockResolvedValue({
+      id: actualRentalId,
+    });
+    vi.mocked(disputeDAL.getActiveByRentalId).mockResolvedValue(null);
+    vi.mocked(disputeDAL.validateFilingWindowUnified).mockResolvedValue({
+      valid: true,
+    });
+    vi.mocked(disputeDAL.checkRateLimits).mockResolvedValue({
+      withinLimits: true,
+      monthlyCount: 0,
+      yearlyCount: 0,
+    });
+    vi.mocked(legalDocumentDAL.getCurrentVersion).mockResolvedValue({
+      version: "v1.0",
+    } as never);
+    vi.mocked(disputeDAL.create).mockResolvedValue(createdDispute as never);
+    vi.mocked(paymentLifecycleDAL.freezeForDispute).mockResolvedValue(
+      undefined as never,
+    );
+    vi.mocked(auditLogDAL.create).mockResolvedValue(undefined as never);
+    vi.mocked(disputeDAL.createAuditLog).mockResolvedValue(undefined as never);
+    vi.mocked(sendDisputeNotifications).mockResolvedValue(undefined);
+
+    await DisputeCreationService.createDispute({
+      rentalId: "request-123",
+      reasonCode: "damage",
+      description: "Renter did not return item",
+      userId: "user-owner",
+    });
+
+    expect(disputeDAL.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createdBy: "user-owner",
+        createdByRole: "owner",
+        reasonCode: "damage",
+      }),
+    );
   });
 
   it("34.6 Lifecycle freeze edge case - freezeForDispute called with actual rental ID", async () => {

@@ -1,9 +1,21 @@
-import { and, asc, eq, isNotNull, lt, lte, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  ne,
+  sql,
+} from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 import { servicePaymentLifecycle } from "@/db/schemas/service-payment-lifecycle.schema";
 import { serviceBookings } from "@/db/schemas/services.schema";
+import { disputes } from "@/db/schemas/disputes.schema";
 import { user } from "@/db/schemas/user.schema";
 import { BaseDAL } from "./base";
 
@@ -159,11 +171,16 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
     }
   }
 
-  /** Updates owner Connect transfer status and optional Stripe ids. */
+  /** Updates owner Connect transfer status and optional Stripe ids / transfer amount. */
   async updateOwnerTransferStatus(
     bookingId: string,
     status: ServiceOwnerTransferStatus,
-    extra?: { stripeTransferId?: string; ownerTransferredAt?: Date },
+    extra?: {
+      stripeTransferId?: string;
+      ownerTransferredAt?: Date;
+      /** USD amount actually transferred to the provider Connect account. */
+      transferAmount?: number;
+    },
   ): Promise<void> {
     try {
       await this.db
@@ -175,6 +192,9 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
           }),
           ...(extra?.ownerTransferredAt != null && {
             ownerTransferredAt: extra.ownerTransferredAt,
+          }),
+          ...(extra?.transferAmount != null && {
+            transferAmount: String(extra.transferAmount),
           }),
           updatedAt: new Date(),
         })
@@ -226,6 +246,17 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
           eq(servicePaymentLifecycle.bookingId, serviceBookings.id),
         )
         .innerJoin(user, eq(serviceBookings.providerId, user.id))
+        .leftJoin(
+          disputes,
+          and(
+            eq(disputes.serviceBookingId, serviceBookings.id),
+            inArray(disputes.status, [
+              "open",
+              "evidence_requested",
+              "under_review",
+            ]),
+          ),
+        )
         .where(
           and(
             eq(serviceBookings.status, "completed"),
@@ -234,6 +265,7 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
             eq(servicePaymentLifecycle.payoutStatus, "pending"),
             ne(servicePaymentLifecycle.ownerTransferStatus, "frozen"),
             isNotNull(servicePaymentLifecycle.providerPayout),
+            isNull(disputes.id),
           ),
         )
         .orderBy(asc(serviceBookings.completedAt))
@@ -352,6 +384,53 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
       this.handleError(
         error,
         "ServicePaymentLifecycleDAL.unfreezeAfterResolution",
+      );
+    }
+  }
+
+  /**
+   * Marks lifecycle as fully refunded (favor_requester outcome).
+   * Sets both ownerTransferStatus and payoutStatus to "completed" so
+   * the payout cron skips this booking.
+   */
+  async markRefundedAfterDispute(bookingId: string): Promise<void> {
+    try {
+      await this.db
+        .update(servicePaymentLifecycle)
+        .set({
+          ownerTransferStatus: "completed",
+          payoutStatus: "completed",
+          updatedAt: new Date(),
+        })
+        .where(eq(servicePaymentLifecycle.bookingId, bookingId));
+    } catch (error) {
+      this.handleError(
+        error,
+        "ServicePaymentLifecycleDAL.markRefundedAfterDispute",
+      );
+    }
+  }
+
+  /**
+   * Updates providerPayout to a reduced amount for partial dispute outcomes.
+   * Called before unfreezeAfterResolution so cron uses the adjusted amount.
+   */
+  async updateProviderPayout(
+    bookingId: string,
+    newAmountDollars: number,
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(servicePaymentLifecycle)
+        .set({
+          providerPayout: newAmountDollars.toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(servicePaymentLifecycle.bookingId, bookingId));
+    } catch (error) {
+      this.handleError(
+        error,
+        "ServicePaymentLifecycleDAL.updateProviderPayout",
       );
     }
   }

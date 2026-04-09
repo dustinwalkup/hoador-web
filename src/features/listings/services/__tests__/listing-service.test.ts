@@ -1,10 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ListingService } from "../listing-service";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
+import type { CreateListingFormDataServerType } from "@/features/listings/form-schema/listing.schema";
 
 const mockGetListingById = vi.fn();
 const mockUpdateListing = vi.fn();
 const mockDeleteListing = vi.fn();
+const mockCreateListing = vi.fn();
+const mockIsConnectOnboardingComplete = vi.fn();
+const mockRequireUserCommunityMembership = vi.fn();
+const mockGetAllCurrentVersions = vi.fn();
+const mockRecordAcceptance = vi.fn();
+const mockSendRentalListingPendingAdminNotification = vi.fn(
+  async (...args: unknown[]) => {
+    void args;
+    return undefined;
+  },
+);
 const mockTrackActivity = vi.fn();
 const mockUploadToBlob = vi.fn();
 const mockValidateImageForProcessing = vi.fn();
@@ -25,7 +37,26 @@ vi.mock("@/dal", () => ({
     getListingById: (...args: unknown[]) => mockGetListingById(...args),
     updateListing: (...args: unknown[]) => mockUpdateListing(...args),
     deleteListing: (...args: unknown[]) => mockDeleteListing(...args),
+    createListing: (...args: unknown[]) => mockCreateListing(...args),
   },
+  userDAL: {
+    isConnectOnboardingComplete: (...args: unknown[]) =>
+      mockIsConnectOnboardingComplete(...args),
+  },
+  communityDAL: {
+    requireUserCommunityMembership: (...args: unknown[]) =>
+      mockRequireUserCommunityMembership(...args),
+  },
+  legalDocumentDAL: {
+    getAllCurrentVersions: (...args: unknown[]) =>
+      mockGetAllCurrentVersions(...args),
+    recordAcceptance: (...args: unknown[]) => mockRecordAcceptance(...args),
+  },
+}));
+
+vi.mock("@/features/listings/notifications/listing-pending-review", () => ({
+  sendRentalListingPendingAdminNotification: (...args: unknown[]) =>
+    mockSendRentalListingPendingAdminNotification(...args),
 }));
 
 vi.mock("@/features/activity/lib/track-activity", () => ({
@@ -89,10 +120,93 @@ function createMockFile(name = "test.jpg", size = 1024): File {
   return new File([buffer], name, { type: "image/jpeg" });
 }
 
+const minimalListingPayload = {} as CreateListingFormDataServerType;
+
 describe("ListingService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetListingById.mockResolvedValue(mockListing);
+    mockIsConnectOnboardingComplete.mockResolvedValue(true);
+    mockRequireUserCommunityMembership.mockResolvedValue({
+      community: { id: "community-1" },
+    });
+    mockCreateListing.mockResolvedValue({
+      id: "listing-new",
+      name: "New Listing",
+    });
+    mockGetAllCurrentVersions.mockResolvedValue({});
+  });
+
+  describe("createListing", () => {
+    it("throws ValidationError when Stripe Connect onboarding is incomplete", async () => {
+      mockIsConnectOnboardingComplete.mockResolvedValue(false);
+
+      await expect(
+        ListingService.createListing(minimalListingPayload, "user-1", {
+          ipAddress: "127.0.0.1",
+          userAgent: "vitest",
+        }),
+      ).rejects.toThrow(ValidationError);
+
+      expect(mockCreateListing).not.toHaveBeenCalled();
+    });
+
+    it("creates listing, tracks activity, and notifies admins on success", async () => {
+      const result = await ListingService.createListing(
+        minimalListingPayload,
+        "user-1",
+        { ipAddress: "127.0.0.1", userAgent: "vitest" },
+      );
+
+      expect(result.listingId).toBe("listing-new");
+      expect(mockCreateListing).toHaveBeenCalledWith(
+        minimalListingPayload,
+        "user-1",
+        "community-1",
+      );
+      expect(mockTrackActivity).toHaveBeenCalledWith(
+        "user-1",
+        "listing_created",
+        {
+          listingId: "listing-new",
+        },
+      );
+      expect(
+        mockSendRentalListingPendingAdminNotification,
+      ).toHaveBeenCalledWith({
+        id: "listing-new",
+        name: "New Listing",
+        ownerId: "user-1",
+      });
+    });
+
+    it("does not throw when legal document recording fails", async () => {
+      mockGetAllCurrentVersions.mockRejectedValue(new Error("legal db error"));
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const result = await ListingService.createListing(
+        minimalListingPayload,
+        "user-1",
+        { ipAddress: null, userAgent: null },
+      );
+
+      expect(result.listingId).toBe("listing-new");
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it("throws when createListing returns no row", async () => {
+      mockCreateListing.mockResolvedValue(undefined);
+
+      await expect(
+        ListingService.createListing(minimalListingPayload, "user-1", {
+          ipAddress: null,
+          userAgent: null,
+        }),
+      ).rejects.toThrow("Failed to create listing");
+    });
   });
 
   describe("uploadListingImage", () => {

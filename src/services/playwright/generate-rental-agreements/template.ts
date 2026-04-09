@@ -21,17 +21,7 @@ export interface RentalAgreementData {
 
 const DEFAULT = "N/A";
 
-/**
- * Replaces placeholder keys in the template with values from data.
- * Missing or empty optional values are replaced with "N/A".
- */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+import { escapeHtml } from "@/lib/utils/escape-html";
 
 export interface RenderTemplateOptions {
   /** Base64 data URL for the logo image (e.g. data:image/png;base64,...). */

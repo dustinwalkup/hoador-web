@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
+import { AdminPushTestSection } from "@/features/admin/components/admin-push-test-section";
 import { Check, X, Bell, Mail, Smartphone } from "lucide-react";
 
 export const metadata = {
@@ -236,6 +237,7 @@ const keyFiles = [
   { label: "Service worker (push)", path: "public/sw.js" },
   { label: "API: notifications", path: "src/app/api/notifications/route.ts" },
   { label: "API: push subscribe", path: "src/app/api/push/subscribe/route.ts" },
+  { label: "API: push test", path: "src/app/api/push/test/route.ts" },
   {
     label: "API: preferences",
     path: "src/app/api/notifications/preferences/route.ts",
@@ -249,6 +251,7 @@ export default function HowItWorksNotificationsPage() {
         title="Notifications"
         description="Bird's-eye view of notification types, channels, and preferences"
       />
+      <AdminPushTestSection />
 
       {/* System Architecture Overview */}
       <Card className="mb-6">

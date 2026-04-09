@@ -45,7 +45,7 @@ export function RecentActivityFeed({ items }: RecentActivityFeedProps) {
             </p>
           </div>
         ) : (
-          <div className="max-h-80 overflow-y-auto pr-1">
+          <div className="scrollbar-hover-reveal max-h-80 overflow-y-auto">
             <ul className="relative space-y-1">
               {items.map((item, index) => {
                 const content = (

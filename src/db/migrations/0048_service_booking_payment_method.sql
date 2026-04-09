@@ -1,0 +1,1 @@
+ALTER TABLE "service_bookings" ADD COLUMN "selected_payment_method_id" varchar(255);

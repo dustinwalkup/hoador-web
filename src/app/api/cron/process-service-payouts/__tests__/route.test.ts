@@ -92,6 +92,24 @@ describe("GET /api/cron/process-service-payouts", () => {
     });
   });
 
+  // UAT-SVC-32: Payout cron — transfer fails, ops alerted
+  it("returns failureCount: 1 and successCount: 0 when one transfer fails", async () => {
+    mockProcessPayouts.mockResolvedValue({
+      eligible: 1,
+      processed: 1,
+      succeeded: 0,
+      failed: 1,
+    });
+
+    const response = await GET(createCronRequest("test-cron-secret"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.failureCount).toBe(1);
+    expect(body.successCount).toBe(0);
+    expect(body.processedCount).toBe(1);
+  });
+
   it("returns 500 and alerts ops when service throws", async () => {
     mockProcessPayouts.mockRejectedValue(new Error("DB connection lost"));
 

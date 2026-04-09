@@ -89,6 +89,14 @@ async function patchHandler(
       reason || undefined,
     );
 
+    // Auto-set additional evidence deadline when transitioning to under_review
+    if (newState === "under_review" && !dispute.additionalEvidenceDeadline) {
+      const additionalDeadline = new Date(
+        Date.now() + 48 * 60 * 60 * 1000, // 48 hours
+      );
+      await disputeDAL.setAdditionalEvidenceDeadline(id, additionalDeadline);
+    }
+
     // Create audit log for state change
     await disputeDAL.createAuditLog({
       disputeId: id,

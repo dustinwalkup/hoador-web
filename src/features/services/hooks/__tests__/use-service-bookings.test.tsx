@@ -10,7 +10,6 @@ import {
   useDeclineServiceBooking,
   useCompleteServiceBooking,
   useCancelServiceBooking,
-  useNoShowServiceBooking,
   serviceBookingsKeys,
 } from "../use-service-bookings";
 
@@ -541,84 +540,6 @@ describe("useCancelServiceBooking", () => {
 
     await expect(result.current.mutateAsync({})).rejects.toThrow(
       "Cannot cancel",
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// useNoShowServiceBooking
-// ---------------------------------------------------------------------------
-
-describe("useNoShowServiceBooking", () => {
-  let queryClient: QueryClient;
-
-  beforeEach(() => {
-    queryClient = createTestQueryClient();
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    queryClient.clear();
-  });
-
-  it("posts to no-show endpoint with optional notes", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ status: "no_show" }),
-    });
-
-    const { result } = renderHook(() => useNoShowServiceBooking("booking-1"), {
-      wrapper: ({ children }) => (
-        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
-      ),
-    });
-
-    await result.current.mutateAsync({ notes: "Provider did not show up" });
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/services/bookings/booking-1/no-show",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: "Provider did not show up" }),
-      },
-    );
-  });
-
-  it("sends empty body when called without variables", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ status: "no_show" }),
-    });
-
-    const { result } = renderHook(() => useNoShowServiceBooking("booking-1"), {
-      wrapper: ({ children }) => (
-        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
-      ),
-    });
-
-    await result.current.mutateAsync({});
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/services/bookings/booking-1/no-show",
-      expect.objectContaining({ body: JSON.stringify({}) }),
-    );
-  });
-
-  it("throws on API error", async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      json: async () => ({ error: "Failed to submit report" }),
-    });
-
-    const { result } = renderHook(() => useNoShowServiceBooking("booking-1"), {
-      wrapper: ({ children }) => (
-        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
-      ),
-    });
-
-    await expect(result.current.mutateAsync({})).rejects.toThrow(
-      "Failed to submit report",
     );
   });
 });

@@ -34,7 +34,7 @@ export function HowPaymentsWorkModal({ className }: HowPaymentsWorkModalProps) {
           Learn how payments work
         </button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto sm:max-w-lg">
+      <DialogContent className="scrollbar-hover-reveal max-h-[85vh] max-w-lg overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>How payments work</DialogTitle>
           <DialogDescription>

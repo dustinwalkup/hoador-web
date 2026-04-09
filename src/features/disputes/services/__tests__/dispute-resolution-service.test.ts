@@ -24,6 +24,13 @@ vi.mock("@/dal", () => ({
   },
   rentalDAL: {
     getSecurityDepositAuthId: vi.fn(),
+    getSecurityDepositAmount: vi.fn().mockResolvedValue(null),
+  },
+  servicePaymentLifecycleDAL: {
+    getByBookingId: vi.fn().mockResolvedValue(null),
+    unfreezeAfterResolution: vi.fn().mockResolvedValue(true),
+    markRefundedAfterDispute: vi.fn().mockResolvedValue(undefined),
+    updateProviderPayout: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -43,6 +50,9 @@ vi.mock("@/services/stripe/server", () => ({
   PAYMENT_SERVER_INSTANCE: {
     paymentIntents: {
       capture: vi.fn(),
+    },
+    refunds: {
+      create: vi.fn(),
     },
   },
 }));

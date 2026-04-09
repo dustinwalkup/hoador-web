@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { analyzeToolImage } from "@/services/openai/analyze-tool-image";
-import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
+import {
+  handleApiError,
+  parseFormData,
+  requireAuthResponse,
+} from "@/lib/api/route-helpers";
 import { z } from "zod";
 
 const analyzeImageSchema = z.object({
@@ -14,6 +18,9 @@ const analyzeImageSchema = z.object({
  */
 async function postHandler(request: NextRequest) {
   try {
+    const authCheck = await requireAuthResponse();
+    if (authCheck) return authCheck;
+
     // Parse request body
     const body = await parseFormData(request);
 

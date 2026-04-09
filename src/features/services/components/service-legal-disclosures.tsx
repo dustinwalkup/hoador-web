@@ -125,7 +125,7 @@ export function ServiceLegalDisclosures({
                 View All Policies
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
+            <DialogContent className="scrollbar-hover-reveal max-h-[80vh] max-w-3xl overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Service Policies & Agreement</DialogTitle>
                 <DialogDescription>

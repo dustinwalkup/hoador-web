@@ -133,7 +133,7 @@ export function AdminMetricsCards() {
                 <p className="text-muted-foreground text-xs">{card.sub}</p>
                 {card.key === "total-users" && (
                   <div className="mt-3 space-y-1.5 border-t pt-3">
-                    <ul className="max-h-36 space-y-1 overflow-y-auto text-xs">
+                    <ul className="scrollbar-hover-reveal max-h-36 space-y-1 overflow-y-auto text-xs">
                       {data.membershipByCommunity.map((row) => (
                         <li
                           key={row.communityId}

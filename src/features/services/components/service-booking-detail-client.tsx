@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useMemo } from "react";
+import { z } from "zod";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -39,6 +40,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatLocalDate } from "@/lib/utils/date.utils";
+import { FileDisputeDialog } from "@/features/disputes/components/file-dispute-dialog";
+import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -105,6 +109,12 @@ interface ServiceBookingDetailClientProps {
   isRequester: boolean;
   reviews: ReviewInfo[];
   myReview: ReviewInfo | null;
+  /** Current published Cancellation & Refund policy URL (e.g. PDF), when configured. */
+  cancellationPolicyUrl?: string;
+  /** Dispute policy URL for filing a dispute. */
+  disputePolicyUrl?: string;
+  /** True when an open dispute already exists for this booking. */
+  hasActiveDispute?: boolean;
   /**
    * Set to true only if numeric props are in cents. Server-serialized bookings
    * use dollar amounts from the DB (numeric scale 2); default is false.
@@ -122,6 +132,34 @@ function formatUsd(amount: number): string {
     currency: "USD",
   }).format(amount);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Client-side form validation schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+const declineFormSchema = z.object({
+  reason: z
+    .string()
+    .min(1, "Reason is required")
+    .max(2000, "Reason must be 2,000 characters or less"),
+});
+
+const cancelFormSchema = z.object({
+  reason: z
+    .string()
+    .min(1, "Reason is required")
+    .max(1000, "Reason must be 1,000 characters or less"),
+});
+
+const reviewFormSchema = z.object({
+  rating: z.number().int().min(1, "Please select a rating").max(5),
+  comment: z
+    .string()
+    .max(5000, "Comment must be 5,000 characters or less")
+    .optional(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   ServiceBookingPayload["status"],
@@ -246,6 +284,9 @@ export function ServiceBookingDetailClient({
   isRequester,
   reviews,
   myReview,
+  cancellationPolicyUrl,
+  disputePolicyUrl,
+  hasActiveDispute = false,
   priceInCents = false,
 }: ServiceBookingDetailClientProps) {
   const router = useRouter();
@@ -257,18 +298,28 @@ export function ServiceBookingDetailClient({
   const [declineOpen, setDeclineOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
-  const [noShowOpen, setNoShowOpen] = useState(false);
+  const [disputeOpen, setDisputeOpen] = useState(false);
 
   // Form states
   const [declineReason, setDeclineReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
-  const [noShowNotes, setNoShowNotes] = useState("");
   const [pending, setPending] = useState(false);
 
   // Review states
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [reviewPending, setReviewPending] = useState(false);
+
+  // Field validation errors
+  const [declineReasonError, setDeclineReasonError] = useState<string | null>(
+    null,
+  );
+  const [cancelReasonError, setCancelReasonError] = useState<string | null>(
+    null,
+  );
+  const [reviewCommentError, setReviewCommentError] = useState<string | null>(
+    null,
+  );
 
   // Price conversion
   const toUsd = (amount: number) =>
@@ -289,12 +340,7 @@ export function ServiceBookingDetailClient({
   // Format date
   const formattedDate = useMemo(() => {
     try {
-      return new Date(booking.proposedDate).toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
+      return formatLocalDate(booking.proposedDate);
     } catch {
       return booking.proposedDate;
     }
@@ -314,6 +360,29 @@ export function ServiceBookingDetailClient({
       return booking.proposedTime;
     }
   }, [booking.proposedTime]);
+
+  const canFileServiceDispute = useMemo(() => {
+    if (hasActiveDispute) {
+      return false;
+    }
+    if (booking.status !== "accepted" && booking.status !== "completed") {
+      return false;
+    }
+    const completedAtDate = booking.completedAt
+      ? new Date(booking.completedAt)
+      : null;
+    return TimeWindowValidation.validateServiceFilingWindow(
+      booking.proposedDate,
+      booking.proposedTime,
+      completedAtDate,
+    ).valid;
+  }, [
+    hasActiveDispute,
+    booking.status,
+    booking.proposedDate,
+    booking.proposedTime,
+    booking.completedAt,
+  ]);
 
   // Timeline events
   const timelineEvents = useMemo<TimelineEvent[]>(() => {
@@ -414,10 +483,12 @@ export function ServiceBookingDetailClient({
   }
 
   async function postDecline() {
-    if (!declineReason.trim()) {
-      toast.error("Reason is required.");
+    const result = declineFormSchema.safeParse({ reason: declineReason });
+    if (!result.success) {
+      setDeclineReasonError(result.error.issues[0]?.message ?? "Invalid input");
       return;
     }
+    setDeclineReasonError(null);
     setPending(true);
     try {
       const res = await fetch(`/api/services/bookings/${booking.id}/decline`, {
@@ -458,10 +529,12 @@ export function ServiceBookingDetailClient({
   }
 
   async function postCancel() {
-    if (!cancelReason.trim()) {
-      toast.error("Reason is required.");
+    const result = cancelFormSchema.safeParse({ reason: cancelReason });
+    if (!result.success) {
+      setCancelReasonError(result.error.issues[0]?.message ?? "Invalid input");
       return;
     }
+    setCancelReasonError(null);
     setPending(true);
     try {
       const res = await fetch(`/api/services/bookings/${booking.id}/cancel`, {
@@ -483,28 +556,19 @@ export function ServiceBookingDetailClient({
     }
   }
 
-  async function postNoShow() {
-    setPending(true);
-    try {
-      const res = await fetch(`/api/services/bookings/${booking.id}/no-show`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: noShowNotes.trim() || undefined }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data.error ?? "Could not submit report");
-        return;
-      }
-      setNoShowOpen(false);
-      toast.success("Report submitted.");
-      await refresh();
-    } finally {
-      setPending(false);
-    }
-  }
-
   async function postReview() {
+    const result = reviewFormSchema.safeParse({
+      rating,
+      comment: comment || undefined,
+    });
+    if (!result.success) {
+      const commentIssue = result.error.issues.find(
+        (i) => i.path[0] === "comment",
+      );
+      if (commentIssue) setReviewCommentError(commentIssue.message);
+      return;
+    }
+    setReviewCommentError(null);
     setReviewPending(true);
     try {
       const res = await fetch(`/api/services/bookings/${booking.id}/reviews`, {
@@ -773,9 +837,18 @@ export function ServiceBookingDetailClient({
                     id="review-comment"
                     placeholder="Share your experience..."
                     value={comment}
-                    onChange={(e) => setComment(e.target.value)}
+                    aria-invalid={!!reviewCommentError}
+                    onChange={(e) => {
+                      setComment(e.target.value);
+                      if (reviewCommentError) setReviewCommentError(null);
+                    }}
                     rows={3}
                   />
+                  {reviewCommentError && (
+                    <p className="text-destructive mt-1 text-[0.8rem] font-medium">
+                      {reviewCommentError}
+                    </p>
+                  )}
                 </div>
                 <Button
                   onClick={postReview}
@@ -889,14 +962,16 @@ export function ServiceBookingDetailClient({
                     <XCircle className="mr-2 h-4 w-4" />
                     Cancel Booking
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="text-destructive hover:text-destructive w-full"
-                    onClick={() => setNoShowOpen(true)}
-                  >
-                    <AlertTriangle className="mr-2 h-4 w-4" />
-                    Report No-Show
-                  </Button>
+                  {canFileServiceDispute && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setDisputeOpen(true)}
+                    >
+                      <AlertTriangle className="mr-2 h-4 w-4" />
+                      File a Dispute
+                    </Button>
+                  )}
                 </>
               )}
 
@@ -919,18 +994,28 @@ export function ServiceBookingDetailClient({
                     <XCircle className="mr-2 h-4 w-4" />
                     Cancel Booking
                   </Button>
+                  {canFileServiceDispute && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setDisputeOpen(true)}
+                    >
+                      <AlertTriangle className="mr-2 h-4 w-4" />
+                      File a Dispute
+                    </Button>
+                  )}
                 </>
               )}
 
-              {/* Completed - Requester can still report no-show */}
-              {booking.status === "completed" && isRequester && (
+              {/* Completed — dispute window (both parties) */}
+              {booking.status === "completed" && canFileServiceDispute && (
                 <Button
                   variant="outline"
-                  className="text-destructive hover:text-destructive w-full"
-                  onClick={() => setNoShowOpen(true)}
+                  className="w-full"
+                  onClick={() => setDisputeOpen(true)}
                 >
                   <AlertTriangle className="mr-2 h-4 w-4" />
-                  Report Issue
+                  File a Dispute
                 </Button>
               )}
 
@@ -1017,7 +1102,16 @@ export function ServiceBookingDetailClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={declineOpen} onOpenChange={setDeclineOpen}>
+      <Dialog
+        open={declineOpen}
+        onOpenChange={(open) => {
+          setDeclineOpen(open);
+          if (!open) {
+            setDeclineReason("");
+            setDeclineReasonError(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Decline Booking</DialogTitle>
@@ -1031,9 +1125,18 @@ export function ServiceBookingDetailClient({
               id="decline-reason"
               placeholder="e.g., I'm not available at this time..."
               value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
+              aria-invalid={!!declineReasonError}
+              onChange={(e) => {
+                setDeclineReason(e.target.value);
+                if (declineReasonError) setDeclineReasonError(null);
+              }}
               rows={3}
             />
+            {declineReasonError && (
+              <p className="text-destructive text-[0.8rem] font-medium">
+                {declineReasonError}
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeclineOpen(false)}>
@@ -1047,7 +1150,16 @@ export function ServiceBookingDetailClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+      <Dialog
+        open={cancelOpen}
+        onOpenChange={(open) => {
+          setCancelOpen(open);
+          if (!open) {
+            setCancelReason("");
+            setCancelReasonError(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel Booking</DialogTitle>
@@ -1063,22 +1175,46 @@ export function ServiceBookingDetailClient({
               id="cancel-reason"
               placeholder="Let us know why you're cancelling..."
               value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
+              aria-invalid={!!cancelReasonError}
+              onChange={(e) => {
+                setCancelReason(e.target.value);
+                if (cancelReasonError) setCancelReasonError(null);
+              }}
               rows={2}
             />
+            {cancelReasonError && (
+              <p className="text-destructive text-[0.8rem] font-medium">
+                {cancelReasonError}
+              </p>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelOpen(false)}>
-              Back
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={postCancel}
-              disabled={pending}
-            >
-              {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirm Cancel
-            </Button>
+            <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2">
+              {cancellationPolicyUrl ? (
+                <Link
+                  href={cancellationPolicyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary inline-flex shrink-0 items-center gap-1 text-sm hover:underline"
+                >
+                  Read cancellation policy
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              ) : null}
+              <div className="ml-auto flex shrink-0 gap-2">
+                <Button variant="outline" onClick={() => setCancelOpen(false)}>
+                  Back
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={postCancel}
+                  disabled={pending}
+                >
+                  {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Confirm Cancel
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1104,40 +1240,14 @@ export function ServiceBookingDetailClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={noShowOpen} onOpenChange={setNoShowOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Report No-Show</DialogTitle>
-            <DialogDescription>
-              Let us know what happened. We&apos;ll review and take appropriate
-              action.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="noshow-notes">Notes (optional)</Label>
-            <Textarea
-              id="noshow-notes"
-              placeholder="Describe what happened..."
-              value={noShowNotes}
-              onChange={(e) => setNoShowNotes(e.target.value)}
-              rows={3}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNoShowOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={postNoShow}
-              disabled={pending}
-            >
-              {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Report
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FileDisputeDialog
+        open={disputeOpen}
+        onOpenChange={setDisputeOpen}
+        serviceBookingId={booking.id}
+        serviceFilerRole={isRequester ? "requester" : "provider"}
+        listingName={booking.listing.title}
+        disputePolicyUrl={disputePolicyUrl}
+      />
     </div>
   );
 }

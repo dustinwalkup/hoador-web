@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { configureReactQuerySentryIntegration } from "@/lib/react-query/sentry-integration";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
+import { SentryUserSync } from "@/components/sentry-user-sync";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => {
@@ -26,6 +27,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SentryUserSync />
       <ServiceWorkerRegistration />
       {children}
       <ReactQueryDevtools initialIsOpen={false} />
