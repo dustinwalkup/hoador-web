@@ -156,7 +156,6 @@ export function PreferencesTab() {
                   <p className="text-muted-foreground text-sm">
                     Master switch for push; category toggles below
                   </p>
-                  <SystemNotificationPermissionStatus className="mt-2 md:hidden" />
                 </div>
                 <Switch
                   checked={preferences.master.push}
