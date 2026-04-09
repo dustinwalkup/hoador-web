@@ -72,10 +72,10 @@ export function AdminPushTestSection() {
           Push (staging / debug)
         </CardTitle>
         <CardDescription>
-          Sends a test Web Push to this browser for your signed-in admin
-          account. Requires an active subscription from{" "}
+          Sends a test push to this device for your signed-in admin account.
+          Requires an active subscription from{" "}
           <span className="font-medium">Enable push on this device</span> in
-          profile notification settings (or a completed mobile rental prompt).
+          profile notification settings (mobile, app saved to Home Screen).
         </CardDescription>
       </CardHeader>
       <CardContent>

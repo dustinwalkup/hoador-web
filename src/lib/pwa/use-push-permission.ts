@@ -25,6 +25,11 @@ function getSnapshot(): NotificationPermission {
   return getPermission();
 }
 
+/** Neutral value during SSR so UI does not assume blocked before hydration. */
+function getServerSnapshot(): NotificationPermission {
+  return "default";
+}
+
 function subscribe(callback: () => void): () => void {
   if (typeof window === "undefined") {
     return () => {};
@@ -108,7 +113,11 @@ export function usePushPermission(): {
   shouldShowPermissionPrompt: () => boolean;
   markPromptShown: () => void;
 } {
-  const permission = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const permission = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
   const request = useCallback(() => requestPushPermission(), []);
   const shouldShow = useCallback(() => shouldShowPermissionPrompt(), []);

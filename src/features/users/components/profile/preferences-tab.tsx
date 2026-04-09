@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, Info } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,11 +15,18 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
 } from "@/features/notifications/hooks/use-notification-preferences";
 import type { NotificationCategory } from "@/features/notifications/lib/notification-type-map";
 import { enablePush } from "@/lib/pwa/enable-push";
+import { usePushPermission } from "@/lib/pwa/use-push-permission";
+import { cn } from "@/lib/utils";
 
 const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   bookings: "Bookings",
@@ -28,6 +35,46 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   disputes: "Disputes",
   reminders: "Reminders",
 };
+
+/**
+ * User-facing label for the browser Notification.permission state.
+ */
+function systemNotificationLabel(permission: NotificationPermission): string {
+  switch (permission) {
+    case "granted":
+      return "Allowed";
+    case "denied":
+      return "Blocked";
+    default:
+      return "Not asked yet";
+  }
+}
+
+/**
+ * Shows whether the browser has allowed system notifications for this origin
+ * (updates after the user grants or denies and when the window regains focus).
+ */
+function SystemNotificationPermissionStatus({
+  className,
+}: {
+  className?: string;
+}) {
+  const { permission } = usePushPermission();
+  const label = systemNotificationLabel(permission);
+  const labelClass =
+    permission === "granted"
+      ? "text-emerald-600 dark:text-emerald-500"
+      : permission === "denied"
+        ? "text-destructive"
+        : "text-foreground";
+
+  return (
+    <p className={cn("text-muted-foreground text-sm", className)} role="status">
+      System notifications:{" "}
+      <span className={cn("font-medium", labelClass)}>{label}</span>
+    </p>
+  );
+}
 
 export function PreferencesTab() {
   const { data: preferences, isLoading } = useNotificationPreferences();
@@ -104,11 +151,12 @@ export function PreferencesTab() {
                 />
               </div>
               <div className="flex gap-3 sm:items-center sm:justify-between">
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-medium">Push Notifications</h3>
                   <p className="text-muted-foreground text-sm">
                     Master switch for push; category toggles below
                   </p>
+                  <SystemNotificationPermissionStatus className="mt-2 md:hidden" />
                 </div>
                 <Switch
                   checked={preferences.master.push}
@@ -117,14 +165,44 @@ export function PreferencesTab() {
                 />
               </div>
               <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between md:hidden">
-                <div className="flex gap-2">
+                <div className="flex min-w-0 gap-2">
                   <Bell className="text-muted-foreground mt-0.5 size-5 shrink-0" />
-                  <div>
-                    <p className="font-medium">This device</p>
-                    <p className="text-muted-foreground text-sm">
-                      Turn the switches on above, then register this browser or
-                      PWA so pushes can reach this device.
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1">
+                      <p className="font-medium">This device</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground size-8 shrink-0"
+                            aria-label="Why push requires the Home Screen app on mobile"
+                          >
+                            <Info className="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          className="max-w-xs text-left"
+                        >
+                          <p>
+                            Push is only available on phones and tablets after
+                            you add this app to your Home Screen (Share, then
+                            Add to Home Screen on iPhone and iPad). Open the app
+                            from your Home Screen, then tap Enable push on this
+                            device.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      Push notifications only work on a mobile device where this
+                      app is saved to your Home Screen (PWA). Switch the push
+                      notificaiton on above, then tap Enable push on this
+                      device.
                     </p>
+                    <SystemNotificationPermissionStatus className="mt-2" />
                   </div>
                 </div>
                 <Button
