@@ -116,7 +116,7 @@ export function PreferencesTab() {
                   disabled={patchMutation.isPending}
                 />
               </div>
-              <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="bg-muted/40 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between md:hidden">
                 <div className="flex gap-2">
                   <Bell className="text-muted-foreground mt-0.5 size-5 shrink-0" />
                   <div>

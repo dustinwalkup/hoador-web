@@ -65,7 +65,7 @@ export function AdminPushTestSection() {
   };
 
   return (
-    <Card className="mb-6">
+    <Card className="mb-6 md:hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Smartphone className="size-5" aria-hidden />
