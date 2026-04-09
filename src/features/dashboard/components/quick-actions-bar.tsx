@@ -78,7 +78,7 @@ export function QuickActionsBar({ unreadCount = 0 }: QuickActionsBarProps) {
             <div className="grid gap-2 pt-2">
               <DialogClose asChild>
                 <Link
-                  href="/dashboard/listings/rentals"
+                  href="/dashboard/listings/add"
                   className={cn(
                     "bg-card flex items-center gap-3 rounded-lg border p-4 text-left text-sm font-medium transition-colors",
                     "hover:bg-accent hover:text-accent-foreground",

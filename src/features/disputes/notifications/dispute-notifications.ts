@@ -6,6 +6,75 @@ import type { DisputeWithRelations } from "@/dal/types";
 type DisputeEventType = "created" | "evidence_requested" | "resolved";
 
 /**
+ * Notify all active admin/superadmin users that a new dispute was filed.
+ * Fire-and-forget — call with .catch() at the call site.
+ */
+async function sendAdminDisputeCreatedNotification(
+  dispute: DisputeWithRelations,
+  listingName: string,
+  entityType: "rental" | "service_booking",
+): Promise<void> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
+  const linkUrl = `${baseUrl}/admin/dashboard/disputes/review`;
+  const staff = await userDAL.getStaffNotificationRecipients();
+  const reasonLabel = formatReasonCode(dispute.reasonCode);
+
+  await Promise.all(
+    staff.map((admin) =>
+      sendNotification({
+        userId: admin.id,
+        type: "admin_dispute_created",
+        title: "New dispute filed",
+        message: `Dispute filed for "${listingName}": ${reasonLabel}`,
+        data: {
+          disputeId: dispute.id,
+          ...(dispute.rentalId ? { rentalId: dispute.rentalId } : {}),
+          ...(dispute.serviceBookingId
+            ? { serviceBookingId: dispute.serviceBookingId }
+            : {}),
+          reasonCode: dispute.reasonCode ?? "",
+          entityType,
+        },
+        linkUrl,
+        email: {
+          to: admin.email,
+          subject: `New dispute: ${reasonLabel} — ${listingName}`,
+          html: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+${EMAIL_LOGO_HTML}
+<div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 14px; margin-bottom: 22px; border-radius: 4px;">
+  <h2 style="color: #92400e; margin-top: 0;">New Dispute Filed</h2>
+</div>
+<h1 style="color: #333; margin-bottom: 12px; font-size: 22px;">Hi ${admin.firstName ?? "there"},</h1>
+<p style="font-size: 16px; margin-bottom: 14px;">A new dispute was filed for <strong>${listingName}</strong>.</p>
+<p style="font-size: 16px; margin-bottom: 14px;"><strong>Reason:</strong> ${reasonLabel}</p>
+<p style="font-size: 16px; margin-bottom: 14px;"><strong>Description:</strong> ${dispute.description}</p>
+<div style="text-align: center; margin: 28px 0;"><a href="${linkUrl}" style="background-color: #2563eb; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Review dispute</a></div>
+<p style="font-size: 12px; color: #94a3b8; margin-top: 28px; border-top: 1px solid #e2e8f0; padding-top: 16px;">The Hoador Team</p>
+</body>
+</html>`,
+          text: [
+            `New dispute filed for ${listingName}.`,
+            `Reason: ${reasonLabel}`,
+            `Description: ${dispute.description}`,
+            "",
+            linkUrl,
+          ].join("\n"),
+        },
+      }).catch((err) =>
+        console.error(
+          `Failed to send admin dispute notification for ${admin.id}:`,
+          err,
+        ),
+      ),
+    ),
+  );
+}
+
+/**
  * Format dispute reason code for display
  */
 function formatReasonCode(reasonCode: string | null | undefined): string {
@@ -137,6 +206,17 @@ async function sendServiceBookingDisputeNotifications(
         err,
       );
     });
+
+    sendAdminDisputeCreatedNotification(
+      dispute,
+      detail.listingTitle,
+      "service_booking",
+    ).catch((err) =>
+      console.error(
+        `Failed to send admin dispute notification for dispute ${dispute.id}:`,
+        err,
+      ),
+    );
     return;
   }
 
@@ -375,6 +455,17 @@ The Hoador Team
             err,
           );
         });
+
+        sendAdminDisputeCreatedNotification(
+          dispute,
+          rental.listingName,
+          "rental",
+        ).catch((err) =>
+          console.error(
+            `Failed to send admin dispute notification for dispute ${dispute.id}:`,
+            err,
+          ),
+        );
 
         break;
       }

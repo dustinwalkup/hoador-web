@@ -1,9 +1,11 @@
 import { eq, max, count } from "drizzle-orm";
+import { tryCatch } from "@walkup/walkup-utils";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
+import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
-import { listingDAL } from "@/dal";
+import { communityDAL, legalDocumentDAL, listingDAL, userDAL } from "@/dal";
 import { uploadToBlob } from "@/services/vercel-blob";
 import {
   processImageForUpload,
@@ -12,6 +14,7 @@ import {
   getImageMetadata,
 } from "@/lib/image/server";
 import { trackActivity } from "@/features/activity/lib/track-activity";
+import { sendRentalListingPendingAdminNotification } from "@/features/listings/notifications/listing-pending-review";
 import type { CreateListingFormDataServerType } from "@/features/listings/form-schema/listing.schema";
 
 const MAX_IMAGES_PER_LISTING = 10;
@@ -27,6 +30,12 @@ export interface UploadListingImageResult {
 
 export interface UpdateListingResult {
   listingId: string;
+}
+
+/** Request metadata for legal acceptance audit when creating a listing. */
+export interface ListingCreationContext {
+  ipAddress: string | null;
+  userAgent: string | null;
 }
 
 export class ListingService {
@@ -140,6 +149,107 @@ export class ListingService {
       .returning();
 
     return { image: savedImage };
+  }
+
+  /**
+   * Creates a rental listing after Stripe Connect and community checks,
+   * records activity, notifies admins, and records legal document acceptances.
+   *
+   * @param validatedData - Server-validated listing form payload
+   * @param userId - Authenticated owner user id
+   * @param context - IP and user agent for legal acceptance records
+   * @returns The new listing id
+   * @throws ValidationError if Connect onboarding is incomplete or community membership is missing
+   */
+  static async createListing(
+    validatedData: CreateListingFormDataServerType,
+    userId: string,
+    context: ListingCreationContext,
+  ): Promise<{ listingId: string }> {
+    const { data: isOnboarded, error: onboardingError } = await tryCatch(
+      userDAL.isConnectOnboardingComplete(userId),
+    );
+
+    if (onboardingError || !isOnboarded) {
+      throw new ValidationError(
+        "Complete Stripe onboarding first. You need to set up payments before creating listings.",
+      );
+    }
+
+    const userCommunityInfo =
+      await communityDAL.requireUserCommunityMembership(userId);
+
+    const listing = await listingDAL.createListing(
+      validatedData,
+      userId,
+      userCommunityInfo.community.id,
+    );
+
+    if (!listing) {
+      throw new Error("Failed to create listing");
+    }
+
+    trackActivity(userId, "listing_created", { listingId: listing.id });
+
+    sendRentalListingPendingAdminNotification({
+      id: listing.id,
+      name: listing.name,
+      ownerId: userId,
+    }).catch((err) => {
+      console.error("Failed to send listing pending admin notification:", err);
+    });
+
+    try {
+      const { ipAddress, userAgent } = context;
+      const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
+      const acceptancePromises: Promise<unknown>[] = [];
+
+      if (documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE]) {
+        const doc =
+          documentVersions[LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE];
+        acceptancePromises.push(
+          legalDocumentDAL.recordAcceptance(
+            userId,
+            LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
+            doc.version,
+            ipAddress,
+            userAgent,
+            "listing_creation",
+            undefined,
+            listing.id,
+          ),
+        );
+      }
+
+      if (
+        documentVersions[
+          LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT
+        ]
+      ) {
+        const doc =
+          documentVersions[
+            LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT
+          ];
+        acceptancePromises.push(
+          legalDocumentDAL.recordAcceptance(
+            userId,
+            LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
+            doc.version,
+            ipAddress,
+            userAgent,
+            "listing_creation",
+            undefined,
+            listing.id,
+          ),
+        );
+      }
+
+      await Promise.all(acceptancePromises);
+    } catch (error) {
+      console.error("Error recording legal document acceptances:", error);
+    }
+
+    return { listingId: listing.id };
   }
 
   /**

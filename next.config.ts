@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "cdn.jsdelivr.net",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "hvom5mpictiugrk9.public.blob.vercel-storage.com",
         port: "",
         pathname: "/**",

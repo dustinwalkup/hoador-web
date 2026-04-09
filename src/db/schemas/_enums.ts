@@ -78,6 +78,10 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "service_listing_approved",
   "service_listing_rejected",
   "service_listing_pending",
+  // Admin-only moderation alerts
+  "listing_pending_review",
+  "review_submitted",
+  "admin_dispute_created",
 ]);
 
 /** User activity types for admin activity log and inactivity filtering. */
