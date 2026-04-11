@@ -72,7 +72,7 @@ export function QuickActionsBar({ unreadCount = 0 }: QuickActionsBarProps) {
             <DialogHeader>
               <DialogTitle>What would you like to list?</DialogTitle>
               <DialogDescription>
-                Share tools for rent or offer a service to neighbors.
+                Share items to rent or offer a service to neighbors.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-2 pt-2">
