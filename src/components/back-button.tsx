@@ -26,7 +26,7 @@ export const BackButton = ({
     <Button
       variant="ghost"
       onClick={handleClick}
-      className={cn("mb-4 -ml-2", className)}
+      className={cn("coarse:min-h-11 mb-4 -ml-2", className)}
     >
       <ArrowLeft className="mr-2 h-4 w-4" />
       Back

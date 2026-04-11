@@ -79,20 +79,23 @@ export function NavUser({ user }: { user: UserProfile }) {
             <DropdownMenuGroup>
               <DropdownMenuItem
                 disabled
-                className="text-muted-foreground [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
+                className="text-muted-foreground coarse:min-h-11 [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
               >
                 <UserCircleIcon />
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled
-                className="text-muted-foreground [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
+                className="text-muted-foreground coarse:min-h-11 [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
               >
                 <CreditCardIcon />
                 Billing
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuItem onClick={handleSignOut}>
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className="coarse:min-h-11"
+            >
               <LogOutIcon />
               {isSigningOut ? <Loader2 /> : "Log out"}
             </DropdownMenuItem>

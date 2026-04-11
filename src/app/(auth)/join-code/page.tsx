@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
+import { ReportIssueModal } from "@/components/footer/report-issue-modal";
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
 import { AnimatedAuthCard } from "@/features/auth/components/animated-auth-card";
 import { JoinCodeForm } from "@/features/auth/components/join-code-form";
@@ -30,6 +36,14 @@ export default function JoinCodePage() {
           <CardContent>
             <JoinCodeForm />
           </CardContent>
+          <CardFooter className="flex flex-col items-center gap-4">
+            <div className="text-muted-foreground text-center text-xs">
+              Need help? Contact your community administrator or{" "}
+              <ReportIssueModal>
+                <button className="text-primary underline">support</button>
+              </ReportIssueModal>
+            </div>
+          </CardFooter>
         </Card>
       </AnimatedAuthCard>
     </AuthLayoutWrapper>

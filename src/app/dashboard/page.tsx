@@ -221,7 +221,7 @@ export default async function DashboardPage() {
         <StaggerItem className="self-start">
           <NeighborhoodActivityWidget listings={neighborhoodListings} />
         </StaggerItem>
-        <StaggerItem className="flex h-full min-h-0 flex-col">
+        <StaggerItem className="flex h-full min-h-0 flex-col self-start">
           <ActiveDisputesWidget
             disputes={activeDisputesList}
             totalCount={activeDisputesCount}

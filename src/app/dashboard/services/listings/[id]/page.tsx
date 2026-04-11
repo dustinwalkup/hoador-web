@@ -108,7 +108,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={url}
-                  alt={`${listing.title} photo ${index + 1}`}
+                  alt={`${listing.title} - ${index + 1}`}
                   className="h-full w-full object-cover transition-transform hover:scale-105"
                 />
               </div>

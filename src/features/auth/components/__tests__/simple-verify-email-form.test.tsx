@@ -41,12 +41,16 @@ vi.mock("next/link", () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-// Mock lucide-react icons
-vi.mock("lucide-react", () => ({
-  Mail: () => <span data-testid="mail-icon" />,
-  Loader2: () => <span data-testid="loader-icon" />,
-  CheckCircle: () => <span data-testid="check-circle-icon" />,
-}));
+// Mock lucide-react icons (spread actual to cover transitive deps)
+vi.mock("lucide-react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("lucide-react")>();
+  return {
+    ...actual,
+    Mail: () => <span data-testid="mail-icon" />,
+    Loader2: () => <span data-testid="loader-icon" />,
+    CheckCircle: () => <span data-testid="check-circle-icon" />,
+  };
+});
 
 describe("SimpleVerifyEmailForm", () => {
   beforeEach(() => {
@@ -141,7 +145,7 @@ describe("SimpleVerifyEmailForm", () => {
 
     // Assert
     expect(screen.getByText(/sending/i)).toBeInTheDocument();
-    expect(screen.getByRole("button")).toBeDisabled();
+    expect(screen.getByRole("button", { name: /sending/i })).toBeDisabled();
   });
 
   it("should call mutation with email when form is submitted", async () => {

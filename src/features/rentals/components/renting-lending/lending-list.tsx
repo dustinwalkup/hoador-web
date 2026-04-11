@@ -91,9 +91,10 @@ export function LendingRequestsList({
       {/* Search and Filter Controls */}
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
           <Input
             placeholder="Search by listing name or renter..."
+            aria-label="Search by listing name or renter"
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="max-w-md pl-10"

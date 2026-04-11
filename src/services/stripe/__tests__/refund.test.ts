@@ -39,11 +39,13 @@ describe("processRefund", () => {
           reason: "renter_cancellation_24h",
         },
       },
-      { idempotencyKey: "refund-rental-rental-1" },
+      {
+        idempotencyKey: "refund-rental-rental-1-ch_123-5000",
+      },
     );
   });
 
-  it("uses idempotency key refund-rental-{rentalId}", async () => {
+  it("uses idempotency key including charge id and amount cents", async () => {
     mockRefundsCreate.mockResolvedValue({ id: "re_456" });
 
     await processRefund({
@@ -52,7 +54,7 @@ describe("processRefund", () => {
     });
 
     expect(mockRefundsCreate).toHaveBeenCalledWith(expect.any(Object), {
-      idempotencyKey: "refund-rental-rental-abc",
+      idempotencyKey: "refund-rental-rental-abc-ch_123-5000",
     });
   });
 

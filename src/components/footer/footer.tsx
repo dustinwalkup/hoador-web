@@ -7,7 +7,10 @@ import {
   type LegalDocumentId,
 } from "@/constants/legal-documents";
 import { FooterLink, FooterSection } from "./footer-components";
+import { ReportIssueModal } from "./report-issue-modal";
+import { LogoutButton } from "./logout-button";
 import { Logo } from "../logo";
+import { getCurrentUser } from "@/features/auth/utils/session";
 
 const COPYRIGHT = `© ${new Date().getFullYear()} Hoador, Inc. All rights reserved`;
 
@@ -21,6 +24,7 @@ export default async function Footer() {
     console.error("Error fetching legal documents for footer:", error);
   }
 
+  const user = await getCurrentUser();
   const documents = documentVersions || {};
 
   // Create a serializable map of documentId -> url
@@ -148,14 +152,16 @@ export default async function Footer() {
           {/* Support Section */}
           <FooterSection title="Support">
             <li>
-              <FooterLink href="/help">Help Center</FooterLink>
-            </li>
-            <li>
-              <FooterLink href="/help/report">Report an Issue</FooterLink>
+              <ReportIssueModal />
             </li>
             <li>
               <FooterLink href="/dashboard/disputes">Disputes</FooterLink>
             </li>
+            {user && (
+              <li>
+                <LogoutButton />
+              </li>
+            )}
           </FooterSection>
         </div>
 

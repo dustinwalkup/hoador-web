@@ -472,8 +472,8 @@ describe("ProfileImageUpload", () => {
       );
 
       // Remove button should not be visible
-      const removeButtons = screen.queryAllByRole("button");
-      expect(removeButtons.length).toBe(0);
+      const removeButton = screen.queryByRole("button", { name: /remove/i });
+      expect(removeButton).not.toBeInTheDocument();
     });
 
     it("should respect showToasts prop", async () => {

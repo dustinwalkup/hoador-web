@@ -80,7 +80,7 @@ Use separate browser sessions (or incognito windows) for each role. Stripe test 
   - User redirected to dispute detail page.
   - Toast: "Dispute created successfully."
   - Owner receives a notification email about the new dispute.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -97,7 +97,7 @@ Use separate browser sessions (or incognito windows) for each role. Stripe test 
 - **Expected results:**
   - Dispute created with status `open` and `createdByRole: provider`.
   - Renter receives notification email.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -111,7 +111,7 @@ Use separate browser sessions (or incognito windows) for each role. Stripe test 
 - **Expected results:**
   - Request rejected with an error message indicating the filing window has expired.
   - No dispute created.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail (button not visible)
 
 ---
 
@@ -125,7 +125,7 @@ Use separate browser sessions (or incognito windows) for each role. Stripe test 
 - **Expected results:**
   - Request rejected — filing window has not yet opened.
   - Error message indicates dispute cannot be filed before the rental begins.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail (button not visible)
 
 ---
 

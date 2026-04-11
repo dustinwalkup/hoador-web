@@ -104,6 +104,7 @@ export async function getUpcomingSchedule(
     view: "renting" | "lending",
     counterpartyName: string,
     deliveryRequested: boolean,
+    setupRequested?: boolean,
   ) => {
     const role: ScheduleEntryRole = view === "renting" ? "renter" : "owner";
     const d = startOfDay(date);
@@ -126,6 +127,8 @@ export async function getUpcomingSchedule(
         linkTo: `/dashboard/rental/${id}?view=${view}`,
         type: "return",
         role,
+        deliveryRequested,
+        setupRequested,
       });
     }
   };
@@ -137,6 +140,7 @@ export async function getUpcomingSchedule(
     view: "renting" | "lending",
     counterpartyName: string,
     deliveryRequested: boolean,
+    setupRequested?: boolean,
   ) => {
     const role: ScheduleEntryRole = view === "renting" ? "renter" : "owner";
     const d = startOfDay(date);
@@ -159,48 +163,66 @@ export async function getUpcomingSchedule(
         linkTo: `/dashboard/rental/${id}?view=${view}`,
         type: "pickup",
         role,
+        deliveryRequested,
+        setupRequested,
       });
     }
   };
 
-  for (const r of borrowed.currentRentals) {
-    addPickup(
-      r.startDate,
-      r.listingName,
-      r.id,
-      "renting",
-      r.ownerName,
-      r.deliveryRequested,
-    );
-    addReturn(
-      r.endDate,
-      r.listingName,
-      r.id,
-      "renting",
-      r.ownerName,
-      r.deliveryRequested,
-    );
-  }
-  for (const r of borrowed.upcomingRentals) {
-    addPickup(
-      r.startDate,
-      r.listingName,
-      r.id,
-      "renting",
-      r.ownerName,
-      r.deliveryRequested,
-    );
-    addReturn(
-      r.endDate,
-      r.listingName,
-      r.id,
-      "renting",
-      r.ownerName,
-      r.deliveryRequested,
-    );
+  /** True when pickup and return fall on the same calendar day. */
+  const isSameDay = (a: Date, b: Date) =>
+    startOfDay(a).getTime() === startOfDay(b).getTime();
+
+  for (const r of [...borrowed.currentRentals, ...borrowed.upcomingRentals]) {
+    const sameDay = isSameDay(r.startDate, r.endDate);
+    if (sameDay) {
+      // Same-day rental: show only the relevant event based on status to avoid
+      // showing both pickup and return on the same calendar row.
+      if (r.status === "approved") {
+        addPickup(
+          r.startDate,
+          r.listingName,
+          r.id,
+          "renting",
+          r.ownerName,
+          r.deliveryRequested,
+          r.setupRequested,
+        );
+      } else if (r.status === "active") {
+        addReturn(
+          r.endDate,
+          r.listingName,
+          r.id,
+          "renting",
+          r.ownerName,
+          r.deliveryRequested,
+          r.setupRequested,
+        );
+      }
+    } else {
+      addPickup(
+        r.startDate,
+        r.listingName,
+        r.id,
+        "renting",
+        r.ownerName,
+        r.deliveryRequested,
+        r.setupRequested,
+      );
+      addReturn(
+        r.endDate,
+        r.listingName,
+        r.id,
+        "renting",
+        r.ownerName,
+        r.deliveryRequested,
+        r.setupRequested,
+      );
+    }
   }
 
   for (const r of lendingApproved) {
+    const sameDay = isSameDay(r.startDate, r.endDate);
     addPickup(
       r.startDate,
       r.listingName,
@@ -208,15 +230,20 @@ export async function getUpcomingSchedule(
       "lending",
       r.renterName,
       r.deliveryRequested,
+      r.setupRequested,
     );
-    addReturn(
-      r.endDate,
-      r.listingName,
-      r.id,
-      "lending",
-      r.renterName,
-      r.deliveryRequested,
-    );
+    if (!sameDay) {
+      // For same-day approved owner rentals, suppress return until rental goes active.
+      addReturn(
+        r.endDate,
+        r.listingName,
+        r.id,
+        "lending",
+        r.renterName,
+        r.deliveryRequested,
+        r.setupRequested,
+      );
+    }
   }
   for (const r of lendingActive) {
     addReturn(
@@ -226,6 +253,7 @@ export async function getUpcomingSchedule(
       "lending",
       r.renterName,
       r.deliveryRequested,
+      r.setupRequested,
     );
   }
 

@@ -609,10 +609,12 @@ export function ServiceBookingDetailClient({
 
       {/* New booking banner */}
       {showNewBanner && (
-        <div className="border-primary/20 bg-primary/5 text-foreground rounded-lg border px-4 py-3 text-sm">
+        <div className="border-primary bg-primary/5 text-foreground rounded-lg border px-4 py-3 text-sm">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="text-primary h-4 w-4" />
-            <span>Booking request sent. The provider will respond soon.</span>
+            <span className="text-primary">
+              Booking request sent. The provider will respond soon.
+            </span>
           </div>
         </div>
       )}

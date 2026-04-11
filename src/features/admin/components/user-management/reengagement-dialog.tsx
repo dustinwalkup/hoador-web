@@ -82,20 +82,20 @@ export function ReengagementDialog({
           <div className="flex flex-col gap-2">
             <Label>Channels</Label>
             <div className="flex gap-6">
-              <label className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <Checkbox
                   checked={email}
                   onCheckedChange={(v) => setEmail(v === true)}
                 />
                 <span className="text-sm">Email</span>
-              </label>
-              <label className="flex items-center gap-2">
+              </Label>
+              <Label className="flex items-center gap-2">
                 <Checkbox
                   checked={push}
                   onCheckedChange={(v) => setPush(v === true)}
                 />
                 <span className="text-sm">Push notification</span>
-              </label>
+              </Label>
             </div>
             {!email && !push && (
               <p className="text-destructive text-xs">

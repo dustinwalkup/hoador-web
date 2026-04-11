@@ -165,11 +165,20 @@ export function ProfileImageUpload({
     <div className="flex flex-col items-center space-y-4">
       {/* Upload Area */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Upload profile image"
         className={`relative flex h-32 w-32 cursor-pointer items-center justify-center rounded-full border-2 border-dashed transition-all ${isDragOver ? "border-primary bg-primary/5" : "border-gray-300"} ${disabled || isUploading ? "cursor-not-allowed opacity-50" : "hover:border-primary hover:bg-gray-50"} ${uploadError ? "border-red-300 bg-red-50" : ""} `}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={handleBrowseClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleBrowseClick();
+          }
+        }}
       >
         {/* Loading Overlay */}
         {isUploading && (

@@ -135,7 +135,7 @@ export function ServicesFlowClient({
           <button
             onClick={() => handleRoleChange("provider")}
             className={cn(
-              "rounded-md px-4 py-2 text-sm font-medium transition-all",
+              "coarse:min-h-11 rounded-md px-4 py-2 text-sm font-medium transition-all",
               activeRole === "provider"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -146,7 +146,7 @@ export function ServicesFlowClient({
           <button
             onClick={() => handleRoleChange("requester")}
             className={cn(
-              "rounded-md px-4 py-2 text-sm font-medium transition-all",
+              "coarse:min-h-11 coarse:min-w-11 rounded-md px-4 py-2 text-sm font-medium transition-all",
               activeRole === "requester"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -170,7 +170,7 @@ export function ServicesFlowClient({
                   key={filter.value}
                   onClick={() => handleStatusChange(filter.value)}
                   className={cn(
-                    "shrink-0 rounded-lg border px-4 py-2 text-sm font-medium transition-all",
+                    "coarse:min-h-11 shrink-0 rounded-lg border px-4 py-2 text-sm font-medium transition-all",
                     activeStatus === filter.value
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-background text-foreground hover:border-primary/50 hover:bg-accent",
