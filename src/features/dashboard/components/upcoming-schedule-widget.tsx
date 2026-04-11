@@ -69,7 +69,7 @@ export function UpcomingScheduleWidget({
       <CardContent
         className={
           entries.length > 0
-            ? "flex min-h-10 flex-1 flex-col overflow-hidden pt-0"
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden pt-0"
             : undefined
         }
       >

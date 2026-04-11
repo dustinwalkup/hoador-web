@@ -57,7 +57,7 @@ export function ActiveDisputesWidget({
   totalCount,
 }: ActiveDisputesWidgetProps) {
   return (
-    <Card className="flex h-80 min-h-0 flex-col overflow-hidden border-t-0 border-l-4 border-l-orange-500">
+    <Card className="flex h-full min-h-80 flex-col overflow-hidden border-t-0 border-l-4 border-l-orange-500">
       <CardHeader className="shrink-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-base font-medium">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/10">

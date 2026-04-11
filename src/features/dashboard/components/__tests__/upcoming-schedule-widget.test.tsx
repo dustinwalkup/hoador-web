@@ -37,7 +37,7 @@ describe("UpcomingScheduleWidget", () => {
     expect(screen.getByText("Power Drill")).toBeInTheDocument();
     expect(screen.getByText("1 item")).toBeInTheDocument();
     expect(screen.getByText("Renter")).toBeInTheDocument();
-    // Entry description is rendered as text (no longer a link)
+    // Entry description is rendered as text; navigation is via next-step modal CTA.
     expect(screen.getByText("Return to Mike Owner")).toBeInTheDocument();
   });
 
