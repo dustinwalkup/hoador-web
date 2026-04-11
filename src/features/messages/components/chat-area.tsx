@@ -254,6 +254,7 @@ export function ChatArea({
               size="icon"
               onClick={onBackToConversations}
               className="mr-3 md:hidden"
+              aria-label="Back to conversations"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -280,7 +281,7 @@ export function ChatArea({
         <div className="flex items-center space-x-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" aria-label="More options">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

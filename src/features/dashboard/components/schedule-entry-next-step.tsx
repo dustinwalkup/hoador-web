@@ -52,6 +52,7 @@ export function ScheduleEntryNextStep({ entry }: ScheduleEntryNextStepProps) {
   return (
     <div
       className="min-w-0 flex-1 cursor-pointer overflow-hidden"
+      role="presentation"
       onClick={(e) => e.stopPropagation()}
     >
       <Dialog>

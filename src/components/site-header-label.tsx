@@ -79,7 +79,7 @@ export function SiteHeaderLabel() {
   const transitionDuration = prefersReducedMotion ? "0ms" : "250ms";
 
   return (
-    <div className="flex w-full items-center justify-between">
+    <div className="flex w-full items-center justify-between overflow-visible">
       <h1
         className={cn(
           "text-xl font-medium transition-opacity ease-in-out",

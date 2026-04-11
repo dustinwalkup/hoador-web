@@ -329,6 +329,9 @@ export function PhotosSection({
             {/* Empty state */}
             {imageCount === 0 && (
               <motion.div
+                role="button"
+                tabIndex={0}
+                aria-label="Upload photos - drag and drop or click to select"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 transition-all ${
@@ -341,6 +344,12 @@ export function PhotosSection({
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
               >
                 <div className="bg-primary/10 mb-4 rounded-full p-4">
                   <Camera className="text-primary h-8 w-8" />
@@ -387,6 +396,9 @@ export function PhotosSection({
                     {/* Upload button in grid */}
                     {!isAtLimit && (
                       <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Add more photos, ${remainingSlots} remaining`}
                         className={`flex aspect-square h-full min-h-30 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all duration-200 ${
                           dragActive
                             ? "border-primary bg-primary/5"
@@ -397,6 +409,12 @@ export function PhotosSection({
                         onDragOver={handleDrag}
                         onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            fileInputRef.current?.click();
+                          }
+                        }}
                       >
                         <Upload
                           className={`mb-2 h-6 w-6 ${dragActive ? "text-primary" : "text-muted-foreground"}`}

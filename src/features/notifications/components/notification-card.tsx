@@ -135,11 +135,20 @@ export function NotificationCard({
   if (variant === "dropdown") {
     return (
       <div
+        role="button"
+        tabIndex={0}
+        aria-label={`Notification: ${notification.message}`}
         className={cn(
           "group flex w-full cursor-pointer items-start gap-2 p-3",
           !notification.isRead && "bg-muted/50",
         )}
         onClick={handleCardClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleCardClick();
+          }
+        }}
       >
         {content}
       </div>
@@ -148,11 +157,20 @@ export function NotificationCard({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Notification: ${notification.message}`}
       className={cn(
         "group hover:bg-muted/50 w-full cursor-pointer rounded-lg border p-4 transition-colors",
         !notification.isRead && "border-primary/50 bg-muted/30",
       )}
       onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
     >
       <div className="flex items-start gap-3">{content}</div>
     </div>

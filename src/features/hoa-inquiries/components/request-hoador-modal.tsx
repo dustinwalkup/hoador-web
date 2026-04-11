@@ -8,6 +8,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 
 import {
   Dialog,
+  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -116,9 +117,7 @@ export function RequestHoadorModal({ trigger }: RequestHoadorModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <span onClick={() => setOpen(true)} className="inline-flex">
-        {trigger}
-      </span>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="scrollbar-hover-reveal max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <AnimatePresence mode="wait">
           {showSuccess ? (

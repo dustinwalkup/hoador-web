@@ -165,7 +165,19 @@ export function ConversationsList({
     return filteredConversations.map((conversation: ConversationSummary) => (
       <div
         key={conversation.id}
+        role="button"
+        tabIndex={0}
+        aria-label={`Conversation with ${conversation.otherUser.name}`}
+        aria-current={
+          selectedConversationId === conversation.id ? "true" : undefined
+        }
         onClick={() => handleConversationClick(conversation.id)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleConversationClick(conversation.id);
+          }
+        }}
         onMouseEnter={() => handleConversationHover(conversation.id)}
         className={`relative flex cursor-pointer items-center border-l-4 p-4 transition-colors hover:bg-gray-50 ${
           selectedConversationId === conversation.id

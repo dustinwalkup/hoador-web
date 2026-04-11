@@ -15,9 +15,10 @@ export function MailboxSearch({
   return (
     <div className="p-4">
       <div className="relative">
-        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
         <Input
           placeholder="Search messages"
+          aria-label="Search messages"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10"

@@ -5,6 +5,11 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant coarse {
+  @media (pointer: coarse) {
+    @slot;
+  }
+}
 
 @theme inline {
   --color-primaryGreen: var(--primaryGreen);

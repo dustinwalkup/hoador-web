@@ -124,10 +124,12 @@ function CCForm({ onSuccess }: { onSuccess: (methodId: string) => void }) {
         <h3 className="mb-4 text-lg font-semibold">Select Payment Method</h3>
 
         {savedMethods.map((method: PaymentMethod) => (
-          <div
+          <button
+            type="button"
             key={method.id}
-            className="mb-3 cursor-pointer rounded-lg border p-4 hover:bg-gray-50"
+            className="mb-3 w-full cursor-pointer rounded-lg border p-4 text-left hover:bg-gray-50"
             onClick={() => handleUseExistingMethod(method.id)}
+            aria-label={`Select ${method.brand} card ending in ${method.last4}, expires ${method.exp_month}/${method.exp_year}`}
           >
             <div className="flex items-center justify-between">
               <span>•••• •••• •••• {method.last4}</span>
@@ -136,7 +138,7 @@ function CCForm({ onSuccess }: { onSuccess: (methodId: string) => void }) {
                 {method.exp_year}
               </span>
             </div>
-          </div>
+          </button>
         ))}
 
         <Button

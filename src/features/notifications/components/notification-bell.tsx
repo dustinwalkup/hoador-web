@@ -66,14 +66,14 @@ export function NotificationBell() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="relative h-8 w-8"
+          className="relative overflow-visible"
           size="icon"
           aria-label="Notifications"
         >
           <BellIcon className="h-4 w-4" />
           <span className="sr-only">Notifications</span>
           {hasUnread && !isLoadingCount && (
-            <span className="bg-destructive text-primary-foreground absolute -top-1.5 -right-1.5 flex size-2 items-center justify-center rounded-full p-2.5 text-xs">
+            <span className="bg-destructive text-primary-foreground coarse:top-0 coarse:right-0 absolute -top-1.5 -right-1.5 flex size-2 items-center justify-center rounded-full p-2.5 text-xs">
               {unreadCount}
             </span>
           )}

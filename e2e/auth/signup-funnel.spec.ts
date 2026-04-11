@@ -43,8 +43,8 @@ test.describe("Signup-to-dashboard funnel (email/password)", () => {
 
     await page.getByPlaceholder(/enter your join code/i).fill(E2E_JOIN_CODE);
 
-    const joinResponsePromise = page.waitForResponse(
-      (resp) => resp.url().includes("/api/auth/join-community"),
+    const joinResponsePromise = page.waitForResponse((resp) =>
+      resp.url().includes("/api/auth/join-community"),
     );
     await page.getByRole("button", { name: /join community/i }).click();
     const joinResp = await joinResponsePromise;

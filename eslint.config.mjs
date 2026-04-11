@@ -1,9 +1,14 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
+  {
+    // jsx-a11y recommended rules (plugin already registered by next/core-web-vitals)
+    rules: jsxA11y.flatConfigs.recommended.rules,
+  },
   {
     settings: {
       react: {
