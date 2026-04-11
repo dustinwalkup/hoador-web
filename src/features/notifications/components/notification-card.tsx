@@ -84,11 +84,11 @@ export function NotificationCard({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="h-6 w-6 shrink-0 transition-opacity group-hover:opacity-100 md:opacity-0"
                     onClick={(e) => e.stopPropagation()}
                     aria-label="Notification options"
                   >
-                    <MoreVertical className="h-4 w-4" />
+                    <MoreVertical className="size-5" />
                     <span className="sr-only">Notification options</span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -97,6 +97,7 @@ export function NotificationCard({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <DropdownMenuItem
+                    className="course:min-h-11 text-sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleToggleRead(e);
@@ -104,12 +105,12 @@ export function NotificationCard({
                   >
                     {notification.isRead ? (
                       <>
-                        <CircleIcon className="mr-2 h-4 w-4" />
+                        <CircleIcon className="mr-2 size-5" />
                         Mark as unread
                       </>
                     ) : (
                       <>
-                        <CheckIcon className="mr-2 h-4 w-4" />
+                        <CheckIcon className="mr-2 size-5" />
                         Mark as read
                       </>
                     )}

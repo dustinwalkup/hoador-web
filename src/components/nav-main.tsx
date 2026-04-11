@@ -72,7 +72,7 @@ export function NavMain() {
                               <div className="bg-sidebar-border my-2 h-px" />
                             )}
                             {group.label && (
-                              <SidebarGroupLabel className="mb-1 px-2">
+                              <SidebarGroupLabel className="mb-1 px-2 font-bold">
                                 {group.label}
                               </SidebarGroupLabel>
                             )}

@@ -94,7 +94,7 @@ export function QuickActionsBar({ unreadCount = 0 }: QuickActionsBarProps) {
                   <span>
                     <span className="block">List a rental</span>
                     <span className="text-muted-foreground font-normal">
-                      Tools and items neighbors can borrow
+                      Items neighbors can borrow
                     </span>
                   </span>
                 </Link>

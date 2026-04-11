@@ -66,11 +66,11 @@ export function NotificationBell() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="relative overflow-visible"
+          className="coarse:-mr-2 relative overflow-visible"
           size="icon"
           aria-label="Notifications"
         >
-          <BellIcon className="h-4 w-4" />
+          <BellIcon className="size-5" />
           <span className="sr-only">Notifications</span>
           {hasUnread && !isLoadingCount && (
             <span className="bg-destructive text-primary-foreground coarse:top-0 coarse:right-0 absolute -top-1.5 -right-1.5 flex size-2 items-center justify-center rounded-full p-2.5 text-xs">
@@ -81,16 +81,16 @@ export function NotificationBell() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Notifications</span>
+          <span className="pl-1 text-sm">Notifications</span>
           {hasUnread && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-auto p-0 text-xs"
+              className="h-auto min-h-11 p-0 py-2 text-sm"
               onClick={handleMarkAllAsRead}
               disabled={markAsRead.isPending}
             >
-              <CheckIcon className="mr-1 h-3 w-3" />
+              <CheckIcon className="mr-1 size-5" />
               Mark all as read
             </Button>
           )}
@@ -131,7 +131,7 @@ export function NotificationBell() {
 
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="cursor-pointer justify-center"
+              className="min-h-11 cursor-pointer justify-center"
               onClick={() => router.push("/dashboard/notifications")}
             >
               <span className="font-medium">
