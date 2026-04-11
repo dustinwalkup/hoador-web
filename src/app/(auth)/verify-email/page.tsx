@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Mail } from "lucide-react";
 
 import { AuthLayoutWrapper } from "@/features/auth/components/auth-layout-wrapper";
@@ -13,6 +12,7 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
+import { ReportIssueModal } from "@/components/footer/report-issue-modal";
 
 export const metadata: Metadata = {
   title: "Verify Email",
@@ -51,9 +51,9 @@ export default async function VerifyEmailPage({
             <CardFooter className="flex flex-col items-center gap-4">
               <div className="text-muted-foreground text-center text-xs">
                 Need help? Contact your community administrator or{" "}
-                <Link href="/support" className="text-primary underline">
-                  support
-                </Link>
+                <ReportIssueModal>
+                  <button className="text-primary underline">support</button>
+                </ReportIssueModal>
               </div>
             </CardFooter>
           </Card>
@@ -85,9 +85,9 @@ export default async function VerifyEmailPage({
           <CardFooter className="flex flex-col items-center gap-4">
             <div className="text-muted-foreground text-center text-xs">
               Need help? Contact your community administrator or{" "}
-              <Link href="/support" className="text-primary underline">
-                support
-              </Link>
+              <ReportIssueModal>
+                <button className="text-primary underline">support</button>
+              </ReportIssueModal>
             </div>
           </CardFooter>
         </Card>

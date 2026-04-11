@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Calendar, ChevronRight } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type {
@@ -38,14 +37,6 @@ const ROLE_BADGE: Record<
 
 export interface UpcomingScheduleWidgetProps {
   entries: ScheduleEntry[];
-}
-
-function formatDate(d: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(d);
 }
 
 /**

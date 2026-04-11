@@ -42,6 +42,13 @@ vi.mock("lucide-react", () => ({
   ExternalLink: () => <span data-testid="external-link-icon" />,
 }));
 
+// Mock ReportIssueModal
+vi.mock("../report-issue-modal", () => ({
+  ReportIssueModal: () => (
+    <button data-testid="report-issue-modal">Report an Issue</button>
+  ),
+}));
+
 // Mock tryCatch
 vi.mock("@walkup/walkup-utils", () => ({
   tryCatch: vi.fn(),
@@ -164,16 +171,8 @@ describe("Footer", () => {
 
       render(await Footer());
 
-      const helpCenterLink = screen.getByText("Help Center");
-      expect(helpCenterLink).toBeInTheDocument();
-      expect(helpCenterLink.closest("a")).toHaveAttribute("href", "/help");
-
-      const reportIssueLink = screen.getByText("Report an Issue");
-      expect(reportIssueLink).toBeInTheDocument();
-      expect(reportIssueLink.closest("a")).toHaveAttribute(
-        "href",
-        "/help/report",
-      );
+      expect(screen.getByText("Report an Issue")).toBeInTheDocument();
+      expect(screen.getByTestId("report-issue-modal")).toBeInTheDocument();
     });
 
     it("should not render document links when documents do not exist", async () => {
@@ -253,9 +252,9 @@ describe("Footer", () => {
 
       render(await Footer());
 
-      const helpCenterLink = screen.getByText("Help Center").closest("a");
-      expect(helpCenterLink).not.toHaveAttribute("target", "_blank");
-      expect(helpCenterLink).not.toHaveAttribute("rel", "noopener noreferrer");
+      const disputesLink = screen.getByText("Disputes").closest("a");
+      expect(disputesLink).not.toHaveAttribute("target", "_blank");
+      expect(disputesLink).not.toHaveAttribute("rel", "noopener noreferrer");
     });
   });
 
@@ -274,7 +273,6 @@ describe("Footer", () => {
 
       // Footer should still render with support links
       expect(screen.getByText("Support")).toBeInTheDocument();
-      expect(screen.getByText("Help Center")).toBeInTheDocument();
       expect(screen.getByText("Report an Issue")).toBeInTheDocument();
 
       // Should log error
@@ -418,11 +416,10 @@ describe("Footer", () => {
       render(await Footer());
 
       expect(screen.getByText("Support")).toBeInTheDocument();
-      expect(screen.getByText("Help Center")).toBeInTheDocument();
       expect(screen.getByText("Report an Issue")).toBeInTheDocument();
     });
 
-    it("should render support links as internal navigation links", async () => {
+    it("should render report issue modal and disputes link", async () => {
       vi.mocked(tryCatch).mockResolvedValue({
         data: mockDocumentVersions,
         error: null,
@@ -430,11 +427,10 @@ describe("Footer", () => {
 
       render(await Footer());
 
-      const helpCenterLink = screen.getByText("Help Center").closest("a");
-      expect(helpCenterLink).toHaveAttribute("href", "/help");
+      expect(screen.getByTestId("report-issue-modal")).toBeInTheDocument();
 
-      const reportIssueLink = screen.getByText("Report an Issue").closest("a");
-      expect(reportIssueLink).toHaveAttribute("href", "/help/report");
+      const disputesLink = screen.getByText("Disputes").closest("a");
+      expect(disputesLink).toHaveAttribute("href", "/dashboard/disputes");
     });
   });
 
