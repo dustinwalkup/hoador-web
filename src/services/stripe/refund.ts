@@ -18,9 +18,9 @@ type RefundResult =
 
 /**
  * Process a refund via Stripe.
- * Idempotency: `refund-rental-{rentalId}` or `refund-service-{serviceBookingId}`.
- *
- * @param params - Exactly one of rentalId or serviceBookingId must be set.
+ * Idempotency keys include charge id and amount so retries use the same key for
+ * identical requests, but a different refund amount (e.g. after a calculation fix)
+ * does not collide with Stripe’s stored first attempt.
  */
 export async function processRefund(
   params: ProcessRefundParams,
@@ -38,9 +38,10 @@ export async function processRefund(
       };
     }
 
+    const amountPart = String(params.refundAmountCents);
     const idempotencyKey = hasService
-      ? `refund-service-${params.serviceBookingId}`
-      : `refund-rental-${params.rentalId}`;
+      ? `refund-service-${params.serviceBookingId}-${params.chargeId}-${amountPart}`
+      : `refund-rental-${params.rentalId}-${params.chargeId}-${amountPart}`;
 
     const refund = await PAYMENT_SERVER_INSTANCE.refunds.create(
       {

@@ -37,8 +37,8 @@ describe("UpcomingScheduleWidget", () => {
     expect(screen.getByText("Power Drill")).toBeInTheDocument();
     expect(screen.getByText("1 item")).toBeInTheDocument();
     expect(screen.getByText("Renter")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /Return to Mike Owner/i });
-    expect(link).toHaveAttribute("href", "/dashboard/rental/req-1");
+    // Entry description is rendered as text (no longer a link)
+    expect(screen.getByText("Return to Mike Owner")).toBeInTheDocument();
   });
 
   it("should show empty state or nothing scheduled when entries length 0", () => {

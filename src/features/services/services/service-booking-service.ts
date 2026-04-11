@@ -306,8 +306,27 @@ export class ServiceBookingService {
       throw new ValidationError("payment_method_required", "paymentMethod");
     }
 
-    const paymentMethodId =
-      detail.selectedPaymentMethodId ?? stripeCtx.paymentMethodId;
+    let paymentMethodId: string;
+
+    if (detail.status === "payment_failed") {
+      // On retry, always use the requester's current Stripe default — not the previously failed PM.
+      paymentMethodId = stripeCtx.paymentMethodId;
+
+      // Guard: if the default hasn't changed since the failure, reject early.
+      if (
+        detail.selectedPaymentMethodId != null &&
+        detail.selectedPaymentMethodId === paymentMethodId
+      ) {
+        throw new ValidationError(
+          "Payment method is unchanged. Please update your default payment method and ask the provider to retry.",
+          "paymentMethod",
+        );
+      }
+    } else {
+      // First acceptance attempt: prefer the PM the requester chose at booking creation.
+      paymentMethodId =
+        detail.selectedPaymentMethodId ?? stripeCtx.paymentMethodId;
+    }
 
     const chargeIdempotencyKey =
       detail.status === "payment_failed"

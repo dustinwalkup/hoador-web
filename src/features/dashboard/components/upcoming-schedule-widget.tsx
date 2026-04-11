@@ -6,6 +6,7 @@ import type {
   ScheduleEntry,
   ScheduleEntryRole,
 } from "@/features/dashboard/types";
+import { ScheduleEntryNextStep } from "@/features/dashboard/components/schedule-entry-next-step";
 
 export type { ScheduleEntry };
 
@@ -77,7 +78,7 @@ export function UpcomingScheduleWidget({
       <CardContent
         className={
           entries.length > 0
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden pt-0"
+            ? "flex min-h-10 flex-1 flex-col overflow-hidden pt-0"
             : undefined
         }
       >
@@ -94,22 +95,30 @@ export function UpcomingScheduleWidget({
             </p>
           </div>
         ) : (
-          <div className="scrollbar-hover-reveal max-h-60 min-h-0 overflow-x-hidden overflow-y-auto">
-            <ul className="space-y-1">
+          <div className="scrollbar-hover-reveal max-h-96 min-h-0 overflow-x-hidden overflow-y-auto">
+            <ul className="">
               {entries.map((entry) => {
                 const badge = ROLE_BADGE[entry.role];
                 const inner = (
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-teal-500/10 text-center">
-                      <span className="text-[10px] leading-none font-semibold text-teal-600 uppercase dark:text-teal-400">
-                        {new Intl.DateTimeFormat("en-US", {
-                          weekday: "short",
-                        }).format(entry.date)}
-                      </span>
-                      <span className="text-sm leading-tight font-bold text-teal-700 dark:text-teal-300">
-                        {entry.date.getDate()}
+                    <div className="flex min-w-15 flex-col items-center justify-center gap-2">
+                      <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-teal-500/10 text-center">
+                        <span className="text-xs leading-none font-semibold text-teal-600 uppercase dark:text-teal-400">
+                          {new Intl.DateTimeFormat("en-US", {
+                            weekday: "short",
+                          }).format(entry.date)}
+                        </span>
+                        <span className="text-md leading-tight font-bold text-teal-700 dark:text-teal-300">
+                          {entry.date.getDate()}
+                        </span>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${badge.className}`}
+                      >
+                        {badge.label}
                       </span>
                     </div>
+
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{entry.description}</p>
                       {entry.subtitle ? (
@@ -117,31 +126,18 @@ export function UpcomingScheduleWidget({
                           {entry.subtitle}
                         </p>
                       ) : null}
-                      <span
-                        className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${badge.className}`}
-                      >
-                        {badge.label}
-                      </span>
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        {formatDate(entry.date)}
-                      </p>
+                      {/* Role badge + next-step chip on one row.
+                          flex-1 and stopPropagation live inside the client component. */}
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <ScheduleEntryNextStep entry={entry} />
+                      </div>
                     </div>
                   </div>
                 );
 
                 return (
                   <li key={entry.id}>
-                    {entry.linkTo ? (
-                      <Link
-                        href={entry.linkTo}
-                        className="group flex items-center rounded-lg p-2 transition-colors hover:bg-teal-50 dark:hover:bg-teal-950/20"
-                      >
-                        <div className="flex-1">{inner}</div>
-                        <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-                      </Link>
-                    ) : (
-                      <div className="rounded-lg p-2">{inner}</div>
-                    )}
+                    <div className="px-1 py-4">{inner}</div>
                   </li>
                 );
               })}

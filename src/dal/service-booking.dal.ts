@@ -253,6 +253,38 @@ export class ServiceBookingDAL extends BaseDAL {
   }
 
   /**
+   * Bookings with status "payment_failed" where the user is the requester.
+   * Used to notify the provider when the requester updates their payment method.
+   */
+  async findPaymentFailedByRequester(requesterId: string): Promise<
+    Array<{
+      id: string;
+      providerId: string;
+      listingId: string;
+      selectedPaymentMethodId: string | null;
+    }>
+  > {
+    try {
+      return await this.db
+        .select({
+          id: serviceBookings.id,
+          providerId: serviceBookings.providerId,
+          listingId: serviceBookings.listingId,
+          selectedPaymentMethodId: serviceBookings.selectedPaymentMethodId,
+        })
+        .from(serviceBookings)
+        .where(
+          and(
+            eq(serviceBookings.requesterId, requesterId),
+            eq(serviceBookings.status, "payment_failed"),
+          ),
+        );
+    } catch (error) {
+      this.handleError(error, "ServiceBookingDAL.findPaymentFailedByRequester");
+    }
+  }
+
+  /**
    * Bookings where the user is the provider.
    */
   async findByProvider(providerId: string): Promise<ServiceBooking[]> {

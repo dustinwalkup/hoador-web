@@ -61,6 +61,10 @@ export interface ScheduleEntry {
   linkTo?: string;
   type: "return" | "pickup" | "service";
   role: ScheduleEntryRole;
+  /** True when the owner delivers the item instead of renter picking up. */
+  deliveryRequested?: boolean;
+  /** True when delivery includes owner-provided setup (only when deliveryRequested). */
+  setupRequested?: boolean;
 }
 
 /** Top performing listing for TopPerformingToolsWidget. */

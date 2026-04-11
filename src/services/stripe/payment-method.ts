@@ -1,6 +1,10 @@
 import type Stripe from "stripe";
 import { PAYMENT_SERVER_INSTANCE } from "./server";
-import { paymentLifecycleDAL, userDAL } from "@/dal";
+import { paymentLifecycleDAL, serviceBookingDAL, userDAL } from "@/dal";
+import {
+  sendPaymentMethodUpdatedProviderNotification,
+  sendPaymentMethodUpdatedRequesterConfirmationNotification,
+} from "@/features/services/notifications/service-notifications";
 
 /**
  * Recover failed deposit holds after a payment method change.
@@ -23,6 +27,35 @@ export async function recoverFailedDeposits(renterId: string): Promise<void> {
 }
 
 /**
+ * Notify providers of payment_failed service bookings when the requester updates their
+ * default payment method to a different card. Also confirms to the requester that their
+ * provider has been notified. Never throws — catches and logs errors internally.
+ */
+export async function recoverFailedServiceBookings(
+  userId: string,
+  newPaymentMethodId: string,
+): Promise<void> {
+  try {
+    const failedBookings =
+      await serviceBookingDAL.findPaymentFailedByRequester(userId);
+    await Promise.allSettled(
+      failedBookings
+        .filter(
+          (b) =>
+            b.selectedPaymentMethodId == null ||
+            b.selectedPaymentMethodId !== newPaymentMethodId,
+        )
+        .flatMap((b) => [
+          sendPaymentMethodUpdatedProviderNotification(b.providerId, b),
+          sendPaymentMethodUpdatedRequesterConfirmationNotification(userId, b),
+        ]),
+    );
+  } catch (error) {
+    console.error("Error recovering failed service bookings:", error);
+  }
+}
+
+/**
  * Attach a payment method to a Stripe customer, then recover any failed deposits.
  */
 export async function attachPaymentMethod(
@@ -36,6 +69,7 @@ export async function attachPaymentMethod(
   );
 
   await recoverFailedDeposits(renterId);
+  await recoverFailedServiceBookings(renterId, paymentMethod.id);
 
   return paymentMethod;
 }
@@ -55,6 +89,7 @@ export async function setDefaultPaymentMethod(
   });
 
   await recoverFailedDeposits(renterId);
+  await recoverFailedServiceBookings(renterId, paymentMethodId);
 }
 
 /**

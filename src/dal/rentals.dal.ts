@@ -56,6 +56,8 @@ export interface BorrowedListing {
   ownerName: string;
   /** Whether the renter requested owner delivery (affects schedule copy). */
   deliveryRequested: boolean;
+  /** Whether the owner also offered setup as part of delivery. */
+  setupRequested?: boolean;
   startDate: Date;
   endDate: Date;
   totalAmount: string;
@@ -390,6 +392,7 @@ export class RentalDAL extends BaseDAL {
           ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
           deliveryRequested: rentalRequests.deliveryRequested,
+          setupRequested: rentalRequests.setupRequested,
           startDate: rentalRequests.startDate,
           endDate: rentalRequests.endDate,
           totalAmount: rentalRequests.totalAmount,
@@ -2652,9 +2655,11 @@ export class RentalDAL extends BaseDAL {
           ownerId: rentalRequests.ownerId,
           status: rentalRequests.status,
           startDate: rentalRequests.startDate,
-          rentalPrice: rentalRequests.totalAmount,
+          /** Subtotal + delivery + setup (matches totalAmount − serviceFee; charged amount is totalAmount). */
+          rentalPrice: sql<string>`(${rentalRequests.totalAmount}::numeric - ${rentalRequests.serviceFee}::numeric)::text`,
           serviceFee: rentalRequests.serviceFee,
-          totalChargeAmount: sql<string>`(${rentalRequests.totalAmount}::numeric + ${rentalRequests.serviceFee}::numeric)::text`,
+          /** Same as Stripe charge / PaymentIntent amount (includes service fee once). */
+          totalChargeAmount: rentalRequests.totalAmount,
           depositHoldStatus: rentalPaymentLifecycle.depositHoldStatus,
           securityDepositAuthId: rentals.securityDepositAuthId,
           rentalChargeId: rentalPaymentLifecycle.rentalChargeId,

@@ -155,6 +155,19 @@ describe("POST /api/rentals/[id]/cancel", () => {
     expect(body.refundAmount).toBe(112);
   });
 
+  it("returns 422 when cancellation service reports refund or business failure", async () => {
+    mockCancelRental.mockResolvedValue({
+      success: false,
+      error: "Refund amount is greater than charge amount",
+    });
+
+    const response = await postCancel("req-fail");
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error).toContain("greater than charge");
+  });
+
   it("returns 400 for active rental", async () => {
     mockCancelRental.mockRejectedValue(
       new ValidationError(
