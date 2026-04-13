@@ -4,7 +4,6 @@ import { ConflictError, NotFoundError, ValidationError } from "@/dal/errors";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { auth } from "@/services/better-auth";
 import { getSession } from "@/features/auth/utils/session";
-import { captureNonCriticalError } from "@/lib/api/route-helpers";
 
 /**
  * Context passed from API routes for audit and legal recording.
@@ -153,16 +152,13 @@ export class AuthService {
       throw new Error("Failed to join community. Please try again.");
     }
 
-    // Update user status (non-critical)
+    // Update user status - critical for correct flow progression
     const { error: statusError } = await tryCatch(
       userDAL.updateUserStatus(userId, "incomplete_profile"),
     );
 
     if (statusError) {
-      captureNonCriticalError(statusError, {
-        route: "AuthService.joinCommunity",
-        action: "update_user_status",
-      });
+      throw new Error("Failed to update account status. Please try again.");
     }
 
     return { redirect: "/onboarding" };
@@ -233,11 +229,8 @@ export class AuthService {
         privacyVersion: documentVersions[LEGAL_DOCUMENT_IDS.PRIVACY]?.version,
         privacyAcceptedAt: new Date(),
       });
-    } catch (error) {
-      captureNonCriticalError(error, {
-        route: "AuthService.recordLegalAcceptances",
-        action: "record_legal_acceptances",
-      });
+    } catch {
+      throw new Error("Failed to record legal acceptances. Please try again.");
     }
   }
 }
