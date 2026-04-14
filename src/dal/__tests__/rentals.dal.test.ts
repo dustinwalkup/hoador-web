@@ -2002,4 +2002,21 @@ describe("RentalDAL", () => {
       expect(result[0].requestId).toBe("req-2");
     });
   });
+
+  describe("getActionableAlerts", () => {
+    it("returns an empty array when no rows match any category", async () => {
+      const chain = {
+        from: vi.fn(),
+        innerJoin: vi.fn(),
+        where: vi.fn().mockResolvedValue([]),
+      };
+      chain.from.mockReturnValue(chain);
+      chain.innerJoin.mockReturnValue(chain);
+      vi.mocked(db.select).mockReturnValue(chain as any);
+
+      const result = await rentalDAL.getActionableAlerts("user-1");
+
+      expect(result).toEqual([]);
+    });
+  });
 });

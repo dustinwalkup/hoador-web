@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { AlertCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  AlertCircle,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Briefcase,
+  CalendarCheck,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { useServiceBookings } from "@/features/services/hooks/use-service-bookings";
 import { ServiceBookingCard } from "@/features/services/components/service-booking-card";
 import type { ServiceBookingDashboardRow } from "@/dal/service-booking.dal";
+import { EmptyStateCoach } from "@/components/empty-state-coach";
 
 interface ServicesFlowClientProps {
   initialRole: "provider" | "requester";
@@ -203,13 +211,13 @@ export function ServicesFlowClient({
 
 const ITEMS_PER_PAGE = 5;
 
-const EMPTY_STATE_MESSAGES: Record<string, string> = {
-  pending: "No pending requests.",
-  accepted: "No scheduled bookings.",
-  completed: "No completed bookings.",
-  declined: "No declined requests.",
-  cancelled: "No cancelled bookings.",
-};
+// const EMPTY_STATE_MESSAGES: Record<string, string> = {
+//   pending: "No pending requests.",
+//   accepted: "No scheduled bookings.",
+//   completed: "No completed bookings.",
+//   declined: "No declined requests.",
+//   cancelled: "No cancelled bookings.",
+// };
 
 function sortBookings(
   data: ServiceBookingDashboardRow[],
@@ -253,7 +261,6 @@ interface ServiceBookingsListProps {
 
 function ServiceBookingsList({
   data,
-  activeStatus,
   activeRole,
   isLoading,
   error,
@@ -342,21 +349,41 @@ function ServiceBookingsList({
 
       {/* Results */}
       {paginatedData.length === 0 ? (
-        <div className="rounded-lg border py-8 text-center">
-          <p className="text-muted-foreground text-sm">
-            {searchQuery
-              ? "No bookings match your search."
-              : (EMPTY_STATE_MESSAGES[activeStatus] ??
-                `No ${activeStatus} bookings.`)}
-          </p>
-          {searchQuery && (
-            <Button
-              variant="outline"
-              onClick={() => setSearchQuery("")}
-              className="mt-3"
-            >
-              Clear search
-            </Button>
+        <div className="rounded-lg border">
+          {searchQuery ? (
+            <div className="py-8 text-center">
+              <p className="text-muted-foreground text-sm">
+                No bookings match your search.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => setSearchQuery("")}
+                className="mt-3"
+              >
+                Clear search
+              </Button>
+            </div>
+          ) : activeRole === "requester" ? (
+            <EmptyStateCoach
+              icon={CalendarCheck}
+              iconColor="text-primary/60"
+              iconBg="bg-primary/10"
+              headline="No service bookings yet"
+              description="Browse services available in your area"
+              cta={{ label: "Browse services", href: "/dashboard/explore" }}
+            />
+          ) : (
+            <EmptyStateCoach
+              icon={Briefcase}
+              iconColor="text-primary/60"
+              iconBg="bg-primary/10"
+              headline="No service requests yet"
+              description="List a service to start receiving bookings"
+              cta={{
+                label: "List a service",
+                href: "/dashboard/services/listings/create",
+              }}
+            />
           )}
         </div>
       ) : (

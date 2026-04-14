@@ -77,18 +77,18 @@ export function InactiveServiceListings({
           </p>
         </div>
       )}
-      <Card className="items-center justify-center overflow-hidden border-dashed">
+      <Card className="items-center justify-center overflow-hidden border-dashed py-0">
         <CardContent className="flex flex-col items-center justify-center p-6">
           <div className="bg-primary/10 mb-4 rounded-full p-3">
             <Plus className="text-primary h-6 w-6" />
           </div>
-          <CardTitle className="mb-2 text-lg">List a New Service</CardTitle>
+          <CardTitle className="mb-2 text-lg">List another service</CardTitle>
           <p className="text-muted-foreground mb-4 text-center text-sm">
             Offer your skills to your community
           </p>
           <Button asChild>
             <Link href="/dashboard/services/listings/create">
-              Add New Listing
+              List a service
             </Link>
           </Button>
         </CardContent>

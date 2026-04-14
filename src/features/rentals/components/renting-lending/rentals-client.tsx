@@ -250,7 +250,7 @@ export function RentalsClient({
           reviewPolicyUrl={reviewPolicyUrl}
           emptyStateMessage={
             activeStatus === "requests"
-              ? "No pending requests."
+              ? "Nothing rented yet"
               : activeStatus === "approved"
                 ? "No approved requests."
                 : activeStatus === "denied"
@@ -261,7 +261,7 @@ export function RentalsClient({
           }
           emptyStateAction={
             activeStatus === "requests"
-              ? { label: "Browse Listings", href: "/explore" }
+              ? { label: "Browse", href: "/dashboard/explore" }
               : undefined
           }
         />
@@ -273,7 +273,7 @@ export function RentalsClient({
           data={data as LendingRequestItem[]}
           emptyStateMessage={
             activeStatus === "incoming"
-              ? "No incoming requests."
+              ? "No rental requests yet"
               : activeStatus === "approved"
                 ? "No approved requests."
                 : activeStatus === "cancelled"

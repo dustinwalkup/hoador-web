@@ -8,6 +8,7 @@ import { PaymentsPageError } from "./payments-page-error";
 import { OwnerSection } from "./owner-section";
 import { InitiateStripeOnboarding } from "./initiate-stripe-onboarding";
 import { useAccountSession } from "../hooks/use-stripe-connect";
+import { PaymentExplainerSection } from "./payment-explainer-section";
 
 const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
@@ -133,6 +134,7 @@ export function EarningsAndPayoutsPageClient({
       ) : (
         <InitiateStripeOnboarding />
       )}
+      <PaymentExplainerSection activeTab="owner" />
     </div>
   );
 }

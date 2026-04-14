@@ -65,7 +65,7 @@ export function QuickActionsBar({ unreadCount = 0 }: QuickActionsBarProps) {
               className="shrink-0 gap-2 shadow-xs"
             >
               <Plus className="h-4 w-4" aria-hidden />
-              List
+              List item
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">

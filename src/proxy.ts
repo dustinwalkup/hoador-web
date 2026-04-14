@@ -49,7 +49,7 @@ const SKIP_MIDDLEWARE_PATHS = [
 ];
 
 // Pages that are always accessible (no auth required; funnel users are not redirected away)
-const PUBLIC_PAGE_ROUTES = ["/support", "/help"];
+const PUBLIC_PAGE_ROUTES = ["/support", "/help", "/how-it-works"];
 
 /**
  * Check if a path matches any of the protected route patterns
@@ -73,7 +73,7 @@ function isPublicApiRoute(pathname: string): boolean {
 }
 
 /**
- * Check if path is a public page (support, help) that anyone can access
+ * Check if path is a public page (support, help, how-it-works) that anyone can access
  */
 function isPublicPageRoute(pathname: string): boolean {
   return PUBLIC_PAGE_ROUTES.some(

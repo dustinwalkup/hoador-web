@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import dynamic from "next/dynamic";
+
+const ReactQueryDevtools = dynamic(
+  () =>
+    import("@tanstack/react-query-devtools").then((mod) => ({
+      default: mod.ReactQueryDevtools,
+    })),
+  { ssr: false },
+);
 import { configureReactQuerySentryIntegration } from "@/lib/react-query/sentry-integration";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { SentryUserSync } from "@/components/sentry-user-sync";
@@ -30,7 +38,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <SentryUserSync />
       <ServiceWorkerRegistration />
       {children}
-      <ReactQueryDevtools initialIsOpen={false} />
+      {process.env.NODE_ENV === "development" && (
+        <ReactQueryDevtools initialIsOpen={false} />
+      )}
     </QueryClientProvider>
   );
 }

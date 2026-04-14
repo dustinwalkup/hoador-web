@@ -16,7 +16,7 @@
     - _Requirements: 1.1_
   - [ ] 2.2 `RecentActivityFeed` — add "No recent activity" coaching + "Browse rentals & services" CTA → `/explore`
     - _Requirements: 1.1_
-  - [ ] 2.3 `UnreadMessagesWidget` — replace `return null` with `EmptyStateCoach`: "No messages yet" + "Your conversations will appear here when you book or accept a rental or service" + "Browse" CTA → `/explore`
+  - [ ] 2.3 `UnreadMessagesWidget` — replace `return null` with `EmptyStateCoach`: "No messages yet" + "Your conversations will appear here when you book or accept a rental or service" + "Browse services" CTA → `/dashboard/services`
     - _Requirements: 1.1, 1.6_
   - [ ] 2.4 `TopPerformingToolsWidget` — change from showing text-only empty state to `return null` (hide until there is rental activity)
     - _Requirements: 1.1_
@@ -135,7 +135,7 @@
 
 ## Track 3: Payment Transparency
 
-- [ ] 12. Create `PaymentTransparencyCallout` component
+- [x] 12. Create `PaymentTransparencyCallout` component
   - Create `src/features/payments/components/payment-transparency-callout.tsx`
   - Props: `role: "renter" | "owner"`, `variant?: "booking-confirmation" | "rental-detail"`
   - Renter copy: "When you're charged — You'll be charged when your request is accepted. No charge if declined."
@@ -143,7 +143,7 @@
   - Use `Alert` shadcn component with `Info` icon, soft blue tint background
   - _Requirements: 3.1, 3.2, 3.6, 3.7_
 
-- [ ] 13. Create `HowPaymentsWorkModal` component
+- [x] 13. Create `HowPaymentsWorkModal` component
   - Create `src/features/payments/components/how-payments-work-modal.tsx`
   - Trigger: `HelpCircle` icon button (from lucide-react), placed inline near price/total
   - Modal uses `Dialog` from shadcn/ui; keyboard dismissable (Escape), click-outside, explicit close button
@@ -151,17 +151,17 @@
   - No props required — static content
   - _Requirements: 3.3, 3.4, 3.8_
 
-- [ ] 14. Add payment transparency to booking confirmation page
+- [x] 14. Add payment transparency to booking confirmation page
   - Locate booking confirmation page/component
   - Add `PaymentTransparencyCallout` with role-appropriate variant below the booking summary
   - Add `HowPaymentsWorkModal` trigger (`?` icon) next to the total/price line item
   - _Requirements: 3.1, 3.2, 3.3, 3.7_
 
-- [ ] 15. Add `HowPaymentsWorkModal` trigger to rental detail page
+- [x] 15. Add `HowPaymentsWorkModal` trigger to rental detail page
   - Add `HelpCircle` trigger next to the daily rate or total in `RentalDetailsCard`
   - _Requirements: 3.3, 3.8_
 
-- [ ] 16. Create `PaymentExplainerSection` and add to payments page
+- [x] 16. Create `PaymentExplainerSection` and add to payments page
   - Create `src/features/payments/components/payment-explainer-section.tsx`
   - Props: `activeTab: "owner" | "renter"`
   - Use `Collapsible` from shadcn/ui; collapsed by default on mobile, expanded on desktop
@@ -271,7 +271,7 @@
 
 ## Track 6: Microcopy Sweep
 
-- [ ] 27. Update navigation labels in `src/constants/navbar.ts`
+- [x] 27. Update navigation labels in `src/constants/navbar.ts`
   - "Explore" → "Browse"
   - "Activity" → "Your rentals & bookings"
   - "Manage Listings" → "Your listings"
@@ -282,25 +282,25 @@
   - Group label "SERVICES" (Manage Listings) → "Service listings"
   - _Requirements: 6.1, 6.4, 6.5_
 
-- [ ] 28. Update CTA and button labels across priority surfaces
-  - [ ] 28.1 Dashboard: "List a Tool" → "List something", "Browse Tools" → "Browse" in Quick Actions bar
+- [x] 28. Update CTA and button labels across priority surfaces
+  - [x] 28.1 Dashboard: "List a Tool" → "List something", "Browse Tools" → "Browse" in Quick Actions bar
     - _Requirements: 6.1, 6.2_
-  - [ ] 28.2 Explore/browse page: page heading "Explore" → "Browse rentals & services"
+  - [x] 28.2 Explore/browse page: page heading "Explore" → "Browse rentals & services"
     - _Requirements: 6.1, 6.4_
-  - [ ] 28.3 Manage listings: page heading "My Listings" → "Your listings"; create CTA "Create listing" → "List an item", "Create service" → "List a service"
+  - [x] 28.3 Manage listings: page heading "My Listings" → "Your listings"; create CTA "Create listing" → "List an item", "Create service" → "List a service"
     - _Requirements: 6.2, 6.4_
-  - [ ] 28.4 Activity page: heading "Bookings" → "Your rentals & bookings"; verify sub-section headings are consistent
+  - [x] 28.4 Activity page: heading "Bookings" → "Your rentals & bookings"; verify sub-section headings are consistent
     - _Requirements: 6.1, 6.4_
-  - [ ] 28.5 Booking flow: primary CTA "Book" or "Submit" → "Request booking"
+  - [x] 28.5 Booking flow: primary CTA "Book" or "Submit" → "Request booking"
     - _Requirements: 6.2_
-  - [ ] 28.6 Payments page tabs: "Owner" → "Earnings & payouts", "Renter" → "Payment methods"
+  - [x] 28.6 Payments page tabs: "Owner" → "Earnings & payouts", "Renter" → "Payment methods"
     - _Requirements: 6.2_
-  - [ ] 28.7 Rental listing detail page: review any generic labels (e.g., section headings, action labels) and update to plain language per design doc
+  - [x] 28.7 Rental listing detail page: review any generic labels (e.g., section headings, action labels) and update to plain language per design doc
     - _Requirements: 6.4_
-  - [ ] 28.8 Service listing detail page: same review and update as rental detail
+  - [x] 28.8 Service listing detail page: same review and update as rental detail
     - _Requirements: 6.4_
 
-- [ ] 29. Update dashboard widget headings
+- [x] 29. Update dashboard widget headings
   - "Upcoming Schedule" → "Coming up"
   - "Recent Activity" → "Recent activity"
   - "Top Performing Tools" → "Your top listings"
@@ -308,6 +308,6 @@
   - "Tips & Suggestions" → "Tips for you"
   - _Requirements: 6.1, 6.4_
 
-- [ ] 30. Audit and update ARIA labels and accessibility attributes to match changed visible copy
+- [x] 30. Audit and update ARIA labels and accessibility attributes to match changed visible copy
   - For each label changed in tasks 27–29, locate and update corresponding `aria-label`, `title`, or screen-reader-only text attributes
   - _Requirements: 6.8_

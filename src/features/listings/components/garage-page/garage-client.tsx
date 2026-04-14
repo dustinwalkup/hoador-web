@@ -16,13 +16,13 @@ export function GarageClient() {
   return (
     <div className="container pb-6">
       <PageHeader
-        title="My Rentals"
+        title="Your rental listings"
         description="Manage your rental listings in one place"
       >
         <Link href="/dashboard/listings/add">
           <Button size="sm" className="h-9">
             <Plus className="mr-2 h-4 w-4" />
-            Add New Listing
+            List an item
           </Button>
         </Link>
       </PageHeader>

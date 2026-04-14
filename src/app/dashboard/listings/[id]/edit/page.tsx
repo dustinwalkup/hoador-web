@@ -11,7 +11,7 @@ import { BackButton } from "@/components/back-button";
 import { AddListingForm } from "@/features/listings/components/listing-form/add-listing-form";
 
 export const metadata = {
-  title: "Edit Listing",
+  title: "Edit listing",
   description: "Update your listing information",
 };
 
@@ -77,7 +77,7 @@ export default async function EditListingPage({
       <div className="mb-6">
         <BackButton />
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold sm:text-3xl">Edit Listing</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Edit listing</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
             List your tool to start earning money from your garage
           </p>

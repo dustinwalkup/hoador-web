@@ -2,6 +2,7 @@
 
 import {
   CreditCardIcon,
+  HelpCircle,
   Loader2,
   LogOutIcon,
   UserCircleIcon,
@@ -15,6 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -92,6 +94,13 @@ export function NavUser({ user }: { user: UserProfile }) {
                 Billing
               </DropdownMenuItem>
             </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="coarse:min-h-11">
+              <a href="/how-it-works" target="_blank" rel="noopener noreferrer">
+                <HelpCircle className="size-4" />
+                How Hoador Works
+              </a>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleSignOut}
               className="coarse:min-h-11"

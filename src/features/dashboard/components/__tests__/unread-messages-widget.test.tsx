@@ -11,11 +11,15 @@ vi.mock("next/link", () => ({
 }));
 
 describe("UnreadMessagesWidget", () => {
-  it("should return null when no unread and no recent conversations", () => {
-    const { container } = render(
-      <UnreadMessagesWidget unreadCount={0} recentConversations={[]} />,
-    );
-    expect(container.firstChild).toBeNull();
+  it("should show empty state coaching when no unread and no recent conversations", () => {
+    render(<UnreadMessagesWidget unreadCount={0} recentConversations={[]} />);
+    expect(screen.getByText("No messages yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Your conversations will appear here when you book or accept a rental or service",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Browse services")).toBeInTheDocument();
   });
 
   it("should render unread count when > 0", () => {
@@ -54,7 +58,7 @@ describe("UnreadMessagesWidget", () => {
         recentConversations={conversations}
       />,
     );
-    const mailboxLink = screen.getByRole("link", { name: /View Mailbox/i });
+    const mailboxLink = screen.getByRole("link", { name: /View messages/i });
     expect(mailboxLink).toHaveAttribute("href", "/dashboard/mailbox");
     const convLink = screen.getByRole("link", { name: /Bob/i });
     expect(convLink).toHaveAttribute(

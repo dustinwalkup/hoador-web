@@ -5,7 +5,7 @@ import { auth } from "@/services/better-auth";
 /**
  * Get current user from Better Auth session
  */
-export const getCurrentUser = async () => {
+export const getCurrentUser = cache(async () => {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -27,7 +27,7 @@ export const getCurrentUser = async () => {
     console.error("Error getting current user:", error);
     return null;
   }
-};
+});
 
 /**
  * Require authentication - throws if user not authenticated

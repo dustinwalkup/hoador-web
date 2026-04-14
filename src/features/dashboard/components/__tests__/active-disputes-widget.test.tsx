@@ -10,9 +10,11 @@ vi.mock("next/link", () => ({
 }));
 
 describe("ActiveDisputesWidget", () => {
-  it("should show No active disputes when totalCount is 0", () => {
-    render(<ActiveDisputesWidget disputes={[]} totalCount={0} />);
-    expect(screen.getByText("No active disputes")).toBeInTheDocument();
+  it("should render nothing when totalCount is 0", () => {
+    const { container } = render(
+      <ActiveDisputesWidget disputes={[]} totalCount={0} />,
+    );
+    expect(container.firstChild).toBeNull();
   });
 
   it("should render disputes from props with status and link to detail", () => {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Activity, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyStateCoach } from "@/components/empty-state-coach";
 
 export interface ActivityFeedItem {
   id: string;
@@ -28,22 +29,18 @@ export function RecentActivityFeed({ items }: RecentActivityFeedProps) {
               aria-hidden
             />
           </div>
-          Recent Activity
+          Recent activity
         </CardTitle>
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/10">
-              <Activity className="h-6 w-6 text-indigo-400" />
-            </div>
-            <p className="text-muted-foreground mt-3 text-sm">
-              No recent activity
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Your activity will appear here
-            </p>
-          </div>
+          <EmptyStateCoach
+            icon={Activity}
+            iconColor="text-indigo-400"
+            iconBg="bg-indigo-500/10"
+            headline="No recent activity"
+            description="Actions like booking requests, approvals, and completions will appear here"
+          />
         ) : (
           <div className="scrollbar-hover-reveal max-h-80 overflow-y-auto">
             <ul className="relative space-y-1">

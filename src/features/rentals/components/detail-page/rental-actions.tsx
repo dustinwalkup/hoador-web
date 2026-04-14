@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle,
   XCircle,
-  Flag,
   Plus,
   Edit,
   ExternalLink,
@@ -146,19 +145,6 @@ export function RentalActions({
                 <XCircle className="mr-2 h-4 w-4" />
                 Cancel Rental
               </Button>
-            )}
-
-            {rentalDetails.status === "active" && (
-              <>
-                {/* <Button variant="outline" className="w-full bg-transparent">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Request Extension
-                </Button> */}
-                <Button variant="outline" className="w-full bg-transparent">
-                  <Flag className="mr-2 h-4 w-4" />
-                  Report Issue
-                </Button>
-              </>
             )}
 
             {rentalDetails.status === "completed" && (

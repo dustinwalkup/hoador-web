@@ -12,11 +12,15 @@ vi.mock("next/link", () => ({
 describe("UpcomingScheduleWidget", () => {
   it("should show empty state when entries length is 0", () => {
     render(<UpcomingScheduleWidget entries={[]} />);
-    expect(screen.getByText("Nothing scheduled")).toBeInTheDocument();
+    expect(screen.getByText("Nothing coming up")).toBeInTheDocument();
     expect(screen.getByText("0 items")).toBeInTheDocument();
     expect(
       screen.getByText("Upcoming rentals and services will show here"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Browse/i })).toHaveAttribute(
+      "href",
+      "/dashboard/explore",
+    );
   });
 
   it("should render entries with date, description, role badge, and link", () => {
@@ -43,6 +47,6 @@ describe("UpcomingScheduleWidget", () => {
 
   it("should show empty state or nothing scheduled when entries length 0", () => {
     render(<UpcomingScheduleWidget entries={[]} />);
-    expect(screen.getByText("Nothing scheduled")).toBeInTheDocument();
+    expect(screen.getByText("Nothing coming up")).toBeInTheDocument();
   });
 });

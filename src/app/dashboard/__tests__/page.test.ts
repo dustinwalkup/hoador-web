@@ -31,7 +31,7 @@ vi.mock("@/dal", () => ({
     countBorrowedListings: vi.fn().mockResolvedValue(0),
     countSharedListings: vi.fn().mockResolvedValue(0),
     getLendingRequestsByStatus: vi.fn().mockResolvedValue([]),
-    getOverdueItemsForUser: vi.fn().mockResolvedValue([]),
+    getActionableAlerts: vi.fn().mockResolvedValue([]),
     getRentalsPerMonth: vi.fn().mockResolvedValue([]),
   },
   listingDAL: {
@@ -117,7 +117,7 @@ describe("Dashboard page (RSC integration)", () => {
       "pending",
       mockUserId,
     );
-    expect(rentalDAL.getOverdueItemsForUser).toHaveBeenCalledWith(mockUserId);
+    expect(rentalDAL.getActionableAlerts).toHaveBeenCalledWith(mockUserId);
     expect(messagesDAL.getUnreadMessageCount).toHaveBeenCalledWith(mockUserId);
     expect(getUpcomingSchedule).toHaveBeenCalledWith(mockUserId);
     expect(getDashboardActivityFeed).toHaveBeenCalledWith(mockUserId, 10);
@@ -151,7 +151,7 @@ describe("Dashboard page (RSC integration)", () => {
     await Page();
 
     const { rentalDAL } = await import("@/dal");
-    expect(rentalDAL.getOverdueItemsForUser).toHaveBeenCalledWith(mockUserId);
+    expect(rentalDAL.getActionableAlerts).toHaveBeenCalledWith(mockUserId);
     expect(rentalDAL.getLendingRequestsByStatus).toHaveBeenCalledWith(
       "pending",
       mockUserId,
@@ -174,7 +174,7 @@ describe("Dashboard page (RSC integration)", () => {
   });
 
   it("should still render when one DAL call fails (per-widget failure isolation)", async () => {
-    const { rentalDAL, listingDAL } = await import("@/dal");
+    const { rentalDAL } = await import("@/dal");
     vi.mocked(rentalDAL.countBorrowedListings).mockRejectedValue(
       new Error("DB error"),
     );
@@ -186,9 +186,5 @@ describe("Dashboard page (RSC integration)", () => {
     expect(result).toBeDefined();
     // Other DALs still called
     expect(rentalDAL.countSharedListings).toHaveBeenCalledWith(mockUserId);
-    expect(listingDAL.getTopPerformingListings).toHaveBeenCalledWith(
-      mockUserId,
-      5,
-    );
   });
 });

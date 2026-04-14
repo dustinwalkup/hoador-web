@@ -10,12 +10,9 @@ vi.mock("next/link", () => ({
 }));
 
 describe("TopPerformingToolsWidget", () => {
-  it("should show empty state when listings array is empty", () => {
-    render(<TopPerformingToolsWidget listings={[]} />);
-    expect(screen.getByText("No top performers yet")).toBeInTheDocument();
-    expect(
-      screen.getByText("Your best-rented items will show here"),
-    ).toBeInTheDocument();
+  it("should render nothing when listings array is empty", () => {
+    const { container } = render(<TopPerformingToolsWidget listings={[]} />);
+    expect(container.firstChild).toBeNull();
   });
 
   it("should render listings with name and metricText and link to listing", () => {

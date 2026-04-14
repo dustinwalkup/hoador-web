@@ -338,11 +338,11 @@ export function RentListingPageContent({
       case "delivery":
         return "Services & Delivery";
       case "summary":
-        return "Confirm Booking";
+        return "Review request";
       case "payment":
         return "Payment Details";
       default:
-        return "Book Rental";
+        return "Request a rental";
     }
   };
 
@@ -446,9 +446,9 @@ export function RentListingPageContent({
                     }
                   >
                     {isSubmitting
-                      ? "Submitting..."
+                      ? "Sending request..."
                       : currentStep === "summary"
-                        ? "Send Request"
+                        ? "Request booking"
                         : "Continue"}
                   </Button>
                 )}

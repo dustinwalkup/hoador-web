@@ -16,9 +16,15 @@ const SUPPORT_EMAIL = "support@hoador.com";
 
 interface ReportIssueModalProps {
   children?: React.ReactNode;
+  triggerClassName?: string;
+  triggerLabel?: string;
 }
 
-export function ReportIssueModal({ children }: ReportIssueModalProps) {
+export function ReportIssueModal({
+  children,
+  triggerClassName,
+  triggerLabel,
+}: ReportIssueModalProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -36,8 +42,13 @@ export function ReportIssueModal({ children }: ReportIssueModalProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children ?? (
-          <button className="text-muted-foreground hover:text-foreground text-left text-sm transition-colors">
-            Report an Issue
+          <button
+            className={
+              triggerClassName ??
+              "text-muted-foreground hover:text-foreground text-left text-sm transition-colors"
+            }
+          >
+            {triggerLabel ?? "Report an Issue"}
           </button>
         )}
       </DialogTrigger>

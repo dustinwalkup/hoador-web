@@ -51,9 +51,10 @@ export default async function VerifyEmailPage({
             <CardFooter className="flex flex-col items-center gap-4">
               <div className="text-muted-foreground text-center text-xs">
                 Need help? Contact your community administrator or{" "}
-                <ReportIssueModal>
-                  <button className="text-primary underline">support</button>
-                </ReportIssueModal>
+                <ReportIssueModal
+                  triggerClassName="text-primary underline"
+                  triggerLabel="support"
+                />
               </div>
             </CardFooter>
           </Card>
@@ -85,9 +86,10 @@ export default async function VerifyEmailPage({
           <CardFooter className="flex flex-col items-center gap-4">
             <div className="text-muted-foreground text-center text-xs">
               Need help? Contact your community administrator or{" "}
-              <ReportIssueModal>
-                <button className="text-primary underline">support</button>
-              </ReportIssueModal>
+              <ReportIssueModal
+                triggerClassName="text-primary underline"
+                triggerLabel="support"
+              />
             </div>
           </CardFooter>
         </Card>

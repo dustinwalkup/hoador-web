@@ -222,28 +222,24 @@ describe("ExplorePageContent", () => {
     it("should render empty state when no listings are provided", () => {
       render(<ExplorePageContent listings={[]} />);
 
-      expect(screen.getByText("No listings found")).toBeInTheDocument();
-      expect(screen.getByText("🔍")).toBeInTheDocument();
+      expect(screen.getByText("Nothing found")).toBeInTheDocument();
     });
 
     it("should render empty state message and description", () => {
       render(<ExplorePageContent listings={[]} />);
 
-      expect(screen.getByText("No listings found")).toBeInTheDocument();
+      expect(screen.getByText("Nothing found")).toBeInTheDocument();
       expect(
         screen.getByText(
-          /We couldn't find any listings matching your search criteria/,
+          /Try adjusting your search or browse everything available/,
         ),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Try adjusting your filters or search terms/),
       ).toBeInTheDocument();
     });
 
-    it("should render clear filters button in empty state", () => {
+    it("should render browse all button in empty state", () => {
       render(<ExplorePageContent listings={[]} />);
 
-      const button = screen.getByRole("link", { name: /Clear all filters/i });
+      const button = screen.getByRole("link", { name: /Browse all/i });
       expect(button).toBeInTheDocument();
       expect(button).toHaveAttribute("href", "/dashboard/explore");
     });
@@ -251,19 +247,17 @@ describe("ExplorePageContent", () => {
     it("should use custom basePath for empty state link", () => {
       render(<ExplorePageContent listings={[]} basePath="/explore" />);
 
-      const button = screen.getByRole("link", { name: /Clear all filters/i });
+      const button = screen.getByRole("link", { name: /Browse all/i });
       expect(button).toHaveAttribute("href", "/explore");
     });
 
-    it("should have proper empty state styling", () => {
+    it("should have proper empty state container", () => {
       const { container } = render(<ExplorePageContent listings={[]} />);
 
       const emptyStateContainer = container.querySelector(
-        'div[class*="flex min-h-[400px]"]',
+        'div[class*="min-h-100"]',
       );
-      expect(emptyStateContainer).toHaveClass(
-        "flex min-h-[400px] flex-col items-center justify-center text-center",
-      );
+      expect(emptyStateContainer).toBeInTheDocument();
     });
 
     it("should not render grid when no listings", () => {
@@ -315,7 +309,7 @@ describe("ExplorePageContent", () => {
     it("should have accessible button text", () => {
       render(<ExplorePageContent listings={[]} />);
 
-      const button = screen.getByRole("link", { name: /Clear all filters/i });
+      const button = screen.getByRole("link", { name: /Browse all/i });
       expect(button).toBeInTheDocument();
     });
   });

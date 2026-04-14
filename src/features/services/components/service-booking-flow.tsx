@@ -636,10 +636,10 @@ export function ServiceBookingFlow({
                   {pending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
+                      Sending request...
                     </>
                   ) : (
-                    "Confirm Request"
+                    "Request booking"
                   )}
                 </Button>
               </div>

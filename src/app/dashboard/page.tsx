@@ -10,11 +10,8 @@ import {
   OverdueAlertsWidget,
   PendingRequestsWidget,
   UnreadMessagesWidget,
-  MiniAnalyticsSection,
   RecentActivityFeed,
   UpcomingScheduleWidget,
-  TopPerformingToolsWidget,
-  NeighborhoodActivityWidget,
   ActiveDisputesWidget,
 } from "@/features/dashboard/components";
 import { getLendingRequestDetailUrl } from "@/features/dashboard/lib/urls";
@@ -66,21 +63,18 @@ export default async function DashboardPage() {
     activeRentalsCount,
     toolsLentCount,
     pendingLendingRequests,
-    overdueItems,
+    actionableAlerts,
     earningsThisMonth,
     unreadMessageCount,
     recentConversations,
     upcomingSchedule,
-    topPerformingListings,
-    neighborhoodListings,
     activityFeedItems,
     disputesResult,
-    analytics,
   ] = await Promise.all([
     safe(() => rentalDAL.countBorrowedListings(userId), 0),
     safe(() => rentalDAL.countSharedListings(userId), 0),
     safe(() => rentalDAL.getLendingRequestsByStatus("pending", userId), []),
-    safe(() => rentalDAL.getOverdueItemsForUser(userId), []),
+    safe(() => rentalDAL.getActionableAlerts(userId), []),
     safe(
       () =>
         paymentDAL.getUserEarningsForMonth(userId, startOfMonth, endOfMonth),
@@ -93,8 +87,6 @@ export default async function DashboardPage() {
       [],
     ),
     safe(() => getUpcomingSchedule(userId), []),
-    safe(() => listingDAL.getTopPerformingListings(userId, 5), []),
-    safe(() => listingDAL.getRecentListingsNearUser(userId, 5), []),
     safe(() => getDashboardActivityFeed(userId, 10), []),
     safe(() => disputeDAL.getUserDisputes(userId, { limit: 20 }), {
       data: [],
@@ -167,15 +159,15 @@ export default async function DashboardPage() {
 
       {/* Alerts row - full width for schedule when no overdue items */}
       <StaggerGrid
-        className={`grid gap-4 ${overdueItems.length > 0 ? "lg:grid-cols-2" : ""}`}
+        className={`grid gap-4 ${actionableAlerts.length > 0 ? "lg:grid-cols-2" : ""}`}
         delay={0.15}
       >
         <StaggerItem>
           <UpcomingScheduleWidget entries={upcomingSchedule} />
         </StaggerItem>
-        {overdueItems.length > 0 && (
+        {actionableAlerts.length > 0 && (
           <StaggerItem>
-            <OverdueAlertsWidget items={overdueItems} />
+            <OverdueAlertsWidget alerts={actionableAlerts} />
           </StaggerItem>
         )}
       </StaggerGrid>
@@ -210,24 +202,26 @@ export default async function DashboardPage() {
         <RecentActivityFeed items={activityFeedItems} />
       </AnimatedSection>
 
-      <AnimatedSection>
+      <AnimatedSection className="pb-4">
+        <ActiveDisputesWidget
+          disputes={activeDisputesList}
+          totalCount={activeDisputesCount}
+        />
+      </AnimatedSection>
+
+      {/* <AnimatedSection>
         <MiniAnalyticsSection analytics={analytics} />
       </AnimatedSection>
 
-      <StaggerGrid className="grid items-stretch gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <StaggerItem className="self-start">
+      <StaggerGrid className=" ">
+        {/* <StaggerItem className="self-start">
           <TopPerformingToolsWidget listings={topPerformingListings} />
         </StaggerItem>
         <StaggerItem className="self-start">
           <NeighborhoodActivityWidget listings={neighborhoodListings} />
-        </StaggerItem>
-        <StaggerItem className="flex h-full min-h-0 flex-col self-start">
-          <ActiveDisputesWidget
-            disputes={activeDisputesList}
-            totalCount={activeDisputesCount}
-          />
-        </StaggerItem>
-      </StaggerGrid>
+        </StaggerItem> */}
+      {/* <StaggerItem className="flex h-full min-h-0 flex-col self-start"></StaggerItem> */}
+      {/* </StaggerGrid> */}
     </div>
   );
 }

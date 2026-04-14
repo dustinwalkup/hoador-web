@@ -43,6 +43,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatLocalDate } from "@/lib/utils/date.utils";
 import { FileDisputeDialog } from "@/features/disputes/components/file-dispute-dialog";
 import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
+import { ServiceStatusProgress } from "@/features/services/components/detail-page/service-status-progress";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -176,68 +177,6 @@ const STATUS_CONFIG: Record<
   payment_failed: { label: "Payment Failed", variant: "destructive" },
   no_show: { label: "No Show", variant: "destructive" },
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Timeline Component
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface TimelineEvent {
-  label: string;
-  date: string | null;
-  completed: boolean;
-  current?: boolean;
-}
-
-function StatusTimeline({ events }: { events: TimelineEvent[] }) {
-  return (
-    <div className="space-y-0">
-      {events.map((event, idx) => (
-        <div key={idx} className="flex items-start gap-3">
-          <div className="flex flex-col items-center">
-            <div
-              className={`flex h-3 w-3 items-center justify-center rounded-full ${
-                event.completed
-                  ? "bg-primary"
-                  : event.current
-                    ? "bg-primary animate-pulse"
-                    : "bg-muted-foreground/30"
-              }`}
-            />
-            {idx < events.length - 1 && (
-              <div
-                className={`h-8 w-0.5 ${
-                  event.completed ? "bg-primary" : "bg-muted-foreground/20"
-                }`}
-              />
-            )}
-          </div>
-          <div className="flex-1 pb-6">
-            <p
-              className={`text-sm font-medium ${
-                event.completed || event.current
-                  ? "text-foreground"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {event.label}
-            </p>
-            {event.date && (
-              <p className="text-muted-foreground text-xs">
-                {new Date(event.date).toLocaleString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </p>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Star Rating Component
@@ -383,75 +322,6 @@ export function ServiceBookingDetailClient({
     booking.proposedTime,
     booking.completedAt,
   ]);
-
-  // Timeline events
-  const timelineEvents = useMemo<TimelineEvent[]>(() => {
-    const events: TimelineEvent[] = [
-      {
-        label: "Request created",
-        date: booking.createdAt,
-        completed: true,
-      },
-    ];
-
-    if (booking.status === "pending") {
-      events.push({
-        label: "Awaiting provider response",
-        date: null,
-        completed: false,
-        current: true,
-      });
-    } else if (booking.status === "declined") {
-      events.push({
-        label: "Declined by provider",
-        date: booking.updatedAt,
-        completed: true,
-      });
-    } else if (booking.status === "cancelled") {
-      events.push({
-        label: "Cancelled",
-        date: booking.cancelledAt,
-        completed: true,
-      });
-    } else if (booking.status === "payment_failed") {
-      events.push({
-        label: "Payment failed",
-        date: booking.updatedAt,
-        completed: true,
-      });
-    } else {
-      events.push({
-        label: "Accepted",
-        date: booking.updatedAt,
-        completed: ["accepted", "completed", "no_show"].includes(
-          booking.status,
-        ),
-        current: booking.status === "accepted",
-      });
-
-      if (booking.status === "completed") {
-        events.push({
-          label: "Completed",
-          date: booking.completedAt,
-          completed: true,
-        });
-      } else if (booking.status === "no_show") {
-        events.push({
-          label: "Reported no-show",
-          date: booking.updatedAt,
-          completed: true,
-        });
-      } else if (booking.status === "accepted") {
-        events.push({
-          label: "Service completion",
-          date: null,
-          completed: false,
-        });
-      }
-    }
-
-    return events;
-  }, [booking]);
 
   // API handlers
   async function refresh() {
@@ -634,7 +504,16 @@ export function ServiceBookingDetailClient({
               </p>
             </CardHeader>
             <CardContent>
-              <StatusTimeline events={timelineEvents} />
+              <ServiceStatusProgress
+                currentStatus={booking.status}
+                userRole={isRequester ? "client" : "provider"}
+                scheduledDate={
+                  new Date(`${booking.proposedDate}T${booking.proposedTime}`)
+                }
+                completedAt={
+                  booking.completedAt ? new Date(booking.completedAt) : null
+                }
+              />
 
               {booking.status === "declined" && booking.declineReason && (
                 <div className="border-destructive/20 bg-destructive/5 mt-4 rounded-lg border p-3">
