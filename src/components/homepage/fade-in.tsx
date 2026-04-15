@@ -40,8 +40,7 @@ export default function FadeIn({
   asSpan = false,
   spring = false,
 }: FadeInProps) {
-  const xOffset =
-    direction === "left" ? -60 : direction === "right" ? 60 : 0;
+  const xOffset = direction === "left" ? -60 : direction === "right" ? 60 : 0;
   const yOffset = direction === "up" ? 30 : 0;
 
   const initial = {

@@ -55,7 +55,7 @@ export function CategoryScroll({ categories }: CategoryScrollProps) {
             onScroll={updateActiveIndex}
             className={cn(
               "flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none]",
-              "pl-6 pr-6",
+              "pr-6 pl-6",
               "[&::-webkit-scrollbar]:hidden",
               "md:grid md:grid-cols-2 md:gap-8 md:overflow-visible md:px-0 lg:grid-cols-3",
             )}
@@ -75,7 +75,7 @@ export function CategoryScroll({ categories }: CategoryScrollProps) {
             ))}
           </StaggeredChildren>
           <div
-            className="pointer-events-none absolute inset-y-0 right-0 z-1 w-12 bg-linear-to-l from-background to-transparent md:hidden"
+            className="from-background pointer-events-none absolute inset-y-0 right-0 z-1 w-12 bg-linear-to-l to-transparent md:hidden"
             aria-hidden
           />
         </div>

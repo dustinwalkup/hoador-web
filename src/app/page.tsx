@@ -169,7 +169,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="bg-skyBlue relative mt-auto flex w-full shrink-0 justify-center md:pt-8">
+        <div className="bg-skyBlue relative -mx-6 mt-auto flex shrink-0 justify-center md:mx-0 md:w-full md:pt-8">
           <FadeIn
             delay={1300}
             direction="up"
@@ -181,7 +181,7 @@ export default function HomePage() {
               width={644}
               height={210}
               alt="Cartoon image of neighbors sharing tools"
-              className="w-full md:w-1/2 lg:w-1/3"
+              className="w-[150%] max-w-none shrink-0 md:w-3/4 md:max-w-full lg:w-1/2"
             />
           </FadeIn>
         </div>

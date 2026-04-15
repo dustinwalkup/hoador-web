@@ -59,6 +59,14 @@ const E2E_USERS = [
     withCommunity: false,
   },
   {
+    email: "password_reset@e2e.test",
+    name: "Password Reset User",
+    status: "active" as const,
+    userType: "standard" as const,
+    emailVerified: true,
+    withCommunity: true,
+  },
+  {
     email: "admin@e2e.test",
     name: "E2E Admin",
     status: "active" as const,

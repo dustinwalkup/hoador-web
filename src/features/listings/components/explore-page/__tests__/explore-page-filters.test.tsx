@@ -87,7 +87,7 @@ describe("ExplorePageFilters", () => {
     it("should render sort button", () => {
       render(<ExplorePageFilters />);
 
-      const sortButton = screen.getByRole("button", { name: /Recently added/ });
+      const sortButton = screen.getByRole("button", { name: /Newest/ });
       expect(sortButton).toBeInTheDocument();
     });
 
@@ -222,7 +222,7 @@ describe("ExplorePageFilters", () => {
     it("should display current sort label correctly", () => {
       render(<ExplorePageFilters />);
 
-      expect(screen.getByText("Recently added")).toBeInTheDocument();
+      expect(screen.getByText("Newest")).toBeInTheDocument();
     });
 
     it("should display different sort labels based on filters", () => {
@@ -240,12 +240,12 @@ describe("ExplorePageFilters", () => {
       const user = userEvent.setup();
       render(<ExplorePageFilters />);
 
-      const sortButton = screen.getByRole("button", { name: /Recently added/ });
+      const sortButton = screen.getByRole("button", { name: /Newest/ });
       await user.click(sortButton);
 
-      // Should show sort options ("Recently added" appears twice: in trigger and in dropdown)
-      const recentlyAddedElements = screen.getAllByText("Recently added");
-      expect(recentlyAddedElements.length).toBeGreaterThanOrEqual(1);
+      // Should show sort options ("Newest" appears twice: in trigger and in dropdown)
+      const newestElements = screen.getAllByText("Newest");
+      expect(newestElements.length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText("Price: Low to high")).toBeInTheDocument();
       expect(screen.getByText("Price: High to low")).toBeInTheDocument();
       expect(screen.getByText("Highest rated")).toBeInTheDocument();
@@ -256,7 +256,7 @@ describe("ExplorePageFilters", () => {
       render(<ExplorePageFilters />);
 
       // Open sort popover
-      const sortButton = screen.getByRole("button", { name: /Recently added/ });
+      const sortButton = screen.getByRole("button", { name: /Newest/ });
       await user.click(sortButton);
 
       // Click on a sort option
