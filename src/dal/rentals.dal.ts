@@ -464,15 +464,29 @@ export class RentalDAL extends BaseDAL {
       ];
       const listingImagesMap = new Map<string, string | null>();
 
-      for (const listingId of listingIds) {
-        const [firstImage] = await this.db
-          .select({ imageUrl: listingImages.imageUrl })
+      if (listingIds.length > 0) {
+        // Batched: single query for all listings' images, then reduce to
+        // the first (lowest orderIndex) per listingId in JS. This matches
+        // the prior per-listing `.orderBy(orderIndex).limit(1)` behavior
+        // without issuing N round-trips.
+        const imageRows = await this.db
+          .select({
+            listingId: listingImages.listingId,
+            imageUrl: listingImages.imageUrl,
+          })
           .from(listingImages)
-          .where(eq(listingImages.listingId, listingId))
-          .orderBy(listingImages.orderIndex)
-          .limit(1);
+          .where(inArray(listingImages.listingId, listingIds))
+          .orderBy(listingImages.listingId, listingImages.orderIndex);
 
-        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
+        for (const listingId of listingIds) {
+          listingImagesMap.set(listingId, null);
+        }
+        for (const row of imageRows) {
+          if (row.listingId == null) continue;
+          if (listingImagesMap.get(row.listingId) == null) {
+            listingImagesMap.set(row.listingId, row.imageUrl ?? null);
+          }
+        }
       }
 
       // Separate current and upcoming rentals

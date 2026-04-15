@@ -1,0 +1,2 @@
+CREATE INDEX "rental_requests_owner_id_status_idx" ON "rental_requests" USING btree ("owner_id","status");--> statement-breakpoint
+CREATE INDEX "rental_requests_renter_id_status_idx" ON "rental_requests" USING btree ("renter_id","status");

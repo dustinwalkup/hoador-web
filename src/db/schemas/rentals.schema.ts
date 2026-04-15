@@ -98,6 +98,14 @@ export const rentalRequests = pgTable(
       table.startDate,
       table.endDate,
     ),
+    ownerIdStatusIdx: index("rental_requests_owner_id_status_idx").on(
+      table.ownerId,
+      table.status,
+    ),
+    renterIdStatusIdx: index("rental_requests_renter_id_status_idx").on(
+      table.renterId,
+      table.status,
+    ),
   }),
 );
 
