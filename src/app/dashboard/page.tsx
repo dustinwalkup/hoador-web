@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/page-header";
 import { ScrollToTop } from "@/components/scroll-to-top";
 import {
   QuickActionsBar,
-  DashboardSummaryCards,
   OverdueAlertsWidget,
   PendingRequestsWidget,
   UnreadMessagesWidget,
@@ -18,22 +17,17 @@ import { getLendingRequestDetailUrl } from "@/features/dashboard/lib/urls";
 import {
   getUpcomingSchedule,
   getDashboardActivityFeed,
+  getDashboardPulseData,
 } from "@/features/dashboard/lib";
-import {
-  rentalDAL,
-  listingDAL,
-  paymentDAL,
-  messagesDAL,
-  disputeDAL,
-} from "@/dal";
+import { rentalDAL, messagesDAL, disputeDAL } from "@/dal";
 import type { PendingRequestItem } from "@/features/dashboard/types";
-import type { DashboardAnalytics } from "@/features/dashboard/types";
 import { DASHBOARD_HEADER } from "@/constants/dashboard";
 import {
   AnimatedSection,
   StaggerGrid,
   StaggerItem,
 } from "@/components/animation-section";
+import { DashboardPulse } from "@/features/dashboard/components/dashboard-pulse";
 
 export const metadata = {
   title: "Dashboard",
@@ -54,33 +48,18 @@ export default async function DashboardPage() {
 
   const userId = user.id;
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  endOfMonth.setHours(23, 59, 59, 999);
-
   const [
-    activeRentalsCount,
-    toolsLentCount,
     pendingLendingRequests,
     actionableAlerts,
-    earningsThisMonth,
     unreadMessageCount,
     recentConversations,
     upcomingSchedule,
     activityFeedItems,
     disputesResult,
+    pulseData,
   ] = await Promise.all([
-    safe(() => rentalDAL.countBorrowedListings(userId), 0),
-    safe(() => rentalDAL.countSharedListings(userId), 0),
     safe(() => rentalDAL.getLendingRequestsByStatus("pending", userId), []),
     safe(() => rentalDAL.getActionableAlerts(userId), []),
-    safe(
-      () =>
-        paymentDAL.getUserEarningsForMonth(userId, startOfMonth, endOfMonth),
-      0,
-    ),
-
     safe(() => messagesDAL.getUnreadMessageCount(userId), 0),
     safe(
       () => messagesDAL.getUserConversationsPaginated(userId, false, 0, 3),
@@ -99,30 +78,17 @@ export default async function DashboardPage() {
         hasPrev: false,
       },
     }),
-    safe(
-      async (): Promise<DashboardAnalytics> => {
-        const [rentalsPerMonth, earningsByMonth, inventoryUsage] =
-          await Promise.all([
-            rentalDAL.getRentalsPerMonth(userId, 6),
-            paymentDAL.getUserEarningsByMonthRange(userId, 6),
-            listingDAL.getInventoryUsage(userId),
-          ]);
-        return {
-          rentalsPerMonth,
-          earningsByMonth,
-          inventoryUsage,
-        };
+    safe(() => getDashboardPulseData(userId), {
+      action: {
+        pendingRequests: 0,
+        overdueReturns: 0,
+        overdueServices: 0,
+        unconfirmedServices: 0,
       },
-      {
-        rentalsPerMonth: [],
-        earningsByMonth: [],
-        inventoryUsage: {
-          activeCount: 0,
-          totalCount: 0,
-          usagePercent: 0,
-        },
-      },
-    ),
+      active: { borrowing: 0, lending: 0, disputes: 0 },
+      upcoming: { rentals: 0, services: 0 },
+      listed: { tools: 0, services: 0 },
+    }),
   ]);
 
   const pendingRequestItems: PendingRequestItem[] = pendingLendingRequests
@@ -157,6 +123,8 @@ export default async function DashboardPage() {
         <QuickActionsBar unreadCount={unreadMessageCount} />
       </AnimatedSection>
 
+      <DashboardPulse data={pulseData} />
+
       {/* Alerts row - full width for schedule when no overdue items */}
       <StaggerGrid
         className={`grid gap-4 ${actionableAlerts.length > 0 ? "lg:grid-cols-2" : ""}`}
@@ -167,7 +135,9 @@ export default async function DashboardPage() {
         </StaggerItem>
         {actionableAlerts.length > 0 && (
           <StaggerItem>
-            <OverdueAlertsWidget alerts={actionableAlerts} />
+            <div id="needs-attention">
+              <OverdueAlertsWidget alerts={actionableAlerts} />
+            </div>
           </StaggerItem>
         )}
       </StaggerGrid>
@@ -177,16 +147,6 @@ export default async function DashboardPage() {
         <PendingRequestsWidget
           items={pendingRequestItems}
           totalCount={pendingLendingRequests.length}
-        />
-      </AnimatedSection>
-
-      {/* Summary Cards - has its own internal stagger */}
-      <AnimatedSection delay={0.05}>
-        <DashboardSummaryCards
-          activeRentalsCount={activeRentalsCount}
-          toolsLentCount={toolsLentCount}
-          pendingRequestsCount={pendingLendingRequests.length}
-          earningsThisMonth={earningsThisMonth}
         />
       </AnimatedSection>
 

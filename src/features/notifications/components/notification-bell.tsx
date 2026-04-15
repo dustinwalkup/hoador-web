@@ -73,8 +73,8 @@ export function NotificationBell() {
           <BellIcon className="size-5" />
           <span className="sr-only">Notifications</span>
           {hasUnread && !isLoadingCount && (
-            <span className="bg-destructive text-primary-foreground coarse:top-0 coarse:right-0 absolute -top-1.5 -right-1.5 flex size-2 items-center justify-center rounded-full p-2.5 text-xs">
-              {unreadCount}
+            <span className="bg-destructive text-primary-foreground coarse:top-0 coarse:right-0 absolute -top-1.5 -right-1.5 flex size-2 items-center justify-center rounded-full p-2.5 text-[11px]">
+              {unreadCount && unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </Button>

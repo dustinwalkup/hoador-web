@@ -109,3 +109,27 @@ export interface NeighborhoodListing {
   name: string;
   linkTo: string;
 }
+
+/** Structured data for DashboardPulse component. */
+export interface DashboardPulseData {
+  action: {
+    pendingRequests: number;
+    overdueReturns: number;
+    overdueServices: number;
+    unconfirmedServices: number;
+  };
+  active: {
+    borrowing: number;
+    lending: number;
+    disputes: number;
+  };
+  upcoming: {
+    rentals: number;
+    services: number;
+    pickupsToday?: number;
+  };
+  listed: {
+    tools: number;
+    services: number;
+  };
+}

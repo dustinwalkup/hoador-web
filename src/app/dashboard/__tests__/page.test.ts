@@ -69,6 +69,17 @@ vi.mock("@/dal", () => ({
 vi.mock("@/features/dashboard/lib", () => ({
   getUpcomingSchedule: vi.fn().mockResolvedValue([]),
   getDashboardActivityFeed: vi.fn().mockResolvedValue([]),
+  getDashboardPulseData: vi.fn().mockResolvedValue({
+    action: {
+      pendingRequests: 0,
+      overdueReturns: 0,
+      overdueServices: 0,
+      unconfirmedServices: 0,
+    },
+    active: { borrowing: 0, lending: 0, disputes: 0 },
+    upcoming: { rentals: 0, services: 0 },
+    listed: { tools: 0, services: 0 },
+  }),
 }));
 
 vi.mock("@/features/dashboard/components", async (importOriginal) => {
@@ -104,15 +115,16 @@ describe("Dashboard page (RSC integration)", () => {
   it("should call getCurrentUser and DALs with correct userId", async () => {
     const { getCurrentUser } = await import("@/features/auth/utils/session");
     const { rentalDAL, messagesDAL, disputeDAL } = await import("@/dal");
-    const { getUpcomingSchedule, getDashboardActivityFeed } =
-      await import("@/features/dashboard/lib");
+    const {
+      getUpcomingSchedule,
+      getDashboardActivityFeed,
+      getDashboardPulseData,
+    } = await import("@/features/dashboard/lib");
 
     const Page = (await import("@/app/dashboard/page")).default;
     await Page();
 
     expect(getCurrentUser).toHaveBeenCalled();
-    expect(rentalDAL.countBorrowedListings).toHaveBeenCalledWith(mockUserId);
-    expect(rentalDAL.countSharedListings).toHaveBeenCalledWith(mockUserId);
     expect(rentalDAL.getLendingRequestsByStatus).toHaveBeenCalledWith(
       "pending",
       mockUserId,
@@ -121,6 +133,7 @@ describe("Dashboard page (RSC integration)", () => {
     expect(messagesDAL.getUnreadMessageCount).toHaveBeenCalledWith(mockUserId);
     expect(getUpcomingSchedule).toHaveBeenCalledWith(mockUserId);
     expect(getDashboardActivityFeed).toHaveBeenCalledWith(mockUserId, 10);
+    expect(getDashboardPulseData).toHaveBeenCalledWith(mockUserId);
     expect(disputeDAL.getUserDisputes).toHaveBeenCalledWith(mockUserId, {
       limit: 20,
     });
@@ -175,7 +188,7 @@ describe("Dashboard page (RSC integration)", () => {
 
   it("should still render when one DAL call fails (per-widget failure isolation)", async () => {
     const { rentalDAL } = await import("@/dal");
-    vi.mocked(rentalDAL.countBorrowedListings).mockRejectedValue(
+    vi.mocked(rentalDAL.getActionableAlerts).mockRejectedValue(
       new Error("DB error"),
     );
 
@@ -185,6 +198,9 @@ describe("Dashboard page (RSC integration)", () => {
     // Page uses safe() so failed DAL returns fallback; page still renders.
     expect(result).toBeDefined();
     // Other DALs still called
-    expect(rentalDAL.countSharedListings).toHaveBeenCalledWith(mockUserId);
+    expect(rentalDAL.getLendingRequestsByStatus).toHaveBeenCalledWith(
+      "pending",
+      mockUserId,
+    );
   });
 });
