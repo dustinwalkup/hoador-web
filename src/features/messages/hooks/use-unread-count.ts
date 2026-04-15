@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 
 /**
- * Fetch total unread message count for the current user
- * Returns the total number of unread messages across all conversations
+ * @deprecated Use `useDashboardBadges` from `@/features/dashboard/hooks/use-dashboard-badges`
+ * and read `.unreadMessages`. This hook polls a legacy endpoint that is kept
+ * only for backwards compatibility; it will be removed in a follow-up PR once
+ * no consumers remain.
  */
 export function useUnreadMessageCount() {
   return useQuery({

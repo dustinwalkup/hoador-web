@@ -1,5 +1,6 @@
 import { DashboardPulse } from "@/features/dashboard/components/dashboard-pulse";
 import { getDashboardPulseData } from "@/features/dashboard/lib";
+import { runWithQueryCounter } from "@/db/query-tracker";
 import { safe } from "./safe";
 
 const PULSE_FALLBACK = {
@@ -15,6 +16,11 @@ const PULSE_FALLBACK = {
 };
 
 export async function DashboardPulseWidget({ userId }: { userId: string }) {
-  const data = await safe(() => getDashboardPulseData(userId), PULSE_FALLBACK);
-  return <DashboardPulse data={data} />;
+  return runWithQueryCounter("RSC widget:dashboard-pulse", async () => {
+    const data = await safe(
+      () => getDashboardPulseData(userId),
+      PULSE_FALLBACK,
+    );
+    return <DashboardPulse data={data} />;
+  });
 }

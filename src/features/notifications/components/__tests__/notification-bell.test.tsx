@@ -7,19 +7,48 @@ import {
   mockNotificationsResponse,
 } from "@/test/fixtures/notifications";
 import {
-  useNotifications,
-  useUnreadCount,
   useMarkAsRead,
   useToggleReadStatus,
 } from "../../hooks/use-notifications";
+import { useDashboardBadges } from "@/features/dashboard/hooks/use-dashboard-badges";
 
 // Mock the hooks
 vi.mock("../../hooks/use-notifications");
+vi.mock("@/features/dashboard/hooks/use-dashboard-badges");
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
   }),
 }));
+
+type BadgeResult = {
+  data?: {
+    unreadMessages: number;
+    unreadNotifications: number;
+    notifications: typeof mockNotificationsResponse;
+  };
+  isLoading: boolean;
+  error: Error | null;
+};
+
+function setBadges(result: BadgeResult) {
+  vi.mocked(useDashboardBadges).mockReturnValue(result as any);
+}
+
+function badgeData(
+  unreadNotifications: number,
+  notifications = mockNotificationsResponse,
+) {
+  return {
+    data: {
+      unreadMessages: 0,
+      unreadNotifications,
+      notifications,
+    },
+    isLoading: false,
+    error: null,
+  } satisfies BadgeResult;
+}
 
 describe("NotificationBell", () => {
   const mockMarkAsRead = {
@@ -33,16 +62,7 @@ describe("NotificationBell", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useUnreadCount).mockReturnValue({
-      data: 3,
-      isLoading: false,
-      error: null,
-    } as any);
-    vi.mocked(useNotifications).mockReturnValue({
-      data: mockNotificationsResponse,
-      isLoading: false,
-      error: null,
-    } as any);
+    setBadges(badgeData(3));
     vi.mocked(useMarkAsRead).mockReturnValue(mockMarkAsRead as any);
     vi.mocked(useToggleReadStatus).mockReturnValue(mockToggleReadStatus as any);
   });
@@ -59,11 +79,7 @@ describe("NotificationBell", () => {
 
     it("should display unread count badge when count > 0", () => {
       // Arrange
-      vi.mocked(useUnreadCount).mockReturnValue({
-        data: 5,
-        isLoading: false,
-        error: null,
-      } as any);
+      setBadges(badgeData(5));
 
       // Act
       render(<NotificationBell />);
@@ -74,11 +90,7 @@ describe("NotificationBell", () => {
 
     it("should hide badge when count is 0", () => {
       // Arrange
-      vi.mocked(useUnreadCount).mockReturnValue({
-        data: 0,
-        isLoading: false,
-        error: null,
-      } as any);
+      setBadges(badgeData(0));
 
       // Act
       render(<NotificationBell />);
@@ -89,11 +101,7 @@ describe("NotificationBell", () => {
 
     it("should hide badge when count is loading", () => {
       // Arrange
-      vi.mocked(useUnreadCount).mockReturnValue({
-        data: undefined,
-        isLoading: true,
-        error: null,
-      } as any);
+      setBadges({ data: undefined, isLoading: true, error: null });
 
       // Act
       render(<NotificationBell />);
@@ -182,11 +190,7 @@ describe("NotificationBell", () => {
   describe("Loading State", () => {
     it("should show loader during fetch", () => {
       // Arrange
-      vi.mocked(useNotifications).mockReturnValue({
-        data: undefined,
-        isLoading: true,
-        error: null,
-      } as any);
+      setBadges({ data: undefined, isLoading: true, error: null });
 
       // Act
       render(<NotificationBell />);
@@ -204,11 +208,11 @@ describe("NotificationBell", () => {
     it("should show error message on failure", async () => {
       // Arrange
       const user = userEvent.setup();
-      vi.mocked(useNotifications).mockReturnValue({
+      setBadges({
         data: undefined,
         isLoading: false,
         error: new Error("Failed to load notifications"),
-      } as any);
+      });
 
       // Act
       render(<NotificationBell />);
@@ -228,8 +232,8 @@ describe("NotificationBell", () => {
     it("should show 'No notifications yet' message when empty", async () => {
       // Arrange
       const user = userEvent.setup();
-      vi.mocked(useNotifications).mockReturnValue({
-        data: {
+      setBadges(
+        badgeData(0, {
           data: [],
           pagination: {
             page: 1,
@@ -239,10 +243,8 @@ describe("NotificationBell", () => {
             hasNext: false,
             hasPrev: false,
           },
-        },
-        isLoading: false,
-        error: null,
-      } as any);
+        }),
+      );
 
       // Act
       render(<NotificationBell />);
@@ -281,22 +283,14 @@ describe("NotificationBell", () => {
   describe("Real-time Updates", () => {
     it("should update unread count when notifications change", () => {
       // Arrange
-      vi.mocked(useUnreadCount).mockReturnValue({
-        data: 3,
-        isLoading: false,
-        error: null,
-      } as any);
+      setBadges(badgeData(3));
 
       // Act
       const { rerender } = render(<NotificationBell />);
       expect(screen.getByText("3")).toBeInTheDocument();
 
       // Update count
-      vi.mocked(useUnreadCount).mockReturnValue({
-        data: 5,
-        isLoading: false,
-        error: null,
-      } as any);
+      setBadges(badgeData(5));
 
       rerender(<NotificationBell />);
 
@@ -309,11 +303,7 @@ describe("NotificationBell", () => {
     it("should only show when there are unread notifications", async () => {
       // Arrange
       const user = userEvent.setup();
-      vi.mocked(useUnreadCount).mockReturnValue({
-        data: 0,
-        isLoading: false,
-        error: null,
-      } as any);
+      setBadges(badgeData(0));
 
       // Act
       render(<NotificationBell />);

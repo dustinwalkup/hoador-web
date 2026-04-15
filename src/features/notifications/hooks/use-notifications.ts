@@ -32,7 +32,11 @@ interface NotificationsResponse {
 }
 
 /**
- * Fetch paginated notifications for the current user
+ * @deprecated For the notification-bell dropdown, use `useDashboardBadges`
+ * from `@/features/dashboard/hooks/use-dashboard-badges` and read
+ * `.notifications`. This hook is retained for any future non-bell
+ * consumers and for the notifications page if it ever wants a plain
+ * paginated (non-infinite) fetcher; it is no longer polled by the UI.
  */
 export function useNotifications(
   options: {
@@ -67,7 +71,9 @@ export function useNotifications(
 }
 
 /**
- * Fetch unread notification count for the current user
+ * @deprecated Use `useDashboardBadges` from `@/features/dashboard/hooks/use-dashboard-badges`
+ * and read `.unreadNotifications`. Kept for backwards compatibility; will be
+ * removed in a follow-up PR once no consumers remain.
  */
 export function useUnreadCount() {
   return useQuery({
@@ -162,8 +168,8 @@ export function useMarkAsRead() {
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate notifications and unread count queries to trigger refetch
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "badges"] });
     },
   });
 }
@@ -199,8 +205,8 @@ export function useToggleReadStatus() {
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate notifications and unread count queries to trigger refetch
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "badges"] });
     },
   });
 }

@@ -138,9 +138,6 @@ export class UserDAL extends BaseDAL {
         throw new NotFoundError("User", id);
       }
 
-      // Get user stats
-      const stats = await this.getUserStats(id);
-
       return {
         id: userData.id,
         name: userData.name,
@@ -168,63 +165,17 @@ export class UserDAL extends BaseDAL {
         communityVersion: userData.communityVersion ?? null,
         communityAcceptedAt: userData.communityAcceptedAt ?? null,
         createdAt: userData.createdAt,
-        stats,
+        stats: {
+          listingsBorrowed: 0,
+          listingsShared: 0,
+          averageRating: 0,
+          totalReviews: 0,
+        },
         preferences: userData.preferences,
         primaryAddress: userData.addresses?.[0] ?? undefined,
       };
     } catch (error) {
       this.handleError(error, "getUserById");
-    }
-  }
-
-  async getUserByEmail(email: string): Promise<UserProfile | null> {
-    try {
-      const userData = await this.db.query.user.findFirst({
-        where: eq(user.email, email),
-        // with: {
-        //   preferences: true,
-        // },
-      });
-
-      if (!userData) {
-        return null;
-      }
-
-      const stats = await this.getUserStats(userData.id);
-
-      return {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        emailVerified: userData.emailVerified,
-        image: userData.image,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        userType: userData.userType,
-        tosVersion: userData.tosVersion ?? null,
-        tosAcceptedAt: userData.tosAcceptedAt ?? null,
-        privacyVersion: userData.privacyVersion ?? null,
-        privacyAcceptedAt: userData.privacyAcceptedAt ?? null,
-        communityVersion: userData.communityVersion ?? null,
-        communityAcceptedAt: userData.communityAcceptedAt ?? null,
-        status: userData.status,
-        phone: userData.phone ?? null,
-        bio: userData.bio ?? null,
-        profileImageUrl: userData.profileImageUrl ?? null,
-        stripeCustomerId: userData.stripeCustomerId ?? null,
-        stripeConnectedAccountId: userData.stripeConnectedAccountId ?? null,
-        connectOnboardingComplete: userData.connectOnboardingComplete,
-        connectChargesEnabled: userData.connectChargesEnabled,
-        connectPayoutsEnabled: userData.connectPayoutsEnabled,
-        idVerified: userData.idVerified,
-        addressVerified: userData.addressVerified,
-        createdAt: userData.createdAt,
-        stats,
-        preferences: null, // userData.preferences,
-        primaryAddress: undefined, // userData.addresses?.[0] ?? undefined,
-      };
-    } catch (error) {
-      this.handleError(error, "getUserByEmail");
     }
   }
 
@@ -458,26 +409,32 @@ export class UserDAL extends BaseDAL {
    */
   async getUserDetailsForAdmin(userId: string): Promise<AdminUserDetail> {
     try {
-      const profile = await this.getUserById(userId);
-
-      const [listingsCountResult, rentalsRenterResult, rentalsOwnerResult] =
-        await Promise.all([
-          this.db
-            .select({ count: count() })
-            .from(listings)
-            .where(eq(listings.ownerId, userId)),
-          this.db
-            .select({ count: count() })
-            .from(rentals)
-            .where(eq(rentals.renterId, userId)),
-          this.db
-            .select({ count: count() })
-            .from(rentals)
-            .where(eq(rentals.ownerId, userId)),
-        ]);
+      const [
+        profile,
+        stats,
+        listingsCountResult,
+        rentalsRenterResult,
+        rentalsOwnerResult,
+      ] = await Promise.all([
+        this.getUserById(userId),
+        this.getUserStats(userId),
+        this.db
+          .select({ count: count() })
+          .from(listings)
+          .where(eq(listings.ownerId, userId)),
+        this.db
+          .select({ count: count() })
+          .from(rentals)
+          .where(eq(rentals.renterId, userId)),
+        this.db
+          .select({ count: count() })
+          .from(rentals)
+          .where(eq(rentals.ownerId, userId)),
+      ]);
 
       return {
         ...profile,
+        stats,
         listingsCount: Number(listingsCountResult[0]?.count ?? 0),
         rentalsAsRenterCount: Number(rentalsRenterResult[0]?.count ?? 0),
         rentalsAsOwnerCount: Number(rentalsOwnerResult[0]?.count ?? 0),
@@ -922,61 +879,6 @@ export class UserDAL extends BaseDAL {
       return this.getUserById(userId);
     } catch (error) {
       this.handleError(error, "getUserWithAddress");
-    }
-  }
-
-  /**
-   * Get user by email for auth purposes (no auth required)
-   */
-  async getUserByEmailForAuth(email: string): Promise<UserProfile | null> {
-    try {
-      const userData = await this.db.query.user.findFirst({
-        where: eq(user.email, email),
-        with: {
-          preferences: true,
-          addresses: true,
-        },
-      });
-
-      if (!userData) {
-        return null;
-      }
-
-      const stats = await this.getUserStats(userData.id);
-
-      return {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        emailVerified: userData.emailVerified,
-        image: userData.image,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        status: userData.status,
-        userType: userData.userType,
-        phone: userData.phone ?? null,
-        bio: userData.bio ?? null,
-        profileImageUrl: userData.profileImageUrl ?? null,
-        stripeCustomerId: userData.stripeCustomerId ?? null,
-        stripeConnectedAccountId: userData.stripeConnectedAccountId ?? null,
-        connectOnboardingComplete: userData.connectOnboardingComplete,
-        connectChargesEnabled: userData.connectChargesEnabled,
-        connectPayoutsEnabled: userData.connectPayoutsEnabled,
-        idVerified: userData.idVerified,
-        addressVerified: userData.addressVerified,
-        tosVersion: userData.tosVersion ?? null,
-        tosAcceptedAt: userData.tosAcceptedAt ?? null,
-        privacyVersion: userData.privacyVersion ?? null,
-        privacyAcceptedAt: userData.privacyAcceptedAt ?? null,
-        communityVersion: userData.communityVersion ?? null,
-        communityAcceptedAt: userData.communityAcceptedAt ?? null,
-        createdAt: userData.createdAt,
-        stats,
-        preferences: userData.preferences,
-        primaryAddress: userData.addresses?.find((addr) => addr.isPrimary),
-      };
-    } catch (error) {
-      this.handleError(error, "getUserByEmailForAuth");
     }
   }
 

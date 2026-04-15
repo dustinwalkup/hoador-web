@@ -54,6 +54,7 @@ export function useStartConversation() {
     invalidateQueryKeys: [
       ["conversations", false],
       ["messages", "unread-count"],
+      ["dashboard", "badges"],
     ],
     onSuccess: (data) => {
       // Invalidate conversation details if conversationId is returned
@@ -217,6 +218,9 @@ export function useSendMessage() {
       queryClient.invalidateQueries({
         queryKey: ["messages", "unread-count"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["dashboard", "badges"],
+      });
     },
   });
 }
@@ -352,6 +356,7 @@ export function useMarkConversationRead() {
       ["conversation-details"],
       ["conversations", false],
       ["messages", "unread-count"],
+      ["dashboard", "badges"],
     ],
     onSuccess: (data, variables) => {
       // Optimistically update conversation details
@@ -414,6 +419,7 @@ export function useMarkConversationUnread() {
       ["conversation-details"],
       ["conversations", false],
       ["messages", "unread-count"],
+      ["dashboard", "badges"],
     ],
     onSuccess: (data, variables) => {
       // Optimistically update conversation details

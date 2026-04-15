@@ -11,8 +11,12 @@ import { AsyncLocalStorage } from "async_hooks";
  * Wiring:
  *   - Route handlers: runWithQueryCounter is called inside withRequestLogging,
  *     which already wraps 128/131 handlers.
- *   - RSC: <QueryTrackerBoundary> in dashboard layout seeds the counter via
- *     React.cache() and flushes via Next's after().
+ *   - RSC: each widget/page that fetches data wraps its async body in
+ *     runWithQueryCounter("RSC <label>", async () => { ... }). A layout-level
+ *     boundary does NOT work — parent layouts don't re-run on soft navigation
+ *     and React Suspense spawns child renders in detached async contexts that
+ *     don't inherit an `enterWith`-seeded store. Only per-widget `.run()`
+ *     scopes survive both constraints.
  */
 
 export const QUERY_WARN_THRESHOLD = 15;
