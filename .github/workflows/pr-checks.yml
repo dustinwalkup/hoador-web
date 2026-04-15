@@ -29,12 +29,14 @@ jobs:
               pull_number: context.issue.number,
             });
 
-            // Generated/lockfile paths that shouldn't count toward PR size.
+            // Generated/lockfile/doc paths that shouldn't count toward PR size.
             // Drizzle writes a full schema snapshot per migration; lockfiles
-            // churn on dependency bumps. Neither reflects reviewer burden.
+            // churn on dependency bumps; markdown docs don't carry the same
+            // review burden as code. None reflect reviewer load on logic.
             const EXCLUDED = [
               /^src\/db\/migrations\/meta\//,
               /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$/,
+              /\.md$/i,
             ];
             const isExcluded = (f) => EXCLUDED.some((re) => re.test(f.filename));
 
