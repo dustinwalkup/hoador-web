@@ -1059,4 +1059,19 @@ SETUP IN STAGING: booking id 8ba0bf0f-d124-4688-ac30-cc666cafdc7f
 
 ---
 
-_Last updated: March 21, 2026 | Internal use only_
+## 18. Automated regression (CI)
+
+Playwright specs under `e2e/services/` mirror selected UAT scenarios for smoke and API security checks. Vitest integration tests cover many flows that would be slow or impossible to assert via the browser alone (Stripe Dashboard, idempotent payout, concurrent cron). Run Playwright locally with `bun run test:e2e` (or `bun run test:e2e:services` for the services project only) after `e2e:setup` / `.env.test` are configured.
+
+| UAT ID     | Automation                                                                                                                               |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| UAT-SVC-09 | `e2e/services/uat-smoke.spec.ts` — admin review queue empty state                                                                        |
+| UAT-SVC-10 | `e2e/services/uat-smoke.spec.ts` — browse page loads (logged-in resident with community)                                                 |
+| UAT-SVC-52 | `e2e/services/uat-api-cron.spec.ts` (live HTTP); `src/app/api/cron/process-service-payouts/__tests__/route.test.ts` (handler unit tests) |
+| UAT-SVC-55 | `e2e/services/uat-smoke.spec.ts` — Services nav link href and `data-active` on `/dashboard/services`                                     |
+
+For technical coverage mapping (DAL, services, Stripe helpers), see `specs/services/phase1/4-test-plan.md` and the `src/features/services/__tests__/` and `src/services/stripe/__tests__/` suites.
+
+---
+
+_Last updated: April 13, 2026 | Internal use only_

@@ -1,7 +1,6 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import ListingCard from "@/components/dashboard/listing-card";
 import type { UserListing } from "@/dal/listing.dal";
+import { ExplorePageEmptyWithGuide } from "@/features/listings/components/explore-page/explore-page-empty-with-guide";
 
 interface ExplorePageContentProps {
   listings: UserListing[];
@@ -41,17 +40,7 @@ export function ExplorePageContent({
           ))}
         </div>
       ) : (
-        <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
-          <div className="mb-4 text-6xl">🔍</div>
-          <h3 className="mb-2 text-lg font-semibold">No listings found</h3>
-          <p className="text-muted-foreground mb-4 max-w-md">
-            We couldn&apos;t find any listings matching your search criteria.
-            Try adjusting your filters or search terms.
-          </p>
-          <Button variant="outline" asChild>
-            <Link href={basePath}>Clear all filters</Link>
-          </Button>
-        </div>
+        <ExplorePageEmptyWithGuide basePath={basePath} />
       )}
     </>
   );

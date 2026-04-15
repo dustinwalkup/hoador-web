@@ -35,6 +35,10 @@ export function HowPaymentsWorkModal({ className }: HowPaymentsWorkModalProps) {
         </button>
       </DialogTrigger>
       <DialogContent className="scrollbar-hover-reveal max-h-[85vh] max-w-lg overflow-y-auto sm:max-w-lg">
+        <div className="flex justify-center pt-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hoador-logo.svg" alt="Hoador" className="h-9 w-auto" />
+        </div>
         <DialogHeader>
           <DialogTitle>How payments work</DialogTitle>
           <DialogDescription>
@@ -50,7 +54,7 @@ export function HowPaymentsWorkModal({ className }: HowPaymentsWorkModalProps) {
               Your card is charged when the owner (for rentals) or provider (for
               services){" "}
               <strong className="text-foreground font-medium">accepts</strong>{" "}
-              your request—not when you send it. If they don&apos;t accept,
+              your request - not when you send it. If they don&apos;t accept,
               you&apos;re never charged.
             </p>
           </section>
@@ -59,7 +63,7 @@ export function HowPaymentsWorkModal({ className }: HowPaymentsWorkModalProps) {
               Where your money sits
             </h4>
             <p>
-              Once approved, your payment is held by the platform—not sent to
+              Once approved, your payment is held by the platform - not sent to
               the owner or provider yet. It stays there until the rental or
               service is complete and a short window for disputes passes.
             </p>
@@ -106,7 +110,7 @@ export function HowPaymentsWorkModal({ className }: HowPaymentsWorkModalProps) {
                 <span className="text-foreground font-medium">
                   If the owner or provider cancels on you:
                 </span>{" "}
-                full refund—rental or service price and service fee both come
+                full refund - rental or service price and service fee both come
                 back.
               </li>
               <li>
@@ -128,6 +132,23 @@ export function HowPaymentsWorkModal({ className }: HowPaymentsWorkModalProps) {
           </section>
           <section className="space-y-2">
             <h4 className="text-foreground font-medium">
+              Platform fee (owners &amp; providers)
+            </h4>
+            <p>
+              We handle payments end-to-end so you don&apos;t have to — from
+              securely collecting funds to sending your payout.
+            </p>
+            <p>
+              To support the platform, payment processing, and customer support,
+              a small service fee is applied to each transaction.
+            </p>
+            <p>
+              You&apos;ll always see exactly what you earn before and after
+              fees.
+            </p>
+          </section>
+          <section className="space-y-2">
+            <h4 className="text-foreground font-medium">
               Security deposit (rentals)
             </h4>
             <p>
@@ -135,7 +156,7 @@ export function HowPaymentsWorkModal({ className }: HowPaymentsWorkModalProps) {
               <strong className="text-foreground font-medium">
                 authorization hold
               </strong>
-              —no money leaves your account. It just reserves the funds
+              - no money leaves your account. It just reserves the funds
               temporarily.
             </p>
             <p>

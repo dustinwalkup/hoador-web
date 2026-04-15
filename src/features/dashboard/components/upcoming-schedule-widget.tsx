@@ -6,6 +6,7 @@ import type {
   ScheduleEntryRole,
 } from "@/features/dashboard/types";
 import { ScheduleEntryNextStep } from "@/features/dashboard/components/schedule-entry-next-step";
+import { EmptyStateCoach } from "@/components/empty-state-coach";
 
 export type { ScheduleEntry };
 
@@ -59,7 +60,7 @@ export function UpcomingScheduleWidget({
                 aria-hidden
               />
             </div>
-            <span>Upcoming Schedule</span>
+            <span>Coming up</span>
           </CardTitle>
           <Badge className="shrink-0 border-transparent bg-teal-600 px-2.5 py-0.5 text-xs font-semibold text-white hover:bg-teal-600 dark:bg-teal-600">
             {countLabel}
@@ -74,17 +75,17 @@ export function UpcomingScheduleWidget({
         }
       >
         {entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-500/10">
-              <Calendar className="h-6 w-6 text-teal-400" />
-            </div>
-            <p className="text-muted-foreground mt-3 text-sm">
-              Nothing scheduled
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Upcoming rentals and services will show here
-            </p>
-          </div>
+          <EmptyStateCoach
+            icon={Calendar}
+            iconColor="text-teal-400"
+            iconBg="bg-teal-500/10"
+            headline="Nothing coming up"
+            description="Upcoming rentals and services will show here"
+            cta={{
+              label: "Browse rentals",
+              href: "/dashboard/explore",
+            }}
+          />
         ) : (
           <div className="scrollbar-hover-reveal max-h-96 min-h-0 overflow-x-hidden overflow-y-auto">
             <ul className="">

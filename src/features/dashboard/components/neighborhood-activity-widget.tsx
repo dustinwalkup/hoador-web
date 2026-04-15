@@ -29,7 +29,7 @@ export function NeighborhoodActivityWidget({
               aria-hidden
             />
           </div>
-          Neighborhood Activity
+          Near you
         </CardTitle>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-0 pt-0">

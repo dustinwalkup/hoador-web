@@ -12,9 +12,11 @@ import {
   Trash2,
   Eye,
   ExternalLink,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
+import { EmptyStateCoach } from "@/components/empty-state-coach";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,12 +52,15 @@ interface ChatAreaProps {
   conversationId: string | null;
   onBackToConversations: () => void;
   showMobileBackButton?: boolean;
+  /** True when the user has no conversations at all (vs. just none selected) */
+  isEmpty?: boolean;
 }
 
 export function ChatArea({
   conversationId,
   onBackToConversations,
   showMobileBackButton = false,
+  isEmpty = false,
 }: ChatAreaProps) {
   const [newMessage, setNewMessage] = useState("");
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
@@ -206,6 +211,25 @@ export function ChatArea({
   }, []);
 
   if (!conversationId) {
+    if (isEmpty) {
+      return (
+        <div className="flex flex-1 items-center justify-center p-8">
+          <EmptyStateCoach
+            icon={MessageCircle}
+            iconColor="text-sky-400"
+            iconBg="bg-sky-500/10"
+            headline="No messages yet"
+            description="Your conversations will appear here when you book or accept a rental or service"
+            cta={{ label: "Browse services", href: "/dashboard/services" }}
+            secondaryCta={{
+              label: "Browse rentals",
+              href: "/dashboard/explore",
+            }}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">

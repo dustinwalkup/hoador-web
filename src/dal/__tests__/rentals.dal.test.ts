@@ -164,13 +164,13 @@ describe("RentalDAL", () => {
         innerJoin: mockInnerJoin1,
       });
 
-      // Mock select().from().where().orderBy().limit() for images
-      const mockLimit = vi
-        .fn()
-        .mockResolvedValue([{ imageUrl: "https://example.com/image.jpg" }]);
-      const mockOrderByImage = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
+      // Mock select().from().where().orderBy() for images (batched query)
+      const mockOrderByImage = vi.fn().mockResolvedValue([
+        {
+          listingId: "listing-123",
+          imageUrl: "https://example.com/image.jpg",
+        },
+      ]);
       const mockWhereImage = vi.fn().mockReturnValue({
         orderBy: mockOrderByImage,
       });
@@ -197,6 +197,223 @@ describe("RentalDAL", () => {
       // Assert
       expect(result).toHaveProperty("currentRentals");
       expect(result).toHaveProperty("upcomingRentals");
+    });
+
+    it("should return the exact expected shape for multiple listings with multiple images (characterization)", async () => {
+      // Arrange
+      const userId = "user-456";
+      const now = new Date();
+      const past = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2); // 2 days ago
+      const future = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 5); // 5 days out
+      const farFuture = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 10);
+
+      const rentalsRows = [
+        {
+          id: "rental-1",
+          listingId: "listing-A",
+          listingName: "Listing A",
+          ownerId: "owner-1",
+          ownerName: "Alice Owner",
+          deliveryRequested: false,
+          setupRequested: false,
+          startDate: past,
+          endDate: future,
+          totalAmount: "100.00",
+          status: "active",
+          dailyRate: "10.00",
+        },
+        {
+          id: "rental-2",
+          listingId: "listing-B",
+          listingName: "Listing B",
+          ownerId: "owner-2",
+          ownerName: "Bob Owner",
+          deliveryRequested: true,
+          setupRequested: false,
+          startDate: future,
+          endDate: farFuture,
+          totalAmount: "200.00",
+          status: "approved",
+          dailyRate: "20.00",
+        },
+        {
+          id: "rental-3",
+          listingId: "listing-C",
+          listingName: "Listing C",
+          ownerId: "owner-3",
+          ownerName: "Carol Owner",
+          deliveryRequested: false,
+          setupRequested: true,
+          startDate: future,
+          endDate: farFuture,
+          totalAmount: "300.00",
+          status: "approved",
+          dailyRate: "30.00",
+        },
+      ];
+
+      // Rentals select chain
+      const mockOrderByRentals = vi.fn().mockResolvedValue(rentalsRows);
+      const mockWhereRentals = vi
+        .fn()
+        .mockReturnValue({ orderBy: mockOrderByRentals });
+      const mockInnerJoin2 = vi
+        .fn()
+        .mockReturnValue({ where: mockWhereRentals });
+      const mockInnerJoin1 = vi
+        .fn()
+        .mockReturnValue({ innerJoin: mockInnerJoin2 });
+      const mockFromRentals = vi
+        .fn()
+        .mockReturnValue({ innerJoin: mockInnerJoin1 });
+
+      // Image rows: each listing has multiple images. First (min orderIndex) wins.
+      // Support BOTH shapes:
+      //   old (per-listing): .where().orderBy().limit() resolves to [{ imageUrl }]
+      //   new (batched):     .where().orderBy() resolves to [{ listingId, imageUrl }, ...]
+      const imagesByListing: Record<
+        string,
+        { imageUrl: string; orderIndex: number }[]
+      > = {
+        "listing-A": [
+          { imageUrl: "https://img/A-0.jpg", orderIndex: 0 },
+          { imageUrl: "https://img/A-1.jpg", orderIndex: 1 },
+        ],
+        "listing-B": [
+          { imageUrl: "https://img/B-1.jpg", orderIndex: 1 },
+          { imageUrl: "https://img/B-2.jpg", orderIndex: 2 },
+        ],
+        "listing-C": [
+          { imageUrl: "https://img/C-0.jpg", orderIndex: 0 },
+          { imageUrl: "https://img/C-3.jpg", orderIndex: 3 },
+        ],
+      };
+
+      const batchedImageRows = Object.entries(imagesByListing)
+        .flatMap(([listingId, imgs]) =>
+          imgs.map((i) => ({
+            listingId,
+            imageUrl: i.imageUrl,
+            orderIndex: i.orderIndex,
+          })),
+        )
+        .sort(
+          (a, b) =>
+            a.listingId.localeCompare(b.listingId) ||
+            a.orderIndex - b.orderIndex,
+        )
+        .map(({ listingId, imageUrl }) => ({ listingId, imageUrl }));
+
+      // Per-listing chain (current code path)
+      let perListingCallIndex = 0;
+      const makePerListingChain = () => {
+        const listingOrder = ["listing-A", "listing-B", "listing-C"];
+        const mockLimit = vi.fn().mockImplementation(() => {
+          const lid = listingOrder[perListingCallIndex++];
+          const imgs = imagesByListing[lid] ?? [];
+          const sorted = [...imgs].sort((a, b) => a.orderIndex - b.orderIndex);
+          return Promise.resolve(
+            sorted[0] ? [{ imageUrl: sorted[0].imageUrl }] : [],
+          );
+        });
+        const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+        const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+        return { from: vi.fn().mockReturnValue({ where: mockWhere }) };
+      };
+
+      // Batched chain (future code path)
+      const makeBatchedChain = () => {
+        const mockOrderBy = vi.fn().mockResolvedValue(batchedImageRows);
+        const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+        return { from: vi.fn().mockReturnValue({ where: mockWhere }) };
+      };
+
+      let selectCall = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCall++;
+        if (selectCall === 1) return { from: mockFromRentals } as any;
+        // Return an object that works for BOTH the old per-listing chain
+        // and the new batched chain. We do that by returning a chain where
+        // .from().where().orderBy() resolves to batchedImageRows AND
+        // .from().where().orderBy().limit() resolves to the per-listing
+        // first image.
+        const listingOrder = ["listing-A", "listing-B", "listing-C"];
+        const mockLimit = vi.fn().mockImplementation(() => {
+          const lid = listingOrder[perListingCallIndex++];
+          const imgs = imagesByListing[lid] ?? [];
+          const sorted = [...imgs].sort((a, b) => a.orderIndex - b.orderIndex);
+          return Promise.resolve(
+            sorted[0] ? [{ imageUrl: sorted[0].imageUrl }] : [],
+          );
+        });
+        // orderBy: thenable (for batched) with .limit (for per-listing)
+        const mockOrderBy: any = vi.fn().mockImplementation(() => {
+          const p: any = Promise.resolve(batchedImageRows);
+          p.limit = mockLimit;
+          return p;
+        });
+        const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+        return { from: vi.fn().mockReturnValue({ where: mockWhere }) } as any;
+      });
+      // silence unused warning
+      void makePerListingChain;
+      void makeBatchedChain;
+
+      // Act
+      const result = await rentalDAL.getBorrowedListings(userId);
+
+      // Assert exact shape (byte-identical contract)
+      expect(result).toEqual({
+        currentRentals: [
+          {
+            id: "rental-1",
+            listingId: "listing-A",
+            listingName: "Listing A",
+            ownerId: "owner-1",
+            ownerName: "Alice Owner",
+            deliveryRequested: false,
+            setupRequested: false,
+            startDate: past,
+            endDate: future,
+            totalAmount: "100.00",
+            status: "active",
+            dailyRate: "10.00",
+            listingImageUrl: "https://img/A-0.jpg",
+          },
+        ],
+        upcomingRentals: [
+          {
+            id: "rental-2",
+            listingId: "listing-B",
+            listingName: "Listing B",
+            ownerId: "owner-2",
+            ownerName: "Bob Owner",
+            deliveryRequested: true,
+            setupRequested: false,
+            startDate: future,
+            endDate: farFuture,
+            totalAmount: "200.00",
+            status: "approved",
+            dailyRate: "20.00",
+            listingImageUrl: "https://img/B-1.jpg",
+          },
+          {
+            id: "rental-3",
+            listingId: "listing-C",
+            listingName: "Listing C",
+            ownerId: "owner-3",
+            ownerName: "Carol Owner",
+            deliveryRequested: false,
+            setupRequested: true,
+            startDate: future,
+            endDate: farFuture,
+            totalAmount: "300.00",
+            status: "approved",
+            dailyRate: "30.00",
+            listingImageUrl: "https://img/C-0.jpg",
+          },
+        ],
+      });
     });
   });
 
@@ -2000,6 +2217,23 @@ describe("RentalDAL", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].requestId).toBe("req-2");
+    });
+  });
+
+  describe("getActionableAlerts", () => {
+    it("returns an empty array when no rows match any category", async () => {
+      const chain = {
+        from: vi.fn(),
+        innerJoin: vi.fn(),
+        where: vi.fn().mockResolvedValue([]),
+      };
+      chain.from.mockReturnValue(chain);
+      chain.innerJoin.mockReturnValue(chain);
+      vi.mocked(db.select).mockReturnValue(chain as any);
+
+      const result = await rentalDAL.getActionableAlerts("user-1");
+
+      expect(result).toEqual([]);
     });
   });
 });

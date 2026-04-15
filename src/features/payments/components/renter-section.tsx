@@ -12,29 +12,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { type RentalPayment, type PaginatedResult } from "@/dal/types";
 import { PaymentHistoryItem } from "./payment-history-item";
+import { EmptyStateCoach } from "@/components/empty-state-coach";
 
 interface RenterSectionProps {
   paymentHistory: RentalPayment[];
   pagination: PaginatedResult<RentalPayment>["pagination"];
   currentPage: number;
-}
-
-/**
- * Empty state component for when user has no payment history
- */
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="bg-muted mb-4 rounded-full p-4">
-        <CreditCard className="text-muted-foreground h-8 w-8" />
-      </div>
-      <h3 className="mb-2 text-lg font-semibold">No payment history</h3>
-      <p className="text-muted-foreground max-w-sm text-sm">
-        You haven&apos;t made any rental payments yet. When you rent a tool,
-        your payment history will appear here.
-      </p>
-    </div>
-  );
 }
 
 /**
@@ -62,7 +45,14 @@ export function RenterSection({
         </CardHeader>
         <CardContent>
           {paymentHistory.length === 0 ? (
-            <EmptyState />
+            <EmptyStateCoach
+              icon={CreditCard}
+              iconColor="text-muted-foreground"
+              iconBg="bg-muted"
+              headline="No payments yet"
+              description="When you rent something, your payment history will appear here"
+              cta={{ label: "Browse listings", href: "/dashboard/explore" }}
+            />
           ) : (
             <>
               <div className="divide-y">

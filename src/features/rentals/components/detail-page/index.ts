@@ -1,6 +1,6 @@
 export * from "./rental-content";
 export * from "./rental-layout";
-export * from "./rental-status-card";
+export * from "./rental-status-progress";
 export * from "./rental-listing-info";
 export * from "./rental-details-card";
 export * from "./rental-messages-card";

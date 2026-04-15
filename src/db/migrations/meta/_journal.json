@@ -379,6 +379,13 @@
       "when": 1775707000000,
       "tag": "0053_admin_notification_types",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1776225510386,
+      "tag": "0054_fresh_caretaker",
+      "breakpoints": true
     }
   ]
 }

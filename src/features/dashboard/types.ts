@@ -13,17 +13,8 @@ export interface DashboardSummary {
   earningsThisMonth: number;
 }
 
-/** Single overdue item (as borrower or lender) for OverdueAlertsWidget. */
-export interface OverdueItem {
-  /** Rental or rental request id. */
-  id: string;
-  listingName: string;
-  /** e.g. "3 days late". */
-  statusText: string;
-  otherPartyName: string;
-  /** Rental or request detail URL. */
-  linkTo: string;
-}
+/** Actionable dashboard alert (re-export for feature consumers). */
+export type { ActionableAlert } from "@/dal/rentals.dal";
 
 /** Pending lending request row for PendingRequestsWidget. */
 export interface PendingRequestItem {
@@ -117,4 +108,28 @@ export interface NeighborhoodListing {
   id: string;
   name: string;
   linkTo: string;
+}
+
+/** Structured data for DashboardPulse component. */
+export interface DashboardPulseData {
+  action: {
+    pendingRequests: number;
+    overdueReturns: number;
+    overdueServices: number;
+    unconfirmedServices: number;
+  };
+  active: {
+    borrowing: number;
+    lending: number;
+    disputes: number;
+  };
+  upcoming: {
+    rentals: number;
+    services: number;
+    pickupsToday?: number;
+  };
+  listed: {
+    tools: number;
+    services: number;
+  };
 }

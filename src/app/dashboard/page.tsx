@@ -6,37 +6,28 @@ import { PageHeader } from "@/components/page-header";
 import { ScrollToTop } from "@/components/scroll-to-top";
 import {
   QuickActionsBar,
-  DashboardSummaryCards,
   OverdueAlertsWidget,
   PendingRequestsWidget,
   UnreadMessagesWidget,
-  MiniAnalyticsSection,
   RecentActivityFeed,
   UpcomingScheduleWidget,
-  TopPerformingToolsWidget,
-  NeighborhoodActivityWidget,
   ActiveDisputesWidget,
 } from "@/features/dashboard/components";
 import { getLendingRequestDetailUrl } from "@/features/dashboard/lib/urls";
 import {
   getUpcomingSchedule,
   getDashboardActivityFeed,
+  getDashboardPulseData,
 } from "@/features/dashboard/lib";
-import {
-  rentalDAL,
-  listingDAL,
-  paymentDAL,
-  messagesDAL,
-  disputeDAL,
-} from "@/dal";
+import { rentalDAL, messagesDAL, disputeDAL } from "@/dal";
 import type { PendingRequestItem } from "@/features/dashboard/types";
-import type { DashboardAnalytics } from "@/features/dashboard/types";
 import { DASHBOARD_HEADER } from "@/constants/dashboard";
 import {
   AnimatedSection,
   StaggerGrid,
   StaggerItem,
 } from "@/components/animation-section";
+import { DashboardPulse } from "@/features/dashboard/components/dashboard-pulse";
 
 export const metadata = {
   title: "Dashboard",
@@ -57,44 +48,24 @@ export default async function DashboardPage() {
 
   const userId = user.id;
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  endOfMonth.setHours(23, 59, 59, 999);
-
   const [
-    activeRentalsCount,
-    toolsLentCount,
     pendingLendingRequests,
-    overdueItems,
-    earningsThisMonth,
+    actionableAlerts,
     unreadMessageCount,
     recentConversations,
     upcomingSchedule,
-    topPerformingListings,
-    neighborhoodListings,
     activityFeedItems,
     disputesResult,
-    analytics,
+    pulseData,
   ] = await Promise.all([
-    safe(() => rentalDAL.countBorrowedListings(userId), 0),
-    safe(() => rentalDAL.countSharedListings(userId), 0),
     safe(() => rentalDAL.getLendingRequestsByStatus("pending", userId), []),
-    safe(() => rentalDAL.getOverdueItemsForUser(userId), []),
-    safe(
-      () =>
-        paymentDAL.getUserEarningsForMonth(userId, startOfMonth, endOfMonth),
-      0,
-    ),
-
+    safe(() => rentalDAL.getActionableAlerts(userId), []),
     safe(() => messagesDAL.getUnreadMessageCount(userId), 0),
     safe(
       () => messagesDAL.getUserConversationsPaginated(userId, false, 0, 3),
       [],
     ),
     safe(() => getUpcomingSchedule(userId), []),
-    safe(() => listingDAL.getTopPerformingListings(userId, 5), []),
-    safe(() => listingDAL.getRecentListingsNearUser(userId, 5), []),
     safe(() => getDashboardActivityFeed(userId, 10), []),
     safe(() => disputeDAL.getUserDisputes(userId, { limit: 20 }), {
       data: [],
@@ -107,30 +78,17 @@ export default async function DashboardPage() {
         hasPrev: false,
       },
     }),
-    safe(
-      async (): Promise<DashboardAnalytics> => {
-        const [rentalsPerMonth, earningsByMonth, inventoryUsage] =
-          await Promise.all([
-            rentalDAL.getRentalsPerMonth(userId, 6),
-            paymentDAL.getUserEarningsByMonthRange(userId, 6),
-            listingDAL.getInventoryUsage(userId),
-          ]);
-        return {
-          rentalsPerMonth,
-          earningsByMonth,
-          inventoryUsage,
-        };
+    safe(() => getDashboardPulseData(userId), {
+      action: {
+        pendingRequests: 0,
+        overdueReturns: 0,
+        overdueServices: 0,
+        unconfirmedServices: 0,
       },
-      {
-        rentalsPerMonth: [],
-        earningsByMonth: [],
-        inventoryUsage: {
-          activeCount: 0,
-          totalCount: 0,
-          usagePercent: 0,
-        },
-      },
-    ),
+      active: { borrowing: 0, lending: 0, disputes: 0 },
+      upcoming: { rentals: 0, services: 0 },
+      listed: { tools: 0, services: 0 },
+    }),
   ]);
 
   const pendingRequestItems: PendingRequestItem[] = pendingLendingRequests
@@ -165,17 +123,21 @@ export default async function DashboardPage() {
         <QuickActionsBar unreadCount={unreadMessageCount} />
       </AnimatedSection>
 
+      <DashboardPulse data={pulseData} />
+
       {/* Alerts row - full width for schedule when no overdue items */}
       <StaggerGrid
-        className={`grid gap-4 ${overdueItems.length > 0 ? "lg:grid-cols-2" : ""}`}
+        className={`grid gap-4 ${actionableAlerts.length > 0 ? "lg:grid-cols-2" : ""}`}
         delay={0.15}
       >
         <StaggerItem>
           <UpcomingScheduleWidget entries={upcomingSchedule} />
         </StaggerItem>
-        {overdueItems.length > 0 && (
+        {actionableAlerts.length > 0 && (
           <StaggerItem>
-            <OverdueAlertsWidget items={overdueItems} />
+            <div id="needs-attention">
+              <OverdueAlertsWidget alerts={actionableAlerts} />
+            </div>
           </StaggerItem>
         )}
       </StaggerGrid>
@@ -185,16 +147,6 @@ export default async function DashboardPage() {
         <PendingRequestsWidget
           items={pendingRequestItems}
           totalCount={pendingLendingRequests.length}
-        />
-      </AnimatedSection>
-
-      {/* Summary Cards - has its own internal stagger */}
-      <AnimatedSection delay={0.05}>
-        <DashboardSummaryCards
-          activeRentalsCount={activeRentalsCount}
-          toolsLentCount={toolsLentCount}
-          pendingRequestsCount={pendingLendingRequests.length}
-          earningsThisMonth={earningsThisMonth}
         />
       </AnimatedSection>
 
@@ -210,24 +162,26 @@ export default async function DashboardPage() {
         <RecentActivityFeed items={activityFeedItems} />
       </AnimatedSection>
 
-      <AnimatedSection>
+      <AnimatedSection className="pb-4">
+        <ActiveDisputesWidget
+          disputes={activeDisputesList}
+          totalCount={activeDisputesCount}
+        />
+      </AnimatedSection>
+
+      {/* <AnimatedSection>
         <MiniAnalyticsSection analytics={analytics} />
       </AnimatedSection>
 
-      <StaggerGrid className="grid items-stretch gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <StaggerItem className="self-start">
+      <StaggerGrid className=" ">
+        {/* <StaggerItem className="self-start">
           <TopPerformingToolsWidget listings={topPerformingListings} />
         </StaggerItem>
         <StaggerItem className="self-start">
           <NeighborhoodActivityWidget listings={neighborhoodListings} />
-        </StaggerItem>
-        <StaggerItem className="flex h-full min-h-0 flex-col self-start">
-          <ActiveDisputesWidget
-            disputes={activeDisputesList}
-            totalCount={activeDisputesCount}
-          />
-        </StaggerItem>
-      </StaggerGrid>
+        </StaggerItem> */}
+      {/* <StaggerItem className="flex h-full min-h-0 flex-col self-start"></StaggerItem> */}
+      {/* </StaggerGrid> */}
     </div>
   );
 }

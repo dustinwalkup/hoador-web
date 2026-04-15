@@ -23,13 +23,13 @@ export function MyServiceListingsClient({
   return (
     <div className="container pb-6">
       <PageHeader
-        title="My Services"
-        description="Manage your service listings in one place"
+        title="Your service listings"
+        description="Manage your services and availability"
       >
         <Link href="/dashboard/services/listings/create">
           <Button size="sm" className="h-9">
             <Plus className="mr-2 h-4 w-4" />
-            Add New Listing
+            List a service
           </Button>
         </Link>
       </PageHeader>

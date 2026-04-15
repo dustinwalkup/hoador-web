@@ -284,7 +284,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
               <div className="flex w-full flex-col items-end sm:flex-row sm:justify-between">
                 <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                  Add a payment method to request this servicessss
+                  Add a payment method to request this service
                 </p>
                 <Button size="sm" variant="outline" asChild>
                   <Link href="/dashboard/payments">Go to Payments</Link>

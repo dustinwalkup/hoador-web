@@ -682,11 +682,8 @@ describe("ListingDAL", () => {
       // Mock reviews query for each listing
       vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
 
-      // Mock image query for each listing - select().from().where().limit(1)
-      const mockImageLimit = vi.fn().mockResolvedValue([]);
-      const mockImageWhere = vi.fn().mockReturnValue({
-        limit: mockImageLimit,
-      });
+      // Mock image query - batched select().from().where() resolving to []
+      const mockImageWhere = vi.fn().mockResolvedValue([]);
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
       });
@@ -836,18 +833,20 @@ describe("ListingDAL", () => {
         return { from: mockImageFrom } as any;
       });
 
-      // Mock rental history queries - needs from().leftJoin().where()
+      // Mock batched owner rental stats - from().leftJoin().where().groupBy()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
         leftJoin: vi.fn().mockReturnValue({
-          where: vi
-            .fn()
-            .mockResolvedValue([{ totalRentals: 0, averageRating: 0 }]),
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockResolvedValue([]),
+          }),
         }),
       });
 
-      // Mock other listings count query
+      // Mock batched owner listing counts - from().where().groupBy()
       const mockOtherListingsFrom = vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
+        }),
       });
 
       // Mock review events query - from().where().orderBy()
@@ -943,9 +942,11 @@ describe("ListingDAL", () => {
         }),
       });
 
-      // Mock other listings count query
+      // Mock batched owner listing counts - from().where().groupBy()
       const mockOtherListingsFrom = vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
+        }),
       });
 
       // Mock review events query - from().where().orderBy()
@@ -955,12 +956,12 @@ describe("ListingDAL", () => {
         }),
       });
 
-      // Mock rental history query - from().leftJoin().where()
+      // Mock batched owner rental stats - from().leftJoin().where().groupBy()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
         leftJoin: vi.fn().mockReturnValue({
-          where: vi
-            .fn()
-            .mockResolvedValue([{ totalRentals: 0, averageRating: 0 }]),
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockResolvedValue([]),
+          }),
         }),
       });
 
@@ -1028,17 +1029,19 @@ describe("ListingDAL", () => {
         }),
       });
 
-      // Mock other listings count query
+      // Mock batched owner listing counts - from().where().groupBy()
       const mockOtherListingsFrom = vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
+        }),
       });
 
-      // Mock rental history query - from().leftJoin().where()
+      // Mock batched owner rental stats - from().leftJoin().where().groupBy()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
         leftJoin: vi.fn().mockReturnValue({
-          where: vi
-            .fn()
-            .mockResolvedValue([{ totalRentals: 0, averageRating: 0 }]),
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockResolvedValue([]),
+          }),
         }),
       });
 
@@ -1294,11 +1297,8 @@ describe("ListingDAL", () => {
       // Mock the reviews query (called for each listing)
       vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
 
-      // Mock the images query (called for each listing)
-      const mockImageLimit = vi.fn().mockResolvedValue([]);
-      const mockImageWhere = vi.fn().mockReturnValue({
-        limit: mockImageLimit,
-      });
+      // Mock the images query (batched select().from().where())
+      const mockImageWhere = vi.fn().mockResolvedValue([]);
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
       });
@@ -1355,11 +1355,8 @@ describe("ListingDAL", () => {
       // Mock the reviews query (called for each listing)
       vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
 
-      // Mock the images query (called for each listing)
-      const mockImageLimit = vi.fn().mockResolvedValue([]);
-      const mockImageWhere = vi.fn().mockReturnValue({
-        limit: mockImageLimit,
-      });
+      // Mock the images query (batched select().from().where())
+      const mockImageWhere = vi.fn().mockResolvedValue([]);
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
       });
@@ -1504,6 +1501,324 @@ describe("ListingDAL", () => {
       const result = await listingDAL.getRecentListingsNearUser(userId, 5);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("getUserActiveListingsWithFilters (characterization)", () => {
+    // Locks in the exact return shape of getUserActiveListingsWithFilters so a
+    // refactor that removes the per-listing N+1 (images + reviews) cannot
+    // change observable output.
+    const userId = "user-123";
+
+    const rawListings = [
+      {
+        id: "listing-a",
+        ownerId: userId,
+        name: "Drill A",
+        description: "a drill",
+        categoryId: "power-tools",
+        communityId: "community-1",
+        brand: "DeWalt",
+        model: "A1",
+        condition: "excellent",
+        status: "available",
+        isActive: true,
+        dailyRate: "15.00",
+        weeklyRate: "90.00",
+        monthlyRate: "300.00",
+        securityDeposit: "50.00",
+        deliveryFee: "10.00",
+        setupFee: "25.00",
+        specifications: {},
+        instructions: null,
+        safetyNotes: null,
+        minimumRentalPeriod: 1,
+        maximumRentalPeriod: 30,
+        deliveryMode: "pickup_only",
+        deliveryRadius: 10,
+        setupAvailable: true,
+        viewCount: 0,
+        favoriteCount: 0,
+        approvalStatus: "approved",
+        rejectionReason: null,
+        reviewedBy: null,
+        reviewedAt: null,
+        createdAt: new Date("2024-01-15"),
+        updatedAt: new Date("2024-01-15"),
+      },
+      {
+        id: "listing-b",
+        ownerId: userId,
+        name: "Hammer B",
+        description: "a hammer",
+        categoryId: "hand-tools",
+        communityId: "community-1",
+        brand: null,
+        model: null,
+        condition: "good",
+        status: "rented",
+        isActive: true,
+        dailyRate: "5.50",
+        weeklyRate: null,
+        monthlyRate: null,
+        securityDeposit: "10.00",
+        deliveryFee: "0.00",
+        setupFee: "0.00",
+        specifications: {},
+        instructions: null,
+        safetyNotes: null,
+        minimumRentalPeriod: 1,
+        maximumRentalPeriod: 7,
+        deliveryMode: "pickup_only",
+        deliveryRadius: 0,
+        setupAvailable: false,
+        viewCount: 0,
+        favoriteCount: 0,
+        approvalStatus: "approved",
+        rejectionReason: null,
+        reviewedBy: null,
+        reviewedAt: null,
+        createdAt: new Date("2024-01-10"),
+        updatedAt: new Date("2024-01-10"),
+      },
+      {
+        id: "listing-c",
+        ownerId: userId,
+        name: "Saw C",
+        description: "a saw",
+        categoryId: "power-tools",
+        communityId: "community-1",
+        brand: "Makita",
+        model: "C3",
+        condition: "good",
+        status: "available",
+        isActive: true,
+        dailyRate: "20.00",
+        weeklyRate: "120.00",
+        monthlyRate: "400.00",
+        securityDeposit: "75.00",
+        deliveryFee: "15.00",
+        setupFee: "0.00",
+        specifications: {},
+        instructions: null,
+        safetyNotes: null,
+        minimumRentalPeriod: 1,
+        maximumRentalPeriod: 14,
+        deliveryMode: "both_available",
+        deliveryRadius: 20,
+        setupAvailable: false,
+        viewCount: 0,
+        favoriteCount: 0,
+        approvalStatus: "approved",
+        rejectionReason: null,
+        reviewedBy: null,
+        reviewedAt: null,
+        createdAt: new Date("2024-01-05"),
+        updatedAt: new Date("2024-01-05"),
+      },
+    ];
+
+    // Reviews per listing (varying ratings to exercise avg computation)
+    const reviewsByListing: Record<string, { rating: number }[]> = {
+      "listing-a": [{ rating: 5 }, { rating: 4 }, { rating: 3 }], // avg 4 -> 4.0
+      "listing-b": [{ rating: 5 }, { rating: 2 }], // avg 3.5
+      "listing-c": [], // no reviews -> 0
+    };
+
+    // First image per listing
+    const firstImageByListing: Record<string, { imageUrl: string }[]> = {
+      "listing-a": [{ imageUrl: "https://example.com/a.jpg" }],
+      "listing-b": [{ imageUrl: "https://example.com/b.jpg" }],
+      "listing-c": [], // no image -> null
+    };
+
+    function installMocks() {
+      // Listings base query: select().from(listings).where().orderBy()
+      // Images query: select({...}).from(listingImages).where().limit(1)
+      // We distinguish by looking at the first arg passed to `from`.
+      const selectCalls: Array<"listings" | "images"> = [];
+      let imageIdx = 0;
+
+      vi.mocked(db.select).mockImplementation(((arg?: unknown) => {
+        // When called with no args -> base listings select (current code uses .select())
+        // When called with an object shape -> images select
+        const isImages = arg !== undefined;
+        selectCalls.push(isImages ? "images" : "listings");
+
+        if (!isImages) {
+          // listings chain: from().where().orderBy()
+          return {
+            from: () => ({
+              where: () => ({
+                orderBy: () => Promise.resolve(rawListings),
+              }),
+            }),
+          } as any;
+        }
+
+        // images chain.
+        // - Broken code: from().where().limit() once per listing.
+        // - Refactored code: from().where() once, awaited directly (batched
+        //   with inArray, returning {listingId, imageUrl} rows).
+        return {
+          from: () => ({
+            where: () => {
+              const batchedRows = rawListings.flatMap((l) => {
+                const img = (firstImageByListing[l.id] ?? [])[0];
+                return img ? [{ listingId: l.id, imageUrl: img.imageUrl }] : [];
+              });
+              // Thenable so `await db.select(...).from().where()` resolves
+              // to the batched rows, while `.limit(1)` still works for the
+              // old N+1 code path.
+              return {
+                then: (
+                  resolve: (v: typeof batchedRows) => unknown,
+                  reject?: (e: unknown) => unknown,
+                ) => Promise.resolve(batchedRows).then(resolve, reject),
+                limit: () => {
+                  const listing = rawListings[imageIdx++];
+                  return Promise.resolve(firstImageByListing[listing.id] ?? []);
+                },
+              };
+            },
+          }),
+        } as any;
+      }) as any);
+
+      // Reviews: db.query.reviews.findMany is called once per listing in the
+      // broken code, or once with inArray after the refactor. We detect batch
+      // mode by looking at whether the caller requested the `listingId` column.
+      let reviewsCallIdx = 0;
+      vi.mocked(db.query.reviews.findMany).mockImplementation((async (
+        opts: any,
+      ) => {
+        const wantsListingId = opts?.columns?.listingId === true;
+        if (wantsListingId) {
+          // Batched (refactored) call — return all reviews with listingId
+          return rawListings.flatMap((l) =>
+            (reviewsByListing[l.id] ?? []).map((r) => ({
+              listingId: l.id,
+              rating: r.rating,
+            })),
+          );
+        }
+        // N+1 (original) call — return per-listing slice in order
+        const listing = rawListings[reviewsCallIdx++];
+        return reviewsByListing[listing.id] ?? [];
+      }) as any);
+    }
+
+    it("returns listings with computed rating, reviewCount, firstImageUrl and numeric rate fields", async () => {
+      installMocks();
+
+      const result = await listingDAL.getUserActiveListingsWithFilters(userId);
+
+      expect(result).toHaveLength(3);
+
+      // Listing A: 3 reviews, avg 4.0, has image
+      expect(result[0]).toMatchObject({
+        id: "listing-a",
+        name: "Drill A",
+        dailyRate: 15,
+        weeklyRate: 90,
+        monthlyRate: 300,
+        securityDeposit: 50,
+        deliveryFee: 10,
+        setupFee: 25,
+        averageRating: 4.0,
+        reviewCount: 3,
+        firstImageUrl: "https://example.com/a.jpg",
+      });
+
+      // Listing B: 2 reviews, avg 3.5, has image, null weekly/monthly
+      expect(result[1]).toMatchObject({
+        id: "listing-b",
+        name: "Hammer B",
+        dailyRate: 5.5,
+        securityDeposit: 10,
+        deliveryFee: 0,
+        setupFee: 0,
+        averageRating: 3.5,
+        reviewCount: 2,
+        firstImageUrl: "https://example.com/b.jpg",
+      });
+      expect(result[1].weeklyRate).toBeUndefined();
+      expect(result[1].monthlyRate).toBeUndefined();
+
+      // Listing C: 0 reviews, avg 0, no image (null)
+      expect(result[2]).toMatchObject({
+        id: "listing-c",
+        name: "Saw C",
+        dailyRate: 20,
+        weeklyRate: 120,
+        monthlyRate: 400,
+        securityDeposit: 75,
+        deliveryFee: 15,
+        setupFee: 0,
+        averageRating: 0,
+        reviewCount: 0,
+        firstImageUrl: null,
+      });
+
+      // Preserves pass-through columns from raw listing
+      expect(result[0].ownerId).toBe(userId);
+      expect(result[0].brand).toBe("DeWalt");
+      expect(result[0].categoryId).toBe("power-tools");
+      expect(result[0].isActive).toBe(true);
+      expect(result[0].approvalStatus).toBe("approved");
+      expect(result[0].status).toBe("available");
+      expect(result[1].status).toBe("rented");
+      expect(result[0].createdAt).toEqual(new Date("2024-01-15"));
+    });
+
+    it("getUserListings returns the same enriched shape (batched path)", async () => {
+      installMocks();
+
+      const result = await listingDAL.getUserListings(userId);
+
+      expect(result).toHaveLength(3);
+      expect(result[0]).toMatchObject({
+        id: "listing-a",
+        averageRating: 4.0,
+        reviewCount: 3,
+        firstImageUrl: "https://example.com/a.jpg",
+        dailyRate: 15,
+      });
+      expect(result[1]).toMatchObject({
+        id: "listing-b",
+        averageRating: 3.5,
+        reviewCount: 2,
+        firstImageUrl: "https://example.com/b.jpg",
+      });
+      expect(result[2]).toMatchObject({
+        id: "listing-c",
+        averageRating: 0,
+        reviewCount: 0,
+        firstImageUrl: null,
+      });
+    });
+
+    it("getUserListingsByApprovalStatus enriches via _getUserListingsWithConditions (batched path)", async () => {
+      installMocks();
+
+      const result = await listingDAL.getUserListingsByApprovalStatus(
+        "pending_review",
+        userId,
+      );
+
+      expect(result).toHaveLength(3);
+      expect(result[0]).toMatchObject({
+        id: "listing-a",
+        averageRating: 4.0,
+        reviewCount: 3,
+        firstImageUrl: "https://example.com/a.jpg",
+      });
+      expect(result[2]).toMatchObject({
+        id: "listing-c",
+        averageRating: 0,
+        reviewCount: 0,
+        firstImageUrl: null,
+      });
     });
   });
 });

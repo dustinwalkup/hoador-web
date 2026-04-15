@@ -188,14 +188,14 @@ describe("InactiveListings", () => {
     it("should render add new listing card", () => {
       renderWithQueryClient(<InactiveListings filters={mockFilters} />);
 
-      expect(screen.getByText("List a New listing")).toBeInTheDocument();
+      expect(screen.getByText("List another item")).toBeInTheDocument();
       expect(
         screen.getByText(
           "Share your tools with neighbors and earn extra income",
         ),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("link", { name: /Add New Listing/ }),
+        screen.getByRole("link", { name: /List an item/ }),
       ).toBeInTheDocument();
     });
   });
@@ -308,9 +308,9 @@ describe("InactiveListings", () => {
 
       renderWithQueryClient(<InactiveListings filters={mockFilters} />);
 
-      expect(screen.getByText("List a New listing")).toBeInTheDocument();
+      expect(screen.getByText("List another item")).toBeInTheDocument();
       expect(
-        screen.getByRole("link", { name: /Add New Listing/ }),
+        screen.getByRole("link", { name: /List an item/ }),
       ).toBeInTheDocument();
     });
   });
@@ -386,7 +386,7 @@ describe("InactiveListings", () => {
     });
   });
 
-  describe("Add New Listing Card", () => {
+  describe("List an item Card", () => {
     it("should render add new listing card with correct styling", () => {
       renderWithQueryClient(<InactiveListings filters={mockFilters} />);
 
@@ -399,7 +399,7 @@ describe("InactiveListings", () => {
     it("should have correct link to add listing page", () => {
       renderWithQueryClient(<InactiveListings filters={mockFilters} />);
 
-      const addLink = screen.getByRole("link", { name: /Add New Listing/ });
+      const addLink = screen.getByRole("link", { name: /List an item/ });
       expect(addLink).toHaveAttribute("href", "/dashboard/listings/add");
     });
 
@@ -407,7 +407,7 @@ describe("InactiveListings", () => {
       renderWithQueryClient(<InactiveListings filters={mockFilters} />);
 
       expect(screen.getByTestId("plus-icon")).toBeInTheDocument();
-      expect(screen.getByText("List a New listing")).toBeInTheDocument();
+      expect(screen.getByText("List another item")).toBeInTheDocument();
     });
 
     it("should have correct button styling", () => {
@@ -469,7 +469,7 @@ describe("InactiveListings", () => {
     it("should have accessible link text", () => {
       renderWithQueryClient(<InactiveListings filters={mockFilters} />);
 
-      const link = screen.getByRole("link", { name: /Add New Listing/ });
+      const link = screen.getByRole("link", { name: /List an item/ });
       expect(link).toBeInTheDocument();
     });
 

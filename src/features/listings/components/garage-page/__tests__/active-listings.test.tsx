@@ -138,14 +138,14 @@ describe("ActiveListings", () => {
     it("should render add new listing card", () => {
       renderWithQueryClient(<ActiveListings filters={mockFilters} />);
 
-      expect(screen.getByText("List a New Listing")).toBeInTheDocument();
+      expect(screen.getByText("List another item")).toBeInTheDocument();
       expect(
         screen.getByText(
           "Share your tools with neighbors and earn extra income",
         ),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("link", { name: /Add New Listing/ }),
+        screen.getByRole("link", { name: /List an item/ }),
       ).toBeInTheDocument();
     });
   });
@@ -207,12 +207,19 @@ describe("ActiveListings", () => {
 
       renderWithQueryClient(<ActiveListings filters={mockFilters} />);
 
-      expect(screen.getByText("No active listings")).toBeInTheDocument();
       expect(
-        screen.getByText(
-          "Listings you've listed and are currently available for rent will appear here",
-        ),
+        screen.getByText("Start earning from things you already own"),
       ).toBeInTheDocument();
+      expect(
+        screen.getByText("Most listings take under 2 minutes to set up"),
+      ).toBeInTheDocument();
+      const listItemLinks = screen.getAllByRole("link", {
+        name: /List an item/i,
+      });
+      expect(listItemLinks.length).toBeGreaterThanOrEqual(1);
+      listItemLinks.forEach((link) => {
+        expect(link).toHaveAttribute("href", "/dashboard/listings/add");
+      });
     });
 
     it("should render filtered empty state when filters are applied", () => {
@@ -274,10 +281,10 @@ describe("ActiveListings", () => {
 
       renderWithQueryClient(<ActiveListings filters={mockFilters} />);
 
-      expect(screen.getByText("List a New Listing")).toBeInTheDocument();
+      expect(screen.getByText("List another item")).toBeInTheDocument();
       expect(
-        screen.getByRole("link", { name: /Add New Listing/ }),
-      ).toBeInTheDocument();
+        screen.getAllByRole("link", { name: /List an item/ }),
+      ).toHaveLength(2);
     });
   });
 
@@ -392,7 +399,7 @@ describe("ActiveListings", () => {
     });
   });
 
-  describe("Add New Listing Card", () => {
+  describe("List an item Card", () => {
     it("should render add new listing card with correct styling", () => {
       const { container } = renderWithQueryClient(
         <ActiveListings filters={mockFilters} />,
@@ -407,14 +414,14 @@ describe("ActiveListings", () => {
     it("should have correct link to add listing page", () => {
       renderWithQueryClient(<ActiveListings filters={mockFilters} />);
 
-      const addLink = screen.getByRole("link", { name: /Add New Listing/ });
+      const addLink = screen.getByRole("link", { name: /List an item/ });
       expect(addLink).toHaveAttribute("href", "/dashboard/listings/add");
     });
 
     it("should have plus icon and title", () => {
       renderWithQueryClient(<ActiveListings filters={mockFilters} />);
 
-      expect(screen.getByText("List a New Listing")).toBeInTheDocument();
+      expect(screen.getByText("List another item")).toBeInTheDocument();
       expect(
         screen.getByText(
           "Share your tools with neighbors and earn extra income",
@@ -433,7 +440,7 @@ describe("ActiveListings", () => {
       expect(grid).toHaveClass("grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ");
     });
 
-    it("should have correct empty state styling", () => {
+    it("should have correct empty state container", () => {
       (useActiveListings as any).mockReturnValue({
         ...mockUseActiveListings,
         data: [],
@@ -444,10 +451,10 @@ describe("ActiveListings", () => {
       );
 
       const emptyState = container.querySelector('div[class*="col-span-full"]');
-      expect(emptyState).toHaveClass("col-span-full py-8 text-center");
+      expect(emptyState).toHaveClass("col-span-full");
     });
 
-    it("should have correct icon styling in empty state", () => {
+    it("should have icon in empty state", () => {
       (useActiveListings as any).mockReturnValue({
         ...mockUseActiveListings,
         data: [],
@@ -458,11 +465,9 @@ describe("ActiveListings", () => {
       );
 
       const iconContainer = container.querySelector(
-        'div[class*="bg-muted"][class*="rounded-full"]',
+        'div[class*="rounded-full"][class*="bg-primary"]',
       );
-      expect(iconContainer).toHaveClass(
-        "bg-muted mb-4 inline-flex rounded-full p-3",
-      );
+      expect(iconContainer).toBeInTheDocument();
     });
   });
 
@@ -470,7 +475,7 @@ describe("ActiveListings", () => {
     it("should have accessible link text", () => {
       renderWithQueryClient(<ActiveListings filters={mockFilters} />);
 
-      const link = screen.getByRole("link", { name: /Add New Listing/ });
+      const link = screen.getByRole("link", { name: /List an item/ });
       expect(link).toBeInTheDocument();
     });
 
@@ -482,8 +487,9 @@ describe("ActiveListings", () => {
 
       renderWithQueryClient(<ActiveListings filters={mockFilters} />);
 
-      // Empty state should have proper text structure
-      expect(screen.getByText("No active listings")).toBeInTheDocument();
+      expect(
+        screen.getByText("Start earning from things you already own"),
+      ).toBeInTheDocument();
     });
   });
 
@@ -496,8 +502,9 @@ describe("ActiveListings", () => {
 
       renderWithQueryClient(<ActiveListings filters={mockFilters} />);
 
-      // Should render empty state
-      expect(screen.getByText("No active listings")).toBeInTheDocument();
+      expect(
+        screen.getByText("Start earning from things you already own"),
+      ).toBeInTheDocument();
     });
 
     it("should handle undefined image URL", () => {

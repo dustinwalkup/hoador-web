@@ -56,6 +56,7 @@ export function ActiveDisputesWidget({
   disputes,
   totalCount,
 }: ActiveDisputesWidgetProps) {
+  if (totalCount === 0) return null;
   return (
     <Card className="flex h-full min-h-80 flex-col overflow-hidden border-t-0 border-l-4 border-l-orange-500">
       <CardHeader className="shrink-0 pb-2">

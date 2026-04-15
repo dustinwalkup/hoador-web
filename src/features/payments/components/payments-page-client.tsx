@@ -3,6 +3,7 @@
 import type { RentalPayment, PaginatedResult } from "@/dal/types";
 import { PaymentMethodsSection } from "./payment-methods-section";
 import { RenterSection } from "./renter-section";
+import { PaymentExplainerSection } from "./payment-explainer-section";
 
 interface PaymentsPageClientProps {
   paymentHistory: RentalPayment[];
@@ -27,6 +28,7 @@ export function PaymentsPageClient({
         pagination={pagination}
         currentPage={currentPage}
       />
+      <PaymentExplainerSection activeTab="renter" />
     </div>
   );
 }

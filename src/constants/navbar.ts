@@ -1,6 +1,6 @@
 import type { FunctionComponent, SVGProps } from "react";
 import {
-  TagIcon,
+  LayoutGridIcon,
   // HeartIcon,
   UserIcon,
   MailIcon,
@@ -11,7 +11,7 @@ import {
   HelpCircleIcon,
   SearchIcon,
   SettingsIcon,
-  ActivityIcon,
+  CalendarCheck,
   DollarSign,
 } from "lucide-react";
 import DoorIcon from "@/components/ui/door-icon";
@@ -39,44 +39,44 @@ export const MAIN_NAV: MainNavItem[] = [
   // TODO: Add Favorites
   // { title: "Favorites", url: "/dashboard/favorites", icon: HeartIcon },
   {
-    title: "Explore",
+    title: "Browse",
     icon: DoorIcon,
     defaultOpen: true,
     items: [
       {
         items: [
-          { title: "Browse rentals", url: "/dashboard/explore" },
-          { title: "Browse services", url: "/dashboard/services" },
+          { title: "Rentals", url: "/dashboard/explore" },
+          { title: "Services", url: "/dashboard/services" },
         ],
       },
     ],
   },
   {
-    title: "Activity",
-    icon: ActivityIcon,
+    title: "Bookings",
+    icon: CalendarCheck,
     items: [
       {
-        label: "RENTALS",
+        label: "Rentals",
         items: [
           {
-            title: "Owner",
+            title: "As owner",
             url: "/dashboard/rentals/incoming/requests",
           },
           {
-            title: "Renter",
+            title: "As renter",
             url: "/dashboard/rentals/outgoing/requests",
           },
         ],
       },
       {
-        label: "SERVICES",
+        label: "Services",
         items: [
           {
-            title: "Provider",
+            title: "As provider",
             url: "/dashboard/services/incoming/pending",
           },
           {
-            title: "Client",
+            title: "As client",
             url: "/dashboard/services/outgoing/pending",
           },
         ],
@@ -84,20 +84,18 @@ export const MAIN_NAV: MainNavItem[] = [
     ],
   },
   {
-    title: "Manage Listings",
-    icon: TagIcon,
+    title: "Your listings",
+    icon: LayoutGridIcon,
     items: [
       {
-        label: "RENTALS",
-        items: [{ title: "My rentals", url: "/dashboard/listings/rentals" }],
-      },
-      {
-        label: "SERVICES",
-        items: [{ title: "My services", url: "/dashboard/listings/services" }],
+        items: [
+          { title: "My rentals", url: "/dashboard/listings/rentals" },
+          { title: "My services", url: "/dashboard/listings/services" },
+        ],
       },
     ],
   },
-  { title: "Mailbox", url: "/dashboard/mailbox", icon: MailIcon },
+  { title: "Messages", url: "/dashboard/mailbox", icon: MailIcon },
   { title: "Payments", url: "/dashboard/payments", icon: DollarSign },
   { title: "Profile", url: "/dashboard/profile", icon: UserIcon },
 ];

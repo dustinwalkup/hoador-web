@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import type { RentalDetailsInfo } from "@/dal/rentals.dal";
 import { ServiceFeeLine } from "@/components/payments/service-fee-line";
 import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
+import { HowPaymentsWorkModal } from "@/components/payments/how-payments-work-modal";
 
 interface RentalDetailsCardProps {
   rentalDetails: RentalDetailsInfo;
@@ -179,7 +180,10 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
         <Separator />
 
         <div>
-          <h4 className="mb-3 font-semibold">Pricing Breakdown</h4>
+          <h4 className="mb-3 flex items-center gap-2 font-semibold">
+            Pricing Breakdown
+            <HowPaymentsWorkModal />
+          </h4>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span>

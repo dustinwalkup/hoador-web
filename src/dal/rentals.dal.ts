@@ -11,15 +11,63 @@ import { user, userAddresses } from "@/db/schemas/user.schema";
 import { payments } from "@/db/schemas/payments.schema";
 import { rentalPaymentLifecycle } from "@/db/schemas/rental-payment-lifecycle.schema";
 import { conversations } from "@/db/schemas/messages.schema";
+import { serviceBookings, serviceListings } from "@/db/schemas/services.schema";
+import type { AlertType } from "@/features/rentals/lib/format-alert-text";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BaseDAL } from "./base";
 import { ConflictError, NotFoundError } from "./errors";
 import type { CancellationReason } from "./types";
+import { alias } from "drizzle-orm/pg-core";
+
 import { ReviewDAL } from "./review.dal";
 
 // Create a single instance at module level to reuse across methods
 const reviewDALInstance = new ReviewDAL();
+
+const serviceBookingRequesterForAlerts = alias(user, "sb_req_alerts");
+const serviceBookingProviderForAlerts = alias(user, "sb_prov_alerts");
+
+/** Dashboard actionable alert (rentals + service bookings). */
+export interface ActionableAlert {
+  id: string;
+  listingName: string;
+  alertType: AlertType;
+  userRole: "owner" | "renter" | "provider" | "client";
+  deliveryRequested: boolean;
+  daysLate?: number;
+  otherPartyName: string;
+  linkTo: string;
+  severity: "warning" | "error";
+}
+
+/** Row for the rental-reminders cron (approved, start today or missed). */
+export interface ApprovedRentalReminderRow {
+  rentalRequestId: string;
+  renterId: string;
+  ownerId: string;
+  listingName: string;
+  deliveryRequested: boolean;
+  startDate: Date;
+  /** True when the start calendar date is strictly before the reference day. */
+  isMissedStart: boolean;
+}
+
+function toLocalYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function alertSeverity(
+  alertType: AlertType,
+  daysLate: number,
+): "warning" | "error" {
+  if (alertType === "overdue_return") return "error";
+  if (alertType === "not_started") return daysLate > 0 ? "error" : "warning";
+  return "warning";
+}
 
 /** All data needed by CancellationService to process a cancellation or no-show. */
 export interface RentalCancellationContext {
@@ -416,15 +464,29 @@ export class RentalDAL extends BaseDAL {
       ];
       const listingImagesMap = new Map<string, string | null>();
 
-      for (const listingId of listingIds) {
-        const [firstImage] = await this.db
-          .select({ imageUrl: listingImages.imageUrl })
+      if (listingIds.length > 0) {
+        // Batched: single query for all listings' images, then reduce to
+        // the first (lowest orderIndex) per listingId in JS. This matches
+        // the prior per-listing `.orderBy(orderIndex).limit(1)` behavior
+        // without issuing N round-trips.
+        const imageRows = await this.db
+          .select({
+            listingId: listingImages.listingId,
+            imageUrl: listingImages.imageUrl,
+          })
           .from(listingImages)
-          .where(eq(listingImages.listingId, listingId))
-          .orderBy(listingImages.orderIndex)
-          .limit(1);
+          .where(inArray(listingImages.listingId, listingIds))
+          .orderBy(listingImages.listingId, listingImages.orderIndex);
 
-        listingImagesMap.set(listingId, firstImage?.imageUrl || null);
+        for (const listingId of listingIds) {
+          listingImagesMap.set(listingId, null);
+        }
+        for (const row of imageRows) {
+          if (row.listingId == null) continue;
+          if (listingImagesMap.get(row.listingId) == null) {
+            listingImagesMap.set(row.listingId, row.imageUrl ?? null);
+          }
+        }
       }
 
       // Separate current and upcoming rentals
@@ -897,6 +959,329 @@ export class RentalDAL extends BaseDAL {
       });
     } catch (error) {
       this.handleError(error, "getOverdueItemsForUser");
+    }
+  }
+
+  /**
+   * Returns actionable alerts for the dashboard widget: overdue returns,
+   * rentals not yet started, rentals ending today, and accepted service bookings
+   * past their scheduled date.
+   *
+   * @param userId - Current user id
+   * @returns Alerts sorted by severity (errors first), then by daysLate descending
+   */
+  async getActionableAlerts(userId: string): Promise<ActionableAlert[]> {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endOfToday = new Date(today);
+      endOfToday.setHours(23, 59, 59, 999);
+      const startOfTomorrow = new Date(today);
+      startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+      const todayYmd = toLocalYmd(today);
+
+      const overdueRows = await this.db
+        .select({
+          id: rentalRequests.id,
+          listingName: listings.name,
+          renterId: rentalRequests.renterId,
+          ownerName:
+            sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`.as(
+              "owner_name",
+            ),
+          endDate: rentalRequests.endDate,
+          startDate: rentalRequests.startDate,
+          deliveryRequested: rentalRequests.deliveryRequested,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .where(
+          and(
+            or(
+              eq(rentalRequests.renterId, userId),
+              eq(rentalRequests.ownerId, userId),
+            ),
+            lt(rentalRequests.endDate, today),
+            inArray(rentalRequests.status, ["approved", "active"]),
+          ),
+        );
+
+      const notStartedRows = await this.db
+        .select({
+          id: rentalRequests.id,
+          listingName: listings.name,
+          renterId: rentalRequests.renterId,
+          ownerName:
+            sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`.as(
+              "owner_name",
+            ),
+          endDate: rentalRequests.endDate,
+          startDate: rentalRequests.startDate,
+          deliveryRequested: rentalRequests.deliveryRequested,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .where(
+          and(
+            or(
+              eq(rentalRequests.renterId, userId),
+              eq(rentalRequests.ownerId, userId),
+            ),
+            eq(rentalRequests.status, "approved"),
+            lte(rentalRequests.startDate, endOfToday),
+            gte(rentalRequests.endDate, today),
+          ),
+        );
+
+      const endTodayRows = await this.db
+        .select({
+          id: rentalRequests.id,
+          listingName: listings.name,
+          renterId: rentalRequests.renterId,
+          ownerName:
+            sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`.as(
+              "owner_name",
+            ),
+          endDate: rentalRequests.endDate,
+          startDate: rentalRequests.startDate,
+          deliveryRequested: rentalRequests.deliveryRequested,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .where(
+          and(
+            or(
+              eq(rentalRequests.renterId, userId),
+              eq(rentalRequests.ownerId, userId),
+            ),
+            eq(rentalRequests.status, "active"),
+            gte(rentalRequests.endDate, today),
+            lt(rentalRequests.endDate, startOfTomorrow),
+          ),
+        );
+
+      const serviceRows = await this.db
+        .select({
+          id: serviceBookings.id,
+          listingName: serviceListings.title,
+          requesterId: serviceBookings.requesterId,
+          providerId: serviceBookings.providerId,
+          proposedDate: serviceBookings.proposedDate,
+          requesterName: sql<string>`CONCAT(${serviceBookingRequesterForAlerts.firstName}, ' ', ${serviceBookingRequesterForAlerts.lastName})`,
+          providerName: sql<string>`CONCAT(${serviceBookingProviderForAlerts.firstName}, ' ', ${serviceBookingProviderForAlerts.lastName})`,
+        })
+        .from(serviceBookings)
+        .innerJoin(
+          serviceListings,
+          eq(serviceBookings.listingId, serviceListings.id),
+        )
+        .innerJoin(
+          serviceBookingRequesterForAlerts,
+          eq(serviceBookings.requesterId, serviceBookingRequesterForAlerts.id),
+        )
+        .innerJoin(
+          serviceBookingProviderForAlerts,
+          eq(serviceBookings.providerId, serviceBookingProviderForAlerts.id),
+        )
+        .where(
+          and(
+            or(
+              eq(serviceBookings.requesterId, userId),
+              eq(serviceBookings.providerId, userId),
+            ),
+            eq(serviceBookings.status, "accepted"),
+            lt(serviceBookings.proposedDate, todayYmd),
+          ),
+        );
+
+      const rentalRenterIds = [
+        ...new Set(
+          [...overdueRows, ...notStartedRows, ...endTodayRows].map(
+            (r) => r.renterId,
+          ),
+        ),
+      ];
+      const renterNames = new Map<string, string>();
+      if (rentalRenterIds.length > 0) {
+        const renterRows = await this.db
+          .select({
+            id: user.id,
+            name: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+          })
+          .from(user)
+          .where(inArray(user.id, rentalRenterIds));
+        renterRows.forEach((r) => renterNames.set(r.id, r.name));
+      }
+
+      const alerts: ActionableAlert[] = [];
+
+      const pushRentalAlert = (
+        row: {
+          id: string;
+          listingName: string;
+          renterId: string;
+          ownerName: string;
+          endDate: Date;
+          startDate: Date;
+          deliveryRequested: boolean;
+        },
+        alertType: AlertType,
+      ) => {
+        const isRenter = row.renterId === userId;
+        const userRole = isRenter ? "renter" : "owner";
+        const otherPartyName = isRenter
+          ? row.ownerName
+          : (renterNames.get(row.renterId) ?? "Unknown");
+        const linkTo = isRenter
+          ? `/dashboard/rental/${row.id}?view=renting`
+          : `/dashboard/rental/${row.id}?view=lending`;
+
+        let daysLate = 0;
+        if (alertType === "overdue_return") {
+          daysLate = Math.max(0, differenceInDays(today, row.endDate));
+        } else if (alertType === "not_started") {
+          const startMidnight = new Date(row.startDate);
+          startMidnight.setHours(0, 0, 0, 0);
+          daysLate =
+            startMidnight < today
+              ? Math.max(0, differenceInDays(today, row.startDate))
+              : 0;
+        }
+
+        alerts.push({
+          id: row.id,
+          listingName: row.listingName,
+          alertType,
+          userRole,
+          deliveryRequested: row.deliveryRequested,
+          daysLate:
+            alertType === "end_today"
+              ? 0
+              : alertType === "not_started" || alertType === "overdue_return"
+                ? daysLate
+                : undefined,
+          otherPartyName,
+          linkTo,
+          severity: alertSeverity(alertType, daysLate),
+        });
+      };
+
+      for (const row of overdueRows) {
+        pushRentalAlert(row, "overdue_return");
+      }
+      for (const row of notStartedRows) {
+        pushRentalAlert(row, "not_started");
+      }
+      for (const row of endTodayRows) {
+        pushRentalAlert(row, "end_today");
+      }
+
+      for (const row of serviceRows) {
+        const isClient = row.requesterId === userId;
+        const userRole = isClient ? "client" : "provider";
+        const otherPartyName = isClient ? row.providerName : row.requesterName;
+        const pd =
+          typeof row.proposedDate === "string"
+            ? new Date(`${row.proposedDate}T12:00:00`)
+            : new Date(row.proposedDate);
+        const daysLate = Math.max(0, differenceInDays(today, pd));
+
+        alerts.push({
+          id: row.id,
+          listingName: row.listingName,
+          alertType: "service_not_completed",
+          userRole,
+          deliveryRequested: false,
+          daysLate,
+          otherPartyName,
+          linkTo: `/dashboard/services/bookings/${row.id}`,
+          severity: "warning",
+        });
+      }
+
+      alerts.sort((a, b) => {
+        const sa = a.severity === "error" ? 0 : 1;
+        const sb = b.severity === "error" ? 0 : 1;
+        if (sa !== sb) return sa - sb;
+        return (b.daysLate ?? 0) - (a.daysLate ?? 0);
+      });
+
+      return alerts;
+    } catch (error) {
+      this.handleError(error, "getActionableAlerts");
+    }
+  }
+
+  /**
+   * Approved rentals whose rental period should start today or should have started
+   * already (missed start). Used by the rental-reminders cron route.
+   *
+   * @param referenceDay - Calendar day to compare against (local midnight)
+   */
+  async getApprovedRentalsForDailyReminders(
+    referenceDay: Date,
+  ): Promise<ApprovedRentalReminderRow[]> {
+    try {
+      const day = new Date(referenceDay);
+      day.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(day);
+      endOfDay.setHours(23, 59, 59, 999);
+      const startOfNext = new Date(day);
+      startOfNext.setDate(startOfNext.getDate() + 1);
+
+      const startingToday = await this.db
+        .select({
+          rentalRequestId: rentalRequests.id,
+          renterId: rentalRequests.renterId,
+          ownerId: rentalRequests.ownerId,
+          listingName: listings.name,
+          deliveryRequested: rentalRequests.deliveryRequested,
+          startDate: rentalRequests.startDate,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .where(
+          and(
+            eq(rentalRequests.status, "approved"),
+            gte(rentalRequests.startDate, day),
+            lte(rentalRequests.startDate, endOfDay),
+          ),
+        );
+
+      const missedStart = await this.db
+        .select({
+          rentalRequestId: rentalRequests.id,
+          renterId: rentalRequests.renterId,
+          ownerId: rentalRequests.ownerId,
+          listingName: listings.name,
+          deliveryRequested: rentalRequests.deliveryRequested,
+          startDate: rentalRequests.startDate,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .where(
+          and(
+            eq(rentalRequests.status, "approved"),
+            lt(rentalRequests.startDate, day),
+          ),
+        );
+
+      return [
+        ...startingToday.map((r) => ({
+          ...r,
+          isMissedStart: false,
+        })),
+        ...missedStart.map((r) => ({
+          ...r,
+          isMissedStart: true,
+        })),
+      ];
+    } catch (error) {
+      this.handleError(error, "getApprovedRentalsForDailyReminders");
     }
   }
 

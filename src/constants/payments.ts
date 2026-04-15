@@ -39,8 +39,8 @@ export const PAYMENTS_TABS = {
   title: "Payments",
   description: "Manage your payment methods and earnings",
   tabValues: [
-    { value: "payments", label: "Payment Methods" },
-    { value: "earnings-and-payouts", label: "Earnings & Payouts" },
+    { value: "payments", label: "Payment methods" },
+    { value: "earnings-and-payouts", label: "Earnings & payouts" },
   ],
 } as const;
 
@@ -50,7 +50,7 @@ export const PAYMENTS_PAGE_HEADERS = {
     description: "Manage your payment methods and view payment history",
   },
   "earnings-and-payouts": {
-    title: "Earnings & Payouts",
+    title: "Earnings & payouts",
     description: "Manage your earnings, payouts, and Stripe Connect account",
   },
 } as const;

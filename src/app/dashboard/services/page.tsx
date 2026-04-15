@@ -3,29 +3,29 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { communityDAL, serviceListingDAL, userDAL } from "@/dal";
+import { communityDAL, serviceListingDAL } from "@/dal";
 import { ServiceBrowseClient } from "@/features/services/components/service-browse-client";
-import { getCurrentUserId } from "@/features/auth/utils/session";
+import { getCurrentUser } from "@/features/auth/utils/session";
+
+const PAGE_TITLE = "Explore nearby services";
+const PAGE_DESCRIPTION = "Browse services available in your community";
 
 export const metadata = {
-  title: "Services",
-  description: "Browse HOA services in your community",
+  title: PAGE_TITLE,
+  description: PAGE_DESCRIPTION,
 };
 
 export default async function ServicesBrowsePage() {
-  const userId = await getCurrentUserId();
-  if (!userId) {
+  const user = await getCurrentUser();
+  if (!user) {
     return null;
   }
 
-  const membership = await communityDAL.getMembershipForUser(userId);
+  const membership = await communityDAL.getMembershipForUser(user.id);
   if (!membership) {
     return (
       <div className="container pb-6">
-        <PageHeader
-          title="Services"
-          description="Join a community to browse local services."
-        />
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
         <p className="text-muted-foreground">
           You need to be a member of a community to use the services
           marketplace.
@@ -34,27 +34,23 @@ export default async function ServicesBrowsePage() {
     );
   }
 
-  const [listings, categories, profile] = await Promise.all([
+  const [listings, categories] = await Promise.all([
     serviceListingDAL.findByCommunityForBrowse(membership.community.id, {
-      excludeProviderId: userId,
+      excludeProviderId: user.id,
     }),
     serviceListingDAL.listCategories(),
-    userDAL.getUserById(userId),
   ]);
 
   const canCreateListing = Boolean(
-    profile.stripeConnectedAccountId &&
-    profile.connectChargesEnabled &&
-    profile.connectPayoutsEnabled,
+    user.stripeConnectedAccountId &&
+    user.connectChargesEnabled &&
+    user.connectPayoutsEnabled,
   );
 
   return (
     <div className="container pb-6">
       <div className="mb-6 flex flex-col gap-4 sm:mb-0 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader
-          title="Services"
-          description="Book trusted help from neighbors in your community."
-        />
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
         {canCreateListing && (
           <Button
             asChild
@@ -62,7 +58,7 @@ export default async function ServicesBrowsePage() {
             className="shrink-0 self-start sm:self-center"
           >
             <Link href="/dashboard/services/listings/create">
-              Create listing
+              List a service
             </Link>
           </Button>
         )}

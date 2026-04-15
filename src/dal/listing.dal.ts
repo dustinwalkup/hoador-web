@@ -1062,55 +1062,7 @@ export class ListingDAL extends BaseDAL {
         .where(and(...whereConditions))
         .orderBy(desc(listings.createdAt));
 
-      // Get reviews separately to calculate ratings
-      const listingsWithRating = await Promise.all(
-        userListings.map(async (listing) => {
-          const listingReviews = await this.db.query.reviews.findMany({
-            where: eq(reviews.listingId, listing.id),
-            columns: {
-              rating: true,
-            },
-          });
-
-          // Get the first image for this listing
-          const firstImage = await this.db
-            .select({ imageUrl: listingImages.imageUrl })
-            .from(listingImages)
-            .where(
-              and(
-                eq(listingImages.listingId, listing.id),
-                eq(listingImages.orderIndex, 0),
-              ),
-            )
-            .limit(1);
-
-          const ratings = listingReviews.map((r) => r.rating);
-          const averageRating =
-            ratings.length > 0
-              ? ratings.reduce((a: number, b: number) => a + b, 0) /
-                ratings.length
-              : 0;
-
-          return {
-            ...listing,
-            dailyRate: Number(listing.dailyRate),
-            weeklyRate: listing.weeklyRate
-              ? Number(listing.weeklyRate)
-              : undefined,
-            monthlyRate: listing.monthlyRate
-              ? Number(listing.monthlyRate)
-              : undefined,
-            securityDeposit: Number(listing.securityDeposit),
-            deliveryFee: Number(listing.deliveryFee),
-            setupFee: Number(listing.setupFee),
-            averageRating: Math.round(averageRating * 10) / 10,
-            reviewCount: ratings.length,
-            firstImageUrl: firstImage[0]?.imageUrl || null,
-          } as UserListing;
-        }),
-      );
-
-      return listingsWithRating;
+      return this._enrichListingsWithRatingsAndImages(userListings);
     } catch (error) {
       this.handleError(error, "getUserListings");
     }
@@ -1313,6 +1265,151 @@ export class ListingDAL extends BaseDAL {
    * @param filters - Search, sort, and filter options
    * @returns Array of listings with computed averageRating and reviewCount
    */
+  /**
+   * Batch-fetches per-owner listing counts + rental history for a set of
+   * owner ids. Two GROUP BY queries regardless of owner count (previously
+   * 2 per owner = N+1 in admin review flows).
+   */
+  private async _getOwnerStatsByIds(ownerIds: string[]): Promise<
+    Map<
+      string,
+      {
+        allListingsCount: number;
+        totalRentals: number;
+        averageRating: number;
+      }
+    >
+  > {
+    const stats = new Map<
+      string,
+      {
+        allListingsCount: number;
+        totalRentals: number;
+        averageRating: number;
+      }
+    >();
+    if (ownerIds.length === 0) return stats;
+
+    for (const ownerId of ownerIds) {
+      stats.set(ownerId, {
+        allListingsCount: 0,
+        totalRentals: 0,
+        averageRating: 0,
+      });
+    }
+
+    const [listingCountRows, rentalStatRows] = await Promise.all([
+      this.db
+        .select({
+          ownerId: listings.ownerId,
+          count: count(),
+        })
+        .from(listings)
+        .where(inArray(listings.ownerId, ownerIds))
+        .groupBy(listings.ownerId),
+      this.db
+        .select({
+          ownerId: rentals.ownerId,
+          totalRentals: count(rentals.id),
+          averageRating: sql<number>`COALESCE(AVG(${reviews.rating}), 0)`,
+        })
+        .from(rentals)
+        .leftJoin(reviews, eq(reviews.rentalId, rentals.id))
+        .where(inArray(rentals.ownerId, ownerIds))
+        .groupBy(rentals.ownerId),
+    ]);
+
+    for (const row of listingCountRows) {
+      const entry = stats.get(row.ownerId);
+      if (entry) entry.allListingsCount = Number(row.count ?? 0);
+    }
+    for (const row of rentalStatRows) {
+      const entry = stats.get(row.ownerId);
+      if (!entry) continue;
+      entry.totalRentals = Number(row.totalRentals ?? 0);
+      entry.averageRating =
+        Math.round(Number(row.averageRating ?? 0) * 10) / 10;
+    }
+
+    return stats;
+  }
+
+  /**
+   * Batch-fetches reviews and first images for a set of raw listings and
+   * returns them enriched with computed averageRating, reviewCount,
+   * firstImageUrl, and numeric rate fields. Two DB round trips regardless of
+   * listing count (previously 2 per listing = N+1).
+   */
+  private async _enrichListingsWithRatingsAndImages(
+    userListings: (typeof listings.$inferSelect)[],
+  ): Promise<UserListing[]> {
+    if (userListings.length === 0) return [];
+
+    const listingIds = userListings.map((l) => l.id);
+
+    const [allReviews, allFirstImages] = await Promise.all([
+      this.db.query.reviews.findMany({
+        where: inArray(reviews.listingId, listingIds),
+        columns: {
+          listingId: true,
+          rating: true,
+        },
+      }),
+      this.db
+        .select({
+          listingId: listingImages.listingId,
+          imageUrl: listingImages.imageUrl,
+        })
+        .from(listingImages)
+        .where(
+          and(
+            inArray(listingImages.listingId, listingIds),
+            eq(listingImages.orderIndex, 0),
+          ),
+        ),
+    ]);
+
+    const ratingsByListing = new Map<string, number[]>();
+    for (const r of allReviews) {
+      const arr = ratingsByListing.get(r.listingId);
+      if (arr) {
+        arr.push(r.rating);
+      } else {
+        ratingsByListing.set(r.listingId, [r.rating]);
+      }
+    }
+
+    const firstImageByListing = new Map<string, string>();
+    for (const img of allFirstImages) {
+      if (img.listingId && !firstImageByListing.has(img.listingId)) {
+        firstImageByListing.set(img.listingId, img.imageUrl);
+      }
+    }
+
+    return userListings.map((listing) => {
+      const ratings = ratingsByListing.get(listing.id) ?? [];
+      const averageRating =
+        ratings.length > 0
+          ? ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length
+          : 0;
+
+      return {
+        ...listing,
+        dailyRate: Number(listing.dailyRate),
+        weeklyRate: listing.weeklyRate ? Number(listing.weeklyRate) : undefined,
+        monthlyRate: listing.monthlyRate
+          ? Number(listing.monthlyRate)
+          : undefined,
+        securityDeposit: Number(listing.securityDeposit),
+        deliveryFee: Number(listing.deliveryFee),
+        setupFee: Number(listing.setupFee),
+        averageRating: Math.round(averageRating * 10) / 10,
+        reviewCount: ratings.length,
+        firstImageUrl: firstImageByListing.get(listing.id) || null,
+      } as UserListing;
+    });
+  }
+
   private async _getUserListingsWithFilters(
     baseConditions: Parameters<typeof and>,
     filters: GarageListingFilters = {},
@@ -1384,55 +1481,7 @@ export class ListingDAL extends BaseDAL {
         .where(and(...whereConditions))
         .orderBy(...orderByClause);
 
-      // Get reviews separately to calculate ratings
-      const listingsWithRating = await Promise.all(
-        userListings.map(async (listing) => {
-          const listingReviews = await this.db.query.reviews.findMany({
-            where: eq(reviews.listingId, listing.id),
-            columns: {
-              rating: true,
-            },
-          });
-
-          // Get the first image for this listing
-          const firstImage = await this.db
-            .select({ imageUrl: listingImages.imageUrl })
-            .from(listingImages)
-            .where(
-              and(
-                eq(listingImages.listingId, listing.id),
-                eq(listingImages.orderIndex, 0),
-              ),
-            )
-            .limit(1);
-
-          const ratings = listingReviews.map((r) => r.rating);
-          const averageRating =
-            ratings.length > 0
-              ? ratings.reduce((a: number, b: number) => a + b, 0) /
-                ratings.length
-              : 0;
-
-          return {
-            ...listing,
-            dailyRate: Number(listing.dailyRate),
-            weeklyRate: listing.weeklyRate
-              ? Number(listing.weeklyRate)
-              : undefined,
-            monthlyRate: listing.monthlyRate
-              ? Number(listing.monthlyRate)
-              : undefined,
-            securityDeposit: Number(listing.securityDeposit),
-            deliveryFee: Number(listing.deliveryFee),
-            setupFee: Number(listing.setupFee),
-            averageRating: Math.round(averageRating * 10) / 10,
-            reviewCount: ratings.length,
-            firstImageUrl: firstImage[0]?.imageUrl || null,
-          } as UserListing;
-        }),
-      );
-
-      return listingsWithRating;
+      return this._enrichListingsWithRatingsAndImages(userListings);
     } catch (error) {
       this.handleError(error, "_getUserListingsWithFilters");
     }
@@ -1454,55 +1503,7 @@ export class ListingDAL extends BaseDAL {
         .where(and(...whereConditions))
         .orderBy(desc(listings.createdAt));
 
-      // Get reviews separately to calculate ratings
-      const listingsWithRating = await Promise.all(
-        userListings.map(async (listing) => {
-          const listingReviews = await this.db.query.reviews.findMany({
-            where: eq(reviews.listingId, listing.id),
-            columns: {
-              rating: true,
-            },
-          });
-
-          // Get the first image for this listing
-          const firstImage = await this.db
-            .select({ imageUrl: listingImages.imageUrl })
-            .from(listingImages)
-            .where(
-              and(
-                eq(listingImages.listingId, listing.id),
-                eq(listingImages.orderIndex, 0),
-              ),
-            )
-            .limit(1);
-
-          const ratings = listingReviews.map((r) => r.rating);
-          const averageRating =
-            ratings.length > 0
-              ? ratings.reduce((a: number, b: number) => a + b, 0) /
-                ratings.length
-              : 0;
-
-          return {
-            ...listing,
-            dailyRate: Number(listing.dailyRate),
-            weeklyRate: listing.weeklyRate
-              ? Number(listing.weeklyRate)
-              : undefined,
-            monthlyRate: listing.monthlyRate
-              ? Number(listing.monthlyRate)
-              : undefined,
-            securityDeposit: Number(listing.securityDeposit),
-            deliveryFee: Number(listing.deliveryFee),
-            setupFee: Number(listing.setupFee),
-            averageRating: Math.round(averageRating * 10) / 10,
-            reviewCount: ratings.length,
-            firstImageUrl: firstImage[0]?.imageUrl || null,
-          } as UserListing;
-        }),
-      );
-
-      return listingsWithRating;
+      return this._enrichListingsWithRatingsAndImages(userListings);
     } catch (error) {
       this.handleError(error, "_getUserListingsWithConditions");
     }
@@ -1621,58 +1622,38 @@ export class ListingDAL extends BaseDAL {
         imagesByListing.get(image.listingId)!.push(image);
       }
 
-      // Get other listings count and rental history for each owner
+      // Batch-fetch per-owner stats (2 queries regardless of owner count)
       const ownerIds = [
         ...new Set(pendingListings.map((item) => item.owner.id)),
       ];
-      const ownerStats = await Promise.all(
-        ownerIds.map(async (ownerId) => {
-          // Count other listings (excluding current listing if found)
-          const currentListingId = pendingListings.find(
-            (p) => p.owner.id === ownerId,
-          )?.listing.id;
-          const allListingsResult = await this.db
-            .select({ count: count() })
-            .from(listings)
-            .where(eq(listings.ownerId, ownerId));
-          const allListingsCount = Number(allListingsResult[0]?.count || 0);
-          // Subtract 1 if current listing is included in count
-          const otherListingsCount = currentListingId
-            ? Math.max(0, allListingsCount - 1)
-            : allListingsCount;
+      const ownerStatsMap = await this._getOwnerStatsByIds(ownerIds);
 
-          // Get rental history (total rentals, average rating)
-          const rentalHistoryResult = await this.db
-            .select({
-              totalRentals: count(rentals.id),
-              averageRating: sql<number>`COALESCE(AVG(${reviews.rating}), 0)`,
-            })
-            .from(rentals)
-            .leftJoin(reviews, eq(reviews.rentalId, rentals.id))
-            .where(eq(rentals.ownerId, ownerId));
+      const statsByOwner = new Map<
+        string,
+        {
+          ownerId: string;
+          otherListingsCount: number;
+          rentalHistory: { totalRentals: number; averageRating: number };
+        }
+      >();
+      for (const [ownerId, s] of ownerStatsMap) {
+        // Subtract 1 if the current pending listing is included in the count
+        const currentListingId = pendingListings.find(
+          (p) => p.owner.id === ownerId,
+        )?.listing.id;
+        const otherListingsCount = currentListingId
+          ? Math.max(0, s.allListingsCount - 1)
+          : s.allListingsCount;
 
-          const totalRentals = Number(
-            rentalHistoryResult[0]?.totalRentals || 0,
-          );
-          const averageRating =
-            Math.round(
-              Number(rentalHistoryResult[0]?.averageRating || 0) * 10,
-            ) / 10;
-
-          return {
-            ownerId,
-            otherListingsCount,
-            rentalHistory: {
-              totalRentals,
-              averageRating,
-            },
-          };
-        }),
-      );
-
-      const statsByOwner = new Map(
-        ownerStats.map((stat) => [stat.ownerId, stat]),
-      );
+        statsByOwner.set(ownerId, {
+          ownerId,
+          otherListingsCount,
+          rentalHistory: {
+            totalRentals: s.totalRentals,
+            averageRating: s.averageRating,
+          },
+        });
+      }
 
       // Transform to PendingReviewListing format
       const transformed: PendingReviewListing[] = pendingListings.map(
@@ -1878,50 +1859,30 @@ export class ListingDAL extends BaseDAL {
         imagesByListing.get(image.listingId)!.push(image);
       }
 
-      // Get owner stats (same as getPendingReviews)
+      // Batch-fetch per-owner stats (2 queries regardless of owner count)
       const ownerIds = [
         ...new Set(reviewedListings.map((item) => item.owner.id)),
       ];
-      const ownerStats = await Promise.all(
-        ownerIds.map(async (ownerId) => {
-          const otherListingsResult = await this.db
-            .select({ count: count() })
-            .from(listings)
-            .where(eq(listings.ownerId, ownerId));
-          const otherListingsCount =
-            Number(otherListingsResult[0]?.count || 0) - 1;
+      const ownerStatsMap = await this._getOwnerStatsByIds(ownerIds);
 
-          const rentalHistoryResult = await this.db
-            .select({
-              totalRentals: count(rentals.id),
-              averageRating: sql<number>`COALESCE(AVG(${reviews.rating}), 0)`,
-            })
-            .from(rentals)
-            .leftJoin(reviews, eq(reviews.rentalId, rentals.id))
-            .where(eq(rentals.ownerId, ownerId));
-
-          const totalRentals = Number(
-            rentalHistoryResult[0]?.totalRentals || 0,
-          );
-          const averageRating =
-            Math.round(
-              Number(rentalHistoryResult[0]?.averageRating || 0) * 10,
-            ) / 10;
-
-          return {
-            ownerId,
-            otherListingsCount,
-            rentalHistory: {
-              totalRentals,
-              averageRating,
-            },
-          };
-        }),
-      );
-
-      const statsByOwner = new Map(
-        ownerStats.map((stat) => [stat.ownerId, stat]),
-      );
+      const statsByOwner = new Map<
+        string,
+        {
+          ownerId: string;
+          otherListingsCount: number;
+          rentalHistory: { totalRentals: number; averageRating: number };
+        }
+      >();
+      for (const [ownerId, s] of ownerStatsMap) {
+        statsByOwner.set(ownerId, {
+          ownerId,
+          otherListingsCount: s.allListingsCount - 1,
+          rentalHistory: {
+            totalRentals: s.totalRentals,
+            averageRating: s.averageRating,
+          },
+        });
+      }
 
       // Get reviewer details separately (using query builder for JOIN)
       const reviewerIds = reviewedListings

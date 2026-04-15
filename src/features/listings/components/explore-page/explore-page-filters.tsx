@@ -38,6 +38,35 @@ interface ExplorePageFiltersProps {
   basePath?: string;
 }
 
+function ActiveFilterChip({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="bg-muted flex h-7 items-center gap-1.5 rounded-full px-3 text-sm">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
+
+const deliveryModeLabel = (mode: string) => {
+  if (mode === "delivery_only") return "Delivery only";
+  if (mode === "both_available") return "Pickup & Delivery";
+  return mode;
+};
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 export function ExplorePageFilters({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   basePath: _basePath = "/dashboard/explore",
@@ -86,7 +115,7 @@ export function ExplorePageFilters({
     const sortBy = filters.sortBy || "newest";
     const sortOrder = filters.sortOrder || "desc";
 
-    if (sortBy === "newest") return "Recently added";
+    if (sortBy === "newest") return "Newest";
     if (sortBy === "price" && sortOrder === "asc") return "Price: Low to high";
     if (sortBy === "price" && sortOrder === "desc") return "Price: High to low";
     if (sortBy === "rating") return "Highest rated";
@@ -97,17 +126,28 @@ export function ExplorePageFilters({
     return "Sort";
   };
 
-  // Count active filters
+  // Count active filters (reads local/draft state for the badge on the button)
   const getActiveFiltersCount = () => {
     let count = 0;
-    if (minPrice) count++; // Min price
-    if (maxPrice) count++; // Max price
-    count += selectedConditions.length; // Each condition individually
-    if (deliveryMode !== "pickup_only") count++; // Delivery filter
-    if (setupAvailable) count++; // Setup filter
-    if (availableNow) count++; // Available now filter
+    if (minPrice) count++;
+    if (maxPrice) count++;
+    count += selectedConditions.length;
+    if (deliveryMode !== "pickup_only") count++;
+    if (setupAvailable) count++;
+    if (availableNow) count++;
     return count;
   };
+
+  // Active filters from URL state (committed)
+  const hasActiveFilters = !!(
+    filters.categoryId ||
+    filters.minPrice ||
+    filters.maxPrice ||
+    filters.condition?.length ||
+    filters.deliveryMode ||
+    filters.setupAvailable ||
+    filters.availableNow
+  );
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,8 +155,6 @@ export function ExplorePageFilters({
   };
 
   const handleCategorySelect = (categoryId: string) => {
-    // If categoryId is empty string, clear the category filter
-    // Otherwise, toggle the category (set to undefined if already selected, otherwise set to new category)
     const newCategoryId =
       categoryId === ""
         ? undefined
@@ -147,17 +185,14 @@ export function ExplorePageFilters({
       : [...selectedConditions, condition];
 
     setSelectedConditions(newConditions);
-    // Don't apply immediately - wait for "Apply Filters" button
   };
 
   const handleFiltersApply = () => {
     updateFilters({
-      // Preserve existing filters that aren't managed in this modal
       categoryId: filters.categoryId,
       query: filters.query,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
-      // Update the filters managed in this modal
       minPrice: minPrice ? Number.parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? Number.parseFloat(maxPrice) : undefined,
       condition: selectedConditions.length > 0 ? selectedConditions : undefined,
@@ -169,18 +204,13 @@ export function ExplorePageFilters({
   };
 
   const handleFiltersReset = () => {
-    // Reset all local state
     setMinPrice("");
     setMaxPrice("");
     setSelectedConditions([]);
     setDeliveryMode("pickup_only");
     setSetupAvailable(false);
     setAvailableNow(false);
-
-    // Clear search input
     clearSearch();
-
-    // Clear ALL filters from URL (complete reset)
     updateFilters({
       categoryId: undefined,
       query: undefined,
@@ -190,16 +220,13 @@ export function ExplorePageFilters({
       deliveryMode: undefined,
       setupAvailable: undefined,
       availableNow: undefined,
-      sortBy: undefined, // Clear sort (will default to "newest")
-      sortOrder: undefined, // Clear sort order (will default to "desc")
+      sortBy: undefined,
+      sortOrder: undefined,
     });
-
-    // Close the sheet
     setFiltersOpen(false);
   };
 
   const handleFiltersCancel = () => {
-    // Revert local state to current URL filters
     setMinPrice(filters.minPrice?.toString() || "");
     setMaxPrice(filters.maxPrice?.toString() || "");
     setSelectedConditions(filters.condition || []);
@@ -214,42 +241,12 @@ export function ExplorePageFilters({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="md:hidden">
-        <Select
-          value={filters.categoryId || "all"}
-          onValueChange={(value) =>
-            handleCategorySelect(value === "all" ? "" : value)
-          }
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">
-              <div className="flex items-center gap-2">
-                <span>🏪</span>
-                <span>All Categories</span>
-              </div>
-            </SelectItem>
-            {STATIC_CATEGORIES.map(
-              (category: { id: string; name: string; icon: string | null }) => (
-                <SelectItem key={category.id} value={category.id}>
-                  <div className="flex items-center gap-2">
-                    {category.icon && <span>{category.icon}</span>}
-                    <span>{category.name}</span>
-                  </div>
-                </SelectItem>
-              ),
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="mb-4 hidden flex-wrap gap-2 md:mb-8 md:flex">
+    <div className="space-y-4">
+      {/* Category scroll — unified across all screen sizes */}
+      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <CategoryButton
           icon="🏪"
-          label="All Categories"
+          label="All"
           active={!filters.categoryId}
           onClick={() => handleCategorySelect("")}
         />
@@ -267,17 +264,17 @@ export function ExplorePageFilters({
       </div>
 
       {/* Search and filters row */}
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between md:gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form
           onSubmit={handleSearch}
-          className="relative flex w-full max-w-sm items-center"
+          className="relative flex w-full max-w-md items-center"
         >
           <Search className="text-muted-foreground absolute left-3 h-4 w-4" />
           <Input
             value={localQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search rentals..."
-            className="pr-8 pl-9"
+            className="h-10 pr-8 pl-9"
           />
           {localQuery && (
             <button
@@ -304,14 +301,21 @@ export function ExplorePageFilters({
           >
             <SheetTrigger asChild>
               <Button
-                variant="outline"
+                variant={getActiveFiltersCount() > 0 ? "default" : "outline"}
                 size="sm"
                 className="h-9 bg-transparent"
               >
                 <Filter className="mr-2 h-4 w-4" />
                 Filters
                 {getActiveFiltersCount() > 0 && (
-                  <Badge className="ml-2">{getActiveFiltersCount()}</Badge>
+                  <Badge
+                    className="ml-2"
+                    variant={
+                      getActiveFiltersCount() > 0 ? "secondary" : "default"
+                    }
+                  >
+                    {getActiveFiltersCount()}
+                  </Badge>
                 )}
               </Button>
             </SheetTrigger>
@@ -425,7 +429,6 @@ export function ExplorePageFilters({
                         onCheckedChange={(checked) => {
                           const isChecked = checked === true;
                           setSetupAvailable(isChecked);
-                          // Auto-enable delivery when setup is selected
                           if (isChecked && deliveryMode === "pickup_only") {
                             setDeliveryMode("both_available");
                           }
@@ -499,7 +502,7 @@ export function ExplorePageFilters({
                   className="w-full justify-start text-sm"
                   onClick={() => handleSortSelect("newest", "desc")}
                 >
-                  Recently added
+                  Newest
                 </Button>
                 <Button
                   variant="ghost"
@@ -541,6 +544,65 @@ export function ExplorePageFilters({
           </Popover>
         </div>
       </div>
+
+      {/* Active filters row */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-2">
+          {filters.categoryId && (
+            <ActiveFilterChip
+              label={
+                STATIC_CATEGORIES.find((c) => c.id === filters.categoryId)
+                  ?.name ?? "Category"
+              }
+              onRemove={() => updateFilters({ categoryId: undefined })}
+            />
+          )}
+          {(filters.minPrice || filters.maxPrice) && (
+            <ActiveFilterChip
+              label={`$${filters.minPrice ?? "0"}–$${filters.maxPrice ?? "∞"}`}
+              onRemove={() =>
+                updateFilters({ minPrice: undefined, maxPrice: undefined })
+              }
+            />
+          )}
+          {filters.condition?.map((c) => (
+            <ActiveFilterChip
+              key={c}
+              label={capitalize(c)}
+              onRemove={() =>
+                updateFilters({
+                  condition: filters.condition?.filter((x) => x !== c),
+                })
+              }
+            />
+          ))}
+          {filters.deliveryMode && (
+            <ActiveFilterChip
+              label={deliveryModeLabel(filters.deliveryMode)}
+              onRemove={() => updateFilters({ deliveryMode: undefined })}
+            />
+          )}
+          {filters.setupAvailable && (
+            <ActiveFilterChip
+              label="Setup available"
+              onRemove={() => updateFilters({ setupAvailable: undefined })}
+            />
+          )}
+          {filters.availableNow && (
+            <ActiveFilterChip
+              label="Available now"
+              onRemove={() => updateFilters({ availableNow: undefined })}
+            />
+          )}
+          <button
+            type="button"
+            onClick={handleFiltersReset}
+            className="text-muted-foreground hover:text-foreground text-sm underline-offset-2 hover:underline"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
     </div>
   );
 }

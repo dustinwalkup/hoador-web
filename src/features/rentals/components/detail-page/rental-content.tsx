@@ -1,7 +1,6 @@
 import type { RentalDetails } from "@/dal/rentals.dal";
 import type { DisputeWithRelations } from "@/dal/types";
 import {
-  RentalStatusCard,
   RentalListingInfo,
   RentalDetailsCard,
   RentalMessagesCard,
@@ -10,6 +9,7 @@ import {
   RentalActions,
   RentalProtection,
 } from "@/features/rentals/components/detail-page";
+import { RentalStatusProgress } from "./rental-status-progress";
 
 interface RentalContentProps {
   rentalDetails: RentalDetails;
@@ -36,11 +36,25 @@ export function RentalContent({
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
       {/* Main Content */}
       <div className="space-y-6 lg:col-span-2">
-        <RentalStatusCard
+        <RentalStatusProgress
           rentalId={rentalDetails.id}
-          rentalDetails={rentalDetails}
+          currentStatus={rentalDetails.status}
+          userRole={isRenter ? "renter" : "owner"}
+          deliveryRequested={rentalDetails.deliveryRequested}
+          startDate={rentalDetails.startDate}
+          endDate={rentalDetails.endDate}
+          createdAt={rentalDetails.createdAt}
+          approvedAt={rentalDetails.approvedAt}
+          deniedAt={rentalDetails.deniedAt}
+          denialReason={rentalDetails.denialReason}
+          actualStartDate={rentalDetails.actualStartDate}
+          actualEndDate={rentalDetails.actualEndDate}
+          paymentStatus={rentalDetails.paymentStatus}
+          paymentFailureReason={rentalDetails.paymentFailureReason}
+          depositHoldStatus={rentalDetails.depositHoldStatus}
+          pickupInstructions={rentalDetails.pickupInstructions}
+          returnInstructions={rentalDetails.returnInstructions}
           activeDispute={activeDispute}
-          isRenter={isRenter}
         />
         <RentalListingInfo rentalDetails={rentalDetails} />
         <RentalDetailsCard rentalDetails={rentalDetails} />

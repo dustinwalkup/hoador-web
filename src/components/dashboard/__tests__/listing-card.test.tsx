@@ -198,7 +198,7 @@ describe("ListingCard", () => {
     // Should have CardContent
     const cardContent = screen
       .getByText("Power Drill")
-      .closest('[class*="flex flex-1 flex-col"]');
+      .closest('[data-slot="card-content"]');
     expect(cardContent).toBeInTheDocument();
   });
 

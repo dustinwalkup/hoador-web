@@ -8,7 +8,7 @@ import { ServiceListingForm } from "@/features/services/components/service-listi
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
 export const metadata = {
-  title: "Create service listing",
+  title: "List a service",
 };
 
 export default async function CreateServiceListingPage() {
@@ -20,7 +20,7 @@ export default async function CreateServiceListingPage() {
     return (
       <div className="container pb-6">
         <PageHeader
-          title="Create listing"
+          title="List a service"
           description="Join a community first."
         />
       </div>
@@ -61,7 +61,7 @@ export default async function CreateServiceListingPage() {
   return (
     <div className="container max-w-2xl pb-10">
       <PageHeader
-        title="Create service listing"
+        title="List a service"
         description="Submit for admin approval. You can edit details later."
       />
       <ServiceListingForm

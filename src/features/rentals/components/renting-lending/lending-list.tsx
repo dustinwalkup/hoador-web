@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useMemo } from "react";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Package } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import {
 
 import type { LendingRequestItem } from "@/dal/rentals.dal";
 import { LendingCard } from "@/features/rentals/components/renting-lending";
+import { EmptyStateCoach } from "@/components/empty-state-coach";
 
 interface LendingRequestsListProps {
   data: LendingRequestItem[];
@@ -116,25 +116,34 @@ export function LendingRequestsList({
       {/* Results */}
       {paginatedData.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center">
-            <p className="text-gray-600">
-              {searchQuery
-                ? "No requests match your search."
-                : emptyStateMessage || "No lending requests."}
-            </p>
-            {searchQuery && (
-              <Button
-                variant="outline"
-                onClick={() => setSearchQuery("")}
-                className="mt-2"
-              >
-                Clear search
-              </Button>
-            )}
-            {!searchQuery && emptyStateAction && (
-              <Link href={emptyStateAction.href}>
-                <Button className="mt-4">{emptyStateAction.label}</Button>
-              </Link>
+          <CardContent className="py-2">
+            {searchQuery ? (
+              <div className="py-6 text-center">
+                <p className="text-gray-600">No requests match your search.</p>
+                <Button
+                  variant="outline"
+                  onClick={() => setSearchQuery("")}
+                  className="mt-2"
+                >
+                  Clear search
+                </Button>
+              </div>
+            ) : (
+              <EmptyStateCoach
+                icon={Package}
+                iconColor="text-primary/60"
+                iconBg="bg-primary/10"
+                headline={emptyStateMessage || "No rental requests yet"}
+                description="List something to start receiving requests"
+                cta={
+                  emptyStateAction
+                    ? {
+                        label: emptyStateAction.label,
+                        href: emptyStateAction.href,
+                      }
+                    : { label: "List an item", href: "/dashboard/listings/add" }
+                }
+              />
             )}
           </CardContent>
         </Card>

@@ -7,7 +7,7 @@ import { PaymentsTabs } from "@/features/payments/components";
 import { EarningsAndPayoutsPageClient } from "@/features/payments/components";
 
 export const metadata = {
-  title: "Earnings & Payouts",
+  title: "Earnings & payouts",
   description: "Manage your earnings, payouts, and Stripe Connect account",
 };
 

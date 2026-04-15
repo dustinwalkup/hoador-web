@@ -7,7 +7,7 @@ import { messagesDAL } from "@/dal";
 import { getAuthenticatedUser } from "@/features/auth/utils/session";
 
 export const metadata = {
-  title: "Mailbox",
+  title: "Messages",
   description: "View and manage your messages",
 };
 

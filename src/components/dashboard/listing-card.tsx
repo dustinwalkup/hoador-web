@@ -19,6 +19,8 @@ interface ListingCardProps {
   status: string;
   deliveryMode?: "pickup_only" | "delivery_only" | "both_available";
   setupAvailable?: boolean;
+  /** When true, CTAs are non-interactive (e.g. public marketing page). */
+  preview?: boolean;
 }
 
 export default function ListingCard({
@@ -33,6 +35,7 @@ export default function ListingCard({
   status,
   deliveryMode,
   setupAvailable,
+  preview = false,
 }: ListingCardProps) {
   // Format distance for display
   const formatDistance = (miles?: number) => {
@@ -43,7 +46,7 @@ export default function ListingCard({
     return `${Math.round(miles)} mi`;
   };
   return (
-    <Card className="group overflow-hidden pt-0 pb-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+    <Card className="group flex h-full flex-col overflow-hidden pt-0 pb-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
       <div className="relative">
         <div className="bg-muted aspect-4/3 overflow-hidden">
           <Image
@@ -67,7 +70,7 @@ export default function ListingCard({
         {isNew && <Badge className="absolute top-2 left-2">New</Badge>}
       </div>
 
-      <CardContent className="flex flex-1 flex-col p-4">
+      <CardContent className="flex min-h-0 flex-1 flex-col p-4">
         <div className="mb-1 flex grow items-start justify-between">
           <h3 className="mr-2 leading-tight font-medium">
             {sanitizeForDisplay(name)}
@@ -87,31 +90,27 @@ export default function ListingCard({
           <StatusIconWithTooltip status={status} />
         </div>
 
-        {(deliveryMode === "delivery_only" ||
-          deliveryMode === "both_available" ||
-          setupAvailable) && (
-          <div className="mb-2 flex items-center gap-2 text-xs">
-            {(deliveryMode === "delivery_only" ||
-              deliveryMode === "both_available") && (
-              <Badge
-                variant="secondary"
-                className="flex items-center gap-1 text-xs"
-              >
-                <Truck className="h-3 w-3" />
-                <span>Delivery</span>
-              </Badge>
-            )}
-            {setupAvailable && (
-              <Badge
-                variant="secondary"
-                className="flex items-center gap-1 text-xs"
-              >
-                <Settings className="h-3 w-3" />
-                <span>Setup</span>
-              </Badge>
-            )}
-          </div>
-        )}
+        <div className="mb-2 flex min-h-[2.25rem] flex-wrap items-center gap-2 text-xs">
+          {(deliveryMode === "delivery_only" ||
+            deliveryMode === "both_available") && (
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 text-xs"
+            >
+              <Truck className="h-3 w-3" />
+              <span>Delivery</span>
+            </Badge>
+          )}
+          {setupAvailable && (
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 text-xs"
+            >
+              <Settings className="h-3 w-3" />
+              <span>Setup</span>
+            </Badge>
+          )}
+        </div>
 
         <div className="mb-3 flex items-center gap-1">
           <div className="flex items-center">
@@ -123,13 +122,39 @@ export default function ListingCard({
           </span>
         </div>
 
-        <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm" className="flex-1">
-            <Link href={`/dashboard/listings/${id}`}>View</Link>
-          </Button>
-          <Button asChild size="sm" className="flex-1">
-            <Link href={`/dashboard/listings/${id}/rent`}>Rent</Link>
-          </Button>
+        <div className="mt-auto flex gap-2">
+          {preview ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="pointer-events-none flex-1"
+                tabIndex={-1}
+                aria-hidden="true"
+              >
+                View
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="pointer-events-none flex-1"
+                tabIndex={-1}
+                aria-hidden="true"
+              >
+                Rent
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button asChild variant="outline" size="sm" className="flex-1">
+                <Link href={`/dashboard/listings/${id}`}>View</Link>
+              </Button>
+              <Button asChild size="sm" className="flex-1">
+                <Link href={`/dashboard/listings/${id}/rent`}>Rent</Link>
+              </Button>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

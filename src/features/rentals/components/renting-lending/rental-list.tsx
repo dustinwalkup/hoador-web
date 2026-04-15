@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useMemo } from "react";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ShoppingBag } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import type { RentalRequestItem, BorrowedListing } from "@/dal/rentals.dal";
 import { RentalCard } from "./rental-card";
+import { EmptyStateCoach } from "@/components/empty-state-coach";
 
 interface RentalListProps {
   data: RentalRequestItem[] | BorrowedListing[];
@@ -135,25 +135,40 @@ export function RentalList({
       {/* Results */}
       {paginatedData.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center">
-            <p className="text-gray-600">
-              {searchQuery
-                ? `No ${itemLabel} match your search.`
-                : emptyStateMessage || `No ${itemLabel}.`}
-            </p>
-            {searchQuery && (
-              <Button
-                variant="outline"
-                onClick={() => setSearchQuery("")}
-                className="mt-2"
-              >
-                Clear search
-              </Button>
-            )}
-            {!searchQuery && emptyStateAction && (
-              <Link href={emptyStateAction.href}>
-                <Button className="mt-4">{emptyStateAction.label}</Button>
-              </Link>
+          <CardContent className="py-2">
+            {searchQuery ? (
+              <div className="py-6 text-center">
+                <p className="text-gray-600">
+                  No {itemLabel} match your search.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setSearchQuery("")}
+                  className="mt-2"
+                >
+                  Clear search
+                </Button>
+              </div>
+            ) : (
+              <EmptyStateCoach
+                icon={ShoppingBag}
+                iconColor="text-primary/60"
+                iconBg="bg-primary/10"
+                headline={emptyStateMessage || `No ${itemLabel}.`}
+                description={
+                  emptyStateAction
+                    ? "Browse items available near you and request a booking"
+                    : "Check back later or explore more options"
+                }
+                cta={
+                  emptyStateAction
+                    ? {
+                        label: emptyStateAction.label,
+                        href: emptyStateAction.href,
+                      }
+                    : undefined
+                }
+              />
             )}
           </CardContent>
         </Card>

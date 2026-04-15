@@ -64,7 +64,7 @@ export function PublicSidebar({
                 <SidebarMenuButton asChild>
                   <Link href="/explore">
                     <Search className="h-4 w-4" />
-                    <span>Explore Listings</span>
+                    <span>Browse rentals & services</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

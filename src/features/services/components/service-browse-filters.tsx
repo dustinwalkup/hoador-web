@@ -22,13 +22,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import CategoryButton from "@/components/dashboard/category-button";
 import { useDebouncedSearch } from "@/hooks/use-debounced-search";
 import { useServiceBrowseFilters } from "@/features/services/hooks/use-service-browse-filters";
@@ -47,11 +40,32 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 const SORT_LABELS: Record<ServiceSortKey, string> = {
-  newest: "Recently added",
+  newest: "Newest",
   price_asc: "Price: Low to high",
   price_desc: "Price: High to low",
   rating_desc: "Highest rated",
 };
+
+function ActiveFilterChip({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="bg-muted flex h-7 items-center gap-1.5 rounded-full px-3 text-sm">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
 
 interface ServiceBrowseFiltersProps {
   categories: { id: string; name: string }[];
@@ -130,41 +144,20 @@ export function ServiceBrowseFilters({
     (state.maxPrice ? 1 : 0) +
     state.pricingTypes.length;
 
-  return (
-    <div className="space-y-6">
-      {/* Mobile category dropdown */}
-      <div className="md:hidden">
-        <Select
-          value={state.categoryId ?? "all"}
-          onValueChange={(v) => handleCategorySelect(v)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">
-              <div className="flex items-center gap-2">
-                <span>🏪</span>
-                <span>All Categories</span>
-              </div>
-            </SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                <div className="flex items-center gap-2">
-                  <span>{CATEGORY_ICONS[c.name] ?? "💼"}</span>
-                  <span>{c.name}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+  const hasActiveFilters = !!(
+    state.categoryId ||
+    state.minPrice ||
+    state.maxPrice ||
+    state.pricingTypes.length
+  );
 
-      {/* Desktop category pills */}
-      <div className="mb-4 hidden flex-wrap gap-2 md:mb-8 md:flex">
+  return (
+    <div className="space-y-4">
+      {/* Category scroll — unified across all screen sizes */}
+      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <CategoryButton
           icon="🏪"
-          label="All Categories"
+          label="All"
           active={!state.categoryId}
           onClick={() => handleCategorySelect("all")}
         />
@@ -182,14 +175,14 @@ export function ServiceBrowseFilters({
       </div>
 
       {/* Search and filter/sort row */}
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between md:gap-4">
-        <div className="relative flex w-full max-w-sm items-center">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex w-full max-w-md items-center">
           <Search className="text-muted-foreground absolute left-3 h-4 w-4" />
           <Input
             value={localQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search services..."
-            className="pr-8 pl-9"
+            className="h-10 pr-8 pl-9"
           />
           {localQuery && (
             <button
@@ -217,14 +210,16 @@ export function ServiceBrowseFilters({
           >
             <SheetTrigger asChild>
               <Button
-                variant="outline"
+                variant={activeFiltersCount > 0 ? "default" : "outline"}
                 size="sm"
                 className="h-9 bg-transparent"
               >
                 <Filter className="mr-2 h-4 w-4" />
                 Filters
                 {activeFiltersCount > 0 && (
-                  <Badge className="ml-2">{activeFiltersCount}</Badge>
+                  <Badge className="ml-2" variant="secondary">
+                    {activeFiltersCount}
+                  </Badge>
                 )}
               </Button>
             </SheetTrigger>
@@ -351,6 +346,45 @@ export function ServiceBrowseFilters({
           </Popover>
         </div>
       </div>
+
+      {/* Active filters row */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-2">
+          {state.categoryId && (
+            <ActiveFilterChip
+              label={
+                categories.find((c) => c.id === state.categoryId)?.name ??
+                "Category"
+              }
+              onRemove={() => updateState({ categoryId: undefined })}
+            />
+          )}
+          {(state.minPrice || state.maxPrice) && (
+            <ActiveFilterChip
+              label={`$${state.minPrice || "0"}–$${state.maxPrice || "∞"}`}
+              onRemove={() => updateState({ minPrice: "", maxPrice: "" })}
+            />
+          )}
+          {state.pricingTypes.map((type) => (
+            <ActiveFilterChip
+              key={type}
+              label={type === "hourly" ? "Hourly" : "Fixed price"}
+              onRemove={() =>
+                updateState({
+                  pricingTypes: state.pricingTypes.filter((t) => t !== type),
+                })
+              }
+            />
+          ))}
+          <button
+            type="button"
+            onClick={handleFiltersReset}
+            className="text-muted-foreground hover:text-foreground text-sm underline-offset-2 hover:underline"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
     </div>
   );
 }

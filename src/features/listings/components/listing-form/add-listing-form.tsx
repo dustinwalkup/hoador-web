@@ -167,10 +167,10 @@ export function AddListingForm({
                 : isSubmitting
                   ? isEdit
                     ? "Saving..."
-                    : "Adding Listing..."
+                    : "Listing your item..."
                   : isEdit
                     ? "Save Changes"
-                    : "Add Listing"}
+                    : "List an item"}
           </Button>
         </div>
         {/* Submit overlay */}
@@ -202,7 +202,7 @@ export function AddListingForm({
                   </>
                 ) : (
                   <p className="animate-pulse text-sm font-medium">
-                    {isEdit ? "Saving changes..." : "Creating listing..."}
+                    {isEdit ? "Saving changes..." : "Listing your item..."}
                   </p>
                 )}
               </div>

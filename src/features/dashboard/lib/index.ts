@@ -5,3 +5,4 @@
 
 export { getUpcomingSchedule } from "./schedule";
 export { getDashboardActivityFeed } from "./activity-feed";
+export { getDashboardPulseData } from "./pulse-data";
