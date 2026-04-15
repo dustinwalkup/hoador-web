@@ -8,7 +8,11 @@ import { notificationsDAL } from "@/dal";
 
 /**
  * GET /api/notifications/count
- * Get unread notification count for the authenticated user
+ * Get unread notification count for the authenticated user.
+ *
+ * @deprecated Polled clients should use `GET /api/dashboard/badges` instead.
+ * Retained for backwards compatibility; will be removed in a follow-up PR
+ * once no client references remain.
  */
 async function getHandler() {
   try {

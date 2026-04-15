@@ -13,28 +13,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  useNotifications,
-  useUnreadCount,
-  useMarkAsRead,
-  useToggleReadStatus,
-} from "../hooks/use-notifications";
+import { useMarkAsRead, useToggleReadStatus } from "../hooks/use-notifications";
+import { useDashboardBadges } from "@/features/dashboard/hooks/use-dashboard-badges";
 import { NotificationCard } from "./notification-card";
 
 export function NotificationBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const { data: unreadCount, isLoading: isLoadingCount } = useUnreadCount();
-  const {
-    data: notificationsData,
-    isLoading,
-    error,
-  } = useNotifications({ limit: 10 });
+  const { data: badges, isLoading, error } = useDashboardBadges();
   const markAsRead = useMarkAsRead();
   const toggleReadStatus = useToggleReadStatus();
 
-  const notifications = notificationsData?.data || [];
-  const hasUnread = (unreadCount ?? 0) > 0;
+  const unreadCount = badges?.unreadNotifications ?? 0;
+  const notificationsData = badges?.notifications;
+  const notifications = notificationsData?.data ?? [];
+  const hasUnread = unreadCount > 0;
+  const isLoadingCount = isLoading;
 
   const handleNotificationClick = async (
     notificationId: string,

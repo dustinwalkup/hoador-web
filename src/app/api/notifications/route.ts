@@ -8,7 +8,12 @@ import { notificationsDAL } from "@/dal";
 
 /**
  * GET /api/notifications
- * Fetch paginated notifications for the authenticated user
+ * Fetch paginated notifications for the authenticated user.
+ *
+ * Note: the notification-bell dropdown now pulls its latest-10 payload from
+ * `GET /api/dashboard/badges` in a single round trip. This endpoint remains
+ * for the standalone notifications page (infinite-scroll path) and for any
+ * non-bell callers that need filtering by type / isRead. POST is unchanged.
  */
 async function getHandler(request: NextRequest) {
   try {

@@ -21,13 +21,14 @@ import {
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { DASHBOARD } from "@/constants/navbar";
-import { useUnreadMessageCount } from "@/features/messages/hooks/use-unread-count";
+import { useDashboardBadges } from "@/features/dashboard/hooks/use-dashboard-badges";
 
 const { mainNav } = DASHBOARD;
 
 export function NavMain() {
   const pathname = usePathname();
-  const { data: unreadCount = 0 } = useUnreadMessageCount();
+  const { data: badges } = useDashboardBadges();
+  const unreadCount = badges?.unreadMessages ?? 0;
 
   return (
     <SidebarGroup>
