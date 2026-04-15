@@ -29,12 +29,29 @@ jobs:
               pull_number: context.issue.number,
             });
 
-            const changedLines = files.reduce((acc, file) => acc + file.changes, 0);
+            // Generated/lockfile paths that shouldn't count toward PR size.
+            // Drizzle writes a full schema snapshot per migration; lockfiles
+            // churn on dependency bumps. Neither reflects reviewer burden.
+            const EXCLUDED = [
+              /^src\/db\/migrations\/meta\//,
+              /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$/,
+            ];
+            const isExcluded = (f) => EXCLUDED.some((re) => re.test(f.filename));
+
+            const countedFiles = files.filter((f) => !isExcluded(f));
+            const excludedFiles = files.filter(isExcluded);
+            const changedLines = countedFiles.reduce((acc, file) => acc + file.changes, 0);
+            const excludedLines = excludedFiles.reduce((acc, file) => acc + file.changes, 0);
+
+            if (excludedLines > 0) {
+              console.log(`Excluded ${excludedLines} lines across ${excludedFiles.length} generated/lockfile(s):`);
+              excludedFiles.forEach((f) => console.log(`  - ${f.filename} (${f.changes} lines)`));
+            }
 
             if (changedLines > 1000) {
-              core.setFailed(`PR is too large: ${changedLines} lines changed. Consider breaking into smaller PRs.`);
+              core.setFailed(`PR is too large: ${changedLines} lines changed (excluding generated files). Consider breaking into smaller PRs.`);
             } else {
-              console.log(`PR size is acceptable: ${changedLines} lines changed`);
+              console.log(`PR size is acceptable: ${changedLines} lines changed (excluding generated files)`);
             }
 
   # Run tests with coverage
