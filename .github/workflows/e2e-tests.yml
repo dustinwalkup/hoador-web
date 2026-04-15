@@ -55,6 +55,7 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.E2E_GOOGLE_CLIENT_ID || 'e2e-placeholder-client-id' }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.E2E_GOOGLE_CLIENT_SECRET || 'e2e-placeholder-secret' }}
           GOOGLE_CALLBACK_URL: http://localhost:3001/api/auth/callback/google
+          CRON_SECRET: ${{ secrets.E2E_CRON_SECRET || 'e2e-test-cron-secret' }}
           # Add any other env vars your app needs to start
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
