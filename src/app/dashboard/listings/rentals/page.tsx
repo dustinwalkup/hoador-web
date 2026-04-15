@@ -35,7 +35,7 @@ export default async function ListingsRentalsPage() {
       )}
 
       {isOnboarded && (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={null}>
           <GarageClient />
         </Suspense>
       )}

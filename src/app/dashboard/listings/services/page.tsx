@@ -33,7 +33,7 @@ export default async function ListingsServicesPage() {
   const categories = await serviceListingDAL.listCategories();
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={null}>
       <MyServiceListingsClient categories={categories} />
     </Suspense>
   );

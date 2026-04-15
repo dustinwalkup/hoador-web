@@ -981,6 +981,67 @@ export class UserDAL extends BaseDAL {
   }
 
   /**
+   * Slim user lookup for the auth hot path. PK lookup, no joins, no stats.
+   *
+   * Every authenticated request in the app resolves through getCurrentUser,
+   * so this function must stay cheap. Callers that actually need preferences,
+   * addresses, or stats must fetch them explicitly from their own DAL methods.
+   *
+   * Returns a UserProfile-compatible shape with zeroed stats and null relations
+   * so existing consumers of getCurrentUser keep type-compat without changes.
+   */
+  async getUserForAuth(id: string): Promise<UserProfile | null> {
+    try {
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.id, id),
+      });
+
+      if (!userData) {
+        return null;
+      }
+
+      return {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        emailVerified: userData.emailVerified,
+        image: userData.image,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        status: userData.status,
+        userType: userData.userType,
+        phone: userData.phone ?? null,
+        bio: userData.bio ?? null,
+        profileImageUrl: userData.profileImageUrl ?? null,
+        stripeCustomerId: userData.stripeCustomerId ?? null,
+        stripeConnectedAccountId: userData.stripeConnectedAccountId ?? null,
+        connectOnboardingComplete: userData.connectOnboardingComplete,
+        connectChargesEnabled: userData.connectChargesEnabled,
+        connectPayoutsEnabled: userData.connectPayoutsEnabled,
+        idVerified: userData.idVerified,
+        addressVerified: userData.addressVerified,
+        tosVersion: userData.tosVersion ?? null,
+        tosAcceptedAt: userData.tosAcceptedAt ?? null,
+        privacyVersion: userData.privacyVersion ?? null,
+        privacyAcceptedAt: userData.privacyAcceptedAt ?? null,
+        communityVersion: userData.communityVersion ?? null,
+        communityAcceptedAt: userData.communityAcceptedAt ?? null,
+        createdAt: userData.createdAt,
+        stats: {
+          listingsBorrowed: 0,
+          listingsShared: 0,
+          averageRating: 0,
+          totalReviews: 0,
+        },
+        preferences: null,
+        primaryAddress: undefined,
+      };
+    } catch (error) {
+      this.handleError(error, "getUserForAuth");
+    }
+  }
+
+  /**
    * Update user status (for auth flows)
    */
   async updateUserStatus(

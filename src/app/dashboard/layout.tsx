@@ -5,6 +5,7 @@ import { ConditionalPadding } from "@/components/conditional-padding";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { PageHeaderProvider } from "@/contexts/page-header-context";
+import { QueryTrackerBoundary } from "@/components/dev/query-tracker-boundary";
 
 export const dynamic = "force-dynamic";
 
@@ -24,16 +25,18 @@ export default async function DashboardLayout({
   if (user.status === "incomplete_profile") redirect("/onboarding");
 
   return (
-    <SidebarProvider>
-      <AuthenticatedSidebar user={user} variant="inset" />
-      <SidebarInset>
-        <PageHeaderProvider>
-          <SiteHeader />
-          <div className="bg-muted/20">
-            <ConditionalPadding>{children}</ConditionalPadding>
-          </div>
-        </PageHeaderProvider>
-      </SidebarInset>
-    </SidebarProvider>
+    <QueryTrackerBoundary label="RSC /dashboard">
+      <SidebarProvider>
+        <AuthenticatedSidebar user={user} variant="inset" />
+        <SidebarInset>
+          <PageHeaderProvider>
+            <SiteHeader />
+            <div className="bg-muted/20">
+              <ConditionalPadding>{children}</ConditionalPadding>
+            </div>
+          </PageHeaderProvider>
+        </SidebarInset>
+      </SidebarProvider>
+    </QueryTrackerBoundary>
   );
 }
