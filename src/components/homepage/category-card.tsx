@@ -19,7 +19,7 @@ export default function CategoryCard({
 }: CategoryCardProps) {
   return (
     <motion.div
-      className="group bg-card flex grow flex-col rounded-xl border p-6 shadow-sm"
+      className="group bg-card flex h-full grow flex-col rounded-xl border p-6 shadow-sm"
       whileHover={{
         y: -8,
         boxShadow: "0 20px 40px -15px rgba(0, 0, 0, 0.1)",
@@ -36,16 +36,16 @@ export default function CategoryCard({
       <h3 className="mb-2 text-xl font-semibold">{title}</h3>
       <p className="text-muted-foreground mb-4">{description}</p>
       <motion.div
-        className="flex-1 overflow-hidden rounded-lg"
+        className="relative mt-auto aspect-[13/9] w-full overflow-hidden rounded-lg"
         whileHover={{ scale: 1.02 }}
         transition={{ duration: 0.3 }}
       >
         <Image
           src={imageUrl || "/globe.svg"}
           alt={title}
-          width={320}
-          height={180}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+          fill
+          sizes="(max-width: 768px) 82vw, (max-width: 1024px) 45vw, 32vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-110"
         />
       </motion.div>
     </motion.div>

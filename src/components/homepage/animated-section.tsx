@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 interface AnimatedSectionProps {
   children: ReactNode;
   className?: string;
+  id?: string;
   delay?: number;
   parallax?: boolean;
   parallaxOffset?: number;
@@ -16,6 +17,7 @@ interface AnimatedSectionProps {
 export default function AnimatedSection({
   children,
   className,
+  id,
   delay = 0,
   parallax = false,
   parallaxOffset = 50,
@@ -35,7 +37,7 @@ export default function AnimatedSection({
   );
 
   return (
-    <section ref={ref} className={cn("overflow-hidden", className)}>
+    <section ref={ref} id={id} className={cn("overflow-hidden", className)}>
       <motion.div
         initial={{ opacity: 0, y: 40, filter: "blur(10px)" }}
         whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}

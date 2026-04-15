@@ -9,6 +9,7 @@ export const E2E_USER_EMAIL_VERIFIED = "email_verified@e2e.test";
 export const E2E_USER_INCOMPLETE = "incomplete@e2e.test";
 export const E2E_USER_UNVERIFIED = "unverified@e2e.test";
 export const E2E_USER_ADMIN = "admin@e2e.test";
+export const E2E_USER_PASSWORD_RESET = "password_reset@e2e.test";
 
 /** Used by E2E Google OAuth mock (code param). See src/lib/e2e-google-callback.ts */
 export const E2E_GOOGLE_CODE = "e2e-test-google";

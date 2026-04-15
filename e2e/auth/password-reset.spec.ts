@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { E2E_USER_ACTIVE } from "./constants";
+import { E2E_USER_PASSWORD_RESET } from "./constants";
 
 const NEW_PASSWORD = "NewE2ePassword1!";
 
@@ -9,7 +9,7 @@ test.describe("Password reset flow", () => {
     request,
   }) => {
     await page.goto("/forgot-password");
-    await page.getByLabel(/email/i).fill(E2E_USER_ACTIVE);
+    await page.getByLabel(/email/i).fill(E2E_USER_PASSWORD_RESET);
     await page
       .getByRole("button", { name: /send reset password email/i })
       .click();
@@ -39,7 +39,7 @@ test.describe("Password reset flow", () => {
 
     await expect(page).toHaveURL(/\/login/);
 
-    await page.getByLabel(/email/i).fill(E2E_USER_ACTIVE);
+    await page.getByLabel(/email/i).fill(E2E_USER_PASSWORD_RESET);
     await page.getByLabel(/^password/i).fill(NEW_PASSWORD);
     await page.getByRole("button", { name: /sign in/i }).click();
 
