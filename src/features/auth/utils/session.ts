@@ -1,17 +1,40 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { auth } from "@/services/better-auth";
+import { getRequestContext } from "@/lib/logger";
+import type { UserProfile } from "@/dal/types";
+
+type CachedUser = UserProfile | null;
 
 /**
- * Get current user from Better Auth session
+ * Get current user from Better Auth session.
+ *
+ * Memoization strategy:
+ *   1. ALS request-context slot (set by withRequestLogging) — dedupes across
+ *      call sites in a single route handler. React.cache() doesn't do this
+ *      in App Router route handlers; ALS is the reliable path.
+ *   2. React.cache() — dedupes within a single RSC render for code paths
+ *      outside withRequestLogging (layouts, pages, server components).
+ *
+ * Hot path: PK lookup via userDAL.getUserForAuth(id). No preferences, no
+ * addresses, no stats aggregate. Callers that need those must fetch them
+ * explicitly.
  */
-export const getCurrentUser = cache(async () => {
+export const getCurrentUser = cache(async (): Promise<CachedUser> => {
+  const ctx = getRequestContext();
+
+  // ALS fast path: already resolved in this request.
+  if (ctx && "user" in ctx && ctx.user !== undefined) {
+    return ctx.user as CachedUser;
+  }
+
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
     });
 
     if (!session?.user) {
+      if (ctx) ctx.user = null;
       return null;
     }
 
@@ -20,9 +43,10 @@ export const getCurrentUser = cache(async () => {
     // and dal/index.ts imports rentals.dal.ts, creating a cycle)
     const { userDAL } = await import("@/dal");
 
-    // Get full user profile from our DAL
-    const userProfile = await userDAL.getUserByEmailForAuth(session.user.email);
-    return userProfile;
+    const userProfile = await userDAL.getUserForAuth(session.user.id);
+    const resolved: CachedUser = userProfile ?? null;
+    if (ctx) ctx.user = resolved;
+    return resolved;
   } catch (error) {
     console.error("Error getting current user:", error);
     return null;

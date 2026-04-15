@@ -11,6 +11,16 @@ export interface RequestContext {
   userAgent?: string | null;
   /** Route pattern for logging and Sentry (e.g. GET /api/rentals) */
   route?: string;
+  /**
+   * Request-scoped memoization slot for `getCurrentUser`. Undefined = not yet
+   * fetched; null = fetched, no session; object = fetched user. Written by
+   * getCurrentUser on first resolve so subsequent call sites within the same
+   * route handler skip the full Better Auth + DAL chain.
+   *
+   * Typed as `unknown` here to avoid a circular type import from
+   * @/dal/types; the auth layer casts at the boundary.
+   */
+  user?: unknown;
 }
 
 const requestContextStorage = new AsyncLocalStorage<RequestContext>();

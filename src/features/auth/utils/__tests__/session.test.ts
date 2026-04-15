@@ -26,7 +26,7 @@ vi.mock("@/services/better-auth", () => ({
 
 vi.mock("@/dal", () => ({
   userDAL: {
-    getUserByEmailForAuth: vi.fn(),
+    getUserForAuth: vi.fn(),
   },
 }));
 
@@ -58,9 +58,7 @@ describe("session.ts", () => {
           email: "test@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
-        mockVerifiedUser,
-      );
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockVerifiedUser);
 
       // Act
       const result = await getCurrentUser();
@@ -70,9 +68,7 @@ describe("session.ts", () => {
       expect(auth.api.getSession).toHaveBeenCalledWith({
         headers: mockHeaders,
       });
-      expect(userDAL.getUserByEmailForAuth).toHaveBeenCalledWith(
-        "test@example.com",
-      );
+      expect(userDAL.getUserForAuth).toHaveBeenCalledWith("user-123");
     });
 
     it("should return null when session does not exist", async () => {
@@ -86,7 +82,7 @@ describe("session.ts", () => {
 
       // Assert
       expect(result).toBeNull();
-      expect(userDAL.getUserByEmailForAuth).not.toHaveBeenCalled();
+      expect(userDAL.getUserForAuth).not.toHaveBeenCalled();
     });
 
     it("should return null when session.user does not exist", async () => {
@@ -102,7 +98,7 @@ describe("session.ts", () => {
 
       // Assert
       expect(result).toBeNull();
-      expect(userDAL.getUserByEmailForAuth).not.toHaveBeenCalled();
+      expect(userDAL.getUserForAuth).not.toHaveBeenCalled();
     });
 
     it("should return null when error occurs", async () => {
@@ -137,9 +133,7 @@ describe("session.ts", () => {
           email: "test@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
-        mockVerifiedUser,
-      );
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockVerifiedUser);
 
       // Act
       const result = await requireAuth();
@@ -170,9 +164,7 @@ describe("session.ts", () => {
           email: "test@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
-        mockVerifiedUser,
-      );
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockVerifiedUser);
 
       // Act
       const result = await getCurrentUserId();
@@ -206,9 +198,7 @@ describe("session.ts", () => {
           email: "test@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
-        mockVerifiedUser,
-      );
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockVerifiedUser);
 
       // Act
       const result = await requireVerifiedUser();
@@ -227,9 +217,7 @@ describe("session.ts", () => {
           email: "unverified@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
-        mockUnverifiedUser,
-      );
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockUnverifiedUser);
 
       // Act & Assert
       await expect(requireVerifiedUser()).rejects.toThrow(
@@ -326,9 +314,7 @@ describe("session.ts", () => {
           email: "test@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
-        mockVerifiedUser,
-      );
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockVerifiedUser);
 
       // Act
       const result = await getAuthenticatedUser();
@@ -350,7 +336,7 @@ describe("session.ts", () => {
           email: "admin@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(mockAdminUser);
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockAdminUser);
 
       // Act
       const result = await getAuthenticatedUser();
@@ -372,9 +358,7 @@ describe("session.ts", () => {
           email: "superadmin@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
-        mockSuperAdminUser,
-      );
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockSuperAdminUser);
 
       // Act
       const result = await getAuthenticatedUser();
@@ -426,9 +410,7 @@ describe("session.ts", () => {
           email: "test@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
-        mockVerifiedUser,
-      );
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockVerifiedUser);
 
       // Act
       const result = await requireAuthenticatedUser();
@@ -449,7 +431,7 @@ describe("session.ts", () => {
           email: "admin@example.com",
         },
       } as any);
-      vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(mockAdminUser);
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockAdminUser);
 
       // Act
       const result = await requireAuthenticatedUser();
