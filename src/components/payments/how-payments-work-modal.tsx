@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   Dialog,
   DialogContent,
@@ -36,8 +37,13 @@ export function HowPaymentsWorkModal({ className }: HowPaymentsWorkModalProps) {
       </DialogTrigger>
       <DialogContent className="scrollbar-hover-reveal max-h-[85vh] max-w-lg overflow-y-auto sm:max-w-lg">
         <div className="flex justify-center pt-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hoador-logo.svg" alt="Hoador" className="h-9 w-auto" />
+          <Image
+            src="/hoador-logo.svg"
+            alt="Hoador"
+            width={120}
+            height={36}
+            className="h-9 w-auto"
+          />
         </div>
         <DialogHeader>
           <DialogTitle>How payments work</DialogTitle>

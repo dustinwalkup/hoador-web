@@ -8,6 +8,7 @@ import {
 } from "@/lib/logger";
 import { getClientIP, getUserAgent } from "@/lib/utils/request-context";
 import { getCurrentUserId } from "@/features/auth/utils/session";
+import { runWithQueryCounter } from "@/db/query-tracker";
 
 /** Duration in ms above which a request is logged as slow (LOG-REQ-003). */
 export const SLOW_REQUEST_MS = 1000;
@@ -58,44 +59,45 @@ export function withRequestLogging<A extends unknown[]>(
         userAgent,
         route,
       },
-      async () => {
-        const log = getLogger();
-        log.info({ method: request.method, route }, "request received");
+      async () =>
+        runWithQueryCounter(route, async () => {
+          const log = getLogger();
+          log.info({ method: request.method, route }, "request received");
 
-        const start = Date.now();
+          const start = Date.now();
 
-        try {
-          const response = await handler(request, ...args);
-          const durationMs = Date.now() - start;
+          try {
+            const response = await handler(request, ...args);
+            const durationMs = Date.now() - start;
 
-          log.info(
-            { statusCode: response.status, durationMs, route },
-            "response sent",
-          );
-
-          if (durationMs > SLOW_REQUEST_MS) {
-            log.warn(
-              { durationMs, route, method: request.method },
-              "slow request",
+            log.info(
+              { statusCode: response.status, durationMs, route },
+              "response sent",
             );
+
+            if (durationMs > SLOW_REQUEST_MS) {
+              log.warn(
+                { durationMs, route, method: request.method },
+                "slow request",
+              );
+            }
+
+            return response;
+          } catch (error) {
+            log.error({ err: error, route }, "request failed");
+
+            Sentry.captureException(error, {
+              tags: {
+                requestId,
+                userId: userId ?? undefined,
+                route,
+                environment: process.env.NODE_ENV ?? "development",
+              },
+            });
+
+            throw error;
           }
-
-          return response;
-        } catch (error) {
-          log.error({ err: error, route }, "request failed");
-
-          Sentry.captureException(error, {
-            tags: {
-              requestId,
-              userId: userId ?? undefined,
-              route,
-              environment: process.env.NODE_ENV ?? "development",
-            },
-          });
-
-          throw error;
-        }
-      },
+        }),
     );
   };
 }
