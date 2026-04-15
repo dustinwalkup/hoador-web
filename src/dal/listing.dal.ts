@@ -1384,53 +1384,82 @@ export class ListingDAL extends BaseDAL {
         .where(and(...whereConditions))
         .orderBy(...orderByClause);
 
-      // Get reviews separately to calculate ratings
-      const listingsWithRating = await Promise.all(
-        userListings.map(async (listing) => {
-          const listingReviews = await this.db.query.reviews.findMany({
-            where: eq(reviews.listingId, listing.id),
-            columns: {
-              rating: true,
-            },
-          });
+      // Batch-fetch reviews and first images for all listings in two queries
+      // (previously 2 queries per listing = N+1 bug).
+      const listingIds = userListings.map((l) => l.id);
 
-          // Get the first image for this listing
-          const firstImage = await this.db
-            .select({ imageUrl: listingImages.imageUrl })
-            .from(listingImages)
-            .where(
-              and(
-                eq(listingImages.listingId, listing.id),
-                eq(listingImages.orderIndex, 0),
-              ),
-            )
-            .limit(1);
+      const [allReviews, allFirstImages] = await Promise.all([
+        listingIds.length > 0
+          ? this.db.query.reviews.findMany({
+              where: inArray(reviews.listingId, listingIds),
+              columns: {
+                listingId: true,
+                rating: true,
+              },
+            })
+          : Promise.resolve([] as Array<{ listingId: string; rating: number }>),
+        listingIds.length > 0
+          ? this.db
+              .select({
+                listingId: listingImages.listingId,
+                imageUrl: listingImages.imageUrl,
+              })
+              .from(listingImages)
+              .where(
+                and(
+                  inArray(listingImages.listingId, listingIds),
+                  eq(listingImages.orderIndex, 0),
+                ),
+              )
+          : Promise.resolve(
+              [] as Array<{ listingId: string; imageUrl: string }>,
+            ),
+      ]);
 
-          const ratings = listingReviews.map((r) => r.rating);
-          const averageRating =
-            ratings.length > 0
-              ? ratings.reduce((a: number, b: number) => a + b, 0) /
-                ratings.length
-              : 0;
+      // Group reviews by listingId for O(1) lookup
+      const ratingsByListing = new Map<string, number[]>();
+      for (const r of allReviews) {
+        const arr = ratingsByListing.get(r.listingId);
+        if (arr) {
+          arr.push(r.rating);
+        } else {
+          ratingsByListing.set(r.listingId, [r.rating]);
+        }
+      }
 
-          return {
-            ...listing,
-            dailyRate: Number(listing.dailyRate),
-            weeklyRate: listing.weeklyRate
-              ? Number(listing.weeklyRate)
-              : undefined,
-            monthlyRate: listing.monthlyRate
-              ? Number(listing.monthlyRate)
-              : undefined,
-            securityDeposit: Number(listing.securityDeposit),
-            deliveryFee: Number(listing.deliveryFee),
-            setupFee: Number(listing.setupFee),
-            averageRating: Math.round(averageRating * 10) / 10,
-            reviewCount: ratings.length,
-            firstImageUrl: firstImage[0]?.imageUrl || null,
-          } as UserListing;
-        }),
-      );
+      // Map first image by listingId
+      const firstImageByListing = new Map<string, string>();
+      for (const img of allFirstImages) {
+        if (img.listingId && !firstImageByListing.has(img.listingId)) {
+          firstImageByListing.set(img.listingId, img.imageUrl);
+        }
+      }
+
+      const listingsWithRating = userListings.map((listing) => {
+        const ratings = ratingsByListing.get(listing.id) ?? [];
+        const averageRating =
+          ratings.length > 0
+            ? ratings.reduce((a: number, b: number) => a + b, 0) /
+              ratings.length
+            : 0;
+
+        return {
+          ...listing,
+          dailyRate: Number(listing.dailyRate),
+          weeklyRate: listing.weeklyRate
+            ? Number(listing.weeklyRate)
+            : undefined,
+          monthlyRate: listing.monthlyRate
+            ? Number(listing.monthlyRate)
+            : undefined,
+          securityDeposit: Number(listing.securityDeposit),
+          deliveryFee: Number(listing.deliveryFee),
+          setupFee: Number(listing.setupFee),
+          averageRating: Math.round(averageRating * 10) / 10,
+          reviewCount: ratings.length,
+          firstImageUrl: firstImageByListing.get(listing.id) || null,
+        } as UserListing;
+      });
 
       return listingsWithRating;
     } catch (error) {
