@@ -6,8 +6,8 @@ import { PageHeader } from "@/components/page-header";
 import { MyServiceListingsClient } from "@/features/services/components/my-listings-page/my-service-listings-client";
 
 export const metadata = {
-  title: "My Services",
-  description: "Manage your service listings",
+  title: "Listings – Services | Hoador",
+  description: "Manage your service listings, availability, and offerings.",
 };
 
 export default async function ListingsServicesPage() {
@@ -22,8 +22,8 @@ export default async function ListingsServicesPage() {
     return (
       <div className="container pb-6">
         <PageHeader
-          title="My Services"
-          description="Manage your service listings in one place"
+          title="Your service listings"
+          description="Manage your services and availability"
         />
         <InitiateStripeOnboarding />
       </div>

@@ -14,12 +14,12 @@ function getHeaderConfig(pathname: string): {
 
   if (direction === "incoming") {
     return {
-      title: "Services - Provider",
+      title: "Your service bookings",
       description: "Manage your incoming service requests",
     };
   }
   return {
-    title: "Services - Client",
+    title: "Your service bookings",
     description: "Manage your service booking requests",
   };
 }

@@ -72,7 +72,7 @@ export function NavMain() {
                               <div className="bg-sidebar-border my-2 h-px" />
                             )}
                             {group.label && (
-                              <SidebarGroupLabel className="mb-1 px-2">
+                              <SidebarGroupLabel className="mb-1 px-2 font-bold">
                                 {group.label}
                               </SidebarGroupLabel>
                             )}
@@ -111,9 +111,9 @@ export function NavMain() {
               isActive = pathname.startsWith(item.url + "/");
             }
 
-            // Check if this is the Mailbox item and has unread messages
-            const isMailbox = item.url === "/dashboard/mailbox";
-            const hasUnread = isMailbox && unreadCount > 0;
+            // Messages nav item (/dashboard/mailbox) with unread badge
+            const isMessages = item.url === "/dashboard/mailbox";
+            const hasUnread = isMessages && unreadCount > 0;
 
             return (
               <SidebarMenuItem key={item.title} className="cursor-pointer!">

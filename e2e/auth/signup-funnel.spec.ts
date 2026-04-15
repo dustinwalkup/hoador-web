@@ -42,9 +42,15 @@ test.describe("Signup-to-dashboard funnel (email/password)", () => {
     await expect(page.getByLabel(/community join code/i)).toBeVisible();
 
     await page.getByPlaceholder(/enter your join code/i).fill(E2E_JOIN_CODE);
-    await page.getByRole("button", { name: /join community/i }).click();
 
-    await expect(page).toHaveURL(/\/onboarding/);
+    const joinResponsePromise = page.waitForResponse((resp) =>
+      resp.url().includes("/api/auth/join-community"),
+    );
+    await page.getByRole("button", { name: /join community/i }).click();
+    const joinResp = await joinResponsePromise;
+    expect(joinResp.status()).toBe(200);
+
+    await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
     await expect(page.getByRole("form")).toBeVisible();
 
     await page.getByLabel(/first name/i).fill("E2E");

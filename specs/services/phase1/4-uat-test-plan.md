@@ -458,7 +458,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify Stripe shows only one PaymentIntent for this booking.
 - **Expected results:**
   - No duplicate charge; second acceptance rejected.
-- [ ] Pass / [ ] Fail
+- [ ] Pass / [ ] Fail (COVERED VIA TEST CASE)
 
 ---
 
@@ -493,7 +493,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   7. Verify no Stripe transfer is created at this moment.
 - **Expected results:**
   - Status `completed`; payout deferred; requester notified immediately.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -508,7 +508,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify no Stripe transfer is created for this booking.
 - **Expected results:**
   - Booking skipped by cron; payout window not yet closed.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -561,7 +561,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   6. Verify the provider does NOT receive a payout notification.
 - **Expected results:**
   - `payoutStatus: failed`; ops alerted; booking stays `completed`.
-- [ ] Pass / [ ] Fail
+- [ ] Pass / [ ] Fail (COVERED VIA TEST CASE)
 
 ---
 
@@ -576,7 +576,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify `payoutStatus` is `completed` (not processed twice).
 - **Expected results:**
   - Atomic claim prevents double-transfer; exactly one Stripe transfer created.
-- [ ] Pass / [ ] Fail
+- [ ] Pass / [ ] Fail (COVERED VIA TEST CASE)
 
 ---
 
@@ -594,11 +594,13 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   4. Verify no Stripe refund is issued (no charge was ever taken).
 - **Expected results:**
   - Booking cancelled; no refund action needed; both parties notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
 ### UAT-SVC-35: Requester cancels an accepted booking — more than 24 hours before proposed date
+
+SETUP IN STAGING: booking id d404d276-8165-40dd-8dbd-99db2993a0e5
 
 - **Actor:** Requester
 - **Requirement:** 8.1, 8.4
@@ -613,11 +615,13 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   7. Verify both parties receive a cancellation notification with refund details.
 - **Expected results:**
   - Full refund; both notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
 ### UAT-SVC-36: Requester cancels an accepted booking — within 24 hours of proposed date
+
+SETUP IN STAGING: booking id b407a37b-d1ba-4ee1-a85c-d53849293a9c
 
 - **Actor:** Requester
 - **Requirement:** 8.2, 8.4
@@ -632,11 +636,13 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   7. Verify both parties receive a cancellation notification.
 - **Expected results:**
   - 50% refund; both notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
 ### UAT-SVC-37: Provider cancels an accepted booking — full refund regardless of timing
+
+SETUP IN STAGING: booking id 8ba0bf0f-d124-4688-ac30-cc666cafdc7f
 
 - **Actor:** Provider
 - **Requirement:** 8.3, 8.4
@@ -650,7 +656,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   6. Verify both parties receive a cancellation notification.
 - **Expected results:**
   - Full refund on provider-initiated cancellation; both notified.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -665,7 +671,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   3. Verify the refund amount is displayed on the detail page.
 - **Expected results:**
   - Read-only state; refund amount shown.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -937,7 +943,7 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
   4. Verify the active state is applied to the link on any `/dashboard/services/*` route.
 - **Expected results:**
   - Services nav link present and functional.
-- [ ] Pass / [ ] Fail
+- [x] Pass / [ ] Fail
 
 ---
 
@@ -1053,4 +1059,19 @@ This document defines **User Acceptance Test (UAT)** scenarios for the HOA Servi
 
 ---
 
-_Last updated: March 21, 2026 | Internal use only_
+## 18. Automated regression (CI)
+
+Playwright specs under `e2e/services/` mirror selected UAT scenarios for smoke and API security checks. Vitest integration tests cover many flows that would be slow or impossible to assert via the browser alone (Stripe Dashboard, idempotent payout, concurrent cron). Run Playwright locally with `bun run test:e2e` (or `bun run test:e2e:services` for the services project only) after `e2e:setup` / `.env.test` are configured.
+
+| UAT ID     | Automation                                                                                                                               |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| UAT-SVC-09 | `e2e/services/uat-smoke.spec.ts` — admin review queue empty state                                                                        |
+| UAT-SVC-10 | `e2e/services/uat-smoke.spec.ts` — browse page loads (logged-in resident with community)                                                 |
+| UAT-SVC-52 | `e2e/services/uat-api-cron.spec.ts` (live HTTP); `src/app/api/cron/process-service-payouts/__tests__/route.test.ts` (handler unit tests) |
+| UAT-SVC-55 | `e2e/services/uat-smoke.spec.ts` — Services nav link href and `data-active` on `/dashboard/services`                                     |
+
+For technical coverage mapping (DAL, services, Stripe helpers), see `specs/services/phase1/4-test-plan.md` and the `src/features/services/__tests__/` and `src/services/stripe/__tests__/` suites.
+
+---
+
+_Last updated: April 13, 2026 | Internal use only_

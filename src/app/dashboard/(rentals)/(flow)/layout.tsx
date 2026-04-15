@@ -14,13 +14,13 @@ function getHeaderConfig(pathname: string): {
 
   if (direction === "incoming") {
     return {
-      title: "Rentals - Owner",
-      description: "Manage your incoming rental requests",
+      title: "Your rental bookings",
+      description: "Incoming requests and activity as an owner",
     };
   }
   return {
-    title: "Rentals - Renter",
-    description: "Manage your rental booking requests",
+    title: "Your rental bookings",
+    description: "Outgoing requests and activity as a renter",
   };
 }
 

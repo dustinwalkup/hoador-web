@@ -106,7 +106,22 @@ async function postHandler(
       return handleApiError(result.error);
     }
 
-    return NextResponse.json(result.data);
+    const payload = result.data;
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "success" in payload &&
+      (payload as { success?: boolean }).success === false
+    ) {
+      const message =
+        "error" in payload &&
+        typeof (payload as { error?: unknown }).error === "string"
+          ? (payload as { error: string }).error
+          : "Cancellation failed";
+      return NextResponse.json({ error: message }, { status: 422 });
+    }
+
+    return NextResponse.json(payload);
   } catch (error) {
     return handleApiError(error);
   }

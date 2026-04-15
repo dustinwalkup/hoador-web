@@ -228,7 +228,7 @@ describe("getUpcomingSchedule", () => {
     expect(result.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("includes both pickup and return for same-day rental in currentRentals", async () => {
+  it("shows only return for same-day active rental in currentRentals", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(TODAY_NOON);
     const todayMidnight = new Date(2026, 2, 15, 0, 0, 0, 0);
@@ -237,6 +237,7 @@ describe("getUpcomingSchedule", () => {
       currentRentals: [
         {
           id: "req-sameday",
+          status: "active",
           listingName: "Hammer",
           ownerName: "Pat Owner",
           deliveryRequested: false,
@@ -251,14 +252,14 @@ describe("getUpcomingSchedule", () => {
 
     expect(
       result.some(
-        (e) => e.description.includes("Pickup from") && e.subtitle === "Hammer",
+        (e) => e.description.includes("Return to") && e.subtitle === "Hammer",
       ),
     ).toBe(true);
     expect(
       result.some(
-        (e) => e.description.includes("Return to") && e.subtitle === "Hammer",
+        (e) => e.description.includes("Pickup from") && e.subtitle === "Hammer",
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("includes return on last day when rental ends today at midnight", async () => {

@@ -301,7 +301,7 @@ export function ListingDetailView({
               reviewCount: listing.owner.reviewCount,
               memberSince: listing.owner.memberSince.toISOString(),
             }}
-            title="Listing Owner"
+            title="Owner"
             showActions={false}
             recipientId={listing.owner.id}
             recipientName={`${listing.owner.firstName} ${listing.owner.lastName}`}
@@ -314,7 +314,7 @@ export function ListingDetailView({
             {isOwner ? (
               <Button asChild className="w-full" size="lg">
                 <Link href={`/dashboard/listings/${listing.id}/edit`}>
-                  Edit Listing
+                  Edit listing
                 </Link>
               </Button>
             ) : (
@@ -324,7 +324,7 @@ export function ListingDetailView({
                   href={`/dashboard/listings/${listing.id}/rent`}
                 >
                   <Calendar className="mr-2 h-4 w-4" />
-                  Rent Item
+                  Request booking
                 </Link>
               </Button>
             )}

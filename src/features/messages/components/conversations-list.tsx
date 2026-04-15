@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -165,7 +165,19 @@ export function ConversationsList({
     return filteredConversations.map((conversation: ConversationSummary) => (
       <div
         key={conversation.id}
+        role="button"
+        tabIndex={0}
+        aria-label={`Conversation with ${conversation.otherUser.name}`}
+        aria-current={
+          selectedConversationId === conversation.id ? "true" : undefined
+        }
         onClick={() => handleConversationClick(conversation.id)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleConversationClick(conversation.id);
+          }
+        }}
         onMouseEnter={() => handleConversationHover(conversation.id)}
         className={`relative flex cursor-pointer items-center border-l-4 p-4 transition-colors hover:bg-gray-50 ${
           selectedConversationId === conversation.id
@@ -223,6 +235,13 @@ export function ConversationsList({
       {isLoading && filteredConversations.length === 0 && (
         <div className="flex justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+      )}
+
+      {!isLoading && filteredConversations.length === 0 && (
+        <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
+          <MessageCircle className="mb-2 h-6 w-6 text-gray-300" />
+          <p className="text-sm text-gray-400">No conversations yet</p>
         </div>
       )}
     </div>

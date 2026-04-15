@@ -56,7 +56,7 @@ export function SummaryStep({ pricing, legalDocuments }: SummaryStepProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-4 text-lg font-semibold">Booking Summary</h3>
+        <h3 className="mb-4 text-lg font-semibold">Request summary</h3>
 
         <div className="space-y-4">
           <div className="flex justify-between py-2">

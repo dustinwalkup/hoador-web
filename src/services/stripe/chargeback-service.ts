@@ -5,6 +5,7 @@ import {
   disputeDAL,
   paymentDAL,
   paymentLifecycleDAL,
+  servicePaymentLifecycleDAL,
   auditLogDAL,
   legalDocumentDAL,
 } from "@/dal";
@@ -70,19 +71,85 @@ export class ChargebackService {
       return;
     }
 
-    if (!payment.rentalId) {
-      logger.warn(
-        {
+    // --- Service booking chargeback path ---
+    if (!payment.rentalId && payment.serviceBookingId) {
+      const serviceBookingId = payment.serviceBookingId;
+
+      logger.info(
+        { stripeDisputeId, chargeId, serviceBookingId },
+        "charge.dispute.created: service booking chargeback — freezing lifecycle and linking dispute",
+      );
+
+      const existingServiceDispute =
+        await disputeDAL.getActiveByServiceBookingId(serviceBookingId);
+
+      if (existingServiceDispute) {
+        if (!existingServiceDispute.stripeChargebackId) {
+          await disputeDAL.updateStripeChargebackId(
+            existingServiceDispute.id,
+            stripeDisputeId,
+          );
+        }
+      } else {
+        const disputePolicy = await legalDocumentDAL.getCurrentVersion(
+          LEGAL_DOCUMENT_IDS.DISPUTE_POLICY,
+        );
+        const policyVersion = disputePolicy?.version || "v1.0";
+
+        const autoDispute = await disputeDAL.create({
+          rentalId: null,
+          serviceBookingId,
+          createdBy: "system",
+          createdByRole: "requester",
+          reasonCode: "payment_issue",
+          description: `Auto-created from Stripe chargeback ${stripeDisputeId}`,
+          policyVersion,
+        });
+
+        await disputeDAL.updateStripeChargebackId(
+          autoDispute.id,
+          stripeDisputeId,
+        );
+
+        await disputeDAL.createAuditLog({
+          disputeId: autoDispute.id,
+          actionType: "dispute_created",
+          details: {
+            source: "stripe_chargeback",
+            stripeDisputeId,
+            chargeId,
+          },
+        });
+      }
+
+      await servicePaymentLifecycleDAL.freezeForDispute(serviceBookingId);
+
+      await sendOpsAlert({
+        event: "chargeback_created",
+        serviceBookingId,
+        message: `Stripe chargeback received for service booking: ${stripeDisputeId} (amount: ${dispute.amount / 100} ${dispute.currency})`,
+        metadata: {
           stripeDisputeId,
           chargeId,
-          serviceBookingId: payment.serviceBookingId,
+          serviceBookingId,
+          amount: dispute.amount,
+          currency: dispute.currency,
+          reason: dispute.reason,
         },
-        "charge.dispute.created: payment is not linked to a rental — skipping rental dispute flow",
+        sendEmailAlert: true,
+      }).catch(() => {});
+      return;
+    }
+
+    if (!payment.rentalId) {
+      logger.warn(
+        { stripeDisputeId, chargeId },
+        "charge.dispute.created: payment has no rental or service booking ID — cannot link chargeback",
       );
       await sendOpsAlert({
-        event: "chargeback_non_rental_payment",
-        serviceBookingId: payment.serviceBookingId ?? undefined,
-        message: `Stripe chargeback ${stripeDisputeId} on non-rental payment (service booking or legacy). Manual review required.`,
+        event: "chargeback_unlinked",
+        rentalId: "unknown",
+        message: `Stripe chargeback ${stripeDisputeId} received but payment has no linked transaction`,
         metadata: { stripeDisputeId, chargeId, paymentIntentId },
         sendEmailAlert: true,
       }).catch(() => {});

@@ -28,6 +28,7 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/dal", () => ({
   disputeDAL: {
     getActiveByRentalId: vi.fn(),
+    getActiveByServiceBookingId: vi.fn(),
     updateStripeChargebackId: vi.fn(),
     create: vi.fn(),
     createAuditLog: vi.fn(),
@@ -40,6 +41,9 @@ vi.mock("@/dal", () => ({
   },
   paymentLifecycleDAL: {
     freezeForDispute: vi.fn(),
+  },
+  servicePaymentLifecycleDAL: {
+    freezeForDispute: vi.fn().mockResolvedValue(undefined),
   },
   auditLogDAL: { create: vi.fn() },
   legalDocumentDAL: {
@@ -187,23 +191,50 @@ describe("ChargebackService", () => {
       );
     });
 
-    it("37.4 handleChargebackCreated for service booking payment skips rental dispute flow", async () => {
+    it("37.4 handleChargebackCreated for service booking payment handles service dispute flow", async () => {
       const mockPayment = {
         id: "payment-svc",
         rentalId: null,
         serviceBookingId: "sb-123",
         stripeChargeId: "ch_123",
       };
+      const autoDispute = {
+        id: "dispute-svc-new",
+        serviceBookingId: "sb-123",
+        stripeChargebackId: null,
+      };
 
       vi.mocked(paymentDAL.getByChargeId).mockResolvedValue(mockPayment as any);
+      vi.mocked(disputeDAL.getActiveByServiceBookingId).mockResolvedValue(null);
+      vi.mocked(disputeDAL.create).mockResolvedValue(autoDispute as any);
+      vi.mocked(disputeDAL.updateStripeChargebackId).mockResolvedValue(
+        undefined,
+      );
+      vi.mocked(disputeDAL.createAuditLog).mockResolvedValue(undefined as any);
+      vi.mocked(legalDocumentDAL.getCurrentVersion).mockResolvedValue({
+        version: "v1.0",
+      } as any);
 
       await ChargebackService.handleChargebackCreated(mockStripeDispute);
 
-      expect(disputeDAL.create).not.toHaveBeenCalled();
+      expect(disputeDAL.getActiveByServiceBookingId).toHaveBeenCalledWith(
+        "sb-123",
+      );
+      expect(disputeDAL.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceBookingId: "sb-123",
+          createdBy: "system",
+          reasonCode: "payment_issue",
+        }),
+      );
+      expect(disputeDAL.updateStripeChargebackId).toHaveBeenCalledWith(
+        "dispute-svc-new",
+        "dp_stripe_123",
+      );
       expect(paymentLifecycleDAL.freezeForDispute).not.toHaveBeenCalled();
       expect(sendOpsAlert).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: "chargeback_non_rental_payment",
+          event: "chargeback_created",
           serviceBookingId: "sb-123",
         }),
       );

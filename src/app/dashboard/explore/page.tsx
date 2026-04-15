@@ -3,9 +3,12 @@ import { PageHeader } from "@/components/page-header";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { ExplorePageClient } from "@/features/listings/components/explore-page/explore-page-client";
 
+const PAGE_TITLE = "Browse nearby rentals";
+const PAGE_DESCRIPTION = "Find listings available in your neighborhood";
+
 export const metadata = {
-  title: "Explore",
-  description: "Find listings available in your neighborhood",
+  title: PAGE_TITLE,
+  description: PAGE_DESCRIPTION,
 };
 
 export default async function ExplorePage() {
@@ -13,10 +16,7 @@ export default async function ExplorePage() {
 
   return (
     <div className="container pb-6">
-      <PageHeader
-        title="Explore Listings"
-        description="Find listings available in your neighborhood"
-      />
+      <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
       <ExplorePageClient userId={user?.id} />
     </div>
   );

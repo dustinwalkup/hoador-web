@@ -525,7 +525,8 @@ export type UserStatus = (typeof userStatusEnum.enumValues)[number];
 export type UserType = (typeof userTypeEnum.enumValues)[number];
 
 export interface CreateDisputeData {
-  rentalId: string;
+  rentalId?: string | null;
+  serviceBookingId?: string | null;
   createdBy: string;
   createdByRole: DisputeRole;
   reasonCode: DisputeReasonCode;
@@ -537,7 +538,8 @@ export interface CreateDisputeData {
 export interface DisputeWithRelations {
   id: string;
   referenceNumber: number | null;
-  rentalId: string;
+  rentalId: string | null;
+  serviceBookingId: string | null;
   createdBy: string;
   createdByRole: DisputeRole;
   reasonCode: DisputeReasonCode;
@@ -562,7 +564,15 @@ export interface DisputeWithRelations {
     listing?: {
       name: string;
     };
-  };
+  } | null;
+  serviceBooking?: {
+    id: string;
+    requesterId: string;
+    providerId: string;
+    listing?: {
+      title: string;
+    };
+  } | null;
   createdByUser?: {
     id: string;
     firstName: string | null;

@@ -594,6 +594,29 @@ describe("useCancelRentalRequest", () => {
       }),
     ).rejects.toThrow("Cannot cancel this rental");
   });
+
+  it("should reject when API returns 422 (e.g. refund failed)", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: async () => ({
+        error: "Refund amount ($11.22) is greater than charge amount ($10.61)",
+      }),
+    });
+
+    const { result } = renderHook(() => useCancelRentalRequest(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await expect(
+      result.current.mutateAsync({
+        rentalId: "rental-123",
+        reason: "Cleaning up test data",
+      }),
+    ).rejects.toThrow(/greater than charge/);
+  });
 });
 
 describe("useStartRental", () => {

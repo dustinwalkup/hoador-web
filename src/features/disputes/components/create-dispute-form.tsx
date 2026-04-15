@@ -28,36 +28,44 @@ import {
 import { useCreateDispute } from "../hooks/use-create-dispute";
 import type { DisputeReasonCode } from "@/dal/types";
 
-const BASE_REASON_CODES: { value: DisputeReasonCode; label: string }[] = [
-  { value: "damage", label: "Damage" },
-  { value: "non_delivery", label: "Non-Delivery" },
-  { value: "quality_issue", label: "Quality Issue" },
-  { value: "cancellation", label: "Cancellation" },
-  { value: "payment_issue", label: "Payment Issue" },
-  { value: "other", label: "Other" },
-];
+const DISPUTE_REASON_ENUM = [
+  "damage",
+  "non_delivery",
+  "quality_issue",
+  "cancellation",
+  "payment_issue",
+  "renter_no_show",
+  "owner_no_show",
+  "requester_no_show",
+  "provider_no_show",
+  "other",
+] as const;
 
-const NO_SHOW_REASON_CODES: { value: DisputeReasonCode; label: string }[] = [
+const BASE_RENTAL_REASON_CODES: { value: DisputeReasonCode; label: string }[] =
+  [
+    { value: "damage", label: "Damage" },
+    { value: "non_delivery", label: "Non-Delivery" },
+    { value: "quality_issue", label: "Quality Issue" },
+    { value: "cancellation", label: "Cancellation" },
+    { value: "payment_issue", label: "Payment Issue" },
+    { value: "other", label: "Other" },
+  ];
+
+const NO_SHOW_RENTAL_CODES: { value: DisputeReasonCode; label: string }[] = [
   { value: "renter_no_show", label: "Renter No-Show" },
   { value: "owner_no_show", label: "Owner No-Show" },
 ];
 
+const SERVICE_BASE_CODES: { value: DisputeReasonCode; label: string }[] = [
+  { value: "quality_issue", label: "Quality Issue" },
+  { value: "payment_issue", label: "Payment Issue" },
+  { value: "other", label: "Other" },
+];
+
 const createDisputeSchema = z.object({
-  reasonCode: z.enum(
-    [
-      "damage",
-      "non_delivery",
-      "quality_issue",
-      "cancellation",
-      "payment_issue",
-      "renter_no_show",
-      "owner_no_show",
-      "other",
-    ],
-    {
-      message: "Please select a reason for the dispute",
-    },
-  ),
+  reasonCode: z.enum(DISPUTE_REASON_ENUM, {
+    message: "Please select a reason for the dispute",
+  }),
   description: z
     .string()
     .min(10, "Description must be at least 10 characters")
@@ -66,8 +74,13 @@ const createDisputeSchema = z.object({
 
 type CreateDisputeFormData = z.infer<typeof createDisputeSchema>;
 
-interface CreateDisputeFormProps {
-  rentalId: string;
+export interface CreateDisputeFormContentProps {
+  /** Rental dispute — provide `rentalId`. */
+  rentalId?: string;
+  /** Service booking dispute — provide `serviceBookingId` and `serviceFilerRole`. */
+  serviceBookingId?: string;
+  /** Who is filing (service bookings only). */
+  serviceFilerRole?: "requester" | "provider";
   disputePolicyUrl?: string;
   rentalStatus?: string;
   startDate?: Date;
@@ -79,23 +92,41 @@ interface CreateDisputeFormProps {
  */
 export function CreateDisputeFormContent({
   rentalId,
+  serviceBookingId,
+  serviceFilerRole,
   disputePolicyUrl,
   rentalStatus,
   startDate,
-}: CreateDisputeFormProps) {
+}: CreateDisputeFormContentProps) {
   const createDispute = useCreateDispute();
 
-  const showNoShowCodes = useMemo(() => {
+  const isService = Boolean(serviceBookingId);
+
+  const showNoShowCodesRental = useMemo(() => {
+    if (isService) return false;
     if (rentalStatus !== "approved" || !startDate) return false;
     return new Date() >= new Date(startDate);
-  }, [rentalStatus, startDate]);
+  }, [isService, rentalStatus, startDate]);
 
   const disputeReasonCodes = useMemo(() => {
-    if (showNoShowCodes) {
-      return [...BASE_REASON_CODES, ...NO_SHOW_REASON_CODES];
+    if (isService && serviceFilerRole) {
+      const noShow =
+        serviceFilerRole === "requester"
+          ? ({
+              value: "provider_no_show" as const,
+              label: "Provider No-Show",
+            } as const)
+          : ({
+              value: "requester_no_show" as const,
+              label: "Client No-Show",
+            } as const);
+      return [...SERVICE_BASE_CODES, noShow];
     }
-    return BASE_REASON_CODES;
-  }, [showNoShowCodes]);
+    if (showNoShowCodesRental) {
+      return [...BASE_RENTAL_REASON_CODES, ...NO_SHOW_RENTAL_CODES];
+    }
+    return BASE_RENTAL_REASON_CODES;
+  }, [isService, serviceFilerRole, showNoShowCodesRental]);
 
   const form = useForm<CreateDisputeFormData>({
     resolver: zodResolver(createDisputeSchema),
@@ -108,14 +139,20 @@ export function CreateDisputeFormContent({
 
   const onSubmit = async (data: CreateDisputeFormData) => {
     try {
-      await createDispute.mutateAsync({
-        rentalId,
-        reasonCode: data.reasonCode,
-        description: data.description,
-      });
-      // Navigation is handled by the hook's onSuccess callback
+      if (serviceBookingId) {
+        await createDispute.mutateAsync({
+          serviceBookingId,
+          reasonCode: data.reasonCode,
+          description: data.description,
+        });
+      } else if (rentalId) {
+        await createDispute.mutateAsync({
+          rentalId,
+          reasonCode: data.reasonCode,
+          description: data.description,
+        });
+      }
     } catch (error) {
-      // Error is handled by the mutation hook's toast notification
       console.error("Failed to create dispute:", error);
     }
   };

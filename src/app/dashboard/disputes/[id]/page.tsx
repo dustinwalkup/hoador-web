@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAuthenticatedUser } from "@/features/auth/utils/session";
-import { disputeDAL, rentalDAL } from "@/dal";
+import { disputeDAL, rentalDAL, serviceBookingDAL } from "@/dal";
 import { DisputeDetails } from "@/features/disputes/components/dispute-details";
 import { PageHeader } from "@/components/page-header";
 
@@ -38,22 +38,33 @@ export default async function DisputeDetailsPage({
     notFound();
   }
 
-  // Verify user has access (renter, provider, or admin)
+  // Verify user has access (rental/service participant, or admin)
   if (!isAdmin) {
-    // Get rental to check user access
-    const rental = await rentalDAL.getRentalDetailsById(
-      dispute.rentalId,
-      userId,
-    );
+    if (dispute.serviceBookingId) {
+      const detail = await serviceBookingDAL.getById(dispute.serviceBookingId);
+      if (
+        !detail ||
+        (detail.requesterId !== userId && detail.providerId !== userId)
+      ) {
+        notFound();
+      }
+    } else if (dispute.rentalId) {
+      const rental = await rentalDAL.getRentalDetailsById(
+        dispute.rentalId,
+        userId,
+      );
 
-    if (!rental) {
-      notFound();
-    }
+      if (!rental) {
+        notFound();
+      }
 
-    const isRenter = rental.renterId === userId;
-    const isProvider = rental.ownerId === userId;
+      const isRenter = rental.renterId === userId;
+      const isProvider = rental.ownerId === userId;
 
-    if (!isRenter && !isProvider) {
+      if (!isRenter && !isProvider) {
+        notFound();
+      }
+    } else {
       notFound();
     }
   }

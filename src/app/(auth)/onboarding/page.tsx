@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CheckCircle } from "lucide-react";
-import Link from "next/link";
 
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { OnboardingForm } from "@/features/onboarding/components/onboarding-form";
@@ -18,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ReportIssueModal } from "@/components/footer/report-issue-modal";
 
 export const metadata: Metadata = {
   title: "Complete Profile",
@@ -61,13 +61,10 @@ export default async function OnboardingPage() {
           <CardFooter className="flex flex-col items-center gap-4">
             <div className="text-muted-foreground text-center text-sm">
               Need help?{" "}
-              <Link
-                href="/support"
-                target="_blank"
-                className="text-primary hover:underline"
-              >
-                Contact support
-              </Link>
+              <ReportIssueModal
+                triggerClassName="text-primary hover:underline"
+                triggerLabel="Contact support"
+              />
             </div>
           </CardFooter>
         </Card>

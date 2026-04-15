@@ -49,7 +49,7 @@ const SKIP_MIDDLEWARE_PATHS = [
 ];
 
 // Pages that are always accessible (no auth required; funnel users are not redirected away)
-const PUBLIC_PAGE_ROUTES = ["/support", "/help"];
+const PUBLIC_PAGE_ROUTES = ["/support", "/help", "/how-it-works"];
 
 /**
  * Check if a path matches any of the protected route patterns
@@ -73,7 +73,7 @@ function isPublicApiRoute(pathname: string): boolean {
 }
 
 /**
- * Check if path is a public page (support, help) that anyone can access
+ * Check if path is a public page (support, help, how-it-works) that anyone can access
  */
 function isPublicPageRoute(pathname: string): boolean {
   return PUBLIC_PAGE_ROUTES.some(
@@ -128,7 +128,11 @@ export async function proxy(request: NextRequest) {
 
   // E2E: proxy runs in Edge and cannot use E2E DB (Node pg). Let protected routes
   // through so dashboard layout (Node) does auth and status-based redirects.
-  if (process.env.E2E_TEST === "1" && isProtectedRoute(pathname)) {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.E2E_TEST === "1" &&
+    isProtectedRoute(pathname)
+  ) {
     return NextResponse.next();
   }
 

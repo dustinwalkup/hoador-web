@@ -79,7 +79,7 @@ describe("GarageClient", () => {
 
       expect(PageHeader).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "My Rentals",
+          title: "Your rental listings",
           description: "Manage your rental listings in one place",
         }),
         undefined,
@@ -92,7 +92,7 @@ describe("GarageClient", () => {
       render(<GarageClient />);
 
       expect(screen.getByTestId("page-header-title")).toHaveTextContent(
-        "My Rentals",
+        "Your rental listings",
       );
     });
 
@@ -106,7 +106,7 @@ describe("GarageClient", () => {
       );
     });
 
-    it("should render Add New Listing button in PageHeader children", () => {
+    it("should render List an item button in PageHeader children", () => {
       mockUseSearchParams.mockReturnValue(new URLSearchParams());
 
       render(<GarageClient />);
@@ -116,7 +116,7 @@ describe("GarageClient", () => {
         "href",
         "/dashboard/listings/add",
       );
-      expect(screen.getByTestId("button")).toHaveTextContent("Add New Listing");
+      expect(screen.getByTestId("button")).toHaveTextContent("List an item");
       expect(screen.getByTestId("plus-icon")).toBeInTheDocument();
     });
 
@@ -241,7 +241,7 @@ describe("GarageClient", () => {
 
       const link = screen.getByTestId("link");
       expect(link).toBeInTheDocument();
-      expect(screen.getByText("Add New Listing")).toBeInTheDocument();
+      expect(screen.getByText("List an item")).toBeInTheDocument();
     });
   });
 

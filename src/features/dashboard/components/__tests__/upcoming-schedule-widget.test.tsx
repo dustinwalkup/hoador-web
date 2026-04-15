@@ -12,11 +12,15 @@ vi.mock("next/link", () => ({
 describe("UpcomingScheduleWidget", () => {
   it("should show empty state when entries length is 0", () => {
     render(<UpcomingScheduleWidget entries={[]} />);
-    expect(screen.getByText("Nothing scheduled")).toBeInTheDocument();
+    expect(screen.getByText("Nothing coming up")).toBeInTheDocument();
     expect(screen.getByText("0 items")).toBeInTheDocument();
     expect(
       screen.getByText("Upcoming rentals and services will show here"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Browse/i })).toHaveAttribute(
+      "href",
+      "/dashboard/explore",
+    );
   });
 
   it("should render entries with date, description, role badge, and link", () => {
@@ -37,12 +41,12 @@ describe("UpcomingScheduleWidget", () => {
     expect(screen.getByText("Power Drill")).toBeInTheDocument();
     expect(screen.getByText("1 item")).toBeInTheDocument();
     expect(screen.getByText("Renter")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /Return to Mike Owner/i });
-    expect(link).toHaveAttribute("href", "/dashboard/rental/req-1");
+    // Entry description is rendered as text; navigation is via next-step modal CTA.
+    expect(screen.getByText("Return to Mike Owner")).toBeInTheDocument();
   });
 
   it("should show empty state or nothing scheduled when entries length 0", () => {
     render(<UpcomingScheduleWidget entries={[]} />);
-    expect(screen.getByText("Nothing scheduled")).toBeInTheDocument();
+    expect(screen.getByText("Nothing coming up")).toBeInTheDocument();
   });
 });

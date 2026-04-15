@@ -115,9 +115,13 @@ export const auth = betterAuth({
       }
     },
     async afterEmailVerification(user) {
-      // Set app status so middleware routes to /join-code
+      // Only advance status if still pending - avoid regressing users
+      // who already progressed past email verification
       const { userDAL } = await import("@/dal");
-      await userDAL.updateUserStatus(user.id, "email_verified");
+      const userProfile = await userDAL.getUserById(user.id);
+      if (userProfile.status === "pending_verification") {
+        await userDAL.updateUserStatus(user.id, "email_verified");
+      }
     },
   },
 

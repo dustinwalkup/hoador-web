@@ -113,7 +113,7 @@ describe("AddListingForm", () => {
       renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
-        name: /add listing/i,
+        name: /list an item/i,
       });
       expect(submitButton).toBeInTheDocument();
     });
@@ -146,7 +146,7 @@ describe("AddListingForm", () => {
       renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
-        name: /add listing/i,
+        name: /list an item/i,
       });
       fireEvent.click(submitButton);
 
@@ -162,10 +162,10 @@ describe("AddListingForm", () => {
       renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
-        name: /adding listing/i,
+        name: /listing your item/i,
       });
       expect(submitButton).toBeDisabled();
-      expect(submitButton).toHaveTextContent("Adding Listing...");
+      expect(submitButton).toHaveTextContent("Listing your item...");
     });
 
     it("should show loading state when create mutation is pending", () => {
@@ -175,7 +175,7 @@ describe("AddListingForm", () => {
       renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
-        name: /adding listing/i,
+        name: /listing your item/i,
       });
       expect(submitButton).toBeDisabled();
     });
@@ -197,7 +197,7 @@ describe("AddListingForm", () => {
       renderWithQueryClient(<AddListingForm categories={mockCategories} />);
 
       const submitButton = screen.getByRole("button", {
-        name: /add listing/i,
+        name: /list an item/i,
       });
       expect(submitButton).toBeDisabled();
     });

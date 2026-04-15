@@ -1,11 +1,31 @@
 import webpush from "web-push";
 import { pushSubscriptionDAL } from "@/dal";
 import type { PushSubscriptionRow } from "@/dal/notifications.dal";
+import { getLogger } from "@/lib/logger";
 import type { PushPayload } from "./push-payload";
 
 const EVENT_TYPE_PUSH_SEND = "push_send";
 
+const LOG_PUSH_DEBUG = process.env.LOG_PUSH_DEBUG === "true";
+
 let vapidInitialized = false;
+
+function hasVapidEnvKeys(): boolean {
+  return !!(
+    process.env.VAPID_PUBLIC_KEY?.trim() &&
+    process.env.VAPID_PRIVATE_KEY?.trim()
+  );
+}
+
+/**
+ * Whether server env includes both VAPID keys (for diagnostics and `/api/push/test` JSON).
+ * Does not guarantee `web-push` initialized successfully.
+ *
+ * @returns True if public and private key env vars are non-empty
+ */
+export function isPushVapidConfigured(): boolean {
+  return hasVapidEnvKeys();
+}
 
 /**
  * Initialize web-push with VAPID keys from env. No-op if keys missing; logs warning.
@@ -14,15 +34,15 @@ let vapidInitialized = false;
 function ensureVapidInitialized(): boolean {
   if (vapidInitialized) return true;
 
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-
-  if (!publicKey || !privateKey) {
+  if (!hasVapidEnvKeys()) {
     console.warn(
       "[push-service] VAPID_PUBLIC_KEY or VAPID_PRIVATE_KEY missing; push notifications disabled.",
     );
     return false;
   }
+
+  const publicKey = process.env.VAPID_PUBLIC_KEY!;
+  const privateKey = process.env.VAPID_PRIVATE_KEY!;
 
   try {
     webpush.setVapidDetails(
@@ -138,14 +158,49 @@ export async function sendPush(
   userId: string,
   payload: PushPayload,
 ): Promise<void> {
-  if (!ensureVapidInitialized()) return;
+  if (!ensureVapidInitialized()) {
+    if (LOG_PUSH_DEBUG) {
+      getLogger({ userId }).info(
+        { userId, reason: "vapid_missing", event: "push_send_skip" },
+        "Push send skipped: VAPID not configured",
+      );
+    }
+    return;
+  }
 
   const subscriptions = await pushSubscriptionDAL.getActiveByUserId(userId);
-  if (!subscriptions?.length) return;
+  if (!subscriptions?.length) {
+    if (LOG_PUSH_DEBUG) {
+      getLogger({ userId }).info(
+        {
+          userId,
+          reason: "no_subscriptions",
+          subscriptionCount: 0,
+          event: "push_send_skip",
+        },
+        "Push send skipped: no active subscriptions for user",
+      );
+    }
+    return;
+  }
+
+  if (LOG_PUSH_DEBUG) {
+    getLogger({ userId }).info(
+      {
+        userId,
+        subscriptionCount: subscriptions.length,
+        event: "push_send_dispatch",
+      },
+      "Dispatching push to device subscriptions",
+    );
+  }
 
   for (const sub of subscriptions) {
     sendToSubscription(sub, payload, userId).catch((err) => {
-      console.error("[push-service] sendToSubscription failed:", err);
+      getLogger({ userId }).error(
+        { err, event: "sendToSubscription_failed", userId },
+        "[push-service] sendToSubscription failed",
+      );
     });
   }
 }

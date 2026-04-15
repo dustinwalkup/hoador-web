@@ -281,19 +281,12 @@ describe("AuthService", () => {
       ).rejects.toThrow(ValidationError);
     });
 
-    it("captures non-critical error when status update fails", async () => {
+    it("throws when status update fails", async () => {
       mockUpdateUserStatus.mockRejectedValue(new Error("Status update failed"));
 
-      const result = await AuthService.joinCommunity("user-123", "ABC123");
-
-      expect(result).toEqual({ redirect: "/onboarding" });
-      expect(mockCaptureNonCriticalError).toHaveBeenCalledWith(
-        expect.any(Error),
-        expect.objectContaining({
-          route: "AuthService.joinCommunity",
-          action: "update_user_status",
-        }),
-      );
+      await expect(
+        AuthService.joinCommunity("user-123", "ABC123"),
+      ).rejects.toThrow("Failed to update account status. Please try again.");
     });
   });
 });

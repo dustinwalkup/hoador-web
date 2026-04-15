@@ -52,6 +52,11 @@ export default defineConfig({
       testMatch: /e2e\/auth\/.*\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "services-uat",
+      testMatch: /e2e\/services\/.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
   ],
   globalSetup: path.resolve(
     process.cwd(),

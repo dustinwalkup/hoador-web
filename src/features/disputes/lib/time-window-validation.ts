@@ -161,4 +161,66 @@ export class TimeWindowValidation {
     }
     return now >= startDate;
   }
+
+  private static readonly MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+  /**
+   * Parses scheduled service start from booking date + time (local ISO string).
+   */
+  static parseServiceScheduledAt(
+    proposedDate: string,
+    proposedTime: string,
+  ): Date {
+    const timePart =
+      proposedTime.length === 5 ? `${proposedTime}:00` : proposedTime;
+    return new Date(`${proposedDate}T${timePart}`);
+  }
+
+  /**
+   * Start of the scheduled calendar day (local) for "day of" eligibility.
+   */
+  static parseServiceDayStart(proposedDate: string): Date {
+    return new Date(`${proposedDate}T00:00:00`);
+  }
+
+  /**
+   * Service booking dispute window (aligned with rental 24h rule):
+   * - Opens on or after the scheduled service date (calendar day).
+   * - Closes 24 hours after `completedAt` if set, otherwise 24 hours after scheduled date+time.
+   */
+  static validateServiceFilingWindow(
+    proposedDate: string,
+    proposedTime: string,
+    completedAt: Date | null | undefined,
+    now: Date = new Date(),
+  ): TimeWindowValidationResult {
+    const dayStart = TimeWindowValidation.parseServiceDayStart(proposedDate);
+    if (now < dayStart) {
+      return {
+        valid: false,
+        message: "Disputes cannot be filed before the scheduled service date",
+      };
+    }
+
+    const deadline = completedAt
+      ? new Date(completedAt.getTime() + TimeWindowValidation.MS_PER_DAY)
+      : new Date(
+          TimeWindowValidation.parseServiceScheduledAt(
+            proposedDate,
+            proposedTime,
+          ).getTime() + TimeWindowValidation.MS_PER_DAY,
+        );
+
+    if (now > deadline) {
+      return {
+        valid: false,
+        message: completedAt
+          ? "The dispute filing window closed 24 hours after the service was marked complete"
+          : "The dispute filing window closed 24 hours after the scheduled service time",
+        deadline,
+      };
+    }
+
+    return { valid: true, deadline };
+  }
 }

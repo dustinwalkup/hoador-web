@@ -108,7 +108,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={url}
-                  alt={`${listing.title} photo ${index + 1}`}
+                  alt={`${listing.title} - ${index + 1}`}
                   className="h-full w-full object-cover transition-transform hover:scale-105"
                 />
               </div>
@@ -284,7 +284,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
               <div className="flex w-full flex-col items-end sm:flex-row sm:justify-between">
                 <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                  Add a payment method to request this servicessss
+                  Add a payment method to request this service
                 </p>
                 <Button size="sm" variant="outline" asChild>
                   <Link href="/dashboard/payments">Go to Payments</Link>

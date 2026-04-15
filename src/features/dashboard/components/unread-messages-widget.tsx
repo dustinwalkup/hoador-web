@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ConversationSummary } from "@/dal/types";
+import { UnreadMessagesEmptyState } from "@/features/dashboard/components/unread-messages-empty-state";
 
 export type { ConversationSummary };
 
@@ -37,7 +38,28 @@ export function UnreadMessagesWidget({
   const displayConversations = recentConversations.slice(0, 3);
   const hasAny = unreadCount > 0 || displayConversations.length > 0;
 
-  if (!hasAny) return null;
+  if (!hasAny) {
+    return (
+      <Card className="border-t-4 border-t-sky-500">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/10">
+                <MessageCircle
+                  className="h-4 w-4 text-sky-600 dark:text-sky-400"
+                  aria-hidden
+                />
+              </div>
+              <span>Messages</span>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <UnreadMessagesEmptyState />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-t-4 border-t-sky-500">
@@ -107,7 +129,7 @@ export function UnreadMessagesWidget({
           className="text-xs font-medium text-sky-600 hover:bg-sky-50 hover:text-sky-700 dark:text-sky-400 dark:hover:bg-sky-950/20"
         >
           <Link href="/dashboard/mailbox">
-            View Mailbox
+            View messages
             <ArrowRight className="ml-1 h-3 w-3" />
           </Link>
         </Button>

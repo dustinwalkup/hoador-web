@@ -46,7 +46,7 @@ import {
   useUpdateInternalNote,
   useDeleteInternalNote,
 } from "../hooks/use-internal-notes";
-import { formatDistanceToNow } from "@/lib/utils/date.utils";
+import { formatDistanceToNow, timeMs } from "@/lib/utils/date.utils";
 
 const noteSchema = z.object({
   content: z
@@ -115,7 +115,7 @@ export function InternalNotesSection({ disputeId }: InternalNotesSectionProps) {
 
   const notes = dispute?.internalNotes || [];
   const sortedNotes = [...notes].sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    (a, b) => timeMs(b.createdAt) - timeMs(a.createdAt),
   );
 
   return (
@@ -288,8 +288,8 @@ export function InternalNotesSection({ disputeId }: InternalNotesSectionProps) {
                               addSuffix: true,
                             })}
                           </span>
-                          {note.updatedAt.getTime() !==
-                            note.createdAt.getTime() && (
+                          {timeMs(note.updatedAt) !==
+                            timeMs(note.createdAt) && (
                             <span className="ml-2">
                               • Updated{" "}
                               {formatDistanceToNow(note.updatedAt, {

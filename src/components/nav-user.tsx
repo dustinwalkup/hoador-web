@@ -2,6 +2,7 @@
 
 import {
   CreditCardIcon,
+  HelpCircle,
   Loader2,
   LogOutIcon,
   UserCircleIcon,
@@ -15,6 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -71,7 +73,7 @@ export function NavUser({ user }: { user: UserProfile }) {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="z-100 w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "top"}
             align="end"
             sideOffset={4}
@@ -79,20 +81,30 @@ export function NavUser({ user }: { user: UserProfile }) {
             <DropdownMenuGroup>
               <DropdownMenuItem
                 disabled
-                className="text-muted-foreground [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
+                className="text-muted-foreground coarse:min-h-11 [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
               >
                 <UserCircleIcon />
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled
-                className="text-muted-foreground [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
+                className="text-muted-foreground coarse:min-h-11 [&_svg]:text-muted-foreground cursor-not-allowed opacity-50"
               >
                 <CreditCardIcon />
                 Billing
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuItem onClick={handleSignOut}>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="coarse:min-h-11">
+              <a href="/how-it-works" target="_blank" rel="noopener noreferrer">
+                <HelpCircle className="size-4" />
+                How Hoador Works
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className="coarse:min-h-11"
+            >
               <LogOutIcon />
               {isSigningOut ? <Loader2 /> : "Log out"}
             </DropdownMenuItem>

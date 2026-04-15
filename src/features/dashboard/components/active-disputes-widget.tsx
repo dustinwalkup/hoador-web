@@ -16,7 +16,12 @@ export interface DisputeWithRelations {
     listing?: {
       name?: string;
     };
-  };
+  } | null;
+  serviceBooking?: {
+    listing?: {
+      title?: string;
+    };
+  } | null;
 }
 
 export interface ActiveDisputesWidgetProps {
@@ -51,8 +56,9 @@ export function ActiveDisputesWidget({
   disputes,
   totalCount,
 }: ActiveDisputesWidgetProps) {
+  if (totalCount === 0) return null;
   return (
-    <Card className="flex h-full min-h-80 flex-col border-t-0 border-l-4 border-l-orange-500">
+    <Card className="flex h-full min-h-80 flex-col overflow-hidden border-t-0 border-l-4 border-l-orange-500">
       <CardHeader className="shrink-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-base font-medium">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/10">
@@ -92,7 +98,9 @@ export function ActiveDisputesWidget({
                     >
                       <div className="min-w-0 flex-1">
                         <span className="font-medium">
-                          {d.rental?.listing?.name ?? "Dispute"}
+                          {d.rental?.listing?.name ??
+                            d.serviceBooking?.listing?.title ??
+                            "Dispute"}
                         </span>
                         <div className="mt-1">
                           <span

@@ -10,6 +10,7 @@ export const mockDispute: DisputeWithRelations = {
   id: "dispute-123",
   referenceNumber: 42,
   rentalId: "rental-123",
+  serviceBookingId: null,
   createdBy: "user-123",
   createdByRole: "renter",
   reasonCode: "damage",

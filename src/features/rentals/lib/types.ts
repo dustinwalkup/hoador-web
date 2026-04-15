@@ -76,6 +76,7 @@ export interface BorrowedListing {
   ownerId: string;
   ownerName: string;
   deliveryRequested: boolean;
+  setupRequested?: boolean;
   startDate: Date;
   endDate: Date;
   totalAmount: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { ReportIssueModal } from "@/components/footer/report-issue-modal";
 import { Mail, Loader2, CheckCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -101,9 +101,9 @@ export function SimpleVerifyEmailForm({ email }: SimpleVerifyEmailFormProps) {
 
         <div className="text-muted-foreground text-center text-xs">
           Need help? Contact your community administrator or{" "}
-          <Link href="/support" className="text-green-600 underline">
-            support
-          </Link>
+          <ReportIssueModal>
+            <button className="text-green-600 underline">support</button>
+          </ReportIssueModal>
         </div>
       </div>
     </>

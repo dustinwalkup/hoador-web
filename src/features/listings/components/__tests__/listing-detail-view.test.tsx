@@ -368,10 +368,10 @@ describe("ListingDetailView", () => {
       expect(screen.getByText("John Doe")).toBeInTheDocument();
     });
 
-    it("should display listing owner title", () => {
+    it("should display owner title", () => {
       render(<ListingDetailView listing={mockListing} isOwner={false} />);
 
-      expect(screen.getByText("Listing Owner")).toBeInTheDocument();
+      expect(screen.getByText("Owner")).toBeInTheDocument();
     });
   });
 
@@ -401,10 +401,10 @@ describe("ListingDetailView", () => {
   // });
 
   describe("Action Buttons - Non-Owner", () => {
-    it("should display Rent Tool button for non-owner", () => {
+    it("should display Request booking button for non-owner", () => {
       render(<ListingDetailView listing={mockListing} isOwner={false} />);
 
-      const rentButton = screen.getByRole("link", { name: /rent item/i });
+      const rentButton = screen.getByRole("link", { name: /request booking/i });
       expect(rentButton).toBeInTheDocument();
       expect(rentButton).toHaveAttribute(
         "href",
@@ -412,15 +412,15 @@ describe("ListingDetailView", () => {
       );
     });
 
-    it("should not display Edit Listing button for non-owner", () => {
+    it("should not display Edit listing button for non-owner", () => {
       render(<ListingDetailView listing={mockListing} isOwner={false} />);
 
-      expect(screen.queryByText("Edit Listing")).not.toBeInTheDocument();
+      expect(screen.queryByText("Edit listing")).not.toBeInTheDocument();
     });
   });
 
   describe("Action Buttons - Owner", () => {
-    it("should display Edit Listing button for owner", () => {
+    it("should display Edit listing button for owner", () => {
       render(<ListingDetailView listing={mockListing} isOwner={true} />);
 
       const editButton = screen.getByRole("link", { name: /edit listing/i });
@@ -431,11 +431,11 @@ describe("ListingDetailView", () => {
       );
     });
 
-    it("should not display Rent Tool button for owner", () => {
+    it("should not display Request booking button for owner", () => {
       render(<ListingDetailView listing={mockListing} isOwner={true} />);
 
       expect(
-        screen.queryByRole("link", { name: /rent tool/i }),
+        screen.queryByRole("link", { name: /request booking/i }),
       ).not.toBeInTheDocument();
     });
 
@@ -559,7 +559,7 @@ describe("ListingDetailView", () => {
       );
 
       // Component should still render without crashing
-      expect(screen.getByText("Listing Owner")).toBeInTheDocument();
+      expect(screen.getByText("Owner")).toBeInTheDocument();
     });
   });
 
@@ -609,7 +609,7 @@ describe("ListingDetailView", () => {
       );
 
       expect(
-        screen.getByRole("link", { name: /rent item/i }),
+        screen.getByRole("link", { name: /request booking/i }),
       ).toBeInTheDocument();
 
       rerender(<ListingDetailView listing={mockListing} isOwner={true} />);

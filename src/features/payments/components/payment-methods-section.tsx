@@ -127,7 +127,7 @@ export function PaymentMethodsSection() {
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Payment Methods</CardTitle>
+            <CardTitle>Payment methods</CardTitle>
             <CardDescription>Manage your saved payment methods</CardDescription>
           </div>
           <Button

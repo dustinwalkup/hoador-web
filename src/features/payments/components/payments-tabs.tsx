@@ -38,15 +38,15 @@ export function PaymentsTabs({ children, isOnboarded }: PaymentsTabsProps) {
 
   return (
     <Tabs value={activeTab} className="space-y-6">
-      <div className="-mx-4 flex items-center justify-between overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <TabsList className="flex max-w-fit items-center justify-start gap-1">
+      <div className="coarse:mb-1 -mx-4 flex flex-col gap-3 px-4 sm:mx-0 sm:flex-row sm:items-center sm:justify-between sm:px-0">
+        <TabsList className="flex max-w-fit items-center justify-start gap-1 overflow-x-auto">
           {PAYMENTS_TABS.tabValues.map((tab) => (
             <PaymentsTabTrigger key={tab.value} tab={tab} />
           ))}
         </TabsList>
 
         {showAdvancedSettings && (
-          <div className="flex justify-end">
+          <div className="flex shrink-0">
             <Button
               variant="ghost"
               size="sm"

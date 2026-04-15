@@ -19,7 +19,17 @@ type DateFormatPattern = "MMM d" | "PPP";
 /**
  * Valid date input types
  */
-type DateInput = Date | string | number;
+export type DateInput = Date | string | number;
+
+/**
+ * Epoch milliseconds for sorting and equality; supports JSON ISO strings from APIs.
+ *
+ * @param value - Date instance, timestamp number, or ISO string
+ * @returns Milliseconds since Unix epoch
+ */
+export function timeMs(value: DateInput): number {
+  return new Date(value).getTime();
+}
 
 /**
  * Calculate the number of full days between two dates
@@ -137,6 +147,22 @@ export const formatDate = (
     default:
       return new Date(date).toLocaleDateString();
   }
+};
+
+/**
+ * Format a date-only string (YYYY-MM-DD) as a full local date.
+ * Avoids the UTC-midnight timezone shift that occurs with new Date("YYYY-MM-DD").
+ * @param dateStr - ISO date-only string, e.g. "2026-04-07"
+ * @returns e.g. "Tuesday, April 7, 2026"
+ */
+export const formatLocalDate = (dateStr: string): string => {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
 };
 
 /**

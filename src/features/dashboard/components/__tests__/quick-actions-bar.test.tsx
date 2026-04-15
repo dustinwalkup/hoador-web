@@ -11,9 +11,11 @@ vi.mock("next/link", () => ({
 }));
 
 describe("QuickActionsBar", () => {
-  it("should render List, Browse controls and Messages link", () => {
+  it("should render List item, Browse controls and Messages link", () => {
     render(<QuickActionsBar />);
-    expect(screen.getByRole("button", { name: /^List$/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^List item$/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /^Browse$/i }),
     ).toBeInTheDocument();
@@ -23,12 +25,12 @@ describe("QuickActionsBar", () => {
   it("should point List dialog options to rental listings and service creation", async () => {
     const user = userEvent.setup();
     render(<QuickActionsBar />);
-    await user.click(screen.getByRole("button", { name: /^List$/i }));
+    await user.click(screen.getByRole("button", { name: /^List item$/i }));
 
     const rentalLink = await screen.findByRole("link", {
       name: /List a rental/i,
     });
-    expect(rentalLink).toHaveAttribute("href", "/dashboard/listings/rentals");
+    expect(rentalLink).toHaveAttribute("href", "/dashboard/listings/add");
 
     const serviceLink = screen.getByRole("link", { name: /Offer a service/i });
     expect(serviceLink).toHaveAttribute(

@@ -7,7 +7,6 @@ const mockListingGetById = vi.fn();
 const mockBookingCreate = vi.fn();
 const mockBookingGetById = vi.fn();
 const mockBookingUpdate = vi.fn();
-const mockCreateNoShow = vi.fn();
 const mockGetStripePm = vi.fn();
 const mockGetUserById = vi.fn();
 const mockAuditCreate = vi.fn();
@@ -18,7 +17,6 @@ const mockSendNotification = vi.fn();
 const mockSendNewBooking = vi.fn();
 const mockSendAccepted = vi.fn();
 const mockSendDeclined = vi.fn();
-const mockSendNoShowAdmin = vi.fn();
 const mockSendJobCompleted = vi.fn();
 const mockCaptureError = vi.fn();
 const mockSendOpsAlert = vi.fn();
@@ -27,6 +25,8 @@ const mockLifecycleCreate = vi.fn();
 const mockLifecycleUpdatePayout = vi.fn();
 const mockLifecycleGetByBookingId = vi.fn();
 const mockLifecycleMarkCancelled = vi.fn();
+const mockLifecycleUpdateOwnerTransfer = vi.fn();
+const mockCreateServiceTransfer = vi.fn();
 
 const { mockLegalGetAllVersions } = vi.hoisted(() => ({
   mockLegalGetAllVersions: vi.fn(),
@@ -34,6 +34,9 @@ const { mockLegalGetAllVersions } = vi.hoisted(() => ({
 
 vi.mock("@/dal", () => ({
   auditLogDAL: { create: (...a: unknown[]) => mockAuditCreate(...a) },
+  disputeDAL: {
+    getActiveByServiceBookingId: vi.fn().mockResolvedValue(null),
+  },
   legalDocumentDAL: {
     getAllCurrentVersions: (...a: unknown[]) => mockLegalGetAllVersions(...a),
   },
@@ -42,7 +45,6 @@ vi.mock("@/dal", () => ({
     create: (...a: unknown[]) => mockBookingCreate(...a),
     getById: (...a: unknown[]) => mockBookingGetById(...a),
     update: (...a: unknown[]) => mockBookingUpdate(...a),
-    createNoShowReport: (...a: unknown[]) => mockCreateNoShow(...a),
   },
   serviceListingDAL: { getById: (...a: unknown[]) => mockListingGetById(...a) },
   servicePaymentLifecycleDAL: {
@@ -50,6 +52,8 @@ vi.mock("@/dal", () => ({
     updatePayoutStatus: (...a: unknown[]) => mockLifecycleUpdatePayout(...a),
     getByBookingId: (...a: unknown[]) => mockLifecycleGetByBookingId(...a),
     markCancelled: (...a: unknown[]) => mockLifecycleMarkCancelled(...a),
+    updateOwnerTransferStatus: (...a: unknown[]) =>
+      mockLifecycleUpdateOwnerTransfer(...a),
   },
   userDAL: {
     getUserById: (...a: unknown[]) => mockGetUserById(...a),
@@ -62,6 +66,7 @@ vi.mock("@/services/stripe/payment-method", () => ({
 
 vi.mock("@/services/stripe/service-payments", () => ({
   chargeServicePayment: (...a: unknown[]) => mockChargeServicePayment(...a),
+  createServiceTransfer: (...a: unknown[]) => mockCreateServiceTransfer(...a),
 }));
 
 vi.mock("@/services/stripe/refund", () => ({
@@ -90,8 +95,6 @@ vi.mock("@/features/services/notifications/service-notifications", () => ({
   sendBookingAcceptedNotification: (...a: unknown[]) => mockSendAccepted(...a),
   sendBookingDeclinedNotification: (...a: unknown[]) => mockSendDeclined(...a),
   sendJobCompletedNotification: (...a: unknown[]) => mockSendJobCompleted(...a),
-  sendNoShowReportAdminNotification: (...a: unknown[]) =>
-    mockSendNoShowAdmin(...a),
 }));
 
 const listingActive = {
@@ -526,6 +529,11 @@ describe("ServiceBookingService", () => {
   });
 
   describe("cancelBooking", () => {
+    beforeEach(() => {
+      // Default: provider has no connected account so no transfer is attempted
+      mockGetUserById.mockResolvedValue(null);
+    });
+
     it("cancels pending booking without Stripe refund", async () => {
       mockBookingGetById.mockResolvedValue(bookingPending);
       mockBookingUpdate.mockResolvedValue({
@@ -545,7 +553,9 @@ describe("ServiceBookingService", () => {
       stripeChargeId: "ch_1",
       requesterId: "req-1",
       providerId: "prov-1",
-      totalAmount: "100.00",
+      servicePrice: "100.00",
+      serviceFee: "3.30",
+      totalAmount: "103.30",
       proposedDate: "2025-12-20",
       proposedTime: "14:00",
       listing: {} as never,
@@ -568,8 +578,9 @@ describe("ServiceBookingService", () => {
       await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
 
       expect(mockLifecycleMarkCancelled).toHaveBeenCalledWith("book-1");
+      // Full refund uses totalAmount (service fee refunded)
       expect(mockProcessRefund).toHaveBeenCalledWith(
-        expect.objectContaining({ refundAmountCents: 10000 }),
+        expect.objectContaining({ refundAmountCents: 10330 }),
       );
     });
 
@@ -608,9 +619,108 @@ describe("ServiceBookingService", () => {
       await ServiceBookingService.cancelBooking("book-1", "prov-1", "bye", ctx);
 
       expect(mockLifecycleMarkCancelled).toHaveBeenCalledWith("book-1");
+      // Full refund uses totalAmount (service fee refunded when provider cancels)
       expect(mockProcessRefund).toHaveBeenCalledWith(
-        expect.objectContaining({ refundAmountCents: 10000 }),
+        expect.objectContaining({ refundAmountCents: 10330 }),
       );
+    });
+
+    it("50% refund is based on servicePrice, not totalAmount — service fee excluded", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2025-12-20T13:00:00Z"));
+
+      // servicePrice: $100.00, serviceFee: $3.30, totalAmount: $103.30
+      mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockBookingUpdate.mockResolvedValue({ ...accepted, status: "cancelled" });
+
+      await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
+
+      // 50% of $100 servicePrice = $50 (5000 cents), NOT 50% of $103.30 = $51.65
+      expect(mockProcessRefund).toHaveBeenCalledWith(
+        expect.objectContaining({ refundAmountCents: 5000 }),
+      );
+    });
+
+    it("transfers 30% of servicePrice to provider when requester cancels within 24h", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2025-12-20T13:00:00Z"));
+
+      mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockBookingUpdate.mockResolvedValue({ ...accepted, status: "cancelled" });
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct_provider",
+      });
+      mockCreateServiceTransfer.mockResolvedValue({
+        success: true,
+        transferId: "tr_1",
+      });
+
+      await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
+
+      // Provider gets retained 50% minus 20% platform fee = 30% of $100 = $30
+      expect(mockCreateServiceTransfer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "service-cancel-transfer-book-1",
+          chargeId: "ch_1",
+          providerConnectedAccountId: "acct_provider",
+          providerPayoutAmount: 30,
+        }),
+      );
+      expect(mockLifecycleUpdateOwnerTransfer).toHaveBeenCalledWith(
+        "book-1",
+        "completed",
+        expect.objectContaining({ stripeTransferId: "tr_1" }),
+      );
+    });
+
+    it("sends ops alert when provider transfer fails but cancellation still succeeds", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2025-12-20T13:00:00Z"));
+
+      mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockBookingUpdate.mockResolvedValue({ ...accepted, status: "cancelled" });
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct_provider",
+      });
+      mockCreateServiceTransfer.mockResolvedValue({
+        success: false,
+        error: "Connect account deactivated",
+      });
+
+      await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
+
+      expect(mockSendOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "service_booking_cancel_transfer_failed",
+          serviceBookingId: "book-1",
+          sendEmailAlert: true,
+        }),
+      );
+      // Booking was still cancelled
+      expect(mockBookingUpdate).toHaveBeenCalledWith(
+        "book-1",
+        expect.objectContaining({ status: "cancelled" }),
+      );
+    });
+
+    it("does not transfer to provider when requester cancels more than 24h before", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2025-12-18T12:00:00Z"));
+
+      mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockBookingUpdate.mockResolvedValue({ ...accepted, status: "cancelled" });
+
+      await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
+
+      expect(mockCreateServiceTransfer).not.toHaveBeenCalled();
     });
   });
 
@@ -656,30 +766,6 @@ describe("ServiceBookingService", () => {
 
       expect(out.status).toBe("declined");
       expect(mockSendDeclined).toHaveBeenCalledWith("req-1", declined, "busy");
-    });
-  });
-
-  describe("reportNoShow", () => {
-    it("creates report and notifies admin", async () => {
-      const accepted = {
-        ...bookingPending,
-        status: "accepted" as const,
-        listing: {} as never,
-        requester: {} as never,
-        provider: {} as never,
-      };
-      mockBookingGetById.mockResolvedValue(accepted);
-      const report = { id: "ns-1", bookingId: "book-1", reportedBy: "req-1" };
-      mockCreateNoShow.mockResolvedValue(report);
-
-      const out = await ServiceBookingService.reportNoShow(
-        "book-1",
-        "req-1",
-        "n",
-      );
-
-      expect(out).toEqual(report);
-      expect(mockSendNoShowAdmin).toHaveBeenCalledWith(report, accepted);
     });
   });
 });

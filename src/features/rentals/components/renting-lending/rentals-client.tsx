@@ -250,7 +250,7 @@ export function RentalsClient({
           reviewPolicyUrl={reviewPolicyUrl}
           emptyStateMessage={
             activeStatus === "requests"
-              ? "No pending requests."
+              ? "Nothing rented yet"
               : activeStatus === "approved"
                 ? "No approved requests."
                 : activeStatus === "denied"
@@ -261,7 +261,7 @@ export function RentalsClient({
           }
           emptyStateAction={
             activeStatus === "requests"
-              ? { label: "Browse Listings", href: "/explore" }
+              ? { label: "Browse", href: "/dashboard/explore" }
               : undefined
           }
         />
@@ -273,7 +273,7 @@ export function RentalsClient({
           data={data as LendingRequestItem[]}
           emptyStateMessage={
             activeStatus === "incoming"
-              ? "No incoming requests."
+              ? "No rental requests yet"
               : activeStatus === "approved"
                 ? "No approved requests."
                 : activeStatus === "cancelled"
@@ -312,7 +312,7 @@ export function RentalsClient({
           <button
             onClick={() => handleTypeChange("lending")}
             className={cn(
-              "rounded-md px-4 py-2 text-sm font-medium transition-all",
+              "coarse:min-h-11 rounded-md px-4 py-2 text-sm font-medium transition-all",
               activeType === "lending"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -323,7 +323,7 @@ export function RentalsClient({
           <button
             onClick={() => handleTypeChange("renting")}
             className={cn(
-              "rounded-md px-4 py-2 text-sm font-medium transition-all",
+              "coarse:min-h-11 rounded-md px-4 py-2 text-sm font-medium transition-all",
               activeType === "renting"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -352,7 +352,7 @@ export function RentalsClient({
                   key={filter.value}
                   onClick={() => handleStatusChange(filter.value)}
                   className={cn(
-                    "shrink-0 rounded-lg border px-4 py-2 text-sm font-medium transition-all",
+                    "coarse:min-h-11 shrink-0 rounded-lg border px-4 py-2 text-sm font-medium transition-all",
                     activeStatus === filter.value
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-background text-foreground hover:border-primary/50 hover:bg-accent",

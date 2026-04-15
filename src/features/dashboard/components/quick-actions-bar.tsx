@@ -46,7 +46,7 @@ export function QuickActionsBar({ unreadCount = 0 }: QuickActionsBarProps) {
 
   return (
     <motion.nav
-      className="-mx-1 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:pb-0"
+      className="-mx-1 flex flex-nowrap gap-2 overflow-x-auto px-1 pt-2 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:pt-0 sm:pb-0"
       aria-label="Quick actions"
       initial="hidden"
       whileInView="visible"
@@ -65,20 +65,20 @@ export function QuickActionsBar({ unreadCount = 0 }: QuickActionsBarProps) {
               className="shrink-0 gap-2 shadow-xs"
             >
               <Plus className="h-4 w-4" aria-hidden />
-              List
+              List item
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>What would you like to list?</DialogTitle>
               <DialogDescription>
-                Share tools for rent or offer a service to neighbors.
+                Share items to rent or offer a service to neighbors.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-2 pt-2">
               <DialogClose asChild>
                 <Link
-                  href="/dashboard/listings/rentals"
+                  href="/dashboard/listings/add"
                   className={cn(
                     "bg-card flex items-center gap-3 rounded-lg border p-4 text-left text-sm font-medium transition-colors",
                     "hover:bg-accent hover:text-accent-foreground",
@@ -94,7 +94,7 @@ export function QuickActionsBar({ unreadCount = 0 }: QuickActionsBarProps) {
                   <span>
                     <span className="block">List a rental</span>
                     <span className="text-muted-foreground font-normal">
-                      Tools and items neighbors can borrow
+                      Items neighbors can borrow
                     </span>
                   </span>
                 </Link>
@@ -183,13 +183,13 @@ export function QuickActionsBar({ unreadCount = 0 }: QuickActionsBarProps) {
           className="relative shrink-0 gap-2"
           asChild
         >
-          <Link href="/dashboard/mailbox">
+          <Link href="/dashboard/mailbox" className="relative">
             <MessageCircle className="h-4 w-4" aria-hidden />
             Messages
             {showUnreadBadge && (
               <Badge
                 variant="default"
-                className="ml-0.5 min-w-5 justify-center px-1.5 py-0 text-[10px] leading-none"
+                className="absolute -top-2 -right-2 z-100! size-6 justify-center rounded-full text-[11px] leading-none"
                 aria-label={`${unreadCount} unread messages`}
               >
                 {unreadCount > 99 ? "99+" : unreadCount}

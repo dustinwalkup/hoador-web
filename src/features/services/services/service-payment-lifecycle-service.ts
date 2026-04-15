@@ -90,6 +90,7 @@ export class ServicePaymentLifecycleService {
           {
             stripeTransferId: transfer.transferId,
             ownerTransferredAt: new Date(),
+            transferAmount: Number(row.providerPayout),
           },
         );
         await servicePaymentLifecycleDAL.updatePayoutStatus(

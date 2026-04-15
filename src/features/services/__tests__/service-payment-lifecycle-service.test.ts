@@ -140,11 +140,109 @@ describe("ServicePaymentLifecycleService", () => {
       "completed",
       expect.objectContaining({
         stripeTransferId: "tr_1",
+        transferAmount: 80,
       }),
     );
     expect(mockUpdatePayout).toHaveBeenCalledWith("b1", "completed");
     expect(mockSendPayoutNotif).toHaveBeenCalledWith("prov-1", bookingDetail);
     expect(summary.succeeded).toBe(1);
+  });
+
+  // UAT-SVC-32: Payout cron — transfer fails, ops alerted
+  describe("transfer fails: payoutStatus failed, ops alerted, provider not notified", () => {
+    beforeEach(() => {
+      mockFindEligible.mockResolvedValue([baseRow]);
+      mockClaim.mockResolvedValue(true);
+      mockCreateTransfer.mockResolvedValue({
+        success: false,
+        error: "The destination account is deactivated.",
+      });
+    });
+
+    it("sets payoutStatus to 'failed'", async () => {
+      const summary = await ServicePaymentLifecycleService.processPayouts(20);
+
+      expect(mockUpdatePayout).toHaveBeenCalledWith("b1", "failed");
+      expect(summary.failed).toBe(1);
+      expect(summary.succeeded).toBe(0);
+    });
+
+    it("sends ops alert with bookingId and error details (sendEmailAlert: true)", async () => {
+      await ServicePaymentLifecycleService.processPayouts(20);
+
+      expect(mockSendOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "service_payout_transfer_failed",
+          serviceBookingId: "b1",
+          message: "The destination account is deactivated.",
+          sendEmailAlert: true,
+        }),
+      );
+    });
+
+    it("does not send payout notification to provider", async () => {
+      await ServicePaymentLifecycleService.processPayouts(20);
+
+      expect(mockSendPayoutNotif).not.toHaveBeenCalled();
+    });
+
+    it("does not update ownerTransferStatus — only payoutStatus is touched", async () => {
+      await ServicePaymentLifecycleService.processPayouts(20);
+
+      expect(mockUpdateOwnerTransfer).not.toHaveBeenCalled();
+      expect(mockUpdatePayout).toHaveBeenCalledTimes(1);
+      expect(mockUpdatePayout).toHaveBeenCalledWith("b1", "failed");
+    });
+  });
+
+  // UAT-SVC-33: Payout cron — concurrent runs do not double-transfer
+  describe("concurrent runs: atomic claim prevents double-transfer", () => {
+    it("creates exactly one Stripe transfer when two runs race for the same booking", async () => {
+      // Both runs find the same eligible booking
+      mockFindEligible.mockResolvedValue([baseRow]);
+      // First run wins the claim; second run loses it
+      mockClaim.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      mockCreateTransfer.mockResolvedValue({
+        success: true,
+        transferId: "tr_1",
+      });
+      mockGetById.mockResolvedValue({ id: "b1", providerId: "prov-1" });
+
+      await ServicePaymentLifecycleService.processPayouts(20);
+      await ServicePaymentLifecycleService.processPayouts(20);
+
+      expect(mockCreateTransfer).toHaveBeenCalledTimes(1);
+    });
+
+    it("payoutStatus is completed after winning run; losing run makes no status change", async () => {
+      mockFindEligible.mockResolvedValue([baseRow]);
+      mockClaim.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      mockCreateTransfer.mockResolvedValue({
+        success: true,
+        transferId: "tr_1",
+      });
+      mockGetById.mockResolvedValue({ id: "b1", providerId: "prov-1" });
+
+      await ServicePaymentLifecycleService.processPayouts(20);
+      await ServicePaymentLifecycleService.processPayouts(20);
+
+      // Only one status update — to completed — from the winning run
+      expect(mockUpdatePayout).toHaveBeenCalledTimes(1);
+      expect(mockUpdatePayout).toHaveBeenCalledWith("b1", "completed");
+    });
+
+    it("losing run reports processed: 1, succeeded: 0 without alerting ops", async () => {
+      mockFindEligible.mockResolvedValue([baseRow]);
+      mockClaim.mockResolvedValue(false); // simulates the losing runner only
+
+      const summary = await ServicePaymentLifecycleService.processPayouts(20);
+
+      expect(summary.processed).toBe(1);
+      expect(summary.succeeded).toBe(0);
+      expect(summary.failed).toBe(0); // not a failure — just lost the race
+      expect(mockSendOpsAlert).not.toHaveBeenCalled();
+      expect(mockCreateTransfer).not.toHaveBeenCalled();
+    });
   });
 
   it("counts transfer failure without throwing; continues batch", async () => {

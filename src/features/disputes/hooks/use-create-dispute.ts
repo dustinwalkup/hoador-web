@@ -4,13 +4,14 @@ import { disputeKeys } from "./use-disputes";
 import type { DisputeReasonCode } from "@/dal/types";
 
 export interface CreateDisputeData {
-  rentalId: string;
+  rentalId?: string;
+  serviceBookingId?: string;
   reasonCode: DisputeReasonCode;
   description: string;
 }
 
 /**
- * Hook for creating a new dispute
+ * Hook for creating a new dispute (rental or service booking).
  */
 export function useCreateDispute() {
   const router = useRouter();
@@ -32,10 +33,9 @@ export function useCreateDispute() {
     },
     successMessage: "Dispute created successfully",
     invalidateQueryKeys: [disputeKeys.all],
-    onSuccess: (data) => {
-      // Navigate to dispute detail page if dispute ID is returned
-      if (data?.id) {
-        router.push(`/dashboard/disputes/${data.id}`);
+    onSuccess: (responseData) => {
+      if (responseData?.id) {
+        router.push(`/dashboard/disputes/${responseData.id}`);
       }
     },
   });

@@ -7,7 +7,7 @@ import {
   serviceProviderProfiles,
 } from "@/db/schemas/services.schema";
 import { serviceReviews } from "@/db/schemas/service-reviews.schema";
-import { serviceNoShowReports } from "@/db/schemas/service-no-show-reports.schema";
+import { disputes } from "@/db/schemas/disputes.schema";
 
 /**
  * Schema + migration alignment for Phase 1 test plan.
@@ -25,9 +25,8 @@ describe("services phase 1 schema (drizzle)", () => {
     expect(serviceProviderProfiles.aggregateRating.notNull).toBe(false);
   });
 
-  it("service_no_show_reports links booking and reporter", () => {
-    expect(serviceNoShowReports.bookingId).toBeDefined();
-    expect(serviceNoShowReports.reportedBy).toBeDefined();
+  it("disputes table includes service_booking_id for service disputes", () => {
+    expect(disputes.serviceBookingId).toBeDefined();
   });
 
   it("service_reviews has bookingId and reviewerId columns for unique index", () => {

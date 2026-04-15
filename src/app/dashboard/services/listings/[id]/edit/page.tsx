@@ -9,7 +9,7 @@ import { ServiceListingForm } from "@/features/services/components/service-listi
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
 export const metadata = {
-  title: "Edit service listing",
+  title: "Edit listing",
 };
 
 interface PageProps {
@@ -33,7 +33,7 @@ export default async function EditServiceListingPage({ params }: PageProps) {
       <div className="mb-6">
         <BackButton />
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold sm:text-3xl">Edit Listing</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Edit listing</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
             {listing.title}
           </p>

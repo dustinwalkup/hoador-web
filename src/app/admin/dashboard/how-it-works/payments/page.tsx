@@ -17,6 +17,7 @@ import {
   FileCode,
   ListChecks,
 } from "lucide-react";
+import { HowPaymentsWorkModal } from "@/components/payments/how-payments-work-modal";
 
 export const metadata = {
   title: "How It Works - Payments",
@@ -229,6 +230,23 @@ export default function HowItWorksPaymentsPage() {
         title="Payments"
         description="How payments, refunds, and payouts work"
       />
+
+      {/* User-facing payments explainer */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="size-5" />
+            User-Facing Payments Explainer
+          </CardTitle>
+          <CardDescription>
+            The modal users see when they click &quot;Learn how payments
+            work&quot; throughout the app
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <HowPaymentsWorkModal className="text-sm" />
+        </CardContent>
+      </Card>
 
       {/* Section 1: System Architecture Overview */}
       <Card className="mb-6">

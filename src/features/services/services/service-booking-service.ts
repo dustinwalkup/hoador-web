@@ -1,5 +1,6 @@
 import {
   auditLogDAL,
+  disputeDAL,
   legalDocumentDAL,
   paymentDAL,
   serviceBookingDAL,
@@ -9,6 +10,7 @@ import {
 } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import {
+  ConflictError,
   ForbiddenError,
   NotFoundError,
   ServiceBookingPaymentFailedError,
@@ -26,9 +28,11 @@ import {
   sendBookingDeclinedNotification,
   sendJobCompletedNotification,
   sendNewBookingRequestNotification,
-  sendNoShowReportAdminNotification,
 } from "@/features/services/notifications/service-notifications";
-import { chargeServicePayment } from "@/services/stripe/service-payments";
+import {
+  chargeServicePayment,
+  createServiceTransfer,
+} from "@/services/stripe/service-payments";
 import { getStripeCustomerContext } from "@/services/stripe/payment-method";
 import { getPaymentErrorMessage } from "@/services/stripe/rental-payments";
 import { processRefund } from "@/services/stripe/refund";
@@ -302,8 +306,27 @@ export class ServiceBookingService {
       throw new ValidationError("payment_method_required", "paymentMethod");
     }
 
-    const paymentMethodId =
-      detail.selectedPaymentMethodId ?? stripeCtx.paymentMethodId;
+    let paymentMethodId: string;
+
+    if (detail.status === "payment_failed") {
+      // On retry, always use the requester's current Stripe default — not the previously failed PM.
+      paymentMethodId = stripeCtx.paymentMethodId;
+
+      // Guard: if the default hasn't changed since the failure, reject early.
+      if (
+        detail.selectedPaymentMethodId != null &&
+        detail.selectedPaymentMethodId === paymentMethodId
+      ) {
+        throw new ValidationError(
+          "Payment method is unchanged. Please update your default payment method and ask the provider to retry.",
+          "paymentMethod",
+        );
+      }
+    } else {
+      // First acceptance attempt: prefer the PM the requester chose at booking creation.
+      paymentMethodId =
+        detail.selectedPaymentMethodId ?? stripeCtx.paymentMethodId;
+    }
 
     const chargeIdempotencyKey =
       detail.status === "payment_failed"
@@ -552,8 +575,17 @@ export class ServiceBookingService {
       throw new ValidationError("Booking cannot be cancelled", "status");
     }
 
+    const activeDispute =
+      await disputeDAL.getActiveByServiceBookingId(bookingId);
+    if (activeDispute) {
+      throw new ConflictError(
+        "Cannot cancel a booking with an active dispute. Resolve the dispute first.",
+      );
+    }
+
     const isRequester = detail.requesterId === userId;
-    const total = Number(detail.totalAmount);
+    const servicePriceNum = Number(detail.servicePrice);
+    const totalAmountNum = Number(detail.totalAmount);
     let refundFraction = 0;
 
     if (detail.status === "accepted" && detail.stripeChargeId) {
@@ -572,7 +604,10 @@ export class ServiceBookingService {
       }
     }
 
-    const refundAmountCents = Math.round(total * refundFraction * 100);
+    // Partial refunds: base on servicePrice — service fee is non-refundable
+    // Full refunds (>24hr client cancel or provider cancel): refund totalAmount including service fee
+    const refundBase = refundFraction < 1 ? servicePriceNum : totalAmountNum;
+    const refundAmountCents = Math.round(refundBase * refundFraction * 100);
     let stripeRefundId: string | null = null;
     let refundAmountStr: string | null = null;
 
@@ -604,6 +639,50 @@ export class ServiceBookingService {
       } else {
         stripeRefundId = refundResult.refundId;
         refundAmountStr = (refundAmountCents / 100).toFixed(2);
+      }
+    }
+
+    // If requester cancels within 24hr, transfer provider's retained portion (50% - 20% fee = 30%)
+    if (isRequester && refundFraction === 0.5 && detail.stripeChargeId) {
+      const providerUser = await userDAL.getUserById(detail.providerId);
+      const providerConnectedAccountId =
+        providerUser?.stripeConnectedAccountId ?? null;
+      const providerPayoutAmount =
+        Math.round(
+          servicePriceNum * (refundFraction - PLATFORM_FEE_PERCENTAGE) * 100,
+        ) / 100;
+
+      if (providerConnectedAccountId && providerPayoutAmount > 0) {
+        const transferResult = await createServiceTransfer({
+          bookingId,
+          idempotencyKey: `service-cancel-transfer-${bookingId}`,
+          chargeId: detail.stripeChargeId,
+          providerConnectedAccountId,
+          providerPayoutAmount,
+        });
+
+        if (transferResult.success) {
+          await servicePaymentLifecycleDAL.updateOwnerTransferStatus(
+            bookingId,
+            "completed",
+            {
+              stripeTransferId: transferResult.transferId,
+              ownerTransferredAt: new Date(),
+              transferAmount: providerPayoutAmount,
+            },
+          );
+        } else {
+          captureNonCriticalError(new Error(transferResult.error), {
+            route: "/api/services/bookings",
+            action: "cancel_booking_provider_transfer_failed",
+          });
+          await sendOpsAlert({
+            event: "service_booking_cancel_transfer_failed",
+            serviceBookingId: detail.id,
+            message: transferResult.error,
+            sendEmailAlert: true,
+          });
+        }
       }
     }
 
@@ -658,38 +737,5 @@ export class ServiceBookingService {
     });
 
     return updated;
-  }
-
-  /**
-   * Report a no-show (accepted booking). Ops is notified; no automatic refund.
-   */
-  static async reportNoShow(
-    bookingId: string,
-    reportedBy: string,
-    notes?: string,
-  ) {
-    const detail = await serviceBookingDAL.getById(bookingId);
-    if (!detail) {
-      throw new NotFoundError("Service booking", bookingId);
-    }
-    if (detail.status !== "accepted") {
-      throw new ValidationError(
-        "No-show can only be reported for accepted bookings",
-        "status",
-      );
-    }
-    if (reportedBy !== detail.requesterId && reportedBy !== detail.providerId) {
-      throw new ForbiddenError("You cannot report this booking");
-    }
-
-    const report = await serviceBookingDAL.createNoShowReport({
-      bookingId: detail.id,
-      reportedBy,
-      notes: notes ?? null,
-    });
-
-    await sendNoShowReportAdminNotification(report, detail);
-
-    return report;
   }
 }

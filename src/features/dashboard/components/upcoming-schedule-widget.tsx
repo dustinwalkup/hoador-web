@@ -1,11 +1,12 @@
-import Link from "next/link";
-import { Calendar, ChevronRight } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type {
   ScheduleEntry,
   ScheduleEntryRole,
 } from "@/features/dashboard/types";
+import { ScheduleEntryNextStep } from "@/features/dashboard/components/schedule-entry-next-step";
+import { EmptyStateCoach } from "@/components/empty-state-coach";
 
 export type { ScheduleEntry };
 
@@ -39,14 +40,6 @@ export interface UpcomingScheduleWidgetProps {
   entries: ScheduleEntry[];
 }
 
-function formatDate(d: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(d);
-}
-
 /**
  * Upcoming schedule with teal accent, date badges, role pills, and graceful empty state.
  */
@@ -67,7 +60,7 @@ export function UpcomingScheduleWidget({
                 aria-hidden
               />
             </div>
-            <span>Upcoming Schedule</span>
+            <span>Coming up</span>
           </CardTitle>
           <Badge className="shrink-0 border-transparent bg-teal-600 px-2.5 py-0.5 text-xs font-semibold text-white hover:bg-teal-600 dark:bg-teal-600">
             {countLabel}
@@ -82,34 +75,42 @@ export function UpcomingScheduleWidget({
         }
       >
         {entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-500/10">
-              <Calendar className="h-6 w-6 text-teal-400" />
-            </div>
-            <p className="text-muted-foreground mt-3 text-sm">
-              Nothing scheduled
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Upcoming rentals and services will show here
-            </p>
-          </div>
+          <EmptyStateCoach
+            icon={Calendar}
+            iconColor="text-teal-400"
+            iconBg="bg-teal-500/10"
+            headline="Nothing coming up"
+            description="Upcoming rentals and services will show here"
+            cta={{
+              label: "Browse rentals",
+              href: "/dashboard/explore",
+            }}
+          />
         ) : (
-          <div className="scrollbar-hover-reveal max-h-60 min-h-0 overflow-x-hidden overflow-y-auto">
-            <ul className="space-y-1">
+          <div className="scrollbar-hover-reveal max-h-96 min-h-0 overflow-x-hidden overflow-y-auto">
+            <ul className="">
               {entries.map((entry) => {
                 const badge = ROLE_BADGE[entry.role];
                 const inner = (
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-teal-500/10 text-center">
-                      <span className="text-[10px] leading-none font-semibold text-teal-600 uppercase dark:text-teal-400">
-                        {new Intl.DateTimeFormat("en-US", {
-                          weekday: "short",
-                        }).format(entry.date)}
-                      </span>
-                      <span className="text-sm leading-tight font-bold text-teal-700 dark:text-teal-300">
-                        {entry.date.getDate()}
+                    <div className="flex min-w-15 flex-col items-center justify-center gap-2">
+                      <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-teal-500/10 text-center">
+                        <span className="text-xs leading-none font-semibold text-teal-600 uppercase dark:text-teal-400">
+                          {new Intl.DateTimeFormat("en-US", {
+                            weekday: "short",
+                          }).format(entry.date)}
+                        </span>
+                        <span className="text-md leading-tight font-bold text-teal-700 dark:text-teal-300">
+                          {entry.date.getDate()}
+                        </span>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${badge.className}`}
+                      >
+                        {badge.label}
                       </span>
                     </div>
+
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{entry.description}</p>
                       {entry.subtitle ? (
@@ -117,31 +118,18 @@ export function UpcomingScheduleWidget({
                           {entry.subtitle}
                         </p>
                       ) : null}
-                      <span
-                        className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${badge.className}`}
-                      >
-                        {badge.label}
-                      </span>
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        {formatDate(entry.date)}
-                      </p>
+                      {/* Role badge + next-step chip on one row.
+                          flex-1 and stopPropagation live inside the client component. */}
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <ScheduleEntryNextStep entry={entry} />
+                      </div>
                     </div>
                   </div>
                 );
 
                 return (
                   <li key={entry.id}>
-                    {entry.linkTo ? (
-                      <Link
-                        href={entry.linkTo}
-                        className="group flex items-center rounded-lg p-2 transition-colors hover:bg-teal-50 dark:hover:bg-teal-950/20"
-                      >
-                        <div className="flex-1">{inner}</div>
-                        <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-                      </Link>
-                    ) : (
-                      <div className="rounded-lg p-2">{inner}</div>
-                    )}
+                    <div className="px-1 py-4">{inner}</div>
                   </li>
                 );
               })}

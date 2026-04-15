@@ -1,13 +1,12 @@
 import { Suspense } from "react";
-import { userDAL } from "@/dal";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { GarageClient } from "@/features/listings/components/garage-page/garage-client";
 import { InitiateStripeOnboarding } from "@/features/payments/components/initiate-stripe-onboarding";
 import { PageHeader } from "@/components/page-header";
 
 export const metadata = {
-  title: "My Rentals",
-  description: "Manage your tool listings and inventory",
+  title: "Listings – Rentals | Hoador",
+  description: "Manage your rental listings, availability, and inventory.",
 };
 
 export default async function ListingsRentalsPage() {
@@ -16,8 +15,10 @@ export default async function ListingsRentalsPage() {
     return <div>Loading...</div>;
   }
 
-  // Check onboarding status
-  const isOnboarded = await userDAL.isConnectOnboardingComplete(user.id);
+  const isOnboarded =
+    user.connectChargesEnabled &&
+    user.connectPayoutsEnabled &&
+    user.connectOnboardingComplete;
 
   return (
     <div className="container pb-6">
@@ -25,7 +26,7 @@ export default async function ListingsRentalsPage() {
         <>
           <div className="container pb-6">
             <PageHeader
-              title="My Rentals"
+              title="Your rental listings"
               description="Manage your rental listings in one place"
             />
             <InitiateStripeOnboarding />{" "}

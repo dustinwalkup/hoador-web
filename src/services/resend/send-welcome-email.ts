@@ -3,6 +3,7 @@ import {
   EMAIL_LOGO_HTML,
 } from "@/features/notifications/utils/email-logo";
 import { resend, RESEND_FROM_EMAIL } from ".";
+import { escapeHtml } from "@/lib/utils/escape-html";
 
 /**
  * Send welcome email after successful verification
@@ -44,11 +45,11 @@ export async function sendWelcomeEmail({
             ${EMAIL_LOGO_HTML}
             
             <h1 style="color: #2563eb; text-align: center; margin-bottom: 30px;">
-              🎉 Welcome to Hoador${firstName ? `, ${firstName}` : ""}!
+              🎉 Welcome to Hoador${firstName ? `, ${escapeHtml(firstName)}` : ""}!
             </h1>
             
             <p style="font-size: 16px; margin-bottom: 20px;">
-              Your email has been verified and you're now part of ${communityName || "your neighborhood"} tool sharing community!
+              Your email has been verified and you're now part of ${communityName ? escapeHtml(communityName) : "your neighborhood"} tool sharing community!
             </p>
             
             <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">

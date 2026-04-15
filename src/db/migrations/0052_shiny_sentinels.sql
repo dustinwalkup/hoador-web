@@ -1,0 +1,1 @@
+ALTER TYPE "public"."dispute_role" ADD VALUE 'owner' BEFORE 'provider';

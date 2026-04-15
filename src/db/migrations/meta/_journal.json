@@ -344,6 +344,41 @@
       "when": 1775110000000,
       "tag": "0048_service_booking_payment_method",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1775611293561,
+      "tag": "0049_numerous_blink",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1775612174198,
+      "tag": "0050_unusual_sleepwalker",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1775612184748,
+      "tag": "0051_giant_firebird",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1775614020022,
+      "tag": "0052_shiny_sentinels",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1775707000000,
+      "tag": "0053_admin_notification_types",
+      "breakpoints": true
     }
   ]
 }

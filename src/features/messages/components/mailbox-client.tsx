@@ -62,6 +62,8 @@ export function MailboxClient({
   const archived = activeTab === "archived";
 
   // Direct useInfiniteQuery with initialData for proper React Query management
+  const totalConversations = conversations.length;
+
   const {
     data: conversationsData,
     fetchNextPage,
@@ -146,6 +148,7 @@ export function MailboxClient({
           <ChatArea
             conversationId={selectedConversationId}
             onBackToConversations={handleBackToConversations}
+            isEmpty={totalConversations === 0}
           />
         </div>
       </div>

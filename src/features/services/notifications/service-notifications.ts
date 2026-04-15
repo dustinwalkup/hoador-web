@@ -6,7 +6,6 @@ import type {
   ServiceBooking,
   ServiceListing,
 } from "@/db/schemas/services.schema";
-import type { ServiceNoShowReport } from "@/db/schemas/service-no-show-reports.schema";
 
 function appBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
@@ -343,6 +342,104 @@ export async function sendServicePayoutNotification(
 }
 
 /**
+ * Notify the provider that the requester updated their payment method and the booking can be retried.
+ */
+export async function sendPaymentMethodUpdatedProviderNotification(
+  providerId: string,
+  booking: { id: string; listingId: string },
+): Promise<ReturnType<typeof sendNotification>> {
+  const baseUrl = appBaseUrl();
+  const linkUrl = `${baseUrl}/dashboard/services/bookings/${booking.id}`;
+  const listingName = await listingTitleForBooking(booking.listingId);
+  const recipient = await recipientForUserId(providerId);
+  if (!recipient) {
+    return { success: false, error: "Provider not found" };
+  }
+
+  return await sendNotification({
+    userId: providerId,
+    type: "payment_failed",
+    title: "Requester updated their payment method",
+    message: `The requester has updated their payment method for "${listingName}". You can now retry accepting the booking.`,
+    data: {
+      bookingId: booking.id,
+      listingId: booking.listingId,
+    },
+    linkUrl,
+    email: {
+      to: recipient.email,
+      subject: `Action needed: retry service booking for ${listingName}`,
+      html: compactEmailHtml({
+        heading: "Payment method updated",
+        greeting: `Hi ${escapeHtml(recipient.displayName)},`,
+        bodyLines: [
+          `The requester has updated their payment method for <strong>${escapeHtml(listingName)}</strong>.`,
+          `You can now retry accepting the booking.`,
+        ],
+        cta: { label: "View booking", href: linkUrl },
+      }),
+      text: [
+        `Hi ${recipient.displayName},`,
+        "",
+        `The requester updated their payment method for ${listingName}.`,
+        `You can now retry accepting the booking.`,
+        "",
+        linkUrl,
+      ].join("\n"),
+    },
+  });
+}
+
+/**
+ * Confirm to the requester that the provider has been notified of their payment method update.
+ */
+export async function sendPaymentMethodUpdatedRequesterConfirmationNotification(
+  requesterId: string,
+  booking: { id: string; listingId: string },
+): Promise<ReturnType<typeof sendNotification>> {
+  const baseUrl = appBaseUrl();
+  const linkUrl = `${baseUrl}/dashboard/services/bookings/${booking.id}`;
+  const listingName = await listingTitleForBooking(booking.listingId);
+  const recipient = await recipientForUserId(requesterId);
+  if (!recipient) {
+    return { success: false, error: "Requester not found" };
+  }
+
+  return await sendNotification({
+    userId: requesterId,
+    type: "payment_failed",
+    title: "Provider notified",
+    message: `Your provider has been notified and can now retry accepting your booking for "${listingName}".`,
+    data: {
+      bookingId: booking.id,
+      listingId: booking.listingId,
+    },
+    linkUrl,
+    email: {
+      to: recipient.email,
+      subject: `Your provider has been notified — ${listingName}`,
+      html: compactEmailHtml({
+        heading: "Provider notified",
+        greeting: `Hi ${escapeHtml(recipient.displayName)},`,
+        bodyLines: [
+          `Your provider has been notified that you updated your payment method for <strong>${escapeHtml(listingName)}</strong>.`,
+          `They can now retry accepting your booking.`,
+        ],
+        cta: { label: "View booking", href: linkUrl },
+      }),
+      text: [
+        `Hi ${recipient.displayName},`,
+        "",
+        `Your provider has been notified that you updated your payment method for ${listingName}.`,
+        `They can now retry accepting your booking.`,
+        "",
+        linkUrl,
+      ].join("\n"),
+    },
+  });
+}
+
+/**
  * Notify provider that their listing was approved.
  */
 export async function sendListingApprovedNotification(
@@ -487,6 +584,15 @@ export async function sendListingPendingAdminNotification(
   );
 }
 
+/** Shape of a no-show report row for admin notification emails. */
+export type ServiceNoShowReport = {
+  id: string;
+  bookingId: string;
+  reportedBy: string;
+  notes: string | null;
+  reportedAt: Date;
+};
+
 /**
  * Notify staff that a no-show was reported on a booking.
  */
@@ -505,10 +611,11 @@ export async function sendNoShowReportAdminNotification(
     staff.map((admin) =>
       sendNotification({
         userId: admin.id,
-        type: "service_no_show_reported",
+        type: "system",
         title: "No-show reported",
         message: `No-show reported for "${listingName}" (booking ${booking.id}). Scheduled: ${when} at ${booking.proposedTime}.`,
         data: {
+          kind: "service_no_show_report",
           reportId: report.id,
           bookingId: booking.id,
           listingId: booking.listingId,

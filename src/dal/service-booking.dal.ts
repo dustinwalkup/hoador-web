@@ -7,10 +7,6 @@ import {
   type NewServiceBooking,
   type ServiceBooking,
 } from "@/db/schemas/services.schema";
-import {
-  serviceNoShowReports,
-  type ServiceNoShowReport,
-} from "@/db/schemas/service-no-show-reports.schema";
 import { user } from "@/db/schemas/user.schema";
 import { conversations } from "@/db/schemas/messages.schema";
 
@@ -257,6 +253,38 @@ export class ServiceBookingDAL extends BaseDAL {
   }
 
   /**
+   * Bookings with status "payment_failed" where the user is the requester.
+   * Used to notify the provider when the requester updates their payment method.
+   */
+  async findPaymentFailedByRequester(requesterId: string): Promise<
+    Array<{
+      id: string;
+      providerId: string;
+      listingId: string;
+      selectedPaymentMethodId: string | null;
+    }>
+  > {
+    try {
+      return await this.db
+        .select({
+          id: serviceBookings.id,
+          providerId: serviceBookings.providerId,
+          listingId: serviceBookings.listingId,
+          selectedPaymentMethodId: serviceBookings.selectedPaymentMethodId,
+        })
+        .from(serviceBookings)
+        .where(
+          and(
+            eq(serviceBookings.requesterId, requesterId),
+            eq(serviceBookings.status, "payment_failed"),
+          ),
+        );
+    } catch (error) {
+      this.handleError(error, "ServiceBookingDAL.findPaymentFailedByRequester");
+    }
+  }
+
+  /**
    * Bookings where the user is the provider.
    */
   async findByProvider(providerId: string): Promise<ServiceBooking[]> {
@@ -350,34 +378,6 @@ export class ServiceBookingDAL extends BaseDAL {
       }));
     } catch (error) {
       this.handleError(error, "ServiceBookingDAL.findByProviderForDashboard");
-    }
-  }
-
-  /**
-   * Inserts a no-show report for a service booking.
-   */
-  async createNoShowReport(data: {
-    bookingId: string;
-    reportedBy: string;
-    notes?: string | null;
-  }): Promise<ServiceNoShowReport> {
-    try {
-      const [row] = await this.db
-        .insert(serviceNoShowReports)
-        .values({
-          bookingId: data.bookingId,
-          reportedBy: data.reportedBy,
-          notes: data.notes ?? null,
-        })
-        .returning();
-
-      if (!row) {
-        throw new Error("Failed to create no-show report");
-      }
-
-      return row;
-    } catch (error) {
-      this.handleError(error, "ServiceBookingDAL.createNoShowReport");
     }
   }
 }

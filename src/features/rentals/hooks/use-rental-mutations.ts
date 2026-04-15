@@ -8,7 +8,7 @@ import {
 import { rentalKeys } from "./use-rentals";
 import type { CreateRentalRequestFormData } from "../lib/form-schema";
 
-/** Response shape from POST /api/rentals/[id]/cancel */
+/** Successful JSON body from POST /api/rentals/[id]/cancel (refund failures use 422). */
 export interface CancelRentalResponse {
   success: true;
   refundAmount?: number;
@@ -194,12 +194,33 @@ export function useCancelRentalRequest() {
         body: JSON.stringify({ reason: reason.trim() }),
       });
 
+      const body: unknown = await response.json().catch(() => ({}));
+      const messageFromBody = (): string => {
+        if (
+          body &&
+          typeof body === "object" &&
+          "error" in body &&
+          typeof (body as { error?: unknown }).error === "string"
+        ) {
+          return (body as { error: string }).error;
+        }
+        return "Failed to cancel rental request";
+      };
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to cancel rental request");
+        throw new Error(messageFromBody());
       }
 
-      return response.json() as Promise<CancelRentalResponse>;
+      if (
+        body &&
+        typeof body === "object" &&
+        "success" in body &&
+        (body as { success?: boolean }).success === false
+      ) {
+        throw new Error(messageFromBody());
+      }
+
+      return body as CancelRentalResponse;
     },
     invalidateQueryKeys: [
       rentalKeys.all,
