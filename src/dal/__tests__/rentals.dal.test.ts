@@ -165,14 +165,12 @@ describe("RentalDAL", () => {
       });
 
       // Mock select().from().where().orderBy() for images (batched query)
-      const mockOrderByImage = vi
-        .fn()
-        .mockResolvedValue([
-          {
-            listingId: "listing-123",
-            imageUrl: "https://example.com/image.jpg",
-          },
-        ]);
+      const mockOrderByImage = vi.fn().mockResolvedValue([
+        {
+          listingId: "listing-123",
+          imageUrl: "https://example.com/image.jpg",
+        },
+      ]);
       const mockWhereImage = vi.fn().mockReturnValue({
         orderBy: mockOrderByImage,
       });

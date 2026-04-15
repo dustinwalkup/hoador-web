@@ -682,11 +682,8 @@ describe("ListingDAL", () => {
       // Mock reviews query for each listing
       vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
 
-      // Mock image query for each listing - select().from().where().limit(1)
-      const mockImageLimit = vi.fn().mockResolvedValue([]);
-      const mockImageWhere = vi.fn().mockReturnValue({
-        limit: mockImageLimit,
-      });
+      // Mock image query - batched select().from().where() resolving to []
+      const mockImageWhere = vi.fn().mockResolvedValue([]);
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
       });
@@ -836,18 +833,20 @@ describe("ListingDAL", () => {
         return { from: mockImageFrom } as any;
       });
 
-      // Mock rental history queries - needs from().leftJoin().where()
+      // Mock batched owner rental stats - from().leftJoin().where().groupBy()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
         leftJoin: vi.fn().mockReturnValue({
-          where: vi
-            .fn()
-            .mockResolvedValue([{ totalRentals: 0, averageRating: 0 }]),
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockResolvedValue([]),
+          }),
         }),
       });
 
-      // Mock other listings count query
+      // Mock batched owner listing counts - from().where().groupBy()
       const mockOtherListingsFrom = vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
+        }),
       });
 
       // Mock review events query - from().where().orderBy()
@@ -943,9 +942,11 @@ describe("ListingDAL", () => {
         }),
       });
 
-      // Mock other listings count query
+      // Mock batched owner listing counts - from().where().groupBy()
       const mockOtherListingsFrom = vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
+        }),
       });
 
       // Mock review events query - from().where().orderBy()
@@ -955,12 +956,12 @@ describe("ListingDAL", () => {
         }),
       });
 
-      // Mock rental history query - from().leftJoin().where()
+      // Mock batched owner rental stats - from().leftJoin().where().groupBy()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
         leftJoin: vi.fn().mockReturnValue({
-          where: vi
-            .fn()
-            .mockResolvedValue([{ totalRentals: 0, averageRating: 0 }]),
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockResolvedValue([]),
+          }),
         }),
       });
 
@@ -1028,17 +1029,19 @@ describe("ListingDAL", () => {
         }),
       });
 
-      // Mock other listings count query
+      // Mock batched owner listing counts - from().where().groupBy()
       const mockOtherListingsFrom = vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
+        }),
       });
 
-      // Mock rental history query - from().leftJoin().where()
+      // Mock batched owner rental stats - from().leftJoin().where().groupBy()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
         leftJoin: vi.fn().mockReturnValue({
-          where: vi
-            .fn()
-            .mockResolvedValue([{ totalRentals: 0, averageRating: 0 }]),
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockResolvedValue([]),
+          }),
         }),
       });
 
@@ -1294,11 +1297,8 @@ describe("ListingDAL", () => {
       // Mock the reviews query (called for each listing)
       vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
 
-      // Mock the images query (called for each listing)
-      const mockImageLimit = vi.fn().mockResolvedValue([]);
-      const mockImageWhere = vi.fn().mockReturnValue({
-        limit: mockImageLimit,
-      });
+      // Mock the images query (batched select().from().where())
+      const mockImageWhere = vi.fn().mockResolvedValue([]);
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
       });
@@ -1355,11 +1355,8 @@ describe("ListingDAL", () => {
       // Mock the reviews query (called for each listing)
       vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
 
-      // Mock the images query (called for each listing)
-      const mockImageLimit = vi.fn().mockResolvedValue([]);
-      const mockImageWhere = vi.fn().mockReturnValue({
-        limit: mockImageLimit,
-      });
+      // Mock the images query (batched select().from().where())
+      const mockImageWhere = vi.fn().mockResolvedValue([]);
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
       });
@@ -1772,6 +1769,56 @@ describe("ListingDAL", () => {
       expect(result[0].status).toBe("available");
       expect(result[1].status).toBe("rented");
       expect(result[0].createdAt).toEqual(new Date("2024-01-15"));
+    });
+
+    it("getUserListings returns the same enriched shape (batched path)", async () => {
+      installMocks();
+
+      const result = await listingDAL.getUserListings(userId);
+
+      expect(result).toHaveLength(3);
+      expect(result[0]).toMatchObject({
+        id: "listing-a",
+        averageRating: 4.0,
+        reviewCount: 3,
+        firstImageUrl: "https://example.com/a.jpg",
+        dailyRate: 15,
+      });
+      expect(result[1]).toMatchObject({
+        id: "listing-b",
+        averageRating: 3.5,
+        reviewCount: 2,
+        firstImageUrl: "https://example.com/b.jpg",
+      });
+      expect(result[2]).toMatchObject({
+        id: "listing-c",
+        averageRating: 0,
+        reviewCount: 0,
+        firstImageUrl: null,
+      });
+    });
+
+    it("getUserListingsByApprovalStatus enriches via _getUserListingsWithConditions (batched path)", async () => {
+      installMocks();
+
+      const result = await listingDAL.getUserListingsByApprovalStatus(
+        "pending_review",
+        userId,
+      );
+
+      expect(result).toHaveLength(3);
+      expect(result[0]).toMatchObject({
+        id: "listing-a",
+        averageRating: 4.0,
+        reviewCount: 3,
+        firstImageUrl: "https://example.com/a.jpg",
+      });
+      expect(result[2]).toMatchObject({
+        id: "listing-c",
+        averageRating: 0,
+        reviewCount: 0,
+        firstImageUrl: null,
+      });
     });
   });
 });
