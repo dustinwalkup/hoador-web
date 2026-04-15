@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { Plus, Archive } from "lucide-react";
 
+import { useMemo } from "react";
 import { useArchivedListings } from "@/features/listings/hooks/use-garage";
 import type { GarageListingFilters } from "@/features/listings/hooks/use-garage";
+import { applyGarageFilters } from "@/features/listings/utils/apply-garage-filters";
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,12 +24,12 @@ interface ArchivedListingsProps {
 }
 
 export function ArchivedListings({ filters }: ArchivedListingsProps) {
-  const {
-    data: archivedListings,
-    isLoading,
-    error,
-    refetch,
-  } = useArchivedListings(filters);
+  const { data, isLoading, error, refetch } = useArchivedListings();
+
+  const archivedListings = useMemo(
+    () => applyGarageFilters(data ?? [], filters),
+    [data, filters],
+  );
 
   if (isLoading) {
     return <GarageLoadingSkeleton />;
@@ -39,7 +41,7 @@ export function ArchivedListings({ filters }: ArchivedListingsProps) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {archivedListings && archivedListings.length > 0 ? (
+      {archivedListings.length > 0 ? (
         archivedListings.map((listing) => (
           <RentalCard
             key={listing.id}

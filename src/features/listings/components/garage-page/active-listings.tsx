@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { Plus, Settings, Package } from "lucide-react";
 
+import { useMemo } from "react";
 import { capitalize } from "@/lib/utils";
 import { useActiveListings } from "@/features/listings/hooks/use-garage";
 import type { GarageListingFilters } from "@/features/listings/hooks/use-garage";
+import { applyGarageFilters } from "@/features/listings/utils/apply-garage-filters";
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,12 +27,12 @@ interface ActiveListingsProps {
 }
 
 export function ActiveListings({ filters }: ActiveListingsProps) {
-  const {
-    data: activeListings,
-    isLoading,
-    error,
-    refetch,
-  } = useActiveListings(filters);
+  const { data, isLoading, error, refetch } = useActiveListings();
+
+  const activeListings = useMemo(
+    () => applyGarageFilters(data ?? [], filters),
+    [data, filters],
+  );
 
   if (isLoading) {
     return <GarageLoadingSkeleton />;
@@ -42,7 +44,7 @@ export function ActiveListings({ filters }: ActiveListingsProps) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {activeListings && activeListings.length > 0 ? (
+      {activeListings.length > 0 ? (
         activeListings.map((listing) => (
           <RentalCard
             key={listing.id}

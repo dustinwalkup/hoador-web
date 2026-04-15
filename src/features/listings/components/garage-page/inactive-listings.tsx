@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { Plus, Settings } from "lucide-react";
 
+import { useMemo } from "react";
 import { capitalize } from "@/lib/utils";
 import { useInactiveListings } from "@/features/listings/hooks/use-garage";
 import type { GarageListingFilters } from "@/features/listings/hooks/use-garage";
+import { applyGarageFilters } from "@/features/listings/utils/apply-garage-filters";
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,6 @@ import { GarageLoadingSkeleton } from "./garage-loading-skeleton";
 import { GarageError } from "./garage-error";
 
 function getStatus(): "rented" | "listed" | "" {
-  // For inactive listings, we don't show the standard status
   return "";
 }
 
@@ -23,12 +24,12 @@ interface InactiveListingsProps {
 }
 
 export function InactiveListings({ filters }: InactiveListingsProps) {
-  const {
-    data: inactiveListings,
-    isLoading,
-    error,
-    refetch,
-  } = useInactiveListings(filters);
+  const { data, isLoading, error, refetch } = useInactiveListings();
+
+  const inactiveListings = useMemo(
+    () => applyGarageFilters(data ?? [], filters),
+    [data, filters],
+  );
 
   if (isLoading) {
     return <GarageLoadingSkeleton />;
@@ -40,7 +41,7 @@ export function InactiveListings({ filters }: InactiveListingsProps) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {inactiveListings && inactiveListings.length > 0 ? (
+      {inactiveListings.length > 0 ? (
         inactiveListings.map((listing) => (
           <RentalCard
             key={listing.id}

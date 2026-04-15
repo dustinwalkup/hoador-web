@@ -12,7 +12,6 @@ import {
   usePrefetchGarageListing,
   useAllGarageData,
   garageKeys,
-  type GarageListingFilters,
 } from "../use-garage";
 
 // Mock Next.js navigation
@@ -68,39 +67,12 @@ function QueryWrapper({
 }
 
 describe("Garage Query Keys", () => {
-  it("should generate correct query keys", () => {
+  it("should generate stable per-tab query keys", () => {
     expect(garageKeys.all).toEqual(["garage"]);
     expect(garageKeys.active()).toEqual(["garage", "active"]);
     expect(garageKeys.inactive()).toEqual(["garage", "inactive"]);
     expect(garageKeys.archived()).toEqual(["garage", "archived"]);
     expect(garageKeys.categories()).toEqual(["garage", "categories"]);
-  });
-
-  it("should generate keys with filters", () => {
-    const filters: GarageListingFilters = {
-      query: "drill",
-      categoryId: "power-tools",
-      sortBy: "name",
-      sortOrder: "asc",
-    };
-
-    expect(garageKeys.activeWithFilters(filters)).toEqual([
-      "garage",
-      "active",
-      filters,
-    ]);
-
-    expect(garageKeys.inactiveWithFilters(filters)).toEqual([
-      "garage",
-      "inactive",
-      filters,
-    ]);
-
-    expect(garageKeys.archivedWithFilters(filters)).toEqual([
-      "garage",
-      "archived",
-      filters,
-    ]);
   });
 });
 
@@ -121,59 +93,7 @@ describe("useActiveListings", () => {
     { id: "2", name: "Hammer", status: "rented" },
   ];
 
-  it("should fetch active listings successfully", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => mockListings,
-    });
-
-    const filters: GarageListingFilters = {
-      query: "drill",
-      categoryId: "power-tools",
-      sortBy: "name",
-      sortOrder: "asc",
-      rentalStatus: "available",
-    };
-
-    const { result } = renderHook(() => useActiveListings(filters), {
-      wrapper: ({ children }) => (
-        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
-      ),
-    });
-
-    await waitFor(() => {
-      expect(result.current.data).toEqual(mockListings);
-    });
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/garage/active?q=drill&category=power-tools&sortBy=name&sortOrder=asc&rentalStatus=available",
-    );
-  });
-
-  it("should use correct query key", async () => {
-    const filters: GarageListingFilters = { query: "test" };
-
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => [],
-    });
-
-    renderHook(() => useActiveListings(filters), {
-      wrapper: ({ children }) => (
-        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
-      ),
-    });
-
-    // Wait for query to be called
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled();
-    });
-
-    // Verify the correct URL was called with the filter
-    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("q=test"));
-  });
-
-  it("should handle empty filters", async () => {
+  it("should fetch active listings from the unfiltered endpoint", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => mockListings,
@@ -189,7 +109,7 @@ describe("useActiveListings", () => {
       expect(result.current.data).toEqual(mockListings);
     });
 
-    expect(mockFetch).toHaveBeenCalledWith("/api/garage/active?");
+    expect(mockFetch).toHaveBeenCalledWith("/api/garage/active");
   });
 
   it("should handle API errors", async () => {
@@ -230,18 +150,13 @@ describe("useInactiveListings", () => {
     { id: "3", name: "Inactive Drill", status: "inactive" },
   ];
 
-  it("should fetch inactive listings successfully", async () => {
+  it("should fetch inactive listings from the unfiltered endpoint", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => mockListings,
     });
 
-    const filters: GarageListingFilters = {
-      sortBy: "name",
-      sortOrder: "desc",
-    };
-
-    const { result } = renderHook(() => useInactiveListings(filters), {
+    const { result } = renderHook(() => useInactiveListings(), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),
@@ -251,34 +166,7 @@ describe("useInactiveListings", () => {
       expect(result.current.data).toEqual(mockListings);
     });
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/garage/inactive?sortBy=name&sortOrder=desc",
-    );
-  });
-
-  it("should use correct query key", async () => {
-    const filters: GarageListingFilters = { categoryId: "hand-tools" };
-
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => [],
-    });
-
-    renderHook(() => useInactiveListings(filters), {
-      wrapper: ({ children }) => (
-        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
-      ),
-    });
-
-    // Wait for query to be called
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled();
-    });
-
-    // Verify the correct URL was called with the filter
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("category=hand-tools"),
-    );
+    expect(mockFetch).toHaveBeenCalledWith("/api/garage/inactive");
   });
 });
 
@@ -296,17 +184,13 @@ describe("useArchivedListings", () => {
 
   const mockListings = [{ id: "4", name: "Archived Saw", status: "archived" }];
 
-  it("should fetch archived listings successfully", async () => {
+  it("should fetch archived listings from the unfiltered endpoint", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => mockListings,
     });
 
-    const filters: GarageListingFilters = {
-      query: "saw",
-    };
-
-    const { result } = renderHook(() => useArchivedListings(filters), {
+    const { result } = renderHook(() => useArchivedListings(), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),
@@ -316,32 +200,7 @@ describe("useArchivedListings", () => {
       expect(result.current.data).toEqual(mockListings);
     });
 
-    expect(mockFetch).toHaveBeenCalledWith("/api/garage/archived?q=saw");
-  });
-
-  it("should use correct query key", async () => {
-    const filters: GarageListingFilters = { sortBy: "newest" };
-
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => [],
-    });
-
-    renderHook(() => useArchivedListings(filters), {
-      wrapper: ({ children }) => (
-        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
-      ),
-    });
-
-    // Wait for query to be called
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled();
-    });
-
-    // Verify the correct URL was called with the filter
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("sortBy=newest"),
-    );
+    expect(mockFetch).toHaveBeenCalledWith("/api/garage/archived");
   });
 });
 
@@ -528,21 +387,6 @@ describe("useGarageCacheInvalidation", () => {
   });
 
   it("should invalidate active listings", () => {
-    const { result } = renderHook(() => useGarageCacheInvalidation(), {
-      wrapper: ({ children }) => (
-        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
-      ),
-    });
-
-    const filters: GarageListingFilters = { query: "test" };
-    result.current.invalidateActiveListings(filters);
-
-    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-      queryKey: garageKeys.activeWithFilters(filters),
-    });
-  });
-
-  it("should invalidate all active listings when no filters provided", () => {
     const { result } = renderHook(() => useGarageCacheInvalidation(), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
