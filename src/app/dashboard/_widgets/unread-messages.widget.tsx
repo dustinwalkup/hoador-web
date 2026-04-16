@@ -1,7 +1,7 @@
 import { UnreadMessagesWidget } from "@/features/dashboard/components";
 import { messagesDAL } from "@/dal";
 import { runWithQueryCounter } from "@/db/query-tracker";
-import { getUnreadMessageCountCached } from "./cached-fetchers";
+import { getUnreadMessageCountCached } from "@/features/dashboard/lib";
 import { safe } from "./safe";
 
 export async function UnreadMessagesWidgetIsland({

@@ -3,14 +3,15 @@
  * Fetches all counts needed for the pulse collapsed/expanded views.
  */
 
-import {
-  rentalDAL,
-  listingDAL,
-  serviceBookingDAL,
-  serviceListingDAL,
-  disputeDAL,
-} from "@/dal";
+import { rentalDAL, listingDAL, serviceListingDAL, disputeDAL } from "@/dal";
 import type { DashboardPulseData } from "@/features/dashboard/types";
+import {
+  getBorrowedListingsCached,
+  getLendingRequestsByStatusCached,
+  getActionableAlertsCached,
+  findServiceBookingsByRequesterCached,
+  findServiceBookingsByProviderCached,
+} from "./cached-fetchers";
 
 /**
  * Aggregate all pulse data for the given user in parallel.
@@ -47,18 +48,18 @@ export async function getDashboardPulseData(
   ] = await Promise.all([
     safe(() => rentalDAL.getOverdueItemsForUser(userId), []),
     // Owner role: requests sent TO me that I need to approve/decline
-    safe(() => rentalDAL.getLendingRequestsByStatus("pending", userId), []),
+    safe(() => getLendingRequestsByStatusCached("pending", userId), []),
     // Provider role: bookings where I'm the provider and need to accept/decline
-    safe(() => serviceBookingDAL.findByProviderForDashboard(userId), []),
+    safe(() => findServiceBookingsByProviderCached(userId), []),
     // Requester role: my outgoing bookings (for active/upcoming, not action-needed)
-    safe(() => serviceBookingDAL.findByRequesterForDashboard(userId), []),
+    safe(() => findServiceBookingsByRequesterCached(userId), []),
     // Renter role: items I'm borrowing (current + upcoming)
-    safe(() => rentalDAL.getBorrowedListings(userId), {
+    safe(() => getBorrowedListingsCached(userId), {
       currentRentals: [],
       upcomingRentals: [],
     }),
     // Owner role: approved rentals I need to prepare for
-    safe(() => rentalDAL.getLendingRequestsByStatus("approved", userId), []),
+    safe(() => getLendingRequestsByStatusCached("approved", userId), []),
     // Owner role: items I'm actively lending
     safe(() => rentalDAL.countSharedListings(userId), 0),
     safe(() => listingDAL.getInventoryUsage(userId), {
@@ -78,7 +79,7 @@ export async function getDashboardPulseData(
         hasPrev: false,
       },
     }),
-    safe(() => rentalDAL.getActionableAlerts(userId), []),
+    safe(() => getActionableAlertsCached(userId), []),
   ]);
 
   // ---------------------------------------------------------------------------
@@ -115,25 +116,41 @@ export async function getDashboardPulseData(
   const lending = lendingActiveCount;
 
   // ---------------------------------------------------------------------------
-  // Upcoming — scheduled items for this user (both roles)
+  // Upcoming — scheduled items for this user (both roles), constrained to a
+  // 7-day window so these counts stay consistent with `getUpcomingSchedule`,
+  // which renders the "Coming up" calendar over the same window.
   // ---------------------------------------------------------------------------
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const endWindow = new Date(today);
+  endWindow.setDate(endWindow.getDate() + 7);
+  endWindow.setHours(23, 59, 59, 999);
+
+  const inWindow = (raw: Date | string): boolean => {
+    const d = raw instanceof Date ? new Date(raw) : new Date(String(raw));
+    d.setHours(0, 0, 0, 0);
+    return d >= today && d <= endWindow;
+  };
 
   // Renter: approved rentals I'll be picking up soon
   // Owner: approved rentals I need to prepare for
   const upcomingRentals =
-    borrowedData.upcomingRentals.length + lendingApproved.length;
+    borrowedData.upcomingRentals.filter((r) => inWindow(r.startDate)).length +
+    lendingApproved.filter((r) => inWindow(r.startDate)).length;
 
-  // Both roles: accepted services with a future proposed date
+  // Both roles: accepted services with a proposed date inside the window.
+  // Service bookings store `proposedDate` as a date-only string; parse with an
+  // explicit midnight to avoid timezone drift shifting the day.
   const allAcceptedServices = [
     ...serviceBookingsAsProvider.filter((b) => b.status === "accepted"),
     ...serviceBookingsAsRequester.filter((b) => b.status === "accepted"),
   ];
   const upcomingServices = allAcceptedServices.filter((b) => {
-    const proposedDate = new Date(String(b.proposedDate));
-    return proposedDate > today;
+    const proposed = new Date(
+      `${String(b.proposedDate).slice(0, 10)}T00:00:00`,
+    );
+    return inWindow(proposed);
   }).length;
 
   // Pickups/returns due today (from actionable alerts — already user-scoped)

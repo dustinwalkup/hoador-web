@@ -3,16 +3,16 @@ import {
   UpcomingScheduleWidget,
 } from "@/features/dashboard/components";
 import { getUpcomingSchedule } from "@/features/dashboard/lib";
-import { rentalDAL } from "@/dal";
 import { StaggerGrid, StaggerItem } from "@/components/animation-section";
 import { runWithQueryCounter } from "@/db/query-tracker";
+import { getActionableAlertsCached } from "@/features/dashboard/lib";
 import { safe } from "./safe";
 
 export async function AlertsRowWidget({ userId }: { userId: string }) {
   return runWithQueryCounter("RSC widget:alerts-row", async () => {
     const [upcomingSchedule, actionableAlerts] = await Promise.all([
       safe(() => getUpcomingSchedule(userId), []),
-      safe(() => rentalDAL.getActionableAlerts(userId), []),
+      safe(() => getActionableAlertsCached(userId), []),
     ]);
 
     const hasAlerts = actionableAlerts.length > 0;

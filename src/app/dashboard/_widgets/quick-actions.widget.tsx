@@ -1,6 +1,6 @@
 import { QuickActionsBar } from "@/features/dashboard/components";
 import { runWithQueryCounter } from "@/db/query-tracker";
-import { getUnreadMessageCountCached } from "./cached-fetchers";
+import { getUnreadMessageCountCached } from "@/features/dashboard/lib";
 import { safe } from "./safe";
 
 export async function QuickActionsWidget({ userId }: { userId: string }) {
