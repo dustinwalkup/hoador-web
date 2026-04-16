@@ -1,8 +1,8 @@
 import { PendingRequestsWidget } from "@/features/dashboard/components";
-import { rentalDAL } from "@/dal";
 import { runWithQueryCounter } from "@/db/query-tracker";
 import { getLendingRequestDetailUrl } from "@/features/dashboard/lib/urls";
 import type { PendingRequestItem } from "@/features/dashboard/types";
+import { getLendingRequestsByStatusCached } from "@/features/dashboard/lib";
 import { safe } from "./safe";
 
 export async function PendingRequestsWidgetIsland({
@@ -12,7 +12,7 @@ export async function PendingRequestsWidgetIsland({
 }) {
   return runWithQueryCounter("RSC widget:pending-requests", async () => {
     const pendingLendingRequests = await safe(
-      () => rentalDAL.getLendingRequestsByStatus("pending", userId),
+      () => getLendingRequestsByStatusCached("pending", userId),
       [],
     );
 
