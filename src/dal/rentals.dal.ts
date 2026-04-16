@@ -981,7 +981,10 @@ export class RentalDAL extends BaseDAL {
 
       const todayYmd = toLocalYmd(today);
 
-      const overdueRows = await this.db
+      // Consolidated: fetch all three rental alert categories (overdue, not
+      // started, ending today) in a single query. The conditions are mutually
+      // exclusive by status + date, so a SQL CASE classifies each row.
+      const rentalAlertRows = await this.db
         .select({
           id: rentalRequests.id,
           listingName: listings.name,
@@ -993,6 +996,19 @@ export class RentalDAL extends BaseDAL {
           endDate: rentalRequests.endDate,
           startDate: rentalRequests.startDate,
           deliveryRequested: rentalRequests.deliveryRequested,
+          alertCategory: sql<string>`CASE
+            WHEN ${rentalRequests.endDate} < ${today}
+              AND ${rentalRequests.status} IN ('approved', 'active')
+              THEN 'overdue_return'
+            WHEN ${rentalRequests.status} = 'approved'
+              AND ${rentalRequests.startDate} <= ${endOfToday}
+              AND ${rentalRequests.endDate} >= ${today}
+              THEN 'not_started'
+            WHEN ${rentalRequests.status} = 'active'
+              AND ${rentalRequests.endDate} >= ${today}
+              AND ${rentalRequests.endDate} < ${startOfTomorrow}
+              THEN 'end_today'
+          END`.as("alert_category"),
         })
         .from(rentalRequests)
         .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
@@ -1003,66 +1019,38 @@ export class RentalDAL extends BaseDAL {
               eq(rentalRequests.renterId, userId),
               eq(rentalRequests.ownerId, userId),
             ),
-            lt(rentalRequests.endDate, today),
-            inArray(rentalRequests.status, ["approved", "active"]),
+            or(
+              // overdue: endDate < today AND status IN ('approved','active')
+              and(
+                lt(rentalRequests.endDate, today),
+                inArray(rentalRequests.status, ["approved", "active"]),
+              ),
+              // not started: approved, start <= endOfToday, end >= today
+              and(
+                eq(rentalRequests.status, "approved"),
+                lte(rentalRequests.startDate, endOfToday),
+                gte(rentalRequests.endDate, today),
+              ),
+              // ending today: active, endDate in [today, startOfTomorrow)
+              and(
+                eq(rentalRequests.status, "active"),
+                gte(rentalRequests.endDate, today),
+                lt(rentalRequests.endDate, startOfTomorrow),
+              ),
+            ),
           ),
         );
 
-      const notStartedRows = await this.db
-        .select({
-          id: rentalRequests.id,
-          listingName: listings.name,
-          renterId: rentalRequests.renterId,
-          ownerName:
-            sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`.as(
-              "owner_name",
-            ),
-          endDate: rentalRequests.endDate,
-          startDate: rentalRequests.startDate,
-          deliveryRequested: rentalRequests.deliveryRequested,
-        })
-        .from(rentalRequests)
-        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
-        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
-        .where(
-          and(
-            or(
-              eq(rentalRequests.renterId, userId),
-              eq(rentalRequests.ownerId, userId),
-            ),
-            eq(rentalRequests.status, "approved"),
-            lte(rentalRequests.startDate, endOfToday),
-            gte(rentalRequests.endDate, today),
-          ),
-        );
-
-      const endTodayRows = await this.db
-        .select({
-          id: rentalRequests.id,
-          listingName: listings.name,
-          renterId: rentalRequests.renterId,
-          ownerName:
-            sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`.as(
-              "owner_name",
-            ),
-          endDate: rentalRequests.endDate,
-          startDate: rentalRequests.startDate,
-          deliveryRequested: rentalRequests.deliveryRequested,
-        })
-        .from(rentalRequests)
-        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
-        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
-        .where(
-          and(
-            or(
-              eq(rentalRequests.renterId, userId),
-              eq(rentalRequests.ownerId, userId),
-            ),
-            eq(rentalRequests.status, "active"),
-            gte(rentalRequests.endDate, today),
-            lt(rentalRequests.endDate, startOfTomorrow),
-          ),
-        );
+      // Split the consolidated rows by category for downstream processing
+      const overdueRows = rentalAlertRows.filter(
+        (r) => r.alertCategory === "overdue_return",
+      );
+      const notStartedRows = rentalAlertRows.filter(
+        (r) => r.alertCategory === "not_started",
+      );
+      const endTodayRows = rentalAlertRows.filter(
+        (r) => r.alertCategory === "end_today",
+      );
 
       const serviceRows = await this.db
         .select({

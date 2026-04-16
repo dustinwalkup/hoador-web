@@ -28,7 +28,6 @@ export async function getDashboardPulseData(
     });
 
   const [
-    overdueItems,
     // As owner: incoming rental requests waiting for MY approval
     pendingLendingRequests,
     // As provider: incoming service bookings waiting for MY confirmation
@@ -46,7 +45,6 @@ export async function getDashboardPulseData(
     disputes,
     actionableAlerts,
   ] = await Promise.all([
-    safe(() => rentalDAL.getOverdueItemsForUser(userId), []),
     // Owner role: requests sent TO me that I need to approve/decline
     safe(() => getLendingRequestsByStatusCached("pending", userId), []),
     // Provider role: bookings where I'm the provider and need to accept/decline
@@ -89,8 +87,12 @@ export async function getDashboardPulseData(
   // Owner: incoming rental requests I need to approve/decline
   const pendingRequests = pendingLendingRequests.length;
 
-  // Both roles: overdue items (borrower needs to return, owner may need to follow up)
-  const overdueReturns = overdueItems.length;
+  // Both roles: overdue items — derived from actionableAlerts (alertType
+  // "overdue_return") instead of a separate getOverdueItemsForUser call,
+  // which queries the same rows.
+  const overdueReturns = actionableAlerts.filter(
+    (a) => a.alertType === "overdue_return",
+  ).length;
 
   // Both roles: stale service bookings that need completion follow-up
   const overdueServices = actionableAlerts.filter(
