@@ -23,7 +23,9 @@ export async function AlertsRowWidget({ userId }: { userId: string }) {
         delay={0.15}
       >
         <StaggerItem>
-          <UpcomingScheduleWidget entries={upcomingSchedule} />
+          <div id="coming-up">
+            <UpcomingScheduleWidget entries={upcomingSchedule} />
+          </div>
         </StaggerItem>
         {hasAlerts && (
           <StaggerItem>
