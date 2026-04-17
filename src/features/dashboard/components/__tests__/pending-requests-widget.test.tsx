@@ -70,10 +70,7 @@ describe("PendingRequestsWidget", () => {
     expect(screen.getByText("Lawn Mowing")).toBeInTheDocument();
     expect(screen.getByText(/John Smith/)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /Lawn Mowing/i });
-    expect(link).toHaveAttribute(
-      "href",
-      "/dashboard/services/bookings/sb-1",
-    );
+    expect(link).toHaveAttribute("href", "/dashboard/services/bookings/sb-1");
   });
 
   it("should render both rental and service sections together", () => {
