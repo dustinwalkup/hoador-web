@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { ServicesFlowClient } from "@/features/services/components/services-flow-client";
+import { serviceBookingDAL } from "@/dal";
+import { getCurrentUserId } from "@/features/auth/utils/session";
+import { getServerQueryClient, HydrateClient } from "@/lib/react-query/server";
+import { serviceBookingsKeys } from "@/features/services/hooks/use-service-bookings";
 
 const VALID_DIRECTIONS = ["incoming", "outgoing"] as const;
 const VALID_STATUSES = [
@@ -58,12 +62,25 @@ export default async function ServicesFlowPage({
   const initialRole =
     (direction as ValidDirection) === "incoming" ? "provider" : "requester";
 
+  const userId = await getCurrentUserId();
+
+  if (userId) {
+    const qc = getServerQueryClient();
+    const bookings =
+      initialRole === "requester"
+        ? await serviceBookingDAL.findByRequesterForDashboard(userId)
+        : await serviceBookingDAL.findByProviderForDashboard(userId);
+    qc.setQueryData(serviceBookingsKeys.list(initialRole), bookings);
+  }
+
   return (
     <Suspense fallback={<ServicesLoadingSkeleton />}>
-      <ServicesFlowClient
-        initialRole={initialRole}
-        initialStatus={status as ValidStatus}
-      />
+      <HydrateClient>
+        <ServicesFlowClient
+          initialRole={initialRole}
+          initialStatus={status as ValidStatus}
+        />
+      </HydrateClient>
     </Suspense>
   );
 }

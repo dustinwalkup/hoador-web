@@ -1,9 +1,12 @@
 export const dynamic = "force-dynamic";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { legalDocumentDAL } from "@/dal";
+import { legalDocumentDAL, rentalDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalsClient } from "@/features/rentals/components/renting-lending/rentals-client";
+import { getCurrentUserId } from "@/features/auth/utils/session";
+import { getServerQueryClient, HydrateClient } from "@/lib/react-query/server";
+import { rentalKeys } from "@/features/rentals/hooks/use-rentals";
 
 export const metadata = {
   title: "Rentals",
@@ -88,6 +91,87 @@ function mapToInternalType(
   return { type: "renting", status };
 }
 
+/**
+ * Prefetch the rental data for the active tab into the server query client.
+ * Maps URL direction+status to the correct DAL call and React Query key.
+ */
+async function prefetchActiveTab(
+  userId: string,
+  type: "renting" | "lending",
+  status: string,
+) {
+  const qc = getServerQueryClient();
+
+  if (type === "renting") {
+    switch (status) {
+      case "requests": {
+        const data = await rentalDAL.getRentalRequestsByStatus(
+          "pending",
+          userId,
+        );
+        qc.setQueryData(rentalKeys.rentingByStatus("requests-pending"), data);
+        break;
+      }
+      case "approved": {
+        const data = await rentalDAL.getRentalRequestsByStatus(
+          "approved",
+          userId,
+        );
+        qc.setQueryData(rentalKeys.rentingByStatus("requests-approved"), data);
+        break;
+      }
+      case "denied": {
+        const data = await rentalDAL.getRentalRequestsByStatus(
+          "denied",
+          userId,
+        );
+        qc.setQueryData(rentalKeys.rentingByStatus("requests-denied"), data);
+        break;
+      }
+      case "cancelled": {
+        const data = await rentalDAL.getRentalRequestsByStatus(
+          "cancelled",
+          userId,
+        );
+        qc.setQueryData(rentalKeys.rentingByStatus("requests-cancelled"), data);
+        break;
+      }
+      case "active": {
+        const data = await rentalDAL.getRentalsByStatus("active", userId);
+        qc.setQueryData(rentalKeys.rentingByStatus("active"), data);
+        break;
+      }
+      case "completed": {
+        const data = await rentalDAL.getRentalsByStatus("completed", userId);
+        qc.setQueryData(rentalKeys.rentingByStatus("completed"), data);
+        break;
+      }
+    }
+  } else {
+    // lending
+    const internalStatus = status === "incoming" ? "pending" : status;
+    if (internalStatus === "active" || internalStatus === "completed") {
+      const data = await rentalDAL.getLendingRentalsByStatus(
+        internalStatus,
+        userId,
+      );
+      qc.setQueryData(
+        rentalKeys.lendingByStatus(`requests-${internalStatus}`),
+        data,
+      );
+    } else {
+      const data = await rentalDAL.getLendingRequestsByStatus(
+        internalStatus as "pending" | "approved" | "denied" | "cancelled",
+        userId,
+      );
+      qc.setQueryData(
+        rentalKeys.lendingByStatus(`requests-${internalStatus}`),
+        data,
+      );
+    }
+  }
+}
+
 export default async function RentalsStatusPage({ params }: RentalsPageProps) {
   const { direction, status } = await params;
 
@@ -104,28 +188,41 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
     status,
   );
 
-  // Fetch the review policy document
-  let reviewPolicyUrl: string | undefined;
-  try {
-    const currentVersion = await legalDocumentDAL.getCurrentVersion(
-      LEGAL_DOCUMENT_IDS.REVIEW_POLICY,
-    );
-    if (currentVersion) {
-      reviewPolicyUrl = currentVersion.url;
+  // Fetch review policy and prefetch rental data in parallel
+  const userId = await getCurrentUserId();
+
+  async function fetchReviewPolicyUrl(): Promise<string | undefined> {
+    try {
+      const currentVersion = await legalDocumentDAL.getCurrentVersion(
+        LEGAL_DOCUMENT_IDS.REVIEW_POLICY,
+      );
+      return currentVersion?.url;
+    } catch (error) {
+      console.error("Error fetching review policy:", error);
+      return undefined;
     }
-  } catch (error) {
-    // If there's an error fetching, continue without the URL
-    console.error("Error fetching review policy:", error);
   }
+
+  const promises: [Promise<string | undefined>, ...Promise<void>[]] = [
+    fetchReviewPolicyUrl(),
+  ];
+
+  if (userId) {
+    promises.push(prefetchActiveTab(userId, initialType, initialStatus));
+  }
+
+  const [reviewPolicyUrl] = await Promise.all(promises);
 
   return (
     <div className="space-y-6">
       <Suspense fallback={<RentalsPageSkeleton />}>
-        <RentalsClient
-          initialType={initialType}
-          initialStatus={initialStatus}
-          reviewPolicyUrl={reviewPolicyUrl}
-        />
+        <HydrateClient>
+          <RentalsClient
+            initialType={initialType}
+            initialStatus={initialStatus}
+            reviewPolicyUrl={reviewPolicyUrl}
+          />
+        </HydrateClient>
       </Suspense>
     </div>
   );
