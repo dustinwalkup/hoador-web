@@ -3,11 +3,16 @@
  * @see specs/dashboard/2-design.md getUpcomingSchedule
  */
 
-import { rentalDAL, serviceBookingDAL } from "@/dal";
 import type {
   ScheduleEntry,
   ScheduleEntryRole,
 } from "@/features/dashboard/types";
+import {
+  getBorrowedListingsCached,
+  getLendingRequestsByStatusCached,
+  findServiceBookingsByRequesterCached,
+  findServiceBookingsByProviderCached,
+} from "./cached-fetchers";
 
 /**
  * Natural-language rental line for the current user role and delivery mode.
@@ -74,11 +79,11 @@ export async function getUpcomingSchedule(
 ): Promise<ScheduleEntry[]> {
   const [borrowed, lendingApproved, lendingActive, asClient, asProvider] =
     await Promise.all([
-      rentalDAL.getBorrowedListings(userId),
-      rentalDAL.getLendingRequestsByStatus("approved", userId),
-      rentalDAL.getLendingRequestsByStatus("active", userId),
-      serviceBookingDAL.findByRequesterForDashboard(userId),
-      serviceBookingDAL.findByProviderForDashboard(userId),
+      getBorrowedListingsCached(userId),
+      getLendingRequestsByStatusCached("approved", userId),
+      getLendingRequestsByStatusCached("active", userId),
+      findServiceBookingsByRequesterCached(userId),
+      findServiceBookingsByProviderCached(userId),
     ]);
 
   // Use calendar-day bounds so dates at midnight (e.g. same-day returns) are included.

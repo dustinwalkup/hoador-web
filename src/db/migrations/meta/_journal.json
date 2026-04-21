@@ -386,6 +386,13 @@
       "when": 1776225510386,
       "tag": "0054_fresh_caretaker",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1776883200000,
+      "tag": "0055_add_owner_transfer_retry_count",
+      "breakpoints": true
     }
   ]
 }

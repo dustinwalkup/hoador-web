@@ -491,70 +491,6 @@ describe("UserDAL", () => {
     });
   });
 
-  describe("getUserByEmail", () => {
-    it("should return user when found", async () => {
-      const userWithEmail = { ...mockUser, email: "test@example.com" };
-      vi.mocked(db.query.user.findFirst).mockReset();
-      vi.mocked(db.query.user.findFirst).mockResolvedValue(
-        userWithEmail as any,
-      );
-      vi.spyOn(userDAL, "getUserStats").mockResolvedValue({
-        listingsBorrowed: 0,
-        listingsShared: 0,
-        averageRating: 0,
-        totalReviews: 0,
-      });
-
-      const result = await userDAL.getUserByEmail("test@example.com");
-
-      expect(result).toBeDefined();
-      expect(result?.email).toBe("test@example.com");
-    });
-
-    it("should return null when not found", async () => {
-      vi.mocked(db.query.user.findFirst).mockReset();
-      vi.mocked(db.query.user.findFirst).mockResolvedValue(undefined);
-
-      const result = await userDAL.getUserByEmail("nobody@example.com");
-
-      expect(result).toBeNull();
-    });
-  });
-
-  describe("getUserByEmailForAuth", () => {
-    it("should return user with preferences and primaryAddress when found", async () => {
-      const pref = { emailNotifications: true, pushNotifications: false };
-      const addr = { ...mockAddress, isPrimary: true };
-      vi.mocked(db.query.user.findFirst).mockReset();
-      vi.mocked(db.query.user.findFirst).mockResolvedValue({
-        ...mockUser,
-        preferences: pref,
-        addresses: [addr],
-      } as any);
-      vi.spyOn(userDAL, "getUserStats").mockResolvedValue({
-        listingsBorrowed: 0,
-        listingsShared: 0,
-        averageRating: 0,
-        totalReviews: 0,
-      });
-
-      const result = await userDAL.getUserByEmailForAuth("test@example.com");
-
-      expect(result).toBeDefined();
-      expect(result?.preferences?.emailNotifications).toBe(true);
-      expect(result?.preferences?.pushNotifications).toBe(false);
-      expect(result?.primaryAddress).toBeDefined();
-    });
-
-    it("should return null when not found", async () => {
-      vi.mocked(db.query.user.findFirst).mockResolvedValue(undefined);
-
-      const result = await userDAL.getUserByEmailForAuth("nobody@example.com");
-
-      expect(result).toBeNull();
-    });
-  });
-
   describe("getUserWithAddress", () => {
     it("should return same as getUserById", async () => {
       vi.mocked(db.query.user.findFirst).mockResolvedValue({
@@ -1098,6 +1034,12 @@ describe("UserDAL", () => {
       vi.spyOn(userDAL, "getUserById").mockResolvedValue({
         ...mockUser,
       } as any);
+      vi.spyOn(userDAL, "getUserStats").mockResolvedValue({
+        listingsBorrowed: 0,
+        listingsShared: 0,
+        averageRating: 0,
+        totalReviews: 0,
+      });
       const mockWhere = vi.fn().mockResolvedValue([{ count: 3 }]);
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
       vi.mocked(db.select)
@@ -1234,6 +1176,7 @@ describe("UserDAL", () => {
 
   describe("getOrCreateStripeCustomerId", () => {
     it("should throw NotFoundError when user not found", async () => {
+      vi.mocked(db.query.user.findFirst).mockReset();
       vi.mocked(db.query.user.findFirst).mockResolvedValue(undefined);
 
       await expect(

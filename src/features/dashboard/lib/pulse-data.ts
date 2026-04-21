@@ -3,14 +3,15 @@
  * Fetches all counts needed for the pulse collapsed/expanded views.
  */
 
-import {
-  rentalDAL,
-  listingDAL,
-  serviceBookingDAL,
-  serviceListingDAL,
-  disputeDAL,
-} from "@/dal";
+import { rentalDAL, listingDAL, serviceListingDAL, disputeDAL } from "@/dal";
 import type { DashboardPulseData } from "@/features/dashboard/types";
+import {
+  getBorrowedListingsCached,
+  getLendingRequestsByStatusCached,
+  getActionableAlertsCached,
+  findServiceBookingsByProviderCached,
+} from "./cached-fetchers";
+import { getUpcomingSchedule } from "./schedule";
 
 /**
  * Aggregate all pulse data for the given user in parallel.
@@ -27,38 +28,30 @@ export async function getDashboardPulseData(
     });
 
   const [
-    overdueItems,
     // As owner: incoming rental requests waiting for MY approval
     pendingLendingRequests,
     // As provider: incoming service bookings waiting for MY confirmation
     serviceBookingsAsProvider,
-    // As requester: my outgoing service bookings (for active/upcoming counts)
-    serviceBookingsAsRequester,
     // As renter: items I'm currently borrowing + upcoming
     borrowedData,
-    // As owner: approved rentals coming up that I need to prepare
-    lendingApproved,
     // As owner: items I'm actively lending out
     lendingActiveCount,
     inventoryUsage,
     serviceListings,
     disputes,
     actionableAlerts,
+    // Upcoming schedule entries (all roles) — uses cached fetchers internally
+    upcomingSchedule,
   ] = await Promise.all([
-    safe(() => rentalDAL.getOverdueItemsForUser(userId), []),
     // Owner role: requests sent TO me that I need to approve/decline
-    safe(() => rentalDAL.getLendingRequestsByStatus("pending", userId), []),
+    safe(() => getLendingRequestsByStatusCached("pending", userId), []),
     // Provider role: bookings where I'm the provider and need to accept/decline
-    safe(() => serviceBookingDAL.findByProviderForDashboard(userId), []),
-    // Requester role: my outgoing bookings (for active/upcoming, not action-needed)
-    safe(() => serviceBookingDAL.findByRequesterForDashboard(userId), []),
+    safe(() => findServiceBookingsByProviderCached(userId), []),
     // Renter role: items I'm borrowing (current + upcoming)
-    safe(() => rentalDAL.getBorrowedListings(userId), {
+    safe(() => getBorrowedListingsCached(userId), {
       currentRentals: [],
       upcomingRentals: [],
     }),
-    // Owner role: approved rentals I need to prepare for
-    safe(() => rentalDAL.getLendingRequestsByStatus("approved", userId), []),
     // Owner role: items I'm actively lending
     safe(() => rentalDAL.countSharedListings(userId), 0),
     safe(() => listingDAL.getInventoryUsage(userId), {
@@ -78,7 +71,10 @@ export async function getDashboardPulseData(
         hasPrev: false,
       },
     }),
-    safe(() => rentalDAL.getActionableAlerts(userId), []),
+    safe(() => getActionableAlertsCached(userId), []),
+    // Reuse the same schedule logic the Coming Up widget uses; underlying
+    // cached fetchers deduplicate any overlapping DB calls.
+    safe(() => getUpcomingSchedule(userId), []),
   ]);
 
   // ---------------------------------------------------------------------------
@@ -88,8 +84,12 @@ export async function getDashboardPulseData(
   // Owner: incoming rental requests I need to approve/decline
   const pendingRequests = pendingLendingRequests.length;
 
-  // Both roles: overdue items (borrower needs to return, owner may need to follow up)
-  const overdueReturns = overdueItems.length;
+  // Both roles: overdue items — derived from actionableAlerts (alertType
+  // "overdue_return") instead of a separate getOverdueItemsForUser call,
+  // which queries the same rows.
+  const overdueReturns = actionableAlerts.filter(
+    (a) => a.alertType === "overdue_return",
+  ).length;
 
   // Both roles: stale service bookings that need completion follow-up
   const overdueServices = actionableAlerts.filter(
@@ -115,26 +115,16 @@ export async function getDashboardPulseData(
   const lending = lendingActiveCount;
 
   // ---------------------------------------------------------------------------
-  // Upcoming — scheduled items for this user (both roles)
+  // Upcoming — derived from the same schedule the Coming Up widget renders,
+  // so counts are guaranteed to match.
   // ---------------------------------------------------------------------------
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Renter: approved rentals I'll be picking up soon
-  // Owner: approved rentals I need to prepare for
-  const upcomingRentals =
-    borrowedData.upcomingRentals.length + lendingApproved.length;
-
-  // Both roles: accepted services with a future proposed date
-  const allAcceptedServices = [
-    ...serviceBookingsAsProvider.filter((b) => b.status === "accepted"),
-    ...serviceBookingsAsRequester.filter((b) => b.status === "accepted"),
-  ];
-  const upcomingServices = allAcceptedServices.filter((b) => {
-    const proposedDate = new Date(String(b.proposedDate));
-    return proposedDate > today;
-  }).length;
+  const upcomingRentals = upcomingSchedule.filter(
+    (e) => e.type === "pickup" || e.type === "return",
+  ).length;
+  const upcomingServices = upcomingSchedule.filter(
+    (e) => e.type === "service",
+  ).length;
 
   // Pickups/returns due today (from actionable alerts — already user-scoped)
   const pickupsToday = actionableAlerts.filter(

@@ -15,7 +15,7 @@ vi.mock("@/services/better-auth", () => ({
 
 vi.mock("@/dal", () => ({
   userDAL: {
-    getUserByEmailForAuth: vi.fn(),
+    getUserForAuth: vi.fn(),
   },
 }));
 
@@ -56,9 +56,7 @@ describe("Unauthorized Access Prevention Workflow (E2E)", () => {
         email: "unverified@example.com",
       },
     } as any);
-    vi.mocked(userDAL.getUserByEmailForAuth).mockResolvedValue(
-      mockUnverifiedUser,
-    );
+    vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockUnverifiedUser);
 
     // Step 2: Verify redirect to verification page (error thrown)
     await expect(requireVerifiedUser()).rejects.toThrow(

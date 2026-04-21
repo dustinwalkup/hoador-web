@@ -42,16 +42,13 @@ export function handleApiError(
 ): NextResponse<{ error: string; details?: unknown }> {
   console.error("API error:", error);
 
-  // Set user context for Sentry if available (non-blocking)
-  getCurrentUser()
-    .then((user) => {
-      if (user) {
-        setSentryUser(user);
-      }
-    })
-    .catch(() => {
-      // Silently fail if we can't get user context
-    });
+  // Set user context for Sentry from the already-resolved ALS slot.
+  // withRequestLogging populates this via getCurrentUser on first access, so
+  // error paths don't kick off a second auth chain just to tag the error.
+  const ctxUser = getRequestContext()?.user;
+  if (ctxUser) {
+    setSentryUser(ctxUser as Parameters<typeof setSentryUser>[0]);
+  }
 
   // Only capture unexpected errors (500+) in production
   const shouldCaptureError =

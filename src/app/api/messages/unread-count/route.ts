@@ -9,7 +9,12 @@ import {
 
 /**
  * GET /api/messages/unread-count
- * Get total unread message count for the authenticated user
+ * Get total unread message count for the authenticated user.
+ *
+ * @deprecated Polled clients should use `GET /api/dashboard/badges` instead,
+ * which returns this count alongside notification counts in a single request.
+ * This endpoint is kept for backwards compatibility and will be removed in a
+ * follow-up PR once no client code references it.
  */
 async function getHandler() {
   try {

@@ -3,6 +3,7 @@ import {
   uuid,
   varchar,
   timestamp,
+  integer,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -34,6 +35,9 @@ export const rentalPaymentLifecycle = pgTable(
       .notNull(),
     payoutStatus: payoutStatusEnum("payout_status")
       .default("pending")
+      .notNull(),
+    ownerTransferRetryCount: integer("owner_transfer_retry_count")
+      .default(0)
       .notNull(),
     stripeTransferId: varchar("stripe_transfer_id", { length: 255 }),
     ownerTransferredAt: timestamp("owner_transferred_at"),
