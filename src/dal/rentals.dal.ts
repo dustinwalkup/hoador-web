@@ -2637,18 +2637,6 @@ export class RentalDAL extends BaseDAL {
         throw new Error("Only approved rentals can be started");
       }
 
-      // Verify that the current date is on or after the start date
-      const now = new Date();
-      const startDate = new Date(request.startDate);
-      startDate.setHours(0, 0, 0, 0);
-      now.setHours(0, 0, 0, 0);
-
-      if (now < startDate) {
-        throw new Error(
-          "Rental cannot be started before the scheduled start date",
-        );
-      }
-
       // Update the rental_requests status to active
       await this.db
         .update(rentalRequests)

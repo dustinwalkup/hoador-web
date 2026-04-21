@@ -1314,26 +1314,6 @@ describe("RentalDAL", () => {
         rentalDAL.startRental("rental-123", "user-123"),
       ).rejects.toThrow(/only approved rentals can be started/i);
     });
-
-    it("should throw when start date is in the future", async () => {
-      const futureStart = new Date();
-      futureStart.setDate(futureStart.getDate() + 5);
-      const mockLimit = vi.fn().mockResolvedValue([
-        {
-          ...mockRentalRequest,
-          ownerId: "user-123",
-          status: "approved",
-          startDate: futureStart,
-        },
-      ]);
-      const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
-      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
-
-      await expect(
-        rentalDAL.startRental("rental-123", "user-123"),
-      ).rejects.toThrow(/cannot be started before the scheduled start date/i);
-    });
   });
 
   describe("endRental", () => {
