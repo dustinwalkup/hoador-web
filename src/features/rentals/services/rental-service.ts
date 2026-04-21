@@ -821,10 +821,7 @@ export class RentalService {
     });
 
     const internalSecret = process.env.INTERNAL_API_SECRET;
-    const baseUrl =
-      process.env.VERCEL_URL != null
-        ? `https://${process.env.VERCEL_URL}`
-        : process.env.NEXT_PUBLIC_APP_URL;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (internalSecret && baseUrl) {
       const pdfUrl = `${baseUrl}/api/internal/generate-rental-agreement`;
       after(async () => {

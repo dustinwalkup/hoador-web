@@ -147,7 +147,7 @@ describe("POST /api/rentals/[id]/approve", () => {
     );
     mockFetch.mockResolvedValue({ ok: true });
     process.env.INTERNAL_API_SECRET = "test-internal-secret";
-    process.env.VERCEL_URL = "localhost:3000";
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
     globalThis.fetch = mockFetch;
   });
 
