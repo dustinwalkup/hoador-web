@@ -97,15 +97,6 @@ export function RentalActions({
     router.refresh();
   };
 
-  // Check if current date is on or after start date
-  const isStartDateReached = () => {
-    const now = new Date();
-    const startDate = new Date(rentalDetails.startDate);
-    now.setHours(0, 0, 0, 0);
-    startDate.setHours(0, 0, 0, 0);
-    return now >= startDate;
-  };
-
   const handleDownloadRentalAgreement = () => {
     if (rentalAgreementUrl) {
       // Open in new tab - browser will handle PDF download/display
@@ -194,7 +185,7 @@ export function RentalActions({
               </>
             )}
 
-            {rentalDetails.status === "approved" && isStartDateReached() && (
+            {rentalDetails.status === "approved" && (
               <Button
                 className="w-full"
                 onClick={() => setShowStartRentalDialog(true)}
