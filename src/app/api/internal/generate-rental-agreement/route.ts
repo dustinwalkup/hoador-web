@@ -16,11 +16,12 @@ const bodySchema = z.object({
  */
 async function postHandler(request: NextRequest) {
   try {
+    console.log("[pdf-gen-route] hit");
     const authHeader = request.headers.get("authorization");
     const internalSecret = process.env.INTERNAL_API_SECRET;
 
     if (!internalSecret || internalSecret === "your-internal-api-secret-here") {
-      console.error("INTERNAL_API_SECRET not configured");
+      console.error("[pdf-gen-route] INTERNAL_API_SECRET not configured");
       return NextResponse.json(
         { error: "Internal API secret not configured" },
         { status: 500 },
@@ -28,6 +29,7 @@ async function postHandler(request: NextRequest) {
     }
 
     if (authHeader !== `Bearer ${internalSecret}`) {
+      console.warn("[pdf-gen-route] auth mismatch");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -41,12 +43,14 @@ async function postHandler(request: NextRequest) {
     }
 
     const { rentalRequestId } = parseResult.data;
+    console.log("[pdf-gen-route] generating for", rentalRequestId);
 
     const { data: rentalRequest, error: fetchError } = await tryCatch(
       rentalDAL.getRentalRequestById(rentalRequestId),
     );
 
     if (fetchError || !rentalRequest) {
+      console.warn("[pdf-gen-route] rental request not found", rentalRequestId);
       return NextResponse.json(
         { error: "Rental request not found" },
         { status: 404 },
@@ -54,6 +58,7 @@ async function postHandler(request: NextRequest) {
     }
 
     if (rentalRequest.status !== "approved") {
+      console.warn("[pdf-gen-route] not approved, status:", rentalRequest.status);
       return NextResponse.json(
         { error: "Rental request is not approved" },
         { status: 400 },
@@ -61,10 +66,11 @@ async function postHandler(request: NextRequest) {
     }
 
     const url = await generateAndStoreRentalAgreement(rentalRequestId);
+    console.log("[pdf-gen-route] success", { rentalRequestId, url });
     return NextResponse.json({ url });
   } catch (error) {
     console.error(
-      "Rental agreement generation failed:",
+      "[pdf-gen-route] generation failed:",
       error instanceof Error ? error.message : error,
     );
     return NextResponse.json(
