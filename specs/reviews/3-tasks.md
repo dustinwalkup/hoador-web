@@ -1,0 +1,206 @@
+# Implementation Tasks - Blind Review System
+
+- [ ] 1. Database schema and migration
+  - [ ] 1.1 Create `blind_reviews` schema file
+    - Create `src/db/schemas/blind-reviews.schema.ts` with table, relations, and indexes
+    - Include check constraint, partial unique indexes, and partial index for cron
+    - _Requirements: 12_
+  - [ ] 1.2 Add aggregate columns to user table
+    - Add `reviewAggregateRating` (numeric 3,2, nullable) and `reviewCount` (integer, default 0) to user schema
+    - _Requirements: 16_
+  - [ ] 1.3 Update schema index
+    - Add blind-reviews schema to `src/db/schemas/index.ts`
+    - _Requirements: 12_
+  - [ ] 1.4 Generate and run migration
+    - Generate Drizzle migration to create `blind_reviews` table and add user columns
+    - Drop old `reviews` table and `serviceReviews` table
+    - Verify migration runs cleanly on fresh DB
+    - _Requirements: 12_
+
+- [ ] 2. DAL layer
+  - [ ] 2.1 Create `BlindReviewDAL` class
+    - Create `src/dal/blind-review.dal.ts` extending `BaseDAL`
+    - Implement `create()` — insert with releasedAt = null, handle ConflictError
+    - Implement `findByBooking()` — all reviews for a booking (internal use)
+    - Implement `findReleasedByBooking()` — released reviews with reviewer info (name, avatar)
+    - Implement `findByReviewerAndBooking()` — single review lookup for duplicate/status checks
+    - Implement `findReleasedByReviewee()` — paginated, newest first, with reviewer info
+    - Implement `getAggregate()` — AVG + COUNT of released reviews for a user
+    - Implement `releaseReviews()` — set releasedAt = now() for given IDs
+    - Implement `findUnreleasedExpired()` — partial index query for cron
+    - Implement `releaseExpired()` — set releasedAt = reviewWindowEndAt for given IDs
+    - _Requirements: 12, 6, 7, 13_
+  - [ ] 2.2 Add user aggregate DAL methods
+    - Add method to update `reviewAggregateRating` and `reviewCount` on user table
+    - Recalculates from `blind_reviews` WHERE released, persists to user row
+    - _Requirements: 16_
+  - [ ] 2.3 Export DAL from index
+    - Add `blindReviewDAL` singleton instance to `src/dal/index.ts`
+    - _Requirements: 12_
+
+- [ ] 3. Validation schema
+  - [ ] 3.1 Create Zod schema for review submission
+    - Create `src/features/reviews/schemas/blind-review-schema.ts`
+    - `createBlindReviewSchema`: rating (1-5), comment (optional, max 2000), exactly one of rentalId/serviceBookingId
+    - Export inferred type `CreateBlindReviewInput`
+    - _Requirements: 9, 5_
+
+- [ ] 4. Service layer
+  - [ ] 4.1 Create `BlindReviewService` class
+    - Create `src/features/reviews/services/blind-review-service.ts`
+    - _Requirements: 1, 2, 3, 4, 5, 6, 7, 8, 9_
+  - [ ] 4.2 Implement `submitReview()`
+    - Resolve booking (rental or service) — validate exists, status completed
+    - Validate user is participant, derive revieweeId (other party)
+    - Validate reviewerId !== revieweeId
+    - Compute reviewWindowEndAt from booking completion + 7 days
+    - Validate window not expired
+    - Create review via DAL
+    - Release check: if counterpart review exists, release both immediately
+    - On release: update aggregates for both reviewees, send notifications
+    - _Requirements: 1, 2, 3, 4, 5, 6_
+  - [ ] 4.3 Implement `getBookingReviews()`
+    - Return released reviews for a booking (0, 1, or 2)
+    - Include reviewer display info
+    - _Requirements: 7, 10, 17_
+  - [ ] 4.4 Implement `getReviewStatus()`
+    - Return `{ hasReviewed, canReview, reviewWindowEndAt }` for current user
+    - canReview = completed AND within window AND !hasReviewed AND is participant
+    - _Requirements: 8, 11_
+  - [ ] 4.5 Implement `getUserReviews()`
+    - Paginated released reviews for a user + aggregate summary
+    - For profile display
+    - _Requirements: 16_
+  - [ ] 4.6 Implement `releaseExpiredReviews()`
+    - Batch find unreleased expired reviews
+    - Group by booking, set releasedAt = reviewWindowEndAt
+    - Update aggregates for each reviewee
+    - Send notifications
+    - Return summary counts
+    - _Requirements: 13, 15_
+
+- [ ] 5. Constants and configuration
+  - [ ] 5.1 Create review constants file
+    - Create `src/features/reviews/constants.ts`
+    - Export `REVIEW_WINDOW_DAYS = 7`
+    - _Requirements: 4_
+
+- [ ] 6. Notifications
+  - [ ] 6.1 Create review released notification
+    - Create `src/features/reviews/notifications/blind-review-released.ts`
+    - Uses `sendNotification()` with type "review_received"
+    - Includes reviewer name, star rating, link to booking detail
+    - Does NOT include comment text in notification body
+    - _Requirements: 15_
+
+- [ ] 7. API routes
+  - [ ] 7.1 Implement `POST /api/reviews` (replace existing)
+    - Auth check, parse body with Zod schema, call `BlindReviewService.submitReview()`
+    - Return 201 with reviewId on success
+    - Map errors via `handleApiError()`
+    - _Requirements: 9_
+  - [ ] 7.2 Implement `GET /api/reviews` (replace existing)
+    - Accept query params: `rentalId`, `serviceBookingId`, `revieweeId`
+    - Booking query: return released reviews + inline reviewStatus for authenticated user
+    - Reviewee query: return paginated reviews + aggregate
+    - Auth required
+    - _Requirements: 10, 11, 16_
+  - [ ] 7.3 Implement `GET /api/cron/release-reviews`
+    - Verify cron secret
+    - Call `BlindReviewService.releaseExpiredReviews()`
+    - Record cron run history (success/failure)
+    - Send ops alert on failure
+    - Return summary JSON
+    - _Requirements: 13_
+
+- [ ] 8. Cron job registration
+  - [ ] 8.1 Add release-reviews step to GitHub Actions cron workflow
+    - Add hourly step to `.github/workflows/cron-jobs.yml`
+    - Follows existing curl pattern with CRON_SECRET auth
+    - _Requirements: 13_
+
+- [ ] 9. Remove old review system
+  - [ ] 9.1 Remove old DALs
+    - Delete `src/dal/review.dal.ts`
+    - Delete `src/dal/service-review.dal.ts`
+    - Remove exports from `src/dal/index.ts`
+    - _Requirements: N/A (cleanup)_
+  - [ ] 9.2 Remove old services
+    - Delete `src/features/reviews/services/review-service.ts`
+    - Delete `src/features/services/services/service-review-service.ts`
+    - _Requirements: N/A (cleanup)_
+  - [ ] 9.3 Remove old notification files
+    - Delete `src/features/reviews/notifications/review-received.ts`
+    - Delete `src/features/reviews/notifications/review-submitted.ts`
+    - _Requirements: N/A (cleanup)_
+  - [ ] 9.4 Remove old schemas and types
+    - Delete `src/features/reviews/schemas/review-schema.ts`
+    - Remove review-related schemas from `src/features/services/lib/service-api-schemas.ts`
+    - Remove old review table definitions from `src/db/schemas/rentals.schema.ts`
+    - Delete `src/db/schemas/service-reviews.schema.ts`
+    - _Requirements: N/A (cleanup)_
+  - [ ] 9.5 Remove old UI components referencing old system
+    - Remove or refactor `src/features/reviews/components/leave-review-modal.tsx`
+    - Remove or refactor `src/features/rentals/components/detail-page/rental-reviews-card.tsx`
+    - These will be replaced by new components in task 10
+    - _Requirements: N/A (cleanup)_
+  - [ ] 9.6 Fix all broken imports and references
+    - Search codebase for imports from deleted files
+    - Remove references to old DAL methods (e.g., `canLeaveReview`, `createReview`)
+    - Remove old aggregate update calls in service booking flow
+    - Ensure app compiles with no errors
+    - _Requirements: N/A (cleanup)_
+
+- [ ] 10. UI components
+  - [ ] 10.1 Create review status component
+    - Component that shows "Leave a Review" CTA when `canReview` is true
+    - Shows "Review submitted — will be visible soon" when `hasReviewed` is true and not released
+    - Hidden entirely when window expired and user hasn't reviewed
+    - Include blind review explanation text
+    - _Requirements: 8, 14_
+  - [ ] 10.2 Create review submission form/modal
+    - Star rating input (1-5)
+    - Optional comment textarea (max 2000 chars)
+    - Submit calls `POST /api/reviews`
+    - On success: optimistically update status to `hasReviewed: true`
+    - _Requirements: 5, 9, 14_
+  - [ ] 10.3 Create released review display card
+    - Shows reviewer avatar, name, star rating, comment, date
+    - Reusable across booking detail and profile pages
+    - _Requirements: 16, 17_
+  - [ ] 10.4 Integrate into rental detail page
+    - Show user aggregate rating in user card section
+    - Show review status component (before release)
+    - Show released review cards (after release)
+    - _Requirements: 14, 16, 17_
+  - [ ] 10.5 Integrate into service booking detail page
+    - Same pattern as rental detail
+    - Show user aggregate, review status, released reviews
+    - _Requirements: 14, 16, 17_
+  - [ ] 10.6 Create user profile reviews section
+    - Paginated list of released reviews received
+    - Aggregate summary at top (average rating + count)
+    - _Requirements: 16_
+  - [ ] 10.7 Display aggregate rating on user cards throughout the app
+    - Ensure user card components read from `user.reviewAggregateRating`
+    - Display star rating + count where user cards appear (listings, search, booking detail)
+    - _Requirements: 16_
+
+- [ ] 11. Integration testing
+  - [ ] 11.1 Test full submission + immediate release flow
+    - Both parties submit → both released immediately → aggregates updated → notifications sent
+    - _Requirements: 6, 15, 16_
+  - [ ] 11.2 Test single submission + cron release flow
+    - One party submits → window expires → cron releases → aggregate updated → notification sent
+    - _Requirements: 6, 13, 15_
+  - [ ] 11.3 Test eligibility and validation edge cases
+    - Duplicate submission blocked (409)
+    - Non-participant blocked (403)
+    - Incomplete booking blocked (400)
+    - Expired window blocked (400)
+    - Self-review blocked (400)
+    - _Requirements: 1, 3, 4, 9_
+  - [ ] 11.4 Test visibility rules
+    - Unreleased reviews never returned in GET responses
+    - Review status never leaks other party's submission state
+    - _Requirements: 7, 8, 11_

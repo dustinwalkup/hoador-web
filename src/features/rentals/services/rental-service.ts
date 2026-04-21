@@ -832,7 +832,7 @@ export class RentalService {
           Authorization: `Bearer ${internalSecret}`,
         },
         body: JSON.stringify({ rentalRequestId: rentalRequest.id }),
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(30_000),
       }).catch((err) => {
         captureNonCriticalError(err, {
           route: "RentalService.approveRentalRequest",

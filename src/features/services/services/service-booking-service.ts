@@ -406,7 +406,7 @@ export class ServiceBookingService {
             Authorization: `Bearer ${internalSecret}`,
           },
           body: JSON.stringify({ serviceBookingId: bookingId }),
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(30_000),
         }).catch((err) => {
           captureNonCriticalError(err, {
             route: "ServiceBookingService.acceptBooking",
