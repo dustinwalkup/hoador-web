@@ -7,6 +7,7 @@ interface CreateOwnerTransferParams {
   ownerConnectedAccountId: string;
   rentalChargeId: string; // Stripe Charge ID for source_transaction
   ownerPayoutAmount: number; // in dollars — precomputed owner payout amount
+  retryCount?: number; // incremented by admin reset — changes idempotency key
 }
 
 type TransferResult =
@@ -22,7 +23,11 @@ export async function createOwnerTransfer(
   params: CreateOwnerTransferParams,
 ): Promise<TransferResult> {
   try {
-    const idempotencyKey = `transfer-owner-${params.rentalId}`;
+    const retryCount = params.retryCount ?? 0;
+    const idempotencyKey =
+      retryCount > 0
+        ? `transfer-owner-${params.rentalId}-retry-${retryCount}`
+        : `transfer-owner-${params.rentalId}`;
     const transferAmountCents = Math.round(params.ownerPayoutAmount * 100);
 
     const transfer = await PAYMENT_SERVER_INSTANCE.transfers.create(

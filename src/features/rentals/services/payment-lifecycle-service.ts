@@ -139,6 +139,7 @@ export class PaymentLifecycleService {
             ownerConnectedAccountId: rental.ownerConnectedAccountId,
             rentalChargeId: rental.lifecycle.rentalChargeId,
             ownerPayoutAmount: Number(rental.ownerPayout),
+            retryCount: rental.lifecycle.ownerTransferRetryCount,
           });
 
           if (!transferResult.success) {

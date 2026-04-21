@@ -101,6 +101,26 @@ describe("PayoutService", () => {
       expect(options).toEqual({ idempotencyKey: "transfer-owner-rental-1" });
     });
 
+    it("uses idempotency key transfer-owner-{rentalId} when retryCount is 0", async () => {
+      mockTransfersCreate.mockResolvedValue({ id: "tr_123" });
+
+      await createOwnerTransfer({ ...defaultParams, retryCount: 0 });
+
+      const options = mockTransfersCreate.mock.calls[0][1];
+      expect(options).toEqual({ idempotencyKey: "transfer-owner-rental-1" });
+    });
+
+    it("appends -retry-{count} to idempotency key when retryCount > 0", async () => {
+      mockTransfersCreate.mockResolvedValue({ id: "tr_123" });
+
+      await createOwnerTransfer({ ...defaultParams, retryCount: 2 });
+
+      const options = mockTransfersCreate.mock.calls[0][1];
+      expect(options).toEqual({
+        idempotencyKey: "transfer-owner-rental-1-retry-2",
+      });
+    });
+
     it("includes metadata: rentalId, rentalRequestId, ownerId", async () => {
       mockTransfersCreate.mockResolvedValue({ id: "tr_123" });
 

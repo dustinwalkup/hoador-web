@@ -142,6 +142,7 @@ function createMockPayoutRental(overrides = {}) {
       rentalChargeId: "ch_abc",
       depositHoldStatus: "held",
       ownerTransferStatus: "pending",
+      ownerTransferRetryCount: 0,
       payoutStatus: "pending",
     },
     rentalId: "rental-1",
@@ -290,6 +291,7 @@ describe("PaymentLifecycleService.processPayouts", () => {
         ownerConnectedAccountId: "acct_123",
         rentalChargeId: "ch_abc",
         ownerPayoutAmount: 80,
+        retryCount: 0,
       }),
     );
   });

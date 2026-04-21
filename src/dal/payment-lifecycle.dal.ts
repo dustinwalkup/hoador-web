@@ -315,6 +315,24 @@ export class PaymentLifecycleDAL extends BaseDAL {
     }
   }
 
+  /** Increment owner transfer retry count (used when admin resets transfer status). */
+  async incrementOwnerTransferRetryCount(rentalId: string): Promise<void> {
+    try {
+      await this.db
+        .update(rentalPaymentLifecycle)
+        .set({
+          ownerTransferRetryCount: sql`${rentalPaymentLifecycle.ownerTransferRetryCount} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(rentalPaymentLifecycle.rentalId, rentalId));
+    } catch (error) {
+      this.handleError(
+        error,
+        "PaymentLifecycleDAL.incrementOwnerTransferRetryCount",
+      );
+    }
+  }
+
   /** Update payout status. */
   async updatePayoutStatus(
     rentalId: string,
