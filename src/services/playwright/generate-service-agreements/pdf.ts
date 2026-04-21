@@ -1,10 +1,11 @@
 /**
- * Playwright-based PDF generation for service agreements.
+ * PDF generation for service agreements using puppeteer-core + @sparticuz/chromium.
+ * Compatible with both Vercel serverless and local development.
  */
 
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { chromium } from "playwright";
+import { launchBrowser } from "../launch-browser";
 
 import type { ServiceAgreementData } from "./template";
 import { renderServiceAgreementTemplate } from "./template";
@@ -22,7 +23,7 @@ function loadLogoDataUrl(): string | undefined {
 }
 
 /**
- * Generates a service agreement PDF from the template and data using Playwright.
+ * Generates a service agreement PDF using Puppeteer with a serverless-compatible Chromium binary.
  *
  * @param data - Service agreement payload.
  * @returns PDF buffer suitable for upload to blob storage.
@@ -35,15 +36,12 @@ export async function generateServiceAgreementPdf(
   let browser;
 
   try {
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    browser = await launchBrowser();
 
     const page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: "networkidle",
+      waitUntil: "networkidle0",
       timeout: 10_000,
     });
 
@@ -60,7 +58,7 @@ export async function generateServiceAgreementPdf(
   } finally {
     if (browser) {
       await browser.close().catch((err: unknown) => {
-        console.warn("Error closing Playwright browser:", err);
+        console.warn("Error closing browser:", err);
       });
     }
   }

@@ -1,11 +1,12 @@
 /**
- * Playwright-based PDF generation for rental agreements.
+ * PDF generation for rental agreements using puppeteer-core + @sparticuz/chromium.
+ * Compatible with both Vercel serverless and local development.
  * No DAL dependencies - safe to use in scripts and workers.
  */
 
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { chromium } from "playwright";
+import { launchBrowser } from "../launch-browser";
 import type { RentalAgreementData } from "./template";
 import { renderTemplate } from "./template";
 
@@ -22,8 +23,7 @@ function loadLogoDataUrl(): string | undefined {
 }
 
 /**
- * Generates a rental agreement PDF from the template and data using Playwright (Chromium).
- * Launches Chromium, loads the rendered HTML, and returns the PDF as a Buffer.
+ * Generates a rental agreement PDF using Puppeteer with a serverless-compatible Chromium binary.
  *
  * @param data - Rental agreement data (provider, renter, tool, dates, location, cost).
  * @returns PDF buffer suitable for upload to blob storage or writing to file.
@@ -37,15 +37,12 @@ export async function generateRentalAgreementPdf(
   let browser;
 
   try {
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    browser = await launchBrowser();
 
     const page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: "networkidle",
+      waitUntil: "networkidle0",
       timeout: 10_000,
     });
 
@@ -62,7 +59,7 @@ export async function generateRentalAgreementPdf(
   } finally {
     if (browser) {
       await browser.close().catch((err: unknown) => {
-        console.warn("Error closing Playwright browser:", err);
+        console.warn("Error closing browser:", err);
       });
     }
   }

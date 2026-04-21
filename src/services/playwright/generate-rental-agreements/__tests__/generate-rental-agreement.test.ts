@@ -13,12 +13,8 @@ const mockBrowser = {
   close: vi.fn().mockResolvedValue(undefined),
 };
 
-const mockChromium = {
-  launch: vi.fn().mockResolvedValue(mockBrowser),
-};
-
-vi.mock("playwright", () => ({
-  chromium: mockChromium,
+vi.mock("../../launch-browser", () => ({
+  launchBrowser: vi.fn().mockResolvedValue(mockBrowser),
 }));
 
 const mockRentalAgreementData: RentalAgreementData = {
@@ -34,7 +30,8 @@ const mockRentalAgreementData: RentalAgreementData = {
 describe("generateRentalAgreementPdf", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    mockChromium.launch.mockResolvedValue(mockBrowser);
+    const { launchBrowser } = await import("../../launch-browser");
+    (launchBrowser as ReturnType<typeof vi.fn>).mockResolvedValue(mockBrowser);
     mockPage.setContent.mockResolvedValue(undefined);
     mockPage.pdf.mockResolvedValue(mockPdfBuffer);
     mockBrowser.newPage.mockResolvedValue(mockPage);
@@ -49,11 +46,12 @@ describe("generateRentalAgreementPdf", () => {
     expect(buffer.length).toBeGreaterThan(0);
   });
 
-  it("launches Chromium and calls setContent with HTML containing data", async () => {
+  it("launches browser and calls setContent with HTML containing data", async () => {
+    const { launchBrowser } = await import("../../launch-browser");
     const { generateRentalAgreementPdf } = await import("../utils");
     await generateRentalAgreementPdf(mockRentalAgreementData);
 
-    expect(mockChromium.launch).toHaveBeenCalled();
+    expect(launchBrowser).toHaveBeenCalled();
     expect(mockBrowser.newPage).toHaveBeenCalled();
     expect(mockPage.setContent).toHaveBeenCalled();
     const html = mockPage.setContent.mock.calls[0][0] as string;
