@@ -101,6 +101,11 @@ vi.mock("@/db/schemas/rentals.schema", () => ({
   rentals: {},
 }));
 
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: vi.fn((cb: () => void) => cb()) };
+});
+
 vi.mock("@/services/stripe/deposit-hold", () => ({
   placeDepositHold: vi
     .fn()
