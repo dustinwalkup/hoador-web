@@ -42,11 +42,29 @@ jobs:
         run: bun run build
 
       # 5️⃣ Deploy to Vercel (Preview)
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel Environment
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build with Vercel
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
       - name: Deploy to Vercel (Preview)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          github-comment: true
-          vercel-args: "" # Do NOT use --prod for PR previews
+        run: |
+          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} \
+            -m githubCommitSha=${{ github.sha }} \
+            -m githubCommitRef=${{ github.head_ref }} \
+            -m githubCommitAuthorLogin=${{ github.actor }} \
+            -m githubOrg=${{ github.repository_owner }} \
+            -m githubRepo=hoador-web
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
