@@ -58,7 +58,10 @@ async function postHandler(request: NextRequest) {
     }
 
     if (rentalRequest.status !== "approved") {
-      console.warn("[pdf-gen-route] not approved, status:", rentalRequest.status);
+      console.warn(
+        "[pdf-gen-route] not approved, status:",
+        rentalRequest.status,
+      );
       return NextResponse.json(
         { error: "Rental request is not approved" },
         { status: 400 },
