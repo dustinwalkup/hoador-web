@@ -5,6 +5,9 @@ const mockGetByRentalId = vi.fn();
 const mockUpdatePayoutStatus = vi.fn();
 const mockUpdateOwnerTransferStatus = vi.fn();
 const mockUpdateDepositHoldStatus = vi.fn();
+const mockIncrementOwnerTransferRetryCount = vi
+  .fn()
+  .mockResolvedValue(undefined);
 
 vi.mock("@/dal", () => ({
   paymentLifecycleDAL: {
@@ -14,6 +17,8 @@ vi.mock("@/dal", () => ({
       mockUpdateOwnerTransferStatus(...args),
     updateDepositHoldStatus: (...args: unknown[]) =>
       mockUpdateDepositHoldStatus(...args),
+    incrementOwnerTransferRetryCount: (...args: unknown[]) =>
+      mockIncrementOwnerTransferRetryCount(...args),
   },
   auditLogDAL: {
     create: (...args: unknown[]) => mockAuditLogCreate(...args),
@@ -165,6 +170,7 @@ describe("PaymentLifecycleAdminService", () => {
         rentalId: "rental-1",
         payoutStatus: "completed",
         ownerTransferStatus: "failed",
+        ownerTransferRetryCount: 0,
         depositHoldStatus: "released",
       });
 
@@ -178,12 +184,16 @@ describe("PaymentLifecycleAdminService", () => {
         "rental-1",
         "pending",
       );
+      expect(mockIncrementOwnerTransferRetryCount).toHaveBeenCalledWith(
+        "rental-1",
+      );
       expect(mockAuditLogCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           action: "owner_transfer_status_reset",
           metadata: expect.objectContaining({
             previousTransferStatus: "failed",
             previousPayoutStatus: "completed",
+            retryCount: 1,
           }),
         }),
       );
@@ -194,6 +204,7 @@ describe("PaymentLifecycleAdminService", () => {
         rentalId: "rental-2",
         payoutStatus: "failed",
         ownerTransferStatus: "failed",
+        ownerTransferRetryCount: 0,
         depositHoldStatus: "released",
       });
 
@@ -229,6 +240,7 @@ describe("PaymentLifecycleAdminService", () => {
         rentalId: "rental-4",
         payoutStatus: "processing",
         ownerTransferStatus: "failed",
+        ownerTransferRetryCount: 0,
         depositHoldStatus: "released",
       });
 
@@ -276,6 +288,7 @@ describe("PaymentLifecycleAdminService", () => {
         rentalId: "rental-1",
         payoutStatus: "failed",
         ownerTransferStatus: "failed",
+        ownerTransferRetryCount: 0,
         depositHoldStatus: "released",
       });
 

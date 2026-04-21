@@ -115,6 +115,7 @@ export const PaymentLifecycleAdminService = {
     const previousPayoutStatus = lifecycle.payoutStatus;
 
     await paymentLifecycleDAL.updateOwnerTransferStatus(rentalId, "pending");
+    await paymentLifecycleDAL.incrementOwnerTransferRetryCount(rentalId);
     if (lifecycle.payoutStatus === "failed") {
       await paymentLifecycleDAL.updatePayoutStatus(rentalId, "pending");
     }
@@ -127,6 +128,7 @@ export const PaymentLifecycleAdminService = {
       metadata: {
         previousTransferStatus,
         previousPayoutStatus,
+        retryCount: lifecycle.ownerTransferRetryCount + 1,
         reason: options.reason ?? null,
       },
     });
