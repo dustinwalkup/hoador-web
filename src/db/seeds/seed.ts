@@ -31,7 +31,7 @@ async function truncateAll(): Promise<void> {
       messages,
       conversations,
       payments,
-      reviews,
+      blind_reviews,
       rentals,
       rental_requests,
       listing_images,

@@ -31,7 +31,7 @@ const TRUNCATE_LIST = `
   messages,
   conversations,
   payments,
-  reviews,
+  blind_reviews,
   rentals,
   rental_requests,
   listing_images,
