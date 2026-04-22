@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -10,7 +10,6 @@ import {
   Calendar,
   Clock,
   MessageCircle,
-  Star,
   CheckCircle,
   CheckCircle2,
   XCircle,
@@ -21,6 +20,7 @@ import {
   FileText,
   User,
   Loader2,
+  Star,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -44,6 +44,8 @@ import { formatLocalDate } from "@/lib/utils/date.utils";
 import { FileDisputeDialog } from "@/features/disputes/components/file-dispute-dialog";
 import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
 import { ServiceStatusProgress } from "@/features/services/components/detail-page/service-status-progress";
+import { BookingReviewsSection } from "@/features/reviews/components/booking-reviews-section";
+import { ReviewFormDialog } from "@/features/reviews/components/review-form-dialog";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -62,15 +64,6 @@ interface ListingInfo {
   pricingType: "hourly" | "fixed";
   price: number;
   category?: string | null;
-}
-
-interface ReviewInfo {
-  id: string;
-  rating: number;
-  comment: string | null;
-  reviewerId: string;
-  reviewer?: UserInfo;
-  createdAt: string;
 }
 
 export interface ServiceBookingPayload {
@@ -108,12 +101,12 @@ export interface ServiceBookingPayload {
 interface ServiceBookingDetailClientProps {
   booking: ServiceBookingPayload;
   isRequester: boolean;
-  reviews: ReviewInfo[];
-  myReview: ReviewInfo | null;
   /** Current published Cancellation & Refund policy URL (e.g. PDF), when configured. */
   cancellationPolicyUrl?: string;
   /** Dispute policy URL for filing a dispute. */
   disputePolicyUrl?: string;
+  /** Generated service agreement PDF URL, if available. */
+  serviceAgreementUrl?: string;
   /** True when an open dispute already exists for this booking. */
   hasActiveDispute?: boolean;
   /**
@@ -121,6 +114,8 @@ interface ServiceBookingDetailClientProps {
    * use dollar amounts from the DB (numeric scale 2); default is false.
    */
   priceInCents?: boolean;
+  /** Whether the current user can leave a review for this booking. */
+  canReview?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,15 +147,7 @@ const cancelFormSchema = z.object({
     .max(1000, "Reason must be 1,000 characters or less"),
 });
 
-const reviewFormSchema = z.object({
-  rating: z.number().int().min(1, "Please select a rating").max(5),
-  comment: z
-    .string()
-    .max(5000, "Comment must be 5,000 characters or less")
-    .optional(),
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────���──────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   ServiceBookingPayload["status"],
@@ -179,54 +166,18 @@ const STATUS_CONFIG: Record<
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Star Rating Component
-// ─────────────────────────────────────────────────────────────────────────────
-
-function StarRating({
-  rating,
-  onChange,
-  readonly = false,
-}: {
-  rating: number;
-  onChange?: (r: number) => void;
-  readonly?: boolean;
-}) {
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          disabled={readonly}
-          onClick={() => onChange?.(star)}
-          className={`${readonly ? "cursor-default" : "cursor-pointer hover:scale-110"} transition-transform`}
-        >
-          <Star
-            className={`h-5 w-5 ${
-              star <= rating
-                ? "fill-amber-400 text-amber-400"
-                : "text-muted-foreground/40 fill-none"
-            }`}
-          />
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ServiceBookingDetailClient({
   booking,
   isRequester,
-  reviews,
-  myReview,
   cancellationPolicyUrl,
   disputePolicyUrl,
+  serviceAgreementUrl,
   hasActiveDispute = false,
   priceInCents = false,
+  canReview: canReviewProp = false,
 }: ServiceBookingDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -238,25 +189,19 @@ export function ServiceBookingDetailClient({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [disputeOpen, setDisputeOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [canReview, setCanReview] = useState(canReviewProp);
 
   // Form states
   const [declineReason, setDeclineReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [pending, setPending] = useState(false);
 
-  // Review states
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState("");
-  const [reviewPending, setReviewPending] = useState(false);
-
   // Field validation errors
   const [declineReasonError, setDeclineReasonError] = useState<string | null>(
     null,
   );
   const [cancelReasonError, setCancelReasonError] = useState<string | null>(
-    null,
-  );
-  const [reviewCommentError, setReviewCommentError] = useState<string | null>(
     null,
   );
 
@@ -423,42 +368,6 @@ export function ServiceBookingDetailClient({
       await refresh();
     } finally {
       setPending(false);
-    }
-  }
-
-  async function postReview() {
-    const result = reviewFormSchema.safeParse({
-      rating,
-      comment: comment || undefined,
-    });
-    if (!result.success) {
-      const commentIssue = result.error.issues.find(
-        (i) => i.path[0] === "comment",
-      );
-      if (commentIssue) setReviewCommentError(commentIssue.message);
-      return;
-    }
-    setReviewCommentError(null);
-    setReviewPending(true);
-    try {
-      const res = await fetch(`/api/services/bookings/${booking.id}/reviews`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rating,
-          comment: comment.trim() || undefined,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data.error ?? "Could not submit review");
-        return;
-      }
-      toast.success("Thanks for your review.");
-      setComment("");
-      await refresh();
-    } finally {
-      setReviewPending(false);
     }
   }
 
@@ -666,84 +575,12 @@ export function ServiceBookingDetailClient({
             </div>
           )}
 
-          {/* Reviews Section */}
-          {reviews.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">Reviews</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {reviews.map((review) => (
-                  <div key={review.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <StarRating rating={review.rating} readonly />
-                      <span className="text-muted-foreground text-xs">
-                        {new Date(review.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    {review.comment && (
-                      <p className="text-muted-foreground text-sm">
-                        {review.comment}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Leave Review Form */}
-          {booking.status === "completed" && !myReview && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">
-                  Leave a Review
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label className="text-muted-foreground mb-2 block text-sm">
-                    Rating
-                  </Label>
-                  <StarRating rating={rating} onChange={setRating} />
-                </div>
-                <div>
-                  <Label
-                    htmlFor="review-comment"
-                    className="text-muted-foreground mb-2 block text-sm"
-                  >
-                    Comment (optional)
-                  </Label>
-                  <Textarea
-                    id="review-comment"
-                    placeholder="Share your experience..."
-                    value={comment}
-                    aria-invalid={!!reviewCommentError}
-                    onChange={(e) => {
-                      setComment(e.target.value);
-                      if (reviewCommentError) setReviewCommentError(null);
-                    }}
-                    rows={3}
-                  />
-                  {reviewCommentError && (
-                    <p className="text-destructive mt-1 text-[0.8rem] font-medium">
-                      {reviewCommentError}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  onClick={postReview}
-                  disabled={reviewPending}
-                  className="w-full sm:w-auto"
-                >
-                  {reviewPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Submit Review
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          {/* Reviews Section — blind review system */}
+          <BookingReviewsSection
+            key={`reviews-${canReview}`}
+            serviceBookingId={booking.id}
+            bookingStatus={booking.status}
+          />
         </div>
 
         {/* Right column - Sidebar */}
@@ -888,6 +725,14 @@ export function ServiceBookingDetailClient({
                 </>
               )}
 
+              {/* Completed — leave a review (both parties) */}
+              {canReview && (
+                <Button className="w-full" onClick={() => setReviewOpen(true)}>
+                  <Star className="mr-2 h-4 w-4" />
+                  Leave a Review
+                </Button>
+              )}
+
               {/* Completed — dispute window (both parties) */}
               {booking.status === "completed" && canFileServiceDispute && (
                 <Button
@@ -897,6 +742,24 @@ export function ServiceBookingDetailClient({
                 >
                   <AlertTriangle className="mr-2 h-4 w-4" />
                   File a Dispute
+                </Button>
+              )}
+
+              {/* Service Agreement */}
+              {serviceAgreementUrl && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() =>
+                    window.open(
+                      serviceAgreementUrl,
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
+                  }
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Service Agreement
                 </Button>
               )}
 
@@ -1128,6 +991,16 @@ export function ServiceBookingDetailClient({
         serviceFilerRole={isRequester ? "requester" : "provider"}
         listingName={booking.listing.title}
         disputePolicyUrl={disputePolicyUrl}
+      />
+
+      <ReviewFormDialog
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        serviceBookingId={booking.id}
+        onSuccess={() => {
+          setCanReview(false);
+          router.refresh();
+        }}
       />
     </div>
   );

@@ -133,13 +133,11 @@ export function LendingCard({ request }: LendingCardProps) {
                       </Badge>
                     )}
                   </div>
-                  {request.renterRating && request.renterReviewCount && (
+                  {request.renterRating != null && (
                     <div className="flex items-center gap-1 text-sm text-gray-600">
-                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                      <span>
-                        {request.renterRating} ({request.renterReviewCount}{" "}
-                        reviews)
-                      </span>
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                      <span>{request.renterRating.toFixed(1)}</span>
+                      <span className="text-muted-foreground">(Renter)</span>
                     </div>
                   )}
                 </div>
@@ -307,17 +305,15 @@ export function LendingCard({ request }: LendingCardProps) {
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        {request.renterRating && request.renterReviewCount && (
-                          <div className="flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span>
-                              {request.renterRating} (
-                              {request.renterReviewCount} reviews)
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      {request.renterRating != null && (
+                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          <span>{request.renterRating.toFixed(1)}</span>
+                          <span className="text-muted-foreground">
+                            (Renter)
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

@@ -3,21 +3,17 @@ import { getDashboardActivityFeed } from "../activity-feed";
 import {
   listingDAL,
   rentalDAL,
-  reviewDAL,
   serviceBookingDAL,
   serviceListingDAL,
-  serviceReviewDAL,
 } from "@/dal";
 
 vi.mock("@/dal", () => ({
   rentalDAL: { getRecentRentalActivity: vi.fn() },
-  reviewDAL: { getRecentReviews: vi.fn() },
   listingDAL: { getUserListings: vi.fn() },
   serviceBookingDAL: {
     findByRequesterForDashboard: vi.fn(),
     findByProviderForDashboard: vi.fn(),
   },
-  serviceReviewDAL: { findByReviewee: vi.fn() },
   serviceListingDAL: { findByProvider: vi.fn() },
 }));
 
@@ -31,7 +27,6 @@ describe("getDashboardActivityFeed", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(rentalDAL.getRecentRentalActivity).mockResolvedValue([]);
-    vi.mocked(reviewDAL.getRecentReviews).mockResolvedValue([]);
     vi.mocked(listingDAL.getUserListings).mockResolvedValue([]);
     vi.mocked(serviceBookingDAL.findByRequesterForDashboard).mockResolvedValue(
       [],
@@ -39,7 +34,6 @@ describe("getDashboardActivityFeed", () => {
     vi.mocked(serviceBookingDAL.findByProviderForDashboard).mockResolvedValue(
       [],
     );
-    vi.mocked(serviceReviewDAL.findByReviewee).mockResolvedValue([]);
     vi.mocked(serviceListingDAL.findByProvider).mockResolvedValue([]);
   });
 
@@ -50,9 +44,6 @@ describe("getDashboardActivityFeed", () => {
       userId,
       expect.any(Number),
     );
-    expect(reviewDAL.getRecentReviews).toHaveBeenCalledWith(userId, {
-      limit: expect.any(Number),
-    });
     expect(listingDAL.getUserListings).toHaveBeenCalledWith(userId);
     expect(serviceBookingDAL.findByRequesterForDashboard).toHaveBeenCalledWith(
       userId,
@@ -60,9 +51,6 @@ describe("getDashboardActivityFeed", () => {
     expect(serviceBookingDAL.findByProviderForDashboard).toHaveBeenCalledWith(
       userId,
     );
-    expect(serviceReviewDAL.findByReviewee).toHaveBeenCalledWith(userId, {
-      limit: expect.any(Number),
-    });
     expect(serviceListingDAL.findByProvider).toHaveBeenCalledWith(userId);
   });
 

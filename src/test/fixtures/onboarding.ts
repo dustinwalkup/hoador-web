@@ -90,6 +90,8 @@ export const mockUserForOnboarding: UserProfile = {
   privacyAcceptedAt: new Date("2024-01-01"),
   communityVersion: null,
   communityAcceptedAt: null,
+  reviewAggregateRating: null,
+  reviewCount: 0,
   createdAt: new Date("2024-01-01"),
   preferences: null,
   primaryAddress: undefined,
@@ -128,6 +130,8 @@ export const mockUserAfterOnboarding: UserProfile = {
   privacyAcceptedAt: new Date("2024-01-01"),
   communityVersion: null,
   communityAcceptedAt: null,
+  reviewAggregateRating: null,
+  reviewCount: 0,
   createdAt: new Date("2024-01-01"),
   preferences: null,
   primaryAddress: {

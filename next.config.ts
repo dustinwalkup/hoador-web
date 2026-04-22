@@ -66,7 +66,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect-js.stripe.com", // Next.js requires unsafe-eval in dev, Stripe Connect
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect-js.stripe.com https://va.vercel-scripts.com", // Next.js requires unsafe-eval in dev, Stripe Connect, Vercel Speed Insights
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: blob: https://hvom5mpictiugrk9.public.blob.vercel-storage.com https://thnd3cwzf3mlmu4a.public.blob.vercel-storage.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://picsum.photos",

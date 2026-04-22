@@ -6,6 +6,7 @@ import {
   boolean,
   integer,
   decimal,
+  numeric,
   uuid,
   index,
   uniqueIndex,
@@ -14,7 +15,7 @@ import { relations } from "drizzle-orm";
 
 import { userStatusEnum, userTypeEnum } from "./_enums";
 import { listings } from "./listings.schema";
-import { rentalRequests, rentals, reviews } from "./rentals.schema";
+import { rentalRequests, rentals } from "./rentals.schema";
 import { payments } from "./payments.schema";
 import { userCollections, userFavorites } from "./collections.schema";
 import { messages } from "./messages.schema";
@@ -64,6 +65,13 @@ export const user = pgTable(
     addressVerified: boolean("address_verified").default(false).notNull(),
     lastLoginAt: timestamp("last_login_at"),
     lastActiveAt: timestamp("last_active_at"),
+
+    // ---- Review aggregate fields ----
+    reviewAggregateRating: numeric("review_aggregate_rating", {
+      precision: 3,
+      scale: 2,
+    }),
+    reviewCount: integer("review_count").default(0).notNull(),
 
     // ---- Legal document acceptance fields ----
     tosVersion: varchar("tos_version", { length: 50 }),
@@ -259,8 +267,6 @@ export const userRelations = relations(user, ({ one, many }) => ({
   ownedRentalRequests: many(rentalRequests, { relationName: "ownerRequests" }),
   rentals: many(rentals, { relationName: "renterRentals" }),
   ownedRentals: many(rentals, { relationName: "ownerRentals" }),
-  reviewsGiven: many(reviews, { relationName: "reviewsGiven" }),
-  reviewsReceived: many(reviews, { relationName: "reviewsReceived" }),
   payments: many(payments, { relationName: "payerPayments" }),
   receivedPayments: many(payments, { relationName: "payeePayments" }),
   paymentMethods: many(userPaymentMethods),

@@ -8,9 +8,9 @@ import {
   getCurrentUserId,
 } from "@/lib/api/route-helpers";
 import {
+  blindReviewDAL,
   communityDAL,
   serviceListingDAL,
-  serviceReviewDAL,
   userDAL,
 } from "@/dal";
 import { ForbiddenError } from "@/dal/errors";
@@ -85,30 +85,27 @@ async function getHandler(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { data: providerProfile, error: pErr } = await tryCatch(
-      serviceReviewDAL.getProviderProfileByUserId(targetUserId),
-    );
-    if (pErr) {
-      return handleApiError(pErr);
-    }
-
-    const { data: allListings, error: lErr } = await tryCatch(
-      serviceListingDAL.findByProvider(targetUserId),
-    );
-    if (lErr) {
-      return handleApiError(lErr);
-    }
+    const [
+      { data: allListings, error: lErr },
+      { data: aggregate, error: aggErr },
+      { data: paginatedReviews, error: revErr },
+    ] = await Promise.all([
+      tryCatch(serviceListingDAL.findByProvider(targetUserId)),
+      tryCatch(blindReviewDAL.getAggregate(targetUserId)),
+      tryCatch(
+        blindReviewDAL.findReleasedByReviewee(targetUserId, {
+          limit: 10,
+          offset: 0,
+        }),
+      ),
+    ]);
+    if (lErr) return handleApiError(lErr);
+    if (aggErr) return handleApiError(aggErr);
+    if (revErr) return handleApiError(revErr);
 
     const activeListings = (allListings ?? []).filter(
       (l) => l.status === "active",
     );
-
-    const { data: reviews, error: rErr } = await tryCatch(
-      serviceReviewDAL.findByReviewee(targetUserId, { limit: 50 }),
-    );
-    if (rErr) {
-      return handleApiError(rErr);
-    }
 
     return NextResponse.json({
       user: {
@@ -118,9 +115,10 @@ async function getHandler(
         profileImageUrl: profileUser.profileImageUrl,
         createdAt: profileUser.createdAt,
       },
-      profile: providerProfile,
+      profile: null,
       activeListings,
-      reviewsReceived: reviews ?? [],
+      reviewsReceived: paginatedReviews?.data ?? [],
+      aggregate: aggregate ?? { averageRating: 0, totalReviews: 0 },
     });
   } catch (error) {
     return handleApiError(error);
@@ -168,15 +166,14 @@ async function patchHandler(
 
     const bio = sanitizeTextWithMaxLength(parsed.data.bio.trim(), 500);
 
-    const { data, error } = await tryCatch(
-      serviceReviewDAL.upsertProviderBio(targetUserId, bio || null),
+    const { error: updateErr } = await tryCatch(
+      userDAL.updateUser(targetUserId, { bio }),
     );
-
-    if (error) {
-      return handleApiError(error);
+    if (updateErr) {
+      return handleApiError(updateErr);
     }
 
-    return NextResponse.json({ profile: data });
+    return NextResponse.json({ profile: { bio } });
   } catch (error) {
     return handleApiError(error);
   }

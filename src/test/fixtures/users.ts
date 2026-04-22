@@ -26,6 +26,8 @@ export const mockUser: UserProfile = {
   privacyAcceptedAt: null,
   communityVersion: null,
   communityAcceptedAt: null,
+  reviewAggregateRating: null,
+  reviewCount: 0,
   createdAt: new Date("2024-01-01"),
   preferences: {
     id: "pref-123",
@@ -125,6 +127,8 @@ export const mockAdminUser: UserProfile = {
   privacyAcceptedAt: new Date("2024-01-01"),
   communityVersion: "1.0",
   communityAcceptedAt: new Date("2024-01-01"),
+  reviewAggregateRating: null,
+  reviewCount: 0,
   createdAt: new Date("2024-01-01"),
   preferences: null,
   primaryAddress: undefined,

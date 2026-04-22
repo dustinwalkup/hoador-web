@@ -24,7 +24,6 @@ export const mockRentalRequest: RentalRequestItem = {
   setupRequested: false,
   message: "I need this for a weekend project",
   conversationId: null,
-  canLeaveReview: false,
 };
 
 export const mockBorrowedListing: BorrowedListing = {
@@ -41,7 +40,6 @@ export const mockBorrowedListing: BorrowedListing = {
   status: "active",
   dailyRate: "15.00",
   conversationId: "conversation-123",
-  canLeaveReview: false,
 };
 
 export const mockLendingRequest: LendingRequestItem = {
@@ -113,7 +111,6 @@ export const mockRentalDetails: RentalDetails = {
   actualEndDate: undefined,
   currentUserId: "user-123",
   conversationId: "conversation-123",
-  canLeaveReview: false,
 };
 
 export const mockRentalDates = {

@@ -7,7 +7,7 @@ import { BackButton } from "@/components/back-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { communityDAL, serviceListingDAL, serviceReviewDAL } from "@/dal";
+import { blindReviewDAL, communityDAL, serviceListingDAL } from "@/dal";
 import { formatServiceUsd } from "@/features/services/lib/service-labels";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { getStripeCustomerContext } from "@/services/stripe/payment-method";
@@ -46,19 +46,17 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const [providerProfile, reviews, paymentMethod] = await Promise.all([
-    serviceReviewDAL.getProviderProfileByUserId(listing.providerId),
-    serviceReviewDAL.findByListing(listing.id),
+  const [paymentMethod, aggregate] = await Promise.all([
     getStripeCustomerContext(userId),
+    blindReviewDAL.getAggregate(listing.providerId),
   ]);
 
   const providerName = [listing.provider.firstName, listing.provider.lastName]
     .filter(Boolean)
     .join(" ");
-  const rating =
-    providerProfile?.aggregateRating != null
-      ? Number.parseFloat(String(providerProfile.aggregateRating))
-      : null;
+  const rating = aggregate.totalReviews > 0 ? aggregate.averageRating : null;
+  const hasValidRating =
+    rating != null && Number.isFinite(rating) && rating > 0;
   const photos = Array.isArray(listing.photos)
     ? (listing.photos as string[])
     : [];
@@ -66,9 +64,6 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
   const initials =
     (listing.provider.firstName?.[0] ?? "") +
     (listing.provider.lastName?.[0] ?? "");
-
-  const hasValidRating =
-    rating != null && Number.isFinite(rating) && rating > 0;
 
   const hasPaymentMethod = Boolean(paymentMethod);
 
@@ -143,9 +138,10 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
                       <span className="text-foreground font-medium">
                         {rating.toFixed(1)}
                       </span>
-                      {providerProfile?.reviewCount != null && (
-                        <span>({providerProfile.reviewCount} reviews)</span>
-                      )}
+                      <span>
+                        ({aggregate.totalReviews} review
+                        {aggregate.totalReviews !== 1 ? "s" : ""})
+                      </span>
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm">
@@ -195,71 +191,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
           </section>
         )}
 
-        <Separator />
-
-        {/* Reviews Section */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
-              Reviews
-            </h2>
-            {reviews.length > 0 && (
-              <span className="text-muted-foreground text-sm">
-                {reviews.length} review{reviews.length !== 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-
-          {reviews.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-8 text-center">
-              <p className="text-muted-foreground text-sm">
-                No reviews yet. Be the first to book this service!
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {reviews.map((review) => (
-                <Card key={review.id} className="shadow-none">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 shrink-0">
-                          <AvatarFallback className="bg-muted text-xs">
-                            {(review.reviewer.firstName?.[0] ?? "") +
-                              (review.reviewer.lastName?.[0] ?? "")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {review.reviewer.firstName}{" "}
-                            {review.reviewer.lastName}
-                          </p>
-                          <div className="flex items-center gap-1">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-3 w-3 ${
-                                  i < review.rating
-                                    ? "fill-amber-400 text-amber-400"
-                                    : "fill-muted text-muted"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    {review.comment && (
-                      <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-                        {review.comment}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </section>
+        {/* TODO: Re-enable reviews section once service reviews are ready */}
 
         <Separator />
 

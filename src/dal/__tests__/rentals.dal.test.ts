@@ -4,15 +4,6 @@ import { ConflictError, DALError, NotFoundError } from "../errors";
 import { mockRentalRequest, mockRentalDetails } from "@/test/fixtures/rentals";
 import { db } from "@/db/db";
 
-const { mockGetReviewByRentalId } = vi.hoisted(() => ({
-  mockGetReviewByRentalId: vi.fn(),
-}));
-vi.mock("@/dal/review.dal", () => ({
-  ReviewDAL: class MockReviewDAL {
-    getReviewByRentalId = mockGetReviewByRentalId;
-  },
-}));
-
 // Mock dependencies
 vi.mock("@/features/auth/utils/session");
 vi.mock("@/db/db", () => ({
@@ -36,7 +27,7 @@ vi.mock("@/db/db", () => ({
       user: {
         findFirst: vi.fn(),
       },
-      reviews: {
+      blindReviews: {
         findMany: vi.fn(),
       },
       userAddresses: {
@@ -51,7 +42,6 @@ vi.mock("@/db/db", () => ({
 describe("RentalDAL", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetReviewByRentalId.mockResolvedValue(undefined);
   });
 
   describe("insertRentalRequest", () => {
@@ -894,7 +884,7 @@ describe("RentalDAL", () => {
           emailVerified: true,
           createdAt: new Date(),
         } as any); // Owner
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
       vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue(undefined);
 
       // Act
@@ -1068,179 +1058,14 @@ describe("RentalDAL", () => {
           email: "o@example.com",
           createdAt: new Date(),
         } as any);
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
       vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue(undefined);
-      mockGetReviewByRentalId.mockResolvedValue(undefined);
 
       const result = await rentalDAL.getRentalDetailsById(rentalId);
 
       expect(result.type).toBe("rental");
       expect(result.id).toBe(rentalId);
       expect(result.listingName).toBe("Test Listing");
-    });
-
-    it("should set hasReview and review when review exists", async () => {
-      const rentalId = "rental-123";
-      const mockRentalRequestData = {
-        ...mockRentalDetails,
-        id: rentalId,
-        renterId: "user-456",
-        ownerId: "user-123",
-        listingId: "listing-123",
-        status: "completed",
-      };
-      const mockLimit1 = vi.fn().mockResolvedValue([mockRentalRequestData]);
-      const mockWhere1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
-      const mockLeftJoin3 = vi.fn().mockReturnValue({ where: mockWhere1 });
-      const mockLeftJoin2 = vi
-        .fn()
-        .mockReturnValue({ leftJoin: mockLeftJoin3 });
-      const mockLeftJoin1 = vi
-        .fn()
-        .mockReturnValue({ leftJoin: mockLeftJoin2 });
-      const mockFrom1 = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin1 });
-      const mockLimit2 = vi
-        .fn()
-        .mockResolvedValue([{ imageUrl: "https://example.com/image.jpg" }]);
-      const mockOrderBy2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
-      const mockWhere2 = vi.fn().mockReturnValue({ orderBy: mockOrderBy2 });
-      const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
-      const mockWhere3 = vi.fn().mockResolvedValue([]);
-      const mockFrom3 = vi.fn().mockReturnValue({ where: mockWhere3 });
-      const mockLimit4 = vi
-        .fn()
-        .mockResolvedValue([
-          { id: "rental-record-123", damageReported: false },
-        ]);
-      const mockWhere4 = vi.fn().mockReturnValue({ limit: mockLimit4 });
-      const mockFrom4 = vi.fn().mockReturnValue({ where: mockWhere4 });
-
-      let selectCallCount = 0;
-      vi.mocked(db.select).mockImplementation(() => {
-        selectCallCount++;
-        if (selectCallCount === 1) return { from: mockFrom1 } as any;
-        if (selectCallCount === 2) return { from: mockFrom2 } as any;
-        if (selectCallCount === 3) return { from: mockFrom3 } as any;
-        return { from: mockFrom4 } as any;
-      });
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        id: "listing-123",
-        name: "Test Listing",
-      } as any);
-      vi.mocked(db.query.user.findFirst)
-        .mockResolvedValueOnce({
-          id: "user-456",
-          firstName: "Jane",
-          lastName: "Smith",
-          email: "jane@example.com",
-          createdAt: new Date(),
-        } as any)
-        .mockResolvedValueOnce({
-          id: "user-123",
-          firstName: "John",
-          lastName: "Doe",
-          email: "john@example.com",
-          createdAt: new Date(),
-        } as any);
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
-      vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue(undefined);
-
-      const reviewData = {
-        id: "rev-1",
-        rating: 5,
-        comment: "Great",
-        title: "Great",
-        accuracyRating: 5,
-        listingConditionRating: 5,
-        ownerCommunicationRating: 5,
-        createdAt: new Date(),
-        reviewer: {
-          id: "user-456",
-          firstName: "Jane",
-          lastName: "Smith",
-          profileImageUrl: null,
-        },
-      };
-      mockGetReviewByRentalId.mockResolvedValue(reviewData);
-
-      const result = await rentalDAL.getRentalDetailsById(rentalId, "user-456");
-
-      expect(result.hasReview).toBe(true);
-      expect(result.review).toBeDefined();
-      expect(result.review?.id).toBe("rev-1");
-      expect(result.review?.rating).toBe(5);
-    });
-
-    it("should set canLeaveReview when completed, no damage, no review, user is renter", async () => {
-      const rentalId = "rental-123";
-      const mockRentalRequestData = {
-        ...mockRentalDetails,
-        id: rentalId,
-        renterId: "renter-1",
-        ownerId: "owner-1",
-        listingId: "listing-123",
-        status: "completed",
-      };
-      const mockLimit1 = vi.fn().mockResolvedValue([mockRentalRequestData]);
-      const mockWhere1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
-      const mockLeftJoin3 = vi.fn().mockReturnValue({ where: mockWhere1 });
-      const mockLeftJoin2 = vi
-        .fn()
-        .mockReturnValue({ leftJoin: mockLeftJoin3 });
-      const mockLeftJoin1 = vi
-        .fn()
-        .mockReturnValue({ leftJoin: mockLeftJoin2 });
-      const mockFrom1 = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin1 });
-      const mockLimit2 = vi
-        .fn()
-        .mockResolvedValue([{ imageUrl: "https://example.com/image.jpg" }]);
-      const mockOrderBy2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
-      const mockWhere2 = vi.fn().mockReturnValue({ orderBy: mockOrderBy2 });
-      const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
-      const mockWhere3 = vi.fn().mockResolvedValue([]);
-      const mockFrom3 = vi.fn().mockReturnValue({ where: mockWhere3 });
-      const mockLimit4 = vi
-        .fn()
-        .mockResolvedValue([
-          { id: "rental-record-123", damageReported: false },
-        ]);
-      const mockWhere4 = vi.fn().mockReturnValue({ limit: mockLimit4 });
-      const mockFrom4 = vi.fn().mockReturnValue({ where: mockWhere4 });
-
-      let selectCallCount = 0;
-      vi.mocked(db.select).mockImplementation(() => {
-        selectCallCount++;
-        if (selectCallCount === 1) return { from: mockFrom1 } as any;
-        if (selectCallCount === 2) return { from: mockFrom2 } as any;
-        if (selectCallCount === 3) return { from: mockFrom3 } as any;
-        return { from: mockFrom4 } as any;
-      });
-      vi.mocked(db.query.listings.findFirst).mockResolvedValue({
-        id: "listing-123",
-        name: "Test Listing",
-      } as any);
-      vi.mocked(db.query.user.findFirst)
-        .mockResolvedValueOnce({
-          id: "renter-1",
-          firstName: "Jane",
-          lastName: "Renter",
-          email: "j@example.com",
-          createdAt: new Date(),
-        } as any)
-        .mockResolvedValueOnce({
-          id: "owner-1",
-          firstName: "John",
-          lastName: "Owner",
-          email: "o@example.com",
-          createdAt: new Date(),
-        } as any);
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
-      vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue(undefined);
-      mockGetReviewByRentalId.mockResolvedValue(undefined);
-
-      const result = await rentalDAL.getRentalDetailsById(rentalId, "renter-1");
-
-      expect(result.canLeaveReview).toBe(true);
     });
   });
 

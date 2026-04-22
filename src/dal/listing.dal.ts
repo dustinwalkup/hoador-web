@@ -31,7 +31,6 @@ import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 const {
   listings,
   listingCategories,
-  reviews,
   listingAvailability,
   userFavorites,
   listingImages,
@@ -161,6 +160,8 @@ export class ListingDAL extends BaseDAL {
         firstName: user.firstName,
         lastName: user.lastName,
         profileImageUrl: user.profileImageUrl,
+        reviewAggregateRating: user.reviewAggregateRating,
+        reviewCount: user.reviewCount,
       },
       ownerAddress: {
         latitude: userAddresses.latitude,
@@ -332,27 +333,6 @@ export class ListingDAL extends BaseDAL {
               icon: true,
             },
           },
-          reviews: {
-            columns: {
-              id: true,
-              rating: true,
-              title: true,
-              comment: true,
-              createdAt: true,
-            },
-            with: {
-              reviewer: {
-                columns: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  profileImageUrl: true,
-                },
-              },
-            },
-            orderBy: [desc(reviews.createdAt)],
-            limit: 10,
-          },
           availability: {
             columns: {
               id: true,
@@ -381,30 +361,18 @@ export class ListingDAL extends BaseDAL {
         throw new NotFoundError("listing", id);
       }
 
-      // Get owner reviews separately to calculate rating
-      const ownerReviews: Array<{ rating: number }> =
-        await this.db.query.reviews.findMany({
-          where: eq(reviews.revieweeId, listing.ownerId),
-          columns: {
-            rating: true,
-          },
-        });
-
-      // Calculate average rating for listing
-      const listingRatings = listing.reviews.map((r: ReviewDb) => r.rating);
-      const averageRating =
-        listingRatings.length > 0
-          ? listingRatings.reduce((a: number, b: number) => a + b, 0) /
-            listingRatings.length
-          : 0;
-
-      // Calculate owner rating
-      const ownerRatings = ownerReviews.map((r) => r.rating);
-      const ownerAverageRating =
-        ownerRatings.length > 0
-          ? ownerRatings.reduce((a: number, b: number) => a + b, 0) /
-            ownerRatings.length
-          : 0;
+      // Get owner's review aggregate from user table
+      const ownerUser = await this.db.query.user.findFirst({
+        where: eq(user.id, listing.ownerId),
+        columns: {
+          reviewAggregateRating: true,
+          reviewCount: true,
+        },
+      });
+      const ownerAverageRating = ownerUser?.reviewAggregateRating
+        ? Number(ownerUser.reviewAggregateRating)
+        : 0;
+      const ownerReviewCount = ownerUser?.reviewCount ?? 0;
 
       // Check if user has favorited this listing
       let isFavorited = false;
@@ -455,8 +423,8 @@ export class ListingDAL extends BaseDAL {
         setupFee: Number(listing.setupFee),
         viewCount: listing.viewCount,
         favoriteCount: listing.favoriteCount,
-        averageRating: Math.round(averageRating * 10) / 10,
-        reviewCount: listingRatings.length,
+        averageRating: Math.round(ownerAverageRating * 10) / 10,
+        reviewCount: ownerReviewCount,
         isFavorited,
         createdAt: listing.createdAt,
         updatedAt: listing.updatedAt,
@@ -466,7 +434,7 @@ export class ListingDAL extends BaseDAL {
           lastName: listing.owner.lastName,
           profileImageUrl: listing.owner.profileImageUrl || undefined,
           averageRating: Math.round(ownerAverageRating * 10) / 10,
-          reviewCount: ownerRatings.length,
+          reviewCount: ownerReviewCount,
           memberSince: listing.owner.createdAt,
           address: ownerAddress
             ? {
@@ -480,19 +448,7 @@ export class ListingDAL extends BaseDAL {
           name: listing.category.name,
           icon: listing.category.icon || undefined,
         },
-        reviews: listing.reviews.map((review: ReviewDb) => ({
-          id: review.id,
-          rating: review.rating,
-          title: review.title || undefined,
-          comment: review.comment || undefined,
-          createdAt: review.createdAt,
-          reviewer: {
-            id: review.reviewer.id,
-            firstName: review.reviewer.firstName,
-            lastName: review.reviewer.lastName,
-            profileImageUrl: review.reviewer.profileImageUrl || undefined,
-          },
-        })),
+        reviews: [],
         images: images.map((img) => ({
           id: img.id,
           imageUrl: img.imageUrl,
@@ -945,42 +901,13 @@ export class ListingDAL extends BaseDAL {
         }
       }
 
-      // Get reviews for rating calculation
-      const reviewsData = await this.db
-        .select({
-          listingId: reviews.listingId,
-          rating: reviews.rating,
-        })
-        .from(reviews)
-        .where(inArray(reviews.listingId, listingIds));
-
-      // Calculate ratings per listing
-      const ratingsMap = new Map<
-        string,
-        { averageRating: number; reviewCount: number }
-      >();
-
-      for (const review of reviewsData) {
-        if (!ratingsMap.has(review.listingId)) {
-          ratingsMap.set(review.listingId, {
-            averageRating: 0,
-            reviewCount: 0,
-          });
-        }
-        const current = ratingsMap.get(review.listingId)!;
-        current.averageRating =
-          (current.averageRating * current.reviewCount + review.rating) /
-          (current.reviewCount + 1);
-        current.reviewCount++;
-      }
-
-      // Transform to Userlisting format
+      // Transform to UserListing format — ratings come from user-level aggregates (blind review system).
       const transformedListings: UserListing[] = listingsWithRelations.map(
         (item) => {
-          const listingRating = ratingsMap.get(item.listing.id) || {
-            averageRating: 0,
-            reviewCount: 0,
-          };
+          const ownerAvgRating = item.owner.reviewAggregateRating
+            ? Number(item.owner.reviewAggregateRating)
+            : 0;
+          const ownerRevCount = item.owner.reviewCount ?? 0;
 
           // Use database-calculated distance if available, otherwise undefined
           const distanceMiles =
@@ -988,8 +915,6 @@ export class ListingDAL extends BaseDAL {
               ? (item as typeof item & { calculatedDistance: number })
                   .calculatedDistance
               : undefined;
-
-          // Distance calculation working correctly
 
           return {
             ...item.listing,
@@ -1003,8 +928,8 @@ export class ListingDAL extends BaseDAL {
             securityDeposit: Number(item.listing.securityDeposit),
             deliveryFee: Number(item.listing.deliveryFee),
             setupFee: Number(item.listing.setupFee),
-            averageRating: Math.round(listingRating.averageRating * 10) / 10,
-            reviewCount: listingRating.reviewCount,
+            averageRating: Math.round(ownerAvgRating * 10) / 10,
+            reviewCount: ownerRevCount,
             firstImageUrl: listingImagesMap.get(item.listing.id) || null,
             distanceMiles,
           };
@@ -1311,10 +1236,8 @@ export class ListingDAL extends BaseDAL {
         .select({
           ownerId: rentals.ownerId,
           totalRentals: count(rentals.id),
-          averageRating: sql<number>`COALESCE(AVG(${reviews.rating}), 0)`,
         })
         .from(rentals)
-        .leftJoin(reviews, eq(reviews.rentalId, rentals.id))
         .where(inArray(rentals.ownerId, ownerIds))
         .groupBy(rentals.ownerId),
     ]);
@@ -1327,8 +1250,6 @@ export class ListingDAL extends BaseDAL {
       const entry = stats.get(row.ownerId);
       if (!entry) continue;
       entry.totalRentals = Number(row.totalRentals ?? 0);
-      entry.averageRating =
-        Math.round(Number(row.averageRating ?? 0) * 10) / 10;
     }
 
     return stats;
@@ -1347,37 +1268,18 @@ export class ListingDAL extends BaseDAL {
 
     const listingIds = userListings.map((l) => l.id);
 
-    const [allReviews, allFirstImages] = await Promise.all([
-      this.db.query.reviews.findMany({
-        where: inArray(reviews.listingId, listingIds),
-        columns: {
-          listingId: true,
-          rating: true,
-        },
-      }),
-      this.db
-        .select({
-          listingId: listingImages.listingId,
-          imageUrl: listingImages.imageUrl,
-        })
-        .from(listingImages)
-        .where(
-          and(
-            inArray(listingImages.listingId, listingIds),
-            eq(listingImages.orderIndex, 0),
-          ),
+    const allFirstImages = await this.db
+      .select({
+        listingId: listingImages.listingId,
+        imageUrl: listingImages.imageUrl,
+      })
+      .from(listingImages)
+      .where(
+        and(
+          inArray(listingImages.listingId, listingIds),
+          eq(listingImages.orderIndex, 0),
         ),
-    ]);
-
-    const ratingsByListing = new Map<string, number[]>();
-    for (const r of allReviews) {
-      const arr = ratingsByListing.get(r.listingId);
-      if (arr) {
-        arr.push(r.rating);
-      } else {
-        ratingsByListing.set(r.listingId, [r.rating]);
-      }
-    }
+      );
 
     const firstImageByListing = new Map<string, string>();
     for (const img of allFirstImages) {
@@ -1387,12 +1289,6 @@ export class ListingDAL extends BaseDAL {
     }
 
     return userListings.map((listing) => {
-      const ratings = ratingsByListing.get(listing.id) ?? [];
-      const averageRating =
-        ratings.length > 0
-          ? ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length
-          : 0;
-
       return {
         ...listing,
         dailyRate: Number(listing.dailyRate),
@@ -1403,8 +1299,8 @@ export class ListingDAL extends BaseDAL {
         securityDeposit: Number(listing.securityDeposit),
         deliveryFee: Number(listing.deliveryFee),
         setupFee: Number(listing.setupFee),
-        averageRating: Math.round(averageRating * 10) / 10,
-        reviewCount: ratings.length,
+        averageRating: 0,
+        reviewCount: 0,
         firstImageUrl: firstImageByListing.get(listing.id) || null,
       } as UserListing;
     });
@@ -2179,7 +2075,7 @@ export class ListingDAL extends BaseDAL {
     limit: number,
   ): Promise<Array<{ listingId: string; name: string; metricText: string }>> {
     try {
-      const [userListings, countRows, ratingRows] = await Promise.all([
+      const [userListings, countRows] = await Promise.all([
         this.db
           .select({ id: listings.id, name: listings.name })
           .from(listings)
@@ -2199,35 +2095,20 @@ export class ListingDAL extends BaseDAL {
             inArray(rentalRequests.status, ["approved", "active", "completed"]),
           )
           .groupBy(rentalRequests.listingId),
-        this.db
-          .select({
-            listingId: reviews.listingId,
-            avgRating:
-              sql<number>`ROUND(AVG(${reviews.rating})::numeric, 1)`.as("avg"),
-          })
-          .from(reviews)
-          .groupBy(reviews.listingId),
       ]);
 
       const countByListing = new Map(
         countRows.map((r) => [r.listingId, Number(r.rentalCount)]),
-      );
-      const ratingByListing = new Map(
-        ratingRows.map((r) => [r.listingId, Number(r.avgRating)]),
       );
 
       const withMetrics = userListings.map((listing) => ({
         listingId: listing.id,
         name: listing.name,
         rentalCount: countByListing.get(listing.id) ?? 0,
-        avgRating: ratingByListing.get(listing.id) ?? null,
+        avgRating: null as number | null,
       }));
 
-      withMetrics.sort((a, b) => {
-        if (b.rentalCount !== a.rentalCount)
-          return b.rentalCount - a.rentalCount;
-        return (b.avgRating ?? 0) - (a.avgRating ?? 0);
-      });
+      withMetrics.sort((a, b) => b.rentalCount - a.rentalCount);
 
       return withMetrics.slice(0, limit).map((row) => {
         const metricText =

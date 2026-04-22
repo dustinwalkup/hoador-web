@@ -13,7 +13,7 @@ vi.mock("@/db/db", () => ({
       user: { findFirst: vi.fn() },
       userAddresses: { findFirst: vi.fn(), findMany: vi.fn() },
       userPreferences: { findFirst: vi.fn() },
-      reviews: { findMany: vi.fn() },
+      blindReviews: { findMany: vi.fn() },
     },
     insert: vi.fn(),
     update: vi.fn(),
@@ -1142,29 +1142,34 @@ describe("UserDAL", () => {
   });
 
   describe("getUserReviews", () => {
-    it("should return paginated reviews", async () => {
-      const mockWhereCount = vi.fn().mockResolvedValue([{ total: 2 }]);
+    it("should return paginated reviews via blind review DAL", async () => {
+      // BlindReviewDAL.findReleasedByReviewee uses db.select chains:
+      // 1. count query: select({ total: count() }).from().where()
+      // 2. data query: select({...}).from().where().orderBy().limit().offset()
+      const mockWhereCount = vi.fn().mockResolvedValue([{ total: 0 }]);
       const mockFromCount = vi.fn().mockReturnValue({
         where: mockWhereCount,
       });
-      vi.mocked(db.select).mockReturnValue({ from: mockFromCount } as any);
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([
-        {
-          id: "r1",
-          rating: 5,
-          createdAt: new Date(),
-          reviewer: {},
-          listing: {},
-        },
-      ] as any);
+      const mockOffset = vi.fn().mockResolvedValue([]);
+      const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhereData = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFromData = vi.fn().mockReturnValue({ where: mockWhereData });
+
+      let selectCall = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        selectCall++;
+        if (selectCall === 1) return { from: mockFromCount } as any;
+        return { from: mockFromData } as any;
+      });
 
       const result = await userDAL.getUserReviews("user-123", {
         page: 1,
         limit: 10,
       });
 
-      expect(result.data).toHaveLength(1);
-      expect(result.pagination.total).toBe(2);
+      expect(result.data).toHaveLength(0);
+      expect(result.pagination.total).toBe(0);
     });
 
     it("should throw ValidationError for invalid pagination", async () => {
