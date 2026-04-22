@@ -33,6 +33,7 @@ import {
 } from "@/services/stripe/rental-payments";
 import { placeDepositHold } from "@/services/stripe/deposit-hold";
 import { tryCatch } from "@walkup/walkup-utils";
+import { after } from "next/server";
 
 /**
  * Context passed from the API route for audit and legal recording.
@@ -820,24 +821,39 @@ export class RentalService {
     });
 
     const internalSecret = process.env.INTERNAL_API_SECRET;
-    const baseUrl =
-      process.env.VERCEL_URL != null
-        ? `https://${process.env.VERCEL_URL}`
-        : process.env.NEXT_PUBLIC_APP_URL;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (internalSecret && baseUrl) {
-      fetch(`${baseUrl}/api/internal/generate-rental-agreement`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${internalSecret}`,
-        },
-        body: JSON.stringify({ rentalRequestId: rentalRequest.id }),
-        signal: AbortSignal.timeout(5000),
-      }).catch((err) => {
-        captureNonCriticalError(err, {
-          route: "RentalService.approveRentalRequest",
-          action: "trigger_pdf_generation",
-        });
+      const pdfUrl = `${baseUrl}/api/internal/generate-rental-agreement`;
+      after(async () => {
+        try {
+          console.log("[pdf-gen] triggering", {
+            url: pdfUrl,
+            rentalRequestId: rentalRequest.id,
+          });
+          const res = await fetch(pdfUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${internalSecret}`,
+            },
+            body: JSON.stringify({ rentalRequestId: rentalRequest.id }),
+            signal: AbortSignal.timeout(30_000),
+          });
+          const body = await res.text().catch(() => "unreadable");
+          console.log("[pdf-gen] response", {
+            status: res.status,
+            body: body.slice(0, 500),
+          });
+        } catch (err) {
+          console.error("[pdf-gen] fetch failed", {
+            url: pdfUrl,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          captureNonCriticalError(err, {
+            route: "RentalService.approveRentalRequest",
+            action: "trigger_pdf_generation",
+          });
+        }
       });
     }
 

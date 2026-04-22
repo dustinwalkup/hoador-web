@@ -101,6 +101,11 @@ vi.mock("@/db/schemas/rentals.schema", () => ({
   rentals: {},
 }));
 
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: vi.fn((cb: () => void) => cb()) };
+});
+
 vi.mock("@/services/stripe/deposit-hold", () => ({
   placeDepositHold: vi
     .fn()
@@ -142,7 +147,7 @@ describe("POST /api/rentals/[id]/approve", () => {
     );
     mockFetch.mockResolvedValue({ ok: true });
     process.env.INTERNAL_API_SECRET = "test-internal-secret";
-    process.env.VERCEL_URL = "localhost:3000";
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
     globalThis.fetch = mockFetch;
   });
 

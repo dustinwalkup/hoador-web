@@ -37,6 +37,7 @@ import { getStripeCustomerContext } from "@/services/stripe/payment-method";
 import { getPaymentErrorMessage } from "@/services/stripe/rental-payments";
 import { processRefund } from "@/services/stripe/refund";
 
+import { after } from "next/server";
 import type { AuditContext, CreateBookingInput } from "../types";
 
 function appBaseUrl(): string {
@@ -394,24 +395,39 @@ export class ServiceBookingService {
       await sendBookingAcceptedNotification(detail.requesterId, updated);
 
       const internalSecret = process.env.INTERNAL_API_SECRET;
-      const baseUrl =
-        process.env.VERCEL_URL != null
-          ? `https://${process.env.VERCEL_URL}`
-          : process.env.NEXT_PUBLIC_APP_URL;
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
       if (internalSecret && baseUrl) {
-        fetch(`${baseUrl}/api/internal/generate-service-agreement`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${internalSecret}`,
-          },
-          body: JSON.stringify({ serviceBookingId: bookingId }),
-          signal: AbortSignal.timeout(5000),
-        }).catch((err) => {
-          captureNonCriticalError(err, {
-            route: "ServiceBookingService.acceptBooking",
-            action: "trigger_service_agreement_pdf",
-          });
+        const pdfUrl = `${baseUrl}/api/internal/generate-service-agreement`;
+        after(async () => {
+          try {
+            console.log("[pdf-gen] triggering service agreement", {
+              url: pdfUrl,
+              serviceBookingId: bookingId,
+            });
+            const res = await fetch(pdfUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${internalSecret}`,
+              },
+              body: JSON.stringify({ serviceBookingId: bookingId }),
+              signal: AbortSignal.timeout(30_000),
+            });
+            const body = await res.text().catch(() => "unreadable");
+            console.log("[pdf-gen] service agreement response", {
+              status: res.status,
+              body: body.slice(0, 500),
+            });
+          } catch (err) {
+            console.error("[pdf-gen] service agreement fetch failed", {
+              url: pdfUrl,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            captureNonCriticalError(err, {
+              route: "ServiceBookingService.acceptBooking",
+              action: "trigger_service_agreement_pdf",
+            });
+          }
         });
       }
 
