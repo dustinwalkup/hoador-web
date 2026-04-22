@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+  outputFileTracingIncludes: {
+    "/api/internal/generate-rental-agreement": [
+      "./node_modules/@sparticuz/chromium/bin/**",
+    ],
+    "/api/internal/generate-service-agreement": [
+      "./node_modules/@sparticuz/chromium/bin/**",
+    ],
+  },
   images: {
     remotePatterns: [
       // Vercel Blob
