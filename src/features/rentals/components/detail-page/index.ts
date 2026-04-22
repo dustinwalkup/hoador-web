@@ -4,7 +4,6 @@ export * from "./rental-status-progress";
 export * from "./rental-listing-info";
 export * from "./rental-details-card";
 export * from "./rental-messages-card";
-export * from "./rental-reviews-card";
 export * from "./rental-user-info";
 export * from "./rental-actions";
 export * from "./rental-protection";

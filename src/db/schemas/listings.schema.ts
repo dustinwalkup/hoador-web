@@ -14,7 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./user.schema";
-import { rentalRequests, rentals, reviews } from "./rentals.schema";
+import { rentalRequests, rentals } from "./rentals.schema";
 import { collectionItems, userFavorites } from "./collections.schema";
 import { communities } from "./communities.schema";
 import { relations } from "drizzle-orm";
@@ -225,7 +225,6 @@ export const listingsRelations = relations(listings, ({ one, many }) => ({
   availability: many(listingAvailability),
   rentalRequests: many(rentalRequests),
   rentals: many(rentals),
-  reviews: many(reviews),
   favorites: many(userFavorites),
   collectionItems: many(collectionItems),
 }));

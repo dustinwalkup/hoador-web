@@ -10,8 +10,8 @@ import {
   Edit,
   ExternalLink,
   PlayCircle,
-  Star,
   AlertTriangle,
+  Star,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,9 +26,9 @@ import {
   StartRentalDialog,
   EndRentalDialog,
 } from "@/features/rentals/components/renting-lending";
-import { LeaveReviewModal } from "@/features/reviews/components/leave-review-modal";
 import { FileDisputeDialog } from "@/features/disputes/components/file-dispute-dialog";
 import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
+import { ReviewFormDialog } from "@/features/reviews/components/review-form-dialog";
 
 interface RentalActionsProps {
   rentalDetails: RentalActionsInfo;
@@ -36,9 +36,9 @@ interface RentalActionsProps {
   isRenter: boolean;
   isOwner: boolean;
   rentalAgreementUrl?: string;
-  reviewPolicyUrl?: string;
   disputePolicyUrl?: string;
   activeDispute?: DisputeWithRelations | null;
+  canReview?: boolean;
 }
 
 export function RentalActions({
@@ -46,9 +46,9 @@ export function RentalActions({
   isRenter,
   isOwner,
   rentalAgreementUrl,
-  reviewPolicyUrl,
   disputePolicyUrl,
   activeDispute,
+  canReview: canReviewProp,
 }: RentalActionsProps) {
   const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -63,8 +63,9 @@ export function RentalActions({
     useState(false);
   const [showStartRentalDialog, setShowStartRentalDialog] = useState(false);
   const [showEndRentalDialog, setShowEndRentalDialog] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
   const [showFileDisputeDialog, setShowFileDisputeDialog] = useState(false);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [canReview, setCanReview] = useState(canReviewProp ?? false);
 
   const startDate = new Date(rentalDetails.startDate);
   const returnConfirmedAt = rentalDetails.returnConfirmedAt
@@ -140,15 +141,6 @@ export function RentalActions({
 
             {rentalDetails.status === "completed" && (
               <>
-                {rentalDetails.canLeaveReview && (
-                  <Button
-                    className="mb-3 w-full"
-                    onClick={() => setShowReviewModal(true)}
-                  >
-                    <Star className="mr-2 h-4 w-4" />
-                    Leave Review
-                  </Button>
-                )}
                 <Link
                   href={`/dashboard/listings/${rentalDetails.listingId}/rent`}
                 >
@@ -231,6 +223,14 @@ export function RentalActions({
               </Button>
             )}
           </>
+        )}
+
+        {/* Leave Review Action - Available for both renter and owner */}
+        {canReview && (
+          <Button className="w-full" onClick={() => setShowReviewDialog(true)}>
+            <Star className="mr-2 h-4 w-4" />
+            Leave a Review
+          </Button>
         )}
 
         {/* File Dispute Action - Available for both renter and owner */}
@@ -327,17 +327,16 @@ export function RentalActions({
         onSuccess={handleRentalStatusChanged}
       />
 
-      {/* Leave Review Modal */}
-      {rentalDetails.status === "completed" && rentalDetails.canLeaveReview && (
-        <LeaveReviewModal
-          open={showReviewModal}
-          onOpenChange={setShowReviewModal}
-          rentalId={rentalDetails.id}
-          listingName={rentalDetails.listingName}
-          onSuccess={handleRentalStatusChanged}
-          reviewPolicyUrl={reviewPolicyUrl}
-        />
-      )}
+      {/* Review Dialog */}
+      <ReviewFormDialog
+        open={showReviewDialog}
+        onOpenChange={setShowReviewDialog}
+        rentalId={rentalDetails.id}
+        onSuccess={() => {
+          setCanReview(false);
+          router.refresh();
+        }}
+      />
 
       {/* File Dispute Dialog */}
       <FileDisputeDialog

@@ -105,6 +105,25 @@
           "response": []
         },
         {
+          "name": "Release Expired Reviews",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/release-reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "release-reviews"]
+            },
+            "description": "Releases expired blind reviews where the review window has passed. Runs hourly via GitHub Actions on production and staging. Requires Bearer {{cronSecret}} auth."
+          },
+          "response": []
+        },
+        {
           "name": "Cleanup Notifications (existing)",
           "request": {
             "method": "GET",
@@ -203,6 +222,32 @@
               "raw": "{{baseUrl}}/api/cron/process-service-payouts",
               "host": ["{{baseUrl}}"],
               "path": ["api", "cron", "process-service-payouts"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Release Expired Reviews (no auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('returns 401 without auth', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/release-reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cron", "release-reviews"]
             }
           },
           "response": []

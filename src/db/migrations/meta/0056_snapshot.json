@@ -1,6 +1,6 @@
 {
-  "id": "63963be4-7baf-4391-ba99-046eebae2377",
-  "prevId": "aae357d4-474c-4187-a8fc-6ce0dfdcbf3a",
+  "id": "220fd946-5d42-4487-a03f-b5386abafbda",
+  "prevId": "63963be4-7baf-4391-ba99-046eebae2377",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -160,6 +160,244 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.blind_reviews": {
+      "name": "blind_reviews",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "service_booking_id": {
+          "name": "service_booking_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewer_id": {
+          "name": "reviewer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reviewee_id": {
+          "name": "reviewee_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rating": {
+          "name": "rating",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "comment": {
+          "name": "comment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "released_at": {
+          "name": "released_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "review_window_end_at": {
+          "name": "review_window_end_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "blind_reviews_reviewer_rental_idx": {
+          "name": "blind_reviews_reviewer_rental_idx",
+          "columns": [
+            {
+              "expression": "reviewer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "rental_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"blind_reviews\".\"rental_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "blind_reviews_reviewer_service_booking_idx": {
+          "name": "blind_reviews_reviewer_service_booking_idx",
+          "columns": [
+            {
+              "expression": "reviewer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "service_booking_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"blind_reviews\".\"service_booking_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "blind_reviews_rental_id_idx": {
+          "name": "blind_reviews_rental_id_idx",
+          "columns": [
+            {
+              "expression": "rental_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "blind_reviews_service_booking_id_idx": {
+          "name": "blind_reviews_service_booking_id_idx",
+          "columns": [
+            {
+              "expression": "service_booking_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "blind_reviews_reviewee_id_idx": {
+          "name": "blind_reviews_reviewee_id_idx",
+          "columns": [
+            {
+              "expression": "reviewee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "blind_reviews_released_at_idx": {
+          "name": "blind_reviews_released_at_idx",
+          "columns": [
+            {
+              "expression": "released_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "blind_reviews_pending_release_idx": {
+          "name": "blind_reviews_pending_release_idx",
+          "columns": [
+            {
+              "expression": "review_window_end_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"blind_reviews\".\"released_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "blind_reviews_rental_id_rentals_id_fk": {
+          "name": "blind_reviews_rental_id_rentals_id_fk",
+          "tableFrom": "blind_reviews",
+          "tableTo": "rentals",
+          "columnsFrom": ["rental_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "blind_reviews_service_booking_id_service_bookings_id_fk": {
+          "name": "blind_reviews_service_booking_id_service_bookings_id_fk",
+          "tableFrom": "blind_reviews",
+          "tableTo": "service_bookings",
+          "columnsFrom": ["service_booking_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "blind_reviews_reviewer_id_user_id_fk": {
+          "name": "blind_reviews_reviewer_id_user_id_fk",
+          "tableFrom": "blind_reviews",
+          "tableTo": "user",
+          "columnsFrom": ["reviewer_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "blind_reviews_reviewee_id_user_id_fk": {
+          "name": "blind_reviews_reviewee_id_user_id_fk",
+          "tableFrom": "blind_reviews",
+          "tableTo": "user",
+          "columnsFrom": ["reviewee_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "booking_ref_check": {
+          "name": "booking_ref_check",
+          "value": "num_nonnulls(\"blind_reviews\".\"rental_id\", \"blind_reviews\".\"service_booking_id\") = 1"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.collection_items": {
@@ -3981,13 +4219,6 @@
           "notNull": true,
           "default": "'pending'"
         },
-        "owner_transfer_retry_count": {
-          "name": "owner_transfer_retry_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
         "payout_status": {
           "name": "payout_status",
           "type": "payout_status",
@@ -3995,6 +4226,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
+        },
+        "owner_transfer_retry_count": {
+          "name": "owner_transfer_retry_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "stripe_transfer_id": {
           "name": "stripe_transfer_id",
@@ -6584,6 +6822,19 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
+        },
+        "review_aggregate_rating": {
+          "name": "review_aggregate_rating",
+          "type": "numeric(3, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "review_count": {
+          "name": "review_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "tos_version": {
           "name": "tos_version",

@@ -117,9 +117,7 @@ export default function ListingCard({
             <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
             <span className="ml-1 text-xs font-medium">{rating}</span>
           </div>
-          <span className="text-muted-foreground text-xs">
-            ({reviews} reviews)
-          </span>
+          <span className="text-muted-foreground text-xs">({reviews})</span>
         </div>
 
         <div className="mt-auto flex gap-2">

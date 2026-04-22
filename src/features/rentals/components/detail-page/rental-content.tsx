@@ -4,12 +4,12 @@ import {
   RentalListingInfo,
   RentalDetailsCard,
   RentalMessagesCard,
-  RentalReviewsCard,
   RentalUserInfo,
   RentalActions,
   RentalProtection,
 } from "@/features/rentals/components/detail-page";
 import { RentalStatusProgress } from "./rental-status-progress";
+import { BookingReviewsSection } from "@/features/reviews/components/booking-reviews-section";
 
 interface RentalContentProps {
   rentalDetails: RentalDetails;
@@ -17,9 +17,9 @@ interface RentalContentProps {
   isRenter: boolean;
   isOwner: boolean;
   rentalAgreementUrl?: string;
-  reviewPolicyUrl?: string;
   disputePolicyUrl?: string;
   activeDispute?: DisputeWithRelations | null;
+  canReview?: boolean;
 }
 
 export function RentalContent({
@@ -28,9 +28,9 @@ export function RentalContent({
   isRenter,
   isOwner,
   rentalAgreementUrl,
-  reviewPolicyUrl,
   disputePolicyUrl,
   activeDispute,
+  canReview,
 }: RentalContentProps) {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -63,14 +63,11 @@ export function RentalContent({
           isRenter={isRenter}
           isOwner={isOwner}
         />
-        {rentalDetails.status === "completed" && (
-          <RentalReviewsCard
-            rentalDetails={rentalDetails}
-            isRenter={isRenter}
-            isOwner={isOwner}
-            reviewPolicyUrl={reviewPolicyUrl}
-          />
-        )}
+        <BookingReviewsSection
+          key={`reviews-${canReview}`}
+          rentalId={rentalDetails.id}
+          bookingStatus={rentalDetails.status}
+        />
       </div>
 
       {/* Sidebar */}
@@ -86,9 +83,9 @@ export function RentalContent({
           isRenter={isRenter}
           isOwner={isOwner}
           rentalAgreementUrl={rentalAgreementUrl}
-          reviewPolicyUrl={reviewPolicyUrl}
           disputePolicyUrl={disputePolicyUrl}
           activeDispute={activeDispute}
+          canReview={canReview}
         />
         <RentalProtection />
       </div>

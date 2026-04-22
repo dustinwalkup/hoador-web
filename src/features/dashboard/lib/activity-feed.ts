@@ -7,10 +7,8 @@
 import {
   listingDAL,
   rentalDAL,
-  reviewDAL,
   serviceBookingDAL,
   serviceListingDAL,
-  serviceReviewDAL,
 } from "@/dal";
 import { formatDistanceToNow } from "@/lib/utils/date.utils";
 import type { ActivityFeedItem } from "@/features/dashboard/types";
@@ -41,19 +39,15 @@ export async function getDashboardActivityFeed(
 
   const [
     rentalActivity,
-    reviewsReceived,
     userListings,
     serviceBookingsAsRequester,
     serviceBookingsAsProvider,
-    serviceReviewsReceived,
     serviceListingsOwned,
   ] = await Promise.all([
     rentalDAL.getRecentRentalActivity(userId, fetchLimit),
-    reviewDAL.getRecentReviews(userId, { limit: fetchLimit }),
     listingDAL.getUserListings(userId),
     serviceBookingDAL.findByRequesterForDashboard(userId),
     serviceBookingDAL.findByProviderForDashboard(userId),
-    serviceReviewDAL.findByReviewee(userId, { limit: fetchLimit }),
     serviceListingDAL.findByProvider(userId),
   ]);
 
@@ -68,20 +62,6 @@ export async function getDashboardActivityFeed(
       title,
       description,
       linkTo: r.linkTo,
-    });
-  }
-
-  for (const rev of reviewsReceived) {
-    const reviewerName = rev.reviewer?.name ?? "Someone";
-    const listingName = rev.listing?.name ?? "your listing";
-    raw.push({
-      id: `review-${rev.id}`,
-      timestamp: rev.createdAt,
-      title: "New review received",
-      description: `${reviewerName} left you a ${rev.rating}-star review on ${listingName}`,
-      linkTo: rev.listing?.id
-        ? `/dashboard/listings/${rev.listing.id}`
-        : undefined,
     });
   }
 
@@ -119,17 +99,6 @@ export async function getDashboardActivityFeed(
       title,
       description: row.listingTitle,
       linkTo: `/dashboard/services/bookings/${row.id}`,
-    });
-  }
-
-  for (const rev of serviceReviewsReceived) {
-    const reviewerName = formatServiceReviewerName(rev.reviewer);
-    raw.push({
-      id: `service-review-${rev.id}`,
-      timestamp: rev.createdAt,
-      title: "New service review received",
-      description: `${reviewerName} left you a ${rev.rating}-star review on your service`,
-      linkTo: `/dashboard/services/listings/${rev.listingId}`,
     });
   }
 
@@ -211,12 +180,4 @@ function formatServiceBookingTitle(
   };
   const map = role === "requester" ? asRequester : asProvider;
   return map[status] ?? "Service booking activity";
-}
-
-function formatServiceReviewerName(reviewer: {
-  firstName: string | null;
-  lastName: string | null;
-}): string {
-  const parts = [reviewer.firstName, reviewer.lastName].filter(Boolean);
-  return parts.length > 0 ? parts.join(" ") : "Someone";
 }

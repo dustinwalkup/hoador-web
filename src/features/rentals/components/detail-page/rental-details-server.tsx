@@ -4,6 +4,7 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalLayout } from "./rental-layout";
 import { RentalContent } from "./rental-content";
 import { getAuthenticatedUser } from "@/features/auth/utils/session";
+import { BlindReviewService } from "@/features/reviews/services/blind-review-service";
 
 interface RentalDetailsServerProps {
   rentalId: string;
@@ -74,20 +75,6 @@ export async function RentalDetailsServer({
     console.error("Error fetching rental agreement:", error);
   }
 
-  // Fetch the review policy document
-  let reviewPolicyUrl: string | undefined;
-  try {
-    const currentVersion = await legalDocumentDAL.getCurrentVersion(
-      LEGAL_DOCUMENT_IDS.REVIEW_POLICY,
-    );
-    if (currentVersion) {
-      reviewPolicyUrl = currentVersion.url;
-    }
-  } catch (error) {
-    // If there's an error fetching, continue without the URL
-    console.error("Error fetching review policy:", error);
-  }
-
   // Fetch the dispute policy document
   let disputePolicyUrl: string | undefined;
   try {
@@ -112,6 +99,19 @@ export async function RentalDetailsServer({
     console.error("Error fetching active dispute:", error);
   }
 
+  // Fetch review status for the current user
+  let canReview = false;
+  if (rentalDetails.status === "completed") {
+    try {
+      const reviewStatus = await BlindReviewService.getReviewStatus(userId, {
+        rentalId,
+      });
+      canReview = reviewStatus.canReview;
+    } catch {
+      // Non-critical — button just won't show
+    }
+  }
+
   return (
     <RentalLayout
       rentalDetails={rentalDetails}
@@ -126,9 +126,9 @@ export async function RentalDetailsServer({
         isRenter={isRenter}
         isOwner={isOwner}
         rentalAgreementUrl={rentalAgreementUrl}
-        reviewPolicyUrl={reviewPolicyUrl}
         disputePolicyUrl={disputePolicyUrl}
         activeDispute={activeDispute}
+        canReview={canReview}
       />
     </RentalLayout>
   );

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { Suspense, type ComponentProps } from "react";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
@@ -8,13 +8,16 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import {
   disputeDAL,
   legalDocumentDAL,
+  serviceAgreementDocumentDAL,
   serviceBookingDAL,
-  serviceReviewDAL,
 } from "@/dal";
 import type { ServiceBookingWithDetails } from "@/dal/service-booking.dal";
-import type { ServiceReviewWithReviewer } from "@/dal/service-review.dal";
-import { ServiceBookingDetailClient } from "@/features/services/components/service-booking-detail-client";
+import {
+  ServiceBookingDetailClient,
+  type ServiceBookingPayload,
+} from "@/features/services/components/service-booking-detail-client";
 import { getCurrentUserId } from "@/features/auth/utils/session";
+import { BlindReviewService } from "@/features/reviews/services/blind-review-service";
 
 export const metadata = {
   title: "Booking details",
@@ -40,9 +43,7 @@ function numericToNumberOrNull(
   return Number.isFinite(n) ? n : null;
 }
 
-function serializeBooking(
-  b: ServiceBookingWithDetails,
-): ComponentProps<typeof ServiceBookingDetailClient>["booking"] {
+function serializeBooking(b: ServiceBookingWithDetails): ServiceBookingPayload {
   const { cancellationReason, ...rest } = b;
   const pd = rest.proposedDate as unknown;
   const proposedDateStr =
@@ -86,32 +87,6 @@ function serializeBooking(
   };
 }
 
-type SerializedReview = ComponentProps<
-  typeof ServiceBookingDetailClient
->["reviews"][number];
-
-/**
- * Maps DAL review rows (Date timestamps) to client-safe JSON props (ISO strings).
- */
-function serializeReview(r: ServiceReviewWithReviewer): SerializedReview {
-  return {
-    id: r.id,
-    rating: r.rating,
-    comment: r.comment,
-    reviewerId: r.reviewerId,
-    reviewer: {
-      id: r.reviewer.id,
-      firstName: r.reviewer.firstName,
-      lastName: r.reviewer.lastName,
-      profileImageUrl: r.reviewer.profileImageUrl,
-    },
-    createdAt:
-      r.createdAt instanceof Date
-        ? r.createdAt.toISOString()
-        : String(r.createdAt),
-  };
-}
-
 export default async function ServiceBookingDetailPage({ params }: PageProps) {
   const { id } = await params;
   const userId = await getCurrentUserId();
@@ -126,18 +101,21 @@ export default async function ServiceBookingDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const [reviewsRaw, cancellationRefund, disputePolicy, activeDispute] =
-    await Promise.all([
-      serviceReviewDAL.findByBooking(id),
-      legalDocumentDAL.getCurrentVersion(
-        LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND,
-      ),
-      legalDocumentDAL.getCurrentVersion(LEGAL_DOCUMENT_IDS.DISPUTE_POLICY),
-      disputeDAL.getActiveByServiceBookingId(id),
-    ]);
-  const reviews = reviewsRaw.map(serializeReview);
-  const myReview = reviews.find((r) => r.reviewerId === userId) ?? null;
-
+  const [
+    cancellationRefund,
+    disputePolicy,
+    activeDispute,
+    reviewStatus,
+    serviceAgreementDoc,
+  ] = await Promise.all([
+    legalDocumentDAL.getCurrentVersion(LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND),
+    legalDocumentDAL.getCurrentVersion(LEGAL_DOCUMENT_IDS.DISPUTE_POLICY),
+    disputeDAL.getActiveByServiceBookingId(id),
+    booking.status === "completed"
+      ? BlindReviewService.getReviewStatus(userId, { serviceBookingId: id })
+      : Promise.resolve(null),
+    serviceAgreementDocumentDAL.getByServiceBookingId(id),
+  ]);
   const title = booking.listing.title;
 
   return (
@@ -149,11 +127,11 @@ export default async function ServiceBookingDetailPage({ params }: PageProps) {
         <ServiceBookingDetailClient
           booking={serializeBooking(booking)}
           isRequester={booking.requesterId === userId}
-          reviews={reviews}
-          myReview={myReview}
           cancellationPolicyUrl={cancellationRefund?.url}
           disputePolicyUrl={disputePolicy?.url}
+          serviceAgreementUrl={serviceAgreementDoc?.pdfUrl}
           hasActiveDispute={Boolean(activeDispute)}
+          canReview={reviewStatus?.canReview ?? false}
         />
       </Suspense>
     </div>

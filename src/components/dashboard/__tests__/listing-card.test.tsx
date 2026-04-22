@@ -49,7 +49,7 @@ describe("ListingCard", () => {
     render(<ListingCard {...defaultProps} />);
 
     expect(screen.getByText("4.5")).toBeInTheDocument();
-    expect(screen.getByText("(12 reviews)")).toBeInTheDocument();
+    expect(screen.getByText("(12)")).toBeInTheDocument();
   });
 
   it("should render star icon", () => {
@@ -221,13 +221,13 @@ describe("ListingCard", () => {
     render(<ListingCard {...defaultProps} rating={0} reviews={0} />);
 
     expect(screen.getByText("0")).toBeInTheDocument();
-    expect(screen.getByText("(0 reviews)")).toBeInTheDocument();
+    expect(screen.getByText("(0)")).toBeInTheDocument();
   });
 
   it("should handle high rating", () => {
     render(<ListingCard {...defaultProps} rating={5} reviews={100} />);
 
     expect(screen.getByText("5")).toBeInTheDocument();
-    expect(screen.getByText("(100 reviews)")).toBeInTheDocument();
+    expect(screen.getByText("(100)")).toBeInTheDocument();
   });
 });

@@ -296,15 +296,11 @@ export class ServiceListingDAL extends BaseDAL {
           providerFirstName: user.firstName,
           providerLastName: user.lastName,
           providerProfileImageUrl: user.profileImageUrl,
-          aggregateRating: serviceProviderProfiles.aggregateRating,
-          reviewCount: serviceProviderProfiles.reviewCount,
+          aggregateRating: user.reviewAggregateRating,
+          reviewCount: user.reviewCount,
         })
         .from(serviceListings)
         .innerJoin(user, eq(serviceListings.providerId, user.id))
-        .leftJoin(
-          serviceProviderProfiles,
-          eq(serviceListings.providerId, serviceProviderProfiles.userId),
-        )
         .where(and(...conditions))
         .orderBy(desc(serviceListings.createdAt))
         .limit(limit)

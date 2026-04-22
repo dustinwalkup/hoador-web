@@ -1,10 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
-import type {
-  ServiceListing,
-  ServiceProviderProfile,
-} from "@/db/schemas/services.schema";
-import type { ServiceReviewWithReviewer } from "@/dal/service-review.dal";
+import type { ServiceListing } from "@/db/schemas/services.schema";
+import type { BlindReviewWithReviewer } from "@/dal/blind-review.dal";
 import { serviceBookingsKeys } from "@/features/services/hooks/use-service-bookings";
 
 /** React Query keys for public provider profile pages. */
@@ -23,9 +20,10 @@ export interface ServiceProviderPageData {
     profileImageUrl: string | null;
     createdAt: Date | string;
   };
-  profile: ServiceProviderProfile | null;
+  profile: null;
   activeListings: ServiceListing[];
-  reviewsReceived: ServiceReviewWithReviewer[];
+  reviewsReceived: BlindReviewWithReviewer[];
+  aggregate: { averageRating: number; totalReviews: number };
 }
 
 /**
@@ -63,7 +61,7 @@ export function useUpdateProviderBio(userId: string) {
       if (!res.ok) {
         throw new Error(data.error ?? "Failed to update bio");
       }
-      return data as { profile: ServiceProviderProfile };
+      return data as { profile: { bio: string } };
     },
     invalidateQueryKeys: [serviceProviderKeys.profile(userId)],
     successMessage: "Profile updated.",

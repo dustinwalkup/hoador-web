@@ -2,15 +2,13 @@ import { faker } from "@faker-js/faker";
 import { InferInsertModel } from "drizzle-orm";
 import "dotenv/config";
 import { db } from "../db-seed"; // Use WebSocket driver for Node.js compatibility
-import { rentalRequests, rentals, reviews } from "../schemas/rentals.schema";
+import { rentalRequests, rentals } from "../schemas/rentals.schema";
 import { listings } from "../schemas/listings.schema";
 import { user } from "../schemas/user.schema";
 
 // Infer types
 type NewRequest = InferInsertModel<typeof rentalRequests>;
 type NewRental = InferInsertModel<typeof rentals>;
-type NewReview = InferInsertModel<typeof reviews>;
-
 // Rental status distribution for realistic data
 const statusDistribution = [
   { status: "pending", weight: 15 },
@@ -161,7 +159,6 @@ async function main(): Promise<void> {
 
   const seedRequests: NewRequest[] = [];
   const seedRentals: NewRental[] = [];
-  const seedReviews: NewReview[] = [];
 
   console.log("📝 Generating rental requests...");
 
@@ -280,73 +277,6 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log("🏁 Generating reviews for completed rentals...");
-
-  // Generate reviews only for completed rentals (realistic approach)
-  const completedRentals = seedRentals.filter((r) => r.actualEndDate);
-
-  for (const rental of completedRentals) {
-    // 80% chance of getting a review from renter
-    if (faker.datatype.boolean({ probability: 0.8 })) {
-      seedReviews.push({
-        id: faker.string.uuid(),
-        rentalId: rental.id!,
-        reviewerId: rental.renterId,
-        revieweeId: rental.ownerId,
-        listingId: rental.listingId,
-        rating: faker.number.int({ min: 3, max: 5 }),
-        title: faker.helpers.arrayElement([
-          "Great tool, worked perfectly!",
-          "Excellent condition and performance",
-          "Very satisfied with this rental",
-          "Tool was exactly as described",
-          "Would rent again",
-          "Perfect for my project",
-          "High quality tool",
-        ]),
-        comment: faker.lorem.sentences(faker.number.int({ min: 1, max: 3 })),
-        isOwnerReview: false,
-        isPublic: true,
-        helpfulCount: faker.number.int({ min: 0, max: 15 }),
-        createdAt: new Date(
-          rental.actualEndDate!.getTime() +
-            faker.number.int({ min: 1, max: 7 }) * 24 * 60 * 60 * 1000,
-        ),
-        updatedAt: new Date(),
-      });
-    }
-
-    // 60% chance of getting a review from owner
-    if (faker.datatype.boolean({ probability: 0.6 })) {
-      seedReviews.push({
-        id: faker.string.uuid(),
-        rentalId: rental.id!,
-        reviewerId: rental.ownerId,
-        revieweeId: rental.renterId,
-        listingId: rental.listingId,
-        rating: faker.number.int({ min: 4, max: 5 }),
-        title: faker.helpers.arrayElement([
-          "Responsible renter",
-          "Tool returned in great condition",
-          "Easy communication and pickup",
-          "Would rent to again",
-          "Trustworthy and respectful",
-          "Followed all instructions perfectly",
-          "Professional and courteous",
-        ]),
-        comment: faker.lorem.sentences(faker.number.int({ min: 1, max: 2 })),
-        isOwnerReview: true,
-        isPublic: true,
-        helpfulCount: faker.number.int({ min: 0, max: 8 }),
-        createdAt: new Date(
-          rental.actualEndDate!.getTime() +
-            faker.number.int({ min: 1, max: 5 }) * 24 * 60 * 60 * 1000,
-        ),
-        updatedAt: new Date(),
-      });
-    }
-  }
-
   console.log("💾 Inserting data into database...");
 
   // Insert all data
@@ -356,11 +286,6 @@ async function main(): Promise<void> {
   if (seedRentals.length > 0) {
     await db.insert(rentals).values(seedRentals);
     console.log(`🏠 Created ${seedRentals.length} actual rentals`);
-  }
-
-  if (seedReviews.length > 0) {
-    await db.insert(reviews).values(seedReviews);
-    console.log(`⭐ Created ${seedReviews.length} reviews`);
   }
 
   // Print status distribution

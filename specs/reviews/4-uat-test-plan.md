@@ -31,7 +31,7 @@ This document provides User Acceptance Test (UAT) cases for the Blind Review Sys
 
 ## Test Scenarios
 
-### Scenario 1: Review Submission — Rental Borrower (Happy Path)
+### [x] Scenario 1: Review Submission — Rental Borrower (Happy Path)
 
 **User Story**: As a borrower in a completed rental, I want to leave a review for the owner so that I can share my experience.
 
@@ -56,7 +56,7 @@ This document provides User Acceptance Test (UAT) cases for the Blind Review Sys
 11. Verify the UI updates to show "Review submitted — will be visible soon"
 12. Verify the "Leave a Review" button is no longer shown
 
-**Expected Results**:
+    **Expected Results**:
 
 - ✅ Review form shows only overall rating (1–5) and optional comment (no sub-ratings)
 - ✅ Comment field accepts up to 2000 characters
@@ -70,7 +70,7 @@ This document provides User Acceptance Test (UAT) cases for the Blind Review Sys
 
 ---
 
-### Scenario 2: Review Submission — Rental Owner
+### [x] Scenario 2: Review Submission — Rental Owner
 
 **User Story**: As the owner in a completed rental, I want to review the borrower so that I can share my experience.
 
@@ -104,7 +104,7 @@ This document provides User Acceptance Test (UAT) cases for the Blind Review Sys
 
 ---
 
-### Scenario 3: Review Submission — Service Booking Client
+### [x] Scenario 3: Review Submission — Service Booking Client
 
 **User Story**: As a client in a completed service booking, I want to review the service provider.
 
@@ -135,7 +135,7 @@ This document provides User Acceptance Test (UAT) cases for the Blind Review Sys
 
 ---
 
-### Scenario 4: Review Submission — Service Booking Provider
+### [x] Scenario 4: Review Submission — Service Booking Provider
 
 **User Story**: As a service provider in a completed service booking, I want to review the client.
 
@@ -166,7 +166,7 @@ This document provides User Acceptance Test (UAT) cases for the Blind Review Sys
 
 ---
 
-### Scenario 5: Blind Release — Both Parties Submit (Immediate Release)
+### [x] Scenario 5: Blind Release — Both Parties Submit (Immediate Release)
 
 **User Story**: As a user, I want reviews to be released immediately once both parties have submitted, so I can see the other party's feedback.
 
@@ -422,7 +422,7 @@ This document provides User Acceptance Test (UAT) cases for the Blind Review Sys
 
 ---
 
-### Scenario 13: Booking Detail — Review Display
+### [x] Scenario 13: Booking Detail — Review Display
 
 **User Story**: As a user viewing a past booking, I want to see reviews once they are released.
 
@@ -449,7 +449,7 @@ This document provides User Acceptance Test (UAT) cases for the Blind Review Sys
 
 ---
 
-### Scenario 14: Post-Release Notifications
+### [x] Scenario 14: Post-Release Notifications
 
 **User Story**: As a user, I want to be notified when I receive a review.
 

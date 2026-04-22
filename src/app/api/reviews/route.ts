@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
-  reviewSchema,
-  type ReviewFormData,
-} from "@/features/reviews/schemas/review-schema";
-import {
   getAuthenticatedUserResponse,
   handleApiError,
-  parseFormData,
 } from "@/lib/api/route-helpers";
-import { ReviewService } from "@/features/reviews/services/review-service";
+import { createBlindReviewSchema } from "@/features/reviews/schemas/blind-review-schema";
+import { BlindReviewService } from "@/features/reviews/services/blind-review-service";
 
 /**
  * POST /api/reviews
- * Create a new review
+ * Submit a blind review for a completed booking.
  */
 async function postHandler(request: NextRequest) {
   try {
@@ -23,52 +19,15 @@ async function postHandler(request: NextRequest) {
     }
     const { userId } = authResult;
 
-    const body = await parseFormData(request);
+    const body = await request.json();
+    const validated = createBlindReviewSchema.parse(body);
 
-    const data: ReviewFormData = {
-      ...(body.rentalId ? { rentalId: body.rentalId as string } : {}),
-      ...(body.requestId ? { requestId: body.requestId as string } : {}),
-      rating:
-        typeof body.rating === "string"
-          ? Number(body.rating)
-          : (body.rating as number),
-      comment: body.comment as string,
-      accuracyRating: body.accuracyRating
-        ? typeof body.accuracyRating === "string"
-          ? Number(body.accuracyRating)
-          : (body.accuracyRating as number)
-        : undefined,
-      listingConditionRating: body.listingConditionRating
-        ? typeof body.listingConditionRating === "string"
-          ? Number(body.listingConditionRating)
-          : (body.listingConditionRating as number)
-        : undefined,
-      ownerCommunicationRating: body.ownerCommunicationRating
-        ? typeof body.ownerCommunicationRating === "string"
-          ? Number(body.ownerCommunicationRating)
-          : (body.ownerCommunicationRating as number)
-        : undefined,
-    };
+    const { reviewId } = await BlindReviewService.submitReview({
+      userId,
+      ...validated,
+    });
 
-    const validatedData = reviewSchema.parse(data);
-
-    const reviewData = {
-      ...validatedData,
-      accuracyRating: validatedData.accuracyRating ?? undefined,
-      listingConditionRating: validatedData.listingConditionRating ?? undefined,
-      ownerCommunicationRating:
-        validatedData.ownerCommunicationRating ?? undefined,
-    };
-
-    const { reviewId } = await ReviewService.createReview(userId, reviewData);
-
-    return NextResponse.json(
-      {
-        success: true,
-        reviewId,
-      },
-      { status: 201 },
-    );
+    return NextResponse.json({ success: true, reviewId }, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }
@@ -77,7 +36,10 @@ export const POST = withRequestLogging(postHandler, "POST /api/reviews");
 
 /**
  * GET /api/reviews
- * Get a review by rentalId or requestId
+ * Query modes:
+ * - ?rentalId=<id>           → released reviews for rental + reviewStatus for authenticated user
+ * - ?serviceBookingId=<id>   → released reviews for service booking + reviewStatus
+ * - ?revieweeId=<id>         → paginated released reviews for a user + aggregate
  */
 async function getHandler(request: NextRequest) {
   try {
@@ -85,17 +47,50 @@ async function getHandler(request: NextRequest) {
     if (authResult instanceof NextResponse) {
       return authResult;
     }
+    const { userId } = authResult;
 
     const searchParams = request.nextUrl.searchParams;
     const rentalId = searchParams.get("rentalId");
-    const requestId = searchParams.get("requestId");
+    const serviceBookingId = searchParams.get("serviceBookingId");
+    const revieweeId = searchParams.get("revieweeId");
 
-    const review = await ReviewService.getReviewByRentalOrRequest({
-      rentalId,
-      requestId,
-    });
+    // Mode: user profile reviews
+    if (revieweeId) {
+      const limit = Math.min(
+        Math.max(parseInt(searchParams.get("limit") ?? "20", 10) || 20, 1),
+        100,
+      );
+      const offset = Math.max(
+        parseInt(searchParams.get("offset") ?? "0", 10) || 0,
+        0,
+      );
 
-    return NextResponse.json({ review: review || null });
+      const result = await BlindReviewService.getUserReviews(revieweeId, {
+        limit,
+        offset,
+      });
+
+      return NextResponse.json(result);
+    }
+
+    // Mode: booking reviews
+    if (rentalId || serviceBookingId) {
+      const bookingParams = rentalId
+        ? { rentalId }
+        : { serviceBookingId: serviceBookingId! };
+
+      const [reviews, reviewStatus] = await Promise.all([
+        BlindReviewService.getBookingReviews(bookingParams),
+        BlindReviewService.getReviewStatus(userId, bookingParams),
+      ]);
+
+      return NextResponse.json({ reviews, reviewStatus });
+    }
+
+    return NextResponse.json(
+      { error: "One of rentalId, serviceBookingId, or revieweeId is required" },
+      { status: 400 },
+    );
   } catch (error) {
     return handleApiError(error);
   }

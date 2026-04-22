@@ -96,7 +96,6 @@ export const mockRentalsData: RentalsData = {
         status: "completed",
         actualStartDate: "2024-01-01",
         actualEndDate: "2024-01-03",
-        reviewGiven: false,
       },
       {
         id: "rental-4",
@@ -115,7 +114,6 @@ export const mockRentalsData: RentalsData = {
         status: "completed",
         actualStartDate: "2023-12-20",
         actualEndDate: "2023-12-22",
-        reviewGiven: true,
       },
       {
         id: "rental-5",
@@ -134,7 +132,6 @@ export const mockRentalsData: RentalsData = {
         status: "completed",
         actualStartDate: "2023-12-15",
         actualEndDate: "2023-12-17",
-        reviewGiven: true,
       },
       {
         id: "rental-6",
@@ -153,7 +150,6 @@ export const mockRentalsData: RentalsData = {
         status: "completed",
         actualStartDate: "2023-12-10",
         actualEndDate: "2023-12-12",
-        reviewGiven: false,
       },
       {
         id: "rental-7",
@@ -172,7 +168,6 @@ export const mockRentalsData: RentalsData = {
         status: "completed",
         actualStartDate: "2023-12-05",
         actualEndDate: "2023-12-07",
-        reviewGiven: true,
       },
       {
         id: "rental-8",
@@ -191,7 +186,6 @@ export const mockRentalsData: RentalsData = {
         status: "completed",
         actualStartDate: "2023-11-28",
         actualEndDate: "2023-11-30",
-        reviewGiven: false,
       },
       {
         id: "rental-9",
@@ -210,7 +204,6 @@ export const mockRentalsData: RentalsData = {
         status: "completed",
         actualStartDate: "2023-11-20",
         actualEndDate: "2023-11-22",
-        reviewGiven: true,
       },
       {
         id: "rental-10",
@@ -229,7 +222,6 @@ export const mockRentalsData: RentalsData = {
         status: "completed",
         actualStartDate: "2023-11-15",
         actualEndDate: "2023-11-17",
-        reviewGiven: false,
       },
     ],
     denied: [

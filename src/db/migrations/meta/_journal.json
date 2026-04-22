@@ -393,6 +393,13 @@
       "when": 1776883200000,
       "tag": "0055_add_owner_transfer_retry_count",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1776883300000,
+      "tag": "0056_cloudy_tomorrow_man",
+      "breakpoints": true
     }
   ]
 }
