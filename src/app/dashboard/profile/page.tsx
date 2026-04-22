@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { Star, MapPin, Calendar, Info } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/utils/session";
-import { rentalDAL, reviewDAL } from "@/dal";
+import { rentalDAL, blindReviewDAL } from "@/dal";
 import { PROFILE_OVERVIEW, PROFILE_PAGE_HEADERS } from "@/constants/profile";
 import { formatReviewSummary } from "@/features/users/utils/reviews.utils";
 import {
@@ -40,7 +40,7 @@ export default async function ProfilePage() {
   if (!user) return notFound();
 
   const [reviews, borrowedCount, sharedCount] = await Promise.all([
-    reviewDAL.getSummaryForUser(user.id),
+    blindReviewDAL.getAggregate(user.id),
     rentalDAL.countBorrowedListings(user.id),
     rentalDAL.countSharedListings(user.id),
   ]);

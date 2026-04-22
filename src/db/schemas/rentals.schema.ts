@@ -176,44 +176,6 @@ export const rentals = pgTable(
   }),
 );
 
-// Reviews
-export const reviews = pgTable(
-  "reviews",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    rentalId: uuid("rental_id")
-      .references(() => rentals.id, { onDelete: "cascade" })
-      .notNull(),
-    reviewerId: text("reviewer_id")
-      .references(() => user.id, { onDelete: "cascade" })
-      .notNull(),
-    revieweeId: text("reviewee_id")
-      .references(() => user.id, { onDelete: "cascade" })
-      .notNull(),
-    listingId: uuid("listing_id")
-      .references(() => listings.id, { onDelete: "cascade" })
-      .notNull(),
-    rating: integer("rating").notNull(), // 1-5
-    title: varchar("title", { length: 255 }),
-    comment: text("comment"),
-    isOwnerReview: boolean("is_owner_review").notNull(), // true if owner reviewing renter, false if renter reviewing owner
-    accuracyRating: integer("accuracy_rating"), // 1-5, optional
-    listingConditionRating: integer("listing_condition_rating"), // 1-5, optional
-    ownerCommunicationRating: integer("owner_communication_rating"), // 1-5, optional
-    isPublic: boolean("is_public").default(true).notNull(),
-    helpfulCount: integer("helpful_count").default(0).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (table) => ({
-    rentalIdIdx: index("reviews_rental_id_idx").on(table.rentalId),
-    reviewerIdIdx: index("reviews_reviewer_id_idx").on(table.reviewerId),
-    revieweeIdIdx: index("reviews_reviewee_id_idx").on(table.revieweeId),
-    listingIdIdx: index("reviews_listing_id_idx").on(table.listingId),
-    ratingIdx: index("reviews_rating_idx").on(table.rating),
-  }),
-);
-
 export const rentalRequestsRelations = relations(rentalRequests, ({ one }) => ({
   listing: one(listings, {
     fields: [rentalRequests.listingId],
@@ -255,27 +217,5 @@ export const rentalsRelations = relations(rentals, ({ one, many }) => ({
     references: [user.id],
     relationName: "ownerRentals", // Add explicit relation name
   }),
-  reviews: many(reviews),
   payments: many(payments),
-}));
-
-export const reviewsRelations = relations(reviews, ({ one }) => ({
-  rental: one(rentals, {
-    fields: [reviews.rentalId],
-    references: [rentals.id],
-  }),
-  reviewer: one(user, {
-    fields: [reviews.reviewerId],
-    references: [user.id],
-    relationName: "reviewsGiven", // Add explicit relation name
-  }),
-  reviewee: one(user, {
-    fields: [reviews.revieweeId],
-    references: [user.id],
-    relationName: "reviewsReceived", // Add explicit relation name
-  }),
-  listing: one(listings, {
-    fields: [reviews.listingId],
-    references: [listings.id],
-  }),
 }));

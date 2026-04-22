@@ -1,5 +1,4 @@
 import { RentalDAL } from "./rentals.dal";
-import { ReviewDAL } from "./review.dal";
 import { UserDAL } from "./user.dal";
 import { ListingDAL } from "./listing.dal";
 import { MessagesDAL } from "./messages.dal";
@@ -21,13 +20,12 @@ import { CronRunHistoryDAL } from "./cron-run-history.dal";
 import { ServiceListingDAL } from "./service-listing.dal";
 import { ServiceBookingDAL } from "./service-booking.dal";
 import { ServicePaymentLifecycleDAL } from "./service-payment-lifecycle.dal";
-import { ServiceReviewDAL } from "./service-review.dal";
 import { ReviewEventsDAL } from "./review-events.dal";
+import { BlindReviewDAL } from "./blind-review.dal";
 
 // Create singleton instances
 export const userDAL = new UserDAL();
 export const communityDAL = new CommunityDAL();
-export const reviewDAL = new ReviewDAL();
 export const rentalDAL = new RentalDAL();
 export const listingDAL = new ListingDAL();
 export const messagesDAL = new MessagesDAL();
@@ -47,5 +45,5 @@ export const cronRunHistoryDAL = new CronRunHistoryDAL();
 export const serviceListingDAL = new ServiceListingDAL();
 export const serviceBookingDAL = new ServiceBookingDAL();
 export const servicePaymentLifecycleDAL = new ServicePaymentLifecycleDAL();
-export const serviceReviewDAL = new ServiceReviewDAL();
 export const reviewEventsDAL = new ReviewEventsDAL();
+export const blindReviewDAL = new BlindReviewDAL();

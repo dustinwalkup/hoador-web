@@ -51,6 +51,12 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-service-processing
 
+      - name: Release expired reviews
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/release-reviews
+
   daily:
     if: github.event.schedule == '0 2 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

@@ -6,7 +6,6 @@ import {
   serviceListings,
   serviceProviderProfiles,
 } from "@/db/schemas/services.schema";
-import { serviceReviews } from "@/db/schemas/service-reviews.schema";
 import { disputes } from "@/db/schemas/disputes.schema";
 
 /**
@@ -29,12 +28,7 @@ describe("services phase 1 schema (drizzle)", () => {
     expect(disputes.serviceBookingId).toBeDefined();
   });
 
-  it("service_reviews has bookingId and reviewerId columns for unique index", () => {
-    expect(serviceReviews.bookingId).toBeDefined();
-    expect(serviceReviews.reviewerId).toBeDefined();
-    expect(serviceReviews.revieweeId).toBeDefined();
-    expect(serviceReviews.listingId).toBeDefined();
-  });
+  // service_reviews table removed — replaced by blind_reviews system
 });
 
 describe("services phase 1 migration SQL (index names)", () => {

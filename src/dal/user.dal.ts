@@ -1,4 +1,16 @@
-import { eq, count, sql, and, or, ilike, desc, lt, lte } from "drizzle-orm";
+import {
+  eq,
+  count,
+  sql,
+  and,
+  or,
+  ilike,
+  desc,
+  lt,
+  lte,
+  avg,
+  isNotNull,
+} from "drizzle-orm";
 
 import { geocodeAddress } from "@/services/geocoding";
 import { schema } from "@/db/schemas";
@@ -23,10 +35,10 @@ const {
   user,
   userPreferences,
   userAddresses,
-  reviews,
   rentals,
   listings,
   communityMemberships,
+  blindReviews,
 } = schema;
 
 type UpdateUserPreferencesDTO = Partial<
@@ -164,6 +176,8 @@ export class UserDAL extends BaseDAL {
         privacyAcceptedAt: userData.privacyAcceptedAt ?? null,
         communityVersion: userData.communityVersion ?? null,
         communityAcceptedAt: userData.communityAcceptedAt ?? null,
+        reviewAggregateRating: userData.reviewAggregateRating,
+        reviewCount: userData.reviewCount,
         createdAt: userData.createdAt,
         stats: {
           listingsBorrowed: 0,
@@ -469,10 +483,8 @@ export class UserDAL extends BaseDAL {
 
   async getUserStats(userId: string) {
     try {
-      // Remove requireAuth to break circular dependency
-      // Authentication should be handled at the service/controller level
-
-      const [statsResult] = await this.db
+      // Rental counts
+      const [rentalStats] = await this.db
         .select({
           listingsBorrowed: count(
             sql`CASE WHEN ${rentals.renterId} = ${userId} THEN 1 END`,
@@ -480,23 +492,24 @@ export class UserDAL extends BaseDAL {
           listingsShared: count(
             sql`CASE WHEN ${rentals.ownerId} = ${userId} THEN 1 END`,
           ),
-          averageRating: sql<number>`COALESCE(AVG(CASE WHEN ${reviews.revieweeId} = ${userId} THEN ${reviews.rating} END), 0)`,
-          totalReviews: count(
-            sql`CASE WHEN ${reviews.revieweeId} = ${userId} THEN 1 END`,
-          ),
         })
         .from(rentals)
-        .leftJoin(reviews, eq(reviews.rentalId, rentals.id))
         .where(
           sql`${rentals.renterId} = ${userId} OR ${rentals.ownerId} = ${userId}`,
         );
 
+      // Review aggregates from user table fields (maintained by blind review system)
+      const userData = await this.db.query.user.findFirst({
+        where: eq(user.id, userId),
+        columns: { reviewAggregateRating: true, reviewCount: true },
+      });
+
       return {
-        listingsBorrowed: Number(statsResult.listingsBorrowed) || 0,
-        listingsShared: Number(statsResult.listingsShared) || 0,
+        listingsBorrowed: Number(rentalStats.listingsBorrowed) || 0,
+        listingsShared: Number(rentalStats.listingsShared) || 0,
         averageRating:
-          Math.round((Number(statsResult.averageRating) || 0) * 10) / 10,
-        totalReviews: Number(statsResult.totalReviews) || 0,
+          Math.round((Number(userData?.reviewAggregateRating) || 0) * 10) / 10,
+        totalReviews: Number(userData?.reviewCount) || 0,
       };
     } catch (error) {
       this.handleError(error, "getUserStats");
@@ -583,42 +596,13 @@ export class UserDAL extends BaseDAL {
 
       const offset = (options.page - 1) * options.limit;
 
-      // Get total count
-      const [{ total }] = await this.db
-        .select({ total: count() })
-        .from(reviews)
-        .where(eq(reviews.revieweeId, userId));
-
-      // Get reviews
-      const userReviews = await this.db.query.reviews.findMany({
-        where: eq(reviews.revieweeId, userId),
-        with: {
-          reviewer: {
-            columns: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              profileImageUrl: true,
-            },
-          },
-          listing: {
-            columns: {
-              id: true,
-              name: true,
-            },
-          },
-        },
+      // Delegate to blind review DAL for released reviews
+      const { BlindReviewDAL } = await import("./blind-review.dal");
+      const blindReviewDAL = new BlindReviewDAL();
+      return blindReviewDAL.findReleasedByReviewee(userId, {
         limit: options.limit,
         offset,
-        orderBy: (reviews, { desc }) => [desc(reviews.createdAt)],
       });
-
-      return this.createPaginatedResult(
-        userReviews,
-        total,
-        options.page,
-        options.limit,
-      );
     } catch (error) {
       this.handleError(error, "getUserReviews");
     }
@@ -928,6 +912,8 @@ export class UserDAL extends BaseDAL {
         privacyAcceptedAt: userData.privacyAcceptedAt ?? null,
         communityVersion: userData.communityVersion ?? null,
         communityAcceptedAt: userData.communityAcceptedAt ?? null,
+        reviewAggregateRating: userData.reviewAggregateRating,
+        reviewCount: userData.reviewCount,
         createdAt: userData.createdAt,
         stats: {
           listingsBorrowed: 0,
@@ -1244,6 +1230,40 @@ export class UserDAL extends BaseDAL {
       return this.getUserById(userData.id);
     } catch (error) {
       this.handleError(error, "getUserByConnectedAccountId");
+    }
+  }
+
+  /**
+   * Recalculate and persist review aggregate rating and count for a user.
+   * Computes from blind_reviews WHERE released, then updates the user row.
+   */
+  async updateReviewAggregate(userId: string): Promise<void> {
+    try {
+      const [result] = await this.db
+        .select({
+          averageRating: avg(blindReviews.rating),
+          totalReviews: count(),
+        })
+        .from(blindReviews)
+        .where(
+          and(
+            eq(blindReviews.revieweeId, userId),
+            isNotNull(blindReviews.releasedAt),
+          ),
+        );
+
+      await this.db
+        .update(user)
+        .set({
+          reviewAggregateRating:
+            result.totalReviews > 0 && result.averageRating
+              ? Number(result.averageRating).toFixed(2)
+              : null,
+          reviewCount: result.totalReviews,
+        })
+        .where(eq(user.id, userId));
+    } catch (error) {
+      this.handleError(error, "updateReviewAggregate");
     }
   }
 }

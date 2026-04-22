@@ -703,7 +703,7 @@ export class RentalService {
           if (renterUser) {
             const { sendNotification } =
               await import("@/features/notifications/utils/send-notification");
-            sendNotification({
+            await sendNotification({
               userId: renterUser.id,
               type: "payment_failed",
               title: "Security Deposit Hold Failed",
@@ -721,7 +721,7 @@ export class RentalService {
           if (ownerUser) {
             const { sendNotification } =
               await import("@/features/notifications/utils/send-notification");
-            sendNotification({
+            await sendNotification({
               userId: ownerUser.id,
               type: "payment_failed",
               title: "Deposit Hold Not Placed",
@@ -744,87 +744,91 @@ export class RentalService {
       }
     }
 
-    try {
-      const [renterUser, ownerUser] = await Promise.all([
-        userDAL.getUserById(rentalRequest.renterId),
-        userDAL.getUserById(rentalRequest.ownerId),
-      ]);
-      if (renterUser && ownerUser) {
-        const startDate = new Date(
-          rentalRequest.startDate,
-        ).toLocaleDateString();
-        const endDate = new Date(rentalRequest.endDate).toLocaleDateString();
-
-        sendPaymentSucceededNotificationToRenter({
-          userId: renterUser.id,
-          to: renterUser.email,
-          renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-          ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-          listingName: rentalRequest.listingName,
-          rentalId: rentalRequest.id,
-          totalAmount: rentalRequest.totalAmount,
-          securityDeposit: rentalRequest.securityDeposit,
-          depositHoldStatus,
-        }).catch((err) => {
-          captureNonCriticalError(err, {
-            route: "RentalService.approveRentalRequest",
-            action: "send_payment_success_renter",
-          });
-        });
-        sendPaymentSucceededNotificationToOwner({
-          userId: ownerUser.id,
-          to: ownerUser.email,
-          ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-          renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-          listingName: rentalRequest.listingName,
-          rentalId: rentalRequest.id,
-          totalAmount: rentalRequest.totalAmount,
-        }).catch((err) => {
-          captureNonCriticalError(err, {
-            route: "RentalService.approveRentalRequest",
-            action: "send_payment_success_owner",
-          });
-        });
-
-        const approvedCount = await rentalDAL.getApprovedRentalCountForRenter(
-          renterUser.id,
-        );
-        const firstApproval = approvedCount === 1;
-        sendRentalApprovedNotification({
-          userId: renterUser.id,
-          to: renterUser.email,
-          renterName: `${renterUser.firstName} ${renterUser.lastName}`,
-          ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
-          listingName: rentalRequest.listingName,
-          rentalId: rentalRequest.id,
-          startDate,
-          endDate,
-          totalAmount: rentalRequest.totalAmount,
-          firstApproval,
-        }).catch((err) => {
-          captureNonCriticalError(err, {
-            route: "RentalService.approveRentalRequest",
-            action: "send_rental_approved_notification",
-          });
-        });
-      }
-    } catch (notificationError) {
-      captureNonCriticalError(notificationError, {
-        route: "RentalService.approveRentalRequest",
-        action: "send_success_notifications",
-      });
-    }
-
     trackActivity(userId, "rental_approved", {
       rentalId,
       rentalRequestId: rentalRequest.id,
     });
 
-    const internalSecret = process.env.INTERNAL_API_SECRET;
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (internalSecret && baseUrl) {
-      const pdfUrl = `${baseUrl}/api/internal/generate-rental-agreement`;
-      after(async () => {
+    // Run all post-approval side effects after the response is sent
+    // to avoid DB connection pool exhaustion from concurrent queries
+    after(async () => {
+      // Send notifications sequentially to avoid pool contention
+      try {
+        const [renterUser, ownerUser] = await Promise.all([
+          userDAL.getUserById(rentalRequest.renterId),
+          userDAL.getUserById(rentalRequest.ownerId),
+        ]);
+        if (renterUser && ownerUser) {
+          const startDate = new Date(
+            rentalRequest.startDate,
+          ).toLocaleDateString();
+          const endDate = new Date(rentalRequest.endDate).toLocaleDateString();
+
+          await sendPaymentSucceededNotificationToRenter({
+            userId: renterUser.id,
+            to: renterUser.email,
+            renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+            ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+            listingName: rentalRequest.listingName,
+            rentalId: rentalRequest.id,
+            totalAmount: rentalRequest.totalAmount,
+            securityDeposit: rentalRequest.securityDeposit,
+            depositHoldStatus,
+          }).catch((err) => {
+            captureNonCriticalError(err, {
+              route: "RentalService.approveRentalRequest",
+              action: "send_payment_success_renter",
+            });
+          });
+          await sendPaymentSucceededNotificationToOwner({
+            userId: ownerUser.id,
+            to: ownerUser.email,
+            ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+            renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+            listingName: rentalRequest.listingName,
+            rentalId: rentalRequest.id,
+            totalAmount: rentalRequest.totalAmount,
+          }).catch((err) => {
+            captureNonCriticalError(err, {
+              route: "RentalService.approveRentalRequest",
+              action: "send_payment_success_owner",
+            });
+          });
+
+          const approvedCount = await rentalDAL.getApprovedRentalCountForRenter(
+            renterUser.id,
+          );
+          const firstApproval = approvedCount === 1;
+          await sendRentalApprovedNotification({
+            userId: renterUser.id,
+            to: renterUser.email,
+            renterName: `${renterUser.firstName} ${renterUser.lastName}`,
+            ownerName: `${ownerUser.firstName} ${ownerUser.lastName}`,
+            listingName: rentalRequest.listingName,
+            rentalId: rentalRequest.id,
+            startDate,
+            endDate,
+            totalAmount: rentalRequest.totalAmount,
+            firstApproval,
+          }).catch((err) => {
+            captureNonCriticalError(err, {
+              route: "RentalService.approveRentalRequest",
+              action: "send_rental_approved_notification",
+            });
+          });
+        }
+      } catch (notificationError) {
+        captureNonCriticalError(notificationError, {
+          route: "RentalService.approveRentalRequest",
+          action: "send_success_notifications",
+        });
+      }
+
+      // PDF generation runs after notifications are done
+      const internalSecret = process.env.INTERNAL_API_SECRET;
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+      if (internalSecret && baseUrl) {
+        const pdfUrl = `${baseUrl}/api/internal/generate-rental-agreement`;
         try {
           console.log("[pdf-gen] triggering", {
             url: pdfUrl,
@@ -854,8 +858,8 @@ export class RentalService {
             action: "trigger_pdf_generation",
           });
         }
-      });
-    }
+      }
+    });
 
     return {
       success: true,

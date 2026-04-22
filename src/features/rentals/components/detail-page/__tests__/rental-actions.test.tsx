@@ -30,10 +30,6 @@ vi.mock("@/features/rentals/components/renting-lending", () => ({
   EndRentalDialog: () => null,
 }));
 
-vi.mock("@/features/reviews/components/leave-review-modal", () => ({
-  LeaveReviewModal: () => null,
-}));
-
 vi.mock("@/features/disputes/components/file-dispute-dialog", () => ({
   FileDisputeDialog: () => null,
 }));
@@ -52,8 +48,6 @@ function baseRentalDetails(
     pickupInstructions: undefined,
     returnInstructions: undefined,
     deliveryRequested: false,
-    hasReview: false,
-    canLeaveReview: false,
     returnConfirmedAt: undefined,
     ...overrides,
   };

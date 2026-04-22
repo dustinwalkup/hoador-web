@@ -43,6 +43,17 @@ vi.mock("@/lib/api/route-helpers", () => ({
   captureNonCriticalError: vi.fn(),
 }));
 
+const afterCallbacks: Array<Promise<void>> = [];
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: vi.fn((cb: () => Promise<void>) => {
+      afterCallbacks.push(cb());
+    }),
+  };
+});
+
 const mockGetRentalRequestById = vi.fn();
 const mockApproveRentalRequest = vi.fn();
 const mockGetRentalByRequestId = vi.fn();
@@ -192,6 +203,8 @@ describe("RentalService.approveRentalRequest — deposit hold failure (UAT-P1-08
       {},
       context,
     );
+    // Flush after() callbacks so notification side effects complete
+    await Promise.all(afterCallbacks.splice(0));
 
     expect(result).toEqual({
       success: true,

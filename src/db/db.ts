@@ -27,6 +27,9 @@ const db = isE2E
         connectionString:
           process.env.DATABASE_URL ||
           "postgresql://mock:mock@localhost:5432/mock",
+        max: 10,
+        idleTimeoutMillis: 20_000,
+        connectionTimeoutMillis: 10_000,
       }),
       { schema, logger: queryLogger },
     );

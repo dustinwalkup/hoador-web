@@ -1,7 +1,5 @@
 import { eq, and, inArray, sql, gte, lte, lt, or, desc } from "drizzle-orm";
-import { tryCatch } from "@walkup/walkup-utils";
-
-import { rentals, rentalRequests, reviews } from "@/db/schemas/rentals.schema";
+import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import {
   listings,
   listingImages,
@@ -19,11 +17,6 @@ import { BaseDAL } from "./base";
 import { ConflictError, NotFoundError } from "./errors";
 import type { CancellationReason } from "./types";
 import { alias } from "drizzle-orm/pg-core";
-
-import { ReviewDAL } from "./review.dal";
-
-// Create a single instance at module level to reuse across methods
-const reviewDALInstance = new ReviewDAL();
 
 const serviceBookingRequesterForAlerts = alias(user, "sb_req_alerts");
 const serviceBookingProviderForAlerts = alias(user, "sb_prov_alerts");
@@ -102,6 +95,8 @@ export interface BorrowedListing {
   listingImageUrl: string | null;
   ownerId: string;
   ownerName: string;
+  ownerRating?: number;
+  ownerReviewCount?: number;
   /** Whether the renter requested owner delivery (affects schedule copy). */
   deliveryRequested: boolean;
   /** Whether the owner also offered setup as part of delivery. */
@@ -112,7 +107,6 @@ export interface BorrowedListing {
   status: string;
   dailyRate: string;
   conversationId?: string | null;
-  canLeaveReview?: boolean;
 }
 
 export interface BorrowedListingsData {
@@ -128,6 +122,8 @@ export interface RentalRequestItem {
   renterId: string;
   ownerId: string;
   ownerName: string;
+  ownerRating?: number;
+  ownerReviewCount?: number;
   startDate: Date;
   endDate: Date;
   totalDays: number;
@@ -143,7 +139,6 @@ export interface RentalRequestItem {
   denialReason?: string | null;
   approvedAt?: Date | null;
   conversationId?: string | null;
-  canLeaveReview?: boolean;
   paymentStatus?: string | null;
   paymentFailureReason?: string | null;
 }
@@ -283,24 +278,6 @@ export interface RentalDetails {
   denialReason?: string;
   currentUserId: string;
   conversationId?: string | null;
-  hasReview?: boolean;
-  canLeaveReview?: boolean;
-  review?: {
-    id: string;
-    rating: number;
-    comment: string | null;
-    title: string | null;
-    accuracyRating: number | null;
-    listingConditionRating: number | null;
-    ownerCommunicationRating: number | null;
-    createdAt: Date;
-    reviewer: {
-      id: string;
-      firstName: string;
-      lastName: string;
-      profileImageUrl: string | null;
-    } | null;
-  } | null;
 }
 
 // Utility types for specific components
@@ -389,8 +366,6 @@ export type RentalActionsInfo = Pick<
   | "pickupInstructions"
   | "returnInstructions"
   | "deliveryRequested"
-  | "hasReview"
-  | "canLeaveReview"
   | "returnConfirmedAt"
 >;
 export type RentalMessagesInfo = Pick<
@@ -698,6 +673,8 @@ export class RentalDAL extends BaseDAL {
           renterId: rentalRequests.renterId,
           ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+          ownerReviewAggregateRating: user.reviewAggregateRating,
+          ownerReviewCountRaw: user.reviewCount,
           startDate: rentalRequests.startDate,
           endDate: rentalRequests.endDate,
           totalDays: rentalRequests.totalDays,
@@ -763,11 +740,22 @@ export class RentalDAL extends BaseDAL {
         }
       }
 
-      // Add listing images to requests
-      return requests.map((request) => ({
-        ...request,
-        listingImageUrl: listingImagesMap.get(request.listingId) || null,
-      }));
+      // Add listing images and owner rating to requests
+      return requests.map((request) => {
+        const { ownerReviewAggregateRating, ownerReviewCountRaw, ...rest } =
+          request;
+        const revCount = ownerReviewCountRaw ?? 0;
+        const avgRating = ownerReviewAggregateRating
+          ? Number(ownerReviewAggregateRating)
+          : 0;
+        return {
+          ...rest,
+          listingImageUrl: listingImagesMap.get(rest.listingId) || null,
+          ownerRating:
+            revCount > 0 ? Math.round(avgRating * 10) / 10 : undefined,
+          ownerReviewCount: revCount || undefined,
+        };
+      });
     } catch (error) {
       this.handleError(error, "getRentalRequestsByStatus");
     }
@@ -1448,6 +1436,8 @@ export class RentalDAL extends BaseDAL {
           listingName: listings.name,
           ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+          ownerReviewAggregateRating: user.reviewAggregateRating,
+          ownerReviewCountRaw: user.reviewCount,
           startDate: rentalRequests.startDate,
           endDate: rentalRequests.endDate,
           totalAmount: rentalRequests.totalAmount,
@@ -1505,54 +1495,21 @@ export class RentalDAL extends BaseDAL {
         }
       }
 
-      // For completed rentals, check review eligibility
-      const canLeaveReviewMap = new Map<string, boolean>();
-      if (status === "completed") {
-        const rentalRequestIds = rentalsList.map((r) => r.id);
-
-        // Get actual rental records for these requests
-        const actualRentals = await this.db
-          .select({
-            requestId: rentals.requestId,
-            id: rentals.id,
-            damageReported: rentals.damageReported,
-          })
-          .from(rentals)
-          .where(inArray(rentals.requestId, rentalRequestIds));
-
-        // Get existing reviews for these rentals
-        const rentalIds = actualRentals.map((r) => r.id);
-        const existingReviews =
-          rentalIds.length > 0
-            ? await this.db
-                .select({ rentalId: reviews.rentalId })
-                .from(reviews)
-                .where(inArray(reviews.rentalId, rentalIds))
-            : [];
-
-        const reviewedRentalIds = new Set(
-          existingReviews.map((r) => r.rentalId),
-        );
-
-        // Build map of requestId -> canLeaveReview
-        for (const rental of actualRentals) {
-          const canLeave =
-            !rental.damageReported &&
-            !reviewedRentalIds.has(rental.id) &&
-            rental.requestId !== null;
-          canLeaveReviewMap.set(rental.requestId, canLeave);
-        }
-      }
-
-      // Add listing images and canLeaveReview to rentals
-      return rentalsList.map((rental) => ({
-        ...rental,
-        listingImageUrl: listingImagesMap.get(rental.listingId) || null,
-        canLeaveReview:
-          status === "completed"
-            ? canLeaveReviewMap.get(rental.id) || false
-            : undefined,
-      }));
+      return rentalsList.map((rental) => {
+        const { ownerReviewAggregateRating, ownerReviewCountRaw, ...rest } =
+          rental;
+        const revCount = ownerReviewCountRaw ?? 0;
+        const avgRating = ownerReviewAggregateRating
+          ? Number(ownerReviewAggregateRating)
+          : 0;
+        return {
+          ...rest,
+          listingImageUrl: listingImagesMap.get(rest.listingId) || null,
+          ownerRating:
+            revCount > 0 ? Math.round(avgRating * 10) / 10 : undefined,
+          ownerReviewCount: revCount || undefined,
+        };
+      });
     } catch (error) {
       this.handleError(error, "getRentalsByStatus");
     }
@@ -2092,16 +2049,11 @@ export class RentalDAL extends BaseDAL {
           where: eq(user.id, request.renterId),
         });
 
-        // Get renter reviews and stats
-        const renterReviews = await this.db.query.reviews.findMany({
-          where: eq(reviews.revieweeId, request.renterId),
-          columns: { rating: true },
-        });
-        const renterRatings = renterReviews.map((r) => r.rating);
-        const renterAverageRating =
-          renterRatings.length > 0
-            ? renterRatings.reduce((a, b) => a + b, 0) / renterRatings.length
-            : 0;
+        // Get renter review aggregate from user table
+        const renterAverageRating = renter?.reviewAggregateRating
+          ? Number(renter.reviewAggregateRating)
+          : 0;
+        const renterReviewCount = renter?.reviewCount ?? 0;
 
         // Get renter completed rentals count
         const renterCompletedRentals = await this.db
@@ -2119,16 +2071,11 @@ export class RentalDAL extends BaseDAL {
           where: eq(user.id, request.ownerId),
         });
 
-        // Get owner reviews
-        const ownerReviews = await this.db.query.reviews.findMany({
-          where: eq(reviews.revieweeId, request.ownerId),
-          columns: { rating: true },
-        });
-        const ownerRatings = ownerReviews.map((r) => r.rating);
-        const ownerAverageRating =
-          ownerRatings.length > 0
-            ? ownerRatings.reduce((a, b) => a + b, 0) / ownerRatings.length
-            : 0;
+        // Get owner review aggregate
+        const ownerAverageRating = owner?.reviewAggregateRating
+          ? Number(owner.reviewAggregateRating)
+          : 0;
+        const ownerReviewCount = owner?.reviewCount ?? 0;
 
         // Get owner's primary address for pickup
         const ownerAddress = await this.db.query.userAddresses.findFirst({
@@ -2142,59 +2089,6 @@ export class RentalDAL extends BaseDAL {
         const pickupAddress = ownerAddress
           ? `${ownerAddress.street}, ${ownerAddress.city}, ${ownerAddress.state} ${ownerAddress.zipCode}`
           : undefined;
-
-        // Check if rental exists and get review status
-        const rentalRecord = await this.db
-          .select({ id: rentals.id, damageReported: rentals.damageReported })
-          .from(rentals)
-          .where(eq(rentals.requestId, request.id))
-          .limit(1);
-
-        let hasReview = false;
-        let canLeaveReview = false;
-        let reviewData = null;
-
-        if (rentalRecord[0]) {
-          // Get full review if it exists
-          const { data: reviewResult } = await tryCatch(
-            reviewDALInstance.getReviewByRentalId(rentalRecord[0].id),
-          );
-
-          hasReview = !!reviewResult;
-
-          if (reviewResult) {
-            reviewData = {
-              id: reviewResult.id,
-              rating: reviewResult.rating,
-              comment: reviewResult.comment,
-              title: reviewResult.title,
-              accuracyRating: reviewResult.accuracyRating,
-              listingConditionRating: reviewResult.listingConditionRating,
-              ownerCommunicationRating: reviewResult.ownerCommunicationRating,
-              createdAt: reviewResult.createdAt,
-              reviewer: reviewResult.reviewer
-                ? {
-                    id: reviewResult.reviewer.id,
-                    firstName: reviewResult.reviewer.firstName || "",
-                    lastName: reviewResult.reviewer.lastName || "",
-                    profileImageUrl: reviewResult.reviewer.profileImageUrl,
-                  }
-                : null,
-            };
-          }
-
-          // Can leave review if:
-          // - Status is completed
-          // - No damage reported
-          // - No existing review
-          // - User is renter
-          canLeaveReview =
-            userId !== undefined &&
-            request.status === "completed" &&
-            !rentalRecord[0].damageReported &&
-            !hasReview &&
-            request.renterId === userId;
-        }
 
         return {
           id: request.id,
@@ -2214,10 +2108,10 @@ export class RentalDAL extends BaseDAL {
           renterPhone: renter?.phone || undefined,
           renterProfileImage: renter?.profileImageUrl || undefined,
           renterRating:
-            renterRatings.length > 0
+            renterReviewCount > 0
               ? Math.round(renterAverageRating * 10) / 10
               : undefined,
-          renterReviewCount: renterRatings.length || undefined,
+          renterReviewCount: renterReviewCount || undefined,
           renterVerified: renter?.emailVerified || false,
           renterMemberSince: renter?.createdAt?.toISOString() || undefined,
           renterCompletedRentals: renterCompletedRentals.length || undefined,
@@ -2229,10 +2123,10 @@ export class RentalDAL extends BaseDAL {
           ownerPhone: owner?.phone || undefined,
           ownerProfileImage: owner?.profileImageUrl || undefined,
           ownerRating:
-            ownerRatings.length > 0
+            ownerReviewCount > 0
               ? Math.round(ownerAverageRating * 10) / 10
               : undefined,
-          ownerReviewCount: ownerRatings.length || undefined,
+          ownerReviewCount: ownerReviewCount || undefined,
           ownerVerified: owner?.emailVerified || false,
           ownerMemberSince: owner?.createdAt?.toISOString() || undefined,
           startDate: request.startDate,
@@ -2265,9 +2159,6 @@ export class RentalDAL extends BaseDAL {
           returnConfirmedAt: request.returnConfirmedAt || undefined,
           currentUserId: userId || "",
           conversationId: request.conversationId || null,
-          hasReview,
-          canLeaveReview,
-          review: reviewData,
         };
       }
 
@@ -2362,16 +2253,11 @@ export class RentalDAL extends BaseDAL {
         where: eq(user.id, rentalData.renterId),
       });
 
-      // Get renter reviews and stats
-      const renterReviews = await this.db.query.reviews.findMany({
-        where: eq(reviews.revieweeId, rentalData.renterId),
-        columns: { rating: true },
-      });
-      const renterRatings = renterReviews.map((r) => r.rating);
-      const renterAverageRating =
-        renterRatings.length > 0
-          ? renterRatings.reduce((a, b) => a + b, 0) / renterRatings.length
-          : 0;
+      // Get renter review aggregate from user table
+      const renterAverageRating = renter?.reviewAggregateRating
+        ? Number(renter.reviewAggregateRating)
+        : 0;
+      const renterReviewCount = renter?.reviewCount ?? 0;
 
       // Get renter completed rentals count
       const renterCompletedRentals = await this.db
@@ -2389,16 +2275,11 @@ export class RentalDAL extends BaseDAL {
         where: eq(user.id, rentalData.ownerId),
       });
 
-      // Get owner reviews
-      const ownerReviews = await this.db.query.reviews.findMany({
-        where: eq(reviews.revieweeId, rentalData.ownerId),
-        columns: { rating: true },
-      });
-      const ownerRatings = ownerReviews.map((r) => r.rating);
-      const ownerAverageRating =
-        ownerRatings.length > 0
-          ? ownerRatings.reduce((a, b) => a + b, 0) / ownerRatings.length
-          : 0;
+      // Get owner review aggregate
+      const ownerAverageRating = owner?.reviewAggregateRating
+        ? Number(owner.reviewAggregateRating)
+        : 0;
+      const ownerReviewCount = owner?.reviewCount ?? 0;
 
       // Get owner's primary address for pickup
       const ownerAddress = await this.db.query.userAddresses.findFirst({
@@ -2412,50 +2293,6 @@ export class RentalDAL extends BaseDAL {
       const pickupAddress = ownerAddress
         ? `${ownerAddress.street}, ${ownerAddress.city}, ${ownerAddress.state} ${ownerAddress.zipCode}`
         : undefined;
-
-      // Get full review if it exists
-      let hasReview = false;
-      let canLeaveReview = false;
-      let reviewData = null;
-
-      const { data: reviewResult } = await tryCatch(
-        reviewDALInstance.getReviewByRentalId(rentalData.id),
-      );
-
-      hasReview = !!reviewResult;
-
-      if (reviewResult) {
-        reviewData = {
-          id: reviewResult.id,
-          rating: reviewResult.rating,
-          comment: reviewResult.comment,
-          title: reviewResult.title,
-          accuracyRating: reviewResult.accuracyRating,
-          listingConditionRating: reviewResult.listingConditionRating,
-          ownerCommunicationRating: reviewResult.ownerCommunicationRating,
-          createdAt: reviewResult.createdAt,
-          reviewer: reviewResult.reviewer
-            ? {
-                id: reviewResult.reviewer.id,
-                firstName: reviewResult.reviewer.firstName || "",
-                lastName: reviewResult.reviewer.lastName || "",
-                profileImageUrl: reviewResult.reviewer.profileImageUrl,
-              }
-            : null,
-        };
-      }
-
-      // Can leave review if:
-      // - Status is completed
-      // - No damage reported
-      // - No existing review
-      // - User is renter
-      canLeaveReview =
-        userId !== undefined &&
-        request[0]?.status === "completed" &&
-        !rentalData.damageReported &&
-        !hasReview &&
-        rentalData.renterId === userId;
 
       return {
         id: rentalData.id,
@@ -2475,10 +2312,10 @@ export class RentalDAL extends BaseDAL {
         renterPhone: renter?.phone || undefined,
         renterProfileImage: renter?.profileImageUrl || undefined,
         renterRating:
-          renterRatings.length > 0
+          renterReviewCount > 0
             ? Math.round(renterAverageRating * 10) / 10
             : undefined,
-        renterReviewCount: renterRatings.length || undefined,
+        renterReviewCount: renterReviewCount || undefined,
         renterVerified: renter?.emailVerified || false,
         renterMemberSince: renter?.createdAt?.toISOString() || undefined,
         renterCompletedRentals: renterCompletedRentals.length || undefined,
@@ -2490,10 +2327,10 @@ export class RentalDAL extends BaseDAL {
         ownerPhone: owner?.phone || undefined,
         ownerProfileImage: owner?.profileImageUrl || undefined,
         ownerRating:
-          ownerRatings.length > 0
+          ownerReviewCount > 0
             ? Math.round(ownerAverageRating * 10) / 10
             : undefined,
-        ownerReviewCount: ownerRatings.length || undefined,
+        ownerReviewCount: ownerReviewCount || undefined,
         ownerVerified: owner?.emailVerified || false,
         ownerMemberSince: owner?.createdAt?.toISOString() || undefined,
         startDate: rentalData.startDate,
@@ -2527,9 +2364,6 @@ export class RentalDAL extends BaseDAL {
         createdAt: rentalData.createdAt,
         currentUserId: userId || "",
         conversationId: rentalData.conversationId || null,
-        hasReview,
-        canLeaveReview,
-        review: reviewData,
       };
     } catch (error) {
       this.handleError(error, "getRentalDetailsById");

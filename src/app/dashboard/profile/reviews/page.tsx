@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,18 +11,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ReviewerAvatar } from "@/features/reviews/components/reviewer-avatar";
+import { ReviewCard } from "@/features/reviews/components/review-card";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/page-header";
 import { PROFILE_PAGE_HEADERS } from "@/constants/profile";
-import { reviewDAL } from "@/dal";
+import { blindReviewDAL } from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
 import {
   ProfileTabs,
   ReviewsSortingControls,
 } from "@/features/users/components/profile";
-import { formatDistanceToNow } from "@/lib/utils/date.utils";
 
 export const metadata = {
   title: "Reviews",
@@ -80,18 +79,35 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
   const sortOrder = queryParams.sortOrder as "asc" | "desc";
   const offset = (page - 1) * limit;
 
-  // Fetch data with pagination and sorting
-  const [summary, distribution, reviews, totalCount] = await Promise.all([
-    reviewDAL.getSummaryForUser(userId),
-    reviewDAL.getRatingDistribution(userId),
-    reviewDAL.getRecentReviews(userId, {
-      limit,
-      offset,
-      sortBy,
-      sortOrder,
-    }),
-    reviewDAL.getReviewsCount(userId),
+  // Fetch data using blind review system
+  const [aggregateResult, paginatedResult] = await Promise.all([
+    blindReviewDAL.getAggregate(userId),
+    blindReviewDAL.findReleasedByReviewee(userId, { limit, offset }),
   ]);
+
+  const summary = {
+    averageRating: aggregateResult.averageRating,
+    totalReviews: aggregateResult.totalReviews,
+  };
+  const distribution = [5, 4, 3, 2, 1].map((rating) => ({
+    rating,
+    count: paginatedResult.data.filter((r) => r.rating === rating).length,
+  }));
+  const reviews = paginatedResult.data.map((r) => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.comment,
+    submittedAt: r.submittedAt,
+    releasedAt: r.releasedAt,
+    reviewer: r.reviewer
+      ? {
+          id: r.reviewer.id,
+          name: r.reviewer.name || "Anonymous",
+          avatarUrl: r.reviewer.avatarUrl,
+        }
+      : null,
+  }));
+  const totalCount = paginatedResult.pagination.total;
 
   const totalPages = Math.ceil(totalCount / limit);
 
@@ -191,126 +207,17 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
                     <p>No reviews yet</p>
                   </div>
                 ) : (
-                  reviews.map((review) => {
-                    return (
-                      <div key={review.id} className="rounded-lg border p-4">
-                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-center gap-2">
-                            <ReviewerAvatar
-                              avatarUrl={review.reviewer?.avatarUrl}
-                              name={review.reviewer?.name}
-                              reviewerId={review.reviewer?.id || review.id}
-                            />
-                            <div>
-                              <div className="font-medium">
-                                {review.reviewer?.name || "Anonymous"}
-                              </div>
-                              <div className="text-muted-foreground text-xs">
-                                {formatDistanceToNow(
-                                  new Date(review.createdAt),
-                                  {
-                                    addSuffix: true,
-                                  },
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className={`h-4 w-4 ${
-                                  star <= review.rating
-                                    ? "fill-amber-400 text-amber-400"
-                                    : "fill-amber-200 text-amber-200"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        {review.comment && (
-                          <p className="text-sm">{review.comment}</p>
-                        )}
-
-                        {/* Structured Ratings */}
-                        {(review.accuracyRating ||
-                          review.listingConditionRating ||
-                          review.ownerCommunicationRating) && (
-                          <div className="mt-3 space-y-1.5 border-t pt-3">
-                            <div className="text-muted-foreground text-xs font-medium">
-                              Detailed Ratings:
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                              {review.accuracyRating && (
-                                <div className="flex items-center text-xs">
-                                  <span className="text-muted-foreground">
-                                    Accuracy:
-                                  </span>
-                                  <div className="ml-2 flex items-center gap-0.5">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                      <Star
-                                        key={star}
-                                        className={`h-3 w-3 ${
-                                          star <= review.accuracyRating!
-                                            ? "fill-amber-400 text-amber-400"
-                                            : "fill-amber-200 text-amber-200"
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {review.listingConditionRating && (
-                                <div className="flex items-center text-xs">
-                                  <span className="text-muted-foreground">
-                                    Condition:
-                                  </span>
-                                  <div className="ml-2 flex items-center gap-0.5">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                      <Star
-                                        key={star}
-                                        className={`h-3 w-3 ${
-                                          star <= review.listingConditionRating!
-                                            ? "fill-amber-400 text-amber-400"
-                                            : "fill-amber-200 text-amber-200"
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {review.ownerCommunicationRating && (
-                                <div className="flex items-center text-xs">
-                                  <span className="text-muted-foreground">
-                                    Communication:
-                                  </span>
-                                  <div className="ml-2 flex items-center gap-0.5">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                      <Star
-                                        key={star}
-                                        className={`h-3 w-3 ${
-                                          star <=
-                                          review.ownerCommunicationRating!
-                                            ? "fill-amber-400 text-amber-400"
-                                            : "fill-amber-200 text-amber-200"
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {review.listing && (
-                          <p className="text-muted-foreground mt-2 text-xs">
-                            Listing: {review.listing.name}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })
+                  reviews.map((review) =>
+                    review.reviewer ? (
+                      <ReviewCard
+                        key={review.id}
+                        review={{
+                          ...review,
+                          reviewer: review.reviewer,
+                        }}
+                      />
+                    ) : null,
+                  )
                 )}
               </div>
 

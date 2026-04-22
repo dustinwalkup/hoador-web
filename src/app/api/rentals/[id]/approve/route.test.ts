@@ -101,9 +101,15 @@ vi.mock("@/db/schemas/rentals.schema", () => ({
   rentals: {},
 }));
 
+const afterCallbacks: Array<Promise<void>> = [];
 vi.mock("next/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/server")>();
-  return { ...actual, after: vi.fn((cb: () => void) => cb()) };
+  return {
+    ...actual,
+    after: vi.fn((cb: () => Promise<void>) => {
+      afterCallbacks.push(cb());
+    }),
+  };
 });
 
 vi.mock("@/services/stripe/deposit-hold", () => ({
@@ -169,6 +175,9 @@ describe("POST /api/rentals/[id]/approve", () => {
     });
 
     expect(response.status).toBe(200);
+
+    // Flush after() callbacks so PDF generation side effect completes
+    await Promise.all(afterCallbacks.splice(0));
 
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/internal/generate-rental-agreement"),

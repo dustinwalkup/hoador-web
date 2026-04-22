@@ -16,7 +16,7 @@ vi.mock("@/db/db", () => ({
         findFirst: vi.fn(),
         findMany: vi.fn(),
       },
-      reviews: {
+      blindReviews: {
         findMany: vi.fn(),
       },
       userAddresses: {
@@ -187,7 +187,7 @@ describe("ListingDAL", () => {
       } as any);
 
       // Mock reviews query for owner rating
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Mock favorites check
       vi.mocked(db.query.userFavorites.findFirst).mockResolvedValue(undefined);
@@ -258,7 +258,7 @@ describe("ListingDAL", () => {
       } as any);
 
       // Mock reviews query
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Mock userFavorites query
       vi.mocked(db.query.userFavorites.findFirst).mockResolvedValue(undefined);
@@ -330,7 +330,7 @@ describe("ListingDAL", () => {
       });
 
       // Mock reviews query
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Mock favorites check
       vi.mocked(db.query.userFavorites.findFirst).mockResolvedValue(undefined);
@@ -680,7 +680,7 @@ describe("ListingDAL", () => {
       });
 
       // Mock reviews query for each listing
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Mock image query - batched select().from().where() resolving to []
       const mockImageWhere = vi.fn().mockResolvedValue([]);
@@ -745,7 +745,7 @@ describe("ListingDAL", () => {
       });
 
       // Mock reviews query
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Act
       const result = await listingDAL.getUserListings(userId, status);
@@ -833,12 +833,10 @@ describe("ListingDAL", () => {
         return { from: mockImageFrom } as any;
       });
 
-      // Mock batched owner rental stats - from().leftJoin().where().groupBy()
+      // Mock batched owner rental stats - from().where().groupBy()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
-        leftJoin: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            groupBy: vi.fn().mockResolvedValue([]),
-          }),
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
         }),
       });
 
@@ -857,6 +855,7 @@ describe("ListingDAL", () => {
       });
 
       // Complete mock implementation with all query types
+      // getPendingReviews calls: 1=count, 2=listings, 3=images, 4=listingCounts, 5=rentalStats, 6=reviewEvents
       vi.mocked(db.select).mockImplementation(() => {
         selectCallCount++;
         if (selectCallCount === 1) {
@@ -865,12 +864,12 @@ describe("ListingDAL", () => {
           return { from: mockListingsFrom } as any; // Listings query
         } else if (selectCallCount === 3) {
           return { from: mockImageFrom } as any; // Images query
-        } else if (selectCallCount === 6) {
-          return { from: mockReviewEventsFrom } as any; // Review events query
-        } else if (selectCallCount % 2 === 0) {
-          return { from: mockOtherListingsFrom } as any; // Other listings count
+        } else if (selectCallCount === 4) {
+          return { from: mockOtherListingsFrom } as any; // Owner listing counts
+        } else if (selectCallCount === 5) {
+          return { from: mockRentalHistoryFrom } as any; // Owner rental stats
         } else {
-          return { from: mockRentalHistoryFrom } as any; // Rental history
+          return { from: mockReviewEventsFrom } as any; // Review events query
         }
       });
 
@@ -956,16 +955,15 @@ describe("ListingDAL", () => {
         }),
       });
 
-      // Mock batched owner rental stats - from().leftJoin().where().groupBy()
+      // Mock batched owner rental stats - from().where().groupBy()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
-        leftJoin: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            groupBy: vi.fn().mockResolvedValue([]),
-          }),
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
         }),
       });
 
       let selectCallCount = 0;
+      // getReviewHistory calls: 1=count, 2=listings, 3=images, 4=listingCounts, 5=rentalStats, 6=reviewEvents
       vi.mocked(db.select).mockImplementation(() => {
         selectCallCount++;
         if (selectCallCount === 1) {
@@ -974,12 +972,12 @@ describe("ListingDAL", () => {
           return { from: mockListingsFrom } as any; // Listings query
         } else if (selectCallCount === 3) {
           return { from: mockImageFrom } as any; // Images query
-        } else if (selectCallCount === 6) {
-          return { from: mockReviewEventsFrom } as any; // Review events query
-        } else if (selectCallCount % 2 === 0) {
-          return { from: mockOtherListingsFrom } as any; // Other listings count
+        } else if (selectCallCount === 4) {
+          return { from: mockOtherListingsFrom } as any; // Owner listing counts
+        } else if (selectCallCount === 5) {
+          return { from: mockRentalHistoryFrom } as any; // Owner rental stats
         } else {
-          return { from: mockRentalHistoryFrom } as any; // Rental history
+          return { from: mockReviewEventsFrom } as any; // Review events query
         }
       });
 
@@ -1036,12 +1034,10 @@ describe("ListingDAL", () => {
         }),
       });
 
-      // Mock batched owner rental stats - from().leftJoin().where().groupBy()
+      // Mock batched owner rental stats - from().where().groupBy()
       const mockRentalHistoryFrom = vi.fn().mockReturnValue({
-        leftJoin: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            groupBy: vi.fn().mockResolvedValue([]),
-          }),
+        where: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockResolvedValue([]),
         }),
       });
 
@@ -1054,10 +1050,10 @@ describe("ListingDAL", () => {
           return { from: mockListingsFrom } as any; // Listings query
         } else if (selectCallCount === 3) {
           return { from: mockImageFrom } as any; // Images query
-        } else if (selectCallCount % 2 === 0) {
-          return { from: mockOtherListingsFrom } as any; // Other listings count
+        } else if (selectCallCount === 4) {
+          return { from: mockOtherListingsFrom } as any; // Owner listing counts
         } else {
-          return { from: mockRentalHistoryFrom } as any; // Rental history
+          return { from: mockRentalHistoryFrom } as any; // Owner rental stats
         }
       });
 
@@ -1295,7 +1291,7 @@ describe("ListingDAL", () => {
       });
 
       // Mock the reviews query (called for each listing)
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Mock the images query (batched select().from().where())
       const mockImageWhere = vi.fn().mockResolvedValue([]);
@@ -1353,7 +1349,7 @@ describe("ListingDAL", () => {
       });
 
       // Mock the reviews query (called for each listing)
-      vi.mocked(db.query.reviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Mock the images query (batched select().from().where())
       const mockImageWhere = vi.fn().mockResolvedValue([]);
@@ -1433,30 +1429,25 @@ describe("ListingDAL", () => {
       });
     });
 
-    it("should return listing with stars when no rentals", async () => {
+    it("should return 'No rentals yet' when no rentals and no per-listing ratings", async () => {
       const userListings = [{ id: "listing-1", name: "Drill" }];
       const mockWhere1 = vi.fn().mockResolvedValue(userListings);
       const mockFrom1 = vi.fn().mockReturnValue({ where: mockWhere1 });
       const mockGroupBy2 = vi.fn().mockResolvedValue([]);
       const mockWhere2 = vi.fn().mockReturnValue({ groupBy: mockGroupBy2 });
       const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
-      const mockGroupBy3 = vi
-        .fn()
-        .mockResolvedValue([{ listingId: "listing-1", avgRating: 4.8 }]);
-      const mockFrom3 = vi.fn().mockReturnValue({ groupBy: mockGroupBy3 });
 
       let selectCallCount = 0;
       vi.mocked(db.select).mockImplementation(() => {
         selectCallCount++;
         if (selectCallCount === 1) return { from: mockFrom1 } as any;
-        if (selectCallCount === 2) return { from: mockFrom2 } as any;
-        return { from: mockFrom3 } as any;
+        return { from: mockFrom2 } as any;
       });
 
       const result = await listingDAL.getTopPerformingListings(userId, 5);
 
       expect(result).toHaveLength(1);
-      expect(result[0].metricText).toBe("4.8 stars");
+      expect(result[0].metricText).toBe("No rentals yet");
     });
   });
 
@@ -1685,11 +1676,11 @@ describe("ListingDAL", () => {
         } as any;
       }) as any);
 
-      // Reviews: db.query.reviews.findMany is called once per listing in the
+      // Reviews: db.query.blindReviews.findMany is called once per listing in the
       // broken code, or once with inArray after the refactor. We detect batch
       // mode by looking at whether the caller requested the `listingId` column.
       let reviewsCallIdx = 0;
-      vi.mocked(db.query.reviews.findMany).mockImplementation((async (
+      vi.mocked(db.query.blindReviews.findMany).mockImplementation((async (
         opts: any,
       ) => {
         const wantsListingId = opts?.columns?.listingId === true;
@@ -1715,7 +1706,7 @@ describe("ListingDAL", () => {
 
       expect(result).toHaveLength(3);
 
-      // Listing A: 3 reviews, avg 4.0, has image
+      // Per-listing review ratings are no longer computed (blind review system uses user-level aggregates)
       expect(result[0]).toMatchObject({
         id: "listing-a",
         name: "Drill A",
@@ -1725,12 +1716,11 @@ describe("ListingDAL", () => {
         securityDeposit: 50,
         deliveryFee: 10,
         setupFee: 25,
-        averageRating: 4.0,
-        reviewCount: 3,
+        averageRating: 0,
+        reviewCount: 0,
         firstImageUrl: "https://example.com/a.jpg",
       });
 
-      // Listing B: 2 reviews, avg 3.5, has image, null weekly/monthly
       expect(result[1]).toMatchObject({
         id: "listing-b",
         name: "Hammer B",
@@ -1738,14 +1728,13 @@ describe("ListingDAL", () => {
         securityDeposit: 10,
         deliveryFee: 0,
         setupFee: 0,
-        averageRating: 3.5,
-        reviewCount: 2,
+        averageRating: 0,
+        reviewCount: 0,
         firstImageUrl: "https://example.com/b.jpg",
       });
       expect(result[1].weeklyRate).toBeUndefined();
       expect(result[1].monthlyRate).toBeUndefined();
 
-      // Listing C: 0 reviews, avg 0, no image (null)
       expect(result[2]).toMatchObject({
         id: "listing-c",
         name: "Saw C",
@@ -1779,15 +1768,15 @@ describe("ListingDAL", () => {
       expect(result).toHaveLength(3);
       expect(result[0]).toMatchObject({
         id: "listing-a",
-        averageRating: 4.0,
-        reviewCount: 3,
+        averageRating: 0,
+        reviewCount: 0,
         firstImageUrl: "https://example.com/a.jpg",
         dailyRate: 15,
       });
       expect(result[1]).toMatchObject({
         id: "listing-b",
-        averageRating: 3.5,
-        reviewCount: 2,
+        averageRating: 0,
+        reviewCount: 0,
         firstImageUrl: "https://example.com/b.jpg",
       });
       expect(result[2]).toMatchObject({
@@ -1809,8 +1798,8 @@ describe("ListingDAL", () => {
       expect(result).toHaveLength(3);
       expect(result[0]).toMatchObject({
         id: "listing-a",
-        averageRating: 4.0,
-        reviewCount: 3,
+        averageRating: 0,
+        reviewCount: 0,
         firstImageUrl: "https://example.com/a.jpg",
       });
       expect(result[2]).toMatchObject({
