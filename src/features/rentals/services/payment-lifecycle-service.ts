@@ -327,7 +327,7 @@ export class PaymentLifecycleService {
             const { sendNotification } =
               await import("@/features/notifications/utils/send-notification");
 
-            sendNotification({
+            await sendNotification({
               userId: rental.renterId,
               type: "payment_failed",
               title: "Security Deposit Hold Failed",
@@ -344,7 +344,7 @@ export class PaymentLifecycleService {
             );
 
             if (rental.ownerId) {
-              sendNotification({
+              await sendNotification({
                 userId: rental.ownerId,
                 type: "payment_failed",
                 title: "Deposit Hold Not Placed",
