@@ -74,7 +74,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@sentry/nextjs": "^10",
-    "@sparticuz/chromium": "^147.0.2",
+    "@sparticuz/chromium": "^148.0.0",
     "@stripe/connect-js": "^3.3.34",
     "@stripe/react-connect-js": "^3.3.33",
     "@stripe/react-stripe-js": "^6.1.0",
