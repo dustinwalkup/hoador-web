@@ -83,7 +83,7 @@ export function PendingReviewListings() {
             No listings pending review
           </p>
           <p className="text-muted-foreground text-sm">
-            Listings awaiting admin approval or that have been rejected will
+            Listings awaiting admin approval or with revisions requested will
             appear here
           </p>
         </div>

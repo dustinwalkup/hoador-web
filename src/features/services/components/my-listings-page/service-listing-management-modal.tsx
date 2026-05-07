@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  AlertCircle,
   AlertTriangle,
   CheckCircle,
   Clock,
   EyeOff,
-  XCircle,
 } from "lucide-react";
 import { z } from "zod";
 
@@ -74,16 +74,18 @@ function getStatusInfo(status: ServiceListing["status"]) {
       return {
         icon: Clock,
         color:
-          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+          "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
         description: "Listing is waiting for admin review",
         label: "Pending Review",
       };
     case "denied":
       return {
-        icon: XCircle,
-        color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-        description: "Listing was denied and needs edits before resubmitting",
-        label: "Denied",
+        icon: AlertCircle,
+        color:
+          "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+        description:
+          "Revisions have been requested. Edit the listing and resubmit for approval.",
+        label: "Revisions Requested",
       };
     default:
       return {
