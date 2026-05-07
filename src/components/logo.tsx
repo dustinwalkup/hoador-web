@@ -1,6 +1,4 @@
 import Image from "next/image";
-import { APP_VERSION } from "@/constants/version";
-import { cn } from "@/lib/utils";
 
 interface LogoProps {
   width?: number;
@@ -20,7 +18,6 @@ export function Logo({
   alt = "Hoador Logo",
   showBetaTag = false,
   betaTagPosition = "right",
-  absolutePosition = "right-0!",
   priority = false,
 }: LogoProps) {
   const logoImage = (
@@ -43,30 +40,10 @@ export function Logo({
     return (
       <div className="relative flex flex-col items-center gap-2 p-1.5">
         {logoImage}
-        <span
-          className={cn(
-            "text-muted-foreground absolute z-50 text-xs font-semibold",
-            absolutePosition,
-          )}
-        >
-          BETA v{APP_VERSION}
-        </span>
       </div>
     );
   }
 
   // For header/footer context (larger logo with tag on right)
-  return (
-    <div className="relative flex items-center">
-      {logoImage}
-      <span
-        className={cn(
-          "text-muted-foreground absolute z-50 text-xs font-semibold",
-          absolutePosition,
-        )}
-      >
-        {/* BETA v{APP_VERSION} */}
-      </span>
-    </div>
-  );
+  return <div className="relative flex items-center">{logoImage}</div>;
 }
