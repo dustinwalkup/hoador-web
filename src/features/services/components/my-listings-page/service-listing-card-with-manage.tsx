@@ -9,9 +9,6 @@ import { ServiceListingManagementModal } from "./service-listing-management-moda
 
 interface ServiceListingCardWithManageProps {
   listing: ServiceListing;
-  parseRejectionReason?: (reason: string | null | undefined) => {
-    chunks: Array<{ label?: string; message: string; timestamp?: string }>;
-  };
 }
 
 /**
@@ -19,7 +16,6 @@ interface ServiceListingCardWithManageProps {
  */
 export function ServiceListingCardWithManage({
   listing,
-  parseRejectionReason,
 }: ServiceListingCardWithManageProps) {
   const [manageOpen, setManageOpen] = useState(false);
 
@@ -27,7 +23,6 @@ export function ServiceListingCardWithManage({
     <>
       <ServiceListingCard
         listing={listing}
-        parseRejectionReason={parseRejectionReason}
         onManage={() => setManageOpen(true)}
       />
       <ServiceListingManagementModal

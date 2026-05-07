@@ -77,7 +77,7 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
             <Badge variant="secondary" className="text-xs font-normal">
               {listing.category.name}
             </Badge>
-            {listing.status !== "active" && (
+            {listing.status !== "active" && listing.status !== "denied" && (
               <Badge variant="outline" className="text-xs">
                 {listing.status}
               </Badge>

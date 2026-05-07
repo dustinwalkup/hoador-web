@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { ApproveRejectDialog } from "./approve-reject-dialog";
 import { formatDistanceToNow } from "date-fns";
 import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
@@ -74,9 +74,13 @@ export function ListingReviewCard({
                   variant={
                     reviewedListing!.approvalStatus === "approved"
                       ? "default"
-                      : "destructive"
+                      : "secondary"
                   }
-                  className="flex items-center gap-1"
+                  className={
+                    reviewedListing!.approvalStatus === "approved"
+                      ? "flex items-center gap-1"
+                      : "flex items-center gap-1 border-amber-200 bg-amber-100 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
+                  }
                 >
                   {reviewedListing!.approvalStatus === "approved" ? (
                     <>
@@ -85,8 +89,8 @@ export function ListingReviewCard({
                     </>
                   ) : (
                     <>
-                      <XCircle className="h-3 w-3" />
-                      Rejected
+                      <AlertCircle className="h-3 w-3" />
+                      Revisions Requested
                     </>
                   )}
                 </Badge>
@@ -105,12 +109,13 @@ export function ListingReviewCard({
                 Approve
               </Button>
               <Button
-                variant="destructive"
+                variant="default"
                 size="sm"
                 onClick={() => setRejectDialogOpen(true)}
+                className="bg-amber-500 text-white hover:bg-amber-600"
               >
-                <XCircle className="mr-2 h-4 w-4" />
-                Reject
+                <AlertCircle className="mr-2 h-4 w-4" />
+                Request Revisions
               </Button>
             </div>
           )}

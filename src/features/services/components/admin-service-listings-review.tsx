@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -66,11 +66,12 @@ function PendingServiceListingRow({
             </Button>
             <Button
               size="sm"
-              variant="destructive"
+              variant="default"
               onClick={() => setRejectDialogOpen(true)}
+              className="bg-amber-500 text-white hover:bg-amber-600"
             >
-              <XCircle className="mr-2 h-4 w-4" />
-              Reject
+              <AlertCircle className="mr-2 h-4 w-4" />
+              Request Revisions
             </Button>
           </div>
         </div>

@@ -84,7 +84,8 @@ export default async function ListingsRentalsPage() {
     })),
   ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  const pendingCount = pendingListings.length + rejectedListings.length;
+  // Only count listings requiring user action (rejected / revisions requested)
+  const pendingCount = rejectedListings.length;
 
   qc.setQueryData(garageKeys.active(), activeListings);
   qc.setQueryData(garageKeys.inactive(), inactiveListings);

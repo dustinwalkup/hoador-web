@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 
 import { BackButton } from "@/components/back-button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RevisionsRequestedBanner } from "@/components/revisions-requested-banner";
 import { serviceListingDAL } from "@/dal";
 import { ServiceListingForm } from "@/features/services/components/service-listing-form";
 import { getCurrentUserId } from "@/features/auth/utils/session";
@@ -39,16 +39,18 @@ export default async function EditServiceListingPage({ params }: PageProps) {
           </p>
         </div>
       </div>
-      {listing.status === "denied" ? (
-        <div className="mb-6">
-          <Alert variant="destructive">
-            <AlertDescription>
-              Your listing was denied by an admin. Update it and click Save and
-              resubmit for review to send it back for approval.
-            </AlertDescription>
-          </Alert>
-        </div>
-      ) : null}
+      {listing.status === "denied" && (
+        <RevisionsRequestedBanner
+          rejectionReason={listing.rejectionReason}
+          resubmitInstruction={
+            <>
+              Please review the feedback above, make the necessary changes, and
+              click <strong>Save and resubmit for review</strong> to send it
+              back for approval.
+            </>
+          }
+        />
+      )}
 
       <ServiceListingForm
         mode="edit"

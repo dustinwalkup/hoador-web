@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   Eye,
   Clock,
-  XCircle,
   Pencil,
   MoreHorizontal,
   AlertCircle,
@@ -21,6 +20,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type ServiceListingStatus = ServiceListingRow["status"];
 
@@ -37,10 +41,6 @@ interface ProviderListingCardProps {
   listing: ServiceListingCardListing;
   formatPrice?: (price: number) => string;
   onManage?: (listing: ServiceListingCardListing) => void;
-  /** Optional: pass your parseAppendReviewScalar function for rejection reasons */
-  parseRejectionReason?: (reason: string | null | undefined) => {
-    chunks: Array<{ label?: string; message: string; timestamp?: string }>;
-  };
 }
 
 /** Formats listing price in USD (dollars), consistent with browse listing cards. */
@@ -78,18 +78,30 @@ function StatusIndicator({ status }: { status: ServiceListingStatus }) {
     case "pending_approval":
       return (
         <div className="flex items-center gap-1.5">
-          <Clock className="h-3 w-3 text-amber-500" />
-          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+          <Clock className="h-3 w-3 text-blue-500" />
+          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
             Pending Review
           </span>
         </div>
       );
     case "denied":
       return (
-        <div className="flex items-center gap-1.5">
-          <XCircle className="text-destructive h-3 w-3" />
-          <span className="text-destructive text-xs font-medium">Denied</span>
-        </div>
+        <Tooltip delayDuration={300}>
+          <TooltipTrigger asChild>
+            <div className="flex cursor-help items-center gap-1.5">
+              <AlertCircle className="h-3 w-3 text-amber-500" />
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                Revisions Requested
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs text-xs">
+            <p>
+              An admin has requested changes. Click <strong>Edit</strong> to
+              review the feedback and resubmit.
+            </p>
+          </TooltipContent>
+        </Tooltip>
       );
     default:
       return null;
@@ -100,17 +112,8 @@ export function ServiceListingCard({
   listing,
   formatPrice = defaultFormatPrice,
   onManage,
-  parseRejectionReason,
 }: ProviderListingCardProps) {
   const priceDollars = Number(listing.price);
-
-  const showDenialReasons =
-    listing.status === "denied" || listing.status === "pending_approval";
-
-  const denialChunks =
-    showDenialReasons && parseRejectionReason
-      ? parseRejectionReason(listing.rejectionReason)
-      : { chunks: [] };
 
   return (
     <Card className="group relative overflow-hidden transition-all duration-200 hover:shadow-md">
@@ -183,30 +186,6 @@ export function ServiceListingCard({
               </span>
             </div>
           </div>
-
-          {/* Denial Reasons */}
-          {denialChunks.chunks.length > 0 && (
-            <div className="mb-4 space-y-2">
-              {denialChunks.chunks.map((chunk, index) => (
-                <div
-                  key={`${index}-${chunk.timestamp ?? chunk.message}`}
-                  className="border-destructive/20 bg-destructive/5 flex items-start gap-2 rounded-md border p-2.5"
-                >
-                  <AlertCircle className="text-destructive mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    {chunk.label && (
-                      <span className="text-destructive text-[11px] font-medium">
-                        {chunk.label}
-                      </span>
-                    )}
-                    <p className="text-destructive/90 text-xs leading-relaxed">
-                      {chunk.message}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         {/* Action Buttons */}
         <div className="flex items-center gap-2">

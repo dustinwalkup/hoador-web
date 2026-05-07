@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +19,7 @@ export function ApprovalStatusBadge({
       label: "Pending Review",
       variant: "secondary" as const,
       className:
-        "bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800",
+        "bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200 dark:border-blue-800",
     },
     approved: {
       icon: CheckCircle2,
@@ -29,11 +29,11 @@ export function ApprovalStatusBadge({
         "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800",
     },
     rejected: {
-      icon: XCircle,
-      label: "Rejected",
-      variant: "destructive" as const,
+      icon: AlertCircle,
+      label: "Revisions Requested",
+      variant: "secondary" as const,
       className:
-        "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-800",
+        "bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 border-amber-200 dark:border-amber-800",
     },
   };
 

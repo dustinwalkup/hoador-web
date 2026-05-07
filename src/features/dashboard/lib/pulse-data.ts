@@ -38,6 +38,8 @@ export async function getDashboardPulseData(
     lendingActiveCount,
     inventoryUsage,
     serviceListings,
+    // Owner role: rental listings the admin sent back for revisions
+    rejectedRentalListings,
     disputes,
     actionableAlerts,
     // Upcoming schedule entries (all roles) — uses cached fetchers internally
@@ -60,6 +62,10 @@ export async function getDashboardPulseData(
       usagePercent: 0,
     }),
     safe(() => serviceListingDAL.findByProvider(userId), []),
+    safe(
+      () => listingDAL.getUserListingsByApprovalStatus("rejected", userId),
+      [],
+    ),
     safe(() => disputeDAL.getUserDisputes(userId, { limit: 100 }), {
       data: [],
       pagination: {
@@ -105,6 +111,12 @@ export async function getDashboardPulseData(
     (d) => d.status !== "closed",
   ).length;
 
+  // Owner/Provider: listings the admin sent back for revisions
+  const rentalListingRevisions = rejectedRentalListings.length;
+  const serviceListingRevisions = serviceListings.filter(
+    (sl) => sl.status === "denied",
+  ).length;
+
   // ---------------------------------------------------------------------------
   // Active — items currently in progress for this user (both roles)
   // ---------------------------------------------------------------------------
@@ -146,6 +158,8 @@ export async function getDashboardPulseData(
       overdueReturns,
       overdueServices,
       unconfirmedServices,
+      rentalListingRevisions,
+      serviceListingRevisions,
     },
     active: {
       borrowing,

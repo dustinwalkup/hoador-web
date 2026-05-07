@@ -8,6 +8,7 @@ import type { CreateListingFormDataClientType } from "@/features/listings/form-s
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 import { BackButton } from "@/components/back-button";
+import { RevisionsRequestedBanner } from "@/components/revisions-requested-banner";
 import { AddListingForm } from "@/features/listings/components/listing-form/add-listing-form";
 
 export const metadata = {
@@ -83,6 +84,9 @@ export default async function EditListingPage({
           </p>
         </div>
       </div>
+      {listing.approvalStatus === "rejected" && (
+        <RevisionsRequestedBanner rejectionReason={listing.rejectionReason} />
+      )}
       <AddListingForm
         categories={categories}
         initialValues={initialValues}

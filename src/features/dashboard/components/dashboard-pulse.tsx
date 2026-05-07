@@ -196,6 +196,20 @@ const ACTION_ROWS: PulseRow[] = [
     severity: "warning",
   },
   {
+    label: "Rental Listing Revisions",
+    icon: List,
+    getValue: (d) => d.action.rentalListingRevisions,
+    href: "/dashboard/listings/rentals?tab=pending_review",
+    severity: "warning",
+  },
+  {
+    label: "Service Listing Revisions",
+    icon: BriefcaseBusiness,
+    getValue: (d) => d.action.serviceListingRevisions,
+    href: "/dashboard/listings/services?tab=pending_review",
+    severity: "warning",
+  },
+  {
     label: "Overdue returns",
     icon: AlertCircle,
     getValue: (d) => d.action.overdueReturns,
@@ -338,7 +352,10 @@ export function DashboardPulse({
     data.action.overdueReturns > 0 || data.action.overdueServices > 0;
   const hasWarning =
     !hasCritical &&
-    (data.action.pendingRequests > 0 || data.action.unconfirmedServices > 0);
+    (data.action.pendingRequests > 0 ||
+      data.action.unconfirmedServices > 0 ||
+      data.action.rentalListingRevisions > 0 ||
+      data.action.serviceListingRevisions > 0);
   const actionState: ActionState = hasCritical
     ? "critical"
     : hasWarning

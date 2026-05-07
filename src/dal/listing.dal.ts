@@ -426,6 +426,12 @@ export class ListingDAL extends BaseDAL {
         averageRating: Math.round(ownerAverageRating * 10) / 10,
         reviewCount: ownerReviewCount,
         isFavorited,
+        approvalStatus: listing.approvalStatus as
+          | "pending_review"
+          | "approved"
+          | "rejected"
+          | undefined,
+        rejectionReason: listing.rejectionReason || undefined,
         createdAt: listing.createdAt,
         updatedAt: listing.updatedAt,
         owner: {

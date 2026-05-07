@@ -107,7 +107,6 @@ export default function RentalCard({
   borrower,
   availability,
   approvalStatus,
-  rejectionReason,
   listingData,
 }: RentalCardProps) {
   const updateListingStatusMutation = useUpdateListingStatus();
@@ -160,7 +159,21 @@ export default function RentalCard({
       <CardContent className="p-4">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="truncate font-medium">{name}</h3>
-          {approvalStatus ? (
+          {approvalStatus === "rejected" ? (
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <span>
+                  <ApprovalStatusBadge approvalStatus={approvalStatus} />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs">
+                <p>
+                  An admin has requested changes. Click <strong>Edit</strong> to
+                  review the feedback and resubmit.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          ) : approvalStatus ? (
             <ApprovalStatusBadge approvalStatus={approvalStatus} />
           ) : status || availability ? (
             <Badge
@@ -187,13 +200,6 @@ export default function RentalCard({
         )}
 
         <div className="text-primary mb-3 font-medium">{price}</div>
-
-        {rejectionReason && (
-          <div className="mb-3 rounded-md bg-red-50 p-2 text-xs text-red-800 dark:bg-red-900/20 dark:text-red-400">
-            <p className="font-medium">Rejection Reason:</p>
-            <p>{rejectionReason}</p>
-          </div>
-        )}
 
         <div className="flex items-center gap-2">
           {cardType === "borrowing" && (
