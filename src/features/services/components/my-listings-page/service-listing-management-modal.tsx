@@ -73,8 +73,7 @@ function getStatusInfo(status: ServiceListing["status"]) {
     case "pending_approval":
       return {
         icon: Clock,
-        color:
-          "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+        color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
         description: "Listing is waiting for admin review",
         label: "Pending Review",
       };
