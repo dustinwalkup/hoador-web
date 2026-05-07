@@ -26,17 +26,17 @@ export const STATIC_SERVICE_CATEGORIES = [
     description: "Babysitting and child supervision support.",
   },
   {
-    id: "9b3f6c0e-2a5d-4b8f-c1e4-7a9d2b5c8f0a",
+    id: "9b3f6c0e-2a5d-4b8f-81e4-7a9d2b5c8f0a",
     name: "Moving Help",
     description: "Packing, loading, unloading, and move-day assistance.",
   },
   {
-    id: "1f4a7c9b-6d2e-4f0c-d5a8-3b1e7f9c2d4a",
+    id: "1f4a7c9b-6d2e-4f0c-95a8-3b1e7f9c2d4a",
     name: "Tutoring",
     description: "Academic and skills tutoring for all ages.",
   },
   {
-    id: "6d8b2e5a-9c1f-4a7d-e2b5-4c7a0d8e3b1f",
+    id: "6d8b2e5a-9c1f-4a7d-a2b5-4c7a0d8e3b1f",
     name: "Errands",
     description: "Grocery runs, pickups, deliveries, and day-to-day task help.",
   },

@@ -400,6 +400,13 @@
       "when": 1776883300000,
       "tag": "0056_cloudy_tomorrow_man",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1778236800000,
+      "tag": "0057_fix_service_category_uuid_variants",
+      "breakpoints": true
     }
   ]
 }
