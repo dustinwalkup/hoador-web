@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -71,21 +71,17 @@ export function ListingReviewDecisionDialog({
   const handleSubmit = async () => {
     if (action === "reject") {
       if (!rejectionReason.trim()) {
-        setValidationError("Rejection reason is required");
+        setValidationError("A reason is required");
         return;
       }
 
       if (rejectionReason.trim().length < 10) {
-        setValidationError(
-          "Rejection reason must be at least 10 characters long",
-        );
+        setValidationError("Reason must be at least 10 characters long");
         return;
       }
 
       if (rejectionReason.trim().length > 1000) {
-        setValidationError(
-          "Rejection reason must be at most 1000 characters long",
-        );
+        setValidationError("Reason must be at most 1000 characters long");
         return;
       }
 
@@ -129,15 +125,15 @@ export function ListingReviewDecisionDialog({
               </>
             ) : (
               <>
-                <XCircle className="h-5 w-5 text-red-600" />
-                Reject {entityLabel}
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                Request Revisions
               </>
             )}
           </DialogTitle>
           <DialogDescription>
             {action === "approve"
               ? `Approve "${listingName}" for publication? The ${lowerEntity} will be visible to all users and the owner will be notified.`
-              : `Reject "${listingName}"? Please provide a reason for rejection. The owner will be notified and can make changes to resubmit.`}
+              : `Request revisions on "${listingName}"? Please provide a reason. The owner will be notified and can make changes to resubmit.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -169,11 +165,11 @@ export function ListingReviewDecisionDialog({
           {action === "reject" && (
             <div className="space-y-2">
               <Label htmlFor="rejection-reason">
-                Rejection Reason <span className="text-destructive">*</span>
+                Reason <span className="text-destructive">*</span>
               </Label>
               <Textarea
                 id="rejection-reason"
-                placeholder="Please provide a detailed reason for rejection (minimum 10 characters)..."
+                placeholder="Please provide a detailed reason for the requested revisions (minimum 10 characters)..."
                 value={rejectionReason}
                 onChange={(e) => {
                   setRejectionReason(e.target.value);
@@ -224,15 +220,17 @@ export function ListingReviewDecisionDialog({
                 optionalApproveNote &&
                 approveNote.trim().length > APPROVE_NOTE_MAX)
             }
-            variant={action === "approve" ? "default" : "destructive"}
+            variant="default"
             className={
-              action === "approve" ? "bg-primary hover:bg-green-700" : undefined
+              action === "approve"
+                ? "bg-primary hover:bg-green-700"
+                : "bg-amber-500 text-white hover:bg-amber-600"
             }
           >
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {action === "approve" ? "Approving..." : "Rejecting..."}
+                {action === "approve" ? "Approving..." : "Submitting..."}
               </>
             ) : (
               <>
@@ -243,8 +241,8 @@ export function ListingReviewDecisionDialog({
                   </>
                 ) : (
                   <>
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Reject
+                    <AlertCircle className="mr-2 h-4 w-4" />
+                    Request Revisions
                   </>
                 )}
               </>

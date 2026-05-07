@@ -54,8 +54,8 @@ export function ServiceListingApproveRejectDialog({
       {
         onSuccess: () => {
           onOpenChange(false);
-          toast.success("Listing rejected successfully!", {
-            description: `"${listingName}" has been rejected. The owner has been notified with the reason.`,
+          toast.success("Revisions requested!", {
+            description: `"${listingName}" has been sent back for revisions. The owner has been notified with your feedback.`,
           });
           onMutationSuccess?.();
         },

@@ -48,7 +48,7 @@ export function GarageTabsClient({ currentTab }: GarageTabsClientProps) {
         <TabsTrigger value="pending_review">
           Pending Review
           {pendingCount > 0 && (
-            <span className="ml-2 rounded-full bg-yellow-500 px-1.5 py-0.5 text-xs font-medium text-white">
+            <span className="ml-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-medium text-white">
               {pendingCount}
             </span>
           )}

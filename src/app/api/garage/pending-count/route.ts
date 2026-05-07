@@ -12,13 +12,13 @@ async function getHandler() {
     }
     const { userId } = authResult;
 
-    // Get count of pending and rejected listings
-    const [pendingListings, rejectedListings] = await Promise.all([
-      listingDAL.getUserListingsByApprovalStatus("pending_review", userId),
-      listingDAL.getUserListingsByApprovalStatus("rejected", userId),
-    ]);
+    // Only count listings requiring user action (rejected / revisions requested)
+    const rejectedListings = await listingDAL.getUserListingsByApprovalStatus(
+      "rejected",
+      userId,
+    );
 
-    const count = pendingListings.length + rejectedListings.length;
+    const count = rejectedListings.length;
 
     return Response.json({ count });
   } catch (error) {

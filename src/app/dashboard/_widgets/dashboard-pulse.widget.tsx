@@ -9,6 +9,8 @@ const PULSE_FALLBACK = {
     overdueReturns: 0,
     overdueServices: 0,
     unconfirmedServices: 0,
+    rentalListingRevisions: 0,
+    serviceListingRevisions: 0,
   },
   active: { borrowing: 0, lending: 0, disputes: 0 },
   upcoming: { rentals: 0, services: 0 },

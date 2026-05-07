@@ -97,7 +97,7 @@ export function PendingServiceListings({
           <p className="text-muted-foreground text-sm">
             {hasFilters
               ? "Try adjusting your search or filters"
-              : "Listings awaiting admin approval or that have been denied will appear here"}
+              : "Listings awaiting admin approval or with revisions requested will appear here"}
           </p>
         </div>
       )}

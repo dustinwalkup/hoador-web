@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Logo } from "../logo";
-import { APP_VERSION } from "@/constants/version";
 
 // Mock Next.js Image
 vi.mock("next/image", () => ({
@@ -60,13 +59,12 @@ describe("Logo", () => {
 
   describe("Without Beta Tag", () => {
     it("should render only logo image when showBetaTag is false", () => {
-      render(<Logo showBetaTag={false} />);
+      const { container } = render(<Logo showBetaTag={false} />);
 
       const logo = screen.getByAltText("Hoador Logo");
       expect(logo).toBeInTheDocument();
-      expect(
-        screen.queryByText(`BETA v${APP_VERSION}`),
-      ).not.toBeInTheDocument();
+      // No wrapper div is added when showBetaTag is false; the image is the root.
+      expect(container.firstChild).toBe(logo);
     });
 
     it("should render only logo image when showBetaTag is not provided", () => {
@@ -74,21 +72,10 @@ describe("Logo", () => {
 
       const logo = screen.getByAltText("Hoador Logo");
       expect(logo).toBeInTheDocument();
-      expect(
-        screen.queryByText(`BETA v${APP_VERSION}`),
-      ).not.toBeInTheDocument();
     });
   });
 
-  describe("With Beta Tag - Sidebar Context", () => {
-    it("should render beta tag for small logos (width <= 120)", () => {
-      render(<Logo width={100} height={20} showBetaTag />);
-
-      const logo = screen.getByAltText("Hoador Logo");
-      expect(logo).toBeInTheDocument();
-      expect(screen.getByText(`BETA v${APP_VERSION}`)).toBeInTheDocument();
-    });
-
+  describe("With showBetaTag - Sidebar Context", () => {
     it("should use sidebar layout for small logos", () => {
       const { container } = render(
         <Logo width={100} height={20} showBetaTag />,
@@ -104,37 +91,14 @@ describe("Logo", () => {
         "p-1.5",
       );
     });
-
-    it("should apply custom absolutePosition for sidebar context", () => {
-      render(
-        <Logo
-          width={100}
-          height={20}
-          showBetaTag
-          absolutePosition="-right-3"
-        />,
-      );
-
-      const betaTag = screen.getByText(`BETA v${APP_VERSION}`);
-      expect(betaTag).toHaveClass("-right-3");
-    });
-
-    it("should use default absolutePosition when not provided in sidebar context", () => {
-      render(<Logo width={100} height={20} showBetaTag />);
-
-      const betaTag = screen.getByText(`BETA v${APP_VERSION}`);
-      expect(betaTag).toHaveClass("right-0!");
-    });
   });
 
-  describe("With Beta Tag - Header/Footer Context", () => {
+  describe("With showBetaTag - Header/Footer Context", () => {
     it("should render wrapper for larger logos (width > 120)", () => {
       render(<Logo width={177} height={36} showBetaTag />);
 
       const logo = screen.getByAltText("Hoador Logo");
       expect(logo).toBeInTheDocument();
-      // Note: The current implementation has the beta tag content commented out in header/footer context
-      // This test verifies the structure exists
       const wrapper = screen.getByAltText("Hoador Logo").parentElement;
       expect(wrapper).toHaveClass("relative", "flex", "items-center");
     });
@@ -146,63 +110,6 @@ describe("Logo", () => {
 
       const wrapper = container.firstChild;
       expect(wrapper).toHaveClass("relative", "flex", "items-center");
-    });
-
-    it("should render span element for beta tag positioning even when content is commented", () => {
-      const { container } = render(
-        <Logo
-          width={177}
-          height={36}
-          showBetaTag
-          absolutePosition="-right-14!"
-        />,
-      );
-
-      const betaTagSpan = container.querySelector("span");
-      expect(betaTagSpan).toBeInTheDocument();
-      expect(betaTagSpan).toHaveClass("-right-14!");
-    });
-  });
-
-  describe("Beta Tag Positioning", () => {
-    it("should use right position by default", () => {
-      render(<Logo width={100} height={20} showBetaTag />);
-
-      const betaTag = screen.getByText(`BETA v${APP_VERSION}`);
-      expect(betaTag).toHaveClass(
-        "absolute",
-        "z-50",
-        "text-xs",
-        "font-semibold",
-      );
-    });
-
-    it("should respect betaTagPosition prop", () => {
-      render(
-        <Logo width={100} height={20} showBetaTag betaTagPosition="right" />,
-      );
-
-      const betaTag = screen.getByText(`BETA v${APP_VERSION}`);
-      expect(betaTag).toBeInTheDocument();
-    });
-
-    it("should display correct version number in beta tag", () => {
-      render(<Logo width={100} height={20} showBetaTag />);
-
-      expect(screen.getByText(`BETA v${APP_VERSION}`)).toBeInTheDocument();
-    });
-
-    it("should apply correct styling to beta tag", () => {
-      render(<Logo width={100} height={20} showBetaTag />);
-
-      const betaTag = screen.getByText(`BETA v${APP_VERSION}`);
-      expect(betaTag).toHaveClass(
-        "text-muted-foreground",
-        "absolute",
-        "z-50",
-        "text-xs",
-        "font-semibold",
-      );
     });
   });
 

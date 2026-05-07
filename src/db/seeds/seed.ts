@@ -31,6 +31,10 @@ async function truncateAll(): Promise<void> {
       messages,
       conversations,
       payments,
+      service_bookings,
+      service_listings,
+      service_listing_categories,
+      service_provider_profiles,
       blind_reviews,
       rentals,
       rental_requests,
@@ -80,6 +84,8 @@ async function main(): Promise<void> {
     "notifications.seed.ts",
     "messages.seed.ts",
     "collections.seed.ts",
+    "service-categories.seed.ts",
+    "service-listings.seed.ts",
   ];
 
   let successCount = 0;

@@ -117,6 +117,8 @@ export interface DashboardPulseData {
     overdueReturns: number;
     overdueServices: number;
     unconfirmedServices: number;
+    rentalListingRevisions: number;
+    serviceListingRevisions: number;
   };
   active: {
     borrowing: number;

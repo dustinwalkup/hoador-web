@@ -3,12 +3,12 @@ name: Cron Jobs
 on:
   schedule:
     - cron: "0 * * * *" # hourly
-    - cron: "0 2 * * *" # daily at 2 AM UTC
+    - cron: "0 13 * * *" # daily at 8 AM CDT
   workflow_dispatch:
 
 jobs:
   hourly:
-    if: github.event.schedule != '0 2 * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event.schedule != '0 13 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -58,7 +58,7 @@ jobs:
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/release-reviews
 
   daily:
-    if: github.event.schedule == '0 2 * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event.schedule == '0 13 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       matrix:

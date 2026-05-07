@@ -23,6 +23,7 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "dist/**",
+      "playwright-report/**",
       "next-env.d.ts",
     ],
   },
