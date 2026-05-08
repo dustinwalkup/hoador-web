@@ -106,4 +106,48 @@ export abstract class BaseDAL<TTable = undefined> {
     const phoneRegex = /^\+?[\d\s\-$$$$]+$/;
     return phoneRegex.test(phone) && phone.replace(/\D/g, "").length >= 10;
   }
+
+  /**
+   * Retry a read-only DB call once on transient connection failures.
+   *
+   * Safe ONLY for reads. Do not use for writes — a "Connection terminated"
+   * error can fire after the server has already committed, so retrying a
+   * mutation risks duplicate writes.
+   */
+  protected async withReadRetry<T>(
+    fn: () => Promise<T>,
+    operation: string,
+  ): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (!isTransientConnectionError(error)) throw error;
+      console.warn(
+        `[DAL] Transient connection error in ${operation}, retrying once:`,
+        (error as Error)?.message,
+      );
+      await new Promise((r) => setTimeout(r, 75));
+      return await fn();
+    }
+  }
+}
+
+const TRANSIENT_MESSAGE_PATTERNS = [
+  "Connection terminated unexpectedly",
+  "Connection terminated",
+  "terminating connection due to administrator command",
+  "Client has encountered a connection error and is not queryable",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EPIPE",
+];
+
+function isTransientConnectionError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const msg = (error as { message?: string }).message ?? "";
+  const code = (error as { code?: string }).code ?? "";
+  if (code === "ECONNRESET" || code === "ETIMEDOUT" || code === "EPIPE") {
+    return true;
+  }
+  return TRANSIENT_MESSAGE_PATTERNS.some((p) => msg.includes(p));
 }
