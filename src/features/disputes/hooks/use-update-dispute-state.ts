@@ -27,6 +27,6 @@ export function useUpdateDisputeState(disputeId: string) {
       return response.json();
     },
     successMessage: "Dispute state updated successfully",
-    invalidateQueryKeys: [disputeKeys.detail(disputeId)],
+    invalidateQueryKeys: [disputeKeys.detail(disputeId), ["admin", "badges"]],
   });
 }

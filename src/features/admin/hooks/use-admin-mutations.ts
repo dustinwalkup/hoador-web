@@ -27,14 +27,14 @@ export function useApproveListing() {
     invalidateQueryKeys: [
       ["admin", "pending-reviews"],
       ["admin", "review-history"],
-      ["admin", "pending-review-count"],
+      ["admin", "badges"],
     ],
     // On network error (e.g. Mobile Safari "Load failed") the server may have
     // already applied the action. Refetch so the card disappears if processed.
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pending-reviews"] });
       queryClient.invalidateQueries({
-        queryKey: ["admin", "pending-review-count"],
+        queryKey: ["admin", "badges"],
       });
     },
   });
@@ -74,14 +74,14 @@ export function useRejectListing() {
     invalidateQueryKeys: [
       ["admin", "pending-reviews"],
       ["admin", "review-history"],
-      ["admin", "pending-review-count"],
+      ["admin", "badges"],
     ],
     // On network error the server may have already applied the rejection — refetch
     // so the card disappears if the listing was already processed.
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pending-reviews"] });
       queryClient.invalidateQueries({
-        queryKey: ["admin", "pending-review-count"],
+        queryKey: ["admin", "badges"],
       });
     },
   });
@@ -117,7 +117,7 @@ export function useApproveServiceListing() {
     },
     successMessage: undefined,
     invalidateQueryKeys: [
-      ["admin", "pending-service-review-count"],
+      ["admin", "badges"],
       ["admin", "service-review-history"],
     ],
   });
@@ -153,7 +153,7 @@ export function useRejectServiceListing() {
     },
     successMessage: undefined,
     invalidateQueryKeys: [
-      ["admin", "pending-service-review-count"],
+      ["admin", "badges"],
       ["admin", "service-review-history"],
     ],
   });

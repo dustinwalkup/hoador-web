@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { usePendingDisputesCount } from "@/features/admin/hooks/use-pending-disputes-count";
+import { useAdminBadges } from "@/features/admin/hooks/use-admin-badges";
 import { PendingDisputeQueue } from "./pending-dispute-queue";
 import { DisputeReviewHistory } from "./dispute-review-history";
 
 export function DisputeReviewTabs() {
   const [activeTab, setActiveTab] = useState("pending");
-  const { data: pendingCount = 0 } = usePendingDisputesCount();
+  const { data: badges } = useAdminBadges();
+  const pendingCount = badges?.pendingDisputes ?? 0;
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

@@ -115,7 +115,7 @@ describe("useApproveListing", () => {
         queryKey: ["admin", "review-history"],
       });
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ["admin", "pending-review-count"],
+        queryKey: ["admin", "badges"],
       });
     });
   });
@@ -334,7 +334,7 @@ describe("useRejectListing", () => {
         queryKey: ["admin", "review-history"],
       });
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ["admin", "pending-review-count"],
+        queryKey: ["admin", "badges"],
       });
     });
   });

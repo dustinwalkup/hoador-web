@@ -51,7 +51,6 @@ export function useDashboardBadges() {
       return response.json() as Promise<DashboardBadges>;
     },
     staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
     refetchOnWindowFocus: true,
   });
 }

@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { usePendingReviewCount } from "@/features/admin/hooks/use-pending-review-count";
+import { useAdminBadges } from "@/features/admin/hooks/use-admin-badges";
 import { PendingReviewQueue } from "./pending-review-queue";
 import { ReviewHistory } from "./review-history";
 
 export function ListingReviewTabs() {
   const [activeTab, setActiveTab] = useState("pending");
-  const { data: pendingCount = 0 } = usePendingReviewCount();
+  const { data: badges } = useAdminBadges();
+  const pendingCount = badges?.pendingListingReviews ?? 0;
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

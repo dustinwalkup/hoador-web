@@ -80,8 +80,8 @@ export function DisputeStatsWidget() {
       }
       return response.json();
     },
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 60 * 1000, // Auto-refetch every minute
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   if (isLoading) {
