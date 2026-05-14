@@ -6,6 +6,7 @@ import { getAdminUser } from "@/features/auth/utils/admin-session";
 const PROTECTED_ROUTES = [
   "/dashboard",
   "/onboarding",
+  "/community-select",
   "/join-code",
   "/api/garage",
   "/api/listings",
@@ -21,6 +22,7 @@ const AUTH_ROUTES = [
   "/login",
   "/signup",
   "/verify-email",
+  "/community-select",
   "/join-code",
   "/onboarding",
 ];
@@ -176,7 +178,7 @@ export async function proxy(request: NextRequest) {
 
       // If email is verified, but user status is 'pending_verification', user created an account
       // with Google via the sign in method, big no no, redirect to google callback
-      // to update the user status and redirect to join-code
+      // to update the user status and redirect to community-select
       // Allow access to legal acceptance page so users can accept documents
       if (user.status === "pending_verification") {
         if (
@@ -189,22 +191,29 @@ export async function proxy(request: NextRequest) {
         return NextResponse.next();
       }
 
-      // Handle email_verified users (need to join community).
+      // Handle email_verified users (need to select a community).
       // Allow /dashboard through so dashboard layout (Node runtime) can redirect;
       // layout is source of truth when proxy may run in Edge with different DB/session.
       if (user.status === "email_verified") {
         if (pathname.startsWith("/dashboard")) return NextResponse.next();
-        if (pathname !== "/join-code") {
-          const joinCodeUrl = new URL("/join-code", request.url);
-          return NextResponse.redirect(joinCodeUrl);
+        // API routes self-authenticate — never redirect a fetch() to an HTML
+        // page (e.g. the /community-select dropdown fetching /api/communities).
+        if (pathname.startsWith("/api/")) return NextResponse.next();
+        // Allow both /community-select (canonical) and /join-code (legacy)
+        // for email_verified users — R1.5 keeps the legacy invite-code flow live.
+        if (pathname === "/community-select" || pathname === "/join-code") {
+          return NextResponse.next();
         }
-        return NextResponse.next();
+        const selectUrl = new URL("/community-select", request.url);
+        return NextResponse.redirect(selectUrl);
       }
 
       // Handle incomplete_profile users (same: allow /dashboard for layout redirect).
       if (user.status === "incomplete_profile") {
         if (pathname.startsWith("/dashboard")) return NextResponse.next();
-        if (pathname !== "/onboarding" && pathname !== "/api/onboarding") {
+        // API routes self-authenticate; don't redirect fetch() calls to HTML.
+        if (pathname.startsWith("/api/")) return NextResponse.next();
+        if (pathname !== "/onboarding") {
           const onboardingUrl = new URL("/onboarding", request.url);
           return NextResponse.redirect(onboardingUrl);
         }

@@ -39,7 +39,7 @@ export default function HowItWorksPage() {
             <Logo
               width={100}
               height={40}
-              className="h-6 w-auto"
+              style={{ height: "1.5rem", width: "auto" }}
               absolutePosition="-right-14!"
               showBetaTag
             />

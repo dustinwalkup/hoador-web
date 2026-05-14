@@ -42,7 +42,7 @@ export function HowPaymentsWorkModal({ className }: HowPaymentsWorkModalProps) {
             alt="Hoador"
             width={120}
             height={36}
-            className="h-9 w-auto"
+            style={{ height: "2.25rem", width: "auto" }}
           />
         </div>
         <DialogHeader>

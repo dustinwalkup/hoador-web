@@ -98,7 +98,7 @@ export class AuthService {
       await userDAL.updateUserProfilePhoto(userId, session.user.image);
     }
 
-    return { redirect: "/join-code" };
+    return { redirect: "/community-select" };
   }
 
   /**
@@ -160,6 +160,46 @@ export class AuthService {
     if (statusError) {
       throw new Error("Failed to update account status. Please try again.");
     }
+
+    return { redirect: "/onboarding" };
+  }
+
+  /**
+   * Set the user's primary community during the post-verification
+   * community-select flow (the canonical replacement for `/join-code`).
+   *
+   * Creates a pending-verification primary membership, eagerly initializes
+   * the user's per-community visibility rows for that community's network,
+   * then advances the user's status so onboarding can proceed.
+   *
+   * @throws ValidationError if `communityId` is empty or the community is inactive
+   * @throws ConflictError if the user already has a primary community
+   * @throws NotFoundError if the community does not exist
+   */
+  static async selectPrimaryCommunity(
+    userId: string,
+    communityId: string,
+  ): Promise<{ redirect: string }> {
+    if (!communityId || communityId.trim().length === 0) {
+      throw new ValidationError("communityId is required");
+    }
+
+    // Creates the primary membership; the DAL enforces the one-primary
+    // invariant and rejects inactive / unknown communities.
+    const { community } = await communityDAL.selectPrimaryCommunity(
+      userId,
+      communityId.trim(),
+    );
+
+    // Eagerly create visibility rows for every active community in this
+    // community's network. Standalone communities (no network) skip this.
+    if (community.networkId) {
+      await communityDAL.initializeUserVisibility(userId, community.networkId);
+    }
+
+    // Advance status only after the membership exists — critical for
+    // correct flow progression into onboarding.
+    await userDAL.updateUserStatus(userId, "incomplete_profile");
 
     return { redirect: "/onboarding" };
   }

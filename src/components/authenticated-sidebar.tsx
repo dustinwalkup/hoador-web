@@ -54,6 +54,8 @@ export function AuthenticatedSidebar({
                   betaTagPosition="right"
                   absolutePosition="right-6 md:right-0!"
                   className="h-5! w-auto"
+                  style={{ height: "1.25rem", width: "auto" }}
+                  priority
                 />
               </SidebarMenuButton>
             </Link>

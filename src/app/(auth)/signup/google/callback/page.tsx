@@ -48,7 +48,7 @@ export default async function GoogleSignupCallback() {
           session.user.image,
         );
       }
-      redirect("/join-code");
+      redirect("/community-select");
     }
 
     // New Google signups (pending_verification): require legal acceptance
@@ -71,7 +71,7 @@ export default async function GoogleSignupCallback() {
     if (session.user.image) {
       await userDAL.updateUserProfilePhoto(session.user.id, session.user.image);
     }
-    redirect("/join-code");
+    redirect("/community-select");
   } catch (error) {
     // Re-throw redirect errors so Next.js handles them
     if (error && typeof error === "object" && "digest" in error) {

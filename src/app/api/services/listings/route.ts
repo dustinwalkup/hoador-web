@@ -10,6 +10,7 @@ import {
   getCurrentUserId,
 } from "@/lib/api/route-helpers";
 import { communityDAL, serviceListingDAL } from "@/dal";
+import { getCurrentUserVisibleCommunityIds } from "@/features/community/utils/membership";
 import { createServiceListingSchema } from "@/features/services/lib/service-api-schemas";
 import { ServiceListingService } from "@/features/services/services/service-listing-service";
 
@@ -30,14 +31,6 @@ async function getHandler(request: NextRequest) {
       );
     }
 
-    const membership = await communityDAL.getMembershipForUser(userId);
-    if (!membership) {
-      return NextResponse.json(
-        { error: "You must belong to a community to browse services" },
-        { status: 403 },
-      );
-    }
-
     const rawCategory = request.nextUrl.searchParams.get("categoryId");
     let categoryId: string | undefined;
     if (rawCategory) {
@@ -52,8 +45,12 @@ async function getHandler(request: NextRequest) {
       categoryId = parsed.data;
     }
 
+    // Visibility-aware browse: the viewer's visible community IDs drive which
+    // providers' listings appear. An empty set fails closed (no DB hit).
+    const visibleCommunityIds = await getCurrentUserVisibleCommunityIds();
+
     const { data, error } = await tryCatch(
-      serviceListingDAL.findByCommunityForBrowse(membership.community.id, {
+      serviceListingDAL.findByCommunityForBrowse(visibleCommunityIds, {
         categoryId,
         excludeProviderId: userId,
       }),

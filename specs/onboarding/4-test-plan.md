@@ -4,6 +4,23 @@
 
 This test plan covers user onboarding functionality including onboarding flow, profile setup, image upload, and validation. Tests verify onboarding completion, data validation, and user experience requirements.
 
+> **Cross-spec note:** Onboarding is now entered **after** the user picks a
+> primary community on `/community-select` (or, on the legacy path, after
+> entering a private join code). See
+> [Multi-Community Marketplace](../multi-community-marketplace/1-requirements.md).
+> Key behavior changes for onboarding:
+>
+> - The user already has a primary `community_memberships` row when
+>   onboarding starts. On the community-select path that membership is
+>   `verification_status='pending'`; on the legacy join-code path it is
+>   `'verified'`.
+> - A pending verification status is a **trust signal, not a gate** — the
+>   user completes onboarding and reaches the dashboard normally. A
+>   "Verification Pending" badge appears on their profile until an admin
+>   verifies the residency claim.
+> - The address captured during onboarding is what the admin reviews in the
+>   verification queue.
+
 ### Core Onboarding Requirements
 
 **Test Coverage**:
@@ -55,13 +72,18 @@ This test plan covers user onboarding functionality including onboarding flow, p
 ### E2E Tests
 
 - [ ] **Complete Onboarding Workflow**
-  - New user signs up
-  - User redirected to onboarding
-  - User fills out onboarding form
+  - New user signs up and verifies email
+  - User lands on `/community-select` and picks a community
+  - User redirected to `/onboarding`
+  - User fills out onboarding form (including address)
   - User uploads profile image
   - User submits form
-  - Verifies onboarding completed
+  - Verifies onboarding completed and user status is `active`
   - Verifies user redirected to dashboard
+  - Verifies a "Verification Pending" badge is shown on the profile (does
+    **not** block any dashboard/marketplace action)
+  - (Covered end-to-end in
+    [e2e/auth/signup-funnel.spec.ts](e2e/auth/signup-funnel.spec.ts))
 
 ## Coverage Goals
 
@@ -92,6 +114,7 @@ Feature: Complete Onboarding
   Background:
     Given I have signed up for an account
     And I have verified my email
+    And I have selected my primary community (or entered a legacy join code)
     And I am redirected to the onboarding page
 
   Scenario: Successfully complete onboarding with all fields
@@ -135,4 +158,12 @@ Feature: Complete Onboarding
     And the address update fails
     Then my profile should still be completed
     And I should be redirected to the dashboard
+
+  Scenario: Pending residency verification does not block onboarding
+    Given I reached onboarding via the community-select path
+    And my primary membership verification status is "pending"
+    When I complete onboarding
+    Then I should be redirected to the dashboard
+    And my profile should show a "Verification Pending" badge
+    And I should still be able to browse, list, and message
 ```

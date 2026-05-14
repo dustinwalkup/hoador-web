@@ -18,36 +18,35 @@ import { patchServiceProviderSchema } from "@/features/services/lib/service-api-
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
 /**
- * Ensures the viewer may see the target user: self, or same HOA community.
+ * Symmetric per-community visibility (R5): a non-self viewer may see a
+ * provider's profile only when they share at least one community where both
+ * are visible. Returns the set of shared visible community IDs (used to scope
+ * the listings in the response), or `null` for self (no filtering), or a 403
+ * response when access is denied.
  */
-async function assertCanViewProviderProfile(
+async function resolveProviderProfileVisibility(
   viewerId: string,
   targetUserId: string,
-): Promise<NextResponse | null> {
+): Promise<NextResponse | { sharedVisibleCommunityIds: Set<string> | null }> {
   if (viewerId === targetUserId) {
-    return null;
+    return { sharedVisibleCommunityIds: null };
   }
 
-  const [viewerMem, targetMem] = await Promise.all([
-    communityDAL.getMembershipForUser(viewerId),
-    communityDAL.getMembershipForUser(targetUserId),
+  const [viewerVisible, providerVisible] = await Promise.all([
+    communityDAL.getVisibleCommunityIds(viewerId),
+    communityDAL.getVisibleCommunityIds(targetUserId),
   ]);
+  const providerSet = new Set(providerVisible);
+  const shared = new Set(viewerVisible.filter((c) => providerSet.has(c)));
 
-  if (!viewerMem || !targetMem) {
-    return NextResponse.json(
-      { error: "Community membership is required to view provider profiles" },
-      { status: 403 },
-    );
-  }
-
-  if (viewerMem.community.id !== targetMem.community.id) {
+  if (shared.size === 0) {
     return NextResponse.json(
       { error: "You cannot view this profile" },
       { status: 403 },
     );
   }
 
-  return null;
+  return { sharedVisibleCommunityIds: shared };
 }
 
 /**
@@ -72,8 +71,12 @@ async function getHandler(
 
     const { userId: targetUserId } = await params;
 
-    const denied = await assertCanViewProviderProfile(viewerId, targetUserId);
-    if (denied) return denied;
+    const visibility = await resolveProviderProfileVisibility(
+      viewerId,
+      targetUserId,
+    );
+    if (visibility instanceof NextResponse) return visibility;
+    const { sharedVisibleCommunityIds } = visibility;
 
     const { data: profileUser, error: userError } = await tryCatch(
       userDAL.getUserById(targetUserId),
@@ -104,7 +107,10 @@ async function getHandler(
     if (revErr) return handleApiError(revErr);
 
     const activeListings = (allListings ?? []).filter(
-      (l) => l.status === "active",
+      (l) =>
+        l.status === "active" &&
+        (sharedVisibleCommunityIds === null ||
+          sharedVisibleCommunityIds.has(l.communityId)),
     );
 
     return NextResponse.json({

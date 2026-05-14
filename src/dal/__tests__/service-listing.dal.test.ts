@@ -8,6 +8,7 @@ vi.mock("@/db/db", () => ({
     insert: vi.fn(),
     update: vi.fn(),
     select: vi.fn(),
+    selectDistinct: vi.fn(),
   },
 }));
 
@@ -206,6 +207,112 @@ describe("ServiceListingDAL", () => {
 
       const result = await serviceListingDAL.findByCommunity("comm-empty");
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("findByCommunityForBrowse", () => {
+    // Builds the mock chain for the data query:
+    // selectDistinct().from().innerJoin().innerJoin().where().orderBy().limit().offset()
+    const buildBrowseChain = (rows: any[]) => {
+      const mockOffset = vi.fn().mockResolvedValue(rows);
+      const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockInnerJoin2 = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockInnerJoin1 = vi.fn().mockReturnValue({
+        innerJoin: mockInnerJoin2,
+      });
+      const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin1 });
+      return { mockFrom, mockWhere, mockLimit, mockOffset };
+    };
+
+    it("returns listings joined through community_visibility", async () => {
+      const row = {
+        listing: baseListing,
+        providerFirstName: "Alice",
+        providerLastName: "Doe",
+        providerProfileImageUrl: null,
+        aggregateRating: "4.5",
+        reviewCount: 10,
+      };
+      const { mockFrom, mockLimit, mockOffset } = buildBrowseChain([row]);
+      vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as never);
+
+      const result = await serviceListingDAL.findByCommunityForBrowse(
+        ["c1"],
+        undefined,
+        { limit: 10, offset: 5 },
+      );
+
+      expect(result).toEqual([
+        {
+          ...baseListing,
+          providerFirstName: "Alice",
+          providerLastName: "Doe",
+          providerProfileImageUrl: null,
+          aggregateRating: "4.5",
+          reviewCount: 10,
+        },
+      ]);
+      expect(mockLimit).toHaveBeenCalledWith(10);
+      expect(mockOffset).toHaveBeenCalledWith(5);
+      // DISTINCT correctness — data query goes through selectDistinct
+      expect(db.selectDistinct).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns empty result without DB hit when visibleCommunityIds is empty", async () => {
+      const result = await serviceListingDAL.findByCommunityForBrowse([]);
+
+      expect(result).toEqual([]);
+      expect(db.selectDistinct).not.toHaveBeenCalled();
+    });
+
+    it("returns each listing once (community_visibility join is 1:1 with the listing)", async () => {
+      // Under the symmetric model (R5) the community_visibility join is pinned
+      // to (provider, listing.community_id), so it cannot fan out a listing
+      // across the viewer's communities. selectDistinct is kept as a cheap
+      // guard only; we assert it remains the entry point.
+      const row = {
+        listing: baseListing,
+        providerFirstName: "Alice",
+        providerLastName: "Doe",
+        providerProfileImageUrl: null,
+        aggregateRating: null,
+        reviewCount: 0,
+      };
+      const { mockFrom } = buildBrowseChain([row]);
+      vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as never);
+
+      const result = await serviceListingDAL.findByCommunityForBrowse([
+        "c1",
+        "c2",
+        "c3",
+      ]);
+
+      expect(result).toHaveLength(1);
+      expect(db.selectDistinct).toHaveBeenCalledTimes(1);
+    });
+
+    it("applies category filter when provided", async () => {
+      const { mockFrom, mockWhere } = buildBrowseChain([]);
+      vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as never);
+
+      await serviceListingDAL.findByCommunityForBrowse(["c1"], {
+        categoryId: "cat-9",
+      });
+
+      expect(mockWhere).toHaveBeenCalled();
+    });
+
+    it("applies excludeProviderId filter when provided", async () => {
+      const { mockFrom, mockWhere } = buildBrowseChain([]);
+      vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as never);
+
+      await serviceListingDAL.findByCommunityForBrowse(["c1"], {
+        excludeProviderId: "prov-2",
+      });
+
+      expect(mockWhere).toHaveBeenCalled();
     });
   });
 

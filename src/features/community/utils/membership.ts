@@ -38,3 +38,17 @@ export const getCurrentUserCommunityId = cache(
     return communityDAL.getUserCommunityId(userId);
   },
 );
+
+// Hot-path helper for the listing search: the viewer's visible community IDs,
+// resolved once per request via React cache(). Returns [] for an
+// unauthenticated user (fail-closed — the search then returns no results).
+export const getCurrentUserVisibleCommunityIds = cache(
+  async (): Promise<string[]> => {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return [];
+    }
+
+    return communityDAL.getVisibleCommunityIds(userId);
+  },
+);

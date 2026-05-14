@@ -14,6 +14,8 @@ const mockUpdateUserProfilePhoto = vi.fn();
 const mockGetMembershipForUser = vi.fn();
 const mockValidateJoinCodeForSignup = vi.fn();
 const mockJoinCommunityForNewUser = vi.fn();
+const mockSelectPrimaryCommunity = vi.fn();
+const mockInitializeUserVisibility = vi.fn();
 // External service mocks
 const mockSignUpEmail = vi.fn();
 const mockGetSession = vi.fn();
@@ -44,6 +46,10 @@ vi.mock("@/dal", () => ({
       mockValidateJoinCodeForSignup(...args),
     joinCommunityForNewUser: (...args: unknown[]) =>
       mockJoinCommunityForNewUser(...args),
+    selectPrimaryCommunity: (...args: unknown[]) =>
+      mockSelectPrimaryCommunity(...args),
+    initializeUserVisibility: (...args: unknown[]) =>
+      mockInitializeUserVisibility(...args),
   },
 }));
 
@@ -172,13 +178,13 @@ describe("AuthService", () => {
   });
 
   describe("acceptLegalDocuments", () => {
-    it("records acceptances and returns redirect to /join-code", async () => {
+    it("records acceptances and returns redirect to /community-select", async () => {
       const result = await AuthService.acceptLegalDocuments(
         "user-123",
         context,
       );
 
-      expect(result).toEqual({ redirect: "/join-code" });
+      expect(result).toEqual({ redirect: "/community-select" });
       expect(mockGetAllCurrentVersions).toHaveBeenCalled();
       expect(mockRecordAcceptance).toHaveBeenCalledTimes(2);
       expect(mockUpdateLegalAcceptances).toHaveBeenCalled();
@@ -287,6 +293,116 @@ describe("AuthService", () => {
       await expect(
         AuthService.joinCommunity("user-123", "ABC123"),
       ).rejects.toThrow("Failed to update account status. Please try again.");
+    });
+  });
+
+  describe("selectPrimaryCommunity", () => {
+    beforeEach(() => {
+      mockSelectPrimaryCommunity.mockResolvedValue({
+        membership: { id: "membership-1", isPrimary: true },
+        community: { id: "community-456", networkId: "network-1" },
+      });
+      mockInitializeUserVisibility.mockResolvedValue(undefined);
+    });
+
+    it("creates the primary membership, initializes visibility, advances status, and redirects to /onboarding", async () => {
+      const result = await AuthService.selectPrimaryCommunity(
+        "user-123",
+        "community-456",
+      );
+
+      expect(result).toEqual({ redirect: "/onboarding" });
+      expect(mockSelectPrimaryCommunity).toHaveBeenCalledWith(
+        "user-123",
+        "community-456",
+      );
+      expect(mockInitializeUserVisibility).toHaveBeenCalledWith(
+        "user-123",
+        "network-1",
+      );
+      expect(mockUpdateUserStatus).toHaveBeenCalledWith(
+        "user-123",
+        "incomplete_profile",
+      );
+    });
+
+    it("trims the communityId before delegating to the DAL", async () => {
+      await AuthService.selectPrimaryCommunity("user-123", "  community-456  ");
+
+      expect(mockSelectPrimaryCommunity).toHaveBeenCalledWith(
+        "user-123",
+        "community-456",
+      );
+    });
+
+    it("throws ValidationError when communityId is empty", async () => {
+      await expect(
+        AuthService.selectPrimaryCommunity("user-123", "   "),
+      ).rejects.toThrow(ValidationError);
+      expect(mockSelectPrimaryCommunity).not.toHaveBeenCalled();
+    });
+
+    it("re-throws ConflictError when the user already has a primary community", async () => {
+      mockSelectPrimaryCommunity.mockRejectedValue(
+        new ConflictError("User already has a primary community."),
+      );
+
+      await expect(
+        AuthService.selectPrimaryCommunity("user-123", "community-456"),
+      ).rejects.toThrow(ConflictError);
+      expect(mockInitializeUserVisibility).not.toHaveBeenCalled();
+      expect(mockUpdateUserStatus).not.toHaveBeenCalled();
+    });
+
+    it("re-throws ValidationError when the community is inactive", async () => {
+      mockSelectPrimaryCommunity.mockRejectedValue(
+        new ValidationError("Community is not active"),
+      );
+
+      await expect(
+        AuthService.selectPrimaryCommunity("user-123", "community-456"),
+      ).rejects.toThrow(ValidationError);
+      expect(mockInitializeUserVisibility).not.toHaveBeenCalled();
+    });
+
+    it("re-throws NotFoundError when the community does not exist", async () => {
+      mockSelectPrimaryCommunity.mockRejectedValue(
+        new NotFoundError("Community", "community-456"),
+      );
+
+      await expect(
+        AuthService.selectPrimaryCommunity("user-123", "community-456"),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("skips visibility initialization for a standalone community (no network)", async () => {
+      mockSelectPrimaryCommunity.mockResolvedValue({
+        membership: { id: "membership-1", isPrimary: true },
+        community: { id: "community-456", networkId: null },
+      });
+
+      const result = await AuthService.selectPrimaryCommunity(
+        "user-123",
+        "community-456",
+      );
+
+      expect(result).toEqual({ redirect: "/onboarding" });
+      expect(mockInitializeUserVisibility).not.toHaveBeenCalled();
+      expect(mockUpdateUserStatus).toHaveBeenCalledWith(
+        "user-123",
+        "incomplete_profile",
+      );
+    });
+
+    it("does not advance status if membership creation fails", async () => {
+      mockSelectPrimaryCommunity.mockRejectedValue(
+        new ConflictError("conflict"),
+      );
+
+      await expect(
+        AuthService.selectPrimaryCommunity("user-123", "community-456"),
+      ).rejects.toThrow();
+      expect(mockUpdateUserStatus).not.toHaveBeenCalled();
     });
   });
 });

@@ -5,6 +5,7 @@ import React from "react";
 import {
   useSignup,
   useJoinCommunity,
+  useSelectCommunity,
   useResendVerification,
   useAcceptLegalDocuments,
   useForgotPassword,
@@ -349,6 +350,76 @@ describe("useJoinCommunity", () => {
 
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalled();
+      expect(mockRouter.push).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("useSelectCommunity", () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = createTestQueryClient();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    queryClient.clear();
+  });
+
+  it("should select community successfully and redirect to onboarding", async () => {
+    const mockResponse = { success: true, redirect: "/onboarding" };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => mockResponse });
+
+    const { result } = renderHook(() => useSelectCommunity(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({ communityId: "community-123" });
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith("/api/auth/select-community", {
+        method: "POST",
+        body: expect.any(FormData),
+      });
+      expect(toast.success).toHaveBeenCalledWith(
+        "Community selected!",
+        expect.objectContaining({ duration: 3000 }),
+      );
+      expect(mockRouter.push).toHaveBeenCalledWith("/onboarding");
+    });
+  });
+
+  it("should surface API errors", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({ error: "You already belong to a community" }),
+    });
+
+    const { result } = renderHook(() => useSelectCommunity(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    await act(async () => {
+      try {
+        await result.current.mutateAsync({ communityId: "community-123" });
+      } catch {
+        // Expected to throw
+      }
+    });
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "You already belong to a community",
+        expect.objectContaining({ duration: 5000 }),
+      );
       expect(mockRouter.push).not.toHaveBeenCalled();
     });
   });

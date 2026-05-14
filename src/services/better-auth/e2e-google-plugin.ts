@@ -107,7 +107,7 @@ export function e2eGoogleCallbackPlugin(): BetterAuthPlugin {
                 row?.status ?? (user as { status?: string }).status;
               const redirectPath =
                 status === "email_verified"
-                  ? "/join-code"
+                  ? "/community-select"
                   : status === "incomplete_profile"
                     ? "/onboarding"
                     : stateDecoded.startsWith("/")

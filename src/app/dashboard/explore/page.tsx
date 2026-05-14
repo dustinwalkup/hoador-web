@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { getAuthenticatedUser } from "@/features/auth/utils/session";
 import { ExplorePageClient } from "@/features/listings/components/explore-page/explore-page-client";
 import { listingDAL } from "@/dal";
-import { getCurrentUserCommunityId } from "@/features/community/utils/membership";
+import { getCurrentUserVisibleCommunityIds } from "@/features/community/utils/membership";
 import { getServerQueryClient, HydrateClient } from "@/lib/react-query/server";
 import { sanitizeSearchQuery } from "@/lib/utils/sanitize";
 import type { ListingSearchFilters } from "@/dal/types";
@@ -45,9 +45,9 @@ function buildCacheKey(
 }
 
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [auth, communityId, params] = await Promise.all([
+  const [auth, visibleCommunityIds, params] = await Promise.all([
     getAuthenticatedUser(),
-    getCurrentUserCommunityId(),
+    getCurrentUserVisibleCommunityIds(),
     searchParams,
   ]);
 
@@ -79,14 +79,14 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     sortOrder: (p("sortOrder") as "asc" | "desc") || "desc",
   };
 
-  // Prefetch first page if user is authenticated and has a community
-  if (userId && communityId) {
+  // Prefetch first page if user is authenticated and has visible communities
+  if (userId && visibleCommunityIds.length > 0) {
     const qc = getServerQueryClient();
     const firstPage = await listingDAL.searchListings(
       filters,
       { page: 1, limit: 12 },
       userId,
-      communityId,
+      visibleCommunityIds,
       userIsAdmin,
     );
 

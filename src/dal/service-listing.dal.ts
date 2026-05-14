@@ -8,6 +8,7 @@ import {
   type ServiceListing,
 } from "@/db/schemas/services.schema";
 import { auditLogs } from "@/db/schemas/audit-logs.schema";
+import { communityVisibility } from "@/db/schemas/communities.schema";
 import { user } from "@/db/schemas/user.schema";
 import { reviewEvents } from "@/db/schemas/review-events.schema";
 
@@ -261,23 +262,37 @@ export class ServiceListingDAL extends BaseDAL {
   }
 
   /**
-   * Active listings for a community with provider display fields and optional aggregate rating.
+   * Active listings visible to a viewer with provider display fields and optional aggregate rating.
    *
+   * Visibility model (R5, symmetric per-community): a listing surfaces only
+   * through its own community (`serviceListings.communityId`). It is returned
+   * when (a) that community is in the viewer's visible set AND (b) the
+   * provider has `community_visibility.is_visible = true` for that exact
+   * community. A missing provider row = not visible (fail-closed).
+   *
+   * @param visibleCommunityIds - The viewer's visible community IDs. Empty
+   *   array short-circuits to an empty result with no DB hit (fail-closed).
    * @param filters.categoryId - Optional category filter.
    * @param filters.excludeProviderId - When set, omits listings owned by this user (browse parity with tool explore).
    */
   async findByCommunityForBrowse(
-    communityId: string,
+    visibleCommunityIds: string[],
     filters?: { categoryId?: string; excludeProviderId?: string },
     pagination?: { limit: number; offset: number },
   ): Promise<ServiceListingBrowseItem[]> {
     try {
+      // Fail-closed: viewer with no visible communities sees nothing.
+      if (visibleCommunityIds.length === 0) {
+        return [];
+      }
+
       const limit = pagination?.limit ?? 50;
       const offset = pagination?.offset ?? 0;
 
       const conditions = [
-        eq(serviceListings.communityId, communityId),
         eq(serviceListings.status, "active"),
+        inArray(serviceListings.communityId, visibleCommunityIds),
+        eq(communityVisibility.isVisible, true),
       ];
 
       if (filters?.categoryId) {
@@ -290,8 +305,11 @@ export class ServiceListingDAL extends BaseDAL {
         );
       }
 
+      // The community_visibility join is 1:1 with the listing (pinned to the
+      // provider AND the listing's community); selectDistinct is retained as a
+      // cheap guard only.
       const rows = await this.db
-        .select({
+        .selectDistinct({
           listing: serviceListings,
           providerFirstName: user.firstName,
           providerLastName: user.lastName,
@@ -301,6 +319,13 @@ export class ServiceListingDAL extends BaseDAL {
         })
         .from(serviceListings)
         .innerJoin(user, eq(serviceListings.providerId, user.id))
+        .innerJoin(
+          communityVisibility,
+          and(
+            eq(communityVisibility.userId, serviceListings.providerId),
+            eq(communityVisibility.communityId, serviceListings.communityId),
+          ),
+        )
         .where(and(...conditions))
         .orderBy(desc(serviceListings.createdAt))
         .limit(limit)
