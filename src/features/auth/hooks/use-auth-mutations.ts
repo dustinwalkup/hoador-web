@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
 import { useHandleApiRedirect } from "@/lib/api/redirect-handler";
 import type { ApiResponseWithRedirect } from "@/lib/api/redirect-handler";
@@ -80,6 +81,40 @@ export function useJoinCommunity() {
     },
     successMessage: "Successfully joined community!",
     onSuccess: (response) => {
+      handleRedirect(response);
+    },
+  });
+}
+
+/**
+ * Hook for selecting a primary community (canonical post-verification step).
+ * Replaces the join-code flow as the default path; legacy `useJoinCommunity`
+ * is preserved for private invite codes (R1.5).
+ */
+export function useSelectCommunity() {
+  const queryClient = useQueryClient();
+  const handleRedirect = useHandleApiRedirect();
+
+  return useCreateMutation({
+    mutationFn: async (data: { communityId: string }) => {
+      const formData = new FormData();
+      formData.append("communityId", data.communityId);
+
+      const response = await fetch("/api/auth/select-community", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to select community");
+      }
+
+      return response.json() as Promise<ApiResponseWithRedirect>;
+    },
+    successMessage: "Community selected!",
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       handleRedirect(response);
     },
   });

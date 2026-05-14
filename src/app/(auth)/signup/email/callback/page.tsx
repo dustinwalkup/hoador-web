@@ -39,7 +39,7 @@ export default async function EmailSignupCallback({
       case "incomplete_profile":
         redirect("/onboarding");
       default:
-        redirect("/join-code");
+        redirect("/community-select");
     }
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error) {

@@ -36,6 +36,7 @@ vi.mock("@/components/back-button", () => ({
 describe("ListingDetailView", () => {
   const mockListing: ListingDetails = {
     id: "listing-123",
+    communityId: "community-123",
     name: "Professional Power Drill",
     description: "A high-quality power drill perfect for any project.",
     brand: "DeWalt",

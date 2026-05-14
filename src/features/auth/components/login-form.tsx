@@ -70,7 +70,7 @@ export function LoginForm() {
     }
 
     // Full page navigation so dashboard (and proxy) see the new session and can
-    // apply status-based redirects (e.g. email_verified → /join-code).
+    // apply status-based redirects (e.g. email_verified → /community-select).
     window.location.replace(callbackUrl);
   };
 

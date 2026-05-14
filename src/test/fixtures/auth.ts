@@ -63,6 +63,13 @@ export const mockJoinCode = "COMMUNITY123";
 
 export const mockJoinCodeInvalid = "INVALID123";
 
+/**
+ * Canonical signup path is now community-select (a dropdown), not a join code.
+ * Mocks the `POST /api/auth/select-community` request body. The legacy
+ * `mockJoinCode` fixtures above are retained for the preserved `/join-code` flow.
+ */
+export const mockSelectCommunityData = { communityId: "community-123" };
+
 // User profile fixtures
 import type { UserProfile } from "@/dal/types";
 

@@ -10,6 +10,7 @@ import {
   ilike,
   or,
   count,
+  countDistinct,
 } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
@@ -39,6 +40,7 @@ const {
   rentals,
   rentalRequests,
   reviewEvents,
+  communityVisibility,
 } = schema;
 
 function appendReviewScalar(
@@ -399,6 +401,7 @@ export class ListingDAL extends BaseDAL {
 
       return {
         id: listing.id,
+        communityId: listing.communityId,
         name: listing.name,
         description: listing.description,
         brand: listing.brand || undefined,
@@ -694,12 +697,23 @@ export class ListingDAL extends BaseDAL {
     filters: ListingSearchFilters,
     pagination: PaginationOptions,
     userId: string,
-    communityId: string,
+    visibleCommunityIds: string[],
     isAdmin: boolean,
     skipDistance = false, // Internal parameter to skip distance calculations
   ): Promise<PaginatedResult<UserListing>> {
     try {
       this.validatePagination(pagination.page, pagination.limit);
+
+      // Fail-closed: viewer with no visible communities sees nothing.
+      // Skip the DB hit entirely.
+      if (visibleCommunityIds.length === 0) {
+        return this.createPaginatedResult<UserListing>(
+          [],
+          0,
+          pagination.page,
+          pagination.limit,
+        );
+      }
 
       const offset = (pagination.page - 1) * pagination.limit;
 
@@ -722,10 +736,21 @@ export class ListingDAL extends BaseDAL {
         ? eq(listings.status, "available")
         : inArray(listings.status, ["available", "rented"]);
 
+      // Symmetric community-visibility filter (R5): a listing surfaces only
+      // through its own community (`listings.communityId`). Both parties must
+      // have that community toggled visible:
+      //   - viewer side: `listings.communityId` is in the viewer's visible set
+      //   - owner side:  the INNER JOIN below pins community_visibility to the
+      //                  owner AND the listing's community, so the row that
+      //                  survives is the owner's visibility flag for that
+      //                  exact community; here we require it to be `true`.
+      // Absence of an owner row = not visible (fail-closed) — the INNER JOIN
+      // drops the listing.
       const whereConditions = [
         statusFilter,
         eq(listings.isActive, true),
-        eq(listings.communityId, communityId), // Only show listings from user's community
+        inArray(listings.communityId, visibleCommunityIds),
+        eq(communityVisibility.isVisible, true),
       ];
 
       // Filter by approval status based on user type
@@ -792,15 +817,24 @@ export class ListingDAL extends BaseDAL {
       // Exclude current user's listings
       whereConditions.push(sql`${listings.ownerId} != ${userId}`);
 
-      // Get total count
+      // Get total count. DISTINCT on listings.id is kept as a cheap guard
+      // against the primary-address leftJoin below; the community_visibility
+      // join is 1:1 with the listing (pinned to owner + listing community).
       const [{ total }] = await this.db
-        .select({ total: count() })
+        .select({ total: countDistinct(listings.id) })
         .from(listings)
         .innerJoin(
           listingCategories,
           eq(listings.categoryId, listingCategories.id),
         )
         .innerJoin(user, eq(listings.ownerId, user.id))
+        .innerJoin(
+          communityVisibility,
+          and(
+            eq(communityVisibility.userId, listings.ownerId),
+            eq(communityVisibility.communityId, listings.communityId),
+          ),
+        )
         .where(and(...whereConditions));
 
       // Build the order by clause using helper method
@@ -817,18 +851,28 @@ export class ListingDAL extends BaseDAL {
         userLocation,
       );
 
-      // Get the listings with relations using conditional SELECT with error handling
+      // Get the listings with relations using conditional SELECT with error handling.
+      // selectDistinct guards against the primary-address leftJoin fanning out;
+      // the community_visibility join is 1:1 with the listing (owner + listing
+      // community), so it contributes no duplicates.
       let listingsWithRelations;
       const startTime = Date.now();
       try {
         listingsWithRelations = await this.db
-          .select(selectFields)
+          .selectDistinct(selectFields)
           .from(listings)
           .innerJoin(
             listingCategories,
             eq(listings.categoryId, listingCategories.id),
           )
           .innerJoin(user, eq(listings.ownerId, user.id))
+          .innerJoin(
+            communityVisibility,
+            and(
+              eq(communityVisibility.userId, listings.ownerId),
+              eq(communityVisibility.communityId, listings.communityId),
+            ),
+          )
           .leftJoin(
             userAddresses,
             and(
@@ -863,7 +907,7 @@ export class ListingDAL extends BaseDAL {
           }
 
           // Note: This recursive call needs the same parameters
-          // We'll need to pass userId, communityId, and isAdmin from the caller
+          // We'll need to pass userId, visibleCommunityIds, and isAdmin from the caller
           // For now, we'll throw an error to indicate this needs to be handled at the caller level
           throw new Error(
             "Spatial query failed. Please retry without distance sorting.",

@@ -39,6 +39,7 @@ export function PublicSidebar({
                   alt="Hoador Logo"
                   width={177}
                   height={36}
+                  priority
                 />
               </SidebarMenuButton>
             </Link>

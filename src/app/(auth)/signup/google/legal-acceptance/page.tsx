@@ -35,7 +35,7 @@ export default async function LegalAcceptancePage() {
   // If required documents are accepted, redirect to next step
   // Note: Community Guidelines is optional, so we don't check it here
   if (tosAccepted && privacyAccepted) {
-    redirect("/join-code");
+    redirect("/community-select");
   }
 
   // Get user profile for first name

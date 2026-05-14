@@ -3,9 +3,10 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { communityDAL, serviceListingDAL } from "@/dal";
+import { serviceListingDAL } from "@/dal";
 import { ServiceBrowseClient } from "@/features/services/components/service-browse-client";
 import { getCurrentUser } from "@/features/auth/utils/session";
+import { getCurrentUserVisibleCommunityIds } from "@/features/community/utils/membership";
 
 const PAGE_TITLE = "Explore nearby services";
 const PAGE_DESCRIPTION = "Browse services available in your community";
@@ -21,8 +22,8 @@ export default async function ServicesBrowsePage() {
     return null;
   }
 
-  const membership = await communityDAL.getMembershipForUser(user.id);
-  if (!membership) {
+  const visibleCommunityIds = await getCurrentUserVisibleCommunityIds();
+  if (visibleCommunityIds.length === 0) {
     return (
       <div className="container pb-6">
         <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
@@ -35,7 +36,7 @@ export default async function ServicesBrowsePage() {
   }
 
   const [listings, categories] = await Promise.all([
-    serviceListingDAL.findByCommunityForBrowse(membership.community.id, {
+    serviceListingDAL.findByCommunityForBrowse(visibleCommunityIds, {
       excludeProviderId: user.id,
     }),
     serviceListingDAL.listCategories(),

@@ -58,7 +58,7 @@ describe("Approval Visibility Integration", () => {
         {},
         { page: 1, limit: 12 },
         null as any,
-        "community-1",
+        ["community-1"],
         false,
       );
 
@@ -100,7 +100,7 @@ describe("Approval Visibility Integration", () => {
         {},
         { page: 1, limit: 12 },
         null as any,
-        "community-1",
+        ["community-1"],
         false,
       );
 
@@ -143,7 +143,7 @@ describe("Approval Visibility Integration", () => {
         {},
         { page: 1, limit: 12 },
         null as any,
-        "community-1",
+        ["community-1"],
         false,
       );
 
@@ -186,7 +186,7 @@ describe("Approval Visibility Integration", () => {
         {},
         { page: 1, limit: 12 },
         ownerId,
-        "community-1",
+        ["community-1"],
         false,
       );
 
@@ -227,7 +227,7 @@ describe("Approval Visibility Integration", () => {
         {},
         { page: 1, limit: 12 },
         ownerId,
-        "community-1",
+        ["community-1"],
         false,
       );
 
@@ -278,7 +278,7 @@ describe("Approval Visibility Integration", () => {
         {},
         { page: 1, limit: 12 },
         "admin-123",
-        "community-1",
+        ["community-1"],
         true,
       );
 
@@ -325,7 +325,7 @@ describe("Approval Visibility Integration", () => {
         { query: "drill" },
         { page: 1, limit: 12 },
         null as any,
-        "community-1",
+        ["community-1"],
         false,
       );
 
@@ -334,7 +334,7 @@ describe("Approval Visibility Integration", () => {
         { query: "drill" },
         { page: 1, limit: 12 },
         null as any,
-        "community-1",
+        ["community-1"],
         false,
       );
       expect(result.data).toHaveLength(1);

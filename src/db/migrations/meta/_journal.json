@@ -407,6 +407,34 @@
       "when": 1778236800000,
       "tag": "0057_fix_service_category_uuid_variants",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1778360871388,
+      "tag": "0058_multi_community_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1778360947933,
+      "tag": "0059_multi_community_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1778361000000,
+      "tag": "0060_attach_communities_to_test_network",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1778803200000,
+      "tag": "0061_attach_verona_hills_to_kc_metro",
+      "breakpoints": true
     }
   ]
 }

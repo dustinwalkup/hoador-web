@@ -2,7 +2,18 @@
 
 ## Requirements Traceability
 
-This test plan covers authentication functionality including user signup, login, password management, email verification, admin authentication, and legal document acceptance. Tests verify security, validation, and user experience requirements.
+This test plan covers authentication functionality including user signup, login, password management, email verification, admin authentication, legal document acceptance, and post-verification community selection. Tests verify security, validation, and user experience requirements.
+
+> **Cross-spec note:** The post-verification step changed with the
+> [Multi-Community Marketplace](../multi-community-marketplace/1-requirements.md)
+> spec. `email_verified` users now land on **`/community-select`** (a list of
+> the metro network's communities), not `/join-code`. The legacy `/join-code`
+> route + `joinCommunity` service path are **preserved** for private invites
+> (R1.5) and now create a pre-verified primary membership. The membership
+> data model, visibility, and admin verification queue are owned by
+> [multi-community-marketplace/4-test-plan.md](../multi-community-marketplace/4-test-plan.md)
+> and [specs/community/4-test-plan.md](../community/4-test-plan.md); the
+> auth-local view of that flow is below.
 
 ### Core Authentication Requirements
 
@@ -59,11 +70,19 @@ This test plan covers authentication functionality including user signup, login,
   - Error: Invalid email address returns error
   - Error: Email service failure handled gracefully
 
-- [ ] `joinCommunityAction` - Community join code validation
+- [ ] `joinCommunityAction` / `AuthService.joinCommunity` — **legacy** private-invite join (retained per R1.5)
   - Happy path: Valid join code accepts user
+  - Behavior change: the created membership is now `is_primary=true` and `verification_status='verified'` (code-based joins are pre-trusted)
   - Error: Invalid join code returns error
   - Error: Expired join code returns error
   - Edge case: Case-insensitive join code matching
+
+- [ ] `AuthService.selectPrimaryCommunity` — canonical post-verification community pick
+  - Happy path: creates a primary `community_memberships` row (`verification_status='pending'`), resolves the community's `networkId` and initializes the user's `community_visibility` rows, sets user status to `incomplete_profile`, returns `{ redirect: "/onboarding" }`
+  - Error: user already has a primary membership → `ConflictError` (→ 409)
+  - Error: community is inactive → `ValidationError` (→ 400)
+  - Standalone community (`network_id` null) → visibility init is skipped
+  - Ordering: status update happens only after the membership is created
 
 - [ ] `acceptLegalDocumentsAction` - Legal document acceptance
   - Happy path: User accepts all required legal documents
@@ -118,12 +137,21 @@ This test plan covers authentication functionality including user signup, login,
   - Loading state: Shows loading indicator
   - Security: Prevents non-admin access
 
-- [ ] `JoinCodeForm` - Community join code form
+- [ ] `CommunitySelectForm` - Community selection (canonical post-verification step)
+  - Rendering: shadcn `Select` populated from `GET /api/communities?networkSlug=kansas-city-metro`
+  - User interaction: selecting a community + Continue calls `useSelectCommunity()`; on success router-pushes to `/onboarding`
+  - "Don't see yours?" opens the existing `RequestHoadorModal`
+  - "Have a private invite code?" links to `/join-code`
+  - Validation: cannot submit without selecting a community
+  - Loading state: Continue shows loading during the mutation
+  - Error state: surfaces conflict (already-has-primary) / inactive-community errors
+
+- [ ] `JoinCodeForm` - Community join code form (**legacy**, retained per R1.5)
   - Rendering: Join code input field visible
-  - User interaction: Form submission triggers joinCommunityAction
+  - User interaction: Form submission triggers the legacy join-community path
   - Validation: Shows error for invalid join code
   - Loading state: Shows loading indicator
-  - Success state: Proceeds to next step
+  - Success state: Proceeds to onboarding (membership created pre-verified)
 
 - [ ] `LegalDocumentsAcceptanceScreen` - Legal document acceptance UI
   - Rendering: All required legal documents displayed
@@ -196,6 +224,25 @@ This test plan covers authentication functionality including user signup, login,
   - Password change validation
   - Edge cases: Special characters, length limits
 
+#### Hooks
+
+- [ ] `useSelectCommunity` (in `use-auth-mutations.ts`)
+  - Posts to `/api/auth/select-community`
+  - On success: invalidates `["currentUser"]` (and related) queries
+  - Surfaces server errors to the caller
+
+#### API Routes
+
+- [ ] `POST /api/auth/select-community`
+  - Authenticated only; body `{ communityId: string }`
+  - Happy path: delegates to `AuthService.selectPrimaryCommunity`, returns `{ redirect: string }`
+  - Maps DAL/service errors: `ConflictError` → 409, `ValidationError` → 400
+  - Validation: empty/missing `communityId` → 400
+
+- [ ] `GET /api/communities`
+  - Query params `?networkSlug=...&active=true`; returns `Community[]` for the community-select dropdown
+  - Sends `Cache-Control: public, max-age=60`
+
 ### Integration Tests
 
 - [ ] **Signup Flow: Form → Action → DAL → Database**
@@ -214,10 +261,15 @@ This test plan covers authentication functionality including user signup, login,
   - Token validation: Expired tokens rejected
   - Security: Invalid tokens don't reveal user existence
 
-- [ ] **Email Verification Flow: Signup → Email → Verification → Access**
-  - Complete flow: User signs up → email sent → user verifies → access granted
+- [ ] **Email Verification Flow: Signup → Email → Verification → Community Select**
+  - Complete flow: User signs up → email sent → user verifies → routed to `/community-select`
   - Token validation: Invalid tokens rejected
   - Already verified: Handles gracefully
+
+- [ ] **Community Selection Flow: Form → Hook → API → Service → DAL → DB**
+  - Complete flow: `email_verified` user picks a community → `useSelectCommunity` → `POST /api/auth/select-community` → `AuthService.selectPrimaryCommunity` → primary membership + visibility rows created, status → `incomplete_profile` → redirect to `/onboarding`
+  - Error propagation: existing-primary → 409 surfaced in the form; inactive community → 400
+  - Legacy path: `email_verified` user reaches `/join-code` directly, submits a valid code → membership created (pre-verified) → routed to `/onboarding`
 
 - [ ] **Admin Authentication Flow: Admin Login → Session → Admin Access**
   - Complete flow: Admin logs in → admin session created → admin routes accessible
@@ -236,14 +288,26 @@ This test plan covers authentication functionality including user signup, login,
 
 ### E2E Tests
 
-- [ ] **Complete User Signup Workflow**
+- [ ] **Complete User Signup Workflow** ([e2e/auth/signup-funnel.spec.ts](e2e/auth/signup-funnel.spec.ts))
   - User navigates to signup page
   - Fills out signup form with valid data
   - Accepts legal documents
   - Submits form
   - Verifies email sent notification
   - Verifies email with token
-  - Verifies user can log in
+  - Lands on `/community-select`, picks a community, clicks Continue
+  - Lands on `/onboarding`, completes it, lands on `/dashboard`
+
+- [ ] **Community Selection Workflow** ([e2e/auth/community-select.spec.ts](e2e/auth/community-select.spec.ts))
+  - `email_verified` user lands on `/community-select`
+  - Dropdown is populated with the network's communities
+  - "Request your community" opens the inquiry modal (cancellable)
+  - Selecting a community persists it and redirects to `/onboarding`; re-visiting `/community-select` bounces forward
+  - "Enter it here" links to `/join-code`
+
+- [ ] **Legacy Join-Code Workflow** ([e2e/auth/join-code-legacy.spec.ts](e2e/auth/join-code-legacy.spec.ts))
+  - A freshly verified user reaches `/join-code` by direct URL
+  - Submits `E2E_JOIN_CODE`; the legacy code-based grant routes to `/onboarding`
 
 - [ ] **Complete Login Workflow**
   - User navigates to login page
@@ -273,11 +337,11 @@ This test plan covers authentication functionality including user signup, login,
   - Verifies email verified status
   - Verifies can access protected routes
 
-- [ ] **Unauthorized Access Prevention**
-  - Unauthenticated user attempts to access protected route
-  - Verifies redirect to login
-  - Unverified user attempts to access protected route
-  - Verifies redirect to verification page
+- [ ] **Unauthorized Access Prevention** ([e2e/auth/status-redirect.spec.ts](e2e/auth/status-redirect.spec.ts))
+  - Unauthenticated user attempts to access protected route → redirect to login
+  - Unverified user attempts to access protected route → redirect to verification page
+  - `email_verified` user (no primary community) attempts to access `/dashboard` → redirect to `/community-select`
+  - `email_verified` user can still reach `/join-code` by direct URL (legacy path, R1.5)
 
 ### BDD Scenarios
 
@@ -395,6 +459,32 @@ Feature: Email Verification
     And I submit the form
     Then I should see a verification error
     And my email should not be verified
+
+Feature: Post-verification community selection
+  As a newly verified user
+  I want to pick my community from the metro list
+  So that I can onboard without a private invite code
+
+  Background:
+    Given I have verified my email
+    And I do not yet have a primary community
+
+  Scenario: Verified user is routed to community select
+    When I navigate to the dashboard
+    Then I should be redirected to the community-select page
+
+  Scenario: Select a community and continue
+    Given I am on the community-select page
+    When I choose a community from the list
+    And I continue
+    Then a primary membership is created with verification status "pending"
+    And I should be redirected to onboarding
+
+  Scenario: Legacy private-invite code path still works
+    Given I navigate directly to the join-code page
+    When I submit a valid join code
+    Then a primary membership is created with verification status "verified"
+    And I should be redirected to onboarding
 ```
 
 ## Test Data Requirements
@@ -412,8 +502,9 @@ Feature: Email Verification
 - `mockLoginData` - Valid login credentials
 - `mockForgotPasswordData` - Password reset request data
 - `mockResetPasswordData` - Password reset completion data
-- `mockJoinCode` - Valid community join code
+- `mockJoinCode` - Valid community join code (legacy private-invite path)
 - `mockJoinCodeInvalid` - Invalid join code
+- `mockSelectCommunityData` - Valid community-selection payload (`/api/auth/select-community`)
 
 **Additional Fixtures Needed**:
 
@@ -445,7 +536,9 @@ Feature: Email Verification
   - `resetPasswordAction`: 90%+ (security critical)
   - `verifyEmailAction`: 85%+
   - `emailAction`: 80%+
-  - `joinCommunityAction`: 85%+
+  - `joinCommunityAction` / `AuthService.joinCommunity` (legacy): 85%+
+  - `AuthService.selectPrimaryCommunity`: 90%+ (multi-branch orchestration)
+  - `POST /api/auth/select-community`: 85%+
   - `acceptLegalDocumentsAction`: 85%+
 
 - **React Components**: 80%+ (exceeds 75% threshold)
@@ -455,7 +548,8 @@ Feature: Email Verification
   - `ResetPasswordForm`: 85%+
   - `VerifyEmailForm`: 80%+
   - `AdminLoginForm`: 85%+
-  - `JoinCodeForm`: 80%+
+  - `CommunitySelectForm`: 85%+
+  - `JoinCodeForm` (legacy): 80%+
   - `LegalDocumentsAcceptanceScreen`: 85%+
   - `AuthLayoutWrapper`: 80%+
   - `SuccessMessage`: 80%+
@@ -570,15 +664,18 @@ Feature: Email Verification
 ### Currently Tested
 
 - `signupAction` - Partial coverage in `src/features/auth/actions/__tests__/signup.test.ts`
+- `AuthService.selectPrimaryCommunity` - `src/features/auth/services/auth-service.test.ts`
+- `POST /api/auth/select-community` - `src/app/api/auth/select-community/__tests__/route.test.ts`
+- `GET /api/communities` - `src/app/api/communities/__tests__/route.test.ts`
+- `CommunitySelectForm` + `useSelectCommunity` - `src/features/auth/components/__tests__/community-select-form.test.tsx`
+- Community-select / legacy-join-code / status-redirect E2E - `e2e/auth/*.spec.ts` (community-select, join-code-legacy, signup-funnel, status-redirect)
 
 ### Missing Test Coverage
 
-- All other server actions (admin-login, forgot-password, reset-password, verify-email, email, join-community, accept-legal-documents)
-- All components (11 components need tests)
-- All utilities (5 utility files need tests)
-- All schemas (2 schema files need tests)
-- Integration tests (none exist)
-- E2E tests (none exist)
+- Other server actions (admin-login, forgot-password, reset-password, verify-email, email, accept-legal-documents)
+- Most components (the auth forms other than signup/community-select)
+- Several utilities and the two schema files
+- Broader integration coverage beyond the signup/community-select paths
 
 ## References
 

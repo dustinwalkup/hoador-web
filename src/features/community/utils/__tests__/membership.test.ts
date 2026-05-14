@@ -3,6 +3,7 @@ import {
   getCurrentUserCommunity,
   requireCommunityMembership,
   getCurrentUserCommunityId,
+  getCurrentUserVisibleCommunityIds,
 } from "../membership";
 import { mockUserCommunityInfo } from "@/test/fixtures/community";
 
@@ -12,6 +13,7 @@ vi.mock("@/dal", () => ({
     getMembershipForUser: vi.fn(),
     requireUserCommunityMembership: vi.fn(),
     getUserCommunityId: vi.fn(),
+    getVisibleCommunityIds: vi.fn(),
   },
 }));
 
@@ -223,5 +225,74 @@ describe("membership.ts", () => {
       expect(getCurrentUserId).toHaveBeenCalled();
       expect(communityDAL.getUserCommunityId).toHaveBeenCalledWith(userId);
     });
+  });
+
+  describe("getCurrentUserVisibleCommunityIds", () => {
+    it("should return the DAL's visible community IDs for an authenticated user", async () => {
+      // Arrange
+      const userId = "user-123";
+      const visibleIds = ["community-1", "community-2", "community-3"];
+      vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+      vi.mocked(communityDAL.getVisibleCommunityIds).mockResolvedValue(
+        visibleIds,
+      );
+
+      // Act
+      const result = await getCurrentUserVisibleCommunityIds();
+
+      // Assert
+      expect(result).toEqual(visibleIds);
+      expect(getCurrentUserId).toHaveBeenCalled();
+      expect(communityDAL.getVisibleCommunityIds).toHaveBeenCalledWith(userId);
+    });
+
+    it("should return an empty array when the user is not authenticated", async () => {
+      // Arrange
+      vi.mocked(getCurrentUserId).mockResolvedValue(null);
+
+      // Act
+      const result = await getCurrentUserVisibleCommunityIds();
+
+      // Assert
+      expect(result).toEqual([]);
+      expect(getCurrentUserId).toHaveBeenCalled();
+      expect(communityDAL.getVisibleCommunityIds).not.toHaveBeenCalled();
+    });
+
+    it("should pass through an empty array from the DAL", async () => {
+      // Arrange
+      const userId = "user-123";
+      vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+      vi.mocked(communityDAL.getVisibleCommunityIds).mockResolvedValue([]);
+
+      // Act
+      const result = await getCurrentUserVisibleCommunityIds();
+
+      // Assert
+      expect(result).toEqual([]);
+      expect(communityDAL.getVisibleCommunityIds).toHaveBeenCalledWith(userId);
+    });
+
+    it("should handle DAL errors gracefully", async () => {
+      // Arrange
+      const userId = "user-123";
+      vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+      vi.mocked(communityDAL.getVisibleCommunityIds).mockRejectedValue(
+        new Error("Database error"),
+      );
+
+      // Act & Assert
+      await expect(getCurrentUserVisibleCommunityIds()).rejects.toThrow(
+        "Database error",
+      );
+      expect(getCurrentUserId).toHaveBeenCalled();
+      expect(communityDAL.getVisibleCommunityIds).toHaveBeenCalledWith(userId);
+    });
+
+    // Note: per-request memoization is provided by React's cache() wrapper
+    // (identical to the other helpers in this module). The test harness
+    // replaces cache() with the identity function, and React's cache()
+    // only memoizes inside a real request scope, so memoization itself is
+    // not unit-testable here — it's a structural guarantee of the wrapper.
   });
 });

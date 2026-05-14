@@ -23,7 +23,7 @@ neighborhood identity stays intact.
 ### Initial Communities (Kansas City Metro)
 
 Glen Arbor Estates · Foxcroft · Timber Trace · Blue Hills Estates ·
-Redbridge North · Verona Gardens · Redbridge Estates · Leewood Estates
+Redbridge North · Verona Gardens · Redbridge Estates · Leawood Estates
 
 ### Key Architectural Decisions (resolved in clarifications)
 
@@ -33,10 +33,12 @@ they are not re-litigated:
 1. **Signup flow** — `/join-code` is replaced with a community-search step;
    address is still collected at `/onboarding` (unchanged location).
 2. **Listings model** — `listings.community_id` and
-   `service_listings.community_id` are kept as the **originating/home
-   community** (denormalized truth: ownership, dispute jurisdiction). They
-   are NOT used for visibility filtering. Listings inherit their owner's
-   per-community visibility; there is no per-listing visibility table.
+   `service_listings.community_id` are the listing's **home community**: the
+   single community a listing surfaces through, and the denormalized truth
+   for ownership and dispute jurisdiction. A listing with `community_id = X`
+   is visible to a viewer only when **both** the owner and the viewer have
+   `community_visibility(X).is_visible = true` (symmetric). There is no
+   per-listing visibility table.
 3. **Default visibility** — On signup, a user becomes auto-visible in every
    community in their network immediately, **before** primary-community
    verification. Verification is a trust signal (badge), not a marketplace
@@ -58,11 +60,14 @@ they are not re-litigated:
     plus N rows in `community_visibility` for each community in their
     network. They are not "members" of those other communities.
 11. **Single-layer visibility / symmetric** — `community_visibility` is the
-    SOLE source of truth for cross-community exposure. Toggling a community
-    off is symmetric: that community's listings disappear from the user's
-    feed AND the user's listings disappear from that community's feed.
-    There is no per-listing override (deferred to a future phase if needed).
-    A user CANNOT toggle visibility off for their own primary community.
+    SOLE source of truth for cross-community exposure. Toggling community X
+    off is symmetric: every listing with `community_id = X` disappears from
+    the user's search AND every one of the user's own listings with
+    `community_id = X` disappears from everyone else's search. A listing is
+    visible to a viewer only when both the owner and the viewer have
+    `community_visibility(X).is_visible = true`. There is no per-listing
+    override (deferred to a future phase if needed). A user CANNOT toggle
+    visibility off for their own primary community.
 12. **MVP admin scope** — Membership verification queue and community CRUD.
     Network assignment is a single dropdown on the community CRUD form (no
     dedicated networks-management UI). Per-user visibility audit deferred.
@@ -248,36 +253,46 @@ true`.
 
 ---
 
-### Requirement 5: Multi-Community Listing Visibility (Inherited from Owner)
+### Requirement 5: Symmetric Per-Community Listing Visibility
 
-**User Story:** As a listing owner, I want all of my listings to appear in
-the same set of communities I'm visible in, so visibility is consistent
-across everything I post and I never have to manage it per-listing.
+**User Story:** As a member of one community, when I turn another community
+off I want that community's listings gone from my search **and** my listings
+gone from that community's search — a single toggle that severs the
+connection both ways, with no per-listing fiddling.
 
 #### Acceptance Criteria
 
-1. The system SHALL NOT introduce a per-listing visibility table. Listing
-   visibility is a function of the OWNER'S `community_visibility` rows.
-2. The system SHALL keep `listings.community_id` and
-   `service_listings.community_id` as the **originating/home community**
-   (denormalized truth for ownership, moderation, and dispute jurisdiction).
-   These columns are NOT used for visibility filtering.
-3. The system SHALL determine listing visibility in community X using the
-   rule: a listing is visible in community X if and only if the OWNER has
-   `community_visibility.is_visible = true` for community X.
-4. The system SHALL apply the same inheritance rule uniformly to both
-   `listings` (rental/tool) and `service_listings`.
+1. The system SHALL NOT introduce a per-listing visibility table. A listing's
+   visibility is derived from exactly two `community_visibility` rows: the
+   owner's and the viewer's, both for the listing's `community_id`.
+2. The system SHALL treat `listings.community_id` and
+   `service_listings.community_id` as the listing's **home community** — the
+   single community a listing surfaces through (also the denormalized truth
+   for ownership, moderation, and dispute jurisdiction). A listing never
+   appears in any community other than its `community_id`.
+3. The system SHALL determine whether a listing with `community_id = X`,
+   owner O, is visible to viewer V using the rule: visible **if and only if
+   both** O has `community_visibility(X).is_visible = true` **and** V has
+   `community_visibility(X).is_visible = true`. Absence of a row counts as
+   `false` (fail-closed).
+4. The system SHALL apply the same rule uniformly to both `listings`
+   (rental/tool) and `service_listings`.
 5. The system SHALL NOT require any data migration to `listings` or
    `service_listings` for this feature; the existing `community_id` columns
-   remain unchanged.
+   remain unchanged. (`community_id` is `NOT NULL` on both tables, so every
+   listing has a well-defined home community.)
 6. The system SHALL NOT duplicate listing records to achieve multi-community
-   exposure; visibility is purely a join from listing → owner →
-   `community_visibility`.
+   exposure; a listing has exactly one row and one `community_id`, and the
+   search joins listing → owner's `community_visibility(community_id)`.
 7. WHEN a user toggles `community_visibility.is_visible = false` for
    community X
-   THEN ALL of that user's listings (every rental and every service listing)
-   SHALL atomically stop appearing in community X's feeds — without any
-   per-listing row updates.
+   THEN ALL of that user's listings whose `community_id = X` (every rental
+   and every service listing) SHALL atomically stop appearing in everyone's
+   search — without any per-listing row updates.
+8. WHEN a user toggles `community_visibility.is_visible = false` for
+   community X
+   THEN that user SHALL no longer see any listing whose `community_id = X` in
+   their search results.
 
 ---
 
@@ -337,38 +352,57 @@ schema change, while keeping MVP scope tight.
 
 ### Requirement 8: Listing Feed & Search Logic
 
-**User Story:** As a user browsing the marketplace, I want to see listings
-only from owners who share at least one mutually-visible community with me,
-so the feed reflects the symmetric visibility rule.
+**User Story:** As a user browsing the marketplace, I want to see a listing
+only when both its owner and I have its home community toggled visible, so
+turning a community off cleanly removes that community's listings from my
+feed (and mine from theirs).
 
 #### Acceptance Criteria
 
 1. WHEN a user requests the marketplace search/feed
-   THEN the system SHALL return listings where there exists at least one
-   community X such that:
-   - The VIEWER has `community_visibility(viewer, X).is_visible = true`.
-   - AND the OWNER has `community_visibility(owner, X).is_visible = true`.
-   - AND existing filters (status, approval, isActive) still apply.
+   THEN the system SHALL return a listing (`community_id = X`, owner O) if
+   and only if:
+   - The VIEWER has `community_visibility(viewer, X).is_visible = true`
+     (i.e. `X` is in the viewer's precomputed visible-community set), AND
+   - The OWNER has `community_visibility(O, X).is_visible = true`, AND
+   - Existing filters (status, approval, isActive, owner ≠ viewer) still apply.
+     A missing `community_visibility` row counts as `false` (fail-closed).
 2. WHEN a user filters the feed to a specific community X
-   THEN the system SHALL only return listings whose owners have
-   `community_visibility(owner, X).is_visible = true`, AND only when the
-   viewer themselves has `community_visibility(viewer, X).is_visible = true`
-   (else return empty / 403-equivalent state).
+   THEN the system SHALL return only listings whose `community_id = X`, and
+   only when the viewer has `community_visibility(viewer, X).is_visible =
+true` (else return empty / 403-equivalent state).
 3. The system SHALL retire the existing exact-match filter
    (`listings.community_id = userCommunityId`) in `searchListings` and
-   replace it with a query that joins `community_visibility` for both
-   owner and viewer.
+   replace it with: `listings.community_id IN (viewer's visible set)` plus an
+   `INNER JOIN community_visibility` pinned to
+   `(owner_id, listings.community_id)` requiring `is_visible = true`.
 4. The system SHALL apply the same filtering logic to `service_listings`
-   (no parallel join table needed — same `community_visibility` join).
-5. The system SHALL support a "metro-wide" feed (default) that spans all
-   communities where the viewer has `is_visible = true`.
+   (no parallel join table needed — same `community_visibility` join, pinned
+   to `(provider_id, service_listings.community_id)`).
+5. The system SHALL support a "metro-wide" feed (default): the union of
+   listings whose `community_id` is in the viewer's visible set (and whose
+   owner is visible in that community).
 6. The system SHALL preserve sorting (newest, price, rating, distance) and
    pagination semantics already in use.
 7. The system SHALL treat distance-based sorting as **deferred** (still
    stub-supported, but no improved logic in MVP).
 8. The system SHALL compute the viewer's set of visible community IDs ONCE
    per request (server-side cache or single query upfront) and pass that
-   set into downstream listing queries — never per-listing lookups.
+   set into downstream listing queries — never per-listing lookups. An empty
+   set short-circuits to an empty result with no DB hit.
+9. The system SHALL apply the **same** visibility rule on every path that
+   surfaces a single listing — the tool and service listing **detail** pages
+   and their API routes, and the downstream **booking/rent** pages: the owner
+   (provider) may always view their own listing; any other viewer may view it
+   only when its `status` is browseable AND **both** the viewer and the owner
+   have `community_visibility(listing.community_id).is_visible = true`. A
+   listing not satisfying this returns `notFound()` / `403` — never a stale
+   `community_id == viewer's primary community` check.
+10. The system SHALL gate the **provider profile** page and its API route on
+    the same model: a non-self viewer may see it only when the viewer and the
+    provider share at least one community where **both** have
+    `is_visible = true`; the active listings shown SHALL be scoped to that
+    shared set. The provider sees their own profile and listings unfiltered.
 
 ---
 
@@ -405,8 +439,9 @@ model can scale.
    (status changes, notes) into `audit_logs`.
 6. All listing and user moderation SHALL be performed by platform admins
    (any user with `userType` of `admin` or `superadmin`). There is no
-   community-scoped moderator role; an admin can act on any listing in
-   any community regardless of the listing's origin community.
+   community-scoped moderator role; an admin can act on any listing
+   regardless of its home community (`community_id`). (Moderation reach is
+   independent of the per-community _visibility_ rule in R5/R8.)
 7. The system SHALL **defer** the per-user visibility audit/override UI to
    a later phase.
 
@@ -424,8 +459,8 @@ without downtime or data loss.
    - `community_networks`
    - `community_visibility`
      (No `listing_communities` or `service_listing_communities` tables —
-     listing visibility is inherited from the owner's `community_visibility`
-     per Requirement 5.)
+     listing visibility is derived from `community_visibility` rows keyed on
+     the listing's `community_id`, per Requirement 5.)
 2. The system SHALL alter `communities` to add:
    - `network_id` (nullable FK → `community_networks.id`)
    - `latitude DECIMAL(10,8)` (nullable)
@@ -449,7 +484,8 @@ without downtime or data loss.
    - For every existing user × every community in their network: inserts a
      `community_visibility` row with `is_visible = true`.
    - No backfill is required for `listings` or `service_listings`
-     (visibility is inherited from the owner — see Requirement 5).
+     (their existing `community_id` is the home community used for visibility
+     — see Requirement 5).
 5. The system SHALL keep the existing tables `communities` and
    `community_memberships` (no rename/recreate).
 6. The migration SHALL be split into ordered migration files so each step is
@@ -506,10 +542,10 @@ tasks, or implementation:
 - Feature flag infrastructure (rollout uses additive migrations + fix-
   forward instead).
 - **Per-listing visibility overrides.** Visibility is currently all-or-
-  nothing per community (inherited from the owner). If a future need
-  arises to hide a single listing from a single community, it can be
-  added as a sparse override table (`listing_visibility_overrides`)
-  without breaking the inheritance model.
+  nothing per community: a listing surfaces through its `community_id` only,
+  gated by both the owner's and the viewer's `community_visibility` for that
+  community. A future need to hide a single listing independently could be a
+  sparse override table (`listing_visibility_overrides`) layered on top.
 
 ---
 
@@ -579,11 +615,17 @@ as the network grows, so the multi-community model doesn't degrade UX.
 2. The system SHALL compute the viewing user's set of visible community
    IDs ONCE per request (no per-listing DB lookups).
 3. The system SHALL include the following indexes:
-   - `community_visibility(user_id, community_id) WHERE is_visible = true`
-   - `community_visibility(community_id, user_id) WHERE is_visible = true`
-     (for the owner-side join)
+   - `community_visibility` UNIQUE `(user_id, community_id)` — serves the
+     owner-side point lookup `cv.user_id = owner AND cv.community_id =
+listing.community_id` and the precompute query.
+   - `community_visibility(user_id) WHERE is_visible = true` — for the
+     viewer's precomputed visible-community set.
+   - `community_visibility(community_id) WHERE is_visible = true`.
+   - `listings(community_id)` and `service_listings(community_id)` — serve
+     the viewer-side `community_id IN (visible set)` filter.
 4. The system SHALL avoid N+1 query patterns in the listing service when
-   resolving owner visibility for a page of listings.
+   resolving owner visibility for a page of listings (single join, not a
+   per-listing lookup).
 
 ---
 

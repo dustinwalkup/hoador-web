@@ -3,8 +3,9 @@ import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { listingDAL } from "@/dal";
 import type { ListingSearchFilters } from "@/dal/types";
 import { sanitizeSearchQuery } from "@/lib/utils/sanitize";
-import { getCurrentUserCommunityId } from "@/features/community/utils/membership";
+import { getCurrentUserVisibleCommunityIds } from "@/features/community/utils/membership";
 import { getAuthenticatedUserResponse } from "@/lib/api/route-helpers";
+import { emptyPaginatedResult } from "@/lib/api/pagination";
 
 async function getHandler(request: NextRequest) {
   try {
@@ -17,14 +18,8 @@ async function getHandler(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
 
-    // Get user's community ID
-    const communityId = await getCurrentUserCommunityId();
-    if (!communityId) {
-      return NextResponse.json(
-        { error: "User must be a member of a community" },
-        { status: 400 },
-      );
-    }
+    // Resolve the viewer's visible community IDs (the search visibility set).
+    const visibleCommunityIds = await getCurrentUserVisibleCommunityIds();
 
     // Parse and sanitize search parameters
     const rawQuery = searchParams.get("q");
@@ -62,11 +57,19 @@ async function getHandler(request: NextRequest) {
       limit: parseInt(searchParams.get("limit") || "12"),
     };
 
+    // Fail-closed: a viewer with no visible communities sees nothing.
+    // Return an empty page without touching the DB.
+    if (visibleCommunityIds.length === 0) {
+      return Response.json(
+        emptyPaginatedResult(pagination.page, pagination.limit),
+      );
+    }
+
     const searchResults = await listingDAL.searchListings(
       filters,
       pagination,
       userId,
-      communityId,
+      visibleCommunityIds,
       userIsAdmin,
     );
 

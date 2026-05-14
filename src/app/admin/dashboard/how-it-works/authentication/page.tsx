@@ -39,9 +39,10 @@ const signUpFlowSteps = [
   },
   {
     step: 3,
-    page: "/join-code",
+    page: "/community-select",
     statusAfter: "incomplete_profile",
-    description: "Enter community join code",
+    description:
+      "Pick your community from the network (legacy /join-code still works for private invites)",
   },
   {
     step: 4,

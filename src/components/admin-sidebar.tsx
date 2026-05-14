@@ -19,6 +19,7 @@ import {
   Repeat,
   MessageSquare,
   Home,
+  Building2,
 } from "lucide-react";
 
 import {
@@ -93,6 +94,11 @@ const adminNavItemsAfterPayments = [
     icon: Users,
   },
   {
+    title: "Communities",
+    url: "/admin/dashboard/communities",
+    icon: Building2,
+  },
+  {
     title: "Settings (Coming Soon)",
     url: "/admin/dashboard/settings",
     icon: Settings,
@@ -162,6 +168,7 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                     alt="Hoador Logo"
                     width={100}
                     height={20}
+                    priority
                   />
                   <span className="text-muted-foreground absolute right-5 z-50 text-xs font-semibold">
                     Admin

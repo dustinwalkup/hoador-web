@@ -25,6 +25,7 @@ import {
   pushSubscriptions,
   pushNotificationAudit,
 } from "./notifications.schema";
+import { communityVisibility } from "./communities.schema";
 
 export type UserDB = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;
@@ -278,4 +279,5 @@ export const userRelations = relations(user, ({ one, many }) => ({
   notificationCategoryPreferences: many(notificationCategoryPreferences),
   pushSubscriptions: many(pushSubscriptions),
   pushNotificationAudit: many(pushNotificationAudit),
+  communityVisibility: many(communityVisibility),
 }));
