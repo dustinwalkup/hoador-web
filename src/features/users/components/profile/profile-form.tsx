@@ -1,6 +1,7 @@
 "use client";
 
 import { JSX, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { Edit3, Save, X, Check } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -108,6 +109,7 @@ const PhoneInput = ({ value, onChange, onBlur, ...props }: PhoneInputProps) => {
 
 export function ProfileForm({ user }: { user: UserProfile }) {
   const [editMode, setEditMode] = useState(false);
+  const router = useRouter();
   const updateProfile = useUpdateUserProfile();
 
   const form = useForm<FormData>({
@@ -131,6 +133,7 @@ export function ProfileForm({ user }: { user: UserProfile }) {
     updateProfile.mutate(data, {
       onSuccess: () => {
         setEditMode(false);
+        router.refresh();
       },
     });
   };
