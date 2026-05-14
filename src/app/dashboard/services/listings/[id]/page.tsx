@@ -33,15 +33,22 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const membership = await communityDAL.getMembershipForUser(userId);
-  if (!membership) {
-    notFound();
-  }
-
   const isProvider = listing.providerId === userId;
-  const inCommunity = listing.communityId === membership.community.id;
-  const canView = isProvider || (inCommunity && listing.status === "active");
 
+  // Symmetric per-community visibility (R5): a non-provider may view an active
+  // listing only if both the viewer and the provider are visible in the
+  // listing's home community — the same rule the services browse applies.
+  let canView = isProvider;
+  if (!canView && listing.status === "active") {
+    const [viewerVisible, providerVisible] = await Promise.all([
+      communityDAL.isVisibleInCommunity(userId, listing.communityId),
+      communityDAL.isVisibleInCommunity(
+        listing.providerId,
+        listing.communityId,
+      ),
+    ]);
+    canView = viewerVisible && providerVisible;
+  }
   if (!canView) {
     notFound();
   }

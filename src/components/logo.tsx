@@ -1,9 +1,16 @@
 import Image from "next/image";
+import type { CSSProperties } from "react";
 
 interface LogoProps {
   width?: number;
   height?: number;
   className?: string;
+  /**
+   * Inline sizing. Prefer this over a `h-* w-auto` className: next/image only
+   * suppresses its "width or height modified, but not the other" warning when
+   * the constrained dimension is set via inline style.
+   */
+  style?: CSSProperties;
   alt?: string;
   showBetaTag?: boolean;
   betaTagPosition?: "right" | "bottom";
@@ -15,6 +22,7 @@ export function Logo({
   width = 120,
   height = 40,
   className,
+  style,
   alt = "Hoador Logo",
   showBetaTag = false,
   betaTagPosition = "right",
@@ -27,6 +35,7 @@ export function Logo({
       width={width}
       height={height}
       className={className}
+      style={style}
       priority={priority}
     />
   );

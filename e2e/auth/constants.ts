@@ -11,6 +11,16 @@ export const E2E_USER_UNVERIFIED = "unverified@e2e.test";
 export const E2E_USER_ADMIN = "admin@e2e.test";
 export const E2E_USER_PASSWORD_RESET = "password_reset@e2e.test";
 
+/** Active user with a primary KC Metro membership + full network visibility. */
+export const E2E_USER_METRO_MEMBER = "metro_member@e2e.test";
+/** Active user whose primary membership is still `pending` admin verification. */
+export const E2E_USER_PENDING_MEMBER = "pending_member@e2e.test";
+
+/** Canonical KC Metro community used by the community-select flow. */
+export const E2E_PRIMARY_COMMUNITY_NAME = "Foxcroft";
+/** A non-primary KC Metro community — toggled in the visibility-settings test. */
+export const E2E_SECONDARY_COMMUNITY_NAME = "Glen Arbor Estates";
+
 /** Used by E2E Google OAuth mock (code param). See src/lib/e2e-google-callback.ts */
 export const E2E_GOOGLE_CODE = "e2e-test-google";
 /** Default test user for Google OAuth (find-or-create by email). */

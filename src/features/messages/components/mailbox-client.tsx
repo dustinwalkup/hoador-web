@@ -88,8 +88,8 @@ export function MailboxClient({
       pages: [conversationsForActiveTab],
       pageParams: [0],
     },
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const handleConversationClick = (conversationId: string) => {

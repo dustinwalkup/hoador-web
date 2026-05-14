@@ -173,6 +173,7 @@ export function createMockListing(
 ): ListingDetails {
   return {
     id: "listing-123",
+    communityId: "community-123",
     name: "Test Power Drill",
     description: "A heavy-duty power drill for construction work",
     owner: {

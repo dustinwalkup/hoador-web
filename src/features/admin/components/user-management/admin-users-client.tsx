@@ -27,6 +27,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Mail,
 } from "lucide-react";
 import { useAdminUsers } from "@/features/admin/hooks/use-admin-users";
 import { useQueryClient } from "@tanstack/react-query";
@@ -453,7 +454,7 @@ export function AdminUsersClient() {
                     return (
                       <div
                         key={u.id}
-                        className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                        className="relative flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                       >
                         {/* Mobile: CSS grid so the text column gets minmax(0,1fr) and fills the card; sm+ restores flex row */}
                         <div className="grid w-full max-w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 sm:flex sm:min-w-0 sm:flex-1 sm:items-center sm:gap-4">
@@ -510,6 +511,19 @@ export function AdminUsersClient() {
                           >
                             {u.userType}
                           </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            className="absolute top-2 right-2 sm:static"
+                          >
+                            <a
+                              href={`mailto:${u.email}?subject=${encodeURIComponent("Hoador")}`}
+                              aria-label={`Email ${u.name}`}
+                            >
+                              <Mail className="h-4 w-4" />
+                            </a>
+                          </Button>
                           <Button variant="outline" size="sm" asChild>
                             <Link href={`/admin/dashboard/user/${u.id}`}>
                               View

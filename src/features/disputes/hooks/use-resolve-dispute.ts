@@ -37,6 +37,10 @@ export function useResolveDispute(disputeId: string) {
       return response.json();
     },
     successMessage: "Dispute resolved successfully",
-    invalidateQueryKeys: [disputeKeys.detail(disputeId), disputeKeys.all],
+    invalidateQueryKeys: [
+      disputeKeys.detail(disputeId),
+      disputeKeys.all,
+      ["admin", "badges"],
+    ],
   });
 }

@@ -3,6 +3,7 @@ import type { UserListing } from "@/dal/listing.dal";
 
 export const mockListing: ListingDetails = {
   id: "listing-123",
+  communityId: "community-123",
   name: "Test Power Drill",
   description: "A heavy-duty power drill for construction work",
   owner: {

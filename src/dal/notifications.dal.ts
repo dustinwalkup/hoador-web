@@ -405,12 +405,13 @@ export class NotificationCategoryPreferencesDAL extends BaseDAL {
     userId: string,
   ): Promise<NotificationCategoryPreferenceRow[]> {
     try {
-      const rows = await this.db.query.notificationCategoryPreferences.findMany(
-        {
-          where: eq(notificationCategoryPreferences.userId, userId),
-        },
+      return await this.withReadRetry(
+        () =>
+          this.db.query.notificationCategoryPreferences.findMany({
+            where: eq(notificationCategoryPreferences.userId, userId),
+          }),
+        "get category preferences by user id",
       );
-      return rows;
     } catch (error) {
       this.handleError(error, "get category preferences by user id");
     }
@@ -548,13 +549,16 @@ export class PushSubscriptionDAL extends BaseDAL {
    */
   async getActiveByUserId(userId: string): Promise<PushSubscriptionRow[]> {
     try {
-      const rows = await this.db.query.pushSubscriptions.findMany({
-        where: and(
-          eq(pushSubscriptions.userId, userId),
-          eq(pushSubscriptions.isActive, true),
-        ),
-      });
-      return rows;
+      return await this.withReadRetry(
+        () =>
+          this.db.query.pushSubscriptions.findMany({
+            where: and(
+              eq(pushSubscriptions.userId, userId),
+              eq(pushSubscriptions.isActive, true),
+            ),
+          }),
+        "get active push subscriptions by user id",
+      );
     } catch (error) {
       this.handleError(error, "get active push subscriptions by user id");
     }
@@ -608,7 +612,15 @@ export class PushSubscriptionDAL extends BaseDAL {
         errorMessage: errorMessage ?? null,
       });
     } catch (error) {
-      this.handleError(error, "create push audit log");
+      // Best-effort: by the time this runs the push has already been
+      // delivered (or already failed). Audit-log failures must not bubble
+      // up — they'd corrupt the push-service retry logic and generate
+      // Sentry noise for an observability-only side effect.
+      console.warn(
+        "[DAL] createAuditLog failed (non-fatal):",
+        (error as Error)?.message,
+        { userId, subscriptionId, eventType, success },
+      );
     }
   }
 }

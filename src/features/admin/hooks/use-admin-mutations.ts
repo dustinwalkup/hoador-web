@@ -1,5 +1,7 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
+import type { PaginatedResult } from "@/dal/types";
+import type { MembershipWithUserAndAddress } from "@/db/schemas/communities.schema";
 
 /**
  * Approve a listing
@@ -25,14 +27,14 @@ export function useApproveListing() {
     invalidateQueryKeys: [
       ["admin", "pending-reviews"],
       ["admin", "review-history"],
-      ["admin", "pending-review-count"],
+      ["admin", "badges"],
     ],
     // On network error (e.g. Mobile Safari "Load failed") the server may have
     // already applied the action. Refetch so the card disappears if processed.
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pending-reviews"] });
       queryClient.invalidateQueries({
-        queryKey: ["admin", "pending-review-count"],
+        queryKey: ["admin", "badges"],
       });
     },
   });
@@ -72,14 +74,14 @@ export function useRejectListing() {
     invalidateQueryKeys: [
       ["admin", "pending-reviews"],
       ["admin", "review-history"],
-      ["admin", "pending-review-count"],
+      ["admin", "badges"],
     ],
     // On network error the server may have already applied the rejection — refetch
     // so the card disappears if the listing was already processed.
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pending-reviews"] });
       queryClient.invalidateQueries({
-        queryKey: ["admin", "pending-review-count"],
+        queryKey: ["admin", "badges"],
       });
     },
   });
@@ -115,7 +117,7 @@ export function useApproveServiceListing() {
     },
     successMessage: undefined,
     invalidateQueryKeys: [
-      ["admin", "pending-service-review-count"],
+      ["admin", "badges"],
       ["admin", "service-review-history"],
     ],
   });
@@ -151,7 +153,7 @@ export function useRejectServiceListing() {
     },
     successMessage: undefined,
     invalidateQueryKeys: [
-      ["admin", "pending-service-review-count"],
+      ["admin", "badges"],
       ["admin", "service-review-history"],
     ],
   });
@@ -249,6 +251,116 @@ export function useDeleteAdminUser() {
     },
     successMessage: "User deleted",
     invalidateQueryKeys: [["admin", "users"]],
+  });
+}
+
+// ============================
+// Community-membership verification queue (R9)
+// ============================
+
+const PENDING_VERIFICATIONS_KEY = ["admin", "pending-verifications"] as const;
+
+export type AdminPendingVerificationsResponse =
+  PaginatedResult<MembershipWithUserAndAddress>;
+
+/**
+ * Paginated queue of community memberships awaiting residency verification.
+ */
+export function useAdminPendingVerifications({
+  page = 1,
+  limit = 25,
+  communityId,
+}: { page?: number; limit?: number; communityId?: string } = {}) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (communityId) params.set("communityId", communityId);
+
+  return useQuery<AdminPendingVerificationsResponse>({
+    queryKey: [...PENDING_VERIFICATIONS_KEY, page, limit, communityId ?? ""],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/admin/community-memberships/pending?${params.toString()}`,
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to load pending verifications");
+      }
+      return response.json();
+    },
+    staleTime: 15 * 1000,
+  });
+}
+
+/**
+ * Approve a pending residency claim (admin). Optional notes.
+ */
+export function useVerifyMembership() {
+  const queryClient = useQueryClient();
+
+  return useCreateMutation({
+    mutationFn: async ({
+      membershipId,
+      adminNotes,
+    }: {
+      membershipId: string;
+      adminNotes?: string;
+    }) => {
+      const formData = new FormData();
+      if (adminNotes && adminNotes.trim()) {
+        formData.append("adminNotes", adminNotes.trim());
+      }
+      const response = await fetch(
+        `/api/admin/community-memberships/${membershipId}/verify`,
+        { method: "POST", body: formData },
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to verify membership");
+      }
+      return response.json();
+    },
+    successMessage: "Membership verified",
+    invalidateQueryKeys: [PENDING_VERIFICATIONS_KEY],
+    onError: () => {
+      // Network errors may still have applied server-side; refetch the queue.
+      queryClient.invalidateQueries({ queryKey: PENDING_VERIFICATIONS_KEY });
+    },
+  });
+}
+
+/**
+ * Deny a pending residency claim (admin). Notes are required.
+ */
+export function useDenyMembership() {
+  const queryClient = useQueryClient();
+
+  return useCreateMutation({
+    mutationFn: async ({
+      membershipId,
+      adminNotes,
+    }: {
+      membershipId: string;
+      adminNotes: string;
+    }) => {
+      const formData = new FormData();
+      formData.append("adminNotes", adminNotes);
+      const response = await fetch(
+        `/api/admin/community-memberships/${membershipId}/deny`,
+        { method: "POST", body: formData },
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to deny membership");
+      }
+      return response.json();
+    },
+    successMessage: "Membership denied",
+    invalidateQueryKeys: [PENDING_VERIFICATIONS_KEY],
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: PENDING_VERIFICATIONS_KEY });
+    },
   });
 }
 

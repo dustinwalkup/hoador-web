@@ -15,7 +15,9 @@ import { ServiceListingService } from "@/features/services/services/service-list
 
 /**
  * GET /api/services/listings/[id]
- * Listing detail (same community or listing provider).
+ * Listing detail. Viewable by the provider always; otherwise only when the
+ * listing is active AND both the viewer and the provider are visible in the
+ * listing's home community (symmetric per-community visibility, R5).
  */
 async function getHandler(
   _request: NextRequest,
@@ -47,17 +49,19 @@ async function getHandler(
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    const membership = await communityDAL.getMembershipForUser(userId);
-    if (!membership) {
-      return NextResponse.json(
-        { error: "You must belong to a community to view listings" },
-        { status: 403 },
-      );
-    }
-
-    const sameCommunity = listing.communityId === membership.community.id;
     const isProvider = listing.providerId === userId;
-    if (!sameCommunity && !isProvider) {
+    let canView = isProvider;
+    if (!canView && listing.status === "active") {
+      const [viewerVisible, providerVisible] = await Promise.all([
+        communityDAL.isVisibleInCommunity(userId, listing.communityId),
+        communityDAL.isVisibleInCommunity(
+          listing.providerId,
+          listing.communityId,
+        ),
+      ]);
+      canView = viewerVisible && providerVisible;
+    }
+    if (!canView) {
       return NextResponse.json(
         { error: "You cannot view this listing" },
         { status: 403 },

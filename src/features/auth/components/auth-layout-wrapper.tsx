@@ -37,8 +37,9 @@ export function AuthLayoutWrapper({
               width={120}
               height={40}
               absolutePosition="-right-14!"
-              className="h-10 w-auto"
+              style={{ height: "2.5rem", width: "auto" }}
               showBetaTag
+              priority
             />
           </Link>
         </motion.div>

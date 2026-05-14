@@ -19,6 +19,7 @@ import {
   Repeat,
   MessageSquare,
   Home,
+  Building2,
 } from "lucide-react";
 
 import {
@@ -45,9 +46,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { UserProfile } from "@/dal/types";
 import { useMobileSidebarClose } from "@/hooks/use-mobile-sidebar-close";
-import { usePendingReviewCount } from "@/features/admin/hooks/use-pending-review-count";
-import { usePendingDisputesCount } from "@/features/admin/hooks/use-pending-disputes-count";
-import { usePendingServiceReviewCount } from "@/features/admin/hooks/use-pending-service-review-count";
+import { useAdminBadges } from "@/features/admin/hooks/use-admin-badges";
 import { NavUser } from "./nav-user";
 
 interface AdminSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -93,6 +92,11 @@ const adminNavItemsAfterPayments = [
     icon: Users,
   },
   {
+    title: "Communities",
+    url: "/admin/dashboard/communities",
+    icon: Building2,
+  },
+  {
     title: "Settings (Coming Soon)",
     url: "/admin/dashboard/settings",
     icon: Settings,
@@ -131,9 +135,10 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
   // Auto-close mobile sidebar on navigation
   useMobileSidebarClose();
   const pathname = usePathname();
-  const { data: pendingCount = 0 } = usePendingReviewCount();
-  const { data: pendingServiceCount = 0 } = usePendingServiceReviewCount();
-  const { data: pendingDisputesCount = 0 } = usePendingDisputesCount();
+  const { data: badges } = useAdminBadges();
+  const pendingCount = badges?.pendingListingReviews ?? 0;
+  const pendingServiceCount = badges?.pendingServiceReviews ?? 0;
+  const pendingDisputesCount = badges?.pendingDisputes ?? 0;
 
   const rentalsReviewUrl = "/admin/dashboard/listings/review";
   const servicesReviewUrl = "/admin/dashboard/services/listings/review";
@@ -162,6 +167,7 @@ export function AdminSidebar({ user, ...props }: AdminSidebarProps) {
                     alt="Hoador Logo"
                     width={100}
                     height={20}
+                    priority
                   />
                   <span className="text-muted-foreground absolute right-5 z-50 text-xs font-semibold">
                     Admin

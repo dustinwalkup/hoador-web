@@ -28,11 +28,6 @@ export default async function BookServicePage({ params }: PageProps) {
   const listing = await serviceListingDAL.getById(id);
   if (!listing) notFound();
 
-  const membership = await communityDAL.getMembershipForUser(userId);
-  if (!membership || listing.communityId !== membership.community.id) {
-    notFound();
-  }
-
   if (listing.providerId === userId) {
     return (
       <div className="container max-w-lg pb-10">
@@ -50,6 +45,17 @@ export default async function BookServicePage({ params }: PageProps) {
   }
 
   if (listing.status !== "active") {
+    notFound();
+  }
+
+  // Symmetric per-community visibility (R5): the requester may book only if
+  // both they and the provider are visible in the listing's home community —
+  // the same gate the services browse and listing detail apply.
+  const [viewerVisible, providerVisible] = await Promise.all([
+    communityDAL.isVisibleInCommunity(userId, listing.communityId),
+    communityDAL.isVisibleInCommunity(listing.providerId, listing.communityId),
+  ]);
+  if (!viewerVisible || !providerVisible) {
     notFound();
   }
 

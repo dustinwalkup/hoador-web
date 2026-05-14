@@ -20,7 +20,7 @@ export default async function DashboardLayout({
   // Status-based redirects (backstop for proxy; ensures correct redirect in all runtimes)
   if (!user.emailVerified || user.status === "pending_verification")
     redirect("/verify-email");
-  if (user.status === "email_verified") redirect("/join-code");
+  if (user.status === "email_verified") redirect("/community-select");
   if (user.status === "incomplete_profile") redirect("/onboarding");
 
   return (

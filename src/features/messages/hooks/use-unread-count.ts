@@ -20,7 +20,6 @@ export function useUnreadMessageCount() {
       const data = await response.json();
       return data.count as number;
     },
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds
+    staleTime: 30 * 1000,
   });
 }

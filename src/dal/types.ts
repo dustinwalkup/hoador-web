@@ -228,6 +228,7 @@ export interface AdminUserDetail extends UserProfile {
 
 export interface ListingDetails {
   id: string;
+  communityId: string;
   name: string;
   description: string;
   brand?: string;

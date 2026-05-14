@@ -171,7 +171,7 @@ export default async function Footer() {
             width={120}
             height={40}
             absolutePosition="-right-14!"
-            className="h-8 w-auto"
+            style={{ height: "2rem", width: "auto" }}
             showBetaTag
           />
           <p className="text-muted-foreground text-sm">{COPYRIGHT}</p>

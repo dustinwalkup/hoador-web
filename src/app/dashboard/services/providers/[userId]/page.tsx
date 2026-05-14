@@ -29,18 +29,23 @@ export default async function ServiceProviderProfilePage({
   const { userId: targetUserId } = await params;
   const viewerId = await getCurrentUserId();
   if (!viewerId) return null;
+  const isSelf = viewerId === targetUserId;
 
-  if (viewerId === targetUserId) {
-    // Self — allowed
-  } else {
-    const [viewerMem, targetMem] = await Promise.all([
-      communityDAL.getMembershipForUser(viewerId),
-      communityDAL.getMembershipForUser(targetUserId),
+  // Symmetric per-community visibility (R5): a non-self viewer may see a
+  // provider's profile only when they share at least one community where both
+  // are visible — the precondition for any of the provider's listings to be
+  // visible to them. Listings shown are then scoped to that shared set.
+  let sharedVisibleCommunityIds: Set<string> | null = null; // null = self (no filter)
+  if (!isSelf) {
+    const [viewerVisible, providerVisible] = await Promise.all([
+      communityDAL.getVisibleCommunityIds(viewerId),
+      communityDAL.getVisibleCommunityIds(targetUserId),
     ]);
-    if (!viewerMem || !targetMem) {
-      notFound();
-    }
-    if (viewerMem.community.id !== targetMem.community.id) {
+    const providerSet = new Set(providerVisible);
+    sharedVisibleCommunityIds = new Set(
+      viewerVisible.filter((c) => providerSet.has(c)),
+    );
+    if (sharedVisibleCommunityIds.size === 0) {
       notFound();
     }
   }
@@ -57,12 +62,16 @@ export default async function ServiceProviderProfilePage({
     blindReviewDAL.getAggregate(targetUserId),
   ]);
 
-  const activeListings = allListings.filter((l) => l.status === "active");
+  const activeListings = allListings.filter(
+    (l) =>
+      l.status === "active" &&
+      (sharedVisibleCommunityIds === null ||
+        sharedVisibleCommunityIds.has(l.communityId)),
+  );
   const name =
     [profileUser.firstName, profileUser.lastName].filter(Boolean).join(" ") ||
     "Member";
   const rating = aggregate.totalReviews > 0 ? aggregate.averageRating : null;
-  const isSelf = viewerId === targetUserId;
 
   return (
     <div className="container max-w-3xl pb-10">
