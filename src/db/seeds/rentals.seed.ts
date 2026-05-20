@@ -219,6 +219,7 @@ async function main(): Promise<void> {
           : null,
       createdAt: dates.createdAt,
       updatedAt: new Date(),
+      expiresAt: new Date(dates.createdAt.getTime() + 72 * 60 * 60 * 1000),
     };
 
     seedRequests.push(request);

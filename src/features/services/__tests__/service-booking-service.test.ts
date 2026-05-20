@@ -57,6 +57,7 @@ vi.mock("@/dal", () => ({
   },
   userDAL: {
     getUserById: (...a: unknown[]) => mockGetUserById(...a),
+    updateConnectOnboardingStatus: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -75,6 +76,13 @@ vi.mock("@/services/stripe/refund", () => ({
 
 vi.mock("@/services/stripe/rental-payments", () => ({
   getPaymentErrorMessage: (...a: unknown[]) => mockGetPaymentErrorMessage(...a),
+  isRetryablePaymentError: vi.fn().mockReturnValue(false),
+}));
+
+vi.mock("@/services/stripe/connect", () => ({
+  getAccountStatus: vi
+    .fn()
+    .mockResolvedValue({ chargesEnabled: true, payoutsEnabled: true }),
 }));
 
 vi.mock("@/features/notifications/utils/send-notification", () => ({
@@ -499,6 +507,119 @@ describe("ServiceBookingService", () => {
       );
       expect(mockSendNotification).toHaveBeenCalled();
       expect(mockSendNotification.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    describe("Stripe Connect gating", () => {
+      it("throws PaymentSetupRequiredError with not_started when provider has no Stripe Connect account", async () => {
+        mockBookingGetById.mockResolvedValue(bookingPending);
+        mockGetUserById.mockResolvedValue({
+          stripeConnectedAccountId: null,
+          connectChargesEnabled: false,
+          connectPayoutsEnabled: false,
+          connectOnboardingComplete: false,
+        });
+
+        await expect(
+          ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+        ).rejects.toMatchObject({
+          code: "PAYMENT_SETUP_REQUIRED",
+          details: {
+            onboardingStatus: "not_started",
+            missingCapabilities: ["charges", "payouts"],
+          },
+        });
+        // Booking state SHALL NOT change when the gate throws.
+        expect(mockBookingUpdate).not.toHaveBeenCalled();
+        expect(mockChargeServicePayment).not.toHaveBeenCalled();
+      });
+
+      it("throws with pending when account exists but capabilities are off", async () => {
+        mockBookingGetById.mockResolvedValue(bookingPending);
+        mockGetUserById.mockResolvedValue({
+          stripeConnectedAccountId: "acct_123",
+          connectChargesEnabled: false,
+          connectPayoutsEnabled: false,
+          connectOnboardingComplete: false,
+        });
+
+        await expect(
+          ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+        ).rejects.toMatchObject({
+          code: "PAYMENT_SETUP_REQUIRED",
+          details: { onboardingStatus: "pending" },
+        });
+        expect(mockChargeServicePayment).not.toHaveBeenCalled();
+      });
+
+      it("throws with restricted when payouts capability is off", async () => {
+        mockBookingGetById.mockResolvedValue(bookingPending);
+        mockGetUserById.mockResolvedValue({
+          stripeConnectedAccountId: "acct_123",
+          connectChargesEnabled: true,
+          connectPayoutsEnabled: false,
+          connectOnboardingComplete: true,
+        });
+
+        await expect(
+          ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+        ).rejects.toMatchObject({
+          code: "PAYMENT_SETUP_REQUIRED",
+          details: {
+            onboardingStatus: "restricted",
+            missingCapabilities: ["payouts"],
+          },
+        });
+      });
+
+      it("throws with regression when live retrieve shows capability loss after cached said verified", async () => {
+        mockBookingGetById.mockResolvedValue(bookingPending);
+        mockGetUserById.mockResolvedValue({
+          stripeConnectedAccountId: "acct_123",
+          connectChargesEnabled: true,
+          connectPayoutsEnabled: true,
+          connectOnboardingComplete: true,
+        });
+        const { getAccountStatus } = await import("@/services/stripe/connect");
+        vi.mocked(getAccountStatus).mockResolvedValueOnce({
+          chargesEnabled: true,
+          payoutsEnabled: false,
+        });
+
+        await expect(
+          ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+        ).rejects.toMatchObject({
+          code: "PAYMENT_SETUP_REQUIRED",
+          details: {
+            onboardingStatus: "restricted",
+            missingCapabilities: ["payouts"],
+          },
+        });
+        expect(mockChargeServicePayment).not.toHaveBeenCalled();
+      });
+
+      it("throws with reason=stripe_unreachable when live retrieve fails", async () => {
+        mockBookingGetById.mockResolvedValue(bookingPending);
+        mockGetUserById.mockResolvedValue({
+          stripeConnectedAccountId: "acct_123",
+          connectChargesEnabled: true,
+          connectPayoutsEnabled: true,
+          connectOnboardingComplete: true,
+        });
+        const { getAccountStatus } = await import("@/services/stripe/connect");
+        vi.mocked(getAccountStatus).mockRejectedValueOnce(
+          new Error("non-transient"),
+        );
+
+        await expect(
+          ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+        ).rejects.toMatchObject({
+          code: "PAYMENT_SETUP_REQUIRED",
+          details: {
+            onboardingStatus: "unknown",
+            reason: "stripe_unreachable",
+          },
+        });
+      });
     });
   });
 

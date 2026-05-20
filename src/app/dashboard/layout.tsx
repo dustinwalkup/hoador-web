@@ -5,6 +5,7 @@ import { ConditionalPadding } from "@/components/conditional-padding";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { PageHeaderProvider } from "@/contexts/page-header-context";
+import { PayoutReadinessBannerServer } from "@/features/payments/components/payout-readiness-banner-server";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,10 @@ export default async function DashboardLayout({
         <PageHeaderProvider>
           <SiteHeader />
           <div className="bg-muted/20">
-            <ConditionalPadding>{children}</ConditionalPadding>
+            <ConditionalPadding>
+              <PayoutReadinessBannerServer />
+              {children}
+            </ConditionalPadding>
           </div>
         </PageHeaderProvider>
       </SidebarInset>

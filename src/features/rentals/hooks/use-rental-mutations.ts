@@ -89,8 +89,19 @@ export function useApproveRentalRequest() {
         const errorObj = new Error(
           error.error || "Failed to approve rental request",
         );
-        // Attach paymentFailed flag if present
-        if (error.paymentFailed) {
+        if (
+          response.status === 403 &&
+          error.error === "PAYMENT_SETUP_REQUIRED"
+        ) {
+          // The dialog catches this code and redirects to the JIT onboarding
+          // page; suppressToast prevents handleMutationError from flashing a
+          // generic error before the navigation happens.
+          Object.assign(errorObj, {
+            code: "PAYMENT_SETUP_REQUIRED",
+            onboardingStatus: error.onboardingStatus,
+            suppressToast: true,
+          });
+        } else if (error.paymentFailed) {
           (errorObj as Error & { paymentFailed?: boolean }).paymentFailed =
             true;
         }

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
 
 const mockFetch = vi.fn().mockResolvedValue({ ok: true });
 
@@ -31,6 +32,19 @@ const mockRentalRequest = {
 
 vi.mock("@/lib/api/route-helpers", () => ({
   handleApiError: vi.fn((err: unknown) => {
+    if (err instanceof PaymentSetupRequiredError) {
+      return NextResponse.json(
+        {
+          error: err.code,
+          onboardingStatus: err.details.onboardingStatus,
+          ...(err.details.missingCapabilities && {
+            missingCapabilities: err.details.missingCapabilities,
+          }),
+          ...(err.details.reason && { reason: err.details.reason }),
+        },
+        { status: err.statusCode },
+      );
+    }
     throw err;
   }),
   parseFormData: vi.fn().mockResolvedValue({}),
@@ -60,12 +74,17 @@ vi.mock("@/dal", () => ({
     getOrCreateStripeCustomerId: vi.fn().mockResolvedValue("cus_123"),
     getConnectedAccountId: vi.fn().mockResolvedValue("acct_123"),
     isConnectOnboardingComplete: vi.fn().mockResolvedValue(true),
+    updateConnectOnboardingStatus: vi.fn().mockResolvedValue(undefined),
     getUserById: vi.fn().mockImplementation((id: string) =>
       Promise.resolve({
         id,
         email: `${id}@example.com`,
         firstName: "Test",
         lastName: "User",
+        stripeConnectedAccountId: "acct_123",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+        connectOnboardingComplete: true,
       }),
     ),
   },
@@ -128,6 +147,12 @@ vi.mock("@/services/stripe/rental-payments", () => ({
   isRetryablePaymentError: vi.fn().mockReturnValue(false),
 }));
 
+vi.mock("@/services/stripe/connect", () => ({
+  getAccountStatus: vi
+    .fn()
+    .mockResolvedValue({ chargesEnabled: true, payoutsEnabled: true }),
+}));
+
 vi.mock("@/features/rentals/notifications/payment-succeeded", () => ({
   sendPaymentSucceededNotificationToRenter: vi
     .fn()
@@ -139,7 +164,8 @@ vi.mock("@/features/rentals/notifications/rental-approved", () => ({
   sendRentalApprovedNotification: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { rentalDAL } from "@/dal";
+import { rentalDAL, userDAL } from "@/dal";
+import { getAccountStatus } from "@/services/stripe/connect";
 
 describe("POST /api/rentals/[id]/approve", () => {
   const originalFetch = globalThis.fetch;
@@ -193,5 +219,116 @@ describe("POST /api/rentals/[id]/approve", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.rentalRequestId).toBe("req-123");
+  });
+
+  describe("Stripe Connect gating", () => {
+    async function callApprove() {
+      const { POST } = await import("./route");
+      const request = new NextRequest(
+        "http://localhost:3000/api/rentals/req-123/approve",
+        { method: "POST" },
+      );
+      return POST(request, { params: Promise.resolve({ id: "req-123" }) });
+    }
+
+    it("returns 403 PAYMENT_SETUP_REQUIRED when owner has no Stripe Connect account", async () => {
+      vi.mocked(userDAL.getUserById).mockResolvedValueOnce({
+        id: "owner-1",
+        email: "owner-1@example.com",
+        firstName: "Test",
+        lastName: "User",
+        stripeConnectedAccountId: null,
+        connectChargesEnabled: false,
+        connectPayoutsEnabled: false,
+        connectOnboardingComplete: false,
+      } as Awaited<ReturnType<typeof userDAL.getUserById>>);
+
+      const response = await callApprove();
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body).toEqual({
+        error: "PAYMENT_SETUP_REQUIRED",
+        onboardingStatus: "not_started",
+        missingCapabilities: ["charges", "payouts"],
+      });
+      expect(getAccountStatus).not.toHaveBeenCalled();
+    });
+
+    it("returns 403 with onboardingStatus=pending when account exists but capabilities are off", async () => {
+      vi.mocked(userDAL.getUserById).mockResolvedValueOnce({
+        id: "owner-1",
+        email: "owner-1@example.com",
+        firstName: "Test",
+        lastName: "User",
+        stripeConnectedAccountId: "acct_123",
+        connectChargesEnabled: false,
+        connectPayoutsEnabled: false,
+        connectOnboardingComplete: false,
+      } as Awaited<ReturnType<typeof userDAL.getUserById>>);
+
+      const response = await callApprove();
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toBe("PAYMENT_SETUP_REQUIRED");
+      expect(body.onboardingStatus).toBe("pending");
+    });
+
+    it("returns 403 with onboardingStatus=restricted when payouts capability is off", async () => {
+      vi.mocked(userDAL.getUserById).mockResolvedValueOnce({
+        id: "owner-1",
+        email: "owner-1@example.com",
+        firstName: "Test",
+        lastName: "User",
+        stripeConnectedAccountId: "acct_123",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: false,
+        connectOnboardingComplete: true,
+      } as Awaited<ReturnType<typeof userDAL.getUserById>>);
+
+      const response = await callApprove();
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body).toEqual({
+        error: "PAYMENT_SETUP_REQUIRED",
+        onboardingStatus: "restricted",
+        missingCapabilities: ["payouts"],
+      });
+    });
+
+    it("returns 403 with regression when cached flags say verified but live shows payouts disabled", async () => {
+      // Default getUserById mock returns verified — so cached fast-path passes.
+      vi.mocked(getAccountStatus).mockResolvedValueOnce({
+        chargesEnabled: true,
+        payoutsEnabled: false,
+      });
+
+      const response = await callApprove();
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body).toMatchObject({
+        error: "PAYMENT_SETUP_REQUIRED",
+        onboardingStatus: "restricted",
+        missingCapabilities: ["payouts"],
+      });
+      expect(userDAL.updateConnectOnboardingStatus).toHaveBeenCalledWith(
+        "owner-1",
+        { chargesEnabled: true, payoutsEnabled: false },
+      );
+    });
+
+    it("returns 403 with reason=stripe_unreachable when live retrieve fails on non-transient error", async () => {
+      vi.mocked(getAccountStatus).mockRejectedValueOnce(
+        new Error("invalid request"),
+      );
+
+      const response = await callApprove();
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body).toEqual({
+        error: "PAYMENT_SETUP_REQUIRED",
+        onboardingStatus: "unknown",
+        reason: "stripe_unreachable",
+      });
+    });
   });
 });

@@ -1,8 +1,6 @@
 import { Suspense } from "react";
-import { userDAL, serviceListingDAL } from "@/dal";
+import { serviceListingDAL } from "@/dal";
 import { getCurrentUser } from "@/features/auth/utils/session";
-import { InitiateStripeOnboarding } from "@/features/payments/components/initiate-stripe-onboarding";
-import { PageHeader } from "@/components/page-header";
 import { MyServiceListingsClient } from "@/features/services/components/my-listings-page/my-service-listings-client";
 import { getServerQueryClient, HydrateClient } from "@/lib/react-query/server";
 import { myServiceListingsKeys } from "@/features/services/hooks/use-service-listings";
@@ -16,20 +14,6 @@ export default async function ListingsServicesPage() {
   const user = await getCurrentUser();
   if (!user) {
     return <div>Loading...</div>;
-  }
-
-  const isOnboarded = await userDAL.isConnectOnboardingComplete(user.id);
-
-  if (!isOnboarded) {
-    return (
-      <div className="container pb-6">
-        <PageHeader
-          title="Your service listings"
-          description="Manage your services and availability"
-        />
-        <InitiateStripeOnboarding />
-      </div>
-    );
   }
 
   const qc = getServerQueryClient();

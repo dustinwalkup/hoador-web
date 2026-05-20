@@ -12,26 +12,12 @@ import {
   sendListingPendingAdminNotification,
   sendListingRejectedNotification,
 } from "@/features/services/notifications/service-notifications";
+import { getPayoutReadiness } from "@/features/payments/lib/payout-readiness";
+import { logGatingEvent } from "@/features/payments/lib/log-events";
 
 import type { AuditContext, CreateListingInput } from "../types";
 
-export type CreateListingResult =
-  | { success: true; listing: ServiceListing }
-  | { success: false; error: "stripe_connect_required" };
-
-async function assertProviderStripeConnect(
-  providerId: string,
-): Promise<boolean> {
-  const profile = await userDAL.getUserById(providerId);
-  if (!profile) {
-    return false;
-  }
-  return Boolean(
-    profile.stripeConnectedAccountId &&
-    profile.connectChargesEnabled &&
-    profile.connectPayoutsEnabled,
-  );
-}
+export type CreateListingResult = { success: true; listing: ServiceListing };
 
 /**
  * Application service for HOA service listings (create, edit, admin approval).
@@ -61,18 +47,14 @@ export class ServiceListingService {
   }
 
   /**
-   * Submits a new listing for admin approval.
+   * Submits a new listing for admin approval. Stripe Connect is NOT required at
+   * this stage; it is enforced just-in-time at booking acceptance.
    */
   static async createListing(
     formData: CreateListingInput,
     providerId: string,
     context: AuditContext,
   ): Promise<CreateListingResult> {
-    const okConnect = await assertProviderStripeConnect(providerId);
-    if (!okConnect) {
-      return { success: false, error: "stripe_connect_required" };
-    }
-
     const listing = await serviceListingDAL.create({
       communityId: formData.communityId,
       providerId,
@@ -87,6 +69,21 @@ export class ServiceListingService {
       adminNote: null,
       rejectionReason: null,
     });
+
+    const user = await userDAL.getUserById(providerId);
+    const readiness = getPayoutReadiness({
+      stripeConnectedAccountId: user.stripeConnectedAccountId ?? null,
+      connectChargesEnabled: user.connectChargesEnabled,
+      connectPayoutsEnabled: user.connectPayoutsEnabled,
+      connectOnboardingComplete: user.connectOnboardingComplete,
+    });
+    if (readiness.onboardingStatus !== "verified") {
+      logGatingEvent("listing_created_without_stripe_connect", {
+        userId: providerId,
+        listingId: listing.id,
+        onboardingStatus: readiness.onboardingStatus,
+      });
+    }
 
     await auditLogDAL.create({
       entityType: "service_listing",

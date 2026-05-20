@@ -126,6 +126,7 @@ describe("getUpcomingSchedule", () => {
         selectedPaymentMethodId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
         listingTitle: "Lawn care",
         counterparty: {
           id: "prov-1",
@@ -164,6 +165,7 @@ describe("getUpcomingSchedule", () => {
         selectedPaymentMethodId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
         listingTitle: "Gutter clean",
         counterparty: {
           id: "req-1",

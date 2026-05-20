@@ -19,7 +19,9 @@ import {
 import {
   calculateServiceFee,
   PLATFORM_FEE_PERCENTAGE,
+  PENDING_BOOKING_EXPIRY_WINDOW_HOURS,
 } from "@/constants/payments";
+import { assertConnectReady } from "@/features/payments/lib/assert-connect-ready";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
@@ -59,18 +61,6 @@ function parseProposedDateTime(
     return new Date();
   }
   return d;
-}
-
-async function assertProviderConnectForCharge(
-  providerId: string,
-): Promise<boolean> {
-  const u = await userDAL.getUserById(providerId);
-  if (!u) return false;
-  return Boolean(
-    u.stripeConnectedAccountId &&
-    u.connectChargesEnabled &&
-    u.connectPayoutsEnabled,
-  );
 }
 
 /**
@@ -143,6 +133,9 @@ export class ServiceBookingService {
       cancellationReason: null,
       completedAt: null,
       selectedPaymentMethodId: formData.paymentMethodId ?? null,
+      expiresAt: new Date(
+        Date.now() + PENDING_BOOKING_EXPIRY_WINDOW_HOURS * 60 * 60 * 1000,
+      ),
     });
 
     await auditLogDAL.create({
@@ -294,13 +287,14 @@ export class ServiceBookingService {
       throw new ValidationError("Booking is not pending", "status");
     }
 
-    const okConnect = await assertProviderConnectForCharge(providerId);
-    if (!okConnect) {
-      throw new ValidationError(
-        "Provider Stripe Connect is not ready to accept payments",
-        "stripe",
-      );
-    }
+    // Stripe Connect readiness: fast-path on cached flags, then authoritative
+    // live retrieve. Throws PaymentSetupRequiredError on any failure; the
+    // route handler translates that to a 403 PAYMENT_SETUP_REQUIRED response.
+    // Booking stays in `pending` since we throw before transitioning state.
+    await assertConnectReady(providerId, {
+      bookingType: "service",
+      bookingId,
+    });
 
     const stripeCtx = await getStripeCustomerContext(detail.requesterId);
     if (!stripeCtx) {

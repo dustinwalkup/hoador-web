@@ -1,0 +1,172 @@
+# Stripe Connect Gating — Implementation Tasks
+
+Ordered for incremental builds: each section's tasks build on the prior section's. Requirement references point to [1-requirements.md](1-requirements.md). Design references point to sections in [2-design.md](2-design.md).
+
+---
+
+- [x] **1. Foundation: types, errors, log helper**
+  - [x] 1.1 Add `OnboardingStatus` type and `PayoutReadiness` type
+    - File: `src/features/payments/lib/payout-readiness.ts`
+    - Export `OnboardingStatus = 'not_started' | 'pending' | 'restricted' | 'verified'`
+    - Export `PayoutReadiness` shape per design §Components #1
+    - _Requirements: 2.1_
+  - [x] 1.2 Implement `getPayoutReadiness(user)` helper with unit tests
+    - Pure function over the four existing user columns
+    - Unit tests cover all branches: `not_started` (no accountId), `pending` (accountId, both flags false), `verified` (both flags true), `restricted` (partial capability)
+    - _Requirements: 2.1, 2.3, 2.4, 2.5, 2.6, 2.7, 7.1, 7.2_
+  - [x] 1.3 Create `PaymentSetupRequiredError` typed error class
+    - File: `src/features/payments/lib/errors.ts`
+    - Shape per design §Components #3 — includes `code`, `onboardingStatus`, `missingCapabilities`, optional `reason: 'stripe_unreachable'`
+    - _Requirements: 3.4, 3.5_
+  - [x] 1.4 Create `logGatingEvent(event, props)` helper
+    - File: `src/features/payments/lib/log-events.ts`
+    - Wraps the existing server logger with a typed event-name union
+    - Unit test: confirm structured shape is emitted for each event name
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
+
+- [x] **2. Data model: expiresAt and cancellationReason**
+  - [x] 2.1 Schema migration: add `expiresAt` to `rentalRequests`
+    - File: `src/db/schemas/rentals.schema.ts` + matching migration file
+    - Add `expires_at timestamptz NOT NULL` column
+    - Backfill existing rows: `expires_at = created_at + interval '72 hours'`
+    - Partial index on `(status, expires_at) WHERE status = 'pending'`
+    - _Requirements: 5.1, 5.2_
+  - [x] 2.2 Schema migration: add `expiresAt` to `serviceBookings`
+    - File: `src/db/schemas/services.schema.ts` + matching migration file
+    - Same shape as 2.1
+    - _Requirements: 5.1, 5.2_
+  - [x] 2.3 Schema migration: add `cancellationReason` if not already present
+    - Inspect both tables first. If absent, add `cancellation_reason text` nullable to each
+    - _Requirements: 5.2, 5.3, 9.3_
+  - [x] 2.4 Add `PENDING_BOOKING_EXPIRY_WINDOW_HOURS = 72` constant
+    - File: `src/constants/payments.ts`
+    - _Requirements: 5.1_
+  - [x] 2.5 Update rental request insert site to set `expiresAt`
+    - Wherever `rentalRequests` rows are created, set `expiresAt = createdAt + PENDING_BOOKING_EXPIRY_WINDOW_HOURS hours`
+    - _Requirements: 5.1_
+  - [x] 2.6 Update service booking insert site to set `expiresAt`
+    - Same as 2.5 for `serviceBookings`
+    - _Requirements: 5.1_
+
+- [x] **3. Backend acceptance gate**
+  - [x] 3.1 Implement `assertConnectReady(userId, opts)` helper with unit tests
+    - File: `src/features/payments/lib/assert-connect-ready.ts`
+    - Behavior per design §Components #2: cached fast-path → live retrieve with one retry → DB sync on regression → fail-closed on Stripe unreachable
+    - Unit tests cover all five branches (cached fails, cached passes & live OK, cached passes & live regresses, transient Stripe error then success, transient Stripe error then failure)
+    - Emits `accept_blocked_payment_setup_required` log event on throw
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.7, 7.3, 7.4, 10.4, NFR Reliability 1, 2_
+  - [x] 3.2 Wire `assertConnectReady` into `RentalService.approveRentalRequest`
+    - File: `src/features/rentals/services/rental-service.ts`
+    - Replace the existing `userDAL.isConnectOnboardingComplete()` block (lines 416-423)
+    - Booking state SHALL NOT change when the helper throws
+    - _Requirements: 3.1, 3.6_
+  - [x] 3.3 Wire `assertConnectReady` into `ServiceBookingService.acceptBooking`
+    - File: `src/features/services/services/service-booking-service.ts`
+    - Replace the existing `assertProviderConnectForCharge` call (lines 297-303); delete that function if it has no other callers
+    - _Requirements: 3.2, 3.6_
+  - [x] 3.4 Translate `PaymentSetupRequiredError` → HTTP 403 in both route handlers
+    - Files: `src/app/api/rentals/[id]/approve/route.ts`, `src/app/api/services/bookings/[id]/accept/route.ts`
+    - Response shape per design §Error Handling
+    - _Requirements: 3.4, 3.5, NFR Security 2_
+  - [x] 3.5 Integration tests for both accept endpoints across readiness states
+    - Verified user → 200 + booking transitions
+    - Each of `not_started`, `pending`, `restricted`, regressed-from-verified → 403 `PAYMENT_SETUP_REQUIRED` with correct body, booking stays `pending`
+    - Stripe unreachable → 403 with `reason: 'stripe_unreachable'`, booking stays `pending`
+
+- [x] **4. Remove listing-creation gates**
+  - [x] 4.1 Remove Stripe Connect gate from rental listing creation
+    - Files: `src/app/dashboard/listings/add/page.tsx` (lines 21-50), `src/features/listings/services/listing-service.ts` (lines 164-177)
+    - Listing form renders unconditionally for authenticated users; service-layer no longer throws on incomplete Connect
+    - _Requirements: 1.1, 1.3, 1.5, 1.6, 1.7_
+  - [x] 4.2 Remove Stripe Connect gate from service listing creation
+    - Files: `src/app/dashboard/services/listings/create/page.tsx` (lines 35-59), service-layer equivalent of the rental check
+    - _Requirements: 1.2, 1.4, 1.5, 1.6, 1.7_
+  - [x] 4.3 Emit `listing_created_without_stripe_connect` log event
+    - In both listing-creation service paths, after a successful insert when `getPayoutReadiness(user).onboardingStatus !== 'verified'`
+    - _Requirements: 10.1_
+
+- [x] **5. Frontend acceptance flow — 403 → redirect**
+  - [x] 5.1 Update rental approve dialog to handle 403 `PAYMENT_SETUP_REQUIRED`
+    - File: `src/features/rentals/components/renting-lending/approve-request-dialog.tsx`
+    - Branch on `error.code`; suppress generic error toast; `router.push('/dashboard/payments/earnings-and-payouts?returnTo=' + currentBookingUrl)`
+    - _Requirements: 4.1, 4.2_
+  - [x] 5.2 Locate and update service-booking accept component for same 403 handling
+    - Identify the component that calls `POST /api/services/bookings/[id]/accept` and apply the same redirect logic
+    - _Requirements: 4.1, 4.2_
+
+- [x] **6. JIT mode on earnings-and-payouts page**
+  - [x] 6.1 Read and validate `returnTo` query param in server component
+    - File: `src/app/dashboard/payments/earnings-and-payouts/page.tsx`
+    - Regex: `/^\/dashboard\/[^/].*/` — reject absolute URLs, protocol-relative URLs, and non-dashboard paths
+    - Pass `returnTo` + computed `readiness` to the client component
+    - _Requirements: 4.4, NFR Security 3_
+  - [x] 6.2 Add `returnTo` mode to client component
+    - File: `src/features/payments/components/earnings-and-payouts-page-client.tsx`
+    - When `returnTo` set: hide `<PaymentsTabs />`, `<OwnerSection />`, `<PaymentExplainerSection />`; render only the onboarding component with copy by `onboardingStatus`
+    - On verified state with `returnTo` set: `router.replace(returnTo)` immediately
+    - On onboarding completion when `returnTo` set: `router.push(returnTo)` instead of switching to `<OwnerSection />`
+    - Apply approved copy per design §Components #7 — no "SSN", "KYC", "verification", "tax ID"
+    - _Requirements: 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 7.5_
+  - [x] 6.3 Emit `connect_onboarding_started_from_accept` and `connect_onboarding_completed_from_accept` log events
+    - At mount when `returnTo` is set, and at successful onboarding completion when `returnTo` is set
+    - _Requirements: 10.2, 10.3_
+  - [x] 6.4 Unit tests for `returnTo` validation
+    - `?returnTo=https://evil.com` → rejected, page renders in non-JIT mode
+    - `?returnTo=//evil.com` → rejected
+    - `?returnTo=/login` → rejected (not under `/dashboard/`)
+    - `?returnTo=/dashboard/rentals/abc` → accepted
+
+- [x] **7. Soft-prompt banner**
+  - [x] 7.1 Implement `PayoutReadinessBanner` component
+    - File: `src/features/payments/components/payout-readiness-banner.tsx`
+    - Visible when user has at least one published listing AND `onboardingStatus !== 'verified'`
+    - Copy by status per design §Components #9
+    - Session-scoped dismissal (`sessionStorage` key `payout-readiness-banner-dismissed`)
+    - CTA links to `/dashboard/payments/earnings-and-payouts` (no `returnTo`)
+    - _Requirements: 8.1, 8.2, 8.4_
+  - [x] 7.2 Wire banner into dashboard layout
+    - Render inside the dashboard layout so it appears on all `/dashboard/*` routes
+    - _Requirements: 8.1_
+
+- [x] **8. Pending-booking expiry cron**
+  - [x] 8.1 Implement cron route handler
+    - File: `src/app/api/cron/expire-pending-bookings/route.ts`
+    - Use existing `verifyCronSecret()` for auth
+    - Logic per design §Components #10: query both tables for `status='pending' AND expiresAt < NOW()`, transition to `cancelled` with `cancellationReason='expired_no_acceptance'`, release any pre-auth deposit hold, send notifications, emit log event
+    - Per-row try/catch; one bad row does not stop the batch
+    - _Requirements: 5.2, 5.3, 5.4, 5.5, 5.7, 10.5_
+  - [x] 8.2 Unit tests for the cron handler
+    - Picks up only `status='pending'` rows past `expiresAt`
+    - Per-row failure isolation (one throws, others still process)
+    - Notification copy varies based on owner's `onboardingStatus`
+    - Deposit pre-auth release path
+    - _Requirements: 5.2, 5.3, 5.4, 5.7_
+  - [x] 8.3 Add cron step to GitHub Actions workflow
+    - File: `.github/workflows/cron-jobs.yml`
+    - Add a new step in the `hourly` job, alongside `monitor-deposit-expiry`
+    - Uses the existing `${{ secrets.CRON_SECRET }}` / `${{ vars.NEXT_PUBLIC_APP_URL }}` pattern
+    - _Requirements: 5.2_
+
+- [x] **9. End-to-end coverage** _(focused JIT-redirect scope — see notes below)_
+  - [x] 9.1 Playwright happy-path: list → request → accept → JIT onboard → return → accept
+    - **Shipped scope:** `e2e/payments/stripe-connect-gating.spec.ts` covers the JIT pivot end-to-end. Not-verified user lands on `/dashboard/payments/earnings-and-payouts?returnTo=...` → JIT view renders (PaymentsTabs absent); then the test-only `/api/test/set-stripe-connect-state` simulates a Stripe completion → server-side `redirect(returnTo)` is exercised on reload.
+    - **Deferred:** automating the Stripe Connect Embedded Components iframe (SSN/bank entry) and clicking real Accept buttons. No rental fixtures exist in `src/db/seeds/e2e.seed.ts`; the 403→redirect contract is covered by route-level integration tests under `src/app/api/rentals/[id]/approve` and `src/app/api/services/bookings/[id]/accept`.
+    - _Requirements: Success Criteria 1, 2, 3_
+  - [x] 9.2 Playwright capability-regression path
+    - **Shipped scope:** same spec file. Seeds verified state via the test endpoint → JIT URL bounces out → flip `connectPayoutsEnabled = false` → JIT URL renders the JIT view (no redirect), verifying the `restricted` branch.
+    - _Requirements: 7.3, 7.4, 7.5_
+
+---
+
+## Coverage map (requirements → tasks)
+
+- **R1** Decouple listing creation → 4.1, 4.2
+- **R2** Payout readiness view → 1.1, 1.2
+- **R3** Backend hard gate → 3.1, 3.2, 3.3, 3.4, 3.5
+- **R4** JIT onboarding UX → 5.1, 5.2, 6.1, 6.2, 6.3
+- **R5** Pending booking expiry → 2.1, 2.2, 2.4, 8.1, 8.2, 8.3
+- **R6** Multi-listing single account → covered structurally by R3 (no per-listing state introduced)
+- **R7** Partial capability → 1.2, 3.1, 9.2
+- **R8** Soft prompts → 7.1, 7.2
+- **R9** Renter-facing UX → 8.1 (notification copy)
+- **R10** Analytics events → 1.4, 3.1, 4.3, 6.3, 8.1

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import {
@@ -105,6 +105,76 @@ export class ServiceBookingDAL extends BaseDAL {
       return row;
     } catch (error) {
       this.handleError(error, "ServiceBookingDAL.update");
+    }
+  }
+
+  /**
+   * Returns pending service bookings whose expiresAt has passed.
+   * Drives the /api/cron/expire-pending-bookings job; uses the partial
+   * index `sb_pending_expires_at_idx`.
+   */
+  async findPendingExpired(now: Date): Promise<
+    Array<{
+      id: string;
+      requesterId: string;
+      providerId: string;
+      listingId: string;
+      listingTitle: string;
+    }>
+  > {
+    try {
+      const rows = await this.db
+        .select({
+          id: serviceBookings.id,
+          requesterId: serviceBookings.requesterId,
+          providerId: serviceBookings.providerId,
+          listingId: serviceBookings.listingId,
+          listingTitle: serviceListings.title,
+        })
+        .from(serviceBookings)
+        .innerJoin(
+          serviceListings,
+          eq(serviceBookings.listingId, serviceListings.id),
+        )
+        .where(
+          and(
+            eq(serviceBookings.status, "pending"),
+            lt(serviceBookings.expiresAt, now),
+          ),
+        );
+      return rows;
+    } catch (error) {
+      this.handleError(error, "ServiceBookingDAL.findPendingExpired");
+    }
+  }
+
+  /**
+   * Atomically transitions a service booking to `cancelled` with
+   * cancellationReason='expired_no_acceptance'. The WHERE clause guards
+   * against double-expiry under concurrent cron ticks.
+   *
+   * @returns `true` if a row was updated, `false` if the row was no longer pending.
+   */
+  async markExpired(bookingId: string): Promise<boolean> {
+    try {
+      const updated = await this.db
+        .update(serviceBookings)
+        .set({
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancellationReason: "expired_no_acceptance",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(serviceBookings.id, bookingId),
+            eq(serviceBookings.status, "pending"),
+          ),
+        )
+        .returning({ id: serviceBookings.id });
+      return updated.length > 0;
+    } catch (error) {
+      this.handleError(error, "ServiceBookingDAL.markExpired");
     }
   }
 

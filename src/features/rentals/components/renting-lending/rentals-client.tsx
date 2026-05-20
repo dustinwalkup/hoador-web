@@ -27,11 +27,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { OnboardingStatus } from "@/features/payments/lib/payout-readiness";
 
 interface RentalsClientProps {
   initialType: "renting" | "lending";
   initialStatus: string;
   reviewPolicyUrl?: string;
+  ownerOnboardingStatus?: OnboardingStatus;
 }
 
 const SCROLL_POSITION_KEY = "rentals-filter-scroll-position";
@@ -40,6 +42,7 @@ export function RentalsClient({
   initialType,
   initialStatus,
   reviewPolicyUrl,
+  ownerOnboardingStatus,
 }: RentalsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -271,6 +274,7 @@ export function RentalsClient({
       return (
         <LendingRequestsList
           data={data as LendingRequestItem[]}
+          ownerOnboardingStatus={ownerOnboardingStatus}
           emptyStateMessage={
             activeStatus === "incoming"
               ? "No rental requests yet"

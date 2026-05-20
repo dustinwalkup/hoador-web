@@ -435,6 +435,13 @@
       "when": 1778803200000,
       "tag": "0061_attach_verona_hills_to_kc_metro",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1779038318312,
+      "tag": "0062_strong_screwball",
+      "breakpoints": true
     }
   ]
 }

@@ -1106,6 +1106,30 @@ export class ListingDAL extends BaseDAL {
   }
 
   /**
+   * Whether the user owns at least one published (approved, active, available-or-rented) listing.
+   * Uses LIMIT 1 — cheaper than a full count when the caller only needs a boolean.
+   */
+  async hasPublishedListings(userId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .select({ id: listings.id })
+        .from(listings)
+        .where(
+          and(
+            eq(listings.ownerId, userId),
+            eq(listings.isActive, true),
+            eq(listings.approvalStatus, "approved"),
+            or(eq(listings.status, "available"), eq(listings.status, "rented")),
+          ),
+        )
+        .limit(1);
+      return result.length > 0;
+    } catch (error) {
+      this.handleError(error, "hasPublishedListings");
+    }
+  }
+
+  /**
    * Get platform-wide count of active listings (approved, available or rented).
    */
   async getActiveListingsCount(): Promise<number> {
