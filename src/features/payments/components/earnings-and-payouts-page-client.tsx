@@ -11,6 +11,7 @@ import { InitiateStripeOnboarding } from "./initiate-stripe-onboarding";
 import { ConnectOnboarding } from "./connect-onboarding";
 import { useAccountSession } from "../hooks/use-stripe-connect";
 import { PaymentExplainerSection } from "./payment-explainer-section";
+import { StripeExplainerSection } from "./stripe-explainer-section";
 import type { OnboardingStatus } from "../lib/payout-readiness";
 
 const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -212,6 +213,7 @@ function EarningsAndPayoutsDashboardView({
         <InitiateStripeOnboarding />
       )}
       <PaymentExplainerSection activeTab="owner" />
+      <StripeExplainerSection />
     </div>
   );
 }
