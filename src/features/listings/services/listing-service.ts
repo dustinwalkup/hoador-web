@@ -1,5 +1,4 @@
 import { eq, max, count } from "drizzle-orm";
-import { tryCatch } from "@walkup/walkup-utils";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
@@ -16,6 +15,8 @@ import {
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalListingPendingAdminNotification } from "@/features/listings/notifications/listing-pending-review";
 import type { CreateListingFormDataServerType } from "@/features/listings/form-schema/listing.schema";
+import { getPayoutReadiness } from "@/features/payments/lib/payout-readiness";
+import { logGatingEvent } from "@/features/payments/lib/log-events";
 
 const MAX_IMAGES_PER_LISTING = 10;
 
@@ -152,30 +153,21 @@ export class ListingService {
   }
 
   /**
-   * Creates a rental listing after Stripe Connect and community checks,
-   * records activity, notifies admins, and records legal document acceptances.
+   * Creates a rental listing after community membership check, records activity,
+   * notifies admins, and records legal document acceptances. Stripe Connect is
+   * NOT required at this stage; it is enforced just-in-time at booking acceptance.
    *
    * @param validatedData - Server-validated listing form payload
    * @param userId - Authenticated owner user id
    * @param context - IP and user agent for legal acceptance records
    * @returns The new listing id
-   * @throws ValidationError if Connect onboarding is incomplete or community membership is missing
+   * @throws ValidationError if community membership is missing
    */
   static async createListing(
     validatedData: CreateListingFormDataServerType,
     userId: string,
     context: ListingCreationContext,
   ): Promise<{ listingId: string }> {
-    const { data: isOnboarded, error: onboardingError } = await tryCatch(
-      userDAL.isConnectOnboardingComplete(userId),
-    );
-
-    if (onboardingError || !isOnboarded) {
-      throw new ValidationError(
-        "Complete Stripe onboarding first. You need to set up payments before creating listings.",
-      );
-    }
-
     const userCommunityInfo =
       await communityDAL.requireUserCommunityMembership(userId);
 
@@ -187,6 +179,21 @@ export class ListingService {
 
     if (!listing) {
       throw new Error("Failed to create listing");
+    }
+
+    const user = await userDAL.getUserById(userId);
+    const readiness = getPayoutReadiness({
+      stripeConnectedAccountId: user.stripeConnectedAccountId ?? null,
+      connectChargesEnabled: user.connectChargesEnabled,
+      connectPayoutsEnabled: user.connectPayoutsEnabled,
+      connectOnboardingComplete: user.connectOnboardingComplete,
+    });
+    if (readiness.onboardingStatus !== "verified") {
+      logGatingEvent("listing_created_without_stripe_connect", {
+        userId,
+        listingId: listing.id,
+        onboardingStatus: readiness.onboardingStatus,
+      });
     }
 
     trackActivity(userId, "listing_created", { listingId: listing.id });

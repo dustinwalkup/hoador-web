@@ -10,6 +10,7 @@ import {
   legalDocumentDAL,
   serviceAgreementDocumentDAL,
   serviceBookingDAL,
+  userDAL,
 } from "@/dal";
 import type { ServiceBookingWithDetails } from "@/dal/service-booking.dal";
 import {
@@ -18,6 +19,10 @@ import {
 } from "@/features/services/components/service-booking-detail-client";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { BlindReviewService } from "@/features/reviews/services/blind-review-service";
+import {
+  getPayoutReadiness,
+  type OnboardingStatus,
+} from "@/features/payments/lib/payout-readiness";
 
 export const metadata = {
   title: "Booking details",
@@ -116,6 +121,25 @@ export default async function ServiceBookingDetailPage({ params }: PageProps) {
       : Promise.resolve(null),
     serviceAgreementDocumentDAL.getByServiceBookingId(id),
   ]);
+
+  // When the current user is the provider on a pending booking, fetch their
+  // payout readiness so the Accept button can pre-empt the accept dialog with
+  // a JIT onboarding prompt when Stripe Connect isn't verified.
+  const isProvider = booking.providerId === userId;
+  let providerOnboardingStatus: OnboardingStatus | undefined;
+  if (
+    isProvider &&
+    (booking.status === "pending" || booking.status === "payment_failed")
+  ) {
+    try {
+      const providerUser = await userDAL.getUserById(userId);
+      providerOnboardingStatus =
+        getPayoutReadiness(providerUser).onboardingStatus;
+    } catch {
+      // Non-critical — fall back to the existing 403 redirect path.
+    }
+  }
+
   const title = booking.listing.title;
 
   return (
@@ -132,6 +156,7 @@ export default async function ServiceBookingDetailPage({ params }: PageProps) {
           serviceAgreementUrl={serviceAgreementDoc?.pdfUrl}
           hasActiveDispute={Boolean(activeDispute)}
           canReview={reviewStatus?.canReview ?? false}
+          providerOnboardingStatus={providerOnboardingStatus}
         />
       </Suspense>
     </div>

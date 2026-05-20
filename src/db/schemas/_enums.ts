@@ -240,6 +240,7 @@ export const cancellationReasonEnum = pgEnum("cancellation_reason", [
   "owner_cancellation", // Owner cancelled after approval
   "renter_no_show", // Renter did not show up — ops-applied
   "owner_no_show", // Owner did not show up — ops-applied
+  "expired_no_acceptance", // Owner never responded; cron auto-expired the pending request
 ]);
 
 export const serviceListingStatusEnum = pgEnum("service_listing_status", [

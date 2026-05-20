@@ -1,9 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { communityDAL, serviceListingDAL, userDAL } from "@/dal";
+import { communityDAL, serviceListingDAL } from "@/dal";
 import { ServiceListingForm } from "@/features/services/components/service-listing-form";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
@@ -27,36 +25,7 @@ export default async function CreateServiceListingPage() {
     );
   }
 
-  const [user, categories] = await Promise.all([
-    userDAL.getUserById(userId),
-    serviceListingDAL.listCategories(),
-  ]);
-
-  const connectOk = Boolean(
-    user.stripeConnectedAccountId &&
-    user.connectChargesEnabled &&
-    user.connectPayoutsEnabled,
-  );
-
-  if (!connectOk) {
-    return (
-      <div className="container max-w-2xl pb-10">
-        <PageHeader
-          title="Stripe Connect required"
-          description="Complete payouts onboarding before offering services."
-        />
-        <p className="text-muted-foreground mb-4 text-sm">
-          We use Stripe Connect to pay providers safely. Finish onboarding, then
-          return here to create your listing.
-        </p>
-        <Button asChild>
-          <Link href="/dashboard/payments/earnings-and-payouts">
-            Set up payouts
-          </Link>
-        </Button>
-      </div>
-    );
-  }
+  const categories = await serviceListingDAL.listCategories();
 
   return (
     <div className="container max-w-2xl pb-10">

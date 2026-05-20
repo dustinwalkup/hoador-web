@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle, Loader2 } from "lucide-react";
 
 import {
@@ -39,6 +40,7 @@ export function ApproveRequestDialog({
   const [returnInstructions, setReturnInstructions] = useState("");
 
   const approveMutation = useApproveRentalRequest();
+  const router = useRouter();
 
   const handleApprove = async () => {
     try {
@@ -59,7 +61,23 @@ export function ApproveRequestDialog({
       setPickupInstructions("");
       setReturnInstructions("");
       onSuccess?.();
-    } catch {
+    } catch (error) {
+      // Server gated the accept because the owner's Stripe Connect isn't ready.
+      // Send them straight into the JIT onboarding flow, preserving where they
+      // came from so we can return them here on completion.
+      if (
+        error !== null &&
+        typeof error === "object" &&
+        (error as { code?: string }).code === "PAYMENT_SETUP_REQUIRED"
+      ) {
+        const returnTo = encodeURIComponent(
+          window.location.pathname + window.location.search,
+        );
+        router.push(
+          `/dashboard/payments/earnings-and-payouts?returnTo=${returnTo}`,
+        );
+        return;
+      }
       // Error toast is already shown by the mutation hook's onError handler.
       // Close the dialog since the approval attempt is complete.
       onOpenChange(false);

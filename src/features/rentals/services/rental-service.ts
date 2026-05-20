@@ -33,6 +33,7 @@ import {
 } from "@/services/stripe/rental-payments";
 import { placeDepositHold } from "@/services/stripe/deposit-hold";
 import { tryCatch } from "@walkup/walkup-utils";
+import { assertConnectReady } from "@/features/payments/lib/assert-connect-ready";
 import { after } from "next/server";
 
 /**
@@ -403,24 +404,14 @@ export class RentalService {
       );
     }
 
-    // Verify owner's Stripe Connect is set up (needed for later payout)
-    const { data: ownerAccountId, error: accountError } = await tryCatch(
-      userDAL.getConnectedAccountId(rentalRequest.ownerId),
-    );
-    if (accountError || !ownerAccountId) {
-      throw new Error(
-        "Owner must complete Stripe onboarding before receiving payments. Please contact the owner.",
-      );
-    }
-
-    const { data: isOnboarded, error: onboardingCheckError } = await tryCatch(
-      userDAL.isConnectOnboardingComplete(rentalRequest.ownerId),
-    );
-    if (onboardingCheckError || !isOnboarded) {
-      throw new Error(
-        "Owner's Stripe account is not fully set up. Please contact the owner to complete onboarding.",
-      );
-    }
+    // Stripe Connect readiness: fast-path on cached flags, then authoritative
+    // live retrieve. Throws PaymentSetupRequiredError on any failure; the
+    // route handler translates that to a 403 PAYMENT_SETUP_REQUIRED response.
+    // Booking stays in `pending` since we throw before transitioning state.
+    await assertConnectReady(rentalRequest.ownerId, {
+      bookingType: "rental",
+      bookingId: rentalId,
+    });
 
     const totalAmount = Number(rentalRequest.totalAmount);
     const applicationFeeAmount = Number(rentalRequest.applicationFeeAmount);

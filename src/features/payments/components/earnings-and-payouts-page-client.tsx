@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { loadConnectAndInitialize } from "@stripe/connect-js";
 import { ConnectComponentsProvider } from "@stripe/react-connect-js";
 import type { StripeConnectInstance } from "@stripe/connect-js";
 import { PaymentsPageError } from "./payments-page-error";
 import { OwnerSection } from "./owner-section";
 import { InitiateStripeOnboarding } from "./initiate-stripe-onboarding";
+import { ConnectOnboarding } from "./connect-onboarding";
 import { useAccountSession } from "../hooks/use-stripe-connect";
 import { PaymentExplainerSection } from "./payment-explainer-section";
+import type { OnboardingStatus } from "../lib/payout-readiness";
 
 const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
@@ -18,15 +21,89 @@ if (!STRIPE_PUBLISHABLE_KEY) {
 
 interface EarningsAndPayoutsPageClientProps {
   isOnboarded: boolean;
+  /** Validated dashboard path to navigate to after JIT onboarding completes. */
+  returnTo?: string;
+  /** Derived readiness from the server; required when `returnTo` is set. */
+  onboardingStatus?: OnboardingStatus;
 }
 
+/** JIT-mode copy variants by readiness state. */
+const JIT_COPY: Record<
+  Exclude<OnboardingStatus, "verified">,
+  { heading: string; description: string }
+> = {
+  not_started: {
+    heading: "Connect your payout account to accept this booking",
+    description:
+      "Add a bank account so you can get paid. We use Stripe to keep your info secure.",
+  },
+  pending: {
+    heading: "Finish connecting your payout account",
+    description: "A few more details and you're ready to accept bookings.",
+  },
+  restricted: {
+    heading: "Your payout account needs more information",
+    description:
+      "Stripe needs an update before bookings can be accepted on your account.",
+  },
+};
+
 /**
- * Client component for the earnings and payouts page
- * Handles Stripe Connect initialization and renders owner section
+ * Client component for the earnings and payouts page.
+ * Dispatches to the JIT onboarding view when arriving from the accept flow,
+ * otherwise renders the full earnings dashboard.
  */
 export function EarningsAndPayoutsPageClient({
   isOnboarded,
+  returnTo,
+  onboardingStatus,
 }: EarningsAndPayoutsPageClientProps) {
+  if (returnTo) {
+    return (
+      <JitOnboardingView
+        returnTo={returnTo}
+        onboardingStatus={onboardingStatus}
+      />
+    );
+  }
+  return <EarningsAndPayoutsDashboardView isOnboarded={isOnboarded} />;
+}
+
+/**
+ * JIT mode: render only the onboarding form with context copy. On completion,
+ * navigate to the originating booking.
+ */
+function JitOnboardingView({
+  returnTo,
+  onboardingStatus,
+}: {
+  returnTo: string;
+  onboardingStatus?: OnboardingStatus;
+}) {
+  const router = useRouter();
+  const status =
+    onboardingStatus && onboardingStatus !== "verified"
+      ? onboardingStatus
+      : "not_started";
+  const copy = JIT_COPY[status];
+  return (
+    <ConnectOnboarding
+      heading={copy.heading}
+      description={copy.description}
+      fromJitAccept
+      onComplete={() => router.push(returnTo)}
+    />
+  );
+}
+
+/**
+ * Default dashboard view — Stripe Connect initialization plus the owner section.
+ */
+function EarningsAndPayoutsDashboardView({
+  isOnboarded,
+}: {
+  isOnboarded: boolean;
+}) {
   const [connectInstance, setConnectInstance] =
     useState<StripeConnectInstance | null>(null);
   const [initError, setInitError] = useState<string | null>(null);

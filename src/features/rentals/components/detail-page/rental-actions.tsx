@@ -29,6 +29,8 @@ import {
 import { FileDisputeDialog } from "@/features/disputes/components/file-dispute-dialog";
 import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
 import { ReviewFormDialog } from "@/features/reviews/components/review-form-dialog";
+import { PayoutSetupRequiredDialog } from "@/features/payments/components/payout-setup-required-dialog";
+import type { OnboardingStatus } from "@/features/payments/lib/payout-readiness";
 
 interface RentalActionsProps {
   rentalDetails: RentalActionsInfo;
@@ -39,6 +41,7 @@ interface RentalActionsProps {
   disputePolicyUrl?: string;
   activeDispute?: DisputeWithRelations | null;
   canReview?: boolean;
+  ownerOnboardingStatus?: OnboardingStatus;
 }
 
 export function RentalActions({
@@ -49,6 +52,7 @@ export function RentalActions({
   disputePolicyUrl,
   activeDispute,
   canReview: canReviewProp,
+  ownerOnboardingStatus,
 }: RentalActionsProps) {
   const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -58,6 +62,7 @@ export function RentalActions({
     "renter" | "owner"
   >("renter");
   const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showPayoutSetupDialog, setShowPayoutSetupDialog] = useState(false);
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
   const [showUpdateInstructionsDialog, setShowUpdateInstructionsDialog] =
     useState(false);
@@ -161,7 +166,16 @@ export function RentalActions({
               <>
                 <Button
                   className="w-full"
-                  onClick={() => setShowApproveDialog(true)}
+                  onClick={() => {
+                    if (
+                      ownerOnboardingStatus &&
+                      ownerOnboardingStatus !== "verified"
+                    ) {
+                      setShowPayoutSetupDialog(true);
+                    } else {
+                      setShowApproveDialog(true);
+                    }
+                  }}
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />
                   Approve
@@ -286,6 +300,16 @@ export function RentalActions({
         renterName={rentalDetails.renterName}
         deliveryRequested={rentalDetails.deliveryRequested}
       />
+
+      {/* Payout Setup Required Dialog — shown when Approve is clicked but the
+          owner's Stripe Connect onboarding is not yet verified. */}
+      {ownerOnboardingStatus && ownerOnboardingStatus !== "verified" && (
+        <PayoutSetupRequiredDialog
+          open={showPayoutSetupDialog}
+          onOpenChange={setShowPayoutSetupDialog}
+          onboardingStatus={ownerOnboardingStatus}
+        />
+      )}
 
       {/* Decline Request Dialog */}
       <DeclineRequestDialog

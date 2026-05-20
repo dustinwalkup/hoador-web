@@ -8,6 +8,12 @@ vi.mock("@/services/stripe/rental-payments", () => ({
   isRetryablePaymentError: vi.fn().mockReturnValue(false),
 }));
 
+vi.mock("@/services/stripe/connect", () => ({
+  getAccountStatus: vi
+    .fn()
+    .mockResolvedValue({ chargesEnabled: true, payoutsEnabled: true }),
+}));
+
 vi.mock("@/services/stripe/deposit-hold", () => ({
   placeDepositHold: (...args: unknown[]) => mockPlaceDepositHold(...args),
 }));
@@ -184,6 +190,10 @@ describe("RentalService.approveRentalRequest — deposit hold failure (UAT-P1-08
               email: "owner@test.com",
               firstName: "Owner",
               lastName: "Test",
+              stripeConnectedAccountId: "acct_123",
+              connectChargesEnabled: true,
+              connectPayoutsEnabled: true,
+              connectOnboardingComplete: true,
             },
       ),
     );

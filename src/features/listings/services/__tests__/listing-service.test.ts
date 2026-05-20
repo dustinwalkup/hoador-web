@@ -3,11 +3,19 @@ import { ListingService } from "../listing-service";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
 import type { CreateListingFormDataServerType } from "@/features/listings/form-schema/listing.schema";
 
+const { mockLogGatingEvent } = vi.hoisted(() => ({
+  mockLogGatingEvent: vi.fn(),
+}));
+
+vi.mock("@/features/payments/lib/log-events", () => ({
+  logGatingEvent: mockLogGatingEvent,
+}));
+
 const mockGetListingById = vi.fn();
 const mockUpdateListing = vi.fn();
 const mockDeleteListing = vi.fn();
 const mockCreateListing = vi.fn();
-const mockIsConnectOnboardingComplete = vi.fn();
+const mockGetUserById = vi.fn();
 const mockRequireUserCommunityMembership = vi.fn();
 const mockGetAllCurrentVersions = vi.fn();
 const mockRecordAcceptance = vi.fn();
@@ -40,8 +48,7 @@ vi.mock("@/dal", () => ({
     createListing: (...args: unknown[]) => mockCreateListing(...args),
   },
   userDAL: {
-    isConnectOnboardingComplete: (...args: unknown[]) =>
-      mockIsConnectOnboardingComplete(...args),
+    getUserById: (...args: unknown[]) => mockGetUserById(...args),
   },
   communityDAL: {
     requireUserCommunityMembership: (...args: unknown[]) =>
@@ -126,7 +133,13 @@ describe("ListingService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetListingById.mockResolvedValue(mockListing);
-    mockIsConnectOnboardingComplete.mockResolvedValue(true);
+    mockGetUserById.mockResolvedValue({
+      id: "user-1",
+      stripeConnectedAccountId: "acct_123",
+      connectChargesEnabled: true,
+      connectPayoutsEnabled: true,
+      connectOnboardingComplete: true,
+    });
     mockRequireUserCommunityMembership.mockResolvedValue({
       community: { id: "community-1" },
     });
@@ -138,17 +151,31 @@ describe("ListingService", () => {
   });
 
   describe("createListing", () => {
-    it("throws ValidationError when Stripe Connect onboarding is incomplete", async () => {
-      mockIsConnectOnboardingComplete.mockResolvedValue(false);
+    it("creates the listing and emits listing_created_without_stripe_connect when Connect is incomplete", async () => {
+      mockGetUserById.mockResolvedValue({
+        id: "user-1",
+        stripeConnectedAccountId: null,
+        connectChargesEnabled: false,
+        connectPayoutsEnabled: false,
+        connectOnboardingComplete: false,
+      });
 
-      await expect(
-        ListingService.createListing(minimalListingPayload, "user-1", {
-          ipAddress: "127.0.0.1",
-          userAgent: "vitest",
+      const result = await ListingService.createListing(
+        minimalListingPayload,
+        "user-1",
+        { ipAddress: "127.0.0.1", userAgent: "vitest" },
+      );
+
+      expect(result.listingId).toBe("listing-new");
+      expect(mockCreateListing).toHaveBeenCalled();
+      expect(mockLogGatingEvent).toHaveBeenCalledWith(
+        "listing_created_without_stripe_connect",
+        expect.objectContaining({
+          userId: "user-1",
+          listingId: "listing-new",
+          onboardingStatus: "not_started",
         }),
-      ).rejects.toThrow(ValidationError);
-
-      expect(mockCreateListing).not.toHaveBeenCalled();
+      );
     });
 
     it("creates listing, tracks activity, and notifies admins on success", async () => {

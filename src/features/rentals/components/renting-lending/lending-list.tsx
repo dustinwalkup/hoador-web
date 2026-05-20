@@ -17,6 +17,7 @@ import {
 import type { LendingRequestItem } from "@/dal/rentals.dal";
 import { LendingCard } from "@/features/rentals/components/renting-lending";
 import { EmptyStateCoach } from "@/components/empty-state-coach";
+import type { OnboardingStatus } from "@/features/payments/lib/payout-readiness";
 
 interface LendingRequestsListProps {
   data: LendingRequestItem[];
@@ -25,12 +26,14 @@ interface LendingRequestsListProps {
     label: string;
     href: string;
   };
+  ownerOnboardingStatus?: OnboardingStatus;
 }
 
 export function LendingRequestsList({
   data,
   emptyStateMessage,
   emptyStateAction,
+  ownerOnboardingStatus,
 }: LendingRequestsListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
@@ -151,7 +154,11 @@ export function LendingRequestsList({
         <>
           <div className="space-y-4">
             {paginatedData.map((item) => (
-              <LendingCard key={item.id} request={item} />
+              <LendingCard
+                key={item.id}
+                request={item}
+                ownerOnboardingStatus={ownerOnboardingStatus}
+              />
             ))}
           </div>
 

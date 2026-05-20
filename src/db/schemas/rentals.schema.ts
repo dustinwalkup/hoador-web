@@ -19,7 +19,7 @@ import {
   paymentStatusEnum,
   cancellationReasonEnum,
 } from "./_enums";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { payments } from "./payments.schema";
 
 // Rental requests
@@ -86,6 +86,13 @@ export const rentalRequests = pgTable(
     cancelledBy: text("cancelled_by").references(() => user.id),
     cancellationReason: cancellationReasonEnum("cancellation_reason"),
     cancellationNotes: text("cancellation_notes"),
+    /**
+     * Hard deadline for a pending request. After this time, the cron at
+     * /api/cron/expire-pending-bookings transitions the row to `cancelled` with
+     * cancellationReason='expired_no_acceptance'. Set at insert time to
+     * createdAt + PENDING_BOOKING_EXPIRY_WINDOW_HOURS.
+     */
+    expiresAt: timestamp("expires_at").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -106,6 +113,9 @@ export const rentalRequests = pgTable(
       table.renterId,
       table.status,
     ),
+    pendingExpiresAtIdx: index("rental_requests_pending_expires_at_idx")
+      .on(table.expiresAt)
+      .where(sql`status = 'pending'`),
   }),
 );
 

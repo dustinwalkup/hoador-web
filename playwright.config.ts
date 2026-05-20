@@ -57,6 +57,11 @@ export default defineConfig({
       testMatch: /e2e\/services\/.*\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "payments",
+      testMatch: /e2e\/payments\/.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
   ],
   globalSetup: path.resolve(
     process.cwd(),

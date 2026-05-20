@@ -96,7 +96,17 @@ export function useAcceptServiceBooking(bookingId: string) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error ?? "Failed to accept booking");
+        const errorObj = new Error(data.error ?? "Failed to accept booking");
+        if (res.status === 403 && data.error === "PAYMENT_SETUP_REQUIRED") {
+          // Caller (UI) redirects to JIT onboarding; suppress the auto-toast
+          // so the user doesn't see a flash of error before the navigation.
+          Object.assign(errorObj, {
+            code: "PAYMENT_SETUP_REQUIRED",
+            onboardingStatus: data.onboardingStatus,
+            suppressToast: true,
+          });
+        }
+        throw errorObj;
       }
       return data as { status: string };
     },

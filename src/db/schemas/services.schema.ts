@@ -11,7 +11,7 @@ import {
   index,
   boolean,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 import {
   serviceBookingStatusEnum,
@@ -112,6 +112,13 @@ export const serviceBookings = pgTable(
     selectedPaymentMethodId: varchar("selected_payment_method_id", {
       length: 255,
     }),
+    /**
+     * Hard deadline for a pending booking. After this time, the cron at
+     * /api/cron/expire-pending-bookings transitions the row to `cancelled` with
+     * cancellationReason='expired_no_acceptance'. Set at insert time to
+     * createdAt + PENDING_BOOKING_EXPIRY_WINDOW_HOURS.
+     */
+    expiresAt: timestamp("expires_at").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -119,6 +126,9 @@ export const serviceBookings = pgTable(
     completedAtIdx: index("sb_completed_at_idx").on(table.completedAt),
     providerIdx: index("sb_provider_idx").on(table.providerId),
     requesterIdx: index("sb_requester_idx").on(table.requesterId),
+    pendingExpiresAtIdx: index("sb_pending_expires_at_idx")
+      .on(table.expiresAt)
+      .where(sql`status = 'pending'`),
   }),
 );
 
