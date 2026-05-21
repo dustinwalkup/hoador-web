@@ -7,14 +7,24 @@ import { toast } from "sonner";
 import type { QueryKey } from "@tanstack/react-query";
 
 /**
- * Standard mutation error handler
- * Shows toast notification with error message
- * If customMessage is provided, it takes precedence over the error's message
+ * Standard mutation error handler. Shows toast notification with error message.
+ * If customMessage is provided, it takes precedence over the error's message.
+ *
+ * Errors marked with `suppressToast: true` bypass the toast — the caller is
+ * expected to drive user feedback another way (e.g., a redirect).
  */
 export function handleMutationError(
   error: unknown,
   customMessage?: string,
 ): void {
+  if (
+    error !== null &&
+    typeof error === "object" &&
+    (error as { suppressToast?: boolean }).suppressToast === true
+  ) {
+    return;
+  }
+
   const errorMessage = customMessage
     ? customMessage
     : error instanceof Error

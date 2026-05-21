@@ -10,6 +10,7 @@ import {
 } from "@/features/rentals/components/detail-page";
 import { RentalStatusProgress } from "./rental-status-progress";
 import { BookingReviewsSection } from "@/features/reviews/components/booking-reviews-section";
+import type { OnboardingStatus } from "@/features/payments/lib/payout-readiness";
 
 interface RentalContentProps {
   rentalDetails: RentalDetails;
@@ -20,6 +21,7 @@ interface RentalContentProps {
   disputePolicyUrl?: string;
   activeDispute?: DisputeWithRelations | null;
   canReview?: boolean;
+  ownerOnboardingStatus?: OnboardingStatus;
 }
 
 export function RentalContent({
@@ -31,6 +33,7 @@ export function RentalContent({
   disputePolicyUrl,
   activeDispute,
   canReview,
+  ownerOnboardingStatus,
 }: RentalContentProps) {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -86,6 +89,7 @@ export function RentalContent({
           disputePolicyUrl={disputePolicyUrl}
           activeDispute={activeDispute}
           canReview={canReview}
+          ownerOnboardingStatus={ownerOnboardingStatus}
         />
         <RentalProtection />
       </div>

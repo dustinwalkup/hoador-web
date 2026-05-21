@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ServiceListingService } from "../services/service-listing-service";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/dal/errors";
 
+const { mockLogGatingEvent } = vi.hoisted(() => ({
+  mockLogGatingEvent: vi.fn(),
+}));
+
+vi.mock("@/features/payments/lib/log-events", () => ({
+  logGatingEvent: mockLogGatingEvent,
+}));
+
 const mockGetUserById = vi.fn();
 const mockListingCreate = vi.fn();
 const mockListingGetById = vi.fn();
@@ -84,11 +92,14 @@ describe("ServiceListingService", () => {
       ownerPoliciesAcknowledged: true,
     };
 
-    it("returns stripe_connect_required when Connect is not ready", async () => {
+    it("creates the listing even when Connect is not ready and emits listing_created_without_stripe_connect", async () => {
       mockGetUserById.mockResolvedValue({
         ...connectUser,
         connectChargesEnabled: false,
+        connectPayoutsEnabled: false,
+        connectOnboardingComplete: false,
       });
+      mockListingCreate.mockResolvedValue(listing);
 
       const result = await ServiceListingService.createListing(
         form,
@@ -96,15 +107,24 @@ describe("ServiceListingService", () => {
         ctx,
       );
 
-      expect(result).toEqual({
-        success: false,
-        error: "stripe_connect_required",
-      });
-      expect(mockListingCreate).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(mockListingCreate).toHaveBeenCalled();
+      expect(mockSendPending).toHaveBeenCalledWith(listing);
+      expect(mockLogGatingEvent).toHaveBeenCalledWith(
+        "listing_created_without_stripe_connect",
+        expect.objectContaining({
+          userId: "prov-1",
+          listingId: "list-1",
+          onboardingStatus: "pending",
+        }),
+      );
     });
 
     it("creates listing and sends admin notification when Connect is active", async () => {
-      mockGetUserById.mockResolvedValue(connectUser);
+      mockGetUserById.mockResolvedValue({
+        ...connectUser,
+        connectOnboardingComplete: true,
+      });
       mockListingCreate.mockResolvedValue(listing);
 
       const result = await ServiceListingService.createListing(
@@ -119,10 +139,14 @@ describe("ServiceListingService", () => {
       }
       expect(mockSendPending).toHaveBeenCalledWith(listing);
       expect(mockAuditCreate).toHaveBeenCalled();
+      expect(mockLogGatingEvent).not.toHaveBeenCalled();
     });
 
     it("passes status pending_approval to DAL create", async () => {
-      mockGetUserById.mockResolvedValue(connectUser);
+      mockGetUserById.mockResolvedValue({
+        ...connectUser,
+        connectOnboardingComplete: true,
+      });
       mockListingCreate.mockResolvedValue(listing);
 
       await ServiceListingService.createListing(form, "prov-1", ctx);

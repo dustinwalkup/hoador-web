@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import { rentalDAL, legalDocumentDAL, disputeDAL } from "@/dal";
+import { rentalDAL, legalDocumentDAL, disputeDAL, userDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalLayout } from "./rental-layout";
 import { RentalContent } from "./rental-content";
 import { getAuthenticatedUser } from "@/features/auth/utils/session";
 import { BlindReviewService } from "@/features/reviews/services/blind-review-service";
+import { getPayoutReadiness } from "@/features/payments/lib/payout-readiness";
 
 interface RentalDetailsServerProps {
   rentalId: string;
@@ -112,6 +113,19 @@ export async function RentalDetailsServer({
     }
   }
 
+  // When the current user is the owner viewing a pending request, fetch their
+  // Stripe Connect payout readiness so the Approve button can pre-empt the
+  // approve dialog when onboarding is incomplete.
+  let ownerOnboardingStatus;
+  if (isOwner && rentalDetails.status === "pending") {
+    try {
+      const ownerUser = await userDAL.getUserById(userId);
+      ownerOnboardingStatus = getPayoutReadiness(ownerUser).onboardingStatus;
+    } catch {
+      // Non-critical — fall back to the existing 403 redirect path.
+    }
+  }
+
   return (
     <RentalLayout
       rentalDetails={rentalDetails}
@@ -129,6 +143,7 @@ export async function RentalDetailsServer({
         disputePolicyUrl={disputePolicyUrl}
         activeDispute={activeDispute}
         canReview={canReview}
+        ownerOnboardingStatus={ownerOnboardingStatus}
       />
     </RentalLayout>
   );

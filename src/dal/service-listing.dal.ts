@@ -820,6 +820,28 @@ export class ServiceListingDAL extends BaseDAL {
   }
 
   /**
+   * Whether the provider owns at least one published (status='active') service listing.
+   * Uses LIMIT 1 — cheaper than a full count when the caller only needs a boolean.
+   */
+  async hasPublishedListings(providerId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .select({ id: serviceListings.id })
+        .from(serviceListings)
+        .where(
+          and(
+            eq(serviceListings.providerId, providerId),
+            eq(serviceListings.status, "active"),
+          ),
+        )
+        .limit(1);
+      return result.length > 0;
+    } catch (error) {
+      this.handleError(error, "ServiceListingDAL.hasPublishedListings");
+    }
+  }
+
+  /**
    * All listings owned by a provider (any status).
    */
   async findByProvider(providerId: string): Promise<ServiceListing[]> {

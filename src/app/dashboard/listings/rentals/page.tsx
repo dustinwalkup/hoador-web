@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { GarageClient } from "@/features/listings/components/garage-page/garage-client";
-import { InitiateStripeOnboarding } from "@/features/payments/components/initiate-stripe-onboarding";
-import { PageHeader } from "@/components/page-header";
 import { listingDAL } from "@/dal";
 import { db } from "@/db/db";
 import { listings } from "@/db/schemas/listings.schema";
@@ -19,27 +17,6 @@ export default async function ListingsRentalsPage() {
   const user = await getCurrentUser();
   if (!user) {
     return <div>Loading...</div>;
-  }
-
-  const isOnboarded =
-    user.connectChargesEnabled &&
-    user.connectPayoutsEnabled &&
-    user.connectOnboardingComplete;
-
-  if (!isOnboarded) {
-    return (
-      <div className="container pb-6">
-        <>
-          <div className="container pb-6">
-            <PageHeader
-              title="Your rental listings"
-              description="Manage your rental listings in one place"
-            />
-            <InitiateStripeOnboarding />{" "}
-          </div>{" "}
-        </>
-      </div>
-    );
   }
 
   const qc = getServerQueryClient();

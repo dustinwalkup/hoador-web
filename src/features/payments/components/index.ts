@@ -12,3 +12,4 @@ export { PaymentsTabs } from "./payments-tabs";
 export { PaymentsTabTrigger } from "./payments-tab-trigger";
 export { GenericCardIcon } from "./generic";
 export { PaymentExplainerSection } from "./payment-explainer-section";
+export { StripeExplainerSection } from "./stripe-explainer-section";

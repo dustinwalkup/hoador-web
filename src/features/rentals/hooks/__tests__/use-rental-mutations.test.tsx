@@ -396,6 +396,41 @@ describe("useApproveRentalRequest", () => {
       }),
     ).rejects.toThrow("Rental request not found");
   });
+
+  it("attaches PAYMENT_SETUP_REQUIRED metadata and suppresses toast on 403", async () => {
+    const errorResponse = {
+      error: "PAYMENT_SETUP_REQUIRED",
+      onboardingStatus: "pending",
+      missingCapabilities: ["payouts"],
+    };
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => errorResponse,
+    });
+
+    const { result } = renderHook(() => useApproveRentalRequest(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    let caught: unknown;
+    try {
+      await result.current.mutateAsync({ rentalId: "rental-123" });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toMatchObject({
+      message: "PAYMENT_SETUP_REQUIRED",
+      code: "PAYMENT_SETUP_REQUIRED",
+      onboardingStatus: "pending",
+      suppressToast: true,
+    });
+    // suppressToast was honored — no error toast was shown.
+    expect(toast.error).not.toHaveBeenCalled();
+  });
 });
 
 describe("useDeclineRentalRequest", () => {

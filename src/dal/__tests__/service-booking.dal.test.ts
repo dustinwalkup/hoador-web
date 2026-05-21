@@ -73,6 +73,7 @@ describe("ServiceBookingDAL", () => {
         cancelledBy: null,
         cancellationReason: null,
         completedAt: null,
+        expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
       });
 
       expect(result).toEqual(bookingRow);
@@ -107,6 +108,7 @@ describe("ServiceBookingDAL", () => {
           cancelledBy: null,
           cancellationReason: null,
           completedAt: null,
+          expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
         }),
       ).rejects.toThrow(NotFoundError);
     });

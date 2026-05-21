@@ -39,9 +39,24 @@ const ONBOARDING_TIPS: OnboardingTip[] = [
 
 interface ConnectOnboardingProps {
   onComplete?: () => void;
+  /** Card title; defaults to "Set up payouts to start earning". */
+  heading?: string;
+  /** Card description; defaults to "Secure Stripe setup. Takes ~2 minutes.". */
+  description?: string;
+  /**
+   * When true, the completion call tells the server the user arrived from the
+   * just-in-time accept flow so it can emit a `connect_onboarding_completed_from_accept`
+   * log event. Defaults to false (regular dashboard onboarding).
+   */
+  fromJitAccept?: boolean;
 }
 
-export function ConnectOnboarding({ onComplete }: ConnectOnboardingProps) {
+export function ConnectOnboarding({
+  onComplete,
+  heading,
+  description,
+  fromJitAccept,
+}: ConnectOnboardingProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectInstance, setConnectInstance] =
@@ -102,6 +117,10 @@ export function ConnectOnboarding({ onComplete }: ConnectOnboardingProps) {
     try {
       const response = await fetch("/api/stripe/update-onboarding-status", {
         method: "POST",
+        ...(fromJitAccept && {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fromJitAccept: true }),
+        }),
       });
 
       if (!response.ok) {
@@ -155,9 +174,9 @@ export function ConnectOnboarding({ onComplete }: ConnectOnboardingProps) {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Set up payouts to start earning</CardTitle>
+          <CardTitle>{heading ?? "Set up payouts to start earning"}</CardTitle>
           <CardDescription>
-            Secure Stripe setup. Takes ~2 minutes.
+            {description ?? "Secure Stripe setup. Takes ~2 minutes."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

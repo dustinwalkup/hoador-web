@@ -17,6 +17,7 @@ import { BaseDAL } from "./base";
 import { ConflictError, NotFoundError } from "./errors";
 import type { CancellationReason } from "./types";
 import { alias } from "drizzle-orm/pg-core";
+import { PENDING_BOOKING_EXPIRY_WINDOW_HOURS } from "@/constants/payments";
 
 const serviceBookingRequesterForAlerts = alias(user, "sb_req_alerts");
 const serviceBookingProviderForAlerts = alias(user, "sb_prov_alerts");
@@ -501,6 +502,9 @@ export class RentalDAL extends BaseDAL {
     payload: InsertRentalRequestPayload,
   ): Promise<{ id: string }> {
     try {
+      const expiresAt = new Date(
+        Date.now() + PENDING_BOOKING_EXPIRY_WINDOW_HOURS * 60 * 60 * 1000,
+      );
       const [rentalRequest] = await this.db
         .insert(rentalRequests)
         .values({
@@ -527,6 +531,7 @@ export class RentalDAL extends BaseDAL {
           paymentIntentId: payload.paymentIntentId,
           paymentMethodId: payload.paymentMethodId,
           status: payload.status,
+          expiresAt,
         })
         .returning();
 
@@ -1615,6 +1620,75 @@ export class RentalDAL extends BaseDAL {
       }));
     } catch (error) {
       this.handleError(error, "getLendingRentalsByStatus");
+    }
+  }
+
+  /**
+   * Returns pending rental requests whose expiresAt has passed.
+   * Drives the /api/cron/expire-pending-bookings job; uses the partial
+   * index `rental_requests_pending_expires_at_idx`.
+   */
+  async findPendingExpiredRequests(now: Date): Promise<
+    Array<{
+      id: string;
+      renterId: string;
+      ownerId: string;
+      listingId: string;
+      listingName: string;
+      securityDepositAuthId: string | null;
+    }>
+  > {
+    try {
+      const rows = await this.db
+        .select({
+          id: rentalRequests.id,
+          renterId: rentalRequests.renterId,
+          ownerId: rentalRequests.ownerId,
+          listingId: rentalRequests.listingId,
+          listingName: listings.name,
+          securityDepositAuthId: rentalRequests.securityDepositAuthId,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .where(
+          and(
+            eq(rentalRequests.status, "pending"),
+            lt(rentalRequests.expiresAt, now),
+          ),
+        );
+      return rows;
+    } catch (error) {
+      this.handleError(error, "findPendingExpiredRequests");
+    }
+  }
+
+  /**
+   * Atomically transitions a rental request to `cancelled` with
+   * cancellationReason='expired_no_acceptance'. The WHERE clause guards
+   * against double-expiry under concurrent cron ticks.
+   *
+   * @returns `true` if a row was updated, `false` if the row was no longer pending.
+   */
+  async markRequestExpired(requestId: string): Promise<boolean> {
+    try {
+      const updated = await this.db
+        .update(rentalRequests)
+        .set({
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancellationReason: "expired_no_acceptance",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(rentalRequests.id, requestId),
+            eq(rentalRequests.status, "pending"),
+          ),
+        )
+        .returning({ id: rentalRequests.id });
+      return updated.length > 0;
+    } catch (error) {
+      this.handleError(error, "markRequestExpired");
     }
   }
 

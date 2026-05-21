@@ -168,7 +168,9 @@ describe("useListingFormSubmit", () => {
         "Listing and images uploaded successfully!",
       );
       expect(mockOnSuccess).toHaveBeenCalled();
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/listings/rentals");
+      expect(mockPush).toHaveBeenCalledWith(
+        "/dashboard/listings/rentals?tab=pending_review",
+      );
     });
 
     it("should handle missing listingId from create response", async () => {

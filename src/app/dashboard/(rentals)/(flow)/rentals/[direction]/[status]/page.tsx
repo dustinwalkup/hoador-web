@@ -1,12 +1,16 @@
 export const dynamic = "force-dynamic";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { legalDocumentDAL, rentalDAL } from "@/dal";
+import { legalDocumentDAL, rentalDAL, userDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentalsClient } from "@/features/rentals/components/renting-lending/rentals-client";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { getServerQueryClient, HydrateClient } from "@/lib/react-query/server";
 import { rentalKeys } from "@/features/rentals/hooks/use-rentals";
+import {
+  getPayoutReadiness,
+  type OnboardingStatus,
+} from "@/features/payments/lib/payout-readiness";
 
 export const metadata = {
   title: "Rentals",
@@ -213,6 +217,18 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
 
   const [reviewPolicyUrl] = await Promise.all(promises);
 
+  // Only the lending side surfaces an Approve button, so we only need the
+  // current user's payout readiness when they're viewing incoming requests.
+  let ownerOnboardingStatus: OnboardingStatus | undefined;
+  if (userId && initialType === "lending") {
+    try {
+      const currentUser = await userDAL.getUserById(userId);
+      ownerOnboardingStatus = getPayoutReadiness(currentUser).onboardingStatus;
+    } catch {
+      // Non-critical — fall back to the existing 403 redirect path.
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Suspense fallback={<RentalsPageSkeleton />}>
@@ -221,6 +237,7 @@ export default async function RentalsStatusPage({ params }: RentalsPageProps) {
             initialType={initialType}
             initialStatus={initialStatus}
             reviewPolicyUrl={reviewPolicyUrl}
+            ownerOnboardingStatus={ownerOnboardingStatus}
           />
         </HydrateClient>
       </Suspense>

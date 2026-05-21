@@ -25,6 +25,8 @@ import {
   DeclineRequestDialog,
 } from "@/features/rentals/components/renting-lending";
 import { MessageUserModal } from "@/features/messages/components/message-user-modal";
+import { PayoutSetupRequiredDialog } from "@/features/payments/components/payout-setup-required-dialog";
+import type { OnboardingStatus } from "@/features/payments/lib/payout-readiness";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -62,12 +64,25 @@ const getStatusColor = (status: string) => {
 
 interface LendingCardProps {
   request: LendingRequestItem;
+  ownerOnboardingStatus?: OnboardingStatus;
 }
 
-export function LendingCard({ request }: LendingCardProps) {
+export function LendingCard({
+  request,
+  ownerOnboardingStatus,
+}: LendingCardProps) {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showPayoutSetupDialog, setShowPayoutSetupDialog] = useState(false);
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState(false);
+
+  const handleApproveClick = () => {
+    if (ownerOnboardingStatus && ownerOnboardingStatus !== "verified") {
+      setShowPayoutSetupDialog(true);
+    } else {
+      setShowApproveDialog(true);
+    }
+  };
 
   return (
     <Card>
@@ -214,7 +229,7 @@ export function LendingCard({ request }: LendingCardProps) {
                 <>
                   <Button
                     className="bg-primary hover:bg-primary/80 w-full justify-center"
-                    onClick={() => setShowApproveDialog(true)}
+                    onClick={handleApproveClick}
                   >
                     <CheckCircle className="mr-2 h-4 w-4" />
                     Approve Request
@@ -390,7 +405,7 @@ export function LendingCard({ request }: LendingCardProps) {
                     <Button
                       className="bg-primary hover:bg-primary/80 w-full justify-center"
                       size="sm"
-                      onClick={() => setShowApproveDialog(true)}
+                      onClick={handleApproveClick}
                     >
                       <CheckCircle className="mr-2 h-4 w-4" />
                       Approve Request
@@ -452,6 +467,14 @@ export function LendingCard({ request }: LendingCardProps) {
         renterName={request.renterName}
         deliveryRequested={request.deliveryRequested}
       />
+
+      {ownerOnboardingStatus && ownerOnboardingStatus !== "verified" && (
+        <PayoutSetupRequiredDialog
+          open={showPayoutSetupDialog}
+          onOpenChange={setShowPayoutSetupDialog}
+          onboardingStatus={ownerOnboardingStatus}
+        />
+      )}
 
       <DeclineRequestDialog
         open={showDeclineDialog}

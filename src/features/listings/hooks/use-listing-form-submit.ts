@@ -160,11 +160,11 @@ export function useListingFormSubmit({
               `${uploadResult.succeeded} of ${uploadResult.total} images uploaded. You can add more from the edit page.`,
             );
             onSuccess?.();
-            router.push("/dashboard/listings/rentals");
+            router.push("/dashboard/listings/rentals?tab=pending_review");
           } else {
             toast.success("Listing and images uploaded successfully!");
             onSuccess?.();
-            router.push("/dashboard/listings/rentals");
+            router.push("/dashboard/listings/rentals?tab=pending_review");
           }
         }
       } catch (error) {

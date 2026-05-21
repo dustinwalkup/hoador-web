@@ -4,6 +4,13 @@
 export const PLATFORM_FEE_PERCENTAGE = 0.2;
 
 /**
+ * How long a pending rental request or service booking remains active before
+ * the expiry cron auto-cancels it. Used by both insert sites to compute
+ * `expires_at` and by the cron to identify rows past their deadline.
+ */
+export const PENDING_BOOKING_EXPIRY_WINDOW_HOURS = 72;
+
+/**
  * Stripe's processing rate (2.9% + $0.30). Used for both the renter-facing service fee
  * and for platform net revenue calculation.
  */

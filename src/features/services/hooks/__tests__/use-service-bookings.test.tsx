@@ -345,6 +345,38 @@ describe("useAcceptServiceBooking", () => {
 
     await expect(result.current.mutateAsync()).rejects.toThrow("Cannot accept");
   });
+
+  it("attaches PAYMENT_SETUP_REQUIRED metadata and suppresses toast on 403", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({
+        error: "PAYMENT_SETUP_REQUIRED",
+        onboardingStatus: "restricted",
+        missingCapabilities: ["payouts"],
+      }),
+    });
+
+    const { result } = renderHook(() => useAcceptServiceBooking("booking-1"), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+    let caught: unknown;
+    try {
+      await result.current.mutateAsync();
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toMatchObject({
+      message: "PAYMENT_SETUP_REQUIRED",
+      code: "PAYMENT_SETUP_REQUIRED",
+      onboardingStatus: "restricted",
+      suppressToast: true,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

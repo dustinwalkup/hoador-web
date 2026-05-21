@@ -17,6 +17,7 @@ import {
   ConflictError,
   ServiceBookingPaymentFailedError,
 } from "@/dal/errors";
+import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
 import { setSentryUser } from "@/lib/sentry/user-context";
 
 /**
@@ -56,7 +57,8 @@ export function handleApiError(
     !(error instanceof UnauthorizedError) &&
     !(error instanceof NotFoundError) &&
     !(error instanceof ValidationError) &&
-    !(error instanceof ConflictError);
+    !(error instanceof ConflictError) &&
+    !(error instanceof PaymentSetupRequiredError);
 
   if (shouldCaptureError) {
     const ctx = getRequestContext();
@@ -112,6 +114,20 @@ export function handleApiError(
         paymentFailed: true,
       },
       { status: 400 },
+    );
+  }
+
+  if (error instanceof PaymentSetupRequiredError) {
+    return NextResponse.json(
+      {
+        error: error.code,
+        onboardingStatus: error.details.onboardingStatus,
+        ...(error.details.missingCapabilities && {
+          missingCapabilities: error.details.missingCapabilities,
+        }),
+        ...(error.details.reason && { reason: error.details.reason }),
+      },
+      { status: error.statusCode },
     );
   }
 

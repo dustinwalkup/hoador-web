@@ -46,6 +46,8 @@ import { TimeWindowValidation } from "@/features/disputes/lib/time-window-valida
 import { ServiceStatusProgress } from "@/features/services/components/detail-page/service-status-progress";
 import { BookingReviewsSection } from "@/features/reviews/components/booking-reviews-section";
 import { ReviewFormDialog } from "@/features/reviews/components/review-form-dialog";
+import { PayoutSetupRequiredDialog } from "@/features/payments/components/payout-setup-required-dialog";
+import type { OnboardingStatus } from "@/features/payments/lib/payout-readiness";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -116,6 +118,12 @@ interface ServiceBookingDetailClientProps {
   priceInCents?: boolean;
   /** Whether the current user can leave a review for this booking. */
   canReview?: boolean;
+  /**
+   * The provider's Stripe Connect payout readiness. Only meaningful when the
+   * current viewer IS the provider; used to pre-check the Accept action and
+   * surface a JIT onboarding dialog when not verified.
+   */
+  providerOnboardingStatus?: OnboardingStatus;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -178,6 +186,7 @@ export function ServiceBookingDetailClient({
   hasActiveDispute = false,
   priceInCents = false,
   canReview: canReviewProp = false,
+  providerOnboardingStatus,
 }: ServiceBookingDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -185,6 +194,7 @@ export function ServiceBookingDetailClient({
 
   // Dialog states
   const [acceptOpen, setAcceptOpen] = useState(false);
+  const [payoutSetupOpen, setPayoutSetupOpen] = useState(false);
   const [declineOpen, setDeclineOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
@@ -282,6 +292,19 @@ export function ServiceBookingDetailClient({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const body = data as { error?: string; paymentFailed?: boolean };
+        // Server gated the accept because the provider's Stripe Connect isn't
+        // ready. Send them into the JIT onboarding flow, preserving where they
+        // came from so we can return them here on completion. No toast — the
+        // navigation is the user feedback.
+        if (res.status === 403 && body.error === "PAYMENT_SETUP_REQUIRED") {
+          const returnTo = encodeURIComponent(
+            window.location.pathname + window.location.search,
+          );
+          router.push(
+            `/dashboard/payments/earnings-and-payouts?returnTo=${returnTo}`,
+          );
+          return;
+        }
         toast.error(
           body.paymentFailed
             ? "The payment method failed. The requester has been notified to update their payment method."
@@ -648,7 +671,16 @@ export function ServiceBookingDetailClient({
                   <>
                     <Button
                       className="w-full"
-                      onClick={() => setAcceptOpen(true)}
+                      onClick={() => {
+                        if (
+                          providerOnboardingStatus &&
+                          providerOnboardingStatus !== "verified"
+                        ) {
+                          setPayoutSetupOpen(true);
+                        } else {
+                          setAcceptOpen(true);
+                        }
+                      }}
                       disabled={pending}
                     >
                       {pending ? (
@@ -845,6 +877,14 @@ export function ServiceBookingDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {providerOnboardingStatus && providerOnboardingStatus !== "verified" && (
+        <PayoutSetupRequiredDialog
+          open={payoutSetupOpen}
+          onOpenChange={setPayoutSetupOpen}
+          onboardingStatus={providerOnboardingStatus}
+        />
+      )}
 
       <Dialog
         open={declineOpen}

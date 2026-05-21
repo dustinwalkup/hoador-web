@@ -112,16 +112,6 @@ async function postHandler(request: NextRequest) {
       { ipAddress, userAgent },
     );
 
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          error: "Stripe Connect must be set up before creating a listing",
-          code: result.error,
-        },
-        { status: 400 },
-      );
-    }
-
     return NextResponse.json({
       listingId: result.listing.id,
       status: result.listing.status,
