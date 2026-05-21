@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
 
 import { cronRunHistory } from "@/db/schemas/cron-run-history.schema";
 import type {
@@ -90,6 +90,32 @@ export class CronRunHistoryDAL extends BaseDAL {
       return rows;
     } catch (error) {
       this.handleError(error, "CronRunHistoryDAL.getRecent");
+    }
+  }
+
+  /**
+   * Delete cron run records older than the specified number of days.
+   *
+   * @param daysOld - Age threshold in days (must be >= 1)
+   * @returns Number of rows deleted
+   */
+  async deleteOldRuns(daysOld: number): Promise<number> {
+    try {
+      if (daysOld < 1) {
+        throw new Error("daysOld must be at least 1");
+      }
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - daysOld);
+
+      const deleted = await this.db
+        .delete(cronRunHistory)
+        .where(lt(cronRunHistory.startedAt, cutoff))
+        .returning({ id: cronRunHistory.id });
+
+      return deleted.length;
+    } catch (error) {
+      this.handleError(error, "CronRunHistoryDAL.deleteOldRuns");
     }
   }
 }

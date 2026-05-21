@@ -54,7 +54,7 @@ export function CategoryScroll({ categories }: CategoryScrollProps) {
             staggerDelay={0.12}
             onScroll={updateActiveIndex}
             className={cn(
-              "flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none]",
+              "flex snap-x snap-mandatory [scrollbar-width:none] gap-4 overflow-x-auto pb-4 [-ms-overflow-style:none]",
               "pr-6 pl-6",
               "[&::-webkit-scrollbar]:hidden",
               "md:grid md:grid-cols-2 md:gap-8 md:overflow-visible md:px-0 lg:grid-cols-3",

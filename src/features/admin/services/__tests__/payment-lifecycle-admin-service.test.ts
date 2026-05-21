@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import Stripe from "stripe";
 import { NotFoundError, ValidationError } from "@/dal/errors";
 
 const mockGetByRentalId = vi.fn();
@@ -350,10 +351,11 @@ describe("PaymentLifecycleAdminService", () => {
         renterId: "u1",
         securityDepositAuthId: "pi_xyz",
       });
-      const stripeError = new Error(
-        "payment_intent_unexpected_state: already canceled",
-      ) as Error & { code?: string };
-      stripeError.code = "payment_intent_unexpected_state";
+      const stripeError = Stripe.errors.StripeError.generate({
+        type: "invalid_request_error",
+        code: "payment_intent_unexpected_state",
+        message: "payment_intent_unexpected_state: already canceled",
+      });
       mockPaymentIntentsCancel.mockRejectedValue(stripeError);
 
       const result = await PaymentLifecycleAdminService.releaseDeposit(

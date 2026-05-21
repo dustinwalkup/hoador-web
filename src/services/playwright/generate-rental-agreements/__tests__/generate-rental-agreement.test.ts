@@ -1,21 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { RentalAgreementData } from "../template";
 
-const mockPdfBuffer = Buffer.from("%PDF-1.4 mock pdf content");
-
-const mockPage = {
-  setContent: vi.fn().mockResolvedValue(undefined),
-  pdf: vi.fn().mockResolvedValue(mockPdfBuffer),
-};
-
-const mockBrowser = {
-  newPage: vi.fn().mockResolvedValue(mockPage),
-  close: vi.fn().mockResolvedValue(undefined),
-};
+const { mockPdfBuffer, mockPage, mockBrowser } = vi.hoisted(() => {
+  const buf = Buffer.from("%PDF-1.4 mock pdf content");
+  const page = {
+    setContent: vi.fn().mockResolvedValue(undefined),
+    pdf: vi.fn().mockResolvedValue(buf),
+  };
+  const browser = {
+    newPage: vi.fn().mockResolvedValue(page),
+    close: vi.fn().mockResolvedValue(undefined),
+  };
+  return { mockPdfBuffer: buf, mockPage: page, mockBrowser: browser };
+});
 
 vi.mock("../../launch-browser", () => ({
   launchBrowser: vi.fn().mockResolvedValue(mockBrowser),
 }));
+
+import { launchBrowser } from "../../launch-browser";
+import { generateRentalAgreementPdf } from "../utils";
 
 const mockRentalAgreementData: RentalAgreementData = {
   providerName: "Jane Owner",
@@ -28,9 +32,8 @@ const mockRentalAgreementData: RentalAgreementData = {
 };
 
 describe("generateRentalAgreementPdf", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    const { launchBrowser } = await import("../../launch-browser");
     (launchBrowser as ReturnType<typeof vi.fn>).mockResolvedValue(mockBrowser);
     mockPage.setContent.mockResolvedValue(undefined);
     mockPage.pdf.mockResolvedValue(mockPdfBuffer);
@@ -39,7 +42,6 @@ describe("generateRentalAgreementPdf", () => {
   });
 
   it("returns a non-empty Buffer", async () => {
-    const { generateRentalAgreementPdf } = await import("../utils");
     const buffer = await generateRentalAgreementPdf(mockRentalAgreementData);
 
     expect(Buffer.isBuffer(buffer)).toBe(true);
@@ -47,8 +49,6 @@ describe("generateRentalAgreementPdf", () => {
   });
 
   it("launches browser and calls setContent with HTML containing data", async () => {
-    const { launchBrowser } = await import("../../launch-browser");
-    const { generateRentalAgreementPdf } = await import("../utils");
     await generateRentalAgreementPdf(mockRentalAgreementData);
 
     expect(launchBrowser).toHaveBeenCalled();
@@ -64,8 +64,6 @@ describe("generateRentalAgreementPdf", () => {
 
   it("closes browser even when pdf fails", async () => {
     mockPage.pdf.mockRejectedValueOnce(new Error("PDF failed"));
-
-    const { generateRentalAgreementPdf } = await import("../utils");
 
     await expect(
       generateRentalAgreementPdf(mockRentalAgreementData),

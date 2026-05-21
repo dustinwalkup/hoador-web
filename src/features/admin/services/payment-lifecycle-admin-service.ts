@@ -171,12 +171,9 @@ export const PaymentLifecycleAdminService = {
         securityDepositAuthId,
       );
     } catch (error: unknown) {
-      const stripeError = error as Stripe.errors.StripeError;
-      const code = stripeError?.code;
-      const message =
-        typeof stripeError?.message === "string"
-          ? stripeError.message
-          : String(error);
+      const code =
+        error instanceof Stripe.errors.StripeError ? error.code : undefined;
+      const message = error instanceof Error ? error.message : String(error);
 
       if (
         code === "payment_intent_unexpected_state" &&

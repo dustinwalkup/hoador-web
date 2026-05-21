@@ -9,7 +9,6 @@ const JOB_NAME = "process-service-payouts";
 
 /**
  * Cron job: transfer net service fees to provider Connect accounts (24h+ after completion).
- * Schedule: hourly (see `.github/workflows/cron-jobs.yml` or `cron-process-service-payouts.yml`).
  */
 async function getHandler(request: NextRequest) {
   const auth = verifyCronSecret(request);

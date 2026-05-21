@@ -3,17 +3,14 @@ name: Cron Jobs
 on:
   schedule:
     - cron: "0 * * * *" # hourly
-    - cron: "0 13 * * *" # daily at 8 AM CDT
+    - cron: "0 10 * * *" # daily at 5 AM CDT
   workflow_dispatch:
 
 jobs:
   hourly:
-    if: github.event.schedule != '0 13 * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event.schedule != '0 10 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        environment: [production, staging]
-    environment: ${{ matrix.environment }}
+    environment: production
     steps:
       - name: Schedule deposit holds
         run: |
@@ -21,11 +18,28 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/schedule-deposit-holds
 
+      - name: Expire pending bookings
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/expire-pending-bookings
+
+  daily:
+    if: github.event.schedule == '0 10 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
       - name: Process payouts
         run: |
           curl --fail -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/process-payouts
+
+      - name: Process service payouts
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/process-service-payouts
 
       - name: Monitor deposit expiry
         run: |
@@ -39,12 +53,6 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-processing
 
-      - name: Process service payouts
-        run: |
-          curl --fail -s -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/process-service-payouts
-
       - name: Detect stale service processing
         run: |
           curl --fail -s -X GET \
@@ -57,28 +65,20 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/release-reviews
 
-      - name: Expire pending bookings
+      - name: Send rental reminders
         run: |
           curl --fail -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/expire-pending-bookings
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/rental-reminders
 
-  daily:
-    if: github.event.schedule == '0 13 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        environment: [production, staging]
-    environment: ${{ matrix.environment }}
-    steps:
       - name: Cleanup notifications
         run: |
           curl --fail -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/cleanup-notifications
 
-      - name: Send rental reminders
+      - name: Cleanup cron history
         run: |
           curl --fail -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/rental-reminders
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/cleanup-cron-history
