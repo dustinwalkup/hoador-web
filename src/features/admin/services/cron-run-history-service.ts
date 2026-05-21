@@ -37,4 +37,14 @@ export const CronRunHistoryService = {
   ): Promise<CronRunHistoryRow[]> {
     return cronRunHistoryDAL.getRecent(jobName, limit);
   },
+
+  /**
+   * Delete cron run records older than the specified age.
+   *
+   * @param daysOld - Age threshold in days (must be >= 1)
+   * @returns Number of rows deleted
+   */
+  async deleteOldRuns(daysOld: number): Promise<number> {
+    return cronRunHistoryDAL.deleteOldRuns(daysOld);
+  },
 };

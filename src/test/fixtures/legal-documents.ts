@@ -77,12 +77,7 @@ export function createMockPDFFile(
  * Creates a mock large PDF File (>10MB) for testing file size validation
  */
 export function createMockLargePDFFile(): File {
-  const largeContent = "x".repeat(11 * 1024 * 1024); // 11MB
-  return createMockPDFFile(
-    "large-document.pdf",
-    11 * 1024 * 1024,
-    largeContent,
-  );
+  return createMockPDFFile("large-document.pdf", 11 * 1024 * 1024);
 }
 
 /**

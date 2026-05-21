@@ -243,7 +243,7 @@ export function ExplorePageFilters({
   return (
     <div className="space-y-4">
       {/* Category scroll — unified across all screen sizes */}
-      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex [scrollbar-width:none] gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <CategoryButton
           icon="🏪"
           label="All"

@@ -41,7 +41,7 @@ export async function generateServiceAgreementPdf(
     const page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: "networkidle0",
+      waitUntil: "load",
       timeout: 10_000,
     });
 
