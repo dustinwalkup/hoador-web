@@ -1,31 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { z } from "zod";
 import { tryCatch } from "@walkup/walkup-utils";
 import { userDAL } from "@/dal";
 import { trackActivity } from "@/features/activity/lib/track-activity";
+import { updateProfileApiSchema } from "@/features/users/lib/profile.schema";
 import {
   handleApiError,
   parseFormData,
   getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
 
-const UpdateUserProfileSchema = z.object({
-  firstName: z.string().min(1).optional(),
-  lastName: z.string().min(1).optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  bio: z.string().max(500).optional(),
-  profileImageUrl: z.string().url().optional(),
-  address: z
-    .object({
-      street: z.string().min(1),
-      city: z.string().min(1),
-      state: z.string().min(1),
-      zipCode: z.string().min(4).max(10),
-    })
-    .optional(),
-});
+/**
+ * GET /api/profile
+ * Returns the current user's full profile (including primary address) so
+ * client-side TanStack Query consumers can hydrate from server data and
+ * stay in sync after PATCH mutations invalidate the ["profile"] key.
+ */
+async function getHandler() {
+  try {
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
+    const user = await userDAL.getUserById(userId);
+    return NextResponse.json(user);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+export const GET = withRequestLogging(getHandler, "GET /api/profile");
 
 /**
  * PATCH /api/profile
@@ -44,7 +47,7 @@ async function patchHandler(request: NextRequest) {
     const body = await parseFormData(request);
 
     // Validate form data
-    const validationResult = UpdateUserProfileSchema.safeParse(body);
+    const validationResult = updateProfileApiSchema.safeParse(body);
 
     if (!validationResult.success) {
       return NextResponse.json(

@@ -99,18 +99,9 @@ export const PROFILE_OVERVIEW = {
   profileCard: {
     title: "Profile Picture",
     description: "Your public profile image",
-    profileImage: "Change profile picture",
-    verifiedBadge: "Verified",
-    memberSince: "Member since May 2022",
     stats: {
-      borrowed: {
-        label: "Listings Borrowed",
-        count: 32,
-      },
-      shared: {
-        label: "Listings Shared",
-        count: 18,
-      },
+      borrowed: { label: "Listings Borrowed" },
+      shared: { label: "Listings Shared" },
     },
   },
   formCard: {
