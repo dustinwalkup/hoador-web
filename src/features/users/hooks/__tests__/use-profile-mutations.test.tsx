@@ -103,7 +103,7 @@ describe("useUpdateUserProfile", () => {
     });
   });
 
-  it("should invalidate profile and user queries on success", async () => {
+  it("should invalidate the profile query on success", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => mockSuccessResponse,
@@ -120,13 +120,8 @@ describe("useUpdateUserProfile", () => {
     await result.current.mutateAsync(mockProfileData);
 
     await waitFor(() => {
-      // Should invalidate profile queries
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
         queryKey: ["profile"],
-      });
-      // Should invalidate user queries
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ["user"],
       });
       expect(result.current.isSuccess).toBe(true);
     });

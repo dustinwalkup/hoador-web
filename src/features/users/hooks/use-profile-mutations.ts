@@ -1,10 +1,10 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
+import { profileQueryKey } from "./use-profile";
 
 export type UpdateUserProfileData = {
   firstName: string;
   lastName: string;
-  email: string;
+  email?: string;
   phone?: string;
   bio?: string;
   address: {
@@ -16,12 +16,11 @@ export type UpdateUserProfileData = {
 };
 
 /**
- * Hook for updating user profile and address
- * Invalidates profile and user queries on success
+ * Hook for updating user profile and address.
+ * Invalidates the canonical ["profile"] key so any client component using
+ * `useProfile()` re-fetches and re-renders automatically.
  */
 export function useUpdateUserProfile() {
-  const queryClient = useQueryClient();
-
   return useCreateMutation({
     mutationFn: async (data: UpdateUserProfileData) => {
       const response = await fetch("/api/profile", {
@@ -38,26 +37,15 @@ export function useUpdateUserProfile() {
       return response.json();
     },
     successMessage: "Profile updated successfully",
-    invalidateQueryKeys: [["profile"], ["user"]],
-    onSuccess: () => {
-      // Invalidate all profile-related queries
-      queryClient.invalidateQueries({
-        queryKey: ["profile"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["user"],
-      });
-    },
+    invalidateQueryKeys: [[...profileQueryKey]],
   });
 }
 
 /**
- * Hook for updating profile image URL
- * Invalidates profile and user queries on success
+ * Hook for updating profile image URL.
+ * Invalidates the canonical ["profile"] key — see `useUpdateUserProfile`.
  */
 export function useUpdateProfileImage() {
-  const queryClient = useQueryClient();
-
   return useCreateMutation({
     mutationFn: async (profileImageUrl: string) => {
       const response = await fetch("/api/profile", {
@@ -74,15 +62,6 @@ export function useUpdateProfileImage() {
       return response.json();
     },
     successMessage: "Profile image updated successfully",
-    invalidateQueryKeys: [["profile"], ["user"]],
-    onSuccess: () => {
-      // Invalidate all profile-related queries
-      queryClient.invalidateQueries({
-        queryKey: ["profile"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["user"],
-      });
-    },
+    invalidateQueryKeys: [[...profileQueryKey]],
   });
 }

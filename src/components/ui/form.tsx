@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import {
   Controller,
   ControllerProps,
@@ -100,14 +101,18 @@ const FormLabel = React.forwardRef<
 FormLabel.displayName = "FormLabel";
 
 const FormControl = React.forwardRef<
-  React.ElementRef<"div">,
-  React.ComponentPropsWithoutRef<"div">
+  React.ElementRef<typeof Slot>,
+  React.ComponentPropsWithoutRef<typeof Slot>
 >(({ ...props }, ref) => {
   const { error, formItemId, formDescriptionId, formMessageId } =
     useFormField();
 
+  // Slot forwards props (id, aria-*) onto the single child control so the
+  // associated <FormLabel htmlFor={formItemId}> points at the real input,
+  // not a wrapping div. Each FormControl call site must wrap exactly one
+  // child element.
   return (
-    <div
+    <Slot
       ref={ref}
       id={formItemId}
       aria-describedby={
