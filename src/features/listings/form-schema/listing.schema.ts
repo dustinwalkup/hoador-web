@@ -1,5 +1,10 @@
 import { type input, type output, z } from "zod";
 
+import {
+  MINIMUM_LISTING_PRICE_USD,
+  STRIPE_MINIMUM_CHARGE_USD,
+} from "@/constants/payments";
+
 /** Allows empty string while editing numeric inputs; output is always a number. */
 const dailyRateFormField = z.preprocess(
   (val: unknown) => (val === undefined ? "" : val),
@@ -13,10 +18,10 @@ const dailyRateFormField = z.preprocess(
         });
         return;
       }
-      if (val < 0.01) {
+      if (val < MINIMUM_LISTING_PRICE_USD) {
         ctx.addIssue({
           code: "custom",
-          message: "Daily rate must be greater than 0",
+          message: `Daily rate must be at least $${MINIMUM_LISTING_PRICE_USD}`,
         });
       }
     })
@@ -31,7 +36,11 @@ const dailyRateFormField = z.preprocess(
 const securityDepositFormField = z
   .union([z.literal(""), z.number()])
   .transform((val) => (val === "" ? 0 : val))
-  .pipe(z.number().min(0, "Security deposit cannot be negative"))
+  .pipe(
+    z.number().refine((val) => val === 0 || val >= STRIPE_MINIMUM_CHARGE_USD, {
+      message: `Security deposit must be $0 or at least $${STRIPE_MINIMUM_CHARGE_USD.toFixed(2)}`,
+    }),
+  )
   .default(0);
 
 const minimumRentalPeriodFormField = z

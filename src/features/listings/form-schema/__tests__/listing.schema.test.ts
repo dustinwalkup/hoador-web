@@ -393,7 +393,7 @@ describe("listing.schema.ts", () => {
           description: "A drill",
           categoryId: "power-tools",
           condition: "good",
-          dailyRate: 0.01, // minimum
+          dailyRate: 5.0, // minimum
         };
 
         const result = createListingSchemaServer.safeParse(data);
@@ -406,13 +406,13 @@ describe("listing.schema.ts", () => {
           description: "A drill",
           categoryId: "power-tools",
           condition: "good",
-          dailyRate: 0, // below minimum
+          dailyRate: 4.99, // below minimum
         };
 
         const result = createListingSchemaServer.safeParse(data);
         expect(result.success).toBe(false);
         expect(result.error?.issues[0]?.message).toBe(
-          "Daily rate must be greater than 0",
+          "Daily rate must be at least $5",
         );
       });
 
@@ -428,7 +428,7 @@ describe("listing.schema.ts", () => {
         const result = createListingSchemaServer.safeParse(data);
         expect(result.success).toBe(false);
         expect(result.error?.issues[0]?.message).toBe(
-          "Daily rate must be greater than 0",
+          "Daily rate must be at least $5",
         );
       });
 
@@ -446,6 +446,23 @@ describe("listing.schema.ts", () => {
         expect(result.success).toBe(true);
       });
 
+      it("should reject a non-zero securityDeposit below Stripe's minimum", () => {
+        const data = {
+          name: "Drill",
+          description: "A drill",
+          categoryId: "power-tools",
+          condition: "good",
+          dailyRate: 15.0,
+          securityDeposit: 0.25,
+        };
+
+        const result = createListingSchemaServer.safeParse(data);
+        expect(result.success).toBe(false);
+        expect(result.error?.issues[0]?.message).toBe(
+          "Security deposit must be $0 or at least $0.50",
+        );
+      });
+
       it("should reject negative securityDeposit", () => {
         const data = {
           name: "Drill",
@@ -459,7 +476,7 @@ describe("listing.schema.ts", () => {
         const result = createListingSchemaServer.safeParse(data);
         expect(result.success).toBe(false);
         expect(result.error?.issues[0]?.message).toBe(
-          "Security deposit cannot be negative",
+          "Security deposit must be $0 or at least $0.50",
         );
       });
 

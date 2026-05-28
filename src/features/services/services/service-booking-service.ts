@@ -20,6 +20,7 @@ import {
   calculateServiceFee,
   PLATFORM_FEE_PERCENTAGE,
   PENDING_BOOKING_EXPIRY_WINDOW_HOURS,
+  STRIPE_MINIMUM_CHARGE_USD,
 } from "@/constants/payments";
 import { assertConnectReady } from "@/features/payments/lib/assert-connect-ready";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
@@ -321,6 +322,17 @@ export class ServiceBookingService {
       // First acceptance attempt: prefer the PM the requester chose at booking creation.
       paymentMethodId =
         detail.selectedPaymentMethodId ?? stripeCtx.paymentMethodId;
+    }
+
+    // Backstop: never hand Stripe an amount it will reject as invalid. The
+    // listing price floor prevents this for new listings; this catches
+    // legacy/below-floor listings before they hit Stripe with an opaque error.
+    const chargeAmount = Number(detail.totalAmount);
+    if (chargeAmount < STRIPE_MINIMUM_CHARGE_USD) {
+      throw new ValidationError(
+        `This booking total ($${chargeAmount.toFixed(2)}) is below the $${STRIPE_MINIMUM_CHARGE_USD.toFixed(2)} minimum required to process a payment. Please contact support.`,
+        "amount",
+      );
     }
 
     const chargeIdempotencyKey =
