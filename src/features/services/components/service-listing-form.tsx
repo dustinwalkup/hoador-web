@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { MINIMUM_LISTING_PRICE_USD } from "@/constants/payments";
 import type { ServiceListing } from "@/db/schemas/services.schema";
 import { AlertTriangle, DollarSign, Package } from "lucide-react";
 
@@ -80,10 +81,10 @@ const baseSchema = z.object({
         });
         return;
       }
-      if (val < 0) {
+      if (val < MINIMUM_LISTING_PRICE_USD) {
         ctx.addIssue({
           code: "custom",
-          message: "Price must be 0 or higher",
+          message: `Price must be at least $${MINIMUM_LISTING_PRICE_USD}`,
         });
       }
     })
@@ -367,8 +368,9 @@ export function ServiceListingForm({
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Enter 0 if your pricing varies — add details in Service
-                      Notes.
+                      Minimum ${MINIMUM_LISTING_PRICE_USD} (per hour for hourly,
+                      or total for flat rate). If your pricing varies, set a
+                      base price and add details in Service Notes.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

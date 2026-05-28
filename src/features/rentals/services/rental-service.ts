@@ -26,6 +26,7 @@ import { sendRentalRequestCreatedNotification } from "@/features/rentals/notific
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
+import { STRIPE_MINIMUM_CHARGE_USD } from "@/constants/payments";
 import {
   chargeRentalPayment,
   getPaymentErrorMessage,
@@ -416,6 +417,16 @@ export class RentalService {
     const totalAmount = Number(rentalRequest.totalAmount);
     const applicationFeeAmount = Number(rentalRequest.applicationFeeAmount);
 
+    // Backstop: never hand Stripe an amount it will reject as invalid. The
+    // listing daily-rate floor prevents this for new listings; this catches
+    // legacy/below-floor listings before they hit Stripe with an opaque error.
+    if (totalAmount < STRIPE_MINIMUM_CHARGE_USD) {
+      return {
+        success: false,
+        error: `This booking total ($${totalAmount.toFixed(2)}) is below the $${STRIPE_MINIMUM_CHARGE_USD.toFixed(2)} minimum required to process a payment. Please contact support.`,
+      };
+    }
+
     await rentalDAL.updateRentalRequestPaymentStatus(rentalId, {
       paymentStatus: "processing",
     });
@@ -574,7 +585,9 @@ export class RentalService {
     let depositHoldStatus: "scheduled" | "held" | "failed" | "not_applicable";
     const securityDepositAmount = Number(rentalRequest.securityDeposit);
 
-    if (securityDepositAmount <= 0) {
+    // A deposit below Stripe's minimum can't be held (Stripe rejects it), so
+    // treat it as no deposit rather than attempting a hold that always fails.
+    if (securityDepositAmount < STRIPE_MINIMUM_CHARGE_USD) {
       depositHoldStatus = "not_applicable";
     } else {
       const hoursUntilPickup =

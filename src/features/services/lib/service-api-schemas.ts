@@ -1,6 +1,10 @@
 import { z } from "zod";
 
+import { MINIMUM_LISTING_PRICE_USD } from "@/constants/payments";
 import { rejectionReasonSchema } from "@/features/admin/schemas/listing-review.schema";
+
+/** Price is the hourly rate (hourly) or flat total (fixed); both must clear the floor. */
+const servicePriceMessage = `Price must be at least $${MINIMUM_LISTING_PRICE_USD}`;
 
 /** POST /api/services/listings */
 export const createServiceListingSchema = z.object({
@@ -9,7 +13,7 @@ export const createServiceListingSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(20000),
   pricingType: z.enum(["fixed", "hourly"]),
-  price: z.number().nonnegative(),
+  price: z.number().min(MINIMUM_LISTING_PRICE_USD, servicePriceMessage),
   ownerPoliciesAcknowledged: z.boolean().refine((value) => value === true, {
     message: "You must acknowledge owner policies",
   }),
@@ -21,7 +25,10 @@ export const patchServiceListingSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().min(1).max(20000).optional(),
   pricingType: z.enum(["fixed", "hourly"]).optional(),
-  price: z.number().nonnegative().optional(),
+  price: z
+    .number()
+    .min(MINIMUM_LISTING_PRICE_USD, servicePriceMessage)
+    .optional(),
   ownerPoliciesAcknowledged: z.boolean().optional(),
   serviceNotes: z.string().max(5000).optional().nullable(),
 });

@@ -1,6 +1,10 @@
 import { Calendar, DollarSign, Shield } from "lucide-react";
 import { Control } from "react-hook-form";
 
+import {
+  MINIMUM_LISTING_PRICE_USD,
+  STRIPE_MINIMUM_CHARGE_USD,
+} from "@/constants/payments";
 import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 
 import {
@@ -62,6 +66,9 @@ export function PricingSection({ control }: PricingSectionProps) {
                 </div>
               </FormControl>
               <FormMessage />
+              <p className="text-muted-foreground text-sm">
+                Minimum ${MINIMUM_LISTING_PRICE_USD.toFixed(2)} per day
+              </p>
             </FormItem>
           )}
         />
@@ -153,7 +160,8 @@ export function PricingSection({ control }: PricingSectionProps) {
               </FormControl>
               <FormMessage />
               <p className="text-muted-foreground text-sm">
-                Refundable deposit to protect against damage or loss
+                Refundable deposit to protect against damage or loss. Enter $0
+                or at least ${STRIPE_MINIMUM_CHARGE_USD.toFixed(2)}.
               </p>
             </FormItem>
           )}

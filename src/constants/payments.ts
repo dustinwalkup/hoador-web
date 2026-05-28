@@ -4,6 +4,20 @@
 export const PLATFORM_FEE_PERCENTAGE = 0.2;
 
 /**
+ * Stripe's minimum chargeable amount in USD. Any PaymentIntent below this
+ * (rental/service charge or a non-zero security-deposit hold) is rejected with
+ * a StripeInvalidRequestError, so we never send Stripe an amount under this.
+ */
+export const STRIPE_MINIMUM_CHARGE_USD = 0.5;
+
+/**
+ * Minimum price an owner/provider may set on a listing (per day for rentals,
+ * per hour or flat for services). Set comfortably above Stripe's floor so any
+ * derived booking total clears STRIPE_MINIMUM_CHARGE_USD.
+ */
+export const MINIMUM_LISTING_PRICE_USD = 5;
+
+/**
  * How long a pending rental request or service booking remains active before
  * the expiry cron auto-cancels it. Used by both insert sites to compute
  * `expires_at` and by the cron to identify rows past their deadline.
