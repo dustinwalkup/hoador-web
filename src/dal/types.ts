@@ -215,15 +215,31 @@ export interface MembershipByCommunityRow {
   membershipCount: number;
 }
 
+/** Primary community + its network, set by GET /api/admin/users/[userId]. */
+export interface AdminUserPrimaryMembership {
+  community: { id: string; name: string };
+  network: { id: string; name: string; slug: string } | null;
+  role: "admin" | "member";
+  verificationStatus: "pending" | "verified" | "denied";
+  verifiedAt: Date | null;
+  joinedAt: Date;
+}
+
 /** User profile plus listing/rental counts for admin detail view. */
 export interface AdminUserDetail extends UserProfile {
   listingsCount: number;
   rentalsAsRenterCount: number;
   rentalsAsOwnerCount: number;
+  /** Activity timestamps (omitted from UserProfile, surfaced for admin snapshot). */
+  lastLoginAt?: Date | null;
+  lastActiveAt?: Date | null;
+  updatedAt?: Date | null;
   /** Set by API when merging dispute count; not returned by DAL. */
   totalDisputesCount?: number;
   /** Set by GET /api/admin/users/[userId] from community memberships. */
   communities?: Array<{ id: string; name: string }>;
+  /** Set by GET /api/admin/users/[userId]: primary community + its network. */
+  primaryMembership?: AdminUserPrimaryMembership | null;
 }
 
 export interface ListingDetails {

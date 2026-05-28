@@ -7,7 +7,11 @@ import {
 } from "@/lib/api/route-helpers";
 import { userDAL, disputeDAL, auditLogDAL, communityDAL } from "@/dal";
 import { isSuperAdmin } from "@/features/auth/utils/guards";
-import type { UserStatus, UserType } from "@/dal/types";
+import type {
+  UserStatus,
+  UserType,
+  AdminUserPrimaryMembership,
+} from "@/dal/types";
 
 type RouteContext = { params: Promise<{ userId: string }> };
 
@@ -25,15 +29,37 @@ async function getHandler(_request: NextRequest, context: RouteContext) {
     if (authResult instanceof NextResponse) return authResult;
 
     const { userId } = await context.params;
-    const [profile, disputeResult, communities] = await Promise.all([
-      userDAL.getUserDetailsForAdmin(userId),
-      disputeDAL.getUserDisputes(userId, { limit: 1 }),
-      communityDAL.listCommunitiesForUser(userId),
-    ]);
+    const [profile, disputeResult, communities, primaryInfo] =
+      await Promise.all([
+        userDAL.getUserDetailsForAdmin(userId),
+        disputeDAL.getUserDisputes(userId, { limit: 1 }),
+        communityDAL.listCommunitiesForUser(userId),
+        communityDAL.getPrimaryMembershipForUser(userId),
+      ]);
+
+    let primaryMembership: AdminUserPrimaryMembership | null = null;
+    if (primaryInfo) {
+      const { membership, community } = primaryInfo;
+      const network = community.networkId
+        ? await communityDAL.getNetworkById(community.networkId)
+        : null;
+      primaryMembership = {
+        community: { id: community.id, name: community.name },
+        network: network
+          ? { id: network.id, name: network.name, slug: network.slug }
+          : null,
+        role: membership.role,
+        verificationStatus: membership.verificationStatus,
+        verifiedAt: membership.verifiedAt,
+        joinedAt: membership.createdAt,
+      };
+    }
+
     return NextResponse.json({
       ...profile,
       totalDisputesCount: disputeResult.pagination.total,
       communities,
+      primaryMembership,
     });
   } catch (error) {
     return handleApiError(error);

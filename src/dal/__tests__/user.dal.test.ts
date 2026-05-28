@@ -1042,10 +1042,18 @@ describe("UserDAL", () => {
       });
       const mockWhere = vi.fn().mockResolvedValue([{ count: 3 }]);
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      const lastLoginAt = new Date("2026-05-01T10:00:00Z");
+      const lastActiveAt = new Date("2026-05-20T12:00:00Z");
+      const updatedAt = new Date("2026-05-20T12:00:00Z");
+      const mockWhereMeta = vi
+        .fn()
+        .mockResolvedValue([{ lastLoginAt, lastActiveAt, updatedAt }]);
+      const mockFromMeta = vi.fn().mockReturnValue({ where: mockWhereMeta });
       vi.mocked(db.select)
         .mockReturnValueOnce({ from: mockFrom } as any)
         .mockReturnValueOnce({ from: mockFrom } as any)
-        .mockReturnValueOnce({ from: mockFrom } as any);
+        .mockReturnValueOnce({ from: mockFrom } as any)
+        .mockReturnValueOnce({ from: mockFromMeta } as any);
 
       const result = await userDAL.getUserDetailsForAdmin("user-123");
 
@@ -1053,6 +1061,9 @@ describe("UserDAL", () => {
       expect(result.listingsCount).toBe(3);
       expect(result.rentalsAsRenterCount).toBe(3);
       expect(result.rentalsAsOwnerCount).toBe(3);
+      expect(result.lastLoginAt).toEqual(lastLoginAt);
+      expect(result.lastActiveAt).toEqual(lastActiveAt);
+      expect(result.updatedAt).toEqual(updatedAt);
     });
   });
 

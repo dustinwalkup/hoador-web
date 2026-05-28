@@ -429,6 +429,7 @@ export class UserDAL extends BaseDAL {
         listingsCountResult,
         rentalsRenterResult,
         rentalsOwnerResult,
+        metaResult,
       ] = await Promise.all([
         this.getUserById(userId),
         this.getUserStats(userId),
@@ -444,6 +445,14 @@ export class UserDAL extends BaseDAL {
           .select({ count: count() })
           .from(rentals)
           .where(eq(rentals.ownerId, userId)),
+        this.db
+          .select({
+            lastLoginAt: user.lastLoginAt,
+            lastActiveAt: user.lastActiveAt,
+            updatedAt: user.updatedAt,
+          })
+          .from(user)
+          .where(eq(user.id, userId)),
       ]);
 
       return {
@@ -452,6 +461,9 @@ export class UserDAL extends BaseDAL {
         listingsCount: Number(listingsCountResult[0]?.count ?? 0),
         rentalsAsRenterCount: Number(rentalsRenterResult[0]?.count ?? 0),
         rentalsAsOwnerCount: Number(rentalsOwnerResult[0]?.count ?? 0),
+        lastLoginAt: metaResult[0]?.lastLoginAt ?? null,
+        lastActiveAt: metaResult[0]?.lastActiveAt ?? null,
+        updatedAt: metaResult[0]?.updatedAt ?? null,
       };
     } catch (error) {
       this.handleError(error, "getUserDetailsForAdmin");
