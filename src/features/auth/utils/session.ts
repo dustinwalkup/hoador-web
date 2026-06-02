@@ -6,6 +6,18 @@ import type { UserProfile } from "@/dal/types";
 
 type CachedUser = UserProfile | null;
 
+// Next.js throws errors with these digests to signal control flow
+// (dynamic rendering, redirects, notFound). They must propagate.
+const isNextControlFlowError = (error: unknown): boolean => {
+  const digest = (error as { digest?: string } | null)?.digest;
+  return (
+    typeof digest === "string" &&
+    (digest === "DYNAMIC_SERVER_USAGE" ||
+      digest.startsWith("NEXT_REDIRECT") ||
+      digest === "NEXT_NOT_FOUND")
+  );
+};
+
 /**
  * Get current user from Better Auth session.
  *
@@ -48,6 +60,7 @@ export const getCurrentUser = cache(async (): Promise<CachedUser> => {
     if (ctx) ctx.user = resolved;
     return resolved;
   } catch (error) {
+    if (isNextControlFlowError(error)) throw error;
     console.error("Error getting current user:", error);
     return null;
   }
@@ -93,6 +106,7 @@ export const getSession = cache(async (requestHeaders?: Headers) => {
     });
     return session;
   } catch (error) {
+    if (isNextControlFlowError(error)) throw error;
     console.error("Error getting session:", error);
     return null;
   }
