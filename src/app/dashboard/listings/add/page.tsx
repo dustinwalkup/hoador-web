@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { listingDAL, legalDocumentDAL } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
-import { AddListingForm } from "@/features/listings/components/listing-form/add-listing-form";
+import { CreateListingClient } from "@/features/listings/components/listing-form/create-listing-client";
 import { BackButton } from "@/components/back-button";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 
@@ -39,7 +39,7 @@ export default async function AddListingPage() {
           </p>
         </div>
       </div>
-      <AddListingForm
+      <CreateListingClient
         categories={categories}
         ownerPolicyDocuments={ownerPolicyDocuments}
       />

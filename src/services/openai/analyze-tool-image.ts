@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 
-// Lazy initialization - only create client when needed (at runtime, not during build)
 let openai: OpenAI | null = null;
 
 function getOpenAIClient(): OpenAI {
@@ -16,7 +15,18 @@ function getOpenAIClient(): OpenAI {
   return openai;
 }
 
-const prompt = `You're assisting with a tool rental platform. Analyze the tool shown in the provided images (all images are of the same tool from different angles) and return ONLY a valid JSON object to help prefill a tool listing form.
+export interface AnalyzeToolImageOptions {
+  /** Active category names rendered into the prompt's allowed-category list. */
+  categoryNames: string[];
+  /** Canonical condition enum the AI must emit (no legacy values like `excellent`). */
+  conditionEnum: readonly string[];
+}
+
+function buildPrompt(opts: AnalyzeToolImageOptions): string {
+  const categoryList = opts.categoryNames.join(", ");
+  const conditionList = opts.conditionEnum.join(", ");
+
+  return `You're assisting with a tool rental platform. Analyze the tool shown in the provided images (all images are of the same tool from different angles) and return ONLY a valid JSON object to help prefill a tool listing form.
 
 IMPORTANT: These are multiple images of the SAME tool from different angles. Use all images to get the most complete and accurate information. Pay special attention to any visible make, model, or brand information that might be clearly printed on the tool.
 
@@ -25,10 +35,10 @@ Return ONLY a JSON object with this exact structure:
 {
   "name": "string (tool name, max 255 chars)",
   "description": "string (detailed description for renters, 2-3 sentences)",
-  "categoryName": "string (must be one of: Power Tools, Hand Tools, Gardening, Ladders & Access, Construction, Cleaning, Automotive, Party Equipment)",
-  "brand": "string (brand name if visible, otherwise null)",
-  "model": "string (model number if visible, otherwise null)",
-  "condition": "string (must be one of: excellent, good, fair, poor)",
+  "categoryName": "string (must be one of: ${categoryList})",
+  "brand": "string (brand name if clearly visible, otherwise null)",
+  "model": "string (model number if clearly visible, otherwise null)",
+  "condition": "string (must be one of: ${conditionList})",
   "specifications": {
     "power": "string (if applicable)",
     "weight": "string (if applicable)",
@@ -39,28 +49,20 @@ Return ONLY a JSON object with this exact structure:
   "safetyNotes": "string (safety considerations if applicable)"
 }
 
-Example response:
-{
-  "name": "DeWalt 20V MAX Cordless Drill",
-  "description": "Professional-grade cordless drill with brushless motor and 20V MAX battery system. Perfect for contractors and serious DIY enthusiasts. Includes keyless chuck and LED worklight.",
-  "categoryName": "Power Tools",
-  "brand": "DeWalt",
-  "model": "DCD777C2",
-  "condition": "good",
-  "specifications": {
-    "power": "20V MAX",
-    "weight": "3.4 lbs",
-    "dimensions": "8.5\" x 3.8\" x 8.9\"",
-    "material": "plastic and metal"
-  },
-  "instructions": "Insert battery, select speed setting, and use trigger to operate. Use keyless chuck to change bits.",
-  "safetyNotes": "Wear safety glasses. Keep hands away from rotating parts. Ensure workpiece is secured before drilling."
-}
+Rules:
+- For "categoryName", you MUST use one of these exact values (case-sensitive): ${categoryList}. If none clearly fit, choose the closest.
+- For "condition", you MUST use exactly one of these lowercase values: ${conditionList}. Do not invent other values (e.g. "excellent" is not allowed).
+- For "brand" and "model", return null when the value is not clearly visible on the tool. Do NOT guess.
 
 Return ONLY the JSON object, no additional text, formatting, or markdown.`;
+}
 
-export async function analyzeToolImage(imageUrls: string | string[]) {
+export async function analyzeToolImage(
+  imageUrls: string | string[],
+  opts: AnalyzeToolImageOptions,
+): Promise<unknown> {
   const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
+  const prompt = buildPrompt(opts);
 
   const res = await getOpenAIClient().chat.completions.create({
     model: "gpt-4o",
@@ -89,7 +91,6 @@ export async function analyzeToolImage(imageUrls: string | string[]) {
   if (!message) throw new Error("No message returned from OpenAI");
 
   try {
-    // Clean the message to remove any markdown formatting
     const cleanedMessage = message
       .trim()
       .replace(/^```json\s*/, "")
@@ -103,3 +104,6 @@ export async function analyzeToolImage(imageUrls: string | string[]) {
     );
   }
 }
+
+/** Exported for testing — lets specs assert the rendered prompt body. */
+export const __testing = { buildPrompt };
