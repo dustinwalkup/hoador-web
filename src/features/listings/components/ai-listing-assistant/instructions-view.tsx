@@ -170,9 +170,10 @@ export function InstructionsView({
         </Button>
         <Button
           type="button"
+          variant="outline"
           onClick={onGenerate}
           disabled={!canGenerate}
-          className="bg-ai text-ai-foreground hover:bg-ai/90"
+          className="bg-ai-light text-ai border-ai/30 hover:bg-ai-light hover:text-ai hover:brightness-95"
           data-testid="ai-modal-generate"
         >
           <Sparkles className="size-4" />

@@ -17,14 +17,15 @@ export function ChoiceView({ onChooseAi, onChooseManual }: ChoiceViewProps) {
       <Button
         type="button"
         size="lg"
-        className="h-auto justify-start gap-3 py-4 text-left"
+        variant="outline"
+        className="bg-ai-light text-ai border-ai/30 hover:bg-ai-light hover:text-ai hover:brightness-95 h-auto justify-start gap-3 py-4 text-left"
         onClick={onChooseAi}
         data-testid="ai-modal-choice-ai"
       >
         <Sparkles className="size-5 shrink-0" />
         <span className="flex flex-col items-start gap-0.5">
           <span className="font-semibold">Generate from Photos</span>
-          <span className="text-primary-foreground/80 text-xs font-normal">
+          <span className="text-ai/70 text-xs font-normal">
             Upload a few photos and we&apos;ll draft your listing
           </span>
         </span>

@@ -14,10 +14,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
  */
 export function DraftNotice() {
   return (
-    <Alert data-testid="ai-draft-notice">
+    <Alert
+      data-testid="ai-draft-notice"
+      className="bg-ai-light text-ai border-ai/30 [&>svg]:text-ai"
+    >
       <Sparkles />
       <AlertTitle>This is a draft generated from your photos</AlertTitle>
-      <AlertDescription>
+      <AlertDescription className="text-ai/80">
         AI can make mistakes. Please proofread and edit every field before
         submitting.
       </AlertDescription>

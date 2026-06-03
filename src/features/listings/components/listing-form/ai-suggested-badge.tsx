@@ -21,7 +21,11 @@ export function AISuggestedBadge({ fieldKey }: AISuggestedBadgeProps) {
   if (!ctx.prefilledFields.has(fieldKey)) return null;
 
   return (
-    <Badge data-testid={`ai-suggested-badge-${fieldKey}`}>
+    <Badge
+      variant="outline"
+      className="border-ai/30 bg-ai-light text-ai"
+      data-testid={`ai-suggested-badge-${fieldKey}`}
+    >
       <Sparkles />
       AI Suggested
     </Badge>
