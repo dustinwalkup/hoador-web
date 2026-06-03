@@ -16,9 +16,9 @@ interface ErrorViewProps {
  */
 const COPY: Record<AiFailureReason, { title: string; description: string }> = {
   low_confidence: {
-    title: "We couldn't confidently identify this tool",
+    title: "We couldn't confidently identify this item",
     description:
-      "Try adding a clearer photo of the model sticker or the whole tool from the front.",
+      "Try adding a clearer photo of any brand or model label, or the whole item from the front.",
   },
   network: {
     title: "We couldn't reach the drafting service",

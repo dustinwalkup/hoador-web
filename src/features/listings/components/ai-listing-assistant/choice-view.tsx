@@ -18,7 +18,7 @@ export function ChoiceView({ onChooseAi, onChooseManual }: ChoiceViewProps) {
         type="button"
         size="lg"
         variant="outline"
-        className="bg-ai-light text-ai border-ai/30 hover:bg-ai-light hover:text-ai hover:brightness-95 h-auto justify-start gap-3 py-4 text-left"
+        className="bg-ai-light text-ai border-ai/30 hover:bg-ai-light hover:text-ai h-auto justify-start gap-3 py-4 text-left hover:brightness-95"
         onClick={onChooseAi}
         data-testid="ai-modal-choice-ai"
       >

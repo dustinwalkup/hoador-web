@@ -9,7 +9,7 @@ import {
  * Hook that drives the AI Listing Assistant modal's generation step.
  *
  * Semantically a wrapper over `/api/listings/analyze-image`; we do the fetch
- * inline rather than composing `useAnalyzeToolImage` so we can (a) preserve
+ * inline rather than composing `useAnalyzeListingImage` so we can (a) preserve
  * HTTP status for failure mapping and (b) suppress the global mutation toast
  * — both would force breaking changes to the dev test page's hook. The
  * endpoint contract is identical.

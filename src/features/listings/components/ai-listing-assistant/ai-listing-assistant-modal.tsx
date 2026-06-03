@@ -273,7 +273,7 @@ function titleFor(kind: ModalState["kind"]): string {
     case "choice":
       return "Create your listing";
     case "instructions":
-      return "Add photos of your tool";
+      return "Add photos of your item";
     case "processing":
       return "Drafting your listing";
     case "error":

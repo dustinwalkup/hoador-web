@@ -41,9 +41,9 @@ vi.mock("@/dal", () => ({
   },
 }));
 
-const analyzeToolImageMock = vi.fn();
-vi.mock("@/services/openai/analyze-tool-image", () => ({
-  analyzeToolImage: (...args: unknown[]) => analyzeToolImageMock(...args),
+const analyzeListingImageMock = vi.fn();
+vi.mock("@/services/openai/analyze-listing-image", () => ({
+  analyzeListingImage: (...args: unknown[]) => analyzeListingImageMock(...args),
 }));
 
 function jsonRequest(body: Record<string, unknown>) {
@@ -77,11 +77,11 @@ describe("POST /api/listings/analyze-image", () => {
   beforeEach(() => {
     __resetForTests();
     vi.clearAllMocks();
-    analyzeToolImageMock.mockReset();
+    analyzeListingImageMock.mockReset();
   });
 
   it("happy path: returns a resolved AiDraft with categoryId and condition", async () => {
-    analyzeToolImageMock.mockResolvedValueOnce(rawResponse());
+    analyzeListingImageMock.mockResolvedValueOnce(rawResponse());
 
     const res = await POST(jsonRequest(SAMPLE_BODY));
     expect(res.status).toBe(200);
@@ -99,7 +99,7 @@ describe("POST /api/listings/analyze-image", () => {
   });
 
   it("legacy 'excellent' condition coerces to null (Req 5.5)", async () => {
-    analyzeToolImageMock.mockResolvedValueOnce(
+    analyzeListingImageMock.mockResolvedValueOnce(
       rawResponse({ condition: "excellent" }),
     );
 
@@ -110,7 +110,7 @@ describe("POST /api/listings/analyze-image", () => {
   });
 
   it("unknown category name resolves to categoryId: null (Req 5.3)", async () => {
-    analyzeToolImageMock.mockResolvedValueOnce(
+    analyzeListingImageMock.mockResolvedValueOnce(
       rawResponse({ categoryName: "Heavy Machinery" }),
     );
 
@@ -121,14 +121,14 @@ describe("POST /api/listings/analyze-image", () => {
   });
 
   it("OpenAI throw is refunded so the failure does not eat quota", async () => {
-    analyzeToolImageMock.mockRejectedValueOnce(new Error("OpenAI 500"));
+    analyzeListingImageMock.mockRejectedValueOnce(new Error("OpenAI 500"));
 
     const res = await POST(jsonRequest(SAMPLE_BODY));
     expect(res.status).toBe(500);
 
     // Replay 10 more successful calls — if the failure had eaten a token, the
     // 10th would fail. We expect 10 to succeed.
-    analyzeToolImageMock.mockResolvedValue(rawResponse());
+    analyzeListingImageMock.mockResolvedValue(rawResponse());
     for (let i = 0; i < 10; i++) {
       const ok = await POST(jsonRequest(SAMPLE_BODY));
       expect(ok.status).toBe(200);
@@ -136,7 +136,7 @@ describe("POST /api/listings/analyze-image", () => {
   });
 
   it("malformed AI JSON returns data: null AND refunds the token (Req 9.1)", async () => {
-    analyzeToolImageMock.mockResolvedValueOnce({ totally: "wrong shape" });
+    analyzeListingImageMock.mockResolvedValueOnce({ totally: "wrong shape" });
 
     const res = await POST(jsonRequest(SAMPLE_BODY));
     expect(res.status).toBe(200);
@@ -144,7 +144,7 @@ describe("POST /api/listings/analyze-image", () => {
     expect(json).toEqual({ success: true, data: null });
 
     // Replay 10 valid calls to prove the refund happened.
-    analyzeToolImageMock.mockResolvedValue(rawResponse());
+    analyzeListingImageMock.mockResolvedValue(rawResponse());
     for (let i = 0; i < 10; i++) {
       const ok = await POST(jsonRequest(SAMPLE_BODY));
       expect(ok.status).toBe(200);
@@ -152,7 +152,7 @@ describe("POST /api/listings/analyze-image", () => {
   });
 
   it("returns 429 on the 11th call within the window (Req 4.5)", async () => {
-    analyzeToolImageMock.mockResolvedValue(rawResponse());
+    analyzeListingImageMock.mockResolvedValue(rawResponse());
 
     for (let i = 0; i < 10; i++) {
       const ok = await POST(jsonRequest(SAMPLE_BODY));
@@ -164,16 +164,16 @@ describe("POST /api/listings/analyze-image", () => {
     const json = await eleventh.json();
     expect(json.error).toBe("rate_limited");
     // The 11th must not even invoke OpenAI.
-    expect(analyzeToolImageMock).toHaveBeenCalledTimes(10);
+    expect(analyzeListingImageMock).toHaveBeenCalledTimes(10);
   });
 
   it("passes every active category name into the prompt context (Req 5.4)", async () => {
-    analyzeToolImageMock.mockResolvedValueOnce(rawResponse());
+    analyzeListingImageMock.mockResolvedValueOnce(rawResponse());
 
     await POST(jsonRequest(SAMPLE_BODY));
 
-    expect(analyzeToolImageMock).toHaveBeenCalledOnce();
-    const [, opts] = analyzeToolImageMock.mock.calls[0] as [
+    expect(analyzeListingImageMock).toHaveBeenCalledOnce();
+    const [, opts] = analyzeListingImageMock.mock.calls[0] as [
       unknown,
       { categoryNames: string[]; conditionEnum: readonly string[] },
     ];
@@ -185,7 +185,7 @@ describe("POST /api/listings/analyze-image", () => {
     const res = await POST(jsonRequest({}));
     expect(res.status).toBe(400);
     // The aborted request should not eat quota.
-    analyzeToolImageMock.mockResolvedValue(rawResponse());
+    analyzeListingImageMock.mockResolvedValue(rawResponse());
     for (let i = 0; i < 10; i++) {
       const ok = await POST(jsonRequest(SAMPLE_BODY));
       expect(ok.status).toBe(200);

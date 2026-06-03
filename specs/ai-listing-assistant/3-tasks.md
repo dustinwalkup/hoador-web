@@ -39,9 +39,9 @@ Conventions:
     - _Requirements: 7.4, 7.5_
 
 - [x] 2. Extend OpenAI service and analyze route
-  - [x] 2.1 Extend `analyzeToolImage` to inject prompt context
-    - Modify `src/services/openai/analyze-tool-image.ts`
-    - Change signature to `analyzeToolImage(imageUrls, opts: { categoryNames: string[]; conditionEnum: readonly string[] })`
+  - [x] 2.1 Extend `analyzeListingImage` to inject prompt context
+    - Modify `src/services/openai/analyze-listing-image.ts`
+    - Change signature to `analyzeListingImage(imageUrls, opts: { categoryNames: string[]; conditionEnum: readonly string[] })`
     - Rewrite the prompt template so the category list and condition list are rendered from `opts`; remove the hardcoded 8-category list and the `excellent` example
     - Keep `temperature: 0.4`, `max_tokens: 800`, `gpt-4o`
     - Update the existing test page consumer (`src/app/test-image-upload/page.tsx` via the hook) if signature changes ripple — see Task 11
@@ -56,7 +56,7 @@ Conventions:
     - Modify `src/app/api/listings/analyze-image/route.ts`
     - After auth: check rate limiter; if exceeded → respond `429 { error: "rate_limited" }`
     - Fetch active categories via `listingDAL.getListingCategories()`
-    - Call `analyzeToolImage(imageUrls, { categoryNames, conditionEnum: CANONICAL_CONDITION_ENUM })`
+    - Call `analyzeListingImage(imageUrls, { categoryNames, conditionEnum: CANONICAL_CONDITION_ENUM })`
     - Pass response through `resolveAiDraft(raw, categories)`; if `null` → refund token, respond `200 { success: true, data: null }` (client maps `data: null` to `low_confidence`)
     - On OpenAI throw → refund token, propagate to existing `handleApiError`
     - Extend the `success` response to `{ success: true, data: AiDraft | null }` (superset of today)
@@ -71,7 +71,7 @@ Conventions:
 - [x] 3. Client analyze hook and simulated steps
   - [x] 3.1 Implement `useAnalyzeListingDraft`
     - Create `src/features/listings/hooks/use-analyze-listing-draft.ts`
-    - Wraps existing `useAnalyzeToolImage` from `use-listing-mutations.ts:121`
+    - Wraps existing `useAnalyzeListingImage` from `use-listing-mutations.ts:121`
     - Converts `File[]` → base64 data URLs via `FileReader` only on `generate()` call (lazy per Req 4.6)
     - `hasSucceededRef` makes subsequent `generate()` calls a no-op after first success (UI also disables; this is belt-and-braces for Req 4.3)
     - Error mapping: 429 → `rate_limited`; non-429 4xx → `server`; 5xx / network → `network`; `data: null` from server → `low_confidence`
@@ -246,8 +246,8 @@ Conventions:
     - The test page reads `result.data` and the existing fields like `name`, `categoryName` etc. — confirm the test page either continues to work or update it to handle the new shape
     - This is a verification-only task; do NOT remove the test page in this work
     - _Requirements: n/a (compat)_
-  - [ ] 11.2 Confirm `analyzeToolImage`'s signature change has no other call sites
-    - Grep for `analyzeToolImage(` across the repo
+  - [ ] 11.2 Confirm `analyzeListingImage`'s signature change has no other call sites
+    - Grep for `analyzeListingImage(` across the repo
     - The only expected callers are the analyze route and the test page (via the hook); if any other consumer exists, update it
     - _Requirements: 5.2_
   - [ ] 11.3 Confirm SerpAPI is not invoked from any new code paths

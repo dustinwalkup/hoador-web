@@ -37,9 +37,9 @@ vi.mock("@/dal", () => ({
   },
 }));
 
-const analyzeToolImageMock = vi.fn();
-vi.mock("@/services/openai/analyze-tool-image", () => ({
-  analyzeToolImage: (...args: unknown[]) => analyzeToolImageMock(...args),
+const analyzeListingImageMock = vi.fn();
+vi.mock("@/services/openai/analyze-listing-image", () => ({
+  analyzeListingImage: (...args: unknown[]) => analyzeListingImageMock(...args),
 }));
 
 // Imported after mocks are registered.
@@ -80,13 +80,13 @@ function lastLogPayload() {
 beforeEach(() => {
   __resetForTests();
   vi.clearAllMocks();
-  analyzeToolImageMock.mockReset();
+  analyzeListingImageMock.mockReset();
   loggerInfo.mockReset();
 });
 
 describe("analyze-image route logging (Req 9.4 / 12.2)", () => {
   it("logs the canonical fields on a successful request", async () => {
-    analyzeToolImageMock.mockResolvedValueOnce(rawResponse());
+    analyzeListingImageMock.mockResolvedValueOnce(rawResponse());
     await POST(jsonRequest(SAMPLE_BODY));
 
     const payload = lastLogPayload();
@@ -102,7 +102,7 @@ describe("analyze-image route logging (Req 9.4 / 12.2)", () => {
   });
 
   it("logs categoryResolved=false when AI returned an unknown category", async () => {
-    analyzeToolImageMock.mockResolvedValueOnce(
+    analyzeListingImageMock.mockResolvedValueOnce(
       rawResponse({ categoryName: "Heavy Machinery" }),
     );
     await POST(jsonRequest(SAMPLE_BODY));
@@ -113,7 +113,7 @@ describe("analyze-image route logging (Req 9.4 / 12.2)", () => {
   });
 
   it("logs conditionResolved=false on legacy 'excellent'", async () => {
-    analyzeToolImageMock.mockResolvedValueOnce(
+    analyzeListingImageMock.mockResolvedValueOnce(
       rawResponse({ condition: "excellent" }),
     );
     await POST(jsonRequest(SAMPLE_BODY));
@@ -124,7 +124,7 @@ describe("analyze-image route logging (Req 9.4 / 12.2)", () => {
 
   it("logs outcome=low_confidence when the route falls into the post-resolve null branch", async () => {
     // No name AND no resolvable category → low_confidence.
-    analyzeToolImageMock.mockResolvedValueOnce({ totally: "wrong shape" });
+    analyzeListingImageMock.mockResolvedValueOnce({ totally: "wrong shape" });
     await POST(jsonRequest(SAMPLE_BODY));
 
     const payload = lastLogPayload();
@@ -135,7 +135,7 @@ describe("analyze-image route logging (Req 9.4 / 12.2)", () => {
   });
 
   it("logs outcome=rate_limited and no AI call when the bucket is empty", async () => {
-    analyzeToolImageMock.mockResolvedValue(rawResponse());
+    analyzeListingImageMock.mockResolvedValue(rawResponse());
     // Burn the bucket.
     for (let i = 0; i < 10; i++) await POST(jsonRequest(SAMPLE_BODY));
     loggerInfo.mockReset();
@@ -148,7 +148,7 @@ describe("analyze-image route logging (Req 9.4 / 12.2)", () => {
   });
 
   it("logs latencyMs as a non-negative number even on a thrown AI call", async () => {
-    analyzeToolImageMock.mockRejectedValueOnce(new Error("upstream 500"));
+    analyzeListingImageMock.mockRejectedValueOnce(new Error("upstream 500"));
     await POST(jsonRequest(SAMPLE_BODY));
 
     const payload = lastLogPayload();

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This design productionizes the existing [analyze-tool-image](src/services/openai/analyze-tool-image.ts) prototype into the live create-listing flow at [src/app/dashboard/listings/add/page.tsx](src/app/dashboard/listings/add/page.tsx). The headline shape:
+This design productionizes the existing [analyze-listing-image](src/services/openai/analyze-listing-image.ts) prototype into the live create-listing flow at [src/app/dashboard/listings/add/page.tsx](src/app/dashboard/listings/add/page.tsx). The headline shape:
 
 - A new client orchestrator wraps the existing [AddListingForm](src/features/listings/components/listing-form/add-listing-form.tsx) and a new **AI Listing Assistant modal**. The form mounts empty behind the modal on page load.
 - The modal is a small client-side state machine (Choice → Instructions → ReadyToGenerate → Processing → Error). Selecting "Fill Out Manually" closes it; selecting AI keeps the same modal open through the entire AI flow.
@@ -23,9 +23,9 @@ flowchart TD
     Orchestrator --> Modal["AILIstingAssistantModal (new)<br/>state machine"]
     Orchestrator --> Form["AddListingForm (existing)<br/>remounts via formKey when prefilled"]
     Modal -->|"useAnalyzeListingDraft()"| Hook["useAnalyzeListingDraft (new wrapper)<br/>simulated steps + idempotency"]
-    Hook -->|"existing useAnalyzeToolImage"| Mutation["useAnalyzeToolImage (existing)"]
+    Hook -->|"existing useAnalyzeListingImage"| Mutation["useAnalyzeListingImage (existing)"]
     Mutation -->|"POST /api/listings/analyze-image"| Route["analyze-image route (extended)"]
-    Route --> Service["analyzeToolImage (extended)<br/>gpt-4o vision call"]
+    Route --> Service["analyzeListingImage (extended)<br/>gpt-4o vision call"]
     Route --> Resolve["resolveAiDraft (new)<br/>category lookup + condition coerce"]
     Form -. AI prefilled? .-> Banner["DraftNotice + SafetyDisclaimer"]
     Form -. AI prefilled? .-> Indicators["AI Suggested chips"]
@@ -173,7 +173,7 @@ Sub-views (single file or split, design-time decision):
 
 **Location:** `src/features/listings/hooks/use-analyze-listing-draft.ts` (new)
 
-Thin wrapper over the existing `useAnalyzeToolImage` ([use-listing-mutations.ts:121](src/features/listings/hooks/use-listing-mutations.ts#L121)) that:
+Thin wrapper over the existing `useAnalyzeListingImage` ([use-listing-mutations.ts:121](src/features/listings/hooks/use-listing-mutations.ts#L121)) that:
 
 1. Lazily converts staged `File` objects to base64 data URLs (FileReader) before the request, so the modal only pays this cost on Generate click — matching **Req 4.6**.
 2. Adds a per-modal-session **idempotency flag**: after the first successful response, subsequent calls are no-ops at the hook layer. UI also disables re-entry, but the hook is a belt-and-braces guard for **Req 4.3**.
@@ -188,7 +188,7 @@ function useAnalyzeListingDraft(opts: {
   onSuccess: (draft: AiDraft) => void;
   onFailure: (reason: AiFailureReason) => void;
 }) {
-  const analyze = useAnalyzeToolImage();
+  const analyze = useAnalyzeListingImage();
   const hasSucceededRef = useRef(false);
 
   return useMemo(
@@ -284,7 +284,7 @@ Changes:
 Changes (additive — existing test page consumers continue to work, but the route now returns a richer `data` payload):
 
 1. Fetch active categories at request time (DAL `listingDAL.getListingCategories()`).
-2. Pass category names into `analyzeToolImage(imageUrls, { categoryNames, conditionEnum })` (signature extended below).
+2. Pass category names into `analyzeListingImage(imageUrls, { categoryNames, conditionEnum })` (signature extended below).
 3. After OpenAI responds, run `resolveAiDraft(raw, categories)`:
    - `categoryId`: case-insensitive trim match on `categoryName` → category UUID; `null` if no match.
    - `condition`: assert membership in `["new","good","fair","poor"]`; `null` if not.
@@ -296,25 +296,27 @@ Changes (additive — existing test page consumers continue to work, but the rou
 
 The route is the single place that owns the "AI output → form-ready prefill" contract. Clients never see raw category names or `excellent` condition values.
 
-### 9. `analyzeToolImage` service extensions
+### 9. `analyzeListingImage` service extensions
 
-**Location:** [src/services/openai/analyze-tool-image.ts](src/services/openai/analyze-tool-image.ts)
+**Location:** [src/services/openai/analyze-listing-image.ts](src/services/openai/analyze-listing-image.ts)
 
-Signature changes from `analyzeToolImage(imageUrls)` to:
+Signature changes from `analyzeListingImage(imageUrls)` to:
 
 ```ts
 interface AnalyzeOptions {
   categoryNames: string[];  // injected into prompt
   conditionEnum: readonly ["new","good","fair","poor"]; // injected into prompt
 }
-analyzeToolImage(imageUrls: string | string[], opts: AnalyzeOptions): Promise<RawAiResponse>;
+analyzeListingImage(imageUrls: string | string[], opts: AnalyzeOptions): Promise<RawAiResponse>;
 ```
 
 The prompt is updated to:
 
-- Render the category list dynamically from `opts.categoryNames` (no hardcoded 8-item list).
+- Frame the role around a "rental marketplace for items, tools, and equipment" rather than a "tool rental platform" — half the active category catalog (Kids & Baby, Party Equipment, Cleaning, Miscellaneous) is not tool-shaped, and tool-specific framing biased the model's identification and spec keys.
+- Render the category list dynamically from `opts.categoryNames` (no hardcoded 8-item list). When no category clearly fits, the prompt directs the model to use `"Miscellaneous"` rather than guessing the closest — aligns with **Req 5.3** (leave Category unset rather than assign incorrectly).
 - Render the condition list dynamically from `opts.conditionEnum` and emit only those values (replaces the current `excellent` → `new` mismatch at the source per **Req 5.5**).
 - Continue to emit `null` for brand/model when not visible (favoring blank over guesses per **Req 5.6**).
+- Treat `specifications` as a free-form `Record<string, string>` rather than a fixed `power | weight | dimensions | material` skeleton. The prompt instructs the model to emit 1–4 short, lowercase, common-noun keys appropriate to the item (examples cover non-tool categories: "capacity" for a cooler, "seating" for a tent, "age range" for a baby item). The downstream resolver, the `AiDraft` schema, and the form's specifications UI already accept arbitrary keys, so no resolver or UI changes are required.
 
 `temperature` and `max_tokens` are unchanged.
 
@@ -486,8 +488,8 @@ These align with the existing test-plan conventions (`4-test-plan.md`, `4-e2e-te
 
 ## Decisions and Rationale
 
-1. **Reuse `useAnalyzeToolImage` instead of writing a new mutation.** The hook already wraps the route correctly; introducing a parallel mutation would split error handling.
-2. **Wrap with `useAnalyzeListingDraft` rather than extending `useAnalyzeToolImage` directly.** The wrapper owns the orchestration-specific concerns (FileReader conversion, simulated-steps coordination, idempotency, error mapping). Keeping `useAnalyzeToolImage` thin preserves the test page and any other internal consumers.
+1. **Reuse `useAnalyzeListingImage` instead of writing a new mutation.** The hook already wraps the route correctly; introducing a parallel mutation would split error handling.
+2. **Wrap with `useAnalyzeListingDraft` rather than extending `useAnalyzeListingImage` directly.** The wrapper owns the orchestration-specific concerns (FileReader conversion, simulated-steps coordination, idempotency, error mapping). Keeping `useAnalyzeListingImage` thin preserves the test page and any other internal consumers.
 3. **Server resolves categoryId and condition.** Centralizing the AI-output → form-contract translation in the route (a) prevents the client from needing to know the active category list for resolution, (b) makes the contract typed and testable, (c) keeps the test page working unchanged because the route's `data` is a strict superset of what existed before.
 4. **Update the gpt-4o prompt to emit canonical condition enum.** Cheaper and safer than client-side coercion. Eliminates the [listing.schema.ts:96](src/features/listings/form-schema/listing.schema.ts#L96) "excellent" mismatch at the source.
 5. **Inject categories into the prompt dynamically.** Prevents the catalog from drifting from the prompt (currently 8 vs. 10).
@@ -512,7 +514,7 @@ These align with the existing test-plan conventions (`4-test-plan.md`, `4-e2e-te
 | R2 (Photos first in both flows)                                                        | `AddListingForm` section reordering                                                                     |
 | R3 (staged photos + guidance + camera + cancel)                                        | `InstructionsView`, `StagedPhoto`, `useSimulatedSteps` orchestration                                    |
 | R4 (explicit trigger; one-shot; server-side enforcement)                               | `useAnalyzeListingDraft.hasSucceededRef` + route rate limit                                             |
-| R5 (gpt-4o; category resolution; condition; nulls; no pricing)                         | extended `analyzeToolImage` + `resolveAiDraft` + prompt update                                          |
+| R5 (gpt-4o; category resolution; condition; nulls; no pricing)                         | extended `analyzeListingImage` + `resolveAiDraft` + prompt update                                       |
 | R6 (processing UX; simulated steps + evidence callouts)                                | `ProcessingView` + `useSimulatedSteps` + evidence selectors                                             |
 | R7 (prefilled review form; indicators; draft banner; safety disclaimer; manual submit) | `AddListingForm` + `AiPrefillContext` + `DraftNotice` + `SafetyDisclaimer`                              |
 | R8 (photos persist; no auto-reprocess; no regeneration)                                | `aiPrefilledFields` snapshot doesn't trigger re-analysis; modal is single-shot                          |

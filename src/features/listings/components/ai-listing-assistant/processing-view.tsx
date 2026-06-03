@@ -97,7 +97,7 @@ function EvidenceCallouts({ draft }: { draft: AiDraft }) {
   if (draft.categoryId) {
     callouts.push({
       id: "category",
-      text: "We identified a likely tool category",
+      text: "We identified a likely category",
     });
   }
   if (draft.brand) {

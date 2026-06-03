@@ -89,7 +89,7 @@ e2e/
 ### Modified files
 
 ```
-src/services/openai/analyze-tool-image.ts            # Task 2.1 (signature + prompt rewrite)
+src/services/openai/analyze-listing-image.ts            # Task 2.1 (signature + prompt rewrite)
 src/app/api/listings/analyze-image/route.ts          # Task 2.3 (resolver + rate limit + contract)
 src/app/dashboard/listings/add/page.tsx              # Task 8.2 (render orchestrator)
 src/features/listings/components/listing-form/
@@ -121,7 +121,7 @@ Follow [.ai/AI-coding-standards.md](.ai/AI-coding-standards.md). The specific po
 - **Validate at boundaries, not inside trusted code**: the analyze route validates raw OpenAI output with Zod (`RawAiResponseSchema.safeParse`). Downstream code trusts the `AiDraft` shape.
 - **Don't add error handling for things that can't happen**. The modal reducer doesn't need to handle "what if BEGIN_GENERATE fires from Choice" beyond returning `state` — no logging, no warning toast.
 - **No unused exports**. Each new file exports only what's consumed externally.
-- **Server-only code stays server-only**. `analyze-tool-image.ts`, `resolve-ai-draft.ts`, `ai-rate-limit.ts`, and the route file must not be imported from any client module.
+- **Server-only code stays server-only**. `analyze-listing-image.ts`, `resolve-ai-draft.ts`, `ai-rate-limit.ts`, and the route file must not be imported from any client module.
 
 ## TDD approach
 
@@ -136,7 +136,7 @@ Reference: [.ai/AI-tdd-methodology.md](.ai/AI-tdd-methodology.md). The red-green
 
 ## Error handling approach
 
-- **Server**: throws from `analyzeToolImage` flow through the existing `handleApiError`. Validation/parse failures map to `200 { success: true, data: null }` — the low-confidence path is intentionally not a 4xx/5xx because it represents a successful call with a useless result. Rate-limit denial is `429`. The rate-limiter token is consumed only when the response carries a valid `AiDraft` — failures, parse-misses, and OpenAI errors refund.
+- **Server**: throws from `analyzeListingImage` flow through the existing `handleApiError`. Validation/parse failures map to `200 { success: true, data: null }` — the low-confidence path is intentionally not a 4xx/5xx because it represents a successful call with a useless result. Rate-limit denial is `429`. The rate-limiter token is consumed only when the response carries a valid `AiDraft` — failures, parse-misses, and OpenAI errors refund.
 - **Client hook**: maps HTTP status and `data: null` to `AiFailureReason` (`rate_limited | network | server | low_confidence`). All other code, including views, switches on `reason`, never on raw status codes or message strings.
 - **User-facing copy**: never mentions OpenAI, gpt-4o, multimodal inference, status codes, or raw error text (Req 6.3, Req 9.1). Each `AiFailureReason` has a single canonical user-facing message stored in the modal sub-views.
 
@@ -199,7 +199,8 @@ These are _not_ in MVP scope but are tracked here so they don't get lost:
 
 ## Where to look first if something is wrong
 
-- **AI returns invalid condition** → check `resolve-ai-draft.ts` and the prompt template in `analyze-tool-image.ts`. The prompt now injects the canonical enum dynamically.
+- **AI returns invalid condition** → check `resolve-ai-draft.ts` and the prompt template in `analyze-listing-image.ts`. The prompt now injects the canonical enum dynamically.
+- **AI returns weird specification keys** (booleans, sentences, gibberish) → the `specifications` shape is free-form by design (so non-tool categories get sensible keys like `capacity` / `seating` / `age range`). If the model starts emitting noise, tighten the guardrail line in `analyze-listing-image.ts`'s prompt — current guardrail is "1–4 short, lowercase, common-noun keys" and "values must be plain strings." Resolver and form UI accept any keys, so this is purely a prompt-quality issue.
 - **AI suggests a category that doesn't exist** → check the category fetch in the route handler. The DAL should return only `isActive=true` categories.
 - **Modal won't close after generation** → likely the orchestrator's `formKey` is not incrementing, or `modalDismissedThisSession` isn't being set. Test G in `4-test-plan.md` covers this.
 - **Banner appears in the manual flow** → `aiPrefilledFields` is being passed as a non-empty array somewhere. Trace from `CreateListingClient`.

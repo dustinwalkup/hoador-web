@@ -2,11 +2,11 @@
 
 ## Introduction
 
-The AI Listing Assistant accelerates **initial listing creation** for tools/equipment by drafting listing fields from photos the user uploads. AI is offered only at creation time as a **draft-generation accelerator** — never as an ongoing editing copilot, conversational assistant, or autonomous publishing system. All AI-generated content is fully user-editable before submission, and every listing continues to pass through the existing validation and admin approval (`pending_review`) gate. AI never publishes a listing.
+The AI Listing Assistant accelerates **initial listing creation** for items, tools, and equipment by drafting listing fields from photos the user uploads. AI is offered only at creation time as a **draft-generation accelerator** — never as an ongoing editing copilot, conversational assistant, or autonomous publishing system. All AI-generated content is fully user-editable before submission, and every listing continues to pass through the existing validation and admin approval (`pending_review`) gate. AI never publishes a listing.
 
-This feature productionizes an existing prototype rather than building greenfield AI. A working OpenAI **gpt-4o** vision integration already exists (`src/services/openai/analyze-tool-image.ts`, `src/app/api/listings/analyze-image/route.ts`, and the `useAnalyzeToolImage` hook), and a test page (`src/app/test-image-upload/page.tsx`) already analyzes images sent as base64 data URLs. The MVP wires this capability into the real create-listing flow (`/dashboard/listings/add`), reusing the existing listing form, Zod validation, Vercel Blob image pipeline, and approval workflow. The AI system acts only as a **prefill/orchestration layer**, not a separate listing management system.
+This feature productionizes an existing prototype rather than building greenfield AI. A working OpenAI **gpt-4o** vision integration already exists (`src/services/openai/analyze-listing-image.ts`, `src/app/api/listings/analyze-image/route.ts`, and the `useAnalyzeListingImage` hook), and a test page (`src/app/test-image-upload/page.tsx`) already analyzes images sent as base64 data URLs. The MVP wires this capability into the real create-listing flow (`/dashboard/listings/add`), reusing the existing listing form, Zod validation, Vercel Blob image pipeline, and approval workflow. The AI system acts only as a **prefill/orchestration layer**, not a separate listing management system.
 
-**Scope:** Tools/equipment listings only (`/dashboard/listings/add`). The services creation flow (`/dashboard/services/listings/create`) is out of scope for the MVP because photo-based identification does not fit services.
+**Scope:** Item/tool/equipment listings only (`/dashboard/listings/add`). The services creation flow (`/dashboard/services/listings/create`) is out of scope for the MVP because photo-based identification does not fit services.
 
 ## Glossary
 
@@ -48,7 +48,7 @@ This feature productionizes an existing prototype rather than building greenfiel
 #### Acceptance Criteria
 
 1. The photo upload step SHALL occur inside the AI Listing Assistant modal — not in the underlying form.
-2. The modal SHALL display user-friendly, plain-language guidance on what photos to include, with concrete examples for each (e.g. **full tool photo**, **brand/model label or sticker close-up**, **accessories included**, **condition close-up of wear/damage**). Guidance SHALL recommend 3–5 photos and explain _why_ each type helps (e.g. "a clear shot of the model sticker helps us identify the exact tool").
+2. The modal SHALL display user-friendly, plain-language guidance on what photos to include, with concrete examples for each (e.g. **full photo of the item**, **brand/model label close-up**, **accessories included**, **condition close-up of wear/damage**). Guidance SHALL recommend 3–5 photos and explain _why_ each type helps (e.g. "a clear shot of any brand or model label helps us identify the exact item").
 3. WHEN the user adds photos THEN the system SHALL stage them client-side only (in-memory / local preview, within the modal) and SHALL NOT transmit any image to the AI service.
 4. The system SHALL NOT perform any background or automatic AI analysis at upload time.
 5. WHERE the user is on a mobile device THEN the modal SHALL allow capturing photos from the device camera.
@@ -87,7 +87,7 @@ This feature productionizes an existing prototype rather than building greenfiel
 
 #### BDD Scenario: Successful draft generation
 
-- **Given** a user in the AI flow with 3 staged photos of the same tool
+- **Given** a user in the AI flow with 3 staged photos of the same item
 - **When** the user clicks "Generate Listing Draft" and the AI call succeeds
 - **Then** the system SHALL prefill the standard listing form with Title, Description, Category (resolved to a valid category), Condition (valid enum), and any confidently identified Brand/Model/Specifications
 - **And** the staged photos SHALL remain attached to the draft
@@ -103,7 +103,7 @@ This feature productionizes an existing prototype rather than building greenfiel
 2. The modal SHALL display a sequence of plain-language progress steps during processing (e.g. "Analyzing photos", "Identifying brand and model", "Drafting description", "Preparing listing draft"). These steps MAY be presented on a timed/animated basis because generation is a single call; they are a perceived-performance device, not literal backend stages.
 3. The progress messaging SHALL avoid technical jargon and AI buzzwords (no model names, APIs, or "multimodal inference").
 4. The system SHALL set a time expectation (e.g. "This usually takes less than 10 seconds").
-5. WHEN generation completes THEN the system SHALL surface evidence callouts derived from the actual AI response (e.g. show "We found a visible model number" only when Model is non-null; "We identified a likely tool category" only when Category resolved). The system SHALL NOT display evidence callouts for fields the AI did not confidently produce.
+5. WHEN generation completes THEN the system SHALL surface evidence callouts derived from the actual AI response (e.g. show "We found a visible model number" only when Model is non-null; "We identified a likely category" only when Category resolved). The system SHALL NOT display evidence callouts for fields the AI did not confidently produce.
 6. The processing state SHALL be mobile-first and SHALL discourage repeated submission (e.g. by disabling the trigger while in progress).
 
 ### Requirement 7: AI Draft Review in the Standard Form
@@ -117,7 +117,7 @@ This feature productionizes an existing prototype rather than building greenfiel
 3. The system SHALL run the existing client and server validation on the (possibly edited) values at submission; AI prefill SHALL NOT bypass any validation rule.
 4. WHERE a field was AI-suggested THEN the system MAY display a subtle indicator (e.g. "AI Suggested" label or sparkle icon). Indicators SHALL remain minimal and SHALL NOT make the form feel "AI-centric".
 5. WHEN the form is rendered with one or more AI-prefilled values THEN the system SHALL display a prominent, persistent draft notice at the top of the form clearly stating: (a) the listing is a draft generated from the user's photos, (b) AI can make mistakes, and (c) the user is expected to proofread and edit every field before submitting. The notice SHALL remain visible until the listing is submitted and SHALL NOT be dismissible.
-6. WHEN the form is rendered with an AI-prefilled Safety Notes value (and/or AI-prefilled Usage Instructions) THEN the system SHALL display a **highly visible, visually distinct** disclaimer adjacent to the Safety Notes field stating that AI-drafted safety guidance is a starting point only, may be incomplete or inaccurate, and that the listing owner is responsible for reviewing and providing accurate, complete safety information for their tool. The disclaimer SHALL use warning/attention styling (e.g. icon + emphasized background), SHALL NOT be collapsed behind a "show more" affordance, and SHALL NOT be dismissible.
+6. WHEN the form is rendered with an AI-prefilled Safety Notes value (and/or AI-prefilled Usage Instructions) THEN the system SHALL display a **highly visible, visually distinct** disclaimer adjacent to the Safety Notes field stating that AI-drafted safety guidance is a starting point only, may be incomplete or inaccurate, and that the listing owner is responsible for reviewing and providing accurate, complete safety information for their item. The disclaimer SHALL use warning/attention styling (e.g. icon + emphasized background), SHALL NOT be collapsed behind a "show more" affordance, and SHALL NOT be dismissible.
 7. The system SHALL require the user to confirm and submit the listing manually; the system SHALL NOT auto-submit or auto-publish.
 
 ### Requirement 8: Photo Handling After Generation
@@ -133,11 +133,11 @@ This feature productionizes an existing prototype rather than building greenfiel
 
 ### Requirement 9: Error Handling and Low-Confidence Behavior
 
-**User Story:** As a listing creator, I want graceful, non-technical handling when AI cannot identify my tool, so that I can still complete my listing.
+**User Story:** As a listing creator, I want graceful, non-technical handling when AI cannot identify my item, so that I can still complete my listing.
 
 #### Acceptance Criteria
 
-1. IF generation fails THEN the AI Listing Assistant modal SHALL display a user-friendly message in place (e.g. "We couldn't confidently identify this tool") and SHALL NOT expose raw/technical errors. The modal SHALL remain open; errors SHALL NOT be surfaced on the underlying form.
+1. IF generation fails THEN the AI Listing Assistant modal SHALL display a user-friendly message in place (e.g. "We couldn't confidently identify this item") and SHALL NOT expose raw/technical errors. The modal SHALL remain open; errors SHALL NOT be surfaced on the underlying form.
 2. WHEN generation fails THEN the modal SHALL offer recovery options inline: upload additional photos, try again, or continue with manual listing creation (carrying over the already-staged photos).
 3. WHERE AI confidence for a specific field is low THEN the system SHALL prefer leaving that field blank over emitting an incorrect or fabricated value.
 4. The system SHALL log generation failures with sufficient context for debugging (without surfacing that detail to the user).
@@ -196,4 +196,4 @@ This feature productionizes an existing prototype rather than building greenfiel
 
 ## Summary
 
-This feature turns the existing gpt-4o image-analysis prototype into a production "Generate from Photos" path inside the standard create-listing flow for tools/equipment. The user explicitly triggers a single, one-shot AI generation; staged photos are sent only on that action; AI prefills editable form fields (including draft instructions/safety notes per stakeholder decision) plus carries the photos forward; and the user reviews, edits, and submits through the unchanged validation and admin-approval pipeline. AI never auto-publishes, never reprocesses on edit, and never estimates price. Known code reconciliations (condition enum, category coverage, dropping SerpAPI price research) are captured as constraints for the design phase.
+This feature turns the existing gpt-4o image-analysis prototype into a production "Generate from Photos" path inside the standard create-listing flow for items, tools, and equipment. The user explicitly triggers a single, one-shot AI generation; staged photos are sent only on that action; AI prefills editable form fields (including draft instructions/safety notes per stakeholder decision) plus carries the photos forward; and the user reviews, edits, and submits through the unchanged validation and admin-approval pipeline. AI never auto-publishes, never reprocesses on edit, and never estimates price. Known code reconciliations (condition enum, category coverage, dropping SerpAPI price research) are captured as constraints for the design phase.

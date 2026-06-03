@@ -52,7 +52,7 @@ Co-located under `src/features/listings/ai-listing-assistant/__fixtures__/` and 
 | `openaiResponse.excellentLegacy.json` | Same shape but `condition: "excellent"` — verifies coercion-to-null at the route layer                            |
 | `openaiResponse.unknownCategory.json` | `categoryName: "Welding Equipment"` — verifies blank `categoryId`                                                 |
 | `openaiResponse.malformed.txt`        | Invalid JSON — verifies the `safeParse` fallback path                                                             |
-| `images/`                             | Three small JPEGs (full tool, model sticker, condition close-up) used by E2E                                      |
+| `images/`                             | Three small JPEGs (full item, brand/model label, condition close-up) used by E2E                                  |
 
 ## Mock and stub strategy
 
@@ -184,7 +184,7 @@ _Requirements: 4.5, 5.2, 5.3, 5.4, 5.5, 9.4, 12.2_
 
 **`InstructionsView`** _(Task 5.2)_
 
-- Guidance copy present for all four photo types (full tool, brand/model label, accessories, condition close-up) including the _why_ phrase per type.
+- Guidance copy present for all four photo types (full item, brand/model label, accessories, condition close-up) including the _why_ phrase per type.
 - Generate disabled with zero staged photos; enabled at ≥1. _Req 3.7_
 - File input has `accept="image/*"` and `capture` attribute. _Req 3.5_
 - Add/remove/replace updates internal state and revokes object URLs on remove.
@@ -197,7 +197,7 @@ _Requirements: 4.5, 5.2, 5.3, 5.4, 5.5, 9.4, 12.2_
 - Evidence callouts conditional on the draft:
   - With `model: "DCD777C2"` → "We found a visible model number" rendered.
   - With `model: null` → NOT rendered.
-  - With resolved category → "We identified a likely tool category" rendered.
+  - With resolved category → "We identified a likely category" rendered.
   - With `categoryId: null` → NOT rendered.
 - _Req 6.1, 6.2, 6.3, 6.5_
 

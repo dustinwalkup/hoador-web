@@ -20,7 +20,7 @@ export function SafetyDisclaimer() {
       <AlertDescription>
         It may be incomplete or inaccurate. As the listing owner, you are
         responsible for reviewing and providing complete, accurate safety
-        information for your tool before submitting.
+        information for your item before submitting.
       </AlertDescription>
     </Alert>
   );

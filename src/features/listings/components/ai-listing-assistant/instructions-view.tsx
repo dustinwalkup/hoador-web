@@ -23,19 +23,19 @@ interface InstructionsViewProps {
  */
 const PHOTO_GUIDANCE: ReadonlyArray<{ title: string; description: string }> = [
   {
-    title: "Full tool photo",
+    title: "Full photo of the item",
     description:
-      "Show the whole tool from the side — helps us recognize what it is.",
+      "Show the whole item from the side — helps us recognize what it is.",
   },
   {
     title: "Brand/model label close-up",
     description:
-      "A clear shot of the model sticker helps us identify the exact tool.",
+      "A clear shot of any brand or model label helps us identify the exact item.",
   },
   {
     title: "Accessories included",
     description:
-      "Batteries, chargers, bits, attachments — anything that comes with it.",
+      "Batteries, chargers, attachments, parts — anything that comes with it.",
   },
   {
     title: "Condition close-up",
@@ -65,7 +65,7 @@ export function InstructionsView({
   return (
     <div className="flex flex-col gap-4" data-testid="ai-modal-instructions">
       <div>
-        <p className="text-sm font-medium">Add 3–5 photos of your tool</p>
+        <p className="text-sm font-medium">Add 3–5 photos of your item</p>
         <p className="text-muted-foreground text-xs">
           Different angles help us draft a more accurate listing.
         </p>

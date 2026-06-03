@@ -37,7 +37,7 @@ describe("InstructionsView", () => {
     renderView();
 
     const titles = [
-      "Full tool photo",
+      "Full photo of the item",
       "Brand/model label close-up",
       "Accessories included",
       "Condition close-up",
@@ -48,7 +48,7 @@ describe("InstructionsView", () => {
 
     // At least one entry includes the "why" framing for AI identification.
     expect(
-      screen.getByText(/helps us identify the exact tool/i),
+      screen.getByText(/helps us identify the exact item/i),
     ).toBeInTheDocument();
   });
 

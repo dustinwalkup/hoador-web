@@ -12,7 +12,7 @@ import {
 } from "@/lib/api/route-helpers";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { getLogger } from "@/lib/logger";
-import { analyzeToolImage } from "@/services/openai/analyze-tool-image";
+import { analyzeListingImage } from "@/services/openai/analyze-listing-image";
 import { resolveAiDraft } from "@/services/openai/resolve-ai-draft";
 
 const analyzeImageSchema = z.object({
@@ -22,8 +22,8 @@ const analyzeImageSchema = z.object({
 /**
  * POST /api/listings/analyze-image
  *
- * Analyze staged tool photos with gpt-4o and return an `AiDraft` ready for the
- * listing form. Returns `data: null` when the model could not produce a
+ * Analyze staged listing photos with gpt-4o and return an `AiDraft` ready for
+ * the listing form. Returns `data: null` when the model could not produce a
  * parseable response — the client maps that to a `low_confidence` failure.
  */
 async function postHandler(request: NextRequest) {
@@ -78,7 +78,7 @@ async function postHandler(request: NextRequest) {
     const categories = await listingDAL.getListingCategories();
     const categoryNames = categories.map((c) => c.name);
 
-    const raw = await analyzeToolImage(validationResult.data.imageUrls, {
+    const raw = await analyzeListingImage(validationResult.data.imageUrls, {
       categoryNames,
       conditionEnum: CANONICAL_CONDITION_ENUM,
     });
