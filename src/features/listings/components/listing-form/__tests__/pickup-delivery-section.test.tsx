@@ -16,7 +16,7 @@ describe("PickupDeliverySection", () => {
 
     expect(screen.getByText("Pickup & Delivery")).toBeInTheDocument();
     expect(
-      screen.getByText("How will renters get your tool?"),
+      screen.getByText("How will renters get your item?"),
     ).toBeInTheDocument();
   });
 

@@ -1,0 +1,255 @@
+# AI Listing Assistant — Implementation Tasks
+
+Tasks are ordered by dependency. Pure types and pure functions come first so downstream work can lean on them; UI integration and E2E come last. Each task ends with a `_Requirements:_` line tracing back to `1-requirements.md`.
+
+Conventions:
+
+- TDD where the code is pure (resolvers, reducers, mapping functions, hooks).
+- New files for net-new pieces; surgical edits to existing files (`AddListingForm`, the analyze route/service, the add-listing page).
+- No DB migrations.
+
+---
+
+- [x] 1. Establish shared types and pure utilities
+  - [x] 1.1 Define shared AI types
+    - Create `src/features/listings/ai-listing-assistant/types.ts`
+    - Export `AiDraft`, `AiPrefilledFieldKey`, `AiFailureReason`, `RawAiResponse`, `StagedPhoto`, `ModalState` exactly as specified in `2-design.md` §Data Models and §Components
+    - Export a `CANONICAL_CONDITION_ENUM = ["new","good","fair","poor"] as const` re-exported from `listing.schema.ts`'s `listingConditionSchema` to keep one source of truth
+    - _Requirements: 5.5, 5.6_
+  - [x] 1.2 Implement and test `resolveAiDraft`
+    - Create `src/services/openai/resolve-ai-draft.ts` and a Vitest spec
+    - Pure function `resolveAiDraft(raw: unknown, categories: {id:string,name:string}[]): AiDraft | null`
+    - Validate `raw` with a `zod` `RawAiResponseSchema.safeParse`; return `null` on failure (route will treat as `low_confidence`)
+    - Case-insensitive trim match `raw.categoryName` against active categories; `categoryId = null` when no match
+    - Coerce `condition` against `CANONICAL_CONDITION_ENUM`; `null` when not a member
+    - Drop empty-string entries from `specifications`
+    - Tests: happy path, no-category-match, condition `excellent` legacy → null, `condition: "GOOD"` (case) → null (we only accept canonical casing), brand/model null preserved, malformed input → null
+    - _Requirements: 5.3, 5.4, 5.5, 5.6_
+  - [x] 1.3 Implement and test `aiDraftToInitialValues`
+    - Create `src/features/listings/ai-listing-assistant/ai-draft-to-initial-values.ts` and a Vitest spec
+    - Pure function `aiDraftToInitialValues(d: AiDraft, images: ImageFile[]): Partial<CreateListingFormClientValues>`
+    - Only include keys whose AiDraft value is non-null/non-empty so form defaults survive un-overwritten
+    - Always include `images` (even empty array path is handled by the form's existing min-1 image validator at submit)
+    - Tests: each field nulled individually, full draft, empty specifications object, images forwarded
+    - _Requirements: 5.6, 7.2, 8.1_
+  - [x] 1.4 Implement and test `computeAiPrefilledFields`
+    - Pure helper in the same `ai-draft-to-initial-values.ts` module
+    - Returns `ReadonlySet<AiPrefilledFieldKey>` — the keys whose AiDraft value was actually emitted
+    - Tests: empty draft → empty set; full draft → all 9 keys; null fields excluded
+    - _Requirements: 7.4, 7.5_
+
+- [x] 2. Extend OpenAI service and analyze route
+  - [x] 2.1 Extend `analyzeListingImage` to inject prompt context
+    - Modify `src/services/openai/analyze-listing-image.ts`
+    - Change signature to `analyzeListingImage(imageUrls, opts: { categoryNames: string[]; conditionEnum: readonly string[] })`
+    - Rewrite the prompt template so the category list and condition list are rendered from `opts`; remove the hardcoded 8-category list and the `excellent` example
+    - Keep `temperature: 0.4`, `max_tokens: 800`, `gpt-4o`
+    - Update the existing test page consumer (`src/app/test-image-upload/page.tsx` via the hook) if signature changes ripple — see Task 11
+    - _Requirements: 5.2, 5.4, 5.5_
+  - [x] 2.2 Rate limiter middleware
+    - Create `src/lib/api/ai-rate-limit.ts`
+    - In-memory per-user token bucket: 10 successful generations per rolling 60-minute window
+    - Expose `consume(userId)` and `refund(userId)` (failures call `refund`; only successful 200 with valid `AiDraft` keeps the token)
+    - Unit tests: token consumption, refund, window expiry, eleventh call returns "rate_limited"
+    - _Requirements: 4.5_
+  - [x] 2.3 Extend `/api/listings/analyze-image` route
+    - Modify `src/app/api/listings/analyze-image/route.ts`
+    - After auth: check rate limiter; if exceeded → respond `429 { error: "rate_limited" }`
+    - Fetch active categories via `listingDAL.getListingCategories()`
+    - Call `analyzeListingImage(imageUrls, { categoryNames, conditionEnum: CANONICAL_CONDITION_ENUM })`
+    - Pass response through `resolveAiDraft(raw, categories)`; if `null` → refund token, respond `200 { success: true, data: null }` (client maps `data: null` to `low_confidence`)
+    - On OpenAI throw → refund token, propagate to existing `handleApiError`
+    - Extend the `success` response to `{ success: true, data: AiDraft | null }` (superset of today)
+    - _Requirements: 4.5, 5.3, 5.4, 5.5, 9.4_
+  - [x] 2.4 Route integration tests
+    - Spec at `src/app/api/listings/analyze-image/route.test.ts` (or under `src/services/openai/`)
+    - Mock OpenAI client; use a category DAL fixture
+    - Cases: happy path (`Power Tools` → resolved UUID, `condition: good` passes through); legacy `excellent` → `condition: null`; unknown category → `categoryId: null`; OpenAI 500 → route error path + rate-limit refunded; malformed JSON → `data: null` + rate-limit refunded; 11th call within window → 429
+    - Assert prompt construction includes _all_ active category names from the fixture
+    - _Requirements: 4.5, 5.3, 5.4, 5.5_
+
+- [x] 3. Client analyze hook and simulated steps
+  - [x] 3.1 Implement `useAnalyzeListingDraft`
+    - Create `src/features/listings/hooks/use-analyze-listing-draft.ts`
+    - Wraps existing `useAnalyzeListingImage` from `use-listing-mutations.ts:121`
+    - Converts `File[]` → base64 data URLs via `FileReader` only on `generate()` call (lazy per Req 4.6)
+    - `hasSucceededRef` makes subsequent `generate()` calls a no-op after first success (UI also disables; this is belt-and-braces for Req 4.3)
+    - Error mapping: 429 → `rate_limited`; non-429 4xx → `server`; 5xx / network → `network`; `data: null` from server → `low_confidence`
+    - Exposes `{ isPending, generate(files) }` and accepts `{ onSuccess(draft), onFailure(reason) }`
+    - _Requirements: 4.1, 4.2, 4.3, 4.6, 9.1, 9.2_
+  - [x] 3.2 Tests for `useAnalyzeListingDraft`
+    - Vitest + RTL `renderHook`; mock `fetch`
+    - Cases: happy path; idempotency (second `generate` does not call `fetch`); each error mapping branch; FileReader rejection branch maps to `server`
+    - _Requirements: 4.3, 4.5, 9.1, 9.2_
+  - [x] 3.3 Implement `useSimulatedSteps`
+    - Create `src/features/listings/components/ai-listing-assistant/use-simulated-steps.ts`
+    - Signature per `2-design.md` §Components/§4
+    - Advances `currentStepIndex` on a timer respecting each step's `minMs`; `finalize()` fast-forwards to the last step but holds it for a 400 ms grace before allowing transition out
+    - When the underlying promise outlives the script, hold on the last step indefinitely
+    - _Requirements: 6.1, 6.2, 6.4_
+  - [x] 3.4 Tests for `useSimulatedSteps`
+    - Vitest with fake timers
+    - Cases: linear advancement with `minMs`; `finalize()` while on step 3 fast-forwards to step 5 then waits 400 ms; promise resolves _after_ step 5 — final step stays
+    - _Requirements: 6.1, 6.2_
+
+- [x] 4. Modal state machine
+  - [x] 4.1 Implement reducer
+    - Create `src/features/listings/components/ai-listing-assistant/modal-state.ts`
+    - Export `ModalState` discriminated union and a pure `modalReducer(state, action): ModalState`
+    - Actions: `CHOOSE_AI`, `CHOOSE_MANUAL`, `STAGE_PHOTOS(photos)`, `REMOVE_PHOTO(id)`, `CANCEL_AI`, `BEGIN_GENERATE`, `GENERATE_SUCCESS`, `GENERATE_FAILURE(reason)`, `RETRY_FROM_ERROR`, `BACK_TO_INSTRUCTIONS`
+    - Disallow invalid transitions (e.g. `BEGIN_GENERATE` from `choice` → no-op)
+    - _Requirements: 1.4, 1.5, 3.6, 4.1, 9.2_
+  - [x] 4.2 Reducer tests
+    - Cover every transition in the state diagram from `2-design.md` §Architecture
+    - Includes: Choice→Manual (Closed), Choice→Instructions, Instructions↔ReadyToGenerate (photos > 0), Cancel from Instructions, Generate→Processing, Processing→Success/Failure, Error→Retry/BackToInstructions/Closed, no-op on illegal action
+    - _Requirements: 1.4, 1.5, 3.6, 9.2_
+
+- [x] 5. Build modal sub-views and compose the modal
+  - [x] 5.1 `ChoiceView` component + tests
+    - Path: `src/features/listings/components/ai-listing-assistant/choice-view.tsx`
+    - Two large buttons with copy "Generate from Photos" and "Fill Out Manually"; calls back via props
+    - Test: emits correct callback on each click; renders both options; mobile layout snapshot
+    - _Requirements: 1.2, 1.3, 1.7_
+  - [x] 5.2 `InstructionsView` component + tests
+    - Path: `src/features/listings/components/ai-listing-assistant/instructions-view.tsx`
+    - Guidance copy for all four photo types with the "why" phrasing from Req 3.2
+    - File picker with `accept="image/*"` and `capture` attribute for mobile camera (Req 3.5)
+    - Stages `File` + `URL.createObjectURL` preview; remove/replace controls; cleans up object URLs on unmount/remove
+    - "Generate Listing Draft" disabled when no staged photos (Req 3.7); cancel button (Req 3.8)
+    - Test: guidance text present for all four types; Generate disabled at zero photos; remove/replace updates state; cancel emits `onCancelFromAi` with staged-images-as-ImageFile[]
+    - _Requirements: 3.1, 3.2, 3.3, 3.5, 3.6, 3.7, 3.8_
+  - [x] 5.3 `ProcessingView` component + tests
+    - Path: `src/features/listings/components/ai-listing-assistant/processing-view.tsx`
+    - Renders the step ticker from `useSimulatedSteps` with completed/active visual states
+    - Renders the "This usually takes less than 10 seconds" expectation copy
+    - Evidence callouts: rendered after success based on the AiDraft (e.g. only show "We found a visible model number" when `model !== null`); see `2-design.md` §6 sub-section. (Callouts are rendered briefly at the transition point — implementation may render in the modal's success-tail or in the form's banner; for this task, render in the modal's success-tail before close.)
+    - Test: steps render in order; expectation copy present; evidence callout shows only when the corresponding draft field is non-null; no callout when field is null
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+  - [x] 5.4 `ErrorView` component + tests
+    - Path: `src/features/listings/components/ai-listing-assistant/error-view.tsx`
+    - Copy keyed by `AiFailureReason`; for `rate_limited`, only "Continue manually" is offered
+    - Test: copy and button set per reason; user-facing copy avoids "OpenAI"/"gpt-4o"/"inference"/raw error text
+    - _Requirements: 9.1, 9.2_
+  - [x] 5.5 Compose `AILIstingAssistantModal`
+    - Path: `src/features/listings/components/ai-listing-assistant/ai-listing-assistant-modal.tsx`
+    - Use shadcn `Dialog` (`src/components/ui/dialog.tsx`); modal is non-dismissible by escape/overlay during `processing` to avoid accidental abandonment mid-call
+    - Wires the reducer to the views; calls `useAnalyzeListingDraft` from `processing` entry
+    - Emits `onGenerated(aiDraft, ImageFile[])` on success; `onManualSelected()` on Choice→Manual; `onCancelFromAi(ImageFile[])` on cancel from Instructions or "Continue manually" from Error
+    - Component test: full state-machine walkthrough using a mocked `useAnalyzeListingDraft`
+    - _Requirements: 1.1, 1.4, 1.5, 1.7, 4.1, 6.1, 9.2_
+
+- [x] 6. Form-side AI prefill primitives
+  - [x] 6.1 `AiPrefillContext` + `useAiPrefill` hook
+    - Path: `src/features/listings/components/listing-form/ai-prefill-context.tsx`
+    - Exports `AiPrefillProvider` and `useAiPrefill()`; returns `null` when no provider (manual flow stays unchanged)
+    - Test: provider exposes set; consumer outside provider returns null
+    - _Requirements: 7.4, 7.5_
+  - [x] 6.2 `DraftNotice` component + tests
+    - Path: `src/features/listings/components/listing-form/draft-notice.tsx`
+    - Built on `src/components/ui/alert.tsx`; copy carries (a) draft-from-photos, (b) AI can make mistakes, (c) proofread + edit every field
+    - Non-dismissible (no close button); persistent until form unmounts
+    - Test: copy contains the three required phrases; no close affordance rendered
+    - _Requirements: 7.5_
+  - [x] 6.3 `SafetyDisclaimer` component + tests
+    - Path: `src/features/listings/components/listing-form/safety-disclaimer.tsx`
+    - Warning-styled `Alert` variant; copy per Req 7.6; non-dismissible; no collapse
+    - Test: copy contains owner-responsibility framing; renders icon; not dismissible
+    - _Requirements: 7.6_
+  - [x] 6.4 `AISuggestedBadge` component + tests
+    - Path: `src/features/listings/components/listing-form/ai-suggested-badge.tsx`
+    - Minimal chip (icon + "AI Suggested") using `Badge` primitive
+    - Test: renders icon and label; consumers can hide via no-prefill context
+    - _Requirements: 7.4_
+
+- [x] 7. Integrate prefill primitives into AddListingForm
+  - [x] 7.1 Add `aiPrefilledFields` prop and provider wrap
+    - Edit `src/features/listings/components/listing-form/add-listing-form.tsx`
+    - Add optional prop `aiPrefilledFields?: ReadonlyArray<AiPrefilledFieldKey>`
+    - When non-empty, wrap children in `AiPrefillProvider`
+    - _Requirements: 7.4, 7.5_
+  - [x] 7.2 Move Photos section to the top of the form
+    - Reorder the JSX in `add-listing-form.tsx` so the order is: Photos → Basic Information → Pricing & Rental Terms → Pickup & Delivery → Additional Details → Policies & Publish
+    - Adjust the 2-column grid wrapper as needed so the Photos section spans full width above the columns
+    - Test (Vitest + RTL): asserts DOM order of section headings
+    - _Requirements: 2.1, 2.2, 2.3_
+  - [x] 7.3 Render `DraftNotice` above Photos when AI prefilled
+    - Inside `AddListingForm`, render `<DraftNotice />` immediately above the Photos section when `aiPrefilledFields` is non-empty
+    - Test: DraftNotice absent on manual flow (`aiPrefilledFields=undefined` or `[]`); present otherwise
+    - _Requirements: 7.5_
+  - [x] 7.4 Render `SafetyDisclaimer` adjacent to Safety Notes when AI prefilled
+    - Edit `src/features/listings/components/listing-form/additional-details-section.tsx`
+    - Read `useAiPrefill()`; render `<SafetyDisclaimer />` adjacent to the Safety Notes textarea when `safetyNotes` or `instructions` is in the prefilled set
+    - Test: not rendered when neither field is in the set; rendered when either is
+    - _Requirements: 7.6_
+  - [x] 7.5 Surface `AISuggestedBadge` in each prefillable field
+    - Edit `basic-information-section.tsx`, `additional-details-section.tsx` (specifications/instructions/safetyNotes) to render `<AISuggestedBadge />` next to field labels whose keys are in the prefilled set
+    - Pricing / Pickup & Delivery / Periods sections are _not_ prefillable — no changes
+    - Test: presence/absence per field per set membership
+    - _Requirements: 7.4_
+  - [x] 7.6 Regression test: manual flow unchanged
+    - New Vitest spec verifying `AddListingForm` with `aiPrefilledFields` omitted or `[]`:
+      - No `DraftNotice` rendered
+      - No `SafetyDisclaimer` rendered
+      - No `AISuggestedBadge` rendered
+      - `useAiPrefill()` returns null inside sections
+    - _Requirements: 7.4, 7.5, 7.6_
+
+- [x] 8. Orchestrator and page wiring
+  - [x] 8.1 Implement `CreateListingClient`
+    - Path: `src/features/listings/components/listing-form/create-listing-client.tsx`
+    - Owns: `modalOpen`, `modalDismissedThisSession`, `aiDraft`, `stagedImages`, `formKey`
+    - Renders `<AddListingForm key={formKey} initialValues={aiDraftToInitialValues(aiDraft, stagedImages)} aiPrefilledFields={computeAiPrefilledFields(aiDraft)} ... />` and `<AILIstingAssistantModal ... />`
+    - On `onGenerated` → store draft and images, increment `formKey`, close modal, mark dismissed
+    - On `onManualSelected` → close modal, mark dismissed; do not touch `aiDraft`
+    - On `onCancelFromAi(images)` → close modal, mark dismissed; store `stagedImages` so the remounted (still-empty AI-prefill-wise) form starts with those photos
+    - Modal `open` derives from `(!modalDismissedThisSession)` so it never auto-reopens
+    - Component test with mocked modal and form: choice paths, success path remounts form with prefill, cancel-with-photos forwards images
+    - _Requirements: 1.1, 1.4, 1.5, 1.6, 7.1, 9.5_
+  - [x] 8.2 Replace render in `add/page.tsx`
+    - Edit `src/app/dashboard/listings/add/page.tsx` to render `<CreateListingClient categories={categories} ownerPolicyDocuments={ownerPolicyDocuments} />` in place of `<AddListingForm ...>`
+    - _Requirements: 1.1, 10.1, 10.2_
+
+- [x] 9. Telemetry events
+  - [x] 9.1 Modal/orchestrator events
+    - Emit `listing_create_modal_opened`, `listing_create_choice_selected`, `listing_ai_photos_staged`, `listing_ai_generation_started`, `listing_ai_generation_succeeded`, `listing_ai_generation_failed`, `listing_ai_continue_manually_after_failure` from the modal/orchestrator at the points described in `2-design.md` §Telemetry
+    - Reuse whatever analytics client already powers existing event emission in the project; do not introduce a new analytics layer
+    - _Requirements: 12.1, 12.2, 12.3_
+  - [x] 9.2 Extend listing-submit event
+    - Locate the existing listing-submission event (in `useListingFormSubmit` or its callers) and extend payload with `usedAi: boolean`, `prefilledFieldsCount: number`, `editedAiFieldsCount: number`
+    - `editedAiFieldsCount` is computed at submit by diffing the final form values against the orchestrator-held `aiDraft`; pass the original `aiDraft` down for this comparison
+    - _Requirements: 12.1, 12.2, 12.3_
+  - [x] 9.3 Server-side logging fields
+    - In the analyze route, log `{ userId, photoCount, latencyMs, rateLimitTokensRemaining, parseSucceeded, categoryResolved, conditionResolved }` via the existing `withRequestLogging`
+    - _Requirements: 9.4, 12.2_
+
+- [x] 10. End-to-end tests (Playwright)
+  - [x] 10.1 AI happy path
+    - New spec in `e2e/` (mirroring the structure of existing listing e2es)
+    - Visit `/dashboard/listings/add`, assert modal opens in Choice state, click "Generate from Photos", upload 3 fixture images, click "Generate Listing Draft", wait for prefilled form, assert: `DraftNotice` visible, `SafetyDisclaimer` visible, at least one `AISuggestedBadge` visible, Photos appear in form, submit form, assert listing created with `approvalStatus = pending_review`
+    - Mock the analyze endpoint with a deterministic `AiDraft` fixture so the test doesn't hit OpenAI
+    - _Requirements: 1.1, 1.5, 2.1, 4.1, 5.1, 7.1, 7.4, 7.5, 7.6, 10.1, 10.2, 10.3_
+  - [x] 10.2 Choice → Manual path
+    - Visit page, modal opens, click "Fill Out Manually", assert modal closes in place (no navigation), assert form interactive, no banner/disclaimer/badges, submit a manually-typed listing successfully
+    - _Requirements: 1.4, 7.6 (regression), 10.1_
+  - [x] 10.3 Cancel from AI flow path
+    - Open AI flow, stage 2 photos, cancel, assert modal closes and photos appear in form's Photos section, no banner/badge rendered
+    - _Requirements: 3.8, 9.5_
+  - [x] 10.4 Failure path
+    - Mock the analyze endpoint with HTTP 500
+    - Stage photos, click Generate, assert Error state with "Try again" and "Continue manually"; click "Continue manually"; assert modal closes, photos preserved, no banner
+    - Second variant: mock 429; assert Error state shows only "Continue manually"
+    - _Requirements: 9.1, 9.2, 9.5_
+
+- [ ] 11. Cleanup and compatibility verification
+  - [ ] 11.1 Verify existing `test-image-upload` page still functions
+    - The route response is a superset (`data` may be `null` for low confidence; otherwise has resolved `categoryId`)
+    - The test page reads `result.data` and the existing fields like `name`, `categoryName` etc. — confirm the test page either continues to work or update it to handle the new shape
+    - This is a verification-only task; do NOT remove the test page in this work
+    - _Requirements: n/a (compat)_
+  - [ ] 11.2 Confirm `analyzeListingImage`'s signature change has no other call sites
+    - Grep for `analyzeListingImage(` across the repo
+    - The only expected callers are the analyze route and the test page (via the hook); if any other consumer exists, update it
+    - _Requirements: 5.2_
+  - [ ] 11.3 Confirm SerpAPI is not invoked from any new code paths
+    - The orchestrator and modal must not import from `/api/test-serp` or its hook
+    - _Requirements: 5.9_
