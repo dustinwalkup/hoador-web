@@ -28,6 +28,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
+import { AISuggestedBadge } from "./ai-suggested-badge";
+
 interface Category {
   id: string;
   name: string;
@@ -59,7 +61,10 @@ export function BasicInformationSection({
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Listing Name *</FormLabel>
+              <FormLabel className="flex items-center gap-2">
+                Listing Name *
+                <AISuggestedBadge fieldKey="name" />
+              </FormLabel>
               <FormControl>
                 <Input placeholder="e.g., DeWalt Circular Saw" {...field} />
               </FormControl>
@@ -72,7 +77,10 @@ export function BasicInformationSection({
           name="categoryId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Category *</FormLabel>
+              <FormLabel className="flex items-center gap-2">
+                Category *
+                <AISuggestedBadge fieldKey="categoryId" />
+              </FormLabel>
               <FormControl>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className="w-full text-base md:w-fit">
@@ -101,7 +109,10 @@ export function BasicInformationSection({
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description *</FormLabel>
+              <FormLabel className="flex items-center gap-2">
+                Description *
+                <AISuggestedBadge fieldKey="description" />
+              </FormLabel>
               <FormControl>
                 <Textarea
                   placeholder="Describe your listing, its condition, and any special features..."
@@ -120,7 +131,10 @@ export function BasicInformationSection({
             name="brand"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Brand</FormLabel>
+                <FormLabel className="flex items-center gap-2">
+                  Brand
+                  <AISuggestedBadge fieldKey="brand" />
+                </FormLabel>
                 <FormControl>
                   <Input
                     placeholder="e.g., DeWalt, Makita, Bosch"
@@ -137,7 +151,10 @@ export function BasicInformationSection({
             name="model"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Model</FormLabel>
+                <FormLabel className="flex items-center gap-2">
+                  Model
+                  <AISuggestedBadge fieldKey="model" />
+                </FormLabel>
                 <FormControl>
                   <Input
                     placeholder="e.g., DWE575SB"
@@ -155,7 +172,10 @@ export function BasicInformationSection({
           name="condition"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Condition *</FormLabel>
+              <FormLabel className="flex items-center gap-2">
+                Condition *
+                <AISuggestedBadge fieldKey="condition" />
+              </FormLabel>
               <FormControl>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className="w-full text-base md:w-fit">

@@ -116,9 +116,9 @@ export function useUpdateListingStatus() {
 }
 
 /**
- * Hook for analyzing tool images
+ * Hook for analyzing listing images
  */
-export function useAnalyzeToolImage() {
+export function useAnalyzeListingImage() {
   return useCreateMutation({
     mutationFn: async (imageUrls: string | string[]) => {
       const response = await fetch("/api/listings/analyze-image", {

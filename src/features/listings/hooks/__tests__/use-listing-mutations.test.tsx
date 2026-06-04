@@ -7,7 +7,7 @@ import {
   useCreateListing,
   useUpdateListing,
   useUpdateListingStatus,
-  useAnalyzeToolImage,
+  useAnalyzeListingImage,
 } from "../use-listing-mutations";
 import type { CreateListingFormDataServerType } from "../../form-schema/listing.schema";
 
@@ -507,7 +507,7 @@ describe("useUpdateListingStatus", () => {
   });
 });
 
-describe("useAnalyzeToolImage", () => {
+describe("useAnalyzeListingImage", () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
@@ -543,7 +543,7 @@ describe("useAnalyzeToolImage", () => {
       json: async () => mockAnalysisResult,
     });
 
-    const { result } = renderHook(() => useAnalyzeToolImage(), {
+    const { result } = renderHook(() => useAnalyzeListingImage(), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),
@@ -568,7 +568,7 @@ describe("useAnalyzeToolImage", () => {
       json: async () => mockAnalysisResult,
     });
 
-    const { result } = renderHook(() => useAnalyzeToolImage(), {
+    const { result } = renderHook(() => useAnalyzeListingImage(), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),
@@ -596,7 +596,7 @@ describe("useAnalyzeToolImage", () => {
       json: async () => mockAnalysisResult,
     });
 
-    const { result } = renderHook(() => useAnalyzeToolImage(), {
+    const { result } = renderHook(() => useAnalyzeListingImage(), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),
@@ -618,7 +618,7 @@ describe("useAnalyzeToolImage", () => {
       json: async () => errorResponse,
     });
 
-    const { result } = renderHook(() => useAnalyzeToolImage(), {
+    const { result } = renderHook(() => useAnalyzeListingImage(), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),
@@ -644,7 +644,7 @@ describe("useAnalyzeToolImage", () => {
 
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-    const { result } = renderHook(() => useAnalyzeToolImage(), {
+    const { result } = renderHook(() => useAnalyzeListingImage(), {
       wrapper: ({ children }) => (
         <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
       ),

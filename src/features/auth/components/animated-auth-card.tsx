@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
+import { cardEntrance } from "@/lib/animations/variants";
 import { cn } from "@/lib/utils";
 
 interface AnimatedAuthCardProps {
@@ -17,22 +18,11 @@ export function AnimatedAuthCard({
 }: AnimatedAuthCardProps) {
   return (
     <motion.div
-      initial={{
-        opacity: 0,
-        y: 40,
-        scale: 0.95,
-        filter: "blur(10px)",
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        filter: "blur(0px)",
-      }}
+      initial={cardEntrance.initial}
+      animate={cardEntrance.animate}
       transition={{
-        duration: 0.8,
+        ...cardEntrance.transition,
         delay: delay / 1000,
-        ease: [0.25, 0.4, 0.25, 1],
       }}
       className={cn(className)}
     >
