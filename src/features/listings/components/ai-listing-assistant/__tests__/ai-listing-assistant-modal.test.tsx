@@ -34,6 +34,31 @@ vi.mock("@/features/listings/hooks/use-analyze-listing-draft", () => ({
   },
 }));
 
+// Default to a pass-through processor so the existing JPEG-based tests don't
+// hit the real canvas-based compressImage (unreliable under happy-dom). Tests
+// that need to assert HEIC conversion or error surfacing override per-call.
+type ProcessOutput = {
+  files: File[];
+  errors: {
+    fileName: string;
+    reason: "too-large" | "invalid-type" | "conversion-failed";
+    message: string;
+    fileSize?: number;
+  }[];
+  heicConversionCount: number;
+};
+const processSelectedFilesMock = vi.fn<
+  (files: File[] | FileList) => Promise<ProcessOutput>
+>(async (files) => ({
+  files: Array.from(files),
+  errors: [],
+  heicConversionCount: 0,
+}));
+vi.mock("@/lib/image/process-selected-files", () => ({
+  processSelectedFiles: (files: File[] | FileList) =>
+    processSelectedFilesMock(files),
+}));
+
 const SAMPLE_DRAFT: AiDraft = {
   name: "DeWalt 20V Cordless Drill",
   description: "Solid cordless drill.",
@@ -72,10 +97,12 @@ function click(testId: string) {
   fireEvent.click(screen.getByTestId(testId));
 }
 
-function uploadFiles(files: File[]) {
+async function uploadFiles(files: File[]) {
   const input = screen.getByTestId("ai-modal-file-input") as HTMLInputElement;
   Object.defineProperty(input, "files", { value: files, configurable: true });
-  fireEvent.change(input);
+  await act(async () => {
+    fireEvent.change(input);
+  });
 }
 
 function fakeFile(name: string): File {
@@ -97,6 +124,14 @@ beforeEach(() => {
   });
   captured.last = null;
   captured.generate.mockReset();
+  processSelectedFilesMock.mockReset();
+  processSelectedFilesMock.mockImplementation(
+    async (files: File[] | FileList) => ({
+      files: Array.from(files),
+      errors: [],
+      heicConversionCount: 0,
+    }),
+  );
   // URL.createObjectURL isn't implemented by happy-dom by default.
   vi.stubGlobal(
     "URL",
@@ -136,11 +171,11 @@ describe("AIListingAssistantModal", () => {
     expect(screen.getByTestId("ai-modal-instructions")).toBeInTheDocument();
   });
 
-  it("Cancel from Instructions emits onCancelFromAi with staged photos as ImageFile[]", () => {
+  it("Cancel from Instructions emits onCancelFromAi with staged photos as ImageFile[]", async () => {
     const { onCancelFromAi } = renderModal();
 
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg"), fakeFile("b.jpg")]);
+    await uploadFiles([fakeFile("a.jpg"), fakeFile("b.jpg")]);
     click("ai-modal-cancel");
 
     expect(onCancelFromAi).toHaveBeenCalledOnce();
@@ -156,7 +191,7 @@ describe("AIListingAssistantModal", () => {
     const { onGenerated } = renderModal();
 
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     click("ai-modal-generate");
 
     expect(screen.getByTestId("ai-modal-processing")).toBeInTheDocument();
@@ -192,7 +227,7 @@ describe("AIListingAssistantModal", () => {
   it("Generate → failure → ErrorView with the right reason", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     click("ai-modal-generate");
 
     act(() => {
@@ -209,7 +244,7 @@ describe("AIListingAssistantModal", () => {
   it("Error → Continue Manually fires onCancelFromAi preserving photos (Req 9.5)", async () => {
     const { onCancelFromAi } = renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     click("ai-modal-generate");
     act(() => {
       captured.last?.onFailure("rate_limited");
@@ -227,7 +262,7 @@ describe("AIListingAssistantModal", () => {
   it("Error → Try Again re-enters Processing and re-invokes generate", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     click("ai-modal-generate");
     expect(captured.generate).toHaveBeenCalledTimes(1);
 
@@ -248,7 +283,7 @@ describe("AIListingAssistantModal", () => {
   it("Error → Add More Photos returns to Instructions with photos preserved", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     click("ai-modal-generate");
     act(() => {
       captured.last?.onFailure("low_confidence");
@@ -263,12 +298,118 @@ describe("AIListingAssistantModal", () => {
     expect(screen.getByTestId("ai-modal-staged-photos")).toBeInTheDocument();
   });
 
-  it("revokes object URLs when a staged photo is removed (no memory leak)", () => {
+  it("converts HEIC uploads through processSelectedFiles before staging (Req 2.3)", async () => {
+    const { onCancelFromAi } = renderModal();
+    // Simulate the helper performing HEIC → JPEG conversion: it receives a
+    // HEIC file and returns a JPEG one.
+    processSelectedFilesMock.mockImplementationOnce(async (files) => {
+      const arr = Array.from(files as File[]);
+      const converted = arr.map(
+        (f) =>
+          new File([new Uint8Array([1])], f.name.replace(/\.heic$/i, ".jpg"), {
+            type: "image/jpeg",
+          }),
+      );
+      return { files: converted, errors: [], heicConversionCount: arr.length };
+    });
+
+    const heic = new File([new Uint8Array([1])], "IMG_0347.HEIC", {
+      type: "image/heic",
+    });
+
+    click("ai-modal-choice-ai");
+    await uploadFiles([heic]);
+
+    expect(processSelectedFilesMock).toHaveBeenCalledOnce();
+    expect(processSelectedFilesMock.mock.calls[0][0]).toEqual([heic]);
+
+    click("ai-modal-cancel");
+
+    const images = onCancelFromAi.mock.calls[0][0];
+    expect(images).toHaveLength(1);
+    expect(images[0].file.name).toBe("IMG_0347.jpg");
+    expect(images[0].file.type).toBe("image/jpeg");
+  });
+
+  it("surfaces processor errors as toasts and does not stage rejected files", async () => {
+    const { toast } = await import("sonner");
+    const errorSpy = vi.spyOn(toast, "error");
+    processSelectedFilesMock.mockImplementationOnce(async () => ({
+      files: [],
+      errors: [
+        {
+          fileName: "huge.jpg",
+          reason: "too-large",
+          message: "huge.jpg is 12.0MB. Maximum is 10MB.",
+          fileSize: 12 * 1024 * 1024,
+        },
+      ],
+      heicConversionCount: 0,
+    }));
+
+    renderModal();
+    click("ai-modal-choice-ai");
+    await uploadFiles([fakeFile("huge.jpg")]);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "huge.jpg is 12.0MB. Maximum is 10MB.",
+    );
+    expect(
+      screen.queryByTestId("ai-modal-staged-photos"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("disables Generate and the file inputs while files are being processed", async () => {
+    let resolveProcess:
+      | ((value: {
+          files: File[];
+          errors: never[];
+          heicConversionCount: number;
+        }) => void)
+      | null = null;
+    processSelectedFilesMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveProcess = resolve;
+        }),
+    );
+
+    renderModal();
+    click("ai-modal-choice-ai");
+    // Don't await — kick off the change and let it stall on the pending promise.
+    const input = screen.getByTestId("ai-modal-file-input") as HTMLInputElement;
+    Object.defineProperty(input, "files", {
+      value: [fakeFile("a.jpg")],
+      configurable: true,
+    });
+    await act(async () => {
+      fireEvent.change(input);
+    });
+
+    expect(screen.getByTestId("ai-modal-processing-files")).toBeInTheDocument();
+    expect(screen.getByTestId("ai-modal-add-photos")).toBeDisabled();
+    expect(screen.getByTestId("ai-modal-take-photo")).toBeDisabled();
+
+    await act(async () => {
+      resolveProcess?.({
+        files: [fakeFile("a.jpg")],
+        errors: [],
+        heicConversionCount: 0,
+      });
+    });
+
+    expect(
+      screen.queryByTestId("ai-modal-processing-files"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("ai-modal-add-photos")).not.toBeDisabled();
+  });
+
+  it("revokes object URLs when a staged photo is removed (no memory leak)", async () => {
     renderModal();
     const revokeSpy = URL.revokeObjectURL as unknown as Mock;
 
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
 
     const removeBtn = screen
       .getByTestId("ai-modal-staged-photos")
@@ -283,7 +424,7 @@ describe("AIListingAssistantModal", () => {
   it("walks the ticker through every step when generation outlives the script", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     click("ai-modal-generate");
 
     // Walk one step at a time — React 19 + vitest fake timers can't sweep

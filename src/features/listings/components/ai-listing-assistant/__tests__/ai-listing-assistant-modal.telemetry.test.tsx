@@ -35,6 +35,17 @@ vi.mock("@/features/listings/hooks/use-analyze-listing-draft", () => ({
   },
 }));
 
+// Pass-through processor — see modal.test.tsx for context.
+const processSelectedFilesMock = vi.fn(async (files: File[] | FileList) => ({
+  files: Array.from(files),
+  errors: [],
+  heicConversionCount: 0,
+}));
+vi.mock("@/lib/image/process-selected-files", () => ({
+  processSelectedFiles: (files: File[] | FileList) =>
+    processSelectedFilesMock(files),
+}));
+
 const SAMPLE_DRAFT: AiDraft = {
   name: "DeWalt 20V Cordless Drill",
   description: "Solid cordless drill.",
@@ -61,10 +72,12 @@ function renderModal(open = true) {
 function click(testId: string) {
   fireEvent.click(screen.getByTestId(testId));
 }
-function uploadFiles(files: File[]) {
+async function uploadFiles(files: File[]) {
   const input = screen.getByTestId("ai-modal-file-input") as HTMLInputElement;
   Object.defineProperty(input, "files", { value: files, configurable: true });
-  fireEvent.change(input);
+  await act(async () => {
+    fireEvent.change(input);
+  });
 }
 function fakeFile(name: string) {
   return new File([new Uint8Array([1])], name, { type: "image/jpeg" });
@@ -78,6 +91,14 @@ beforeEach(() => {
   emitMock.mockReset();
   captured.last = null;
   captured.generate.mockReset();
+  processSelectedFilesMock.mockReset();
+  processSelectedFilesMock.mockImplementation(
+    async (files: File[] | FileList) => ({
+      files: Array.from(files),
+      errors: [],
+      heicConversionCount: 0,
+    }),
+  );
   vi.useFakeTimers({
     toFake: [
       "setTimeout",
@@ -129,26 +150,26 @@ describe("AIListingAssistantModal — telemetry", () => {
     });
   });
 
-  it("emits listing_ai_photos_staged with the running count when files are added", () => {
+  it("emits listing_ai_photos_staged with the running count when files are added", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg"), fakeFile("b.jpg")]);
+    await uploadFiles([fakeFile("a.jpg"), fakeFile("b.jpg")]);
 
     const staged = eventsByName("listing_ai_photos_staged");
     expect(staged).toHaveLength(1);
     expect(staged[0][1]).toEqual({ count: 2 });
 
-    uploadFiles([fakeFile("c.jpg")]);
+    await uploadFiles([fakeFile("c.jpg")]);
     expect(eventsByName("listing_ai_photos_staged")).toHaveLength(2);
     expect(eventsByName("listing_ai_photos_staged")[1][1]).toEqual({
       count: 3,
     });
   });
 
-  it("emits listing_ai_photos_staged with the new count when a photo is removed", () => {
+  it("emits listing_ai_photos_staged with the new count when a photo is removed", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg"), fakeFile("b.jpg")]);
+    await uploadFiles([fakeFile("a.jpg"), fakeFile("b.jpg")]);
     emitMock.mockClear();
 
     const removeBtn = screen
@@ -163,10 +184,10 @@ describe("AIListingAssistantModal — telemetry", () => {
     expect(staged[0][1]).toEqual({ count: 1 });
   });
 
-  it("emits listing_ai_generation_started with the photo count on Generate click", () => {
+  it("emits listing_ai_generation_started with the photo count on Generate click", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg"), fakeFile("b.jpg")]);
+    await uploadFiles([fakeFile("a.jpg"), fakeFile("b.jpg")]);
     emitMock.mockClear();
 
     click("ai-modal-generate");
@@ -176,10 +197,10 @@ describe("AIListingAssistantModal — telemetry", () => {
     expect(started[0][1]).toEqual({ photoCount: 2 });
   });
 
-  it("emits listing_ai_generation_succeeded with prefilled-field metadata", () => {
+  it("emits listing_ai_generation_succeeded with prefilled-field metadata", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     click("ai-modal-generate");
     emitMock.mockClear();
 
@@ -197,10 +218,10 @@ describe("AIListingAssistantModal — telemetry", () => {
     expect(payload.prefilledFields).not.toContain("safetyNotes");
   });
 
-  it("emits listing_ai_generation_failed with the reason", () => {
+  it("emits listing_ai_generation_failed with the reason", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     click("ai-modal-generate");
     emitMock.mockClear();
 
@@ -214,7 +235,7 @@ describe("AIListingAssistantModal — telemetry", () => {
   it("emits listing_ai_continue_manually_after_failure only from the error state", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     click("ai-modal-generate");
     act(() => captured.last?.onFailure("network"));
     await act(async () => {
@@ -231,10 +252,10 @@ describe("AIListingAssistantModal — telemetry", () => {
     expect(continued[0][1]).toEqual({ reason: "network" });
   });
 
-  it("does NOT emit continue_manually_after_failure when cancelling from instructions", () => {
+  it("does NOT emit continue_manually_after_failure when cancelling from instructions", async () => {
     renderModal();
     click("ai-modal-choice-ai");
-    uploadFiles([fakeFile("a.jpg")]);
+    await uploadFiles([fakeFile("a.jpg")]);
     emitMock.mockClear();
 
     click("ai-modal-cancel");

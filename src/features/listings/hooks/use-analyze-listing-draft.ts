@@ -98,7 +98,11 @@ export function useAnalyzeListingDraft(
         return;
       }
 
-      let payload: { success: boolean; data: AiDraft | null };
+      let payload: {
+        success: boolean;
+        data: AiDraft | null;
+        failureKind?: AiFailureReason;
+      };
       try {
         payload = (await response.json()) as typeof payload;
       } catch {
@@ -107,7 +111,10 @@ export function useAnalyzeListingDraft(
       }
 
       if (payload.data === null) {
-        onFailureRef.current("low_confidence");
+        // Route may tag the null with a specific reason (e.g.
+        // `unsuitable_content` for model refusals). Default to
+        // `low_confidence` for untagged nulls.
+        onFailureRef.current(payload.failureKind ?? "low_confidence");
         return;
       }
 

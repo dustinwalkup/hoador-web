@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MAX_AI_PHOTOS,
   type AiDraft,
   type ModalState,
   type StagedPhoto,
@@ -116,6 +117,48 @@ describe("modalReducer", () => {
         modalReducer(s, { type: "STAGE_PHOTOS", photos: [photo("b")] }),
       ).toBe(s);
     });
+
+    it(`hard-caps staged photos at MAX_AI_PHOTOS (${MAX_AI_PHOTOS}); extras are dropped, first-in order is preserved`, () => {
+      const start: ModalState = { kind: "instructions", staged: [] };
+      // Stage MAX_AI_PHOTOS + 3 in one batch — only the first MAX_AI_PHOTOS
+      // should survive.
+      const photos = Array.from({ length: MAX_AI_PHOTOS + 3 }, (_, i) =>
+        photo(`p${i}`),
+      );
+      const next = modalReducer(start, { type: "STAGE_PHOTOS", photos });
+      const staged = (next as { staged: StagedPhoto[] }).staged;
+      expect(staged.map((p) => p.id)).toEqual(
+        photos.slice(0, MAX_AI_PHOTOS).map((p) => p.id),
+      );
+    });
+
+    it("staging when already at the cap returns the same reference (no churn)", () => {
+      const filled = Array.from({ length: MAX_AI_PHOTOS }, (_, i) =>
+        photo(`p${i}`),
+      );
+      const start: ModalState = { kind: "instructions", staged: filled };
+      const next = modalReducer(start, {
+        type: "STAGE_PHOTOS",
+        photos: [photo("overflow")],
+      });
+      expect(next).toBe(start);
+    });
+
+    it("partial overflow keeps only as many incoming photos as fit", () => {
+      const existing = Array.from({ length: MAX_AI_PHOTOS - 2 }, (_, i) =>
+        photo(`e${i}`),
+      );
+      const start: ModalState = { kind: "instructions", staged: existing };
+      // Incoming has 5; only 2 slots remain.
+      const incoming = Array.from({ length: 5 }, (_, i) => photo(`i${i}`));
+      const next = modalReducer(start, {
+        type: "STAGE_PHOTOS",
+        photos: incoming,
+      });
+      const staged = (next as { staged: StagedPhoto[] }).staged;
+      expect(staged).toHaveLength(MAX_AI_PHOTOS);
+      expect(staged.slice(-2).map((p) => p.id)).toEqual(["i0", "i1"]);
+    });
   });
 
   describe("REMOVE_PHOTO", () => {
@@ -137,9 +180,57 @@ describe("modalReducer", () => {
       expect((next as { staged: StagedPhoto[] }).staged).toEqual([a]);
     });
 
-    it("is a no-op from any non-instructions state", () => {
-      const s: ModalState = { kind: "error", reason: "server", staged: [] };
+    it("is a no-op from non-instructions/non-error states", () => {
+      const s: ModalState = { kind: "choice" };
       expect(modalReducer(s, { type: "REMOVE_PHOTO", id: "a" })).toBe(s);
+    });
+
+    it("removes the matching photo from error state (inline post-failure pruning)", () => {
+      const start: ModalState = {
+        kind: "error",
+        reason: "unsuitable_content",
+        staged: [photo("a"), photo("b"), photo("c")],
+      };
+      const next = modalReducer(start, { type: "REMOVE_PHOTO", id: "b" });
+      expect(next.kind).toBe("error");
+      expect(
+        (next as { staged: StagedPhoto[] }).staged.map((p) => p.id),
+      ).toEqual(["a", "c"]);
+      // Preserves the reason so the UX copy doesn't flicker mid-removal.
+      expect((next as { reason: string }).reason).toBe("unsuitable_content");
+    });
+
+    it("returns the same state when removing an unstaged id from error", () => {
+      const s: ModalState = {
+        kind: "error",
+        reason: "low_confidence",
+        staged: [photo("a")],
+      };
+      expect(modalReducer(s, { type: "REMOVE_PHOTO", id: "zzz" })).toBe(s);
+    });
+  });
+
+  describe("RETRY_FROM_ERROR", () => {
+    it("transitions to processing with the (possibly pruned) staged set", () => {
+      const start: ModalState = {
+        kind: "error",
+        reason: "low_confidence",
+        staged: [photo("a")],
+      };
+      const next = modalReducer(start, { type: "RETRY_FROM_ERROR" });
+      expect(next.kind).toBe("processing");
+      expect(
+        (next as { staged: StagedPhoto[] }).staged.map((p) => p.id),
+      ).toEqual(["a"]);
+    });
+
+    it("is a no-op when the user has removed every staged photo", () => {
+      const s: ModalState = {
+        kind: "error",
+        reason: "unsuitable_content",
+        staged: [],
+      };
+      expect(modalReducer(s, { type: "RETRY_FROM_ERROR" })).toBe(s);
     });
   });
 

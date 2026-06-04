@@ -1,4 +1,5 @@
 import {
+  MAX_AI_PHOTOS,
   type AiDraft,
   type AiFailureReason,
   type ModalState,
@@ -55,11 +56,20 @@ export function modalReducer(
       return state;
 
     case "REMOVE_PHOTO":
+      // Allowed from `instructions` (pre-generation pruning) and from
+      // `error` (post-failure pruning — the user removes the bad photo
+      // inline before clicking "Generate again").
       if (state.kind === "instructions") {
         const nextStaged = state.staged.filter((p) => p.id !== action.id);
         return nextStaged.length === state.staged.length
           ? state
           : { kind: "instructions", staged: nextStaged };
+      }
+      if (state.kind === "error") {
+        const nextStaged = state.staged.filter((p) => p.id !== action.id);
+        return nextStaged.length === state.staged.length
+          ? state
+          : { kind: "error", reason: state.reason, staged: nextStaged };
       }
       return state;
 
@@ -101,7 +111,9 @@ export function modalReducer(
       return state;
 
     case "RETRY_FROM_ERROR":
-      if (state.kind === "error") {
+      // UI also disables the Generate Again CTA when staged is empty;
+      // the reducer enforces it as belt-and-braces (mirrors BEGIN_GENERATE).
+      if (state.kind === "error" && state.staged.length > 0) {
         return { kind: "processing", staged: state.staged };
       }
       return state;
@@ -122,9 +134,17 @@ function dedupeAppend(
   incoming: StagedPhoto[],
 ): StagedPhoto[] {
   if (incoming.length === 0) return existing;
+  // Cap is the authoritative gate. The composer's `handleAddFiles` also
+  // trims+warns before dispatching, but a future caller that bypasses that
+  // path still won't exceed `MAX_AI_PHOTOS`. Short-circuit when already full
+  // so the reducer's identity check no-ops.
+  if (existing.length >= MAX_AI_PHOTOS) return existing;
   const existingIds = new Set(existing.map((p) => p.id));
   const additions = incoming.filter((p) => !existingIds.has(p.id));
-  return additions.length === 0 ? existing : [...existing, ...additions];
+  if (additions.length === 0) return existing;
+  const remainingSlots = MAX_AI_PHOTOS - existing.length;
+  const accepted = additions.slice(0, remainingSlots);
+  return [...existing, ...accepted];
 }
 
 function assertExhaustive(action: never): never {

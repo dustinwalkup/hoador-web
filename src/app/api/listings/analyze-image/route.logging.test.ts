@@ -39,7 +39,16 @@ vi.mock("@/dal", () => ({
 
 const analyzeListingImageMock = vi.fn();
 vi.mock("@/services/openai/analyze-listing-image", () => ({
-  analyzeListingImage: (...args: unknown[]) => analyzeListingImageMock(...args),
+  // Auto-wrap legacy raw shapes for tests that pre-date the tagged union.
+  // Tests that need to assert the "refused" branch can return
+  // `{ kind: "refused", raw: "..." }` directly.
+  analyzeListingImage: async (...args: unknown[]) => {
+    const result = await analyzeListingImageMock(...args);
+    if (result && typeof result === "object" && "kind" in result) {
+      return result;
+    }
+    return { kind: "parsed", data: result };
+  },
 }));
 
 // Imported after mocks are registered.
@@ -132,6 +141,25 @@ describe("analyze-image route logging (Req 9.4 / 12.2)", () => {
     // Token was refunded — confirm we logged the post-refund (decremented)
     // count from `consume`, not a post-refund recount.
     expect(payload.rateLimitTokensRemaining).toBe(9);
+  });
+
+  it("logs outcome=unsuitable_content and emits failureKind when the model refuses", async () => {
+    analyzeListingImageMock.mockResolvedValueOnce({
+      kind: "refused",
+      raw: "I'm sorry, but this image isn't suitable for a listing.",
+    });
+    const response = await POST(jsonRequest(SAMPLE_BODY));
+
+    const payload = lastLogPayload();
+    expect(payload.outcome).toBe("unsuitable_content");
+    expect(payload.rateLimitTokensRemaining).toBe(9); // token refunded
+
+    const body = await response.json();
+    expect(body).toEqual({
+      success: true,
+      data: null,
+      failureKind: "unsuitable_content",
+    });
   });
 
   it("logs outcome=rate_limited and no AI call when the bucket is empty", async () => {

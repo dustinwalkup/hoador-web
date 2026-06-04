@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { toast } from "sonner";
 
 import {
   Dialog,
@@ -9,15 +11,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cardEntrance, sceneExit } from "@/lib/animations/variants";
 import { emitAiEvent } from "@/features/listings/ai-listing-assistant/lib/telemetry";
 import { useAnalyzeListingDraft } from "@/features/listings/hooks/use-analyze-listing-draft";
 import {
+  MAX_AI_PHOTOS,
   type AiDraft,
   type AiFailureReason,
   type ModalState,
   type StagedPhoto,
 } from "@/features/listings/ai-listing-assistant/types";
 import { type ImageFile } from "@/features/listings/form-schema/listing.schema";
+import { processSelectedFiles } from "@/lib/image/process-selected-files";
 
 import { ChoiceView } from "./choice-view";
 import { ErrorView } from "./error-view";
@@ -164,25 +169,69 @@ export function AIListingAssistantModal({
     }
   }, [state, onManualSelected, onCancelFromAi, onGenerated]);
 
-  // Add files via composer — owns URL creation and dispatches STAGE_PHOTOS.
+  // Tracks the number of in-flight files being validated / converted /
+  // compressed so the view can show a prominent indicator (count is
+  // useful — "Processing 3 photos…" vs. "Processing photos…" — and the
+  // bool case falls out naturally as `> 0`).
+  const [processingFileCount, setProcessingFileCount] = useState(0);
+
+  // Add files via composer — runs raw user files through the shared
+  // image pipeline (HEIC→JPEG conversion, validation, compression — Req 2.3)
+  // before creating object URLs, so browsers can render the previews and
+  // OpenAI's vision API can analyze them.
   const handleAddFiles = useCallback(
-    (files: File[]) => {
+    async (files: File[]) => {
       if (files.length === 0) return;
-      const photos = files.map(fileToStagedPhoto);
-      dispatch({ type: "STAGE_PHOTOS", photos });
-      if (state.kind === "instructions") {
-        emitAiEvent("listing_ai_photos_staged", {
-          count: state.staged.length + photos.length,
-        });
+
+      // Hard cap (Req 3.7): trim the batch to fit remaining slots before any
+      // HEIC conversion / compression work. The reducer also enforces the
+      // cap as belt-and-braces, but doing it here means we (a) skip
+      // expensive image processing on files we'd drop anyway and (b) warn
+      // the user when files are silently skipped. Mirrors the prod
+      // photos-section pattern.
+      const currentStagedCount =
+        state.kind === "instructions" ? state.staged.length : 0;
+      const remainingSlots = MAX_AI_PHOTOS - currentStagedCount;
+      if (remainingSlots <= 0) {
+        toast.error(
+          `Maximum ${MAX_AI_PHOTOS} photos. Remove a photo to add more.`,
+        );
+        return;
+      }
+      let accepted = files;
+      if (files.length > remainingSlots) {
+        accepted = files.slice(0, remainingSlots);
+        toast.warning(
+          `Only ${remainingSlots} more photo(s) can be added. Extra files were skipped.`,
+        );
+      }
+
+      setProcessingFileCount((c) => c + accepted.length);
+      try {
+        const result = await processSelectedFiles(accepted);
+        result.errors.forEach((err) => toast.error(err.message));
+        if (result.files.length === 0) return;
+        const photos = result.files.map(fileToStagedPhoto);
+        dispatch({ type: "STAGE_PHOTOS", photos });
+        if (state.kind === "instructions") {
+          emitAiEvent("listing_ai_photos_staged", {
+            count: state.staged.length + photos.length,
+          });
+        }
+      } finally {
+        setProcessingFileCount((c) => Math.max(0, c - accepted.length));
       }
     },
     [state],
   );
 
   // Remove also handles URL cleanup so we don't leak the object URL.
+  // Allowed from `instructions` (pre-generation) and `error` (inline
+  // pruning after a failure — user removes the offending photo and
+  // clicks "Generate again" without leaving the error screen).
   const handleRemovePhoto = useCallback(
     (id: string) => {
-      if (state.kind !== "instructions") return;
+      if (state.kind !== "instructions" && state.kind !== "error") return;
       const removed = state.staged.find((p) => p.id === id);
       if (removed) URL.revokeObjectURL(removed.previewUrl);
       dispatch({ type: "REMOVE_PHOTO", id });
@@ -223,6 +272,7 @@ export function AIListingAssistantModal({
     },
     currentStepIndex: ticker.currentStepIndex,
     evidenceDraft: ticker.isFinalized ? pendingDraft : null,
+    processingFileCount,
   });
 
   // Prevent dismiss by escape or overlay click while a request is in flight
@@ -230,23 +280,37 @@ export function AIListingAssistantModal({
   const blockDismiss = isProcessing;
 
   return (
-    <Dialog open={open}>
-      <DialogContent
-        showCloseButton={false}
-        onEscapeKeyDown={(e) => blockDismiss && e.preventDefault()}
-        onPointerDownOutside={(e) => blockDismiss && e.preventDefault()}
-        onInteractOutside={(e) => blockDismiss && e.preventDefault()}
-        data-testid="ai-listing-assistant-modal"
-      >
-        <DialogHeader>
-          <DialogTitle>{titleFor(state.kind)}</DialogTitle>
-          <DialogDescription className="sr-only">
-            AI Listing Assistant
-          </DialogDescription>
-        </DialogHeader>
-        {view}
-      </DialogContent>
-    </Dialog>
+    <MotionConfig reducedMotion="user">
+      <Dialog open={open}>
+        <DialogContent
+          showCloseButton={false}
+          onEscapeKeyDown={(e) => blockDismiss && e.preventDefault()}
+          onPointerDownOutside={(e) => blockDismiss && e.preventDefault()}
+          onInteractOutside={(e) => blockDismiss && e.preventDefault()}
+          data-testid="ai-listing-assistant-modal"
+        >
+          <DialogHeader>
+            <DialogTitle>{titleFor(state.kind)}</DialogTitle>
+            <DialogDescription className="sr-only">
+              AI Listing Assistant
+            </DialogDescription>
+          </DialogHeader>
+          <AnimatePresence initial={false} mode="popLayout">
+            {view && (
+              <motion.div
+                key={state.kind}
+                initial={cardEntrance.initial}
+                animate={cardEntrance.animate}
+                exit={sceneExit}
+                transition={cardEntrance.transition}
+              >
+                {view}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </DialogContent>
+      </Dialog>
+    </MotionConfig>
   );
 }
 
@@ -297,6 +361,7 @@ interface SceneHandlers {
   onContinueManually: () => void;
   currentStepIndex: number;
   evidenceDraft: AiDraft | null;
+  processingFileCount: number;
 }
 
 function renderScene(state: ModalState, h: SceneHandlers) {
@@ -316,6 +381,7 @@ function renderScene(state: ModalState, h: SceneHandlers) {
           onRemovePhoto={h.onRemovePhoto}
           onGenerate={h.onGenerate}
           onCancel={h.onCancel}
+          processingFileCount={h.processingFileCount}
         />
       );
     case "processing":
@@ -329,6 +395,8 @@ function renderScene(state: ModalState, h: SceneHandlers) {
       return (
         <ErrorView
           reason={state.reason}
+          staged={state.staged}
+          onRemovePhoto={h.onRemovePhoto}
           onTryAgain={h.onTryAgain}
           onAddMorePhotos={h.onAddMorePhotos}
           onContinueManually={h.onContinueManually}

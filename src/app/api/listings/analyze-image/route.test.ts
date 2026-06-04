@@ -43,7 +43,16 @@ vi.mock("@/dal", () => ({
 
 const analyzeListingImageMock = vi.fn();
 vi.mock("@/services/openai/analyze-listing-image", () => ({
-  analyzeListingImage: (...args: unknown[]) => analyzeListingImageMock(...args),
+  // Auto-wrap legacy raw shapes for tests that pre-date the tagged union.
+  // Tests that need to assert the "refused" branch can return
+  // `{ kind: "refused", raw: "..." }` directly.
+  analyzeListingImage: async (...args: unknown[]) => {
+    const result = await analyzeListingImageMock(...args);
+    if (result && typeof result === "object" && "kind" in result) {
+      return result;
+    }
+    return { kind: "parsed", data: result };
+  },
 }));
 
 function jsonRequest(body: Record<string, unknown>) {

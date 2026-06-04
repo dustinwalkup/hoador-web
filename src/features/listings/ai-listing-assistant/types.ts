@@ -11,6 +11,16 @@ export const CANONICAL_CONDITION_ENUM = listingConditionSchema.options;
 export type CanonicalCondition = (typeof CANONICAL_CONDITION_ENUM)[number];
 
 /**
+ * Hard cap on photos staged in the AI Listing Assistant modal. The modal copy
+ * recommends 3–5; this constant is the enforced ceiling shared by the reducer,
+ * the composer's batch-trim, and the view's disabled-button state. Distinct
+ * from the form's `MAX_IMAGES = 10` — the AI flow has a tighter cap because
+ * each photo is sent to gpt-4o as a base64 data URL and counts against vision
+ * token budget. Users can add more photos in the form after generation.
+ */
+export const MAX_AI_PHOTOS = 5;
+
+/**
  * Form field keys that may be prefilled by AI generation. Used to drive the
  * "AI Suggested" indicators, the draft notice, and the Safety Notes disclaimer.
  */
@@ -112,6 +122,7 @@ export const rawAiResponseSchema: z.ZodType<RawAiResponse> = z.object({
  */
 export type AiFailureReason =
   | "low_confidence"
+  | "unsuitable_content"
   | "network"
   | "rate_limited"
   | "server";

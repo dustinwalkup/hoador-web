@@ -33,8 +33,12 @@ async function postHandler(request: NextRequest) {
   let parseSucceeded = false;
   let categoryResolved = false;
   let conditionResolved = false;
-  let outcome: "success" | "low_confidence" | "rate_limited" | "error" =
-    "error";
+  let outcome:
+    | "success"
+    | "low_confidence"
+    | "unsuitable_content"
+    | "rate_limited"
+    | "error" = "error";
   const startedAt = Date.now();
 
   try {
@@ -78,12 +82,26 @@ async function postHandler(request: NextRequest) {
     const categories = await listingDAL.getListingCategories();
     const categoryNames = categories.map((c) => c.name);
 
-    const raw = await analyzeListingImage(validationResult.data.imageUrls, {
+    const result = await analyzeListingImage(validationResult.data.imageUrls, {
       categoryNames,
       conditionEnum: CANONICAL_CONDITION_ENUM,
     });
 
-    const draft = resolveAiDraft(raw, categories);
+    // Model returned prose instead of JSON — typically a refusal for an
+    // off-topic or unsuitable image. Distinct UX from low_confidence: the
+    // user needs to pick different photos, not just retry.
+    if (result.kind === "refused") {
+      refund(consumedUserId);
+      consumedUserId = null;
+      outcome = "unsuitable_content";
+      return NextResponse.json({
+        success: true,
+        data: null,
+        failureKind: "unsuitable_content",
+      });
+    }
+
+    const draft = resolveAiDraft(result.data, categories);
     parseSucceeded = draft !== null;
     categoryResolved = draft !== null && draft.categoryId !== null;
     conditionResolved = draft !== null && draft.condition !== null;

@@ -2,7 +2,10 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { type StagedPhoto } from "@/features/listings/ai-listing-assistant/types";
+import {
+  MAX_AI_PHOTOS,
+  type StagedPhoto,
+} from "@/features/listings/ai-listing-assistant/types";
 
 import { InstructionsView } from "../instructions-view";
 
@@ -65,6 +68,24 @@ describe("InstructionsView", () => {
   it("enables Generate when at least one photo is staged", () => {
     renderView({ staged: [photo("a")] });
     expect(screen.getByTestId("ai-modal-generate")).not.toBeDisabled();
+  });
+
+  it(`disables Add and Take photo buttons when staged hits MAX_AI_PHOTOS (${MAX_AI_PHOTOS})`, () => {
+    const staged = Array.from({ length: MAX_AI_PHOTOS }, (_, i) =>
+      photo(`p${i}`),
+    );
+    renderView({ staged });
+    expect(screen.getByTestId("ai-modal-add-photos")).toBeDisabled();
+    expect(screen.getByTestId("ai-modal-take-photo")).toBeDisabled();
+  });
+
+  it(`keeps Add and Take photo buttons enabled below the cap (${MAX_AI_PHOTOS - 1})`, () => {
+    const staged = Array.from({ length: MAX_AI_PHOTOS - 1 }, (_, i) =>
+      photo(`p${i}`),
+    );
+    renderView({ staged });
+    expect(screen.getByTestId("ai-modal-add-photos")).not.toBeDisabled();
+    expect(screen.getByTestId("ai-modal-take-photo")).not.toBeDisabled();
   });
 
   it("renders staged photo previews with remove controls", () => {

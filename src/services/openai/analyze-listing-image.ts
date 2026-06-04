@@ -53,10 +53,25 @@ Rules:
 Return ONLY the JSON object, no additional text, formatting, or markdown.`;
 }
 
+/**
+ * Result of an `analyzeListingImage` call.
+ *
+ * The model can respond in two distinct ways to a vision request:
+ *   - `parsed`: it complied with the JSON-only contract; `data` is the raw
+ *     object (still subject to `resolveAiDraft` shape validation downstream).
+ *   - `refused`: it returned prose instead (e.g. "I'm sorry, this isn't an
+ *     item I can list" for an off-topic image). We surface this as a distinct
+ *     channel rather than throwing, so the route can classify it as a
+ *     content failure (`unsuitable_content`) instead of an upstream 500.
+ */
+export type AnalyzeListingImageResult =
+  | { kind: "parsed"; data: unknown }
+  | { kind: "refused"; raw: string };
+
 export async function analyzeListingImage(
   imageUrls: string | string[],
   opts: AnalyzeListingImageOptions,
-): Promise<unknown> {
+): Promise<AnalyzeListingImageResult> {
   const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
   const prompt = buildPrompt(opts);
 
@@ -86,18 +101,30 @@ export async function analyzeListingImage(
   const message = res.choices[0].message.content;
   if (!message) throw new Error("No message returned from OpenAI");
 
+  const cleanedMessage = message
+    .trim()
+    .replace(/^```json\s*/, "")
+    .replace(/\s*```$/, "");
+
   try {
-    const cleanedMessage = message
-      .trim()
-      .replace(/^```json\s*/, "")
-      .replace(/\s*```$/, "");
-    return JSON.parse(cleanedMessage);
-  } catch (err) {
-    console.error("Failed to parse OpenAI JSON response:", message);
-    console.error("Parse error:", err);
-    throw new Error(
-      `Failed to parse OpenAI response: ${err instanceof Error ? err.message : "Unknown error"}`,
-    );
+    const parsed = JSON.parse(cleanedMessage);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[analyze-listing-image] raw response:", message);
+      console.log(
+        "[analyze-listing-image] parsed:",
+        JSON.stringify(parsed, null, 2),
+      );
+    }
+    return { kind: "parsed", data: parsed };
+  } catch {
+    // The model returned prose instead of JSON — typically a refusal
+    // ("I'm sorry, this image isn't suitable…") for off-topic or unsafe
+    // images. Surface as a tagged result so the route maps it to
+    // `unsuitable_content`, not a 500.
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[analyze-listing-image] model refused (non-JSON):", message);
+    }
+    return { kind: "refused", raw: message };
   }
 }
 
