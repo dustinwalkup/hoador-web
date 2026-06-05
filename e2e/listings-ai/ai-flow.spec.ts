@@ -17,6 +17,13 @@ test.describe("AI Listing Assistant flow", () => {
   test("AI happy path: choose AI → stage photos → generate → prefilled form → submit", async ({
     page,
   }) => {
+    // This test exercises the full create-listing flow end-to-end (login,
+    // navigate, AI generate, form fill, submit, navigate to rentals). Against
+    // a Next.js dev server with cold routes, two of those navigations need
+    // first-time compilation (~10s each). The default 30s test budget
+    // doesn't leave room for both compiles plus the actual work.
+    test.setTimeout(60_000);
+
     await mockAnalyzeRoute(page, "success");
     await gotoCreateListingAndExpectModal(page);
 
@@ -69,10 +76,14 @@ test.describe("AI Listing Assistant flow", () => {
     await page.getByRole("button", { name: /^list an item$/i }).click();
 
     // On success the user is redirected to the rentals tab with pending_review.
-    await page.waitForURL(/\/dashboard\/listings\/rentals/, {
-      timeout: 30_000,
-    });
-    await expect(page).toHaveURL(/tab=pending_review/);
+    // Use `toHaveURL` (URL polling) instead of `waitForURL` so the assertion
+    // doesn't wait for the destination route's `load` event — in dev mode,
+    // first-visit compilation of `/dashboard/listings/rentals` can take 10+
+    // seconds, blocking `load` long enough to exhaust the test timeout.
+    await expect(page).toHaveURL(
+      /\/dashboard\/listings\/rentals\?tab=pending_review/,
+      { timeout: 30_000 },
+    );
   });
 
   test("Choice → Manual: modal closes in place, no banner/disclaimer/badges", async ({

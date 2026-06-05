@@ -113,11 +113,17 @@ export async function stagePhotosInModal(
 /**
  * Open `/dashboard/listings/add` and assert the AI Listing Assistant modal
  * has appeared in the Choice state. Returns when the page is interactive.
+ *
+ * Uses `waitUntil: "commit"` so the goto returns as soon as the navigation
+ * commits — not after the full `load` event. In dev mode, first-visit
+ * compilation of this route can take 10+ seconds (Next.js Fast Refresh),
+ * which previously blew through the 15s navigation timeout. The subsequent
+ * `toBeVisible(timeout: 15_000)` covers waiting for the actual page render.
  */
 export async function gotoCreateListingAndExpectModal(
   page: Page,
 ): Promise<void> {
-  await page.goto("/dashboard/listings/add");
+  await page.goto("/dashboard/listings/add", { waitUntil: "commit" });
   await expect(page.getByTestId("ai-modal-choice")).toBeVisible({
     timeout: 15_000,
   });
