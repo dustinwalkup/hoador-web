@@ -100,6 +100,37 @@ export async function mockAnalyzeRoute(
   });
 }
 
+/**
+ * Mock `POST /api/listings/{listingId}` so image uploads succeed without a
+ * Vercel Blob token. CI's E2E workflow does not provide `BLOB_READ_WRITE_TOKEN`,
+ * so the real route returns 500 and the form-submit hook falls into its
+ * "all uploads failed" branch — redirecting to `/listings/{id}/edit` instead
+ * of `/listings/rentals?tab=pending_review`. The AI flow test is not
+ * validating Vercel Blob, so stub it at the network boundary.
+ */
+export async function mockImageUploads(page: Page): Promise<void> {
+  await page.route("**/api/listings/*", async (route: Route) => {
+    const req = route.request();
+    const isImageUpload =
+      req.method() === "POST" &&
+      /\/api\/listings\/[0-9a-f-]{36}$/.test(req.url());
+    if (!isImageUpload) {
+      // `fallback`, not `continue` — lets other matching handlers (e.g. the
+      // analyze-image mock) run. `continue` would hit the real network.
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: true,
+        image: { id: `mock-image-${Date.now()}-${Math.random()}` },
+      }),
+    });
+  });
+}
+
 /** Stage one or more fixture photos via the modal's hidden file input. */
 export async function stagePhotosInModal(
   page: Page,

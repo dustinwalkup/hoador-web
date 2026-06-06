@@ -6,6 +6,7 @@ import {
   gotoCreateListingAndExpectModal,
   loginActiveUser,
   mockAnalyzeRoute,
+  mockImageUploads,
   stagePhotosInModal,
 } from "./helpers";
 
@@ -25,6 +26,7 @@ test.describe("AI Listing Assistant flow", () => {
     test.setTimeout(60_000);
 
     await mockAnalyzeRoute(page, "success");
+    await mockImageUploads(page);
     await gotoCreateListingAndExpectModal(page);
 
     await page.getByTestId("ai-modal-choice-ai").click();

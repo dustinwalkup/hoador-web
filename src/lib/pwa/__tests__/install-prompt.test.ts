@@ -12,6 +12,8 @@ import {
   markAppAsInstalled,
   isManualInstallAvailable,
   getSafariInstallInstructions,
+  getVisitCount,
+  recordVisit,
 } from "../install-prompt";
 
 describe("install-prompt", () => {
@@ -28,6 +30,18 @@ describe("install-prompt", () => {
       }
     } catch {
       // localStorage not available, functions will handle it
+    }
+
+    // Clear sessionStorage if available
+    try {
+      const win = globalThis as any;
+      if (win.window?.sessionStorage) {
+        win.window.sessionStorage.clear();
+      } else if (win.sessionStorage) {
+        win.sessionStorage.clear();
+      }
+    } catch {
+      // sessionStorage not available, functions will handle it
     }
 
     // Reset window.matchMedia if available
@@ -65,6 +79,16 @@ describe("install-prompt", () => {
       }
     } catch {
       // localStorage not available
+    }
+    try {
+      const win = globalThis as any;
+      if (win.window?.sessionStorage) {
+        win.window.sessionStorage.clear();
+      } else if (win.sessionStorage) {
+        win.sessionStorage.clear();
+      }
+    } catch {
+      // sessionStorage not available
     }
   });
 
@@ -280,6 +304,71 @@ describe("install-prompt", () => {
 
       expect(instructions.title).toBe("Install on macOS");
       expect(instructions.steps.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("getVisitCount", () => {
+    it("should return 0 when no visit has been recorded", () => {
+      expect(getVisitCount()).toBe(0);
+    });
+
+    it("should return the stored numeric count", () => {
+      window.localStorage.setItem("pwa-visit-count", "3");
+
+      expect(getVisitCount()).toBe(3);
+    });
+
+    it("should return 0 when stored value is not a valid number", () => {
+      window.localStorage.setItem("pwa-visit-count", "not-a-number");
+
+      expect(getVisitCount()).toBe(0);
+    });
+
+    it("should return 0 when stored value is negative", () => {
+      window.localStorage.setItem("pwa-visit-count", "-5");
+
+      expect(getVisitCount()).toBe(0);
+    });
+  });
+
+  describe("recordVisit", () => {
+    it("should increment the visit count from 0 to 1 on first call", () => {
+      recordVisit();
+
+      expect(getVisitCount()).toBe(1);
+    });
+
+    it("should set the session-recorded flag after recording a visit", () => {
+      recordVisit();
+
+      expect(window.sessionStorage.getItem("pwa-visit-recorded")).toBe("true");
+    });
+
+    it("should not increment more than once within the same session", () => {
+      recordVisit();
+      recordVisit();
+      recordVisit();
+
+      expect(getVisitCount()).toBe(1);
+    });
+
+    it("should increment again after the session-recorded flag is cleared (new session)", () => {
+      recordVisit();
+      expect(getVisitCount()).toBe(1);
+
+      // Simulate a new browser session by clearing sessionStorage only.
+      window.sessionStorage.clear();
+      recordVisit();
+
+      expect(getVisitCount()).toBe(2);
+    });
+
+    it("should build on an existing persisted count", () => {
+      window.localStorage.setItem("pwa-visit-count", "4");
+
+      recordVisit();
+
+      expect(getVisitCount()).toBe(5);
     });
   });
 });

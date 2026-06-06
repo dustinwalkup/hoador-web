@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { PencilLine, Sparkles } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { containerVariants, fieldVariants } from "@/lib/animations/variants";
 
 interface ChoiceViewProps {
@@ -20,7 +20,7 @@ const buttonInteraction = {
 export function ChoiceView({ onChooseAi, onChooseManual }: ChoiceViewProps) {
   return (
     <motion.div
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-2 pt-2"
       data-testid="ai-modal-choice"
       variants={containerVariants}
       initial="hidden"
@@ -34,41 +34,49 @@ export function ChoiceView({ onChooseAi, onChooseManual }: ChoiceViewProps) {
       </motion.p>
 
       <motion.div variants={fieldVariants} {...buttonInteraction}>
-        <Button
+        <button
           type="button"
-          size="lg"
-          variant="outline"
-          className="bg-ai-light text-ai border-ai/30 hover:bg-ai-light hover:text-ai h-auto w-full justify-start gap-3 py-4 text-left hover:brightness-95"
           onClick={onChooseAi}
           data-testid="ai-modal-choice-ai"
+          className={cn(
+            "bg-ai-light text-ai border-ai/30 flex w-full items-center gap-3 rounded-lg border p-4 text-left text-sm font-medium transition-colors",
+            "hover:bg-ai-light hover:text-ai hover:brightness-95",
+            "focus-visible:ring-ai/40 focus-visible:ring-[3px] focus-visible:outline-none",
+          )}
         >
-          <Sparkles className="size-5 shrink-0" />
-          <span className="flex flex-col items-start gap-0.5">
-            <span className="font-semibold">Generate from Photos</span>
-            <span className="text-ai/70 text-xs font-normal">
+          <span className="bg-ai/10 flex size-10 shrink-0 items-center justify-center rounded-md">
+            <Sparkles className="text-ai h-5 w-5" aria-hidden />
+          </span>
+          <span>
+            <span className="block font-semibold">Generate from Photos</span>
+            <span className="text-ai/70 font-normal">
               Upload a few photos and we&apos;ll draft your listing
             </span>
           </span>
-        </Button>
+        </button>
       </motion.div>
 
       <motion.div variants={fieldVariants} {...buttonInteraction}>
-        <Button
+        <button
           type="button"
-          size="lg"
-          variant="outline"
-          className="h-auto w-full justify-start gap-3 py-4 text-left"
           onClick={onChooseManual}
           data-testid="ai-modal-choice-manual"
+          className={cn(
+            "bg-card flex w-full items-center gap-3 rounded-lg border p-4 text-left text-sm font-medium transition-colors",
+            "hover:bg-accent hover:text-accent-foreground",
+            "focus-visible:ring-ring focus-visible:ring-[3px] focus-visible:outline-none",
+          )}
         >
-          <PencilLine className="size-5 shrink-0" />
-          <span className="flex flex-col items-start gap-0.5">
-            <span className="font-semibold">Fill Out Manually</span>
-            <span className="text-muted-foreground text-xs font-normal">
+          <span className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-md">
+            <PencilLine className="text-muted-foreground h-5 w-5" aria-hidden />
+          </span>
+          <span>
+            <span className="block font-semibold">Fill Out Manually</span>
+            <span className="text-muted-foreground font-normal">
               Enter your listing details yourself
             </span>
           </span>
-        </Button>
+        </button>
       </motion.div>
     </motion.div>
   );
