@@ -1,6 +1,8 @@
 import { ErrorContext } from "better-auth/react";
 import * as Sentry from "@sentry/nextjs";
 
+import { toError } from "@/lib/sentry/to-error";
+
 export function handleBetterAuthSignInError(context: ErrorContext) {
   // Only capture unexpected auth errors in production
   const isUnexpectedError =
@@ -8,7 +10,10 @@ export function handleBetterAuthSignInError(context: ErrorContext) {
     context.error.code !== "EMAIL_NOT_VERIFIED";
 
   if (isUnexpectedError) {
-    Sentry.captureException(context.error, {
+    const fallback = context.error?.code
+      ? `Auth error: ${context.error.code}`
+      : "Auth error";
+    Sentry.captureException(toError(context.error, fallback), {
       tags: {
         error_type: "auth_error",
         error_code: context.error.code,

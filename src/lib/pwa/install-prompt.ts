@@ -83,6 +83,35 @@ const DISMISSED_PROMPT_KEY = "pwa-install-prompt-dismissed";
 const INSTALL_STATUS_KEY = "pwa-install-status";
 
 /**
+ * Storage key for tracking how many browser sessions have visited the app
+ */
+const VISIT_COUNT_KEY = "pwa-visit-count";
+
+/**
+ * sessionStorage key marking that the current browser session has already
+ * incremented the visit count (prevents double-counting on navigation)
+ */
+const VISIT_RECORDED_KEY = "pwa-visit-recorded";
+
+/**
+ * In-memory subscribers notified when the visit count changes. Used by
+ * `useSyncExternalStore` consumers so React can re-read the snapshot after
+ * `recordVisit()` updates localStorage.
+ */
+const visitCountListeners = new Set<() => void>();
+
+/**
+ * Subscribe to visit-count changes. Returns an unsubscribe function. Designed
+ * to be passed directly to `useSyncExternalStore`.
+ */
+export function subscribeToVisitCount(listener: () => void): () => void {
+  visitCountListeners.add(listener);
+  return () => {
+    visitCountListeners.delete(listener);
+  };
+}
+
+/**
  * Duration for "remind me later" dismissal (7 days in milliseconds)
  */
 const REMIND_LATER_DURATION = 7 * 24 * 60 * 60 * 1000;
@@ -270,6 +299,48 @@ export function clearDismissedStatus(): void {
     localStorage.removeItem(DISMISSED_PROMPT_KEY);
   } catch (error) {
     console.warn("[PWA] Failed to clear dismissed status:", error);
+  }
+}
+
+/**
+ * Get the number of browser sessions that have visited the app.
+ */
+export function getVisitCount(): number {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+
+  try {
+    const stored = localStorage.getItem(VISIT_COUNT_KEY);
+    const parsed = stored ? parseInt(stored, 10) : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  } catch (error) {
+    console.warn("[PWA] Failed to read visit count:", error);
+    return 0;
+  }
+}
+
+/**
+ * Record a visit to the app. Increments the visit count at most once per
+ * browser session (tracked via sessionStorage), so rapid in-app navigation
+ * does not inflate the count.
+ */
+export function recordVisit(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (sessionStorage.getItem(VISIT_RECORDED_KEY) === "true") {
+      return;
+    }
+
+    const current = getVisitCount();
+    localStorage.setItem(VISIT_COUNT_KEY, String(current + 1));
+    sessionStorage.setItem(VISIT_RECORDED_KEY, "true");
+    visitCountListeners.forEach((listener) => listener());
+  } catch (error) {
+    console.warn("[PWA] Failed to record visit:", error);
   }
 }
 

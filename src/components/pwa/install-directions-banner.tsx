@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useSyncExternalStore } from "react";
 import {
   Smartphone,
   Share2,
@@ -22,7 +22,13 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useInstallDirections } from "@/lib/pwa/use-install-directions";
+import {
+  getVisitCount,
+  recordVisit,
+  subscribeToVisitCount,
+} from "@/lib/pwa/install-prompt";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSession } from "@/services/better-auth/client";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
@@ -77,7 +83,26 @@ export function InstallDirectionsBanner({
     useInstallDirections();
   const isMobile = useIsMobile();
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isAuthenticated = Boolean(session?.user);
   const [isAnimating, setIsAnimating] = useState(false);
+
+  // Subscribe to the visit count so the gating logic re-evaluates after
+  // `recordVisit()` updates localStorage. Server snapshot is 0 — the banner is
+  // already gated on `isMobile` (false during SSR), so there's no hydration
+  // mismatch in the rendered DOM.
+  const visitCount = useSyncExternalStore(
+    subscribeToVisitCount,
+    getVisitCount,
+    () => 0,
+  );
+
+  // Record this browser session as a visit. recordVisit() notifies
+  // subscribeToVisitCount listeners, which triggers a re-read of the snapshot
+  // above — no setState in this effect.
+  useEffect(() => {
+    recordVisit();
+  }, []);
 
   // Derive visibility
   const isVisible = useMemo(() => {
@@ -101,8 +126,22 @@ export function InstallDirectionsBanner({
       return false;
     }
 
+    // Only prompt authenticated users, and only on their 2nd+ session in this
+    // browser — avoids overwhelming first-time visitors and anonymous browsers.
+    if (!forceShow && (!isAuthenticated || visitCount < 2)) {
+      return false;
+    }
+
     return true;
-  }, [isMobile, isInstalled, isDismissed, forceShow, pathname]);
+  }, [
+    isMobile,
+    isInstalled,
+    isDismissed,
+    forceShow,
+    pathname,
+    isAuthenticated,
+    visitCount,
+  ]);
 
   // Handle "Remind me later" button click
   const handleRemindLater = () => {

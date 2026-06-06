@@ -49,7 +49,7 @@ export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
           <Truck className="text-primary h-5 w-5" />
           Pickup & Delivery
         </CardTitle>
-        <CardDescription>How will renters get your tool?</CardDescription>
+        <CardDescription>How will renters get your item?</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <FormField

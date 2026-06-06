@@ -23,6 +23,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
+import { useAiPrefill } from "./ai-prefill-context";
+import { AISuggestedBadge } from "./ai-suggested-badge";
+import { SafetyDisclaimer } from "./safety-disclaimer";
+
 interface AdditionalDetailsSectionProps {
   control: Control<CreateListingFormClientValues>;
   getValues: UseFormGetValues<CreateListingFormClientValues>;
@@ -41,6 +45,11 @@ export function AdditionalDetailsSection({
 }: AdditionalDetailsSectionProps) {
   const [newSpecKey, setNewSpecKey] = useState("");
   const [newSpecValue, setNewSpecValue] = useState("");
+  const prefill = useAiPrefill();
+  const showSafetyDisclaimer =
+    !!prefill &&
+    (prefill.prefilledFields.has("safetyNotes") ||
+      prefill.prefilledFields.has("instructions"));
 
   return (
     <Card>
@@ -55,7 +64,10 @@ export function AdditionalDetailsSection({
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Specifications */}
-        <h4 className="font-medium">Specifications</h4>
+        <div className="flex items-center gap-2">
+          <h4 className="font-medium">Specifications</h4>
+          <AISuggestedBadge fieldKey="specifications" />
+        </div>
         <div className="space-y-3">
           <div className="space-y-2">
             <Input
@@ -116,7 +128,10 @@ export function AdditionalDetailsSection({
           name="instructions"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Usage Instructions</FormLabel>
+              <FormLabel className="flex items-center gap-2">
+                Usage Instructions
+                <AISuggestedBadge fieldKey="instructions" />
+              </FormLabel>
               <FormControl>
                 <Textarea
                   placeholder="How to use this tool safely and effectively..."
@@ -135,7 +150,11 @@ export function AdditionalDetailsSection({
           name="safetyNotes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Safety Notes</FormLabel>
+              <FormLabel className="flex items-center gap-2">
+                Safety Notes
+                <AISuggestedBadge fieldKey="safetyNotes" />
+              </FormLabel>
+              {showSafetyDisclaimer && <SafetyDisclaimer />}
               <FormControl>
                 <Textarea
                   placeholder="Important safety information and warnings..."

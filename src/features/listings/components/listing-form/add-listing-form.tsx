@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Info } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
+import {
+  type AiDraft,
+  type AiPrefilledFieldKey,
+} from "@/features/listings/ai-listing-assistant/types";
 import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 import { useListingForm } from "@/features/listings/hooks/use-listing-form";
 import { useListingImages } from "@/features/listings/hooks/use-listing-images";
@@ -14,15 +18,17 @@ import { Form } from "@/components/ui/form";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-import { BasicInformationSection } from "./basic-information-section";
-import { PricingSection } from "./pricing-section";
-import { PhotosSection } from "./photos-section/photos-section";
-import { PickupDeliverySection } from "./pickup-delivery-section";
 import { AdditionalDetailsSection } from "./additional-details-section";
+import { AiPrefillProvider } from "./ai-prefill-context";
+import { BasicInformationSection } from "./basic-information-section";
+import { DraftNotice } from "./draft-notice";
 import {
   LegalDocumentAcknowledgments,
   type OwnerPolicyDocuments,
 } from "./legal-document-acknowledgments";
+import { PhotosSection } from "./photos-section/photos-section";
+import { PickupDeliverySection } from "./pickup-delivery-section";
+import { PricingSection } from "./pricing-section";
 
 interface Category {
   id: string;
@@ -37,6 +43,19 @@ interface AddListingFormProps {
   ownerPolicyDocuments?: OwnerPolicyDocuments;
   isEdit?: boolean;
   listingId?: string;
+  /**
+   * Names of fields prefilled by the AI Listing Assistant. When non-empty,
+   * the form renders the draft notice, the AI Suggested badges, and the
+   * Safety Notes disclaimer. Omit (or pass an empty list) for the manual
+   * flow — the form renders identically to today (Req 7.4 / 7.5 / 7.6).
+   */
+  aiPrefilledFields?: ReadonlyArray<AiPrefilledFieldKey>;
+  /**
+   * Original AI draft. Passed to `useListingFormSubmit` so it can diff
+   * against the final form values for the `editedAiFieldsCount` telemetry
+   * field (Req 12.2). Omitted in the manual flow.
+   */
+  aiDraft?: AiDraft | null;
 }
 
 export function AddListingForm({
@@ -45,6 +64,8 @@ export function AddListingForm({
   ownerPolicyDocuments,
   isEdit,
   listingId,
+  aiPrefilledFields,
+  aiDraft,
 }: AddListingFormProps) {
   const {
     images: existingImages,
@@ -81,6 +102,7 @@ export function AddListingForm({
     deleteImage,
     reorderImages,
     onSuccess: isEdit ? undefined : reset,
+    aiDraft,
   });
 
   // Load existing images when editing
@@ -105,41 +127,63 @@ export function AddListingForm({
     }
   }, [existingImages, isEdit, setValue]);
 
+  const prefilledFieldSet = useMemo(
+    () =>
+      aiPrefilledFields && aiPrefilledFields.length > 0
+        ? new Set<AiPrefilledFieldKey>(aiPrefilledFields)
+        : null,
+    [aiPrefilledFields],
+  );
+
+  const formBody = (
+    <>
+      {prefilledFieldSet && <DraftNotice />}
+
+      <PhotosSection
+        control={control}
+        getValues={getValues}
+        addImage={addImage}
+        removeImage={removeImage}
+        setImages={setImages}
+        isLoadingImages={isLoadingImages}
+        onProcessingChange={setIsProcessingImages}
+      />
+
+      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+        <BasicInformationSection control={control} categories={categories} />
+        <PricingSection control={control} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+        <PickupDeliverySection control={control} />
+        <AdditionalDetailsSection
+          control={control}
+          getValues={getValues}
+          addSpecification={addSpecification}
+          removeSpecification={removeSpecification}
+        />
+      </div>
+
+      <LegalDocumentAcknowledgments
+        control={control}
+        ownerPolicyDocuments={ownerPolicyDocuments}
+      />
+    </>
+  );
+
   return (
     <Form {...form}>
       <form
         className="relative space-y-8"
         onSubmit={handleSubmit(handleFormSubmit)}
       >
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
-          <BasicInformationSection control={control} categories={categories} />
-          <PricingSection control={control} />
-        </div>
-
-        <PhotosSection
-          control={control}
-          getValues={getValues}
-          addImage={addImage}
-          removeImage={removeImage}
-          setImages={setImages}
-          isLoadingImages={isLoadingImages}
-          onProcessingChange={setIsProcessingImages}
-        />
-
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
-          <PickupDeliverySection control={control} />
-          <AdditionalDetailsSection
-            control={control}
-            getValues={getValues}
-            addSpecification={addSpecification}
-            removeSpecification={removeSpecification}
-          />
-        </div>
-
-        <LegalDocumentAcknowledgments
-          control={control}
-          ownerPolicyDocuments={ownerPolicyDocuments}
-        />
+        {prefilledFieldSet ? (
+          <AiPrefillProvider prefilledFields={prefilledFieldSet}>
+            {formBody}
+          </AiPrefillProvider>
+        ) : (
+          formBody
+        )}
 
         {/* Review Notice */}
         {!isEdit && (

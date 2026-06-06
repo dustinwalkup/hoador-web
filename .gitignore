@@ -55,3 +55,6 @@ next-env.d.ts
 
 dist
 .netlify
+
+# Claude Code (local, per-developer settings)
+.claude/settings.local.json

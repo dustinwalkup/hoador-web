@@ -49,6 +49,9 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-primary-light: var(--primary-light);
+  --color-ai: var(--ai);
+  --color-ai-foreground: var(--ai-foreground);
+  --color-ai-light: var(--ai-light);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -78,6 +81,12 @@
   --primary: #4c9443;
   --primary-light: #f1f6f0;
   --primary-foreground: oklch(0.985 0 0);
+  /* AI accent — used only on affordances that explicitly invoke AI
+     (Generate buttons, "AI Suggested" badge). Distinct from --primary so
+     users can spot AI-only surfaces at a glance. */
+  --ai: #6d28d9;
+  --ai-foreground: oklch(0.985 0 0);
+  --ai-light: #ede9fe;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -112,6 +121,9 @@
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
+  --ai: #a78bfa;
+  --ai-foreground: oklch(0.205 0 0);
+  --ai-light: oklch(0.32 0.08 295);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);

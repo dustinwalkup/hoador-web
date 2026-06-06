@@ -2,6 +2,9 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { countEditedAiFields } from "@/features/listings/ai-listing-assistant/lib/count-edited-ai-fields";
+import { emitAiEvent } from "@/features/listings/ai-listing-assistant/lib/telemetry";
+import { type AiDraft } from "@/features/listings/ai-listing-assistant/types";
 import type {
   CreateListingFormDataClientType,
   ImageFile,
@@ -23,6 +26,12 @@ interface UseListingFormSubmitOptions {
     options?: { silent?: boolean },
   ) => Promise<void>;
   onSuccess?: () => void;
+  /**
+   * Original AI draft (if AI prefilled this form). Used to compute the
+   * `editedAiFieldsCount` payload on the `listing_submitted` telemetry event
+   * (Req 12.2). Omitted in the manual flow.
+   */
+  aiDraft?: AiDraft | null;
 }
 
 export function useListingFormSubmit({
@@ -32,6 +41,7 @@ export function useListingFormSubmit({
   deleteImage,
   reorderImages,
   onSuccess,
+  aiDraft,
 }: UseListingFormSubmitOptions) {
   const router = useRouter();
   const createMutation = useCreateListing();
@@ -147,6 +157,16 @@ export function useListingFormSubmit({
             return;
           }
 
+          // Emit submit-level telemetry as soon as the listing row exists.
+          // Image upload outcomes don't change AI-attribution metrics, so we
+          // fire here rather than gating on every upload-success branch.
+          const usedAi = !!aiDraft;
+          emitAiEvent("listing_submitted", {
+            usedAi,
+            prefilledFieldsCount: usedAi ? prefilledFieldKeyCount(aiDraft) : 0,
+            editedAiFieldsCount: countEditedAiFields(aiDraft ?? null, formData),
+          });
+
           const newListingId = result.listingId;
           const uploadResult = await uploadImages(images, newListingId);
 
@@ -197,6 +217,7 @@ export function useListingFormSubmit({
       onSuccess,
       router,
       setIsHandlingSubmit,
+      aiDraft,
     ],
   );
 
@@ -207,4 +228,20 @@ export function useListingFormSubmit({
     isCreatePending: createMutation.isPending,
     isUpdatePending: updateMutation.isPending,
   };
+}
+
+/** Number of fields the AI confidently emitted on a draft. */
+function prefilledFieldKeyCount(draft: AiDraft | null | undefined): number {
+  if (!draft) return 0;
+  let n = 0;
+  if (draft.name) n++;
+  if (draft.description) n++;
+  if (draft.categoryId) n++;
+  if (draft.brand) n++;
+  if (draft.model) n++;
+  if (draft.condition) n++;
+  if (Object.keys(draft.specifications).length > 0) n++;
+  if (draft.instructions) n++;
+  if (draft.safetyNotes) n++;
+  return n;
 }

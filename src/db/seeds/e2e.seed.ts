@@ -22,7 +22,85 @@ import {
   communityVisibility,
 } from "../schemas/communities.schema";
 import { legalDocuments } from "../schemas/legal-documents.schema";
+import { listingCategories } from "../schemas/listings.schema";
 import { LEGAL_DOCUMENT_IDS } from "../../constants/legal-documents";
+
+// Listing-category catalog. Kept in sync with src/db/seeds/fix-listing-
+// categories.seed.ts so the e2e DB matches what dev/prod use. The create-
+// listing form's Category select renders these — without them the dropdown
+// is empty and form submission can't complete in e2e.
+const E2E_LISTING_CATEGORIES = [
+  {
+    id: "ce4622d8-e9cf-40c2-8fbc-d99495aad651",
+    name: "Power Tools",
+    description: "Electric and battery-powered tools",
+    icon: "drill",
+    sortOrder: 1,
+  },
+  {
+    id: "3c0d8ccb-2545-4dcc-97d8-394540ea6eb0",
+    name: "Hand Tools",
+    description: "Non-powered hand tools",
+    icon: "wrench",
+    sortOrder: 2,
+  },
+  {
+    id: "f36e4c44-1f07-4abf-8d4c-ecc5ed0fcb90",
+    name: "Gardening",
+    description: "Yard maintenance and gardening equipment",
+    icon: "shovel",
+    sortOrder: 3,
+  },
+  {
+    id: "fe211c30-81b4-46b6-94b2-6fde2aebd68f",
+    name: "Ladders & Access",
+    description: "Ladders and scaffolding",
+    icon: "ladder",
+    sortOrder: 4,
+  },
+  {
+    id: "052899f7-17fa-4abc-a749-cee4183f4b18",
+    name: "Construction",
+    description: "Construction tools",
+    icon: "hammer",
+    sortOrder: 5,
+  },
+  {
+    id: "7f193d36-b821-498e-87e2-0eac45a78ffa",
+    name: "Cleaning",
+    description: "Pressure washers and cleaning equipment",
+    icon: "vacuum",
+    sortOrder: 6,
+  },
+  {
+    id: "6b38e3ed-1b05-44c0-9e7f-645f4c029758",
+    name: "Automotive",
+    description: "Car repair and maintenance tools",
+    icon: "jack",
+    sortOrder: 7,
+  },
+  {
+    id: "252eb012-ed42-495e-a0e0-b958610ec6f7",
+    name: "Party Equipment",
+    description: "Tables, tents, and event equipment",
+    icon: "tent",
+    sortOrder: 8,
+  },
+  {
+    id: "99a5cce9-e320-4a34-ad35-3583522e8f69",
+    name: "Miscellaneous",
+    description: "General items",
+    icon: "misc",
+    sortOrder: 9,
+  },
+  {
+    id: "886d768f-bad8-496d-b225-9abb59fe89df",
+    name: "Kids & Baby",
+    description: "Gear for children and infants",
+    icon: "kids",
+    sortOrder: 10,
+  },
+];
 
 export const E2E_JOIN_CODE = "E2E-JOIN-CODE";
 export const E2E_PASSWORD = "E2eTestPassword1!";
@@ -185,6 +263,10 @@ async function main(): Promise<void> {
   ];
   await db.insert(legalDocuments).values(legalRows);
   console.log("✅ Legal documents seeded");
+
+  // 1.5 Listing categories (needed by the create-listing form's Category select)
+  await db.insert(listingCategories).values(E2E_LISTING_CATEGORIES);
+  console.log("✅ Listing categories seeded");
 
   // 2. Networks
   const [kcMetro, testNetwork] = await db
