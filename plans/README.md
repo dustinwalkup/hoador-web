@@ -11,7 +11,7 @@ STOP conditions, and update your row when done.
 | -------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ------ | ----------------- | ------ |
 | [001](001-claude-md-and-dx-fixes.md)               | CLAUDE.md, README rewrite, fix self-recursive audit scripts                  | P2       | S      | —                 | DONE   |
 | [002](002-security-hardening.md)                   | Guard DB-wipe script, lock down create-payment-intent, constant-time secrets | P1       | S      | —                 | DONE   |
-| [003](003-webhook-failure-audit-trail.md)          | Audit-trail for Stripe webhook failures & unmatched payment events           | P1       | S      | —                 | TODO   |
+| [003](003-webhook-failure-audit-trail.md)          | Audit-trail for Stripe webhook failures & unmatched payment events           | P1       | S      | —                 | DONE   |
 | [004](004-deposit-hold-lifecycle-fixes.md)         | Fix release_failed clobber + deposit-hold retry idempotency                  | P1       | M      | —                 | TODO   |
 | [005](005-approve-double-charge-guard.md)          | Atomic claim prevents concurrent-approval double charge                      | P1       | S      | —                 | TODO   |
 | [006](006-route-auth-tests.md)                     | Route tests exercising real auth rejection (money/admin/cron)                | P2       | M      | 002 (Step 4 only) | TODO   |
