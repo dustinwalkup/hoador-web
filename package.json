@@ -22,8 +22,6 @@
     "test:e2e:ui": "playwright test --ui",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "audit": "bun audit",
-    "audit:fix": "bun audit --fix",
     "prepare": "husky",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",

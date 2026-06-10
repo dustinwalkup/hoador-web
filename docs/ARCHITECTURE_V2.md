@@ -2,12 +2,30 @@
 
 ## Overview
 
-This architecture establishes clear boundaries between layers:
+The architecture establishes clear boundaries between layers:
 
-- **API Routes**: Authentication, authorization, request/response handling
-- **DAL (Data Access Layer)**: Pure database operations, no auth logic
-- **React Query**: Client-side state management (queries + mutations)
-- **Server Components**: Direct DAL access with inline auth checks (transitional pattern)
+- **API Routes** (`src/app/api/**/route.ts`): authentication, authorization,
+  request validation, response shaping. Own auth for all client requests.
+- **Services** (`src/features/<domain>/services/`): business logic and
+  orchestration — DAL + Stripe + notifications + audit logging.
+- **DAL** (`src/dal/*.dal.ts`): pure database operations. No auth, no business
+  rules.
+- **Infrastructure services** (`src/services/`): wrappers around third-party
+  SDKs (Stripe, Resend, OpenAI, …). Domain code calls these helpers, never raw
+  SDKs.
+- **React Query**: all client-side data fetching and mutations, against API
+  routes. No server actions.
+- **Server Components**: auth check inline, fetch via DAL, optionally prefetch
+  into the React Query cache (`HydrateClient`).
+
+```
+Client Component ──fetch──▶ API Route ──▶ Service ──▶ DAL ──▶ Postgres
+                              │             │  └──▶ src/services/* (Stripe, Resend, …)
+                              │             └──▶ Notifications (fire-and-forget)
+                              └──▶ DAL directly (simple CRUD)
+
+Server Component ──▶ DAL ──▶ setQueryData ──▶ <HydrateClient> ──▶ client hooks
+```
 
 ---
 
@@ -15,621 +33,460 @@ This architecture establishes clear boundaries between layers:
 
 ### 1. DAL is Auth-Agnostic
 
-The DAL performs database transactions only. It receives parameters like `userId` when needed for filtering - it does NOT verify authentication or authorization.
+The DAL performs database operations only. It receives parameters like
+`userId` when needed for filtering — it does NOT verify authentication or
+authorization, ever.
 
-### 2. API Routes Handle Auth for Client Requests
+### 2. API Routes Own Auth for Client Requests
 
-All client-side data access goes through API routes. Auth checks happen in the route before calling DAL.
+All client-side data access goes through API routes. Auth checks happen in
+the route, via the helpers in `@/lib/api/route-helpers`, before any service
+or DAL call.
 
-### 3. Server Components Handle Their Own Auth (Transitional)
+### 3. Services Own Business Logic and Side Effects
 
-Server Components check auth inline, then call DAL directly. This pattern will eventually migrate to a service layer.
+Anything beyond a single read/write — state transitions, money movement,
+multi-DAL coordination, notifications, legal/audit recording — belongs in a
+service. Routes stay thin; DALs stay dumb.
 
 ### 4. React Query for All Client-Side Data
 
-- `useQuery` for data fetching → calls API routes
-- `useMutation` for data changes → calls API routes
-- No server actions
+- `useQuery` / `useInfiniteQuery` for fetching → calls API routes
+- `useMutation` (usually via the `useCreateMutation` helper) for changes
+- **No server actions** — this is a deliberate architectural choice.
+
+### 5. Server Components Fetch via DAL and Hydrate the Cache
+
+Server pages check auth inline (no middleware), call DALs directly for the
+initial data, and either pass it as props or seed the React Query cache so
+client hooks take over without a refetch.
 
 ---
 
 ## Layer Responsibilities
 
-### API Routes (`/app/api/`)
+### API Routes (`src/app/api/`)
 
 **Responsibilities:**
 
-- Authenticate requests (verify session/token)
-- Authorize requests (verify user has permission)
-- Validate request data (using Zod schemas)
-- Call DAL methods with verified parameters
-- Format and return responses
-- Handle errors and return appropriate HTTP status codes
+- Authenticate (session) and authorize (ownership/role) the request
+- Validate request data with Zod (`safeParse`) before use
+- Call a service (business logic) or a DAL (simple CRUD)
+- Map errors to HTTP status codes via `handleApiError()`
 
-**⚠️ IMPORTANT: Use Route Helpers for Consistency**
+**⚠️ Always use the route helpers** from `@/lib/api/route-helpers`:
 
-Always use the helpers from `@/lib/api/route-helpers` for authentication:
+| Helper                                        | Returns                                             | Use When                                 |
+| --------------------------------------------- | --------------------------------------------------- | ---------------------------------------- |
+| `getAuthenticatedUserResponse()`              | `NextResponse` (401) OR `{ user, userId, isAdmin }` | **Default** — most protected endpoints   |
+| `requireAuthResponse()`                       | `NextResponse` (401) OR `null`                      | Auth required but user object not needed |
+| `requireAdminResponse()`                      | `NextResponse` (401/403) OR `null`                  | Admin-only endpoints                     |
+| `handleApiError(error)`                       | `NextResponse` with mapped status                   | Catch block of every route               |
+| `captureNonCriticalError(e, {route, action})` | void (console + Sentry warning)                     | Fire-and-forget side-effect failures     |
+| `parseFormData(request)`                      | `Record<string, unknown>` (JSON **or** FormData)    | Routes that accept either body type      |
+| `getClientIP` / `getUserAgent`                | request metadata                                    | Audit/legal recording (re-exported)      |
 
-| Helper                           | Use Case                                                 |
-| -------------------------------- | -------------------------------------------------------- |
-| `getAuthenticatedUserResponse()` | **Primary** - Returns 401 OR `{ user, userId, isAdmin }` |
-| `requireAdminResponse()`         | Admin-only routes - Returns 403 OR null                  |
-| `handleApiError()`               | Catch-all error handler - Maps errors to HTTP status     |
-
-**Pattern (Protected Endpoint):**
+**Pattern (protected endpoint calling a service):**
 
 ```typescript
-// src/app/api/tools/[id]/route.ts
+// src/app/api/rentals/route.ts (abridged)
 import { NextRequest, NextResponse } from "next/server";
+import { tryCatch } from "@walkup/walkup-utils";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
-import { ToolDAL } from "@/dal/tool.dal";
+import { withRequestLogging } from "@/lib/api/with-request-logging";
+import { createRentalRequestSchema } from "@/features/rentals/lib/form-schema";
+import { RentalService } from "@/features/rentals/services/rental-service";
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  try {
-    // 1. Authenticate - ALWAYS use getAuthenticatedUserResponse()
-    const authResult = await getAuthenticatedUserResponse();
-    if (authResult instanceof NextResponse) {
-      return authResult; // Returns 401
-    }
-    const { userId, isAdmin } = authResult;
-
-    // 2. Fetch resource
-    const tool = await ToolDAL.getById(params.id);
-    if (!tool) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    // 3. Authorize (owner or admin)
-    if (tool.ownerId !== userId && !isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    // 4. Validate & Execute
-    const body = await request.json();
-    const result = await ToolDAL.update(params.id, body);
-
-    return NextResponse.json(result);
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+async function postHandler(request: NextRequest) {
   try {
     // 1. Authenticate
     const authResult = await getAuthenticatedUserResponse();
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { userId, isAdmin } = authResult;
+    if (authResult instanceof NextResponse) return authResult; // 401
+    const { userId } = authResult;
 
-    // 2. Fetch & Authorize
-    const tool = await ToolDAL.getById(params.id);
-    if (!tool) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    if (tool.ownerId !== userId && !isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // 2. Validate
+    const body = await request.json();
+    const parsed = createRentalRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 },
+      );
     }
 
-    // 3. Execute
-    await ToolDAL.delete(params.id);
-    return NextResponse.json({ success: true });
+    // 3. Delegate business logic to the service
+    const { data, error } = await tryCatch(
+      RentalService.createRentalRequest(userId, parsed.data),
+    );
+    if (error) return handleApiError(error);
+
+    return NextResponse.json(data, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }
 }
+
+export const POST = withRequestLogging(postHandler, "POST /api/rentals");
 ```
 
-**Pattern (Public Endpoint):**
+Notes on the pattern:
+
+- `withRequestLogging(handler, "METHOD /path")` wraps exported handlers for
+  structured request logging.
+- `tryCatch` (from `@walkup/walkup-utils`) returns `{ data, error }` — used
+  when the route wants to branch on the error; otherwise just `await` and let
+  the outer catch + `handleApiError` deal with it.
+- Ownership checks (`resource.ownerId !== userId && !isAdmin` → 403) happen in
+  the route after fetching the resource, or inside the service which throws
+  `ForbiddenError`.
+
+**Route → Service vs Route → DAL:**
+
+| Call a **service** when…                                | Call the **DAL** directly when…     |
+| ------------------------------------------------------- | ----------------------------------- |
+| Multi-step logic / state transitions (approve, cancel…) | Single read or write (simple CRUD)  |
+| Money is involved (Stripe charge, hold, refund, payout) | Listing/fetching data for display   |
+| Side effects: notifications, email, audit log, PDFs     | Profile-style field updates         |
+| Legal/compliance recording                              | No side effects beyond the DB write |
+
+Roughly 20% of routes go through a service; the other 80% are thin
+CRUD over a DAL. When in doubt: if the logic would need to be duplicated by a
+second caller (cron job, admin route, webhook), it belongs in a service.
+
+**Cron routes** (`src/app/api/cron/*`) are triggered by GitHub Actions
+(`.github/workflows/cron-jobs.yml`), not Vercel cron:
 
 ```typescript
-// src/app/api/tools/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { handleApiError } from "@/lib/api/route-helpers";
-import { ToolDAL } from "@/dal/tool.dal";
+// src/app/api/cron/process-service-payouts/route.ts (abridged)
+async function getHandler(request: NextRequest) {
+  const auth = verifyCronSecret(request); // Authorization: Bearer $CRON_SECRET
+  if (!auth.authorized) return auth.response;
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
   try {
-    // No auth required for public endpoint
-    const tool = await ToolDAL.getById(params.id);
-
-    if (!tool) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(tool);
+    const summary = await ServicePaymentLifecycleService.processPayouts(20);
+    await CronRunHistoryService.recordRun({ jobName: "...", status: "success", ... });
+    return NextResponse.json(summary);
   } catch (error) {
-    return handleApiError(error);
+    await CronRunHistoryService.recordRun({ status: "failure", ... });
+    await sendOpsAlert({ ... });
+    return NextResponse.json({ error: "..." }, { status: 500 });
   }
 }
 ```
 
-**Pattern (Admin-Only Endpoint):**
-
-```typescript
-// src/app/api/admin/users/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdminResponse, handleApiError } from "@/lib/api/route-helpers";
-import { UserDAL } from "@/dal/user.dal";
-
-export async function GET(request: NextRequest) {
-  try {
-    // Require admin - returns 401 (not auth) or 403 (not admin)
-    const adminCheck = await requireAdminResponse();
-    if (adminCheck) {
-      return adminCheck;
-    }
-
-    const users = await UserDAL.getAll();
-    return NextResponse.json(users);
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
-```
+**Stripe webhooks** live at `src/app/api/stripe/webhooks/route.ts`: verify the
+signature with `webhooks.constructEvent(body, signature, STRIPE_WEBHOOK_SECRET)`
+(400 on failure), then delegate to `handleWebhookEvent(event)` in
+`src/services/stripe/webhook-handlers.ts`.
 
 ---
 
-### DAL (Data Access Layer)
+### Services (`src/features/<domain>/services/`)
+
+The business-logic layer. Classes with **static methods only** (no instance
+state), one class per file, named `<domain>-service.ts` →
+`export class RentalService { static async approveRentalRequest(...) {} }`.
+
+Domains with services today: `admin`, `auth`, `disputes`, `listings`,
+`rentals`, `reviews`, `services` (service bookings). Examples:
+
+- `src/features/rentals/services/rental-service.ts` — create/approve rental
+  requests: validates the listing, calculates pricing, persists via DALs,
+  records legal acceptances, charges payment + places deposit hold via Stripe
+  helpers, sends notifications.
+- `src/features/rentals/services/cancellation-service.ts`,
+  `payment-lifecycle-service.ts`, `refund-calculations.ts`
+- `src/features/reviews/services/blind-review-service.ts` — submit/release
+  blind reviews, participant + window validation, cron-driven release.
+- `src/features/admin/services/` — payment-lifecycle admin ops, stale-
+  processing detection, cron run history.
+
+**Rules:**
+
+- Services receive `userId` (and any actor context) as parameters — they never
+  read the session themselves. Callers (routes, cron, webhooks) do auth first.
+- Services import **DAL singletons** from `@/dal` (`rentalDAL`, `userDAL`, …)
+  and **Stripe helper functions** from `@/services/stripe/*` — never the raw
+  Stripe SDK.
+- Throw typed errors from `@/dal/errors` (`NotFoundError`, `ForbiddenError`,
+  `ValidationError`, `ConflictError`); routes map them via `handleApiError`.
+- Notifications/emails are **fire-and-forget** — never let a notification
+  failure fail a money operation:
+
+```typescript
+sendPaymentFailureNotificationToRenter({ ... }).catch((err) => {
+  captureNonCriticalError(err, {
+    route: "POST /api/rentals/[id]/approve",
+    action: "send_payment_failure_notification",
+  });
+});
+```
+
+- Money boundaries: Stripe works in **integer cents**; DB `numeric` columns
+  surface as **strings** in TS. Services convert deliberately at the boundary.
+
+---
+
+### Infrastructure Services (`src/services/`)
+
+Thin wrappers around third-party SDKs. Domain services and routes call these;
+nothing outside this directory touches the raw SDKs.
+
+| Directory                   | Purpose                                                       |
+| --------------------------- | ------------------------------------------------------------- |
+| `src/services/stripe/`      | Payments, deposit holds, payouts, refunds, Connect, webhooks  |
+| `src/services/better-auth/` | Auth client/server config                                     |
+| `src/services/resend/`      | Transactional email senders                                   |
+| `src/services/openai/`      | Listing image analysis, AI draft resolution                   |
+| `src/services/playwright/`  | PDF generation (rental/service agreements via puppeteer-core) |
+| `src/services/vercel-blob/` | File/image storage                                            |
+| `src/services/geocoding/`   | Address → coordinates                                         |
+
+---
+
+### DAL (`src/dal/`)
 
 **Responsibilities:**
 
-- Execute database queries using Drizzle ORM
-- Handle database transactions
-- Return typed data
-- ❌ NO authentication logic
-- ❌ NO authorization logic
+- Execute database queries with Drizzle ORM
+- Return typed data; throw typed `@/dal/errors` on constraint violations
+- ❌ NO authentication or authorization logic
+- ❌ NO business rules (those live in services)
 
-**Changes from v1:**
-
-- Remove `getCurrentUserId()` calls
-- Remove `requireAuth()` calls
-- Remove `this.requireAuth()` from BaseDAL
-- Accept `userId` as parameter when needed for filtering
-- Remove `UnauthorizedError` throws
-- DAL methods are pure database operations
-
-**Pattern:**
+**Shape:** one class per domain extending `BaseDAL`, exported as a
+**singleton instance** from `src/dal/index.ts`:
 
 ```typescript
-// src/dal/tool.dal.ts
-import { db } from "@/db/db";
-import { tools } from "@/db/schemas/tools";
-import { eq } from "drizzle-orm";
-
-export class ToolDAL {
-  // Pure database query - no auth
-  static async getById(id: string) {
-    const result = await db
-      .select()
-      .from(tools)
-      .where(eq(tools.id, id))
-      .limit(1);
-
-    return result[0] || null;
-  }
-
-  // userId is a parameter, not fetched internally
-  static async getByOwner(ownerId: string) {
-    return db.select().from(tools).where(eq(tools.ownerId, ownerId));
-  }
-
-  // Caller is responsible for authorization
-  static async update(id: string, data: Partial<Tool>) {
-    const result = await db
-      .update(tools)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(tools.id, id))
-      .returning();
-
-    return result[0];
-  }
-
-  // ownerId passed in from caller (API route or Server Component)
-  static async create(data: CreateToolInput & { ownerId: string }) {
-    const result = await db.insert(tools).values(data).returning();
-
-    return result[0];
-  }
-
-  static async delete(id: string) {
-    await db.delete(tools).where(eq(tools.id, id));
-  }
-}
+// src/dal/index.ts
+export const userDAL = new UserDAL();
+export const rentalDAL = new RentalDAL();
+export const listingDAL = new ListingDAL();
+// … ~20 singletons; always import these, never instantiate a DAL yourself
 ```
-
-**BaseDAL Changes:**
 
 ```typescript
-// src/dal/base.ts
-export class BaseDAL {
-  // Remove requireAuth() method
-  // Remove getCurrentUserId() method
-  // Keep only shared database utilities if any
-}
+// consumer
+import { rentalDAL, userDAL } from "@/dal";
+const rental = await rentalDAL.getRentalRequestById(id);
 ```
+
+**`BaseDAL`** (`src/dal/base.ts`) provides:
+
+- `this.db` — the shared Drizzle instance
+- `handleError(error, operation)` — maps DB/constraint errors to DAL errors,
+  captures unexpected ones in Sentry (production only)
+- `validatePagination(page, limit)` / `createPaginatedResult(data, total, page, limit)`
+  — standard `{ data, pagination: { page, limit, total, totalPages, hasNext, hasPrev } }`
+- `withReadRetry(fn, operation)` — retries reads once on transient
+  connection errors (Neon serverless)
+- `validateEmail` / `validatePhoneNumber`
+
+DAL methods read/write via `this.db` directly; there is currently no
+transaction-parameter (`tx`) pattern — multi-step atomicity is handled at the
+service level by sequencing + compensating updates.
+
+**Error classes** (`src/dal/errors.ts`), all extending `DALError`:
+
+| Class                              | Status                              |
+| ---------------------------------- | ----------------------------------- |
+| `NotFoundError(resource, id?)`     | 404                                 |
+| `ValidationError(message, field?)` | 400                                 |
+| `ForbiddenError(message?)`         | 403                                 |
+| `ConflictError(message)`           | 409                                 |
+| `ServiceBookingPaymentFailedError` | 400                                 |
+| `PaymentSetupRequiredError`        | 402/412 (carries onboarding status) |
+
+Throw these from DALs and services; `handleApiError` maps them to responses
+and only reports unexpected (5xx) errors to Sentry.
 
 ---
 
 ### React Query (Client Components)
 
-**All client-side data fetching and mutations go through React Query hooks that call API routes.**
+All client-side data goes through React Query hooks that call API routes.
 
-**Queries (Data Fetching):**
+**Setup:**
+
+- Provider + `QueryClient` in `src/components/providers.tsx`
+  (`staleTime: 5min`, `gcTime: 10min`, `refetchOnWindowFocus: false`,
+  Sentry integration, devtools in dev).
+- Hooks live in `src/features/<domain>/hooks/`, named `use<Entity>` /
+  `use<Action>` (e.g. `useConversations`, `useListingMutations`).
+- Hooks use raw `fetch()` with inline error handling (no shared fetcher).
+- Query keys are inline arrays (`["conversations", archived]`), not a
+  centralized factory — match them exactly when prefetching server-side.
+
+**Queries:**
 
 ```typescript
-// src/features/tools/hooks/use-tool.ts
-import { useQuery } from "@tanstack/react-query";
-
-export function useTool(toolId: string | null) {
-  return useQuery({
-    queryKey: ["tool", toolId],
-    queryFn: async () => {
-      const response = await fetch(`/api/tools/${toolId}`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to fetch tool");
-      }
+// src/features/messages/hooks/use-conversations.ts (abridged)
+export function useConversations(archived: boolean = false) {
+  return useInfiniteQuery({
+    queryKey: ["conversations", archived],
+    queryFn: async ({ pageParam = 0 }) => {
+      const response = await fetch(
+        `/api/messages/conversations?archived=${archived}&offset=${pageParam}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch conversations");
       return response.json();
     },
-    enabled: !!toolId,
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
-export function useUserTools() {
-  return useQuery({
-    queryKey: ["user-tools"],
-    queryFn: async () => {
-      const response = await fetch("/api/tools/user");
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to fetch tools");
-      }
-      return response.json();
-    },
-    staleTime: 1 * 60 * 1000,
   });
 }
 ```
 
-**Mutations (Data Changes):**
+**Mutations** use the shared helper in
+`src/lib/react-query/mutation-helpers.ts`, which wires up sonner toasts and
+cache invalidation:
 
 ```typescript
-// src/features/tools/hooks/use-create-tool.ts
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/components/ui/use-toast";
+import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
 
-export function useCreateTool() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: async (data: CreateToolInput) => {
-      const response = await fetch("/api/tools", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create tool");
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-tools"] });
-      toast({ title: "Success", description: "Tool created" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-}
-
-// src/features/tools/hooks/use-update-tool.ts
-export function useUpdateTool() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateToolInput }) => {
-      const response = await fetch(`/api/tools/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to update tool");
-      }
-
-      return response.json();
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["tool", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["user-tools"] });
-      toast({ title: "Success", description: "Tool updated" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-}
-
-// src/features/tools/hooks/use-delete-tool.ts
-export function useDeleteTool() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
+export function useArchiveConversation() {
+  return useCreateMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/tools/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to delete tool");
-      }
-
+      const response = await fetch(
+        `/api/messages/conversations/${id}/archive`,
+        {
+          method: "POST",
+        },
+      );
+      if (!response.ok) throw new Error("Failed to archive");
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-tools"] });
-      toast({ title: "Success", description: "Tool deleted" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    successMessage: "Conversation archived",
+    errorMessage: "Could not archive conversation",
+    invalidateQueryKeys: [
+      ["conversations", false],
+      ["conversations", true],
+    ],
   });
 }
 ```
 
-**Using Mutations in Components:**
+- Toasts: **sonner** (`toast.success` / `toast.error`), normally driven by the
+  helper's `successMessage` / `errorMessage`.
+- Errors flagged `suppressToast: true` skip the toast (e.g. redirects).
+- Invalidation: pass `invalidateQueryKeys`; reach for manual
+  `queryClient.invalidateQueries()` only for conditional cases.
+
+---
+
+### Server Components
+
+Server pages check auth inline and fetch initial data via DALs. There is
+**no middleware** — protection is per-page (and per-route).
+
+**Session helpers** (`@/features/auth/utils/session`):
+
+| Helper                       | Returns                                    | Use When                       |
+| ---------------------------- | ------------------------------------------ | ------------------------------ |
+| `getAuthenticatedUser()`     | `null` OR `{ user, userId, isAdmin }`      | Check + `redirect("/sign-in")` |
+| `requireAuthenticatedUser()` | `{ user, userId, isAdmin }` (throws)       | With an error boundary         |
+| `getCurrentUser()`           | `UserProfile \| null` (request-memoized)   | Just need the user             |
+| `getCurrentUserId()`         | `string \| null`                           | Simple ID-only check           |
+| `requireVerifiedUser()`      | `UserProfile` (throws if email unverified) | Verified-only flows            |
+
+**Pattern (prefetch + hydrate — the preferred pattern):** the page fetches
+via DAL, seeds the server-side query cache with the _same query key_ the
+client hook uses, and wraps the client component in `HydrateClient`
+(`src/lib/react-query/server.tsx`). The canonical example is
+`src/app/dashboard/mailbox/page.tsx`:
 
 ```typescript
-// src/features/tools/components/tool-form.tsx
-"use client";
+export default async function MailboxPage() {
+  const auth = await getAuthenticatedUser();
+  if (!auth) redirect("/sign-in");
+  const { userId } = auth;
 
-import { useCreateTool } from "../hooks/use-create-tool";
+  const qc = getServerQueryClient();
 
-export function ToolForm() {
-  const createTool = useCreateTool();
+  const [inbox, archived] = await Promise.all([
+    messagesDAL.getUserConversationsPaginated(userId, false),
+    messagesDAL.getUserConversationsPaginated(userId, true),
+  ]);
 
-  const handleSubmit = (formData: FormData) => {
-    const data = {
-      name: formData.get("name") as string,
-      description: formData.get("description") as string,
-      price: Number(formData.get("price")),
-    };
-
-    createTool.mutate(data);
-  };
+  // Infinite-query shape: { pages, pageParams }; key must match the hook
+  qc.setQueryData(["conversations", false], { pages: [inbox], pageParams: [0] });
+  qc.setQueryData(["conversations", true], { pages: [archived], pageParams: [0] });
 
   return (
-    <form action={handleSubmit}>
-      <input name="name" required />
-      <textarea name="description" />
-      <input name="price" type="number" required />
-      <button type="submit" disabled={createTool.isPending}>
-        {createTool.isPending ? "Creating..." : "Create Tool"}
-      </button>
-    </form>
+    <Suspense fallback={<MailboxSkeleton />}>
+      <HydrateClient>
+        <MailboxClient />
+      </HydrateClient>
+    </Suspense>
   );
 }
 ```
 
+**Pattern (props-only):** for pages with little client interactivity, fetch
+via DAL and pass data down as props (e.g. `src/app/dashboard/payments/page.tsx`).
+
+Server components may call **read-only** service methods for derived data
+(e.g. `BlindReviewService.getReviewStatus(...)`), but mutations always go
+through API routes.
+
 ---
 
-### Server Components (Transitional Pattern)
+## Notifications
 
-**For now: Auth check inline, then call DAL directly.**
-**Future: Will migrate to service layer.**
+Central orchestration in `src/features/notifications/utils/send-notification.ts`:
 
-**⚠️ IMPORTANT: Use Session Helpers for Consistency**
+1. Create the in-app notification row (always).
+2. Send email via Resend if the user's preference allows
+   (`shouldSendEmail(userId, category)`).
+3. Fire-and-forget web push (`shouldSendPush` + `sendPush()`), with
+   `.catch(captureNonCriticalError)`.
 
-Use helpers from `@/features/auth/utils/session`:
-
-| Helper                       | Use Case                                                           |
-| ---------------------------- | ------------------------------------------------------------------ |
-| `getAuthenticatedUser()`     | Returns `null` OR `{ user, userId, isAdmin }` - check and redirect |
-| `requireAuthenticatedUser()` | Throws if not auth - use with error boundary                       |
-| `getCurrentUserId()`         | Returns `string \| null` - simple ID check                         |
-
-**Pattern (Protected Page - Redirect):**
-
-```typescript
-// src/app/dashboard/garage/page.tsx
-import { redirect } from "next/navigation";
-import { getAuthenticatedUser } from "@/features/auth/utils/session";
-import { ToolDAL } from "@/dal/tool.dal";
-
-export default async function GaragePage() {
-  // 1. Auth check - use getAuthenticatedUser() for consistency
-  const auth = await getAuthenticatedUser();
-  if (!auth) {
-    redirect("/sign-in");
-  }
-  const { userId, isAdmin } = auth;
-
-  // 2. Call DAL directly with userId
-  const tools = await ToolDAL.getByOwner(userId);
-
-  return <GarageContent tools={tools} isAdmin={isAdmin} />;
-}
-```
-
-**Pattern (Protected Page - Throw):**
-
-```typescript
-// src/app/dashboard/settings/page.tsx
-import { requireAuthenticatedUser } from "@/features/auth/utils/session";
-import { UserDAL } from "@/dal/user.dal";
-
-export default async function SettingsPage() {
-  // Throws if not authenticated - caught by error boundary
-  const { userId, user } = await requireAuthenticatedUser();
-
-  const settings = await UserDAL.getSettings(userId);
-
-  return <SettingsForm user={user} settings={settings} />;
-}
-```
-
-**Pattern (Public Page):**
-
-```typescript
-// src/app/listings/[id]/page.tsx
-import { notFound } from "next/navigation";
-import { ToolDAL } from "@/dal/tool.dal";
-
-export default async function ListingPage({
-  params
-}: {
-  params: { id: string }
-}) {
-  // No auth required for public endpoint
-  const tool = await ToolDAL.getById(params.id);
-
-  if (!tool) {
-    notFound();
-  }
-
-  return <ListingDetails tool={tool} />;
-}
-```
+Domain-specific notification senders live in
+`src/features/<domain>/notifications/` and are invoked from services — always
+fire-and-forget from the caller's perspective.
 
 ---
 
 ## Data Flow Diagrams
 
-### Client Component → API Route → DAL
+### Client mutation with business logic
 
 ```
-User Action (click, form submit)
+User Action
     ↓
-React Query Hook (useQuery / useMutation)
-    ↓
-fetch("/api/...")
+useCreateMutation hook → fetch("/api/rentals/[id]/approve")
     ↓
 API Route
-    ├── 1. Authenticate (getSession)
-    ├── 2. Authorize (check permissions)
-    ├── 3. Validate (Zod schema)
-    └── 4. Call DAL method
-              ↓
-         Database
-              ↓
-         Return data
+    ├── 1. Authenticate (getAuthenticatedUserResponse)
+    ├── 2. Authorize (ownership / isAdmin)
+    ├── 3. Validate (Zod safeParse)
+    └── 4. Service call
+            ↓
+        RentalService.approveRentalRequest()
+            ├── DALs (rentalDAL, paymentDAL, …)
+            ├── Stripe helpers (charge, deposit hold)
+            ├── Audit/legal recording
+            └── Notifications (fire-and-forget)
     ↓
-API Response (JSON)
+NextResponse (or handleApiError)
     ↓
-React Query Cache Update
-    ↓
-Component Re-render
+React Query invalidation + sonner toast
 ```
 
-### Server Component → DAL (Transitional)
+### Simple client fetch
 
 ```
-Server Component Render
-    ↓
-getSession() - inline auth check
-    ↓
-redirect() if unauthorized
-    ↓
-DAL.method(userId, ...) - database query
-    ↓
-Return data
-    ↓
-Render JSX
+useQuery → fetch("/api/...") → API Route (auth) → DAL → JSON → cache
 ```
 
----
+### Server-rendered page (prefetch + hydrate)
 
-## Error Handling
-
-### API Route Error Responses
-
-```typescript
-// 401 - Not authenticated
-return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-// 403 - Authenticated but not authorized
-return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-// 404 - Resource not found
-return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-// 400 - Bad request / validation failed
-return NextResponse.json(
-  {
-    error: "Validation failed",
-    details: zodError.errors,
-  },
-  { status: 400 },
-);
-
-// 500 - Server error
-return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 ```
-
-### DAL Error Handling
-
-```typescript
-// DAL throws database-level errors only
-// Use tryCatch for consistent handling
-const result = await tryCatch(
-  () => ToolDAL.create(data),
-  (error) => {
-    console.error("Database error:", error);
-    return { success: false, error: "Database operation failed" };
-  },
-);
-```
-
-### Client Error Handling
-
-```typescript
-// React Query handles errors automatically
-// Use onError callback for user feedback
-const mutation = useCreateTool();
-
-// Errors show via toast in the hook's onError
-// Or handle manually:
-if (mutation.error) {
-  // Display error state in UI
-}
+Server Component
+    ↓ getAuthenticatedUser() → redirect("/sign-in") if null
+    ↓ DAL fetch
+    ↓ getServerQueryClient().setQueryData(key, data)
+    ↓ <HydrateClient> → client hooks read the cache, no initial refetch
 ```
 
 ---
@@ -639,96 +496,41 @@ if (mutation.error) {
 ```
 src/
 ├── app/
-│   ├── api/                    # API routes (auth + DAL calls)
-│   │   ├── tools/
-│   │   │   ├── route.ts        # GET (list), POST (create)
-│   │   │   ├── [id]/
-│   │   │   │   └── route.ts    # GET, PUT, DELETE
-│   │   │   └── user/
-│   │   │       └── route.ts    # GET user's tools
-│   │   ├── rentals/
-│   │   └── users/
-│   └── dashboard/              # Server Components (auth + DAL)
-│       └── garage/
-│           └── page.tsx
+│   ├── api/                       # API routes (auth + validation + service/DAL calls)
+│   │   ├── rentals/…              # incl. [id]/approve, [id]/start, …
+│   │   ├── stripe/webhooks/       # signature-verified webhook entry
+│   │   ├── cron/…                 # CRON_SECRET-guarded jobs (GitHub Actions)
+│   │   └── test/…                 # e2e-only routes (NODE_ENV !== prod && E2E_TEST)
+│   └── dashboard/…                # Server pages (auth + DAL + prefetch/hydrate)
 │
-├── dal/                        # Pure database operations
-│   ├── base.ts                 # Shared utilities (no auth)
-│   ├── tool.dal.ts
-│   ├── rental.dal.ts
-│   └── user.dal.ts
+├── features/<domain>/
+│   ├── services/                  # Business logic (static-method classes)
+│   ├── hooks/                     # React Query hooks
+│   ├── notifications/             # Domain notification senders
+│   ├── lib/ | schemas/            # Zod schemas, domain utils
+│   └── components/
 │
-├── features/
-│   └── tools/
-│       ├── hooks/              # React Query hooks
-│       │   ├── use-tool.ts
-│       │   ├── use-tools.ts
-│       │   ├── use-user-tools.ts
-│       │   ├── use-create-tool.ts
-│       │   ├── use-update-tool.ts
-│       │   └── use-delete-tool.ts
-│       ├── components/
-│       └── types.ts
+├── dal/                           # Pure DB operations
+│   ├── base.ts                    # BaseDAL (db handle, error mapping, pagination, read-retry)
+│   ├── errors.ts                  # DALError hierarchy
+│   ├── index.ts                   # Singleton instances (import from here)
+│   └── *.dal.ts
 │
-└── lib/
-    ├── api/
-    │   └── route-helpers.ts    # Auth helpers for API routes
-    └── auth/
-        └── session.ts          # getSession helper
+├── services/                      # Third-party SDK wrappers
+│   ├── stripe/  ├── resend/  ├── openai/
+│   ├── better-auth/  ├── playwright/  ├── vercel-blob/  └── geocoding/
+│
+├── lib/
+│   ├── api/
+│   │   ├── route-helpers.ts       # Auth helpers, handleApiError, captureNonCriticalError
+│   │   ├── verify-cron-secret.ts
+│   │   └── with-request-logging.ts
+│   └── react-query/
+│       ├── server.tsx             # getServerQueryClient, HydrateClient
+│       └── mutation-helpers.ts    # useCreateMutation (toast + invalidation)
+│
+└── components/providers.tsx       # QueryClientProvider setup
 ```
-
----
-
-## Migration Checklist
-
-### Phase 1: Update DAL
-
-- [x] Remove `requireAuth()` from BaseDAL
-- [x] Remove `getCurrentUserId()` from BaseDAL
-- [x] Remove auth calls from all DAL methods
-- [x] Add `userId` parameters where needed
-- [x] Remove `UnauthorizedError` imports/throws
-- [x] Test DAL methods work with parameters
-
-### Phase 2: Update/Create API Routes
-
-- [x] Use `getAuthenticatedUserResponse()` for all protected routes
-- [x] Use `requireAdminResponse()` for admin-only routes
-- [x] Use `handleApiError()` in catch blocks
-- [x] Add authorization checks (ownership, roles) after auth
-- [x] Add Zod validation where needed
-- [x] Ensure proper HTTP status codes
-- [x] Test all endpoints
-
-### Phase 3: Create React Query Hooks
-
-- [x] Create query hooks for each data type
-- [x] Create mutation hooks for create/update/delete
-- [x] Add proper cache invalidation
-- [x] Add toast notifications in hooks
-- [x] Add optimistic updates where beneficial
-
-### Phase 4: Migrate Client Components
-
-- [x] Replace server actions with mutation hooks
-- [x] Replace direct fetches with query hooks
-- [x] Update loading/error states
-- [x] Test all user flows
-
-### Phase 5: Update Server Components
-
-- [x] Use `getAuthenticatedUser()` or `requireAuthenticatedUser()` for auth
-- [x] Pass userId to DAL methods (from auth result)
-- [x] Remove server action calls
-- [x] Test all pages
-
-### Phase 6: Cleanup
-
-- [x] Remove unused server actions files
-- [x] Remove auth utilities from DAL
-- [x] Update types/interfaces
-- [x] Update workspace rules (.cursorrules)
-- [x] Update tests
 
 ---
 
@@ -738,30 +540,37 @@ src/
 
 | Function                         | Returns                                             | Use When                               |
 | -------------------------------- | --------------------------------------------------- | -------------------------------------- |
-| `getAuthenticatedUserResponse()` | `NextResponse (401)` OR `{ user, userId, isAdmin }` | **Default** - Most protected endpoints |
+| `getAuthenticatedUserResponse()` | `NextResponse (401)` OR `{ user, userId, isAdmin }` | **Default** — most protected endpoints |
+| `requireAuthResponse()`          | `NextResponse (401)` OR `null`                      | Auth gate, user object not needed      |
 | `requireAdminResponse()`         | `NextResponse (401/403)` OR `null`                  | Admin-only endpoints                   |
-| `handleApiError(error)`          | `NextResponse` with appropriate status              | Catch block for all errors             |
+| `handleApiError(error)`          | `NextResponse` with mapped status                   | Catch block for all errors             |
+| `captureNonCriticalError()`      | void (Sentry warning)                               | Fire-and-forget failures               |
+| `parseFormData(request)`         | body as record (JSON or FormData)                   | Mixed-content endpoints                |
 
-### Server Component Helpers (`@/features/auth/utils/session`)
+### Session Helpers (`@/features/auth/utils/session`)
 
-| Function                     | Returns                                          | Use When                      |
-| ---------------------------- | ------------------------------------------------ | ----------------------------- |
-| `getAuthenticatedUser()`     | `null` OR `{ user, userId, isAdmin }`            | Check auth + redirect if null |
-| `requireAuthenticatedUser()` | `{ user, userId, isAdmin }` (throws if not auth) | Use with error boundary       |
-| `getCurrentUserId()`         | `string \| null`                                 | Simple ID-only check          |
+| Function                     | Returns                               | Use When                      |
+| ---------------------------- | ------------------------------------- | ----------------------------- |
+| `getAuthenticatedUser()`     | `null` OR `{ user, userId, isAdmin }` | Check auth + redirect if null |
+| `requireAuthenticatedUser()` | `{ user, userId, isAdmin }` (throws)  | Use with error boundary       |
+| `getCurrentUser()`           | `UserProfile \| null` (memoized)      | User object only              |
+| `getCurrentUserId()`         | `string \| null`                      | Simple ID-only check          |
 
 ### Layer Responsibilities
 
-| Layer            | Auth Responsibility                     | Data Access       |
-| ---------------- | --------------------------------------- | ----------------- |
-| API Route        | ✅ Use `getAuthenticatedUserResponse()` | Call DAL          |
-| Server Component | ✅ Use `getAuthenticatedUser()`         | Call DAL directly |
-| DAL              | ❌ None                                 | Database queries  |
-| React Query      | ❌ None                                 | Call API routes   |
+| Layer            | Auth                              | Business Logic                  | Data Access                       |
+| ---------------- | --------------------------------- | ------------------------------- | --------------------------------- |
+| API Route        | ✅ route helpers                  | ❌ delegate                     | Service or DAL                    |
+| Service          | ❌ receives `userId` as param     | ✅                              | DAL singletons + `src/services/*` |
+| DAL              | ❌                                | ❌                              | Drizzle queries                   |
+| Server Component | ✅ session helpers + `redirect()` | ❌ (read-only service calls OK) | DAL directly                      |
+| React Query      | ❌                                | ❌                              | API routes                        |
 
-| Action                     | Pattern                             |
-| -------------------------- | ----------------------------------- |
-| Client fetches data        | `useQuery` → API route → DAL        |
-| Client mutates data        | `useMutation` → API route → DAL     |
-| Server renders page        | Server Component → auth check → DAL |
-| Server renders public page | Server Component → DAL              |
+| Action                          | Pattern                                                         |
+| ------------------------------- | --------------------------------------------------------------- |
+| Client fetches data             | `useQuery` → API route → DAL                                    |
+| Client mutates (simple)         | `useCreateMutation` → API route → DAL                           |
+| Client mutates (business logic) | `useCreateMutation` → API route → Service → DAL/Stripe          |
+| Server renders page             | Server Component → auth → DAL → prefetch + `HydrateClient`      |
+| Scheduled job                   | GitHub Actions → `/api/cron/*` → `verifyCronSecret` → Service   |
+| Stripe event                    | `/api/stripe/webhooks` → signature check → `handleWebhookEvent` |
