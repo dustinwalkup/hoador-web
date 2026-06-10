@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { ListingDetailView } from "@/features/listings/components/listing-detail-view";
+import { TrackViewContent } from "@/components/analytics/track-view-content";
 import { communityDAL, listingDAL } from "@/dal";
 
 export const metadata = {
@@ -43,5 +44,10 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
     }
   }
 
-  return <ListingDetailView listing={listing} isOwner={isOwner} />;
+  return (
+    <>
+      <TrackViewContent contentId={listing.id} contentName={listing.name} />
+      <ListingDetailView listing={listing} isOwner={isOwner} />
+    </>
+  );
 }

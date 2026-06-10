@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
 import { useHandleApiRedirect } from "@/lib/api/redirect-handler";
 import type { ApiResponseWithRedirect } from "@/lib/api/redirect-handler";
+import { trackCompleteRegistration } from "@/lib/analytics/meta";
 
 /**
  * Hook for user signup
@@ -51,6 +52,7 @@ export function useSignup() {
     successMessage:
       "Account created successfully! Please check your email to verify your account.",
     onSuccess: (response) => {
+      trackCompleteRegistration("email");
       handleRedirect(response);
     },
   });

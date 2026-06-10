@@ -66,11 +66,11 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect-js.stripe.com https://va.vercel-scripts.com", // Next.js requires unsafe-eval in dev, Stripe Connect, Vercel Speed Insights
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect-js.stripe.com https://va.vercel-scripts.com https://connect.facebook.net", // Next.js requires unsafe-eval in dev, Stripe Connect, Vercel Speed Insights, Meta Pixel
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
-              "img-src 'self' data: blob: https://hvom5mpictiugrk9.public.blob.vercel-storage.com https://thnd3cwzf3mlmu4a.public.blob.vercel-storage.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://picsum.photos",
-              "connect-src 'self' https://api.stripe.com https://connect-js.stripe.com https://*.sentry.io wss:",
+              "img-src 'self' data: blob: https://hvom5mpictiugrk9.public.blob.vercel-storage.com https://thnd3cwzf3mlmu4a.public.blob.vercel-storage.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://picsum.photos https://www.facebook.com",
+              "connect-src 'self' https://api.stripe.com https://connect-js.stripe.com https://*.sentry.io wss: https://www.facebook.com",
               "frame-src 'self' https://js.stripe.com https://connect-js.stripe.com https://hooks.stripe.com", // Stripe Connect embedded components
               "worker-src 'self' blob:", // Allow service worker
               "manifest-src 'self'",

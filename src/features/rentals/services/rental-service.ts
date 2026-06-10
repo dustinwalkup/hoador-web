@@ -35,6 +35,7 @@ import {
 import { placeDepositHold } from "@/services/stripe/deposit-hold";
 import { tryCatch } from "@walkup/walkup-utils";
 import { assertConnectReady } from "@/features/payments/lib/assert-connect-ready";
+import { sendMetaPurchase } from "@/lib/integrations/meta/meta-capi";
 import { after } from "next/server";
 
 /**
@@ -667,6 +668,36 @@ export class RentalService {
           rentalRequestId: rentalRequest.id,
         });
         // Note: payout_received is NOT tracked here — owner payout happens later via cron
+
+        // Meta CAPI Purchase — the canonical (server-only) conversion event,
+        // fired now that the renter has actually been charged. Runs via
+        // after() so Meta latency/retries never delay the approval response.
+        // event_id = rental id, so approval retries can't double-count.
+        const rentalIdForMeta = createdRental.id;
+        after(async () => {
+          const { data: renter } = await tryCatch(
+            userDAL.getUserById(rentalRequest.renterId),
+          );
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+          await sendMetaPurchase({
+            bookingId: rentalIdForMeta,
+            value: totalAmount,
+            currency: "USD",
+            contentIds: [rentalRequest.listingId],
+            eventSourceUrl: appUrl
+              ? `${appUrl}/dashboard/rental/${rentalRequest.id}`
+              : undefined,
+            userData: renter
+              ? {
+                  email: renter.email,
+                  phone: renter.phone ?? undefined,
+                  firstName: renter.firstName ?? undefined,
+                  lastName: renter.lastName ?? undefined,
+                  externalId: renter.id,
+                }
+              : undefined,
+          });
+        });
       }
 
       // Create payment lifecycle record

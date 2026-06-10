@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+
+import {
+  trackInitiateCheckout,
+  trackRentalRequested,
+} from "@/lib/analytics/meta";
 
 import type { CurrentDocumentVersion } from "@/dal/types";
 import { type ListingDetails, type UserProfile } from "@/dal/types";
@@ -59,6 +64,20 @@ export function RentListingPageContent({
     string | null
   >(null);
   const createRentalMutation = useCreateRentalRequest();
+
+  // Fire Meta Pixel InitiateCheckout once per booking-flow mount. Uses the
+  // listing's daily rate as the initial estimated value; the precise total is
+  // captured by the Purchase event after the payment clears.
+  const initiateCheckoutFired = useRef(false);
+  useEffect(() => {
+    if (initiateCheckoutFired.current) return;
+    initiateCheckoutFired.current = true;
+    trackInitiateCheckout({
+      value: listing.dailyRate,
+      currency: "USD",
+      contentIds: [listing.id],
+    });
+  }, [listing.dailyRate, listing.id]);
 
   const form = useForm<RentalFormData>({
     resolver: zodResolver(rentalFormSchema),
@@ -276,6 +295,13 @@ export function RentListingPageContent({
 
       // Success toast is handled by the mutation hook
       if (result.requestId) {
+        // Not a Purchase — the renter isn't charged until the owner approves.
+        // The canonical Purchase fires server-side (CAPI) from the approval flow.
+        trackRentalRequested({
+          value: pricing.total,
+          currency: "USD",
+          contentIds: [listing.id],
+        });
         if (shouldOfferPushOnDevice() && shouldShowPermissionPrompt()) {
           setPendingRedirectRequestId(result.requestId);
           setShowPushPrompt(true);

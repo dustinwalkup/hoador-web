@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Filter, ChevronDown, Search, X } from "lucide-react";
+import { trackSearch } from "@/lib/analytics/meta";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -109,6 +110,20 @@ export function ExplorePageFilters({
     300,
     filters.query || "",
   );
+
+  // Fire Meta Pixel Search whenever the committed query in the URL changes.
+  // The debounced/auto-update path commits via updateFilters({ query }), so this
+  // covers both submit-by-form and submit-by-typing without firing per keystroke.
+  const lastTrackedQuery = useRef<string | undefined>(filters.query);
+  useEffect(() => {
+    const q = filters.query?.trim();
+    if (q && q !== lastTrackedQuery.current) {
+      lastTrackedQuery.current = q;
+      trackSearch(q);
+    } else if (!q) {
+      lastTrackedQuery.current = undefined;
+    }
+  }, [filters.query]);
 
   // Get current sort option label
   const getCurrentSortLabel = () => {
