@@ -72,10 +72,6 @@ const apiRoutes = [
     purpose: "List renter\u2019s cards (Stripe)",
   },
   {
-    path: "POST /api/(payments)/create-payment-intent",
-    purpose: "Manual-capture PaymentIntent (not used in main rental flow)",
-  },
-  {
     path: "POST /api/stripe/attach-payment-method",
     purpose: "Attach payment method to customer",
   },
@@ -957,12 +953,6 @@ export default function HowItWorksPaymentsPage() {
                 src/services/stripe/dispute-financial.ts
               </code>
               ).
-            </li>
-            <li>
-              <code className="bg-muted rounded px-1.5 py-0.5">
-                create-payment-intent
-              </code>{" "}
-              usage or removal if unused.
             </li>
             <li>
               Webhook handling for payment_intent.succeeded /

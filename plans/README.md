@@ -10,7 +10,7 @@ STOP conditions, and update your row when done.
 | Plan                                               | Title                                                                        | Priority | Effort | Depends on        | Status |
 | -------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ------ | ----------------- | ------ |
 | [001](001-claude-md-and-dx-fixes.md)               | CLAUDE.md, README rewrite, fix self-recursive audit scripts                  | P2       | S      | —                 | DONE   |
-| [002](002-security-hardening.md)                   | Guard DB-wipe script, lock down create-payment-intent, constant-time secrets | P1       | S      | —                 | TODO   |
+| [002](002-security-hardening.md)                   | Guard DB-wipe script, lock down create-payment-intent, constant-time secrets | P1       | S      | —                 | DONE   |
 | [003](003-webhook-failure-audit-trail.md)          | Audit-trail for Stripe webhook failures & unmatched payment events           | P1       | S      | —                 | TODO   |
 | [004](004-deposit-hold-lifecycle-fixes.md)         | Fix release_failed clobber + deposit-hold retry idempotency                  | P1       | M      | —                 | TODO   |
 | [005](005-approve-double-charge-guard.md)          | Atomic claim prevents concurrent-approval double charge                      | P1       | S      | —                 | TODO   |
@@ -23,7 +23,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 ## Dependency notes
 
 - 001 first because its CLAUDE.md lowers the cost/error-rate of every later executor; no hard dependency.
-- 006 Step 4 (create-payment-intent tests) requires 002's admin-gating; the rest of 006 is independent.
+- 006 Step 4 (create-payment-intent tests) is now N/A: the route was deleted 2026-06-10 as dead code (zero callers). The rest of 006 is independent.
 - 008 hard-depends on 003/004/005 — the unification design must capture the _fixed_ lifecycle semantics, not the buggy baseline.
 - 004 and 005 both touch `src/features/rentals/services/` — execute sequentially (either order), not in parallel worktrees, to avoid conflicts.
 

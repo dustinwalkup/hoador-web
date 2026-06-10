@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withRequestLogging } from "@/lib/api/with-request-logging";
+import { timingSafeEqualStrings } from "@/lib/api/timing-safe-equal";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import { serviceBookingDAL } from "@/dal";
@@ -29,7 +30,10 @@ async function postHandler(request: NextRequest) {
       );
     }
 
-    if (authHeader !== `Bearer ${internalSecret}`) {
+    if (
+      !authHeader ||
+      !timingSafeEqualStrings(authHeader, `Bearer ${internalSecret}`)
+    ) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

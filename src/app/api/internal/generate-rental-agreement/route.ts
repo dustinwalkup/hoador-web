@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
+import { timingSafeEqualStrings } from "@/lib/api/timing-safe-equal";
 import { z } from "zod";
 import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL } from "@/dal";
@@ -28,7 +29,10 @@ async function postHandler(request: NextRequest) {
       );
     }
 
-    if (authHeader !== `Bearer ${internalSecret}`) {
+    if (
+      !authHeader ||
+      !timingSafeEqualStrings(authHeader, `Bearer ${internalSecret}`)
+    ) {
       console.warn("[pdf-gen-route] auth mismatch");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
