@@ -176,6 +176,7 @@ export async function cancelApprovedRental(
   });
 
   const depositStatus = ctx.depositHoldStatus;
+  let depositReleaseFailed = false;
   if (depositStatus === "held" && ctx.securityDepositAuthId) {
     try {
       await releaseDepositHold(ctx.securityDepositAuthId);
@@ -187,6 +188,7 @@ export async function cancelApprovedRental(
         },
       );
     } catch {
+      depositReleaseFailed = true;
       await paymentLifecycleDAL.updateDepositHoldStatus(
         ctx.rentalId,
         "release_failed",
@@ -246,7 +248,7 @@ export async function cancelApprovedRental(
   );
 
   await paymentLifecycleDAL.markCancelled(ctx.rentalId, {
-    depositHoldStatus: "released",
+    ...(depositReleaseFailed ? {} : { depositHoldStatus: "released" as const }),
     ...(ownerTransferAmountDollars != null
       ? { ownerTransferStatus: "completed" as const }
       : {}),
@@ -384,6 +386,7 @@ export async function applyNoShow(
   });
 
   const depositStatus = ctx.depositHoldStatus;
+  let depositReleaseFailed = false;
   if (depositStatus === "held" && ctx.securityDepositAuthId) {
     try {
       await releaseDepositHold(ctx.securityDepositAuthId);
@@ -395,6 +398,7 @@ export async function applyNoShow(
         },
       );
     } catch {
+      depositReleaseFailed = true;
       await paymentLifecycleDAL.updateDepositHoldStatus(
         ctx.rentalId,
         "release_failed",
@@ -456,7 +460,7 @@ export async function applyNoShow(
   );
 
   await paymentLifecycleDAL.markCancelled(ctx.rentalId, {
-    depositHoldStatus: "released",
+    ...(depositReleaseFailed ? {} : { depositHoldStatus: "released" as const }),
     ...(ownerTransferAmountDollars != null
       ? { ownerTransferStatus: "completed" as const }
       : {}),
