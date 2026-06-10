@@ -7,16 +7,16 @@ STOP conditions, and update your row when done.
 
 ## Execution order & status
 
-| Plan                                               | Title                                                                        | Priority | Effort | Depends on        | Status |
-| -------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ------ | ----------------- | ------ |
-| [001](001-claude-md-and-dx-fixes.md)               | CLAUDE.md, README rewrite, fix self-recursive audit scripts                  | P2       | S      | —                 | DONE   |
-| [002](002-security-hardening.md)                   | Guard DB-wipe script, lock down create-payment-intent, constant-time secrets | P1       | S      | —                 | DONE   |
-| [003](003-webhook-failure-audit-trail.md)          | Audit-trail for Stripe webhook failures & unmatched payment events           | P1       | S      | —                 | DONE   |
-| [004](004-deposit-hold-lifecycle-fixes.md)         | Fix release_failed clobber + deposit-hold retry idempotency                  | P1       | M      | —                 | TODO   |
-| [005](005-approve-double-charge-guard.md)          | Atomic claim prevents concurrent-approval double charge                      | P1       | S      | —                 | TODO   |
-| [006](006-route-auth-tests.md)                     | Route tests exercising real auth rejection (money/admin/cron)                | P2       | M      | 002 (Step 4 only) | TODO   |
-| [007](007-router-refresh-to-query-invalidation.md) | Replace router.refresh() with targeted query invalidation                    | P3       | M      | —                 | TODO   |
-| [008](008-payment-lifecycle-unification-spike.md)  | Design spike: unify rental/service payment lifecycles (doc only)             | P3       | L      | 003, 004, 005     | TODO   |
+| Plan                                               | Title                                                                        | Priority | Effort | Depends on        | Status                                                 |
+| -------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ------ | ----------------- | ------------------------------------------------------ |
+| [001](001-claude-md-and-dx-fixes.md)               | CLAUDE.md, README rewrite, fix self-recursive audit scripts                  | P2       | S      | —                 | DONE                                                   |
+| [002](002-security-hardening.md)                   | Guard DB-wipe script, lock down create-payment-intent, constant-time secrets | P1       | S      | —                 | DONE                                                   |
+| [003](003-webhook-failure-audit-trail.md)          | Audit-trail for Stripe webhook failures & unmatched payment events           | P1       | S      | —                 | DONE                                                   |
+| [004](004-deposit-hold-lifecycle-fixes.md)         | Fix release_failed clobber + deposit-hold retry idempotency                  | P1       | M      | —                 | IN PROGRESS — Steps 1-2 DONE; Step 3 BLOCKED (STOP #4) |
+| [005](005-approve-double-charge-guard.md)          | Atomic claim prevents concurrent-approval double charge                      | P1       | S      | —                 | TODO                                                   |
+| [006](006-route-auth-tests.md)                     | Route tests exercising real auth rejection (money/admin/cron)                | P2       | M      | 002 (Step 4 only) | TODO                                                   |
+| [007](007-router-refresh-to-query-invalidation.md) | Replace router.refresh() with targeted query invalidation                    | P3       | M      | —                 | TODO                                                   |
+| [008](008-payment-lifecycle-unification-spike.md)  | Design spike: unify rental/service payment lifecycles (doc only)             | P3       | L      | 003, 004, 005     | TODO                                                   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -26,6 +26,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 006 Step 4 (create-payment-intent tests) is now N/A: the route was deleted 2026-06-10 as dead code (zero callers). The rest of 006 is independent.
 - 008 hard-depends on 003/004/005 — the unification design must capture the _fixed_ lifecycle semantics, not the buggy baseline.
 - 004 and 005 both touch `src/features/rentals/services/` — execute sequentially (either order), not in parallel worktrees, to avoid conflicts.
+- 004 Step 3 (retry idempotency key) is BLOCKED on a plan-design flaw and was NOT implemented. The plan's premise that "cron and retry operate on disjoint statuses" is false: the cron's `findScheduledDepositsNearPickup` query selects both `scheduled` _and_ `failed` rows (`payment-lifecycle.dal.ts:434-443`) and deliberately retries failed holds (`payment-lifecycle-service.ts:318,324`). Giving the renter retry a per-payment-method key while the cron keeps the fixed key would let a concurrent cron+retry on the same card place **two** authorization holds — a new bug, not a fix (STOP condition #4). Steps 1-2 (the higher-severity `release_failed` clobber + expiry-monitor coverage) are done. Step 3 needs a rewrite: either keep cron+retry on a shared payment-method-scoped key (touches the out-of-scope cron path) or exclude `failed` from the cron query so the two truly become disjoint. Plan 008 must baseline on this partial state.
 
 ## Findings considered and rejected (do not re-audit)
 
