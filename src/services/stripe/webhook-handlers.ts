@@ -18,57 +18,83 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
     "Stripe webhook received",
   );
 
-  switch (eventType) {
-    case "account.updated":
-      await handleAccountUpdated(event.data.object as Stripe.Account);
-      break;
-    case "account.closed":
-      await handleAccountClosed(
-        (event as unknown as { data: { object: Stripe.Account } }).data.object,
-      );
-      break;
-    case "payment_intent.succeeded":
-      await handlePaymentIntentSucceeded(
-        event.data.object as Stripe.PaymentIntent,
-      );
-      break;
-    case "payment_intent.payment_failed":
-      await handlePaymentIntentFailed(
-        event.data.object as Stripe.PaymentIntent,
-      );
-      break;
-    case "payment_intent.canceled":
-      await handlePaymentIntentCanceled(
-        event.data.object as Stripe.PaymentIntent,
-      );
-      break;
-    case "transfer.reversed":
-      await handleTransferReversed(event.data.object as Stripe.Transfer);
-      break;
-    case "charge.refunded":
-      await handleChargeRefunded(event.data.object as Stripe.Charge);
-      break;
-    case "charge.dispute.created":
-      await ChargebackService.handleChargebackCreated(
-        event.data.object as Stripe.Dispute,
-      );
-      break;
-    case "charge.dispute.updated":
-      await ChargebackService.handleChargebackUpdated(
-        event.data.object as Stripe.Dispute,
-      );
-      break;
-    case "charge.dispute.closed":
-      await ChargebackService.handleChargebackClosed(
-        event.data.object as Stripe.Dispute,
-      );
-      break;
-    default:
-      getLogger().info(
-        { eventType },
-        `Unhandled webhook event type: ${eventType}`,
-      );
-      break;
+  try {
+    switch (eventType) {
+      case "account.updated":
+        await handleAccountUpdated(event.data.object as Stripe.Account);
+        break;
+      case "account.closed":
+        await handleAccountClosed(
+          (event as unknown as { data: { object: Stripe.Account } }).data
+            .object,
+        );
+        break;
+      case "payment_intent.succeeded":
+        await handlePaymentIntentSucceeded(
+          event.data.object as Stripe.PaymentIntent,
+        );
+        break;
+      case "payment_intent.payment_failed":
+        await handlePaymentIntentFailed(
+          event.data.object as Stripe.PaymentIntent,
+        );
+        break;
+      case "payment_intent.canceled":
+        await handlePaymentIntentCanceled(
+          event.data.object as Stripe.PaymentIntent,
+        );
+        break;
+      case "transfer.reversed":
+        await handleTransferReversed(event.data.object as Stripe.Transfer);
+        break;
+      case "charge.refunded":
+        await handleChargeRefunded(event.data.object as Stripe.Charge);
+        break;
+      case "charge.dispute.created":
+        await ChargebackService.handleChargebackCreated(
+          event.data.object as Stripe.Dispute,
+        );
+        break;
+      case "charge.dispute.updated":
+        await ChargebackService.handleChargebackUpdated(
+          event.data.object as Stripe.Dispute,
+        );
+        break;
+      case "charge.dispute.closed":
+        await ChargebackService.handleChargebackClosed(
+          event.data.object as Stripe.Dispute,
+        );
+        break;
+      default:
+        getLogger().info(
+          { eventType },
+          `Unhandled webhook event type: ${eventType}`,
+        );
+        break;
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    getLogger().error(
+      {
+        message: "webhook.handler_failed",
+        eventId: event.id,
+        eventType,
+        error: errorMessage,
+      },
+      "Stripe webhook handler threw",
+    );
+    // Best-effort durable record. Its own failure must not mask the original
+    // error, so swallow via tryCatch, then rethrow so the route returns 500
+    // and Stripe retries.
+    await tryCatch(
+      auditLogDAL.create({
+        entityType: "webhook",
+        entityId: event.id,
+        action: "webhook.failed",
+        metadata: { eventType, error: errorMessage },
+      }),
+    );
+    throw error;
   }
 
   await auditLogDAL.create({
