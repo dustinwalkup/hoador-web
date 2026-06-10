@@ -22,7 +22,10 @@ export function verifyCronSecret(
   }
 
   const authHeader = request.headers.get("authorization");
-  if (!authHeader || !timingSafeEqualStrings(authHeader, `Bearer ${cronSecret}`)) {
+  if (
+    !authHeader ||
+    !timingSafeEqualStrings(authHeader, `Bearer ${cronSecret}`)
+  ) {
     return {
       authorized: false,
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
