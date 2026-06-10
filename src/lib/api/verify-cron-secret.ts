@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqualStrings } from "@/lib/api/timing-safe-equal";
 
 /**
  * Verify the CRON_SECRET authorization header for cron job endpoints.
@@ -21,7 +22,7 @@ export function verifyCronSecret(
   }
 
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!authHeader || !timingSafeEqualStrings(authHeader, `Bearer ${cronSecret}`)) {
     return {
       authorized: false,
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
