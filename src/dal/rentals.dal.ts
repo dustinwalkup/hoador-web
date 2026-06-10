@@ -1768,6 +1768,29 @@ export class RentalDAL extends BaseDAL {
   }
 
   /**
+   * Atomically claim a rental request for payment processing.
+   * Transitions paymentStatus -> "processing" only from "pending" or "failed".
+   * Returns false if another request already claimed it (or it already succeeded).
+   */
+  async claimRentalRequestPaymentProcessing(requestId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .update(rentalRequests)
+        .set({ paymentStatus: "processing", updatedAt: new Date() })
+        .where(
+          and(
+            eq(rentalRequests.id, requestId),
+            inArray(rentalRequests.paymentStatus, ["pending", "failed"]),
+          ),
+        )
+        .returning({ id: rentalRequests.id });
+      return result.length > 0;
+    } catch (error) {
+      this.handleError(error, "claimRentalRequestPaymentProcessing");
+    }
+  }
+
+  /**
    * Update payment method ID on a rental request (e.g. when resolved from Stripe fallback).
    */
   async updateRentalRequestPaymentMethod(
