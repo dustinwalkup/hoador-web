@@ -1,4 +1,15 @@
-import { db } from "./src/db/db";
+import { db } from "../src/db/db";
+
+const dbUrl = process.env.DATABASE_URL ?? "";
+const isLocalDb = /localhost|127\.0\.0\.1/.test(dbUrl);
+if (process.env.NODE_ENV === "production" || !isLocalDb) {
+  console.error(
+    "REFUSING to clear a non-local database.\n" +
+      `DATABASE_URL host is not localhost (or NODE_ENV is production).\n` +
+      "This script DROPS ALL TABLES. It only runs against local databases.",
+  );
+  process.exit(1);
+}
 
 async function clearDatabaseComplete() {
   console.log("🗑️  Completely clearing database...");
