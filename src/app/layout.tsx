@@ -7,6 +7,7 @@ import Footer from "@/components/footer/footer";
 import { Providers } from "../components/providers";
 import { InstallDirectionsBanner } from "@/components/pwa/install-directions-banner";
 import { PwaAutoRefresh } from "@/components/pwa/pwa-auto-refresh";
+import { MetaPixel } from "@/components/analytics/meta-pixel";
 
 import "./globals.css";
 import { Toaster } from "sonner";
@@ -153,6 +154,7 @@ export default function RootLayout({
           </ThemeProvider>
           <SpeedInsights />
         </Providers>
+        <MetaPixel />
         <Toaster richColors />
       </body>
     </html>
