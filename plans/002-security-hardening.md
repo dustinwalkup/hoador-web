@@ -211,6 +211,7 @@ Covered by Step 5. Existing cron route tests (`src/app/api/cron/__tests__/`) mus
 
 ## Maintenance notes
 
+- **Follow-up (2026-06-10):** after this plan landed, the `create-payment-intent` route was found to have **zero callers** anywhere in the repo — the admin "how-it-works" page only _documented_ it (and self-flagged it for removal), it never invoked it. The route was deleted as dead code along with its two doc references on the how-it-works page. The Step 2 admin-gating hardening is therefore moot; this note supersedes it. Plan 006 Step 4 (tests for this route) is consequently N/A.
 - If a real user-facing flow ever needs client-created PaymentIntents, do NOT reopen this route — build a purpose-specific route that derives the amount server-side from the rental/booking record.
 - `timingSafeEqualStrings` should be used for any future shared-secret check (e.g. new internal/cron routes); reviewers should flag new `!== \`Bearer …\`` patterns.
 - Deferred deliberately: boot-time env validation (fail deployment when CRON_SECRET/STRIPE_WEBHOOK_SECRET/INTERNAL_API_SECRET are unset). Worth a future plan if a misconfigured deploy ever recurs; today every consumer fails closed.

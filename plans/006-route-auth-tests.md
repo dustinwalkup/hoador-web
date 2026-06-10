@@ -38,7 +38,7 @@ Only 26 of 142 `route.ts` files under `src/app/api` have tests, and the route te
   - `src/app/api/admin/rentals/[id]/no-show/route.ts` — admin route with an existing test to rewrite.
   - One more admin route of your choice under `src/app/api/admin/` that has NO test yet (pick one whose service dependency is easy to mock; state your choice in the report).
   - `src/app/api/cron/process-payouts/route.ts` — uses `verifyCronSecret(request)` (real logic: `src/lib/api/verify-cron-secret.ts`; reads `process.env.CRON_SECRET`, compares `Authorization` header).
-  - `src/app/api/(payments)/create-payment-intent/route.ts` — after plan 002: `requireAdminResponse()` + Zod amount validation.
+  - ~~`src/app/api/(payments)/create-payment-intent/route.ts` — after plan 002: `requireAdminResponse()` + Zod amount validation.~~ **Route deleted 2026-06-10 as dead code (zero callers); Step 4 is N/A.**
 - Test conventions: vitest + happy-dom, tests in sibling `__tests__/`, `vi.clearAllMocks()` in `beforeEach`. Run via `bun run test:run <path>`.
 
 ## Commands you will need
@@ -58,7 +58,7 @@ Only 26 of 142 `route.ts` files under `src/app/api` have tests, and the route te
 - `src/app/api/admin/rentals/[id]/no-show/__tests__/route.test.ts` (rewrite the auth mocking)
 - One additional `src/app/api/admin/<route>/__tests__/route.test.ts` (create)
 - `src/app/api/cron/process-payouts/__tests__/route.test.ts` (create or extend if exists under `src/app/api/cron/__tests__`)
-- `src/app/api/(payments)/create-payment-intent/__tests__/route.test.ts` (create; only if plan 002 landed)
+- ~~`src/app/api/(payments)/create-payment-intent/__tests__/route.test.ts` (create; only if plan 002 landed)~~ **N/A — route deleted as dead code (see Step 4).**
 
 **Out of scope**:
 
@@ -109,11 +109,12 @@ In `src/app/api/admin/rentals/[id]/no-show/__tests__/route.test.ts`, remove the 
 
 **Verify**: `bun run test:run src/app/api/admin src/app/api/cron` → all pass.
 
-### Step 4: create-payment-intent (only if plan 002 is DONE in plans/README.md)
+### Step 4: create-payment-intent — ~~N/A (route deleted 2026-06-10)~~
 
-Cases: unauthenticated → 401; authenticated non-admin → 403; admin + `{ amount: -5 }` → 400; admin + `{ amount: 2_000_000 }` → 400 (over cap); admin + `{ amount: 5000 }` → 200 with `clientSecret` (mock `@/services/stripe/server`'s `PAYMENT_SERVER_INSTANCE.paymentIntents.create`).
-
-**Verify**: `bun run test:run "src/app/api/(payments)"` → all pass.
+The `create-payment-intent` route was deleted as dead code (zero callers found
+anywhere in the repo) after plan 002 hardened it. There is nothing to test;
+**skip this step entirely.** (Originally: assert 401/403/400-cap/200 against the
+admin-gated route.)
 
 ## Test plan
 

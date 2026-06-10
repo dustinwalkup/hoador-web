@@ -23,7 +23,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 ## Dependency notes
 
 - 001 first because its CLAUDE.md lowers the cost/error-rate of every later executor; no hard dependency.
-- 006 Step 4 (create-payment-intent tests) requires 002's admin-gating; the rest of 006 is independent.
+- 006 Step 4 (create-payment-intent tests) is now N/A: the route was deleted 2026-06-10 as dead code (zero callers). The rest of 006 is independent.
 - 008 hard-depends on 003/004/005 — the unification design must capture the _fixed_ lifecycle semantics, not the buggy baseline.
 - 004 and 005 both touch `src/features/rentals/services/` — execute sequentially (either order), not in parallel worktrees, to avoid conflicts.
 
