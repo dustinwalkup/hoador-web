@@ -136,7 +136,38 @@ async function handlePaymentIntentSucceeded(
 ): Promise<void> {
   const existingPayment = await paymentDAL.getByPaymentIntentId(pi.id);
 
-  if (existingPayment && existingPayment.status !== "succeeded") {
+  if (!existingPayment) {
+    // Deposit holds (manual-capture PIs) legitimately never get a payment
+    // record on this path, so don't flag them. Any other unmatched charge is
+    // a reconciliation gap worth a durable record. Note: approveRentalRequest
+    // creates the payment record after charging Stripe, so a succeeded webhook
+    // can race ahead of the record — these rows are recorded, not ops-alerted.
+    if (pi.metadata?.paymentType !== "security_deposit_hold") {
+      getLogger().warn(
+        {
+          message: "webhook.unmatched_payment_intent",
+          paymentIntentId: pi.id,
+          amount: pi.amount,
+        },
+        "payment_intent.succeeded with no matching payment record",
+      );
+      await tryCatch(
+        auditLogDAL.create({
+          entityType: "webhook",
+          entityId: pi.id,
+          action: "webhook.unmatched_payment_intent",
+          metadata: {
+            eventSource: "payment_intent.succeeded",
+            amount: pi.amount,
+            metadata: pi.metadata ?? {},
+          },
+        }),
+      );
+    }
+    return;
+  }
+
+  if (existingPayment.status !== "succeeded") {
     await paymentDAL.updatePaymentStatus(existingPayment.id, "succeeded", {
       paidAt: existingPayment.paidAt ?? new Date(),
     });
@@ -234,8 +265,24 @@ async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
   const payment = await paymentDAL.getByPaymentIntentId(paymentIntentId);
   if (!payment) {
     getLogger().warn(
-      { chargeId: charge.id, paymentIntentId },
+      {
+        message: "webhook.unmatched_charge_refund",
+        chargeId: charge.id,
+        paymentIntentId,
+      },
       "charge.refunded webhook: no payment record found",
+    );
+    await tryCatch(
+      auditLogDAL.create({
+        entityType: "webhook",
+        entityId: charge.id,
+        action: "webhook.unmatched_charge_refund",
+        metadata: {
+          eventSource: "charge.refunded",
+          paymentIntentId,
+          amountRefunded: charge.amount_refunded,
+        },
+      }),
     );
     return;
   }
