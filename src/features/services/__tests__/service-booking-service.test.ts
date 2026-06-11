@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ServiceBookingService } from "../services/service-booking-service";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/dal/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "@/dal/errors";
 import { calculateServiceFee } from "@/constants/payments";
 
 const mockListingGetById = vi.fn();
 const mockBookingCreate = vi.fn();
 const mockBookingGetById = vi.fn();
 const mockBookingUpdate = vi.fn();
+const mockBookingClaim = vi.fn();
 const mockGetStripePm = vi.fn();
 const mockGetUserById = vi.fn();
 const mockAuditCreate = vi.fn();
@@ -45,6 +51,7 @@ vi.mock("@/dal", () => ({
     create: (...a: unknown[]) => mockBookingCreate(...a),
     getById: (...a: unknown[]) => mockBookingGetById(...a),
     update: (...a: unknown[]) => mockBookingUpdate(...a),
+    claimForAcceptance: (...a: unknown[]) => mockBookingClaim(...a),
   },
   serviceListingDAL: { getById: (...a: unknown[]) => mockListingGetById(...a) },
   servicePaymentLifecycleDAL: {
@@ -163,6 +170,13 @@ describe("ServiceBookingService", () => {
     mockLegalGetAllVersions.mockResolvedValue({});
     mockLifecycleCreate.mockResolvedValue({});
     mockLifecycleGetByBookingId.mockResolvedValue(null);
+    // The atomic claim succeeds by default; individual tests override it.
+    mockBookingClaim.mockResolvedValue(true);
+    // Accept notification is now fire-and-forget (.catch); give it a promise.
+    mockSendAccepted.mockResolvedValue(undefined);
+    // Post-charge persistence resolves by default (clearAllMocks keeps prior
+    // mockRejectedValue implementations, so reset it here for order-independence).
+    mockPaymentCreate.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -447,10 +461,13 @@ describe("ServiceBookingService", () => {
       );
     });
 
-    it("uses retry idempotency key when booking status is payment_failed", async () => {
+    it("uses a deterministic retry idempotency key when booking status is payment_failed", async () => {
       mockBookingGetById.mockResolvedValue({
         ...bookingPending,
         status: "payment_failed" as const,
+        // A different PM than the current Stripe default, so the unchanged-PM
+        // guard does not fire and the retry proceeds.
+        selectedPaymentMethodId: "pm_old",
       });
       mockGetUserById.mockResolvedValue({
         stripeConnectedAccountId: "acct",
@@ -470,11 +487,11 @@ describe("ServiceBookingService", () => {
 
       await ServiceBookingService.acceptBooking("book-1", "prov-1", ctx);
 
+      // Key embeds the resolved payment method id, not Date.now() — two
+      // concurrent same-card retries share a key and Stripe dedupes.
       expect(mockChargeServicePayment).toHaveBeenCalledWith(
         expect.objectContaining({
-          idempotencyKey: expect.stringMatching(
-            /^service-charge-book-1-retry-\d+$/,
-          ),
+          idempotencyKey: "service-charge-book-1-retry-pm",
         }),
       );
       expect(mockSendAccepted).toHaveBeenCalled();
@@ -509,6 +526,148 @@ describe("ServiceBookingService", () => {
       expect(mockSendNotification.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
 
+    it("rejects with ConflictError when the booking is already being processed", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockBookingClaim.mockResolvedValue(false);
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(ConflictError);
+
+      // The atomic claim lost the race — never reach Stripe.
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
+    it("releases the claim when a pre-charge precondition fails", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      // No default payment method -> ValidationError inside the pre-charge try.
+      mockGetStripePm.mockResolvedValue(null);
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(ValidationError);
+
+      // Claim released back to its prior status (null for a first attempt).
+      expect(mockBookingUpdate).toHaveBeenCalledWith("book-1", {
+        paymentStatus: null,
+      });
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
+    it("records the failed payment method when the charge fails", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm",
+      });
+      mockChargeServicePayment.mockRejectedValue(new Error("card declined"));
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "payment_failed",
+      });
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(/could not process the requester's payment/i);
+
+      // Persisting the failed PM closes the unchanged-PM guard hole for retries.
+      expect(mockBookingUpdate).toHaveBeenCalledWith(
+        "book-1",
+        expect.objectContaining({
+          status: "payment_failed",
+          selectedPaymentMethodId: "pm",
+        }),
+      );
+    });
+
+    it("does not re-arm the charge when post-charge persistence fails", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm",
+      });
+      mockChargeServicePayment.mockResolvedValue({
+        paymentIntent: { id: "pi_1", status: "succeeded" },
+        chargeId: "ch_1",
+      });
+      // The booking update (status: accepted) succeeds; the next persistence
+      // step fails after money has already moved.
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "accepted",
+      });
+      mockPaymentCreate.mockRejectedValue(new Error("db down"));
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(ConflictError);
+
+      // Must NOT reset to a retryable status — that re-arms a second charge.
+      expect(mockBookingUpdate).not.toHaveBeenCalledWith(
+        "book-1",
+        expect.objectContaining({ status: "payment_failed" }),
+      );
+      expect(mockSendOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "service_booking_accept_post_charge_failure",
+          serviceBookingId: "book-1",
+          sendEmailAlert: true,
+        }),
+      );
+    });
+
+    it("still accepts when the acceptance notification fails", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm",
+      });
+      mockChargeServicePayment.mockResolvedValue({
+        paymentIntent: { id: "pi_1", status: "succeeded" },
+        chargeId: "ch_1",
+      });
+      const accepted = { ...bookingPending, status: "accepted" as const };
+      mockBookingUpdate.mockResolvedValue(accepted);
+      mockSendAccepted.mockRejectedValue(new Error("push failed"));
+
+      const out = await ServiceBookingService.acceptBooking(
+        "book-1",
+        "prov-1",
+        ctx,
+      );
+
+      // Acceptance succeeds despite the notification failure (fire-and-forget).
+      expect(out.status).toBe("accepted");
+      // Let the fire-and-forget .catch handler run.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(mockCaptureError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({
+          action: "accept_booking_notification_failed",
+        }),
+      );
+    });
+
     describe("Stripe Connect gating", () => {
       it("throws PaymentSetupRequiredError with not_started when provider has no Stripe Connect account", async () => {
         mockBookingGetById.mockResolvedValue(bookingPending);
@@ -528,8 +687,13 @@ describe("ServiceBookingService", () => {
             missingCapabilities: ["charges", "payouts"],
           },
         });
-        // Booking state SHALL NOT change when the gate throws.
-        expect(mockBookingUpdate).not.toHaveBeenCalled();
+        // The gate throws inside the pre-charge region, so the only DB write is
+        // releasing the claim back to its prior status (null for a first
+        // attempt). The booking is NOT transitioned to accepted/payment_failed.
+        expect(mockBookingUpdate).toHaveBeenCalledTimes(1);
+        expect(mockBookingUpdate).toHaveBeenCalledWith("book-1", {
+          paymentStatus: null,
+        });
         expect(mockChargeServicePayment).not.toHaveBeenCalled();
       });
 

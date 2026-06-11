@@ -114,6 +114,33 @@ describe("ServiceBookingDAL", () => {
     });
   });
 
+  describe("claimForAcceptance", () => {
+    it("returns true when a row is claimed", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([{ id: "book-1" }]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
+
+      const result = await serviceBookingDAL.claimForAcceptance("book-1");
+
+      expect(result).toBe(true);
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentStatus: "processing" }),
+      );
+    });
+
+    it("returns false when no row matches (already claimed or succeeded)", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
+
+      const result = await serviceBookingDAL.claimForAcceptance("book-1");
+
+      expect(result).toBe(false);
+    });
+  });
+
   describe("getCancellationContext", () => {
     it("returns required fields for cancellation", async () => {
       const mockLimit = vi.fn().mockResolvedValue([
