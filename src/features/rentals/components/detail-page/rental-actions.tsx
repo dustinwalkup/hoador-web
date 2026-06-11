@@ -99,11 +99,11 @@ export function RentalActions({
   // with no React Query cache entry, so router.refresh() is the correct tool to
   // re-render it after these actions. Intentional — do not swap for invalidate.
   const handleInstructionsUpdated = () => {
-    router.refresh();
+    router.refresh(); // RSC detail page (see above); intentional
   };
 
   const handleRentalStatusChanged = () => {
-    router.refresh();
+    router.refresh(); // RSC detail page (see above); intentional
   };
 
   const handleDownloadRentalAgreement = () => {
