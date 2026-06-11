@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 // --- Mocks ---
@@ -6,6 +6,14 @@ const mockProcessPayouts = vi.fn();
 vi.mock("@/features/rentals/services/payment-lifecycle-service", () => ({
   PaymentLifecycleService: {
     processPayouts: (...args: unknown[]) => mockProcessPayouts(...args),
+  },
+}));
+
+// Stub the run-history recorder so the handler doesn't reach for a real DB.
+const mockRecordRun = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/features/admin/services/cron-run-history-service", () => ({
+  CronRunHistoryService: {
+    recordRun: (...args: unknown[]) => mockRecordRun(...args),
   },
 }));
 
@@ -27,6 +35,8 @@ function createCronRequest(secret?: string): NextRequest {
 }
 
 describe("GET /api/cron/process-payouts", () => {
+  const originalSecret = process.env.CRON_SECRET;
+
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.CRON_SECRET = "test-cron-secret";
@@ -37,7 +47,15 @@ describe("GET /api/cron/process-payouts", () => {
     });
   });
 
-  it("rejects request without CRON_SECRET (401)", async () => {
+  afterEach(() => {
+    if (originalSecret === undefined) {
+      delete process.env.CRON_SECRET;
+    } else {
+      process.env.CRON_SECRET = originalSecret;
+    }
+  });
+
+  it("rejects request without Authorization header (401)", async () => {
     const response = await GET(createCronRequest());
 
     expect(response.status).toBe(401);
@@ -48,6 +66,19 @@ describe("GET /api/cron/process-payouts", () => {
     const response = await GET(createCronRequest("wrong-secret"));
 
     expect(response.status).toBe(401);
+    expect(mockProcessPayouts).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 when CRON_SECRET is not configured", async () => {
+    delete process.env.CRON_SECRET;
+
+    const response = await GET(createCronRequest("test-cron-secret"));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Cron secret not configured",
+    });
+    expect(mockProcessPayouts).not.toHaveBeenCalled();
   });
 
   it("accepts request with valid CRON_SECRET and calls service", async () => {
