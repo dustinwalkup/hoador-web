@@ -1,4 +1,4 @@
-import { and, count, desc, eq, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import {
@@ -105,6 +105,36 @@ export class ServiceBookingDAL extends BaseDAL {
       return row;
     } catch (error) {
       this.handleError(error, "ServiceBookingDAL.update");
+    }
+  }
+
+  /**
+   * Atomically claim a booking for payment processing.
+   * Sets paymentStatus -> "processing" only when the booking is still
+   * acceptable (status pending|payment_failed) and no other accept call
+   * holds the claim (paymentStatus null|failed).
+   * Returns false when another call already claimed it or the charge
+   * already succeeded.
+   */
+  async claimForAcceptance(bookingId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .update(serviceBookings)
+        .set({ paymentStatus: "processing", updatedAt: new Date() })
+        .where(
+          and(
+            eq(serviceBookings.id, bookingId),
+            inArray(serviceBookings.status, ["pending", "payment_failed"]),
+            or(
+              isNull(serviceBookings.paymentStatus),
+              eq(serviceBookings.paymentStatus, "failed"),
+            ),
+          ),
+        )
+        .returning({ id: serviceBookings.id });
+      return result.length > 0;
+    } catch (error) {
+      this.handleError(error, "ServiceBookingDAL.claimForAcceptance");
     }
   }
 
