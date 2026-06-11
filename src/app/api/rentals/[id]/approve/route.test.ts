@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { NextRequest, NextResponse } from "next/server";
-import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
+import { NextRequest } from "next/server";
 
 const mockFetch = vi.fn().mockResolvedValue({ ok: true });
 
@@ -30,32 +29,15 @@ const mockRentalRequest = {
   createdAt: new Date(),
 };
 
-vi.mock("@/lib/api/route-helpers", () => ({
-  handleApiError: vi.fn((err: unknown) => {
-    if (err instanceof PaymentSetupRequiredError) {
-      return NextResponse.json(
-        {
-          error: err.code,
-          onboardingStatus: err.details.onboardingStatus,
-          ...(err.details.missingCapabilities && {
-            missingCapabilities: err.details.missingCapabilities,
-          }),
-          ...(err.details.reason && { reason: err.details.reason }),
-        },
-        { status: err.statusCode },
-      );
-    }
-    throw err;
-  }),
-  parseFormData: vi.fn().mockResolvedValue({}),
-  requireAuthResponse: vi.fn().mockResolvedValue(null),
-  captureNonCriticalError: vi.fn(),
-  getClientIP: vi.fn().mockReturnValue(null),
-  getUserAgent: vi.fn().mockReturnValue(null),
-}));
-
+// Mock ONLY the session layer and run the real `@/lib/api/route-helpers`, so
+// the auth chain (requireAuthResponse → getCurrentUserId) and the real
+// handleApiError mapping (PaymentSetupRequiredError → 403) are exercised here,
+// not stubbed. The owner is authenticated as "owner-1" by default.
 vi.mock("@/features/auth/utils/session", () => ({
   getCurrentUserId: vi.fn().mockResolvedValue("owner-1"),
+  getCurrentUser: vi.fn(),
+  getAuthenticatedUser: vi.fn(),
+  requireAuth: vi.fn(),
 }));
 
 vi.mock("@/dal", () => ({
@@ -195,6 +177,8 @@ describe("POST /api/rentals/[id]/approve", () => {
       "http://localhost:3000/api/rentals/req-123/approve",
       {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
       },
     );
 
@@ -228,7 +212,11 @@ describe("POST /api/rentals/[id]/approve", () => {
       const { POST } = await import("./route");
       const request = new NextRequest(
         "http://localhost:3000/api/rentals/req-123/approve",
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
       );
       return POST(request, { params: Promise.resolve({ id: "req-123" }) });
     }
