@@ -38,11 +38,14 @@ function send(
   method: "track" | "trackCustom",
   event: string,
   params?: Record<string, unknown>,
+  options?: { eventID?: string },
 ): void {
   if (!isFbqReady()) return;
   try {
     const fbq = window.fbq as FbqFn;
-    if (params) {
+    if (options?.eventID) {
+      fbq(method, event, params ?? {}, { eventID: options.eventID });
+    } else if (params) {
       fbq(method, event, params);
     } else {
       fbq(method, event);
@@ -52,8 +55,12 @@ function send(
   }
 }
 
-function track(event: string, params?: Record<string, unknown>): void {
-  send("track", event, params);
+function track(
+  event: string,
+  params?: Record<string, unknown>,
+  options?: { eventID?: string },
+): void {
+  send("track", event, params, options);
 }
 
 function trackCustom(event: string, params?: Record<string, unknown>): void {
@@ -83,11 +90,50 @@ export function trackSearch(query: string): void {
   track("Search", { search_string: query });
 }
 
-export function trackCompleteRegistration(method?: string): void {
+export interface CompleteRegistrationOptions {
+  /** Signup method label (e.g. "email", "google"). */
+  method?: string;
+  /**
+   * Stable id (typically the new user id) shared with the server CAPI twin.
+   * Required for dedup so iOS users with the pixel blocked don't double-count
+   * when the server event fires.
+   */
+  eventID?: string;
+}
+
+export function trackCompleteRegistration(
+  options?: CompleteRegistrationOptions,
+): void {
+  const params = options?.method
+    ? { registration_method: options.method }
+    : undefined;
   track(
     "CompleteRegistration",
-    method ? { registration_method: method } : undefined,
+    params,
+    options?.eventID ? { eventID: options.eventID } : undefined,
   );
+}
+
+/**
+ * Reads the Meta browser cookies for forwarding to a server CAPI event.
+ * Returns `undefined` for any cookie that isn't set (e.g. ad blocker, never
+ * arrived from a Facebook click). Safe to call during SSR — returns empty.
+ */
+export function readMetaBrowserCookies(): {
+  fbp?: string;
+  fbc?: string;
+} {
+  if (typeof document === "undefined") return {};
+  const cookies = document.cookie.split("; ");
+  const out: { fbp?: string; fbc?: string } = {};
+  for (const c of cookies) {
+    const eq = c.indexOf("=");
+    if (eq < 0) continue;
+    const name = c.slice(0, eq);
+    if (name === "_fbp") out.fbp = decodeURIComponent(c.slice(eq + 1));
+    else if (name === "_fbc") out.fbc = decodeURIComponent(c.slice(eq + 1));
+  }
+  return out;
 }
 
 export interface InitiateCheckoutPayload {

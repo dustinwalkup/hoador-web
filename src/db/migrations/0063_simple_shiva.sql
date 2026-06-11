@@ -1,0 +1,1 @@
+ALTER TABLE "rental_requests" ADD COLUMN "attribution_context" jsonb;

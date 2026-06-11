@@ -62,6 +62,11 @@ async function postHandler(request: NextRequest) {
       RentalService.createRentalRequest(validatedData, currentUserId, {
         ipAddress,
         userAgent,
+        meta: {
+          fbp: validatedData.metaFbp,
+          fbc: validatedData.metaFbc,
+          sourceUrl: validatedData.metaSourceUrl,
+        },
       }),
     );
 

@@ -50,13 +50,14 @@ describe("aiDraftToInitialValues", () => {
       specifications: FULL_DRAFT.specifications,
       instructions: FULL_DRAFT.instructions,
       safetyNotes: FULL_DRAFT.safetyNotes,
+      dailyRate: "",
       images: SAMPLE_IMAGES,
     });
   });
 
   it("omits null fields so form defaults survive (Req 5.6)", () => {
     const result = aiDraftToInitialValues(EMPTY_DRAFT, []);
-    expect(result).toEqual({ images: [] });
+    expect(result).toEqual({ dailyRate: "", images: [] });
     expect("name" in result).toBe(false);
     expect("categoryId" in result).toBe(false);
     expect("condition" in result).toBe(false);

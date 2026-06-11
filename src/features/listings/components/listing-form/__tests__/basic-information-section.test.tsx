@@ -7,6 +7,15 @@ import {
   createMockForm,
 } from "@/test/utils/listing-test-helpers";
 
+/**
+ * Match a required-field <label> by its full text content. The asterisk lives
+ * in a child <span className="text-destructive">, which testing-library's
+ * default text matcher ignores (it only reads an element's direct text nodes).
+ */
+const requiredLabel =
+  (text: string) => (_content: string, el: Element | null) =>
+    el?.tagName === "LABEL" && el.textContent === text;
+
 describe("BasicInformationSection", () => {
   const mockCategories = createMockCategories();
   const mockForm = createMockForm() as any;
@@ -29,15 +38,19 @@ describe("BasicInformationSection", () => {
     expect(screen.getByText("Tell us about your listing")).toBeInTheDocument();
 
     // Labels point to wrapper divs, so query by text and verify inputs separately
-    expect(screen.getByText(/listing name \*/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(requiredLabel("Listing Name *")),
+    ).toBeInTheDocument();
     expect(container.querySelector('input[name="name"]')).toBeInTheDocument();
 
-    expect(screen.getByText(/category \*/i)).toBeInTheDocument();
+    expect(screen.getByText(requiredLabel("Category *"))).toBeInTheDocument();
     expect(
       container.querySelector('button[role="combobox"]'),
     ).toBeInTheDocument();
 
-    expect(screen.getByText(/description \*/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(requiredLabel("Description *")),
+    ).toBeInTheDocument();
     expect(
       container.querySelector('textarea[name="description"]'),
     ).toBeInTheDocument();
@@ -64,7 +77,7 @@ describe("BasicInformationSection", () => {
 
     // Categories should be rendered in the component (in SelectContent)
     // Note: SelectContent items are only visible when dropdown is open
-    expect(screen.getByText(/category \*/i)).toBeInTheDocument();
+    expect(screen.getByText(requiredLabel("Category *"))).toBeInTheDocument();
   });
 
   it("should render condition select field", () => {
@@ -77,7 +90,7 @@ describe("BasicInformationSection", () => {
       </FormProvider>,
     );
 
-    expect(screen.getByText(/condition \*/i)).toBeInTheDocument();
+    expect(screen.getByText(requiredLabel("Condition *"))).toBeInTheDocument();
 
     // Find all combobox buttons and find the one for condition
     // The condition select is the second combobox (after category)
@@ -115,7 +128,9 @@ describe("BasicInformationSection", () => {
       </FormProvider>,
     );
 
-    expect(screen.getByText(/description \*/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(requiredLabel("Description *")),
+    ).toBeInTheDocument();
     const descriptionTextarea = container.querySelector(
       'textarea[name="description"]',
     );
@@ -161,7 +176,7 @@ describe("BasicInformationSection", () => {
     expect(categorySelect).toBeInTheDocument();
 
     // The categories are passed to the component, so we verify the component renders
-    expect(screen.getByText(/category \*/i)).toBeInTheDocument();
+    expect(screen.getByText(requiredLabel("Category *"))).toBeInTheDocument();
   });
 
   it("should handle category selection", () => {
@@ -193,10 +208,14 @@ describe("BasicInformationSection", () => {
     );
 
     // Required field indicators
-    expect(screen.getByText(/Listing Name \*/i)).toBeInTheDocument();
-    expect(screen.getByText(/Category \*/i)).toBeInTheDocument();
-    expect(screen.getByText(/Description \*/i)).toBeInTheDocument();
-    expect(screen.getByText(/Condition \*/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(requiredLabel("Listing Name *")),
+    ).toBeInTheDocument();
+    expect(screen.getByText(requiredLabel("Category *"))).toBeInTheDocument();
+    expect(
+      screen.getByText(requiredLabel("Description *")),
+    ).toBeInTheDocument();
+    expect(screen.getByText(requiredLabel("Condition *"))).toBeInTheDocument();
   });
 
   it("should render with proper semantic HTML", () => {
@@ -226,7 +245,7 @@ describe("BasicInformationSection", () => {
     );
 
     // Should still render the form structure even with no categories
-    expect(screen.getByText(/category \*/i)).toBeInTheDocument();
+    expect(screen.getByText(requiredLabel("Category *"))).toBeInTheDocument();
     expect(
       container.querySelector('button[role="combobox"]'),
     ).toBeInTheDocument();
@@ -258,6 +277,6 @@ describe("BasicInformationSection", () => {
     expect(categorySelect).toBeInTheDocument();
 
     // The category is passed to the component, so we verify the component renders
-    expect(screen.getByText(/category \*/i)).toBeInTheDocument();
+    expect(screen.getByText(requiredLabel("Category *"))).toBeInTheDocument();
   });
 });

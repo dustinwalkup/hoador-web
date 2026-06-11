@@ -31,5 +31,5 @@
     "vitest.config.mjs",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next/dev"]
+  "exclude": ["node_modules", ".next/dev", "mcps"]
 }

@@ -6,6 +6,9 @@ import {
   STRIPE_MINIMUM_CHARGE_USD,
 } from "@/constants/payments";
 import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
+import { cn } from "@/lib/utils";
+
+import { useAiPrefill } from "./ai-prefill-context";
 
 import {
   Card,
@@ -32,6 +35,11 @@ interface PricingSectionProps {
 }
 
 export function PricingSection({ control }: PricingSectionProps) {
+  // AI never prefills the price, so owners who generate a draft frequently
+  // skip past this required field. When the draft was AI-generated, render the
+  // Daily Rate input in its invalid (red) state until a rate is entered.
+  const isAiGeneratedDraft = useAiPrefill() !== null;
+
   return (
     <Card>
       <CardHeader>
@@ -46,31 +54,44 @@ export function PricingSection({ control }: PricingSectionProps) {
         <FormField
           control={control}
           name="dailyRate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Daily Rate *</FormLabel>
-              <FormControl>
-                <div className="relative">
-                  <DollarSign className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
-                  <NumericInput
-                    variant="decimal"
-                    maxFractionDigits={2}
-                    placeholder="0.00"
-                    className="pl-9 text-base"
-                    name={field.name}
-                    ref={field.ref}
-                    value={toNumericInputValue(field.value)}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                  />
-                </div>
-              </FormControl>
-              <FormMessage />
-              <p className="text-muted-foreground text-sm">
-                Minimum ${MINIMUM_LISTING_PRICE_USD.toFixed(2)} per day
-              </p>
-            </FormItem>
-          )}
+          render={({ field }) => {
+            const hasDailyRate =
+              typeof field.value === "number" && Number.isFinite(field.value);
+            // Nudge AI-draft owners toward the empty required price field.
+            const highlightMissingRate = isAiGeneratedDraft && !hasDailyRate;
+
+            return (
+              <FormItem>
+                <FormLabel>
+                  Daily Rate <span className="text-destructive">*</span>
+                </FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <DollarSign className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+                    <NumericInput
+                      variant="decimal"
+                      maxFractionDigits={2}
+                      placeholder="0.00"
+                      className={cn(
+                        "pl-9 text-base",
+                        highlightMissingRate && "ring-[3px]",
+                      )}
+                      aria-invalid={highlightMissingRate || undefined}
+                      name={field.name}
+                      ref={field.ref}
+                      value={toNumericInputValue(field.value)}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+                <p className="text-muted-foreground text-sm">
+                  Minimum ${MINIMUM_LISTING_PRICE_USD.toFixed(2)} per day
+                </p>
+              </FormItem>
+            );
+          }}
         />
         {/* Weekly/monthly rates temporarily disabled — daily rate only */}
         {/* <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

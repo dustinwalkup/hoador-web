@@ -39,11 +39,47 @@ import { sendMetaPurchase } from "@/lib/integrations/meta/meta-capi";
 import { after } from "next/server";
 
 /**
- * Context passed from the API route for audit and legal recording.
+ * Context passed from the API route for audit, legal recording, and Meta Ads
+ * attribution replay. `fbp` / `fbc` come from the browser body; `ipAddress`
+ * and `userAgent` come from request headers; `sourceUrl` is the browser-
+ * reported `window.location.href` at submit time. Organic traffic with no
+ * `fbclid` carries no `meta` context.
  */
 export interface CreateRentalRequestContext {
   ipAddress: string | null;
   userAgent: string | null;
+  meta?: {
+    fbp?: string;
+    fbc?: string;
+    sourceUrl?: string;
+  };
+}
+
+/**
+ * Collapse the route context into the JSONB shape persisted on the rental
+ * request. Returns null when there is nothing worth storing — Meta uses NULL
+ * vs. {} the same way, so the empty case stays sparse.
+ */
+function buildAttributionContext(context: CreateRentalRequestContext): {
+  fbp?: string;
+  fbc?: string;
+  ip?: string;
+  userAgent?: string;
+  sourceUrl?: string;
+} | null {
+  const out: {
+    fbp?: string;
+    fbc?: string;
+    ip?: string;
+    userAgent?: string;
+    sourceUrl?: string;
+  } = {};
+  if (context.meta?.fbp) out.fbp = context.meta.fbp;
+  if (context.meta?.fbc) out.fbc = context.meta.fbc;
+  if (context.meta?.sourceUrl) out.sourceUrl = context.meta.sourceUrl;
+  if (context.ipAddress) out.ip = context.ipAddress;
+  if (context.userAgent) out.userAgent = context.userAgent;
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 /** Input for approving a rental request (validated body from route). */
@@ -189,6 +225,7 @@ export class RentalService {
       paymentIntentId: formData.paymentIntentId ?? null,
       paymentMethodId: formData.paymentMethodId ?? null,
       status: "pending",
+      attributionContext: buildAttributionContext(context),
     };
 
     const { id } = await rentalDAL.insertRentalRequest(payload);
@@ -681,20 +718,32 @@ export class RentalService {
         // fired now that the renter has actually been charged. Runs via
         // after() so Meta latency/retries never delay the approval response.
         // event_id = rental id, so approval retries can't double-count.
+        //
+        // Critical: we run inside the OWNER's session here, so the renter's
+        // fbp/fbc/ip/userAgent must come from the rental_request row that
+        // was stamped at submit time — not from this request's headers.
         const rentalIdForMeta = createdRental.id;
+        const rentalRequestIdForMeta = rentalRequest.id;
+        const listingIdForMeta = rentalRequest.listingId;
+        const renterIdForMeta = rentalRequest.renterId;
         after(async () => {
-          const { data: renter } = await tryCatch(
-            userDAL.getUserById(rentalRequest.renterId),
-          );
+          const [renterResult, attributionResult] = await Promise.all([
+            tryCatch(userDAL.getUserById(renterIdForMeta)),
+            tryCatch(rentalDAL.getAttributionContext(rentalRequestIdForMeta)),
+          ]);
+          const renter = renterResult.data;
+          const attribution = attributionResult.data;
           const appUrl = process.env.NEXT_PUBLIC_APP_URL;
           await sendMetaPurchase({
             bookingId: rentalIdForMeta,
             value: totalAmount,
             currency: "USD",
-            contentIds: [rentalRequest.listingId],
-            eventSourceUrl: appUrl
-              ? `${appUrl}/dashboard/rental/${rentalRequest.id}`
-              : undefined,
+            contentIds: [listingIdForMeta],
+            eventSourceUrl:
+              attribution?.sourceUrl ??
+              (appUrl
+                ? `${appUrl}/dashboard/rental/${rentalRequestIdForMeta}`
+                : undefined),
             userData: renter
               ? {
                   email: renter.email,
@@ -702,6 +751,10 @@ export class RentalService {
                   firstName: renter.firstName ?? undefined,
                   lastName: renter.lastName ?? undefined,
                   externalId: renter.id,
+                  ip: attribution?.ip,
+                  userAgent: attribution?.userAgent,
+                  fbp: attribution?.fbp,
+                  fbc: attribution?.fbc,
                 }
               : undefined,
           });

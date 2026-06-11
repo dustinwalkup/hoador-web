@@ -89,6 +89,7 @@ vi.mock("@/dal", () => ({
     claimRentalRequestPaymentProcessing: vi.fn().mockResolvedValue(true),
     getApprovedRentalCountForRenter: (...args: unknown[]) =>
       mockGetApprovedRentalCountForRenter(...args),
+    getAttributionContext: vi.fn().mockResolvedValue(null),
   },
   userDAL: {
     getOrCreateStripeCustomerId: (...args: unknown[]) =>
