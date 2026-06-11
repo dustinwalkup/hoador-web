@@ -1,27 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { NotFoundError, ValidationError } from "@/dal/errors";
 
-const mockApplyNoShow = vi.fn();
+/**
+ * Admin no-show route. Pattern: mock the SESSION layer and run the REAL
+ * `@/lib/api/route-helpers` (and the real `requireAdmin`/`handleApiError`), so
+ * the 401/403 responses are produced by the actual guard logic — removing the
+ * `requireAdminResponse()` call from the route, or breaking the guard, fails
+ * here. `requireAdmin()` calls the session `requireAuth()`, so mocking that is
+ * enough to drive both the unauthenticated (401) and non-admin (403) paths.
+ */
 
-vi.mock("@/lib/api/route-helpers", () => ({
-  handleApiError: vi.fn((err: unknown) => {
-    if (err instanceof Error) {
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    return new Response(JSON.stringify({ error: "Internal error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-  requireAdminResponse: vi.fn().mockResolvedValue(null),
-}));
+const mockApplyNoShow = vi.fn();
+const mockRequireAuth = vi.fn();
+const mockGetCurrentUserId = vi.fn();
 
 vi.mock("@/features/auth/utils/session", () => ({
-  getCurrentUserId: vi.fn().mockResolvedValue("admin-1"),
+  requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
+  getCurrentUserId: (...args: unknown[]) => mockGetCurrentUserId(...args),
+  getCurrentUser: vi.fn(),
+  getAuthenticatedUser: vi.fn(),
 }));
 
 vi.mock("@/features/rentals/services/cancellation-service", () => ({
@@ -34,10 +32,11 @@ vi.mock("@/lib/api/with-request-logging", () => ({
 }));
 
 describe("POST /api/admin/rentals/[id]/no-show", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    const { requireAdminResponse } = await import("@/lib/api/route-helpers");
-    vi.mocked(requireAdminResponse).mockResolvedValue(null);
+    // Default: authenticated admin.
+    mockRequireAuth.mockResolvedValue({ id: "admin-1", userType: "admin" });
+    mockGetCurrentUserId.mockResolvedValue("admin-1");
   });
 
   async function postNoShow(
@@ -56,26 +55,26 @@ describe("POST /api/admin/rentals/[id]/no-show", () => {
     return POST(request, { params: Promise.resolve({ id }) });
   }
 
-  it("returns 401 when not authenticated as admin", async () => {
-    const { requireAdminResponse } = await import("@/lib/api/route-helpers");
-    vi.mocked(requireAdminResponse).mockResolvedValue(
-      NextResponse.json({ error: "Forbidden" }, { status: 401 }),
-    );
+  it("returns 401 (via the real guard) when unauthenticated", async () => {
+    // requireAuth throws when no session — requireAdmin propagates it, and
+    // requireAdminResponse maps a non-"Admin" auth error to 401.
+    mockRequireAuth.mockRejectedValue(new Error("Authentication required"));
 
-    const { POST } = await import("../route");
-    const request = new NextRequest(
-      "http://localhost:3000/api/admin/rentals/req-1/no-show",
-      {
-        method: "POST",
-        body: JSON.stringify({ type: "renter_no_show" }),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    const response = await POST(request, {
-      params: Promise.resolve({ id: "req-1" }),
-    });
+    const response = await postNoShow("req-1", { type: "renter_no_show" });
 
     expect(response.status).toBe(401);
+    expect(mockApplyNoShow).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 (via the real guard) for an authenticated non-admin", async () => {
+    mockRequireAuth.mockResolvedValue({ id: "u1", userType: "member" });
+
+    const response = await postNoShow("req-1", { type: "renter_no_show" });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: "Admin privileges required",
+    });
     expect(mockApplyNoShow).not.toHaveBeenCalled();
   });
 
@@ -156,7 +155,7 @@ describe("POST /api/admin/rentals/[id]/no-show", () => {
     expect(data.error).toBe("Invalid JSON body");
   });
 
-  it("returns 400 for already cancelled rental", async () => {
+  it("returns 400 for already cancelled rental (real ValidationError mapping)", async () => {
     mockApplyNoShow.mockRejectedValue(
       new ValidationError("Rental is already cancelled", "status"),
     );
@@ -168,7 +167,7 @@ describe("POST /api/admin/rentals/[id]/no-show", () => {
     expect(response.status).toBe(400);
   });
 
-  it("returns 404 for non-existent rental", async () => {
+  it("returns 404 for non-existent rental (real NotFoundError mapping)", async () => {
     mockApplyNoShow.mockRejectedValue(
       new NotFoundError("Rental", "req-missing"),
     );
