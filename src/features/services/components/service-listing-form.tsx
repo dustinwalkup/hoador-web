@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -40,6 +41,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { MINIMUM_LISTING_PRICE_USD } from "@/constants/payments";
 import type { ServiceListing } from "@/db/schemas/services.schema";
+import {
+  myServiceListingsKeys,
+  serviceListingsKeys,
+} from "../hooks/use-service-listings";
 import { AlertTriangle, DollarSign, Package } from "lucide-react";
 
 /** Map known category names to emojis. Falls back to 💼 for unknown names. */
@@ -126,7 +131,16 @@ export function ServiceListingForm({
   initial,
 }: ServiceListingFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isResubmittingDenied = mode === "edit" && initial?.status === "denied";
+
+  // The destination listings page (/dashboard/listings/services) is React
+  // Query-backed (HydrateClient over myServiceListingsKeys), so invalidate
+  // those caches after a mutation instead of a full-page router.refresh().
+  const invalidateListingCaches = () => {
+    queryClient.invalidateQueries({ queryKey: myServiceListingsKeys.all });
+    queryClient.invalidateQueries({ queryKey: serviceListingsKeys.all });
+  };
   const form = useForm<
     ServiceListingFormInput,
     unknown,
@@ -171,7 +185,7 @@ export function ServiceListingForm({
           "Your listing has been submitted for review. You'll be notified when it's approved.",
         );
         router.push("/dashboard/listings/services?tab=pending_review");
-        router.refresh();
+        invalidateListingCaches();
         return;
       }
 
@@ -199,7 +213,7 @@ export function ServiceListingForm({
           : "Listing updated.",
       );
       router.push("/dashboard/listings/services");
-      router.refresh();
+      invalidateListingCaches();
     } finally {
       form.reset(values, { keepValues: true });
     }

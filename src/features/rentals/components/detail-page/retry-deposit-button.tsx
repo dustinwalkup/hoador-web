@@ -23,6 +23,9 @@ export function RetryDepositButton({ rentalId }: { rentalId: string }) {
 
       if (data.success) {
         setSuccess(true);
+        // This button lives on the RSC-rendered rental detail page (no query
+        // cache entry), so router.refresh() is the correct tool to show the
+        // updated deposit status. Intentional.
         router.refresh();
       } else {
         setError(data.error || "Failed to place deposit hold");

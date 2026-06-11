@@ -224,6 +224,9 @@ export function ServiceBookingFlow({
       const bookingId = data.bookingId as string;
       toast.success("Booking request sent!");
       router.push(`${bookingSuccessHref}/${bookingId}?new=1`);
+      // Destination booking detail page is RSC-rendered (no query cache entry);
+      // router.refresh() busts the router cache so the new booking renders.
+      // Intentional.
       router.refresh();
     } finally {
       setPending(false);
