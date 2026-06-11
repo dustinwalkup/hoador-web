@@ -93,6 +93,19 @@ export const rentalRequests = pgTable(
      * createdAt + PENDING_BOOKING_EXPIRY_WINDOW_HOURS.
      */
     expiresAt: timestamp("expires_at").notNull(),
+    /**
+     * Renter's Meta Ads attribution context captured at request creation.
+     * Replayed into the server `Purchase` event from the owner's approval
+     * flow so Meta sees the RENTER's fbp/fbc/ip/userAgent, not the owner's.
+     * Nullable: legacy rows + organic (no fbclid) traffic carry no value.
+     */
+    attributionContext: jsonb("attribution_context").$type<{
+      fbp?: string;
+      fbc?: string;
+      ip?: string;
+      userAgent?: string;
+      sourceUrl?: string;
+    } | null>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

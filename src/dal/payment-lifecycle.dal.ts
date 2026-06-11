@@ -455,6 +455,9 @@ export class PaymentLifecycleDAL extends BaseDAL {
 
   /**
    * Find rentals with deposits held longer than N days (approaching expiry).
+   * Includes `release_failed` holds: when a release fails during cancellation
+   * the authorization stays live on the card, so it must be monitored to its
+   * Stripe-driven `expired` terminal state just like a normal `held` row.
    */
   async findExpiringDeposits(
     daysHeld: number = 6,
@@ -472,7 +475,10 @@ export class PaymentLifecycleDAL extends BaseDAL {
         .innerJoin(rentals, eq(rentalPaymentLifecycle.rentalId, rentals.id))
         .where(
           and(
-            eq(rentalPaymentLifecycle.depositHoldStatus, "held"),
+            inArray(rentalPaymentLifecycle.depositHoldStatus, [
+              "held",
+              "release_failed",
+            ]),
             lte(rentalPaymentLifecycle.depositHoldPlacedAt, cutoff),
           ),
         )

@@ -261,13 +261,13 @@ export function InstructionsView({
             Cancel
           </Button>
         </motion.div>
-        <motion.div {...buttonInteraction}>
+        <motion.div className="w-full sm:w-auto" {...buttonInteraction}>
           <Button
             type="button"
             variant="outline"
             onClick={onGenerate}
             disabled={!canGenerate}
-            className="bg-ai-light text-ai border-ai/30 hover:bg-ai-light hover:text-ai hover:brightness-95"
+            className="bg-ai-light text-ai border-ai/30 hover:bg-ai-light hover:text-ai w-full hover:brightness-95 sm:w-auto"
             data-testid="ai-modal-generate"
           >
             <Sparkles className="size-4" />

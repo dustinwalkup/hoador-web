@@ -33,7 +33,7 @@ export class AuthService {
     },
     legalDocumentsAccepted: boolean,
     context: AuthRequestContext,
-  ): Promise<{ redirect: string }> {
+  ): Promise<{ redirect: string; userId: string }> {
     const { data: authResult, error: authError } = await tryCatch(
       auth.api.signUpEmail({
         body: {
@@ -70,6 +70,7 @@ export class AuthService {
 
     return {
       redirect: `/verify-email?email=${encodeURIComponent(data.email)}`,
+      userId,
     };
   }
 
@@ -80,15 +81,21 @@ export class AuthService {
   static async acceptLegalDocuments(
     userId: string,
     context: AuthRequestContext,
-  ): Promise<{ redirect: string }> {
+  ): Promise<{ redirect: string; isNewSignup: boolean }> {
     await this.recordLegalAcceptances(userId, context, {
       acceptanceMethod: "oauth_google",
       useSignupVariant: false,
     });
 
-    // Update user status from pending_verification to email_verified
+    // Update user status from pending_verification to email_verified.
+    // The transition from pending_verification → email_verified is the
+    // canonical "Google signup just completed" signal — it fires exactly
+    // once per user and only on the Google OAuth path. Existing users
+    // re-accepting updated legal docs will already be email_verified or
+    // further along, so we won't fire CompleteRegistration for them.
     const userProfile = await userDAL.getUserById(userId);
-    if (userProfile.status === "pending_verification") {
+    const isNewSignup = userProfile.status === "pending_verification";
+    if (isNewSignup) {
       await userDAL.updateUserStatus(userId, "email_verified");
     }
 
@@ -98,7 +105,7 @@ export class AuthService {
       await userDAL.updateUserProfilePhoto(userId, session.user.image);
     }
 
-    return { redirect: "/community-select" };
+    return { redirect: "/community-select", isNewSignup };
   }
 
   /**

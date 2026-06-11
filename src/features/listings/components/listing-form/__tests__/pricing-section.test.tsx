@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { FormProvider } from "react-hook-form";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { FormProvider, useForm } from "react-hook-form";
 import { PricingSection } from "../pricing-section";
+import { AiPrefillProvider } from "../ai-prefill-context";
+import type { AiPrefilledFieldKey } from "@/features/listings/ai-listing-assistant/types";
 import { createMockForm } from "@/test/utils/listing-test-helpers";
 
 describe("PricingSection", () => {
@@ -37,8 +39,12 @@ describe("PricingSection", () => {
     expect(dailyRateInput).toBeInTheDocument();
     expect(securityDepositInput).toBeInTheDocument();
 
-    // Verify labels are present
-    expect(screen.getByText(/daily rate \*/i)).toBeInTheDocument();
+    // Verify labels are present (asterisk lives in its own destructive span)
+    expect(
+      screen.getByText(
+        (_, el) => el?.tagName === "LABEL" && el.textContent === "Daily Rate *",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText(/security deposit/i)).toBeInTheDocument();
   });
 
@@ -178,8 +184,12 @@ describe("PricingSection", () => {
     const formItems = container.querySelectorAll('[id$="-form-item"]');
     expect(formItems.length).toBeGreaterThan(0);
 
-    // Required field indicator
-    expect(screen.getByText("Daily Rate *")).toBeInTheDocument();
+    // Required field indicator (asterisk rendered in its own destructive span)
+    expect(
+      screen.getByText(
+        (_, el) => el?.tagName === "LABEL" && el.textContent === "Daily Rate *",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("should render with proper semantic HTML", () => {
@@ -256,5 +266,76 @@ describe("PricingSection", () => {
       '[data-slot="separator-root"]',
     );
     expect(separators.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Backs PricingSection with a real react-hook-form instance so the Daily Rate
+ * field's value (not a static mock) drives the AI-draft "missing price"
+ * highlight. `aiGenerated` mounts the section under an AiPrefillProvider, the
+ * same signal the form uses when a draft was produced by the AI assistant.
+ */
+function DailyRateHarness({
+  aiGenerated,
+  defaultDailyRate = "",
+}: {
+  aiGenerated: boolean;
+  defaultDailyRate?: number | "";
+}) {
+  const form = useForm<{ dailyRate: number | "" }>({
+    defaultValues: { dailyRate: defaultDailyRate },
+  });
+
+  const content = (
+    <FormProvider {...form}>
+      <PricingSection control={form.control as any} />
+    </FormProvider>
+  );
+
+  if (!aiGenerated) return content;
+
+  return (
+    <AiPrefillProvider prefilledFields={new Set<AiPrefilledFieldKey>(["name"])}>
+      {content}
+    </AiPrefillProvider>
+  );
+}
+
+describe("PricingSection — AI-draft missing-price highlight", () => {
+  it("does not flag the daily rate in the manual (non-AI) flow", () => {
+    const { container } = render(<DailyRateHarness aiGenerated={false} />);
+
+    const dailyRate = container.querySelector('input[name="dailyRate"]');
+    expect(dailyRate).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("flags the empty daily rate as invalid when the draft was AI-generated", () => {
+    const { container } = render(<DailyRateHarness aiGenerated />);
+
+    const dailyRate = container.querySelector('input[name="dailyRate"]');
+    expect(dailyRate).toHaveAttribute("aria-invalid", "true");
+    expect(dailyRate).toHaveClass("ring-[3px]");
+  });
+
+  it("does not flag an AI draft that already carries a daily rate", () => {
+    const { container } = render(
+      <DailyRateHarness aiGenerated defaultDailyRate={25} />,
+    );
+
+    const dailyRate = container.querySelector('input[name="dailyRate"]');
+    expect(dailyRate).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("clears the invalid state once a rate is entered", () => {
+    const { container } = render(<DailyRateHarness aiGenerated />);
+
+    const dailyRate = container.querySelector(
+      'input[name="dailyRate"]',
+    ) as HTMLInputElement;
+    expect(dailyRate).toHaveAttribute("aria-invalid", "true");
+
+    fireEvent.change(dailyRate, { target: { value: "25" } });
+
+    expect(dailyRate).not.toHaveAttribute("aria-invalid", "true");
   });
 });

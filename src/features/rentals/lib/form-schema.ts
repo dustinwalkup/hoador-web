@@ -22,6 +22,13 @@ export const createRentalRequestSchema = z
     cancellationRefundAcknowledged: z.boolean().optional(),
     safetyLiabilityPackageAccepted: z.boolean().optional(),
     paymentPayoutAccepted: z.boolean().optional(),
+    // Meta Ads attribution (browser-supplied). Persisted on the rental_request
+    // row and replayed into the server `Purchase` event from the approval flow.
+    // Strict caps prevent payload-stuffing attacks; values are read raw, not
+    // trusted for any authz decision.
+    metaFbp: z.string().max(200).optional(),
+    metaFbc: z.string().max(300).optional(),
+    metaSourceUrl: z.string().max(2000).optional(),
   })
   .refine((data) => data.endDate >= data.startDate, {
     message: "End date must be on or after start date",

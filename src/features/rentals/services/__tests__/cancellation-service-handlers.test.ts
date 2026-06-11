@@ -502,4 +502,158 @@ describe("CancellationService", () => {
       expect(mockProcessRefund).not.toHaveBeenCalled();
     });
   });
+
+  describe("cancelApprovedRental — deposit release outcomes", () => {
+    const heldContext = () => ({
+      rentalRequestId: "req-1",
+      rentalId: "rental-1",
+      renterId: "renter-1",
+      ownerId: "owner-1",
+      status: "approved",
+      startDate: addHours(new Date(), 48),
+      rentalPrice: "100",
+      serviceFee: "12",
+      totalChargeAmount: "112",
+      depositHoldStatus: "held",
+      securityDepositAuthId: "pi_dep_1",
+      rentalChargeId: "ch_1",
+      paymentId: "pay-1",
+      paymentStatus: "succeeded",
+      ownerConnectedAccountId: "acct_1",
+    });
+
+    beforeEach(() => {
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockRecordRefund.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockCancelApprovedRental.mockResolvedValue(undefined);
+      mockMarkCancelled.mockResolvedValue(undefined);
+      mockSendNotification.mockResolvedValue(undefined);
+      mockSendOpsAlert.mockResolvedValue(undefined);
+    });
+
+    it("release succeeds: markCancelled receives depositHoldStatus 'released'", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(heldContext());
+      mockReleaseDepositHold.mockResolvedValue(undefined);
+
+      const result = await cancelApprovedRental(
+        "req-1",
+        "renter-1",
+        "renter",
+        {},
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockReleaseDepositHold).toHaveBeenCalledWith("pi_dep_1");
+      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+        "rental-1",
+        "released",
+        expect.objectContaining({ depositReleasedAt: expect.any(Date) }),
+      );
+      expect(mockMarkCancelled).toHaveBeenCalledWith(
+        "rental-1",
+        expect.objectContaining({ depositHoldStatus: "released" }),
+      );
+    });
+
+    it("release throws: row stays 'release_failed', markCancelled omits depositHoldStatus, rental still cancels", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(heldContext());
+      mockReleaseDepositHold.mockRejectedValue(new Error("stripe unavailable"));
+
+      const result = await cancelApprovedRental(
+        "req-1",
+        "renter-1",
+        "renter",
+        {},
+      );
+
+      // The renter is not blocked by our Stripe-side failure.
+      expect(result.success).toBe(true);
+      expect(mockCancelApprovedRental).toHaveBeenCalled();
+
+      // The failure marker is written...
+      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+        "rental-1",
+        "release_failed",
+      );
+      // ...and is NOT clobbered back to "released" by markCancelled.
+      expect(mockMarkCancelled).toHaveBeenCalledTimes(1);
+      const markCancelledExtra = mockMarkCancelled.mock.calls[0][1];
+      expect(markCancelledExtra).not.toHaveProperty("depositHoldStatus");
+    });
+
+    it("deposit 'scheduled': released without a Stripe call (unchanged behavior)", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue({
+        ...heldContext(),
+        depositHoldStatus: "scheduled",
+        securityDepositAuthId: null,
+      });
+
+      const result = await cancelApprovedRental(
+        "req-1",
+        "renter-1",
+        "renter",
+        {},
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockReleaseDepositHold).not.toHaveBeenCalled();
+      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+        "rental-1",
+        "released",
+      );
+      expect(mockMarkCancelled).toHaveBeenCalledWith(
+        "rental-1",
+        expect.objectContaining({ depositHoldStatus: "released" }),
+      );
+    });
+  });
+
+  describe("applyNoShow — deposit release failure", () => {
+    it("release throws: row stays 'release_failed' and is not clobbered by markCancelled", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue({
+        rentalRequestId: "req-1",
+        rentalId: "rental-1",
+        renterId: "renter-1",
+        ownerId: "owner-1",
+        status: "active",
+        startDate: new Date(),
+        rentalPrice: "100",
+        serviceFee: "12",
+        totalChargeAmount: "112",
+        depositHoldStatus: "held",
+        securityDepositAuthId: "pi_dep_1",
+        rentalChargeId: "ch_1",
+        paymentId: "pay-1",
+        paymentStatus: "succeeded",
+        ownerConnectedAccountId: "acct_1",
+      });
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockRecordRefund.mockResolvedValue(undefined);
+      mockReleaseDepositHold.mockRejectedValue(new Error("stripe unavailable"));
+      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockCreateOwnerTransfer.mockResolvedValue({
+        success: true,
+        transferId: "tr_1",
+      });
+      mockUpdateOwnerTransferStatus.mockResolvedValue(undefined);
+      mockCancelApprovedRental.mockResolvedValue(undefined);
+      mockMarkCancelled.mockResolvedValue(undefined);
+      mockSendOpsAlert.mockResolvedValue(undefined);
+
+      const result = await applyNoShow("req-1", "renter_no_show", "admin-1");
+
+      expect(result.success).toBe(true);
+      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+        "rental-1",
+        "release_failed",
+      );
+      const markCancelledExtra = mockMarkCancelled.mock.calls[0][1];
+      expect(markCancelledExtra).not.toHaveProperty("depositHoldStatus");
+      // The owner-transfer override still applies on the same call.
+      expect(markCancelledExtra).toMatchObject({
+        ownerTransferStatus: "completed",
+      });
+    });
+  });
 });

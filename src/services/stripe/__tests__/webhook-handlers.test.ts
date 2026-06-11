@@ -593,4 +593,139 @@ describe("handleWebhookEvent", () => {
       );
     });
   });
+
+  describe("handler failure audit trail", () => {
+    it("writes webhook.failed and rethrows when a handler throws", async () => {
+      mockGetByPaymentIntentId.mockRejectedValue(new Error("boom"));
+
+      await expect(
+        handleWebhookEvent(
+          createEvent("payment_intent.succeeded", { id: "pi_123" }, "evt_fail"),
+        ),
+      ).rejects.toThrow("boom");
+
+      expect(mockAuditCreate).toHaveBeenCalledWith({
+        entityType: "webhook",
+        entityId: "evt_fail",
+        action: "webhook.failed",
+        metadata: { eventType: "payment_intent.succeeded", error: "boom" },
+      });
+      // success-path audit must NOT be written when a handler throws
+      expect(mockAuditCreate).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: "webhook.processed" }),
+      );
+      expect(loggerInstance.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "webhook.handler_failed",
+          eventId: "evt_fail",
+          eventType: "payment_intent.succeeded",
+          error: "boom",
+        }),
+        "Stripe webhook handler threw",
+      );
+    });
+
+    it("does not let an audit-write failure mask the original error", async () => {
+      mockGetByPaymentIntentId.mockRejectedValue(new Error("boom"));
+      mockAuditCreate.mockRejectedValue(new Error("audit down"));
+
+      await expect(
+        handleWebhookEvent(
+          createEvent("payment_intent.succeeded", { id: "pi_123" }, "evt_fail"),
+        ),
+      ).rejects.toThrow("boom");
+    });
+  });
+
+  describe("unmatched payment events", () => {
+    it("records webhook.unmatched_payment_intent for an unknown non-deposit PI", async () => {
+      mockGetByPaymentIntentId.mockResolvedValue(null);
+
+      await expect(
+        handleWebhookEvent(
+          createEvent("payment_intent.succeeded", {
+            id: "pi_orphan",
+            amount: 5000,
+            metadata: { rentalRequestId: "rr-1" },
+          }),
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(mockUpdatePaymentStatus).not.toHaveBeenCalled();
+      expect(mockAuditCreate).toHaveBeenCalledWith({
+        entityType: "webhook",
+        entityId: "pi_orphan",
+        action: "webhook.unmatched_payment_intent",
+        metadata: {
+          eventSource: "payment_intent.succeeded",
+          amount: 5000,
+          metadata: { rentalRequestId: "rr-1" },
+        },
+      });
+    });
+
+    it("excludes deposit-hold PIs from unmatched recording", async () => {
+      mockGetByPaymentIntentId.mockResolvedValue(null);
+
+      await handleWebhookEvent(
+        createEvent("payment_intent.succeeded", {
+          id: "pi_dep",
+          amount: 5000,
+          metadata: { paymentType: "security_deposit_hold" },
+        }),
+      );
+
+      expect(mockAuditCreate).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "webhook.unmatched_payment_intent",
+        }),
+      );
+    });
+
+    it("records webhook.unmatched_charge_refund for an unknown charge", async () => {
+      mockGetByPaymentIntentId.mockResolvedValue(null);
+
+      await handleWebhookEvent(
+        createEvent("charge.refunded", {
+          id: "ch_orphan",
+          payment_intent: "pi_orphan",
+          amount_refunded: 1000,
+        }),
+      );
+
+      expect(mockRecordRefund).not.toHaveBeenCalled();
+      expect(mockAuditCreate).toHaveBeenCalledWith({
+        entityType: "webhook",
+        entityId: "ch_orphan",
+        action: "webhook.unmatched_charge_refund",
+        metadata: {
+          eventSource: "charge.refunded",
+          paymentIntentId: "pi_orphan",
+          amountRefunded: 1000,
+        },
+      });
+    });
+
+    it("happy path writes webhook.processed and never webhook.failed", async () => {
+      mockGetByPaymentIntentId.mockResolvedValue({
+        id: "payment-1",
+        status: "pending",
+        paidAt: null,
+      });
+
+      await handleWebhookEvent(
+        createEvent("payment_intent.succeeded", { id: "pi_123" }, "evt_ok"),
+      );
+
+      expect(mockAuditCreate).toHaveBeenCalledWith({
+        entityType: "webhook",
+        entityId: "evt_ok",
+        action: "webhook.processed",
+        metadata: { eventType: "payment_intent.succeeded" },
+      });
+      expect(mockAuditCreate).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: "webhook.failed" }),
+      );
+    });
+  });
 });

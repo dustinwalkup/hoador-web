@@ -119,6 +119,7 @@ describe("AuthService", () => {
 
       expect(result).toEqual({
         redirect: `/verify-email?email=${encodeURIComponent("test@example.com")}`,
+        userId: "user-123",
       });
       expect(mockSignUpEmail).toHaveBeenCalledWith({
         body: {
@@ -184,7 +185,10 @@ describe("AuthService", () => {
         context,
       );
 
-      expect(result).toEqual({ redirect: "/community-select" });
+      expect(result).toEqual({
+        redirect: "/community-select",
+        isNewSignup: true,
+      });
       expect(mockGetAllCurrentVersions).toHaveBeenCalled();
       expect(mockRecordAcceptance).toHaveBeenCalledTimes(2);
       expect(mockUpdateLegalAcceptances).toHaveBeenCalled();

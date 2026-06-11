@@ -66,6 +66,7 @@ vi.mock("@/dal", () => ({
     approveRentalRequest: vi.fn().mockResolvedValue(undefined),
     getRentalByRequestId: vi.fn().mockResolvedValue({ id: "rental-456" }),
     getApprovedRentalCountForRenter: vi.fn().mockResolvedValue(1),
+    getAttributionContext: vi.fn().mockResolvedValue(null),
   },
   auditLogDAL: {
     create: vi.fn().mockResolvedValue({}),

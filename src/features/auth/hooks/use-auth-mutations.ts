@@ -47,12 +47,19 @@ export function useSignup() {
         throw new Error(error.error || "Failed to sign up");
       }
 
-      return response.json() as Promise<ApiResponseWithRedirect>;
+      return response.json() as Promise<
+        ApiResponseWithRedirect & { userId?: string }
+      >;
     },
     successMessage:
       "Account created successfully! Please check your email to verify your account.",
     onSuccess: (response) => {
-      trackCompleteRegistration("email");
+      // `eventID = userId` so the server CAPI twin in /api/auth/signup dedupes
+      // against this browser event in Meta Events Manager.
+      trackCompleteRegistration({
+        method: "email",
+        eventID: response.userId,
+      });
       handleRedirect(response);
     },
   });
@@ -173,10 +180,23 @@ export function useAcceptLegalDocuments() {
         throw new Error(error.error || "Failed to accept legal documents");
       }
 
-      return response.json() as Promise<ApiResponseWithRedirect>;
+      return response.json() as Promise<
+        ApiResponseWithRedirect & { isNewSignup?: boolean; userId?: string }
+      >;
     },
     successMessage: "Legal documents accepted successfully!",
     onSuccess: (response) => {
+      // Only fire CompleteRegistration on the Google new-signup transition.
+      // Existing users re-accepting updated legal docs would otherwise be
+      // counted as new registrations. The server CAPI twin in
+      // /api/auth/accept-legal-documents shares this same gate, so both
+      // halves either fire together (and Meta dedupes by event_id) or skip.
+      if (response.isNewSignup) {
+        trackCompleteRegistration({
+          method: "google",
+          eventID: response.userId,
+        });
+      }
       handleRedirect(response);
     },
   });

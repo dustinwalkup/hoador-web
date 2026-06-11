@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import type Stripe from "stripe";
 import { getLogger } from "@/lib/logger";
@@ -59,7 +60,17 @@ async function postHandler(request: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Webhook error:", error);
+    getLogger().error(
+      {
+        message: "webhook.route_failed",
+        error: error instanceof Error ? error.message : String(error),
+      },
+      "Stripe webhook processing failed",
+    );
+    Sentry.captureException(error, {
+      tags: { route: "POST /api/stripe/webhooks" },
+    });
+    // Keep the 500 so Stripe retries the event.
     return NextResponse.json(
       { error: "Webhook handler failed" },
       { status: 500 },

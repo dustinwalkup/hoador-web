@@ -13,6 +13,7 @@ const loggerInstance = {
 };
 const mockGetLogger = vi.fn(() => loggerInstance);
 const mockHandleWebhookEvent = vi.fn();
+const mockCaptureException = vi.fn();
 const mockRunWithRequestContext = vi.fn((_ctx: unknown, fn: () => unknown) =>
   fn(),
 );
@@ -35,6 +36,10 @@ vi.mock("@/lib/logger", () => ({
 
 vi.mock("@/services/stripe/webhook-handlers", () => ({
   handleWebhookEvent: (...args: unknown[]) => mockHandleWebhookEvent(...args),
+}));
+
+vi.mock("@sentry/nextjs", () => ({
+  captureException: (...args: unknown[]) => mockCaptureException(...args),
 }));
 
 vi.mock("@/lib/api/with-request-logging", () => ({
@@ -105,19 +110,27 @@ describe("POST /api/stripe/webhooks", () => {
     expect(mockHandleWebhookEvent).toHaveBeenCalledWith(event);
   });
 
-  it("returns 500 when handleWebhookEvent throws", async () => {
+  it("returns 500 and reports to Sentry when handleWebhookEvent throws", async () => {
     mockConstructEvent.mockReturnValue({
       id: "evt_123",
       type: "account.updated",
       data: { object: {} },
     });
-    mockHandleWebhookEvent.mockRejectedValue(new Error("Handler error"));
+    const handlerError = new Error("Handler error");
+    mockHandleWebhookEvent.mockRejectedValue(handlerError);
 
     const response = await POST(createWebhookRequest());
 
     expect(response.status).toBe(500);
     const json = await response.json();
     expect(json.error).toBe("Webhook handler failed");
+    expect(loggerInstance.error).toHaveBeenCalledWith(
+      { message: "webhook.route_failed", error: "Handler error" },
+      "Stripe webhook processing failed",
+    );
+    expect(mockCaptureException).toHaveBeenCalledWith(handlerError, {
+      tags: { route: "POST /api/stripe/webhooks" },
+    });
   });
 
   it("passes body and signature to constructEvent", async () => {
