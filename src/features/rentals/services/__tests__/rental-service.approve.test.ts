@@ -84,9 +84,7 @@ vi.mock("@/features/rentals/notifications/payment-failure", () => ({
 }));
 
 vi.mock("@/features/rentals/notifications/payment-succeeded", () => ({
-  sendPaymentSucceededNotificationToOwner: vi
-    .fn()
-    .mockResolvedValue(undefined),
+  sendPaymentSucceededNotificationToOwner: vi.fn().mockResolvedValue(undefined),
   sendPaymentSucceededNotificationToRenter: vi
     .fn()
     .mockResolvedValue(undefined),

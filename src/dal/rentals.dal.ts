@@ -1810,7 +1810,9 @@ export class RentalDAL extends BaseDAL {
    * Transitions paymentStatus -> "processing" only from "pending" or "failed".
    * Returns false if another request already claimed it (or it already succeeded).
    */
-  async claimRentalRequestPaymentProcessing(requestId: string): Promise<boolean> {
+  async claimRentalRequestPaymentProcessing(
+    requestId: string,
+  ): Promise<boolean> {
     try {
       const result = await this.db
         .update(rentalRequests)
