@@ -280,6 +280,10 @@ export function ServiceBookingDetailClient({
 
   // API handlers
   async function refresh() {
+    // The booking detail page (/dashboard/services/bookings/[id]) is
+    // RSC-rendered from serialized DAL props with no React Query cache entry,
+    // so router.refresh() is the correct tool to re-render it after an action.
+    // Intentional — do not swap for invalidateQueries.
     router.refresh();
   }
 
@@ -1039,6 +1043,7 @@ export function ServiceBookingDetailClient({
         serviceBookingId={booking.id}
         onSuccess={() => {
           setCanReview(false);
+          // RSC-rendered booking detail page; router.refresh is intentional.
           router.refresh();
         }}
       />
