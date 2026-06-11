@@ -89,6 +89,10 @@ export function LegalDocumentUploadForm({
           if (onSuccess) {
             onSuccess();
           }
+          // The admin legal page (/admin/dashboard/legal) renders the version
+          // history list from RSC/DAL props with no query cache entry, so
+          // router.refresh() is the correct tool to show the new version.
+          // Intentional.
           router.refresh();
         },
         onError: (error) => {

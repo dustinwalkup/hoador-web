@@ -54,6 +54,9 @@ export function ServiceProviderBioForm({
         return;
       }
       toast.success("Bio updated.");
+      // The provider profile page (/dashboard/services/providers/[userId]) is
+      // RSC-rendered from DAL props with no query cache entry, so
+      // router.refresh() is the correct tool to show the new bio. Intentional.
       router.refresh();
     } catch {
       toast.error("Could not save bio");

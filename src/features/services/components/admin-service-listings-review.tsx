@@ -203,6 +203,9 @@ export function AdminServiceListingsReview({
         <PendingServiceListingRow
           key={listing.id}
           listing={listing}
+          // `listings` arrives as RSC props from the admin review page (no
+          // query cache entry), so router.refresh re-renders the list after a
+          // review action. Intentional — do not swap for invalidateQueries.
           onMutationSuccess={() => router.refresh()}
         />
       ))}

@@ -145,7 +145,10 @@ export function useApproveRentalRequest() {
       queryClient.invalidateQueries({
         queryKey: rentalKeys.detail(variables.rentalId),
       });
-      // Refresh server-rendered rental detail page so it shows updated status
+      // The rental detail page (/dashboard/rental/[id]) is RSC-rendered from
+      // DAL props with no query cache entry, so router.refresh() is the correct
+      // tool to re-render it with the approved status. The list invalidations
+      // above cover the query-backed renting/lending flow pages. Intentional.
       router.refresh();
     },
     // Note: Error handling is done via the toast in useCreateMutation

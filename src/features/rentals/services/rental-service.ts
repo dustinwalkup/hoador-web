@@ -465,9 +465,17 @@ export class RentalService {
       };
     }
 
-    await rentalDAL.updateRentalRequestPaymentStatus(rentalId, {
-      paymentStatus: "processing",
-    });
+    // Atomic claim: only one concurrent approval may move pending|failed ->
+    // processing. Losing the race means another request is already charging.
+    const claimed =
+      await rentalDAL.claimRentalRequestPaymentProcessing(rentalId);
+    if (!claimed) {
+      return {
+        success: false,
+        error:
+          "This rental request's payment is already being processed. Refresh the page to see its current status.",
+      };
+    }
 
     const chargePayload = {
       rentalRequestId: rentalRequest.id,
