@@ -2041,4 +2041,54 @@ describe("RentalDAL", () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe("claimRentalRequestPaymentProcessing", () => {
+    const mockUpdateChain = (returned: Array<{ id: string }>) => {
+      const mockReturning = vi.fn().mockResolvedValue(returned);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as any);
+      return { mockSet, mockWhere, mockReturning };
+    };
+
+    it("returns true when the request is pending (conditional update matches)", async () => {
+      const { mockSet, mockWhere } = mockUpdateChain([{ id: "request-123" }]);
+
+      const result =
+        await rentalDAL.claimRentalRequestPaymentProcessing("request-123");
+
+      expect(result).toBe(true);
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentStatus: "processing" }),
+      );
+      expect(mockWhere).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns true when the request previously failed (retry is claimable)", async () => {
+      mockUpdateChain([{ id: "request-123" }]);
+
+      const result =
+        await rentalDAL.claimRentalRequestPaymentProcessing("request-123");
+
+      expect(result).toBe(true);
+    });
+
+    it("returns false when the request is already processing (claim lost)", async () => {
+      mockUpdateChain([]);
+
+      const result =
+        await rentalDAL.claimRentalRequestPaymentProcessing("request-123");
+
+      expect(result).toBe(false);
+    });
+
+    it("returns false when the payment already succeeded", async () => {
+      mockUpdateChain([]);
+
+      const result =
+        await rentalDAL.claimRentalRequestPaymentProcessing("request-123");
+
+      expect(result).toBe(false);
+    });
+  });
 });

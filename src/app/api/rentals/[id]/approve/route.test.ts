@@ -63,6 +63,7 @@ vi.mock("@/dal", () => ({
     getRentalRequestById: vi.fn(),
     updateRentalRequestPaymentStatus: vi.fn().mockResolvedValue(undefined),
     updateRentalRequestPaymentMethod: vi.fn().mockResolvedValue(undefined),
+    claimRentalRequestPaymentProcessing: vi.fn().mockResolvedValue(true),
     approveRentalRequest: vi.fn().mockResolvedValue(undefined),
     getRentalByRequestId: vi.fn().mockResolvedValue({ id: "rental-456" }),
     getApprovedRentalCountForRenter: vi.fn().mockResolvedValue(1),
