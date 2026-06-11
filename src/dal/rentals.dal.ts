@@ -206,6 +206,17 @@ export interface InsertRentalRequestPayload {
   paymentIntentId: string | null;
   paymentMethodId: string | null;
   status: "pending";
+  /**
+   * Optional renter attribution context (Meta Ads). Persisted as-is on the
+   * row and read back by the approval flow when emitting `Purchase` CAPI.
+   */
+  attributionContext?: {
+    fbp?: string;
+    fbc?: string;
+    ip?: string;
+    userAgent?: string;
+    sourceUrl?: string;
+  } | null;
 }
 
 export interface RentalDetails {
@@ -532,6 +543,7 @@ export class RentalDAL extends BaseDAL {
           paymentMethodId: payload.paymentMethodId,
           status: payload.status,
           expiresAt,
+          attributionContext: payload.attributionContext ?? null,
         })
         .returning();
 
@@ -633,6 +645,32 @@ export class RentalDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "getRentalRequestById");
+    }
+  }
+
+  /**
+   * Read the renter's Meta Ads attribution context that was captured at
+   * request creation. Used by the approval flow to forward the renter's
+   * fbp/fbc/ip/userAgent to the server `Purchase` CAPI event so Meta
+   * attributes the conversion to the renter's original ad click — not the
+   * owner who happens to be in session at approval time.
+   */
+  async getAttributionContext(requestId: string): Promise<{
+    fbp?: string;
+    fbc?: string;
+    ip?: string;
+    userAgent?: string;
+    sourceUrl?: string;
+  } | null> {
+    try {
+      const [row] = await this.db
+        .select({ attributionContext: rentalRequests.attributionContext })
+        .from(rentalRequests)
+        .where(eq(rentalRequests.id, requestId))
+        .limit(1);
+      return row?.attributionContext ?? null;
+    } catch (error) {
+      this.handleError(error, "getAttributionContext");
     }
   }
 

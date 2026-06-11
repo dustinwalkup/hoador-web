@@ -35,6 +35,18 @@ export interface MetaUserData {
   externalId?: string;
   firstName?: string;
   lastName?: string;
+  /**
+   * Meta browser cookie `_fbp`. Sent unhashed — Meta requires raw value.
+   * Captured at the browser surface where the conversion originates and
+   * forwarded server-side for server events.
+   */
+  fbp?: string;
+  /**
+   * Meta click ID cookie `_fbc`, formatted `fb.{subdomain_index}.{unix_ms}.{fbclid}`.
+   * Sent unhashed. This is the strongest ad-click attribution signal for iOS
+   * users where pixel cookies are blocked.
+   */
+  fbc?: string;
 }
 
 export interface SendMetaEventInput {
@@ -103,6 +115,9 @@ function buildUserData(
   }
   if (userData.ip) out.client_ip_address = userData.ip;
   if (userData.userAgent) out.client_user_agent = userData.userAgent;
+  // fbp / fbc are sent raw per Meta's spec — do NOT hash these.
+  if (userData.fbp) out.fbp = userData.fbp;
+  if (userData.fbc) out.fbc = userData.fbc;
 
   return Object.keys(out).length > 0 ? out : undefined;
 }
@@ -281,5 +296,30 @@ export function sendMetaPurchase(input: {
     eventSourceUrl: input.eventSourceUrl,
     userData: input.userData,
     customData,
+  });
+}
+
+/**
+ * Server twin of the browser `CompleteRegistration` event.
+ *
+ * Both halves use `event_id = userId` so Meta dedupes the pair. The server
+ * event is what counts on iOS / pixel-blocked browsers and is what allows
+ * `CompleteRegistration` to serve as a Facebook Ads optimization target.
+ */
+export function sendMetaCompleteRegistration(input: {
+  userId: string;
+  userData: MetaUserData;
+  eventSourceUrl?: string;
+  method?: "email" | "google";
+}): Promise<MetaSendResult> {
+  const customData: Record<string, unknown> = {};
+  if (input.method) customData.registration_method = input.method;
+  return sendMetaEvent({
+    eventName: "CompleteRegistration",
+    eventId: input.userId,
+    actionSource: "website",
+    eventSourceUrl: input.eventSourceUrl,
+    userData: input.userData,
+    customData: Object.keys(customData).length > 0 ? customData : undefined,
   });
 }

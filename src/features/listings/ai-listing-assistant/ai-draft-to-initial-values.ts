@@ -12,6 +12,10 @@ import { type AiDraft, type AiPrefilledFieldKey } from "./types";
  *
  * `images` is always included (even an empty array passes through; the form's
  * min-1-image validator runs at submit, not on init).
+ *
+ * `dailyRate` is forced to "" (empty) rather than inheriting the form's default
+ * of 0: AI never estimates a price, so the field starts blank and the listing
+ * form flags it with the "missing price" outline until the owner enters a rate.
  */
 export function aiDraftToInitialValues(
   draft: AiDraft,
@@ -29,6 +33,7 @@ export function aiDraftToInitialValues(
       : {}),
     ...(draft.instructions ? { instructions: draft.instructions } : {}),
     ...(draft.safetyNotes ? { safetyNotes: draft.safetyNotes } : {}),
+    dailyRate: "",
     images,
   };
 }

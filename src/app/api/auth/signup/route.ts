@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { emailSignupSchema } from "@/features/auth/schemas/auth-schemas";
@@ -9,6 +9,7 @@ import {
   getClientIP,
   getUserAgent,
 } from "@/lib/api/route-helpers";
+import { sendMetaCompleteRegistration } from "@/lib/integrations/meta/meta-capi";
 
 async function postHandler(request: NextRequest) {
   try {
@@ -61,9 +62,36 @@ async function postHandler(request: NextRequest) {
       return handleApiError(error);
     }
 
+    const userId = result!.userId;
+    const fbp = request.cookies.get("_fbp")?.value;
+    const fbc = request.cookies.get("_fbc")?.value;
+    const referer = request.headers.get("referer") ?? undefined;
+
+    // Server twin of the browser `CompleteRegistration` event. Shares
+    // `event_id = userId` with the browser event for Meta dedup. Fired via
+    // `after()` so Meta latency / retries never delay the signup response.
+    after(async () => {
+      await sendMetaCompleteRegistration({
+        userId,
+        method: "email",
+        eventSourceUrl: referer,
+        userData: {
+          email,
+          firstName,
+          lastName,
+          externalId: userId,
+          ip: ipAddress ?? undefined,
+          userAgent: userAgent ?? undefined,
+          fbp,
+          fbc,
+        },
+      });
+    });
+
     return NextResponse.json({
       success: true,
       redirect: result!.redirect,
+      userId,
     });
   } catch (error) {
     return handleApiError(error);

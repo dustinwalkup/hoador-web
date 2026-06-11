@@ -115,7 +115,45 @@ function createRedirectUrl(request: NextRequest): string {
   return loginUrl.toString();
 }
 
-export async function proxy(request: NextRequest) {
+/**
+ * Captures the Facebook Ads click ID from `?fbclid=…` into the `_fbc` cookie.
+ *
+ * Format is `fb.{subdomain_index}.{unix_ms}.{fbclid}` — anything else is
+ * silently dropped by Meta. Skips when `_fbc` is already set so a deep-link
+ * inside the same session does not overwrite the original click attribution.
+ * Cookie TTL is 90 days (Meta's documented click-through window).
+ *
+ * Returns the value to set, or null when nothing needs to change.
+ */
+const FBC_COOKIE_NAME = "_fbc";
+const FBC_TTL_SECONDS = 60 * 60 * 24 * 90;
+
+function computeFbcCookieValue(request: NextRequest): string | null {
+  const fbclid = request.nextUrl.searchParams.get("fbclid");
+  if (!fbclid) return null;
+  if (request.cookies.get(FBC_COOKIE_NAME)?.value) return null;
+  return `fb.1.${Date.now()}.${fbclid}`;
+}
+
+function attachFbcCookie(response: NextResponse, value: string): NextResponse {
+  response.cookies.set({
+    name: FBC_COOKIE_NAME,
+    value,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: FBC_TTL_SECONDS,
+  });
+  return response;
+}
+
+export async function proxy(request: NextRequest): Promise<NextResponse> {
+  const response = await proxyAuth(request);
+  const fbcValue = computeFbcCookieValue(request);
+  return fbcValue ? attachFbcCookie(response, fbcValue) : response;
+}
+
+async function proxyAuth(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   // Skip middleware for static files and Next.js internals

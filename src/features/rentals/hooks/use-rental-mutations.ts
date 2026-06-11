@@ -7,6 +7,7 @@ import {
 } from "@/lib/react-query/mutation-helpers";
 import { rentalKeys } from "./use-rentals";
 import type { CreateRentalRequestFormData } from "../lib/form-schema";
+import { readMetaBrowserCookies } from "@/lib/analytics/meta";
 
 /** Successful JSON body from POST /api/rentals/[id]/cancel (refund failures use 422). */
 export interface CancelRentalResponse {
@@ -21,6 +22,13 @@ export interface CancelRentalResponse {
 export function useCreateRentalRequest() {
   return useCreateMutation({
     mutationFn: async (data: CreateRentalRequestFormData) => {
+      // Capture Meta Ads attribution cookies at submit time so the server
+      // `Purchase` event (fired later from the owner's approval session) can
+      // attribute the conversion to the renter's original ad click.
+      const { fbp, fbc } = readMetaBrowserCookies();
+      const sourceUrl =
+        typeof window !== "undefined" ? window.location.href : undefined;
+
       // Convert dates to ISO strings for JSON serialization
       const payload = {
         ...data,
@@ -32,6 +40,9 @@ export function useCreateRentalRequest() {
           data.endDate instanceof Date
             ? data.endDate.toISOString()
             : data.endDate,
+        metaFbp: fbp,
+        metaFbc: fbc,
+        metaSourceUrl: sourceUrl,
       };
 
       const response = await fetch("/api/rentals", {

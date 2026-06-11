@@ -62,7 +62,7 @@ export function BasicInformationSection({
           render={({ field }) => (
             <FormItem>
               <FormLabel className="flex items-center gap-2">
-                Listing Name *
+                Listing Name <span className="text-destructive">*</span>
                 <AISuggestedBadge fieldKey="name" />
               </FormLabel>
               <FormControl>
@@ -78,7 +78,7 @@ export function BasicInformationSection({
           render={({ field }) => (
             <FormItem>
               <FormLabel className="flex items-center gap-2">
-                Category *
+                Category <span className="text-destructive">*</span>
                 <AISuggestedBadge fieldKey="categoryId" />
               </FormLabel>
               <FormControl>
@@ -110,7 +110,7 @@ export function BasicInformationSection({
           render={({ field }) => (
             <FormItem>
               <FormLabel className="flex items-center gap-2">
-                Description *
+                Description <span className="text-destructive">*</span>
                 <AISuggestedBadge fieldKey="description" />
               </FormLabel>
               <FormControl>
@@ -173,7 +173,7 @@ export function BasicInformationSection({
           render={({ field }) => (
             <FormItem>
               <FormLabel className="flex items-center gap-2">
-                Condition *
+                Condition <span className="text-destructive">*</span>
                 <AISuggestedBadge fieldKey="condition" />
               </FormLabel>
               <FormControl>

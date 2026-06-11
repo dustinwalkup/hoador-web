@@ -106,7 +106,14 @@ describe("AddListingForm", () => {
       const categoryElements = screen.getAllByText(/category/i);
       expect(categoryElements.length).toBeGreaterThan(0);
       expect(screen.getByText(/description/i)).toBeInTheDocument();
-      expect(screen.getByText("Daily Rate *")).toBeInTheDocument();
+      // Asterisk now lives in its own destructive span, so match on the
+      // label's full text content rather than a single text node.
+      expect(
+        screen.getByText(
+          (_, el) =>
+            el?.tagName === "LABEL" && el.textContent === "Daily Rate *",
+        ),
+      ).toBeInTheDocument();
     });
 
     it("should render submit button", () => {
