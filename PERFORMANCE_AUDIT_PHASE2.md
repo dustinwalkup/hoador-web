@@ -21,6 +21,11 @@
 
 ### 1. No Server-to-Client Query Hydration (The "Double Fetch" Gap)
 
+> **Status update (2026-06): largely resolved.** HydrateClient is now wired on
+> mailbox, listings/rentals, listings/services, explore, and both
+> rentals/services flow pages. Remaining unhydrated pages are low-traffic
+> detail/admin pages. §2 (router.refresh) addressed by plans/007.
+
 **Only 1 of ~30 dashboard pages** uses `HydrateClient` — the [mailbox page](src/app/dashboard/mailbox/page.tsx). Every other page that renders a client component with `useQuery` starts with a **cold cache**. The server fetches data for RSC rendering, then the client component mounts and immediately fires the same API call again.
 
 The infrastructure exists ([server.tsx](src/lib/react-query/server.tsx) exports `getServerQueryClient` + `HydrateClient`) — it's just not wired up anywhere except mailbox.
