@@ -28,7 +28,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "src/components",
-    "vitest.config.mjs"
+    "vitest.config.mjs",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules", ".next/dev", "mcps"]
 }
