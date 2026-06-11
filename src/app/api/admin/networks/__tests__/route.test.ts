@@ -15,7 +15,8 @@ const mockGetAuthenticatedUser = vi.fn();
 
 vi.mock("@/features/auth/utils/session", () => ({
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
-  getAuthenticatedUser: (...args: unknown[]) => mockGetAuthenticatedUser(...args),
+  getAuthenticatedUser: (...args: unknown[]) =>
+    mockGetAuthenticatedUser(...args),
   getCurrentUser: vi.fn(),
   getCurrentUserId: vi.fn(),
 }));
@@ -43,9 +44,7 @@ describe("GET /api/admin/networks", () => {
       userId: "admin-1",
       isAdmin: true,
     });
-    mockListNetworks.mockResolvedValue([
-      { id: "net-1", name: "Network One" },
-    ]);
+    mockListNetworks.mockResolvedValue([{ id: "net-1", name: "Network One" }]);
   });
 
   it("returns 401 (via the real guard) when unauthenticated", async () => {
