@@ -95,6 +95,9 @@ export function RentalActions({
     return false;
   })();
 
+  // This detail page (/dashboard/rental/[id]) is RSC-rendered from DAL props
+  // with no React Query cache entry, so router.refresh() is the correct tool to
+  // re-render it after these actions. Intentional — do not swap for invalidate.
   const handleInstructionsUpdated = () => {
     router.refresh();
   };
@@ -358,6 +361,7 @@ export function RentalActions({
         rentalId={rentalDetails.id}
         onSuccess={() => {
           setCanReview(false);
+          // RSC-rendered detail page; router.refresh is intentional.
           router.refresh();
         }}
       />
