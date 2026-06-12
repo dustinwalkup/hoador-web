@@ -10,7 +10,12 @@ import { user } from "../schemas/user.schema";
 const KC_METRO_SLUG = "kansas-city-metro";
 const TEST_NETWORK_SLUG = "test-network";
 
-const KC_METRO_COMMUNITIES = [
+const KC_METRO_COMMUNITIES: ReadonlyArray<{
+  name: string;
+  city: string;
+  state: string;
+  zip?: string;
+}> = [
   { name: "Glen Arbor Estates", city: "Kansas City", state: "MO" },
   { name: "Foxcroft", city: "Kansas City", state: "MO" },
   { name: "Timber Trace", city: "Kansas City", state: "MO" },
@@ -19,7 +24,26 @@ const KC_METRO_COMMUNITIES = [
   { name: "Verona Gardens", city: "Leawood", state: "KS" },
   { name: "Redbridge Estates", city: "Kansas City", state: "MO" },
   { name: "Leawood Estates", city: "Leawood", state: "KS" },
-] as const;
+  // Added by migration 0064.
+  { name: "Sommerset Valley", city: "Kansas City", state: "MO", zip: "64145" },
+  {
+    name: "Woods of Sommerset",
+    city: "Kansas City",
+    state: "MO",
+    zip: "64146",
+  },
+  { name: "Wellington Green", city: "Kansas City", state: "MO" },
+  { name: "Huntington Place", city: "Kansas City", state: "MO" },
+  { name: "Innsbrook", city: "Kansas City", state: "MO" },
+  { name: "Newcastle", city: "Kansas City", state: "MO", zip: "64145" },
+  { name: "Red Bridge Gardens", city: "Kansas City", state: "MO" },
+  { name: "Pembroke Court", city: "Leawood", state: "KS", zip: "66209" },
+  { name: "Oxford Hills", city: "Leawood", state: "KS" },
+  { name: "Oxford Hills West", city: "Leawood", state: "KS" },
+  { name: "Bradford Place", city: "Leawood", state: "KS" },
+  { name: "Hunter's Ridge", city: "Leawood", state: "KS" },
+  { name: "Foxborough", city: "Leawood", state: "KS" },
+];
 
 const TEST_NETWORK_COMMUNITIES = [
   {
@@ -87,7 +111,7 @@ export async function main() {
     )
     .returning();
 
-  // 3. Communities — KC Metro (8 new communities)
+  // 3. Communities — KC Metro
   console.log("📍 Creating Kansas City Metro communities...");
   const kcCommunities = await db
     .insert(communities)
@@ -96,6 +120,7 @@ export async function main() {
         name: c.name,
         city: c.city,
         state: c.state,
+        zip: c.zip,
         networkId: kcMetro.id,
       })),
     )

@@ -17,6 +17,7 @@ import {
   useUpdateVisibility,
   type VisibilityUpdate,
 } from "@/features/users/hooks/use-visibility";
+import { groupByLocation } from "@/features/community/utils/group-by-location";
 
 /**
  * Profile-page card: choose which communities the current user appears in.
@@ -43,6 +44,13 @@ export function VisibilitySettingsCard() {
         isVisible: overrides[r.community.id],
       }));
   }, [rows, overrides]);
+
+  // Group rows under a "City, State" heading, alphabetized within and across
+  // groups (shared with the signup community picker).
+  const groupedRows = useMemo(
+    () => groupByLocation(rows ?? [], (r) => r.community),
+    [rows],
+  );
 
   const toggle = (communityId: string, value: boolean) => {
     setOverrides((prev) => ({ ...prev, [communityId]: value }));
@@ -82,31 +90,43 @@ export function VisibilitySettingsCard() {
           </Alert>
         ) : rows && rows.length > 0 ? (
           <>
-            <div className="divide-y">
-              {rows.map((row) => {
-                const checked = overrides[row.community.id] ?? row.isVisible;
-                return (
-                  <div
-                    key={row.community.id}
-                    className="flex items-center justify-between gap-3 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium">{row.community.name}</p>
-                      {row.isPrimary && (
-                        <p className="text-muted-foreground text-xs">
-                          Home community — always visible
-                        </p>
-                      )}
-                    </div>
-                    <Switch
-                      checked={row.isPrimary ? true : checked}
-                      disabled={row.isPrimary || updateMutation.isPending}
-                      onCheckedChange={(v) => toggle(row.community.id, v)}
-                      aria-label={`Visible in ${row.community.name}`}
-                    />
+            <div className="space-y-4">
+              {groupedRows.map(({ heading, items }) => (
+                <div key={heading}>
+                  <p className="text-muted-foreground mb-1 text-xs font-medium">
+                    {heading}
+                  </p>
+                  <div className="divide-y">
+                    {items.map((row) => {
+                      const checked =
+                        overrides[row.community.id] ?? row.isVisible;
+                      return (
+                        <div
+                          key={row.community.id}
+                          className="flex items-center justify-between gap-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {row.community.name}
+                            </p>
+                            {row.isPrimary && (
+                              <p className="text-muted-foreground text-xs">
+                                Home community — always visible
+                              </p>
+                            )}
+                          </div>
+                          <Switch
+                            checked={row.isPrimary ? true : checked}
+                            disabled={row.isPrimary || updateMutation.isPending}
+                            onCheckedChange={(v) => toggle(row.community.id, v)}
+                            aria-label={`Visible in ${row.community.name}`}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
             {updateMutation.isError && (
               <Alert variant="destructive">
