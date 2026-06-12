@@ -9,9 +9,10 @@ let mockMutationState = {
 
 let mockCommunitiesQuery = {
   data: [
-    { id: "c-foxcroft", name: "Foxcroft" },
-    { id: "c-timber", name: "Timber Trace" },
-  ] as Array<{ id: string; name: string }>,
+    { id: "c-foxcroft", name: "Foxcroft", city: "Kansas City", state: "MO" },
+    { id: "c-timber", name: "Timber Trace", city: "Kansas City", state: "MO" },
+    { id: "c-pembroke", name: "Pembroke Court", city: "Leawood", state: "KS" },
+  ] as Array<{ id: string; name: string; city?: string; state?: string }>,
   isLoading: false,
   isError: false,
 };
@@ -48,6 +49,8 @@ vi.mock("lucide-react", () => ({
   ChevronDownIcon: () => <span data-testid="chevron-down-icon" />,
   ChevronUpIcon: () => <span data-testid="chevron-up-icon" />,
   CheckIcon: () => <span data-testid="check-icon" />,
+  ChevronsUpDownIcon: () => <span data-testid="chevrons-up-down-icon" />,
+  SearchIcon: () => <span data-testid="search-icon" />,
 }));
 
 import { screen, waitFor } from "@testing-library/react";
@@ -67,8 +70,24 @@ describe("CommunitySelectForm", () => {
     };
     mockCommunitiesQuery = {
       data: [
-        { id: "c-foxcroft", name: "Foxcroft" },
-        { id: "c-timber", name: "Timber Trace" },
+        {
+          id: "c-foxcroft",
+          name: "Foxcroft",
+          city: "Kansas City",
+          state: "MO",
+        },
+        {
+          id: "c-timber",
+          name: "Timber Trace",
+          city: "Kansas City",
+          state: "MO",
+        },
+        {
+          id: "c-pembroke",
+          name: "Pembroke Court",
+          city: "Leawood",
+          state: "KS",
+        },
       ],
       isLoading: false,
       isError: false,
@@ -99,7 +118,7 @@ describe("CommunitySelectForm", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<CommunitySelectForm />);
 
-    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByLabelText(/select your community/i));
 
     expect(
       await screen.findByRole("option", { name: /foxcroft/i }),
@@ -109,11 +128,65 @@ describe("CommunitySelectForm", () => {
     ).toBeInTheDocument();
   });
 
+  it("groups communities under city/state headings, alphabetized within and across groups", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<CommunitySelectForm />);
+
+    await user.click(screen.getByLabelText(/select your community/i));
+
+    // Each location renders once, as a group heading.
+    expect(await screen.findByText("Kansas City, MO")).toBeInTheDocument();
+    expect(screen.getByText("Leawood, KS")).toBeInTheDocument();
+
+    // Groups are ordered alphabetically by heading (Kansas City → Leawood) and
+    // items are alphabetized within each group (Foxcroft → Timber Trace).
+    const optionNames = screen
+      .getAllByRole("option")
+      .map((el) => el.textContent);
+    expect(optionNames).toEqual(["Foxcroft", "Timber Trace", "Pembroke Court"]);
+  });
+
+  it("filters communities when typing in the search input", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<CommunitySelectForm />);
+
+    await user.click(screen.getByLabelText(/select your community/i));
+    await user.type(
+      await screen.findByPlaceholderText(/search communities/i),
+      "timber",
+    );
+
+    expect(
+      await screen.findByRole("option", { name: /timber trace/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: /foxcroft/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("matches search against city and state", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<CommunitySelectForm />);
+
+    await user.click(screen.getByLabelText(/select your community/i));
+    await user.type(
+      await screen.findByPlaceholderText(/search communities/i),
+      "leawood",
+    );
+
+    expect(
+      await screen.findByRole("option", { name: /pembroke court/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: /foxcroft/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("submits the selected community id", async () => {
     const user = userEvent.setup();
     renderWithQueryClient(<CommunitySelectForm />);
 
-    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByLabelText(/select your community/i));
     await user.click(await screen.findByRole("option", { name: /foxcroft/i }));
 
     const submit = screen.getByRole("button", { name: /continue/i });
