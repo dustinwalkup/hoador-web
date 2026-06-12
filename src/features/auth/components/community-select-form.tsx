@@ -1,23 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  CheckIcon,
+  ChevronsUpDownIcon,
+  Loader2,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { RequestHoadorModal } from "@/features/hoa-inquiries/components/request-hoador-modal";
 import { useCommunitiesByNetwork } from "@/features/community/hooks/use-communities";
+import { groupByLocation } from "@/features/community/utils/group-by-location";
 import { SESSION_EXPIRED_MESSAGE } from "../constants";
 import { useSelectCommunity } from "../hooks/use-auth-mutations";
 import { containerVariants, fieldVariants } from "./animated-form-field";
@@ -25,9 +38,21 @@ import { containerVariants, fieldVariants } from "./animated-form-field";
 export function CommunitySelectForm() {
   const router = useRouter();
   const [communityId, setCommunityId] = useState<string>("");
+  const [open, setOpen] = useState(false);
 
   const { data: communities, isLoading, isError } = useCommunitiesByNetwork();
   const mutation = useSelectCommunity();
+
+  const selectedCommunity = (communities ?? []).find(
+    (community) => community.id === communityId,
+  );
+
+  // Group communities under a "City, State" heading, alphabetized within and
+  // across groups (shared with the profile visibility card).
+  const groupedCommunities = useMemo(
+    () => groupByLocation(communities ?? [], (c) => c),
+    [communities],
+  );
 
   useEffect(() => {
     if (
@@ -79,36 +104,65 @@ export function CommunitySelectForm() {
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <motion.div variants={fieldVariants} className="space-y-2">
             <Label htmlFor="community">Select your community</Label>
-            <Select
-              value={communityId}
-              onValueChange={setCommunityId}
-              disabled={isLoading || mutation.isPending}
-            >
-              <SelectTrigger id="community" className="w-full">
-                <SelectValue
-                  placeholder={
-                    isLoading ? "Loading communities…" : "Choose your community"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {(communities ?? []).map((community) => {
-                  const location = [community.city, community.state]
-                    .filter(Boolean)
-                    .join(", ");
-                  return (
-                    <SelectItem key={community.id} value={community.id}>
-                      <span>{community.name}</span>
-                      {location && (
-                        <span className="text-muted-foreground ml-2 text-xs font-normal italic">
-                          {location}
-                        </span>
-                      )}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={open}
+                  id="community"
+                  disabled={isLoading || mutation.isPending}
+                  className="w-full justify-between font-normal"
+                >
+                  {selectedCommunity ? (
+                    <span className="truncate">{selectedCommunity.name}</span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {isLoading
+                        ? "Loading communities…"
+                        : "Choose your community"}
+                    </span>
+                  )}
+                  <ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-(--radix-popover-trigger-width) p-0"
+                align="start"
+              >
+                <Command>
+                  <CommandInput placeholder="Search communities…" />
+                  <CommandList>
+                    <CommandEmpty>No community found.</CommandEmpty>
+                    {groupedCommunities.map(({ heading, items }) => (
+                      <CommandGroup key={heading} heading={heading}>
+                        {items.map((community) => (
+                          <CommandItem
+                            key={community.id}
+                            value={`${community.name} ${heading}`}
+                            onSelect={() => {
+                              setCommunityId(community.id);
+                              setOpen(false);
+                            }}
+                          >
+                            <CheckIcon
+                              className={cn(
+                                "size-4",
+                                communityId === community.id
+                                  ? "opacity-100"
+                                  : "opacity-0",
+                              )}
+                            />
+                            <span>{community.name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    ))}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </motion.div>
 
           <motion.div variants={fieldVariants}>

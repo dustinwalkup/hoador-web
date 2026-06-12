@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockMutate = vi.fn();
 let mockVisibilityState: {
   data: Array<{
-    community: { id: string; name: string };
+    community: { id: string; name: string; city?: string; state?: string };
     isVisible: boolean;
     isPrimary: boolean;
   }>;
@@ -39,16 +39,27 @@ describe("VisibilitySettingsCard", () => {
     mockVisibilityState = {
       data: [
         {
-          community: { id: "c-home", name: "Foxcroft" },
+          community: {
+            id: "c-home",
+            name: "Foxcroft",
+            city: "Kansas City",
+            state: "MO",
+          },
           isVisible: true,
           isPrimary: true,
         },
         {
-          community: { id: "c-2", name: "Glen Arbor Estates" },
+          community: {
+            id: "c-2",
+            name: "Glen Arbor Estates",
+            city: "Kansas City",
+            state: "MO",
+          },
           isVisible: true,
           isPrimary: false,
         },
         {
+          // No city/state — the location line should simply be omitted.
           community: { id: "c-3", name: "Timber Trace" },
           isVisible: false,
           isPrimary: false,
@@ -70,6 +81,14 @@ describe("VisibilitySettingsCard", () => {
     expect(screen.getByText("Foxcroft")).toBeInTheDocument();
     expect(screen.getByText("Glen Arbor Estates")).toBeInTheDocument();
     expect(screen.getByText("Timber Trace")).toBeInTheDocument();
+  });
+
+  it("groups communities under a single city/state heading", () => {
+    renderWithQueryClient(<VisibilitySettingsCard />);
+    // Foxcroft + Glen Arbor Estates share one "Kansas City, MO" heading.
+    expect(screen.getByText("Kansas City, MO")).toBeInTheDocument();
+    // Timber Trace has no location, so it falls under "Other".
+    expect(screen.getByText("Other")).toBeInTheDocument();
   });
 
   it("locks the primary community with helper copy", () => {
