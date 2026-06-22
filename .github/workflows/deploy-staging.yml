@@ -54,7 +54,7 @@ jobs:
     environment: staging
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Deploy the branch that passed CI (develop), not the default branch (main)
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
