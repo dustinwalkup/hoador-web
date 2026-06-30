@@ -2,13 +2,33 @@ import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+  // Keep these out of the bundle so they load from node_modules at runtime and
+  // their native deps get traced. `sharp` MUST be external: when Turbopack
+  // bundles it, output-file-tracing can't follow sharp's require() to the
+  // libvips `.so`, so the Linux function ships without libvips-cpp and every
+  // route in sharp's import graph (all of /api/listings/**) crashes with a
+  // dlopen failure that Next renders as a generic 500 HTML page.
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core", "sharp"],
   outputFileTracingIncludes: {
     "/api/internal/generate-rental-agreement": [
       "./node_modules/@sparticuz/chromium/bin/**",
     ],
     "/api/internal/generate-service-agreement": [
       "./node_modules/@sparticuz/chromium/bin/**",
+    ],
+    // Belt-and-suspenders: force the Linux libvips native libs into every
+    // function that imports sharp, in case tracing still misses the dlopen.
+    "/api/listings/**": [
+      "./node_modules/@img/sharp-linux-x64/**",
+      "./node_modules/@img/sharp-libvips-linux-x64/**",
+    ],
+    "/api/profile/upload": [
+      "./node_modules/@img/sharp-linux-x64/**",
+      "./node_modules/@img/sharp-libvips-linux-x64/**",
+    ],
+    "/api/disputes/**": [
+      "./node_modules/@img/sharp-linux-x64/**",
+      "./node_modules/@img/sharp-libvips-linux-x64/**",
     ],
   },
   images: {
