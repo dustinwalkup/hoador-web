@@ -3,6 +3,19 @@ import { ServiceBookingService } from "../services/service-booking-service";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/dal/errors";
 import { calculateServiceFee } from "@/constants/payments";
 
+vi.mock("next/server", () => ({
+  after: (fn: () => Promise<void>) => fn(),
+}));
+
+const mockCloseNeedsFulfilledByBooking = vi.fn();
+vi.mock(
+  "@/features/neighborhood-needs/services/neighborhood-needs-service",
+  () => ({
+    closeNeedsFulfilledByBooking: (...args: unknown[]) =>
+      mockCloseNeedsFulfilledByBooking(...args),
+  }),
+);
+
 const mockListingGetById = vi.fn();
 const mockBookingCreate = vi.fn();
 const mockBookingGetById = vi.fn();
@@ -163,6 +176,7 @@ describe("ServiceBookingService", () => {
     mockLegalGetAllVersions.mockResolvedValue({});
     mockLifecycleCreate.mockResolvedValue({});
     mockLifecycleGetByBookingId.mockResolvedValue(null);
+    mockCloseNeedsFulfilledByBooking.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -887,6 +901,53 @@ describe("ServiceBookingService", () => {
 
       expect(out.status).toBe("declined");
       expect(mockSendDeclined).toHaveBeenCalledWith("req-1", declined, "busy");
+    });
+  });
+
+  describe("acceptBooking — closeNeedsFulfilledByBooking (Phase 11)", () => {
+    beforeEach(() => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm",
+      });
+      mockChargeServicePayment.mockResolvedValue({
+        paymentIntent: { id: "pi_1", status: "succeeded" },
+        chargeId: "ch_1",
+      });
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "accepted" as const,
+      });
+    });
+
+    it("calls closeNeedsFulfilledByBooking with service listingId and requesterId on success", async () => {
+      await ServiceBookingService.acceptBooking("book-1", "prov-1", ctx);
+
+      expect(mockCloseNeedsFulfilledByBooking).toHaveBeenCalledWith({
+        listingType: "service",
+        listingId: "list-1",
+        bookerUserId: "req-1",
+      });
+    });
+
+    it("does not fail the acceptance when closeNeedsFulfilledByBooking throws", async () => {
+      mockCloseNeedsFulfilledByBooking.mockRejectedValue(
+        new Error("needs error"),
+      );
+
+      const out = await ServiceBookingService.acceptBooking(
+        "book-1",
+        "prov-1",
+        ctx,
+      );
+
+      expect(out.status).toBe("accepted");
     });
   });
 });

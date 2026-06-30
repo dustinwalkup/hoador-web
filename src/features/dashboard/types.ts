@@ -134,4 +134,7 @@ export interface DashboardPulseData {
     tools: number;
     services: number;
   };
+  needs: {
+    open: number;
+  };
 }

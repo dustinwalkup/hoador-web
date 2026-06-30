@@ -31,6 +31,60 @@ describe("preference-service", () => {
     );
   });
 
+  describe("neighborhood_needs defaults", () => {
+    it("shouldSendEmail returns false by default for neighborhood_needs", async () => {
+      vi.mocked(
+        notificationCategoryPreferencesDAL.getByUserId,
+      ).mockResolvedValue([]);
+      expect(await shouldSendEmail(userId, "neighborhood_needs")).toBe(false);
+    });
+
+    it("shouldSendPush returns false by default for neighborhood_needs", async () => {
+      vi.mocked(
+        notificationCategoryPreferencesDAL.getByUserId,
+      ).mockResolvedValue([]);
+      expect(await shouldSendPush(userId, "neighborhood_needs")).toBe(false);
+    });
+
+    it("shouldSendEmail returns true once user opts in for neighborhood_needs", async () => {
+      vi.mocked(
+        notificationCategoryPreferencesDAL.getByUserId,
+      ).mockResolvedValue([
+        {
+          id: "pref-nn",
+          userId,
+          category: "neighborhood_needs",
+          email: true,
+          push: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ] as Awaited<
+        ReturnType<typeof notificationCategoryPreferencesDAL.getByUserId>
+      >);
+      expect(await shouldSendEmail(userId, "neighborhood_needs")).toBe(true);
+    });
+
+    it("shouldSendPush returns true once user opts in for neighborhood_needs", async () => {
+      vi.mocked(
+        notificationCategoryPreferencesDAL.getByUserId,
+      ).mockResolvedValue([
+        {
+          id: "pref-nn",
+          userId,
+          category: "neighborhood_needs",
+          email: false,
+          push: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ] as Awaited<
+        ReturnType<typeof notificationCategoryPreferencesDAL.getByUserId>
+      >);
+      expect(await shouldSendPush(userId, "neighborhood_needs")).toBe(true);
+    });
+  });
+
   describe("shouldSendEmail", () => {
     it("returns false when master email is off", async () => {
       vi.mocked(userDAL.getUserPreferences).mockResolvedValue({
@@ -161,6 +215,14 @@ describe("preference-service", () => {
       expect(result.categories.reminders).toEqual({
         email: true,
         push: true,
+      });
+    });
+
+    it("defaults neighborhood_needs to email:false, push:false when no row exists", async () => {
+      const result = await getCategoryPreferences(userId);
+      expect(result.categories.neighborhood_needs).toEqual({
+        email: false,
+        push: false,
       });
     });
 

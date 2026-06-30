@@ -49,6 +49,15 @@ vi.mock("@/lib/api/route-helpers", () => ({
   captureNonCriticalError: vi.fn(),
 }));
 
+const mockCloseNeedsFulfilledByBooking = vi.fn();
+vi.mock(
+  "@/features/neighborhood-needs/services/neighborhood-needs-service",
+  () => ({
+    closeNeedsFulfilledByBooking: (...args: unknown[]) =>
+      mockCloseNeedsFulfilledByBooking(...args),
+  }),
+);
+
 const afterCallbacks: Array<Promise<void>> = [];
 vi.mock("next/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/server")>();
@@ -201,6 +210,7 @@ describe("RentalService.approveRentalRequest — deposit hold failure (UAT-P1-08
     );
     delete process.env.INTERNAL_API_SECRET;
     delete process.env.VERCEL_URL;
+    mockCloseNeedsFulfilledByBooking.mockResolvedValue(undefined);
   });
 
   /**
@@ -261,5 +271,79 @@ describe("RentalService.approveRentalRequest — deposit hold failure (UAT-P1-08
       }),
     );
     expect(mockSendPaymentSucceededToOwner).toHaveBeenCalled();
+  });
+});
+
+describe("RentalService.approveRentalRequest — closeNeedsFulfilledByBooking (Phase 11)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetOrCreateStripeCustomerId.mockResolvedValue("cus_renter");
+    mockGetConnectedAccountId.mockResolvedValue("acct_owner");
+    mockIsConnectOnboardingComplete.mockResolvedValue(true);
+    mockGetRentalRequestById.mockResolvedValue(buildRentalRequest());
+    mockApproveRentalRequest.mockResolvedValue(undefined);
+    mockGetRentalByRequestId.mockResolvedValue({ id: "rental-created-1" });
+    mockChargeRentalPayment.mockResolvedValue({
+      id: "pi_charge",
+      status: "succeeded",
+      latest_charge: "ch_1",
+    });
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_hold",
+    });
+    mockPaymentCreate.mockResolvedValue(undefined);
+    mockPaymentLifecycleCreate.mockResolvedValue(undefined);
+    mockGetApprovedRentalCountForRenter.mockResolvedValue(1);
+    mockGetUserById.mockImplementation((id: string) =>
+      Promise.resolve(
+        id === renterId
+          ? {
+              id: renterId,
+              email: "renter@test.com",
+              firstName: "R",
+              lastName: "T",
+            }
+          : {
+              id: ownerId,
+              email: "owner@test.com",
+              firstName: "O",
+              lastName: "T",
+              stripeConnectedAccountId: "acct_123",
+              connectChargesEnabled: true,
+              connectPayoutsEnabled: true,
+              connectOnboardingComplete: true,
+            },
+      ),
+    );
+    delete process.env.INTERNAL_API_SECRET;
+    mockCloseNeedsFulfilledByBooking.mockResolvedValue(undefined);
+  });
+
+  it("calls closeNeedsFulfilledByBooking with rental listingId and renterId on success", async () => {
+    await RentalService.approveRentalRequest(requestId, ownerId, {}, context);
+    await Promise.all(afterCallbacks.splice(0));
+
+    expect(mockCloseNeedsFulfilledByBooking).toHaveBeenCalledWith({
+      listingType: "rental",
+      listingId: "listing-1",
+      bookerUserId: renterId,
+    });
+  });
+
+  it("does not fail the approval when closeNeedsFulfilledByBooking throws", async () => {
+    mockCloseNeedsFulfilledByBooking.mockRejectedValue(
+      new Error("needs error"),
+    );
+
+    const result = await RentalService.approveRentalRequest(
+      requestId,
+      ownerId,
+      {},
+      context,
+    );
+    await Promise.all(afterCallbacks.splice(0));
+
+    expect(result.success).toBe(true);
   });
 });

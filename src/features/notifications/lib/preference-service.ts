@@ -4,6 +4,23 @@ import type { NotificationCategory } from "./notification-type-map";
 
 const CATEGORIES = notificationCategoryEnum.enumValues;
 
+/**
+ * Per-category defaults when no user preference row exists.
+ * neighborhood_needs defaults email/push to OFF (opt-in) to avoid notification fatigue.
+ * All other categories default to ON (opt-out) per existing behavior.
+ */
+const CATEGORY_DEFAULTS: Record<
+  NotificationCategory,
+  { email: boolean; push: boolean }
+> = {
+  bookings: { email: true, push: true },
+  payments: { email: true, push: true },
+  messages: { email: true, push: true },
+  disputes: { email: true, push: true },
+  reminders: { email: true, push: true },
+  neighborhood_needs: { email: false, push: false },
+};
+
 /** Master and per-category notification preferences. */
 export interface CategoryPreferencesResult {
   master: { email: boolean; push: boolean };
@@ -31,7 +48,7 @@ export async function shouldSendEmail(
   const categoryPrefs =
     await notificationCategoryPreferencesDAL.getByUserId(userId);
   const row = categoryPrefs?.find((p) => p.category === category);
-  return row?.email ?? true;
+  return row?.email ?? CATEGORY_DEFAULTS[category].email;
 }
 
 /**
@@ -48,7 +65,7 @@ export async function shouldSendPush(
   const categoryPrefs =
     await notificationCategoryPreferencesDAL.getByUserId(userId);
   const row = categoryPrefs?.find((p) => p.category === category);
-  return row?.push ?? true;
+  return row?.push ?? CATEGORY_DEFAULTS[category].push;
 }
 
 /**
@@ -67,7 +84,7 @@ export async function getCategoryPreferences(
   const categories = Object.fromEntries(
     CATEGORIES.map((cat) => [
       cat,
-      rowByCategory.get(cat) ?? { email: true, push: true },
+      rowByCategory.get(cat) ?? CATEGORY_DEFAULTS[cat],
     ]),
   ) as Record<NotificationCategory, { email: boolean; push: boolean }>;
 

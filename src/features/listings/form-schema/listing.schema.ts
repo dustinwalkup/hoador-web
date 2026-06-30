@@ -104,6 +104,7 @@ export const deliveryModeSchema = z.enum([
 // Base schema for listing creation
 const baseListingSchema = z.object({
   name: z.string().min(1, "Listing name is required").max(255),
+  neighborhoodNeedId: z.string().uuid().optional(),
   description: z.string().min(1, "Description is required").max(2000),
   categoryId: z.string().min(1, "Category is required"),
   brand: z.string().optional(),

@@ -3,6 +3,26 @@ import { ListingService } from "../listing-service";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
 import type { CreateListingFormDataServerType } from "@/features/listings/form-schema/listing.schema";
 
+const mockAfter = vi.fn((fn: () => Promise<void>) => fn());
+const mockLinkListingToNeed = vi.fn();
+const mockCaptureNonCriticalError = vi.fn();
+
+vi.mock("next/server", () => ({
+  after: (fn: () => Promise<void>) => mockAfter(fn),
+}));
+
+vi.mock(
+  "@/features/neighborhood-needs/services/neighborhood-needs-service",
+  () => ({
+    linkListingToNeed: (...args: unknown[]) => mockLinkListingToNeed(...args),
+  }),
+);
+
+vi.mock("@/lib/api/route-helpers", () => ({
+  captureNonCriticalError: (...args: unknown[]) =>
+    mockCaptureNonCriticalError(...args),
+}));
+
 const { mockLogGatingEvent } = vi.hoisted(() => ({
   mockLogGatingEvent: vi.fn(),
 }));
@@ -132,6 +152,8 @@ const minimalListingPayload = {} as CreateListingFormDataServerType;
 describe("ListingService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAfter.mockImplementation((fn: () => Promise<void>) => fn());
+    mockLinkListingToNeed.mockResolvedValue(undefined);
     mockGetListingById.mockResolvedValue(mockListing);
     mockGetUserById.mockResolvedValue({
       id: "user-1",
@@ -233,6 +255,34 @@ describe("ListingService", () => {
           userAgent: null,
         }),
       ).rejects.toThrow("Failed to create listing");
+    });
+
+    it("calls linkListingToNeed when neighborhoodNeedId is provided", async () => {
+      const payload = {
+        ...minimalListingPayload,
+        neighborhoodNeedId: "00000000-0000-4000-a000-000000000099",
+      } as CreateListingFormDataServerType;
+
+      await ListingService.createListing(payload, "user-1", {
+        ipAddress: null,
+        userAgent: null,
+      });
+
+      expect(mockLinkListingToNeed).toHaveBeenCalledWith({
+        neighborhoodNeedId: "00000000-0000-4000-a000-000000000099",
+        listingType: "rental",
+        listingId: "listing-new",
+        creatorUserId: "user-1",
+      });
+    });
+
+    it("does not call linkListingToNeed when neighborhoodNeedId is absent", async () => {
+      await ListingService.createListing(minimalListingPayload, "user-1", {
+        ipAddress: null,
+        userAgent: null,
+      });
+
+      expect(mockLinkListingToNeed).not.toHaveBeenCalled();
     });
   });
 

@@ -152,6 +152,13 @@ const collapsedMetrics = [
     iconColor: "text-indigo-500",
     activeColor: "text-indigo-600 dark:text-indigo-400",
   },
+  {
+    key: "needs" as const,
+    label: "Needs",
+    icon: HandHelping,
+    iconColor: "text-teal-500",
+    activeColor: "text-teal-600 dark:text-teal-400",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -328,6 +335,25 @@ const sections: PulseSection[] = [
       },
     ],
   },
+  {
+    key: "needs",
+    title: "Neighborhood Needs",
+    color: "text-teal-600 dark:text-teal-400",
+    borderColor: "border-teal-500/30",
+    bgTint: "",
+    badgeBg: "bg-teal-100 dark:bg-teal-900/30",
+    badgeText: "text-teal-700 dark:text-teal-400",
+    dotColor: "bg-teal-500",
+    getTotal: (d) => d.needs.open,
+    rows: [
+      {
+        label: "Open needs in your network",
+        icon: HandHelping,
+        getValue: (d) => d.needs.open,
+        href: "/dashboard/needs",
+      },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -346,6 +372,7 @@ export function DashboardPulse({
     active: sum(data.active),
     upcoming: sum(data.upcoming),
     listed: sum(data.listed),
+    needs: data.needs.open,
   };
 
   const hasCritical =

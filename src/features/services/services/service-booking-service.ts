@@ -41,6 +41,7 @@ import { getPaymentErrorMessage } from "@/services/stripe/rental-payments";
 import { processRefund } from "@/services/stripe/refund";
 
 import { after } from "next/server";
+import { closeNeedsFulfilledByBooking } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
 import type { AuditContext, CreateBookingInput } from "../types";
 
 function appBaseUrl(): string {
@@ -399,6 +400,21 @@ export class ServiceBookingService {
       });
 
       await sendBookingAcceptedNotification(detail.requesterId, updated);
+
+      const needsListingId = detail.listingId;
+      const needsRequesterId = detail.requesterId;
+      after(async () => {
+        await closeNeedsFulfilledByBooking({
+          listingType: "service",
+          listingId: needsListingId,
+          bookerUserId: needsRequesterId,
+        }).catch((err) =>
+          captureNonCriticalError(err, {
+            route: "ServiceBookingService.acceptBooking",
+            action: "closeNeedsFulfilledByBooking",
+          }),
+        );
+      });
 
       const internalSecret = process.env.INTERNAL_API_SECRET;
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL;

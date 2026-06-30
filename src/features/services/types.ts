@@ -18,6 +18,7 @@ export interface CreateListingInput {
   price: number;
   ownerPoliciesAcknowledged: boolean;
   serviceNotes?: string | null;
+  neighborhoodNeedId?: string;
 }
 
 /** Create booking payload. */

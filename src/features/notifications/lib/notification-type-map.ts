@@ -60,4 +60,7 @@ export const NOTIFICATION_TYPE_TO_CATEGORY: Record<
   listing_pending_review: "bookings",
   review_submitted: "bookings",
   admin_dispute_created: "disputes",
+  // Neighborhood needs
+  neighborhood_need_created: "neighborhood_needs",
+  neighborhood_need_listing_created: "neighborhood_needs",
 };

@@ -310,6 +310,20 @@ export function AdminUserDetailClient({ userId }: AdminUserDetailClientProps) {
               <span className="text-muted-foreground">Address verified:</span>{" "}
               {user.addressVerified ? "Yes" : "No"}
             </p>
+            {user.primaryAddress ? (
+              <p>
+                <span className="text-muted-foreground">Address:</span>{" "}
+                {user.primaryAddress.street}, {user.primaryAddress.city},{" "}
+                {user.primaryAddress.state} {user.primaryAddress.zipCode}
+                {user.primaryAddress.country &&
+                  user.primaryAddress.country !== "US" &&
+                  `, ${user.primaryAddress.country}`}
+              </p>
+            ) : (
+              <p>
+                <span className="text-muted-foreground">Address:</span> —
+              </p>
+            )}
             <p>
               <span className="text-muted-foreground">Joined:</span>{" "}
               {formatDate(user.createdAt)}
