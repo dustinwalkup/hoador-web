@@ -52,10 +52,14 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        run: |
+          for i in 1 2 3; do
+            npm install -g vercel@latest && exit 0
+            echo "npm install -g vercel failed (attempt $i/3), retrying in 15s..."
+            sleep 15
+          done
+          echo "npm install -g vercel failed after 3 attempts" >&2
+          exit 1
 
       - name: Pull Vercel Environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
