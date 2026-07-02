@@ -91,7 +91,7 @@ const nextConfig: NextConfig = {
               "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: blob: https://hvom5mpictiugrk9.public.blob.vercel-storage.com https://thnd3cwzf3mlmu4a.public.blob.vercel-storage.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://picsum.photos https://www.facebook.com",
               "connect-src 'self' https://api.stripe.com https://connect-js.stripe.com https://*.sentry.io wss: https://www.facebook.com",
-              "frame-src 'self' https://js.stripe.com https://connect-js.stripe.com https://hooks.stripe.com", // Stripe Connect embedded components
+              "frame-src 'self' https://js.stripe.com https://connect-js.stripe.com https://hooks.stripe.com https://hvom5mpictiugrk9.public.blob.vercel-storage.com https://thnd3cwzf3mlmu4a.public.blob.vercel-storage.com", // Stripe Connect embedded components + Vercel Blob PDFs (legal policy documents rendered in <iframe>)
               "worker-src 'self' blob:", // Allow service worker
               "manifest-src 'self'",
               "frame-ancestors 'none'",
