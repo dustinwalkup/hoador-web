@@ -1,5 +1,5 @@
 import { DollarSign, MapPin, Truck } from "lucide-react";
-import { Control, useWatch } from "react-hook-form";
+import { Control, useFormContext, useWatch } from "react-hook-form";
 
 import type { CreateListingFormClientValues } from "@/features/listings/form-schema/listing.schema";
 
@@ -33,6 +33,8 @@ interface PickupDeliverySectionProps {
 }
 
 export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
+  const { setValue } = useFormContext<CreateListingFormClientValues>();
+
   const deliveryMode = useWatch({
     control,
     name: "deliveryMode",
@@ -58,7 +60,25 @@ export function PickupDeliverySection({ control }: PickupDeliverySectionProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Delivery Options</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  // Setup service is only valid when delivery is available.
+                  // Switching to pickup-only hides the checkbox, so clear it
+                  // (and its fee) to keep the form in a submittable state.
+                  if (value === "pickup_only") {
+                    setValue("setupAvailable", false, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    setValue("setupFee", 0, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+                defaultValue={field.value}
+              >
                 <FormControl>
                   <SelectTrigger className="w-full md:w-fit">
                     <SelectValue placeholder="Select delivery option" />
