@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { FormProvider } from "react-hook-form";
 import { PickupDeliverySection } from "../pickup-delivery-section";
 import { createMockForm } from "@/test/utils/listing-test-helpers";
@@ -271,6 +272,65 @@ describe("PickupDeliverySection", () => {
     // or we can test that clicking opens the dropdown and shows them.
     // For now, we'll verify the Select component is rendered correctly.
     expect(selectTrigger).toHaveTextContent(/delivery/i);
+  });
+
+  it("should clear setup service when switching to pickup only", async () => {
+    const user = userEvent.setup();
+    // Start in a delivery mode with setup service enabled so the checkbox and
+    // fee are part of the form state.
+    mockForm.control._getWatch = vi.fn((name) => {
+      if (name === "deliveryMode") return "delivery_only";
+      if (name === "setupAvailable") return true;
+      return undefined;
+    });
+    mockForm.setValue = vi.fn();
+
+    render(
+      <FormProvider {...(mockForm as any)}>
+        <PickupDeliverySection control={mockForm.control as any} />
+      </FormProvider>,
+    );
+
+    // Open the delivery-mode select and choose "Pickup Only".
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("option", { name: /pickup only/i }));
+
+    // Setup service and its fee should be reset so the form stays submittable.
+    expect(mockForm.setValue).toHaveBeenCalledWith(
+      "setupAvailable",
+      false,
+      expect.objectContaining({ shouldValidate: true }),
+    );
+    expect(mockForm.setValue).toHaveBeenCalledWith(
+      "setupFee",
+      0,
+      expect.objectContaining({ shouldValidate: true }),
+    );
+  });
+
+  it("should not clear setup service when switching to another delivery mode", async () => {
+    const user = userEvent.setup();
+    mockForm.control._getWatch = vi.fn((name) => {
+      if (name === "deliveryMode") return "delivery_only";
+      if (name === "setupAvailable") return true;
+      return undefined;
+    });
+    mockForm.setValue = vi.fn();
+
+    render(
+      <FormProvider {...(mockForm as any)}>
+        <PickupDeliverySection control={mockForm.control as any} />
+      </FormProvider>,
+    );
+
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("option", { name: /both available/i }));
+
+    expect(mockForm.setValue).not.toHaveBeenCalledWith(
+      "setupAvailable",
+      false,
+      expect.anything(),
+    );
   });
 
   it("should render all form fields with proper validation", () => {
