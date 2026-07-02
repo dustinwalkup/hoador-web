@@ -64,6 +64,7 @@ async function getHandler(request: NextRequest) {
   try {
     const authResult = await getAuthenticatedUserResponse();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const sp = request.nextUrl.searchParams;
     const page = Math.max(1, parseInt(sp.get("page") ?? "1", 10) || 1);
@@ -90,10 +91,14 @@ async function getHandler(request: NextRequest) {
       openOnly: sp.get("openOnly") !== "false",
     };
 
+    const viewerLocation =
+      await neighborhoodNeedsDAL.getUserPrimaryLocation(userId);
+
     const result = await neighborhoodNeedsDAL.listFeed(
       visibleCommunityIds,
       filters,
       { page, limit },
+      viewerLocation,
     );
 
     return NextResponse.json(result);

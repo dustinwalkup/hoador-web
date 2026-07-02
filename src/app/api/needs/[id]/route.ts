@@ -34,7 +34,10 @@ async function getHandler(_request: NextRequest, { params }: RouteContext) {
 
     const { id } = await params;
 
-    const detail = await neighborhoodNeedsDAL.getNeedDetail(id);
+    const viewerLocation =
+      await neighborhoodNeedsDAL.getUserPrimaryLocation(userId);
+
+    const detail = await neighborhoodNeedsDAL.getNeedDetail(id, viewerLocation);
     if (!detail) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, Link2 } from "lucide-react";
+import { Calendar, Home, Link2, MapPin, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatMMMd, formatDistanceToNow } from "@/lib/utils/date.utils";
+import { formatDistanceMiles } from "@/lib/utils/geo.utils";
 import type { NeedFeedRow } from "@/dal/neighborhood-needs.dal";
 
 interface NeedCardProps {
@@ -28,6 +29,10 @@ export function NeedCard({ need }: NeedCardProps) {
           ? `Until ${formatMMMd(need.neededEndDate)}`
           : null;
 
+  const distanceLabel = formatDistanceMiles(need.distanceMiles);
+  const hasRating =
+    need.requesterReviewCount > 0 && need.requesterRating != null;
+
   return (
     <Card className="flex flex-col gap-2 p-4">
       <div className="flex items-start justify-between gap-2">
@@ -49,6 +54,28 @@ export function NeedCard({ need }: NeedCardProps) {
       </p>
 
       <CardContent className="mt-auto flex flex-col gap-2 px-0 pt-2 pb-0">
+        <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <span className="flex min-w-0 items-center gap-1">
+            <Home className="h-3 w-3 shrink-0" />
+            <span className="truncate">{need.communityName}</span>
+          </span>
+          {distanceLabel && (
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3 w-3 shrink-0" />
+              {distanceLabel} away
+            </span>
+          )}
+          {hasRating ? (
+            <span className="flex items-center gap-1">
+              <Star className="h-3 w-3 shrink-0 fill-amber-500 text-amber-500" />
+              {Number(need.requesterRating).toFixed(1)} (
+              {need.requesterReviewCount})
+            </span>
+          ) : (
+            <span>New requester</span>
+          )}
+        </div>
+
         {dateRange && (
           <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <Calendar className="h-3 w-3 shrink-0" />

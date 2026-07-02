@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,7 +25,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCreateNeed } from "@/features/neighborhood-needs/hooks/use-needs-mutations";
+import {
+  useCreateNeed,
+  useUpdateNeed,
+} from "@/features/neighborhood-needs/hooks/use-needs-mutations";
 import { NeedShareSuccess } from "./need-share-success";
 import type { NeighborhoodNeed } from "@/db/schemas/neighborhood-needs.schema";
 
@@ -36,6 +40,8 @@ interface Category {
 interface CreateNeedFormProps {
   rentalCategories: Category[];
   serviceCategories: Category[];
+  /** When provided, the form edits this Need instead of creating a new one. */
+  need?: NeighborhoodNeed;
 }
 
 const schema = z
@@ -65,19 +71,24 @@ type FormValues = z.infer<typeof schema>;
 export function CreateNeedForm({
   rentalCategories,
   serviceCategories,
+  need,
 }: CreateNeedFormProps) {
+  const isEditing = Boolean(need);
+  const router = useRouter();
   const [createdNeed, setCreatedNeed] = useState<NeighborhoodNeed | null>(null);
   const createNeed = useCreateNeed();
+  const updateNeed = useUpdateNeed();
+  const mutation = isEditing ? updateNeed : createNeed;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      type: "rental",
-      categoryId: "",
-      title: "",
-      description: "",
-      neededStartDate: "",
-      neededEndDate: "",
+      type: need?.type ?? "rental",
+      categoryId: need?.categoryId ?? "",
+      title: need?.title ?? "",
+      description: need?.description ?? "",
+      neededStartDate: need?.neededStartDate ?? "",
+      neededEndDate: need?.neededEndDate ?? "",
     },
   });
 
@@ -92,6 +103,24 @@ export function CreateNeedForm({
 
   const onSubmit = async (values: FormValues) => {
     try {
+      if (need) {
+        // Type is immutable on edit; the API derives category validation from it.
+        await updateNeed.mutateAsync({
+          id: need.id,
+          input: {
+            categoryId: values.categoryId,
+            title: values.title,
+            description: values.description,
+            neededStartDate: values.neededStartDate || null,
+            neededEndDate: values.neededEndDate || null,
+          },
+        });
+        toast.success("Your need was updated");
+        router.push(`/dashboard/needs/${need.id}`);
+        router.refresh();
+        return;
+      }
+
       const result = await createNeed.mutateAsync({
         type: values.type,
         categoryId: values.categoryId,
@@ -103,7 +132,11 @@ export function CreateNeedForm({
       setCreatedNeed(result);
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to post your need",
+        err instanceof Error
+          ? err.message
+          : isEditing
+            ? "Failed to update your need"
+            : "Failed to post your need",
       );
     }
   };
@@ -115,7 +148,9 @@ export function CreateNeedForm({
   return (
     <Card className="mx-auto w-full max-w-lg">
       <CardHeader>
-        <CardTitle>Post a Neighborhood Need</CardTitle>
+        <CardTitle>
+          {isEditing ? "Edit Need" : "Post a Neighborhood Need"}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -134,6 +169,7 @@ export function CreateNeedForm({
                         type="button"
                         variant={field.value === t ? "default" : "outline"}
                         size="sm"
+                        disabled={isEditing}
                         className={
                           field.value !== t ? "bg-transparent" : undefined
                         }
@@ -143,6 +179,11 @@ export function CreateNeedForm({
                       </Button>
                     ))}
                   </div>
+                  {isEditing && (
+                    <p className="text-muted-foreground text-xs">
+                      Type can&apos;t be changed after posting.
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -259,9 +300,15 @@ export function CreateNeedForm({
             <Button
               type="submit"
               className="w-full"
-              disabled={createNeed.isPending}
+              disabled={mutation.isPending}
             >
-              {createNeed.isPending ? "Posting…" : "Post Need"}
+              {isEditing
+                ? mutation.isPending
+                  ? "Saving…"
+                  : "Save Changes"
+                : mutation.isPending
+                  ? "Posting…"
+                  : "Post Need"}
             </Button>
           </form>
         </Form>

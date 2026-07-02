@@ -34,9 +34,12 @@ vi.mock("@/features/community/utils/membership", () => ({
 // ── DAL mock ──────────────────────────────────────────────────────────────────
 
 const mockListFeed = vi.fn();
+const mockGetUserPrimaryLocation = vi.fn();
 vi.mock("@/dal", () => ({
   neighborhoodNeedsDAL: {
     listFeed: (...a: unknown[]) => mockListFeed(...a),
+    getUserPrimaryLocation: (...a: unknown[]) =>
+      mockGetUserPrimaryLocation(...a),
   },
 }));
 
@@ -117,6 +120,7 @@ beforeEach(() => {
   mockGetAuthenticatedUserResponse.mockResolvedValue(AUTH_USER);
   mockGetCurrentUserVisibleCommunityIds.mockResolvedValue(["comm-1"]);
   mockListFeed.mockResolvedValue(FEED_PAGE);
+  mockGetUserPrimaryLocation.mockResolvedValue(null);
   mockCreateNeed.mockResolvedValue(OPEN_NEED);
 });
 
@@ -242,6 +246,7 @@ describe("GET /api/needs", () => {
       expect.any(Array),
       expect.objectContaining({ type: "service" }),
       expect.any(Object),
+      null,
     );
   });
 
@@ -252,6 +257,7 @@ describe("GET /api/needs", () => {
       expect.any(Array),
       expect.objectContaining({ openOnly: true }),
       expect.any(Object),
+      null,
     );
   });
 
@@ -262,6 +268,7 @@ describe("GET /api/needs", () => {
       expect.any(Array),
       expect.objectContaining({ openOnly: false }),
       expect.any(Object),
+      null,
     );
   });
 
@@ -281,6 +288,7 @@ describe("GET /api/needs", () => {
       expect.any(Array),
       expect.any(Object),
       { page: 2, limit: 10 },
+      null,
     );
   });
 
@@ -291,6 +299,7 @@ describe("GET /api/needs", () => {
       expect.any(Array),
       expect.objectContaining({ type: undefined }),
       expect.any(Object),
+      null,
     );
   });
 });

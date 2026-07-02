@@ -11,8 +11,9 @@ import {
 } from "@/db/schemas/neighborhood-needs.schema";
 import { schema } from "@/db/schemas";
 import type { needCloseReasonEnum, needTypeEnum } from "@/db/schemas/_enums";
+import { haversineMiles, type LatLng } from "@/lib/utils/geo.utils";
 
-const { listings, serviceListings } = schema;
+const { listings, serviceListings, communities, user, userAddresses } = schema;
 
 export type NeedType = (typeof needTypeEnum.enumValues)[number];
 export type NeedCloseReason = (typeof needCloseReasonEnum.enumValues)[number];
@@ -23,7 +24,21 @@ export interface NeedFeedFilters {
   openOnly?: boolean;
 }
 
-export interface NeedFeedRow extends NeighborhoodNeed {
+/**
+ * Enrichment shared by the feed and detail views:
+ * - community name for the need
+ * - the requester's aggregate rating (numeric string, or null if unrated)
+ * - distance in miles from the viewer to the requester's home (null when either
+ *   party has no saved address)
+ */
+export interface NeedEnrichment {
+  communityName: string;
+  requesterRating: string | null;
+  requesterReviewCount: number;
+  distanceMiles: number | null;
+}
+
+export interface NeedFeedRow extends NeighborhoodNeed, NeedEnrichment {
   linkedListingCount: number;
 }
 
@@ -37,7 +52,7 @@ export interface LinkedListingSummary {
   createdAt: Date;
 }
 
-export interface NeedDetail extends NeighborhoodNeed {
+export interface NeedDetail extends NeighborhoodNeed, NeedEnrichment {
   linkedListings: LinkedListingSummary[];
 }
 
@@ -179,6 +194,7 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
     visibleCommunityIds: string[],
     filters: NeedFeedFilters,
     pagination: PaginationOptions,
+    viewerLocation: LatLng | null = null,
   ): Promise<PaginatedResult<NeedFeedRow>> {
     if (visibleCommunityIds.length === 0) {
       return this.createPaginatedResult<NeedFeedRow>(
@@ -213,20 +229,52 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
       `;
 
       type FeedRawRow = Record<string, unknown> & {
-        linked_listing_count?: string;
+        communityName?: string;
+        requesterRating?: string | null;
+        requesterReviewCount?: number | string;
+        requesterLat?: string | null;
+        requesterLng?: string | null;
         linkedListingCount?: number;
       };
 
       const [rows, countRows] = await Promise.all([
         this.db.execute<FeedRawRow>(
           sql.raw(`
-            SELECT n.*,
+            SELECT n.id,
+                   n.created_by_user_id AS "createdByUserId",
+                   n.community_id AS "communityId",
+                   n.type,
+                   n.category_id AS "categoryId",
+                   n.title,
+                   n.description,
+                   n.needed_start_date AS "neededStartDate",
+                   n.needed_end_date AS "neededEndDate",
+                   n.status,
+                   n.close_reason AS "closeReason",
+                   n.closed_at AS "closedAt",
+                   n.deleted_at AS "deletedAt",
+                   n.created_at AS "createdAt",
+                   n.updated_at AS "updatedAt",
+                   c.name AS "communityName",
+                   u.review_aggregate_rating AS "requesterRating",
+                   u.review_count AS "requesterReviewCount",
+                   addr.latitude AS "requesterLat",
+                   addr.longitude AS "requesterLng",
                    COALESCE(l.cnt, 0)::int AS "linkedListingCount"
             FROM neighborhood_needs n
             JOIN community_visibility cv
               ON cv.user_id = n.created_by_user_id
              AND cv.community_id = n.community_id
              AND cv.is_visible = true
+            JOIN communities c ON c.id = n.community_id
+            JOIN "user" u ON u.id = n.created_by_user_id
+            LEFT JOIN LATERAL (
+              SELECT ua.latitude, ua.longitude
+              FROM user_addresses ua
+              WHERE ua.user_id = n.created_by_user_id
+              ORDER BY ua.is_primary DESC
+              LIMIT 1
+            ) addr ON true
             LEFT JOIN LATERAL (
               SELECT count(*) AS cnt
               FROM neighborhood_need_listings nl
@@ -250,12 +298,34 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
         ),
       ]);
 
-      const data = rows.rows.map((r) => ({
-        ...r,
-        linkedListingCount: Number(
-          r["linked_listing_count"] ?? r["linkedListingCount"] ?? 0,
-        ),
-      })) as NeedFeedRow[];
+      const data = rows.rows.map((raw) => {
+        const {
+          requesterLat,
+          requesterLng,
+          requesterRating,
+          requesterReviewCount,
+          communityName,
+          ...rest
+        } = raw as FeedRawRow;
+
+        const distanceMiles =
+          viewerLocation && requesterLat != null && requesterLng != null
+            ? haversineMiles(viewerLocation, {
+                latitude: Number(requesterLat),
+                longitude: Number(requesterLng),
+              })
+            : null;
+
+        return {
+          ...rest,
+          communityName: String(communityName ?? ""),
+          requesterRating:
+            requesterRating != null ? String(requesterRating) : null,
+          requesterReviewCount: Number(requesterReviewCount ?? 0),
+          distanceMiles,
+          linkedListingCount: Number(rest.linkedListingCount ?? 0),
+        };
+      }) as NeedFeedRow[];
 
       const total = Number(
         (countRows.rows[0] as Record<string, unknown>)?.["total"] ?? 0,
@@ -272,7 +342,10 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
   }
 
   /** Need with linked listings, polymorphically resolved to title + href + isLive. */
-  async getNeedDetail(id: string): Promise<NeedDetail | null> {
+  async getNeedDetail(
+    id: string,
+    viewerLocation: LatLng | null = null,
+  ): Promise<NeedDetail | null> {
     try {
       const need = await this.getNeedById(id);
       if (!need) return null;
@@ -325,9 +398,77 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
         }),
       );
 
-      return { ...need, linkedListings };
+      const enrichment = await this.getNeedEnrichment(need, viewerLocation);
+
+      return { ...need, ...enrichment, linkedListings };
     } catch (error) {
       this.handleError(error, "getNeedDetail");
+    }
+  }
+
+  /**
+   * Resolve the community name, requester rating, and viewer→requester distance
+   * for a single need. Distance is null when either party has no saved address.
+   */
+  private async getNeedEnrichment(
+    need: NeighborhoodNeed,
+    viewerLocation: LatLng | null,
+  ): Promise<NeedEnrichment> {
+    const [community] = await this.db
+      .select({ name: communities.name })
+      .from(communities)
+      .where(eq(communities.id, need.communityId))
+      .limit(1);
+
+    const [requester] = await this.db
+      .select({
+        rating: user.reviewAggregateRating,
+        reviewCount: user.reviewCount,
+      })
+      .from(user)
+      .where(eq(user.id, need.createdByUserId))
+      .limit(1);
+
+    const requesterLocation = await this.getUserPrimaryLocation(
+      need.createdByUserId,
+    );
+
+    const distanceMiles =
+      viewerLocation && requesterLocation
+        ? haversineMiles(viewerLocation, requesterLocation)
+        : null;
+
+    return {
+      communityName: community?.name ?? "",
+      requesterRating: requester?.rating ?? null,
+      requesterReviewCount: requester?.reviewCount ?? 0,
+      distanceMiles,
+    };
+  }
+
+  /**
+   * The user's primary address as lat/lng, falling back to any saved address.
+   * Returns null when the user has no address or it lacks coordinates.
+   */
+  async getUserPrimaryLocation(userId: string): Promise<LatLng | null> {
+    try {
+      const [addr] = await this.db
+        .select({
+          latitude: userAddresses.latitude,
+          longitude: userAddresses.longitude,
+        })
+        .from(userAddresses)
+        .where(eq(userAddresses.userId, userId))
+        .orderBy(desc(userAddresses.isPrimary))
+        .limit(1);
+
+      if (!addr?.latitude || !addr?.longitude) return null;
+      return {
+        latitude: Number(addr.latitude),
+        longitude: Number(addr.longitude),
+      };
+    } catch (error) {
+      this.handleError(error, "getUserPrimaryLocation");
     }
   }
 

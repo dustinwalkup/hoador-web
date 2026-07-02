@@ -33,10 +33,13 @@ vi.mock("@/features/auth/utils/session", () => ({
 
 const mockGetNeedDetail = vi.fn();
 const mockGetVisibleCommunityIds = vi.fn();
+const mockGetUserPrimaryLocation = vi.fn();
 
 vi.mock("@/dal", () => ({
   neighborhoodNeedsDAL: {
     getNeedDetail: (...a: unknown[]) => mockGetNeedDetail(...a),
+    getUserPrimaryLocation: (...a: unknown[]) =>
+      mockGetUserPrimaryLocation(...a),
   },
   communityDAL: {
     getVisibleCommunityIds: (...a: unknown[]) =>
@@ -99,6 +102,7 @@ beforeEach(() => {
   mockRequireAdminResponse.mockResolvedValue(null);
   mockGetNeedDetail.mockResolvedValue(OPEN_NEED_DETAIL);
   mockGetVisibleCommunityIds.mockResolvedValue(["comm-1"]);
+  mockGetUserPrimaryLocation.mockResolvedValue(null);
   mockUpdateNeed.mockResolvedValue({ ...OPEN_NEED_DETAIL, title: "Updated" });
   mockDeleteNeed.mockResolvedValue(undefined);
 });

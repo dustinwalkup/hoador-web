@@ -4,8 +4,11 @@ import Link from "next/link";
 import {
   Calendar,
   ExternalLink,
+  Home,
   Link2,
+  MapPin,
   Pencil,
+  Star,
   X,
   CheckCircle2,
 } from "lucide-react";
@@ -16,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { BackButton } from "@/components/back-button";
 import { formatMMMd, formatDistanceToNow } from "@/lib/utils/date.utils";
+import { formatDistanceMiles } from "@/lib/utils/geo.utils";
 import { sanitizeForDisplay } from "@/lib/utils/sanitize-client";
 import {
   useCloseNeed,
@@ -55,6 +59,10 @@ export function NeedDetail({ need, currentUserId, isAdmin }: NeedDetailProps) {
         : need.neededEndDate
           ? `Until ${formatMMMd(need.neededEndDate)}`
           : null;
+
+  const distanceLabel = formatDistanceMiles(need.distanceMiles);
+  const hasRating =
+    need.requesterReviewCount > 0 && need.requesterRating != null;
 
   const createListingHref =
     need.type === "rental"
@@ -139,6 +147,25 @@ export function NeedDetail({ need, currentUserId, isAdmin }: NeedDetailProps) {
                 <span>Needed {dateRange}</span>
               </div>
             )}
+
+            <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+              <span className="flex items-center gap-2">
+                <Home className="h-4 w-4 shrink-0" />
+                {need.communityName}
+              </span>
+              {distanceLabel && (
+                <span className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 shrink-0" />
+                  {distanceLabel} away
+                </span>
+              )}
+              <span className="flex items-center gap-2">
+                <Star className="h-4 w-4 shrink-0 fill-amber-500 text-amber-500" />
+                {hasRating
+                  ? `${Number(need.requesterRating).toFixed(1)} (${need.requesterReviewCount} ${need.requesterReviewCount === 1 ? "review" : "reviews"})`
+                  : "New requester"}
+              </span>
+            </div>
 
             <Separator />
 

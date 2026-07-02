@@ -14,7 +14,10 @@ export default async function NeedDetailPage({ params }: NeedDetailPageProps) {
   if (!auth) redirect("/sign-in");
 
   const { id } = await params;
-  const need = await neighborhoodNeedsDAL.getNeedDetail(id);
+  const viewerLocation = await neighborhoodNeedsDAL.getUserPrimaryLocation(
+    auth.userId,
+  );
+  const need = await neighborhoodNeedsDAL.getNeedDetail(id, viewerLocation);
 
   if (!need || need.deletedAt) {
     notFound();

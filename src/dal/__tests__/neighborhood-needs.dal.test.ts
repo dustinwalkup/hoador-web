@@ -260,7 +260,13 @@ describe("NeighborhoodNeedsDAL", () => {
     });
 
     it("returns paginated feed rows when communities are provided", async () => {
-      const feedRow = { ...mockNeed, linked_listing_count: "2" };
+      const feedRow = {
+        ...mockNeed,
+        communityName: "Maple Street HOA",
+        requesterRating: "4.50",
+        requesterReviewCount: 3,
+        linkedListingCount: 2,
+      };
       vi.mocked(db.execute)
         .mockResolvedValueOnce({ rows: [feedRow] } as any)
         .mockResolvedValueOnce({ rows: [{ total: "1" }] } as any);
@@ -273,6 +279,11 @@ describe("NeighborhoodNeedsDAL", () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].linkedListingCount).toBe(2);
+      expect(result.data[0].communityName).toBe("Maple Street HOA");
+      expect(result.data[0].requesterRating).toBe("4.50");
+      expect(result.data[0].requesterReviewCount).toBe(3);
+      // No viewer location passed → distance is null
+      expect(result.data[0].distanceMiles).toBeNull();
       expect(result.pagination.total).toBe(1);
       expect(db.execute).toHaveBeenCalledTimes(2);
     });
