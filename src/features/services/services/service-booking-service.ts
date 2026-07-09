@@ -288,61 +288,91 @@ export class ServiceBookingService {
       throw new ValidationError("Booking is not pending", "status");
     }
 
-    // Stripe Connect readiness: fast-path on cached flags, then authoritative
-    // live retrieve. Throws PaymentSetupRequiredError on any failure; the
-    // route handler translates that to a 403 PAYMENT_SETUP_REQUIRED response.
-    // Booking stays in `pending` since we throw before transitioning state.
-    await assertConnectReady(providerId, {
-      bookingType: "service",
-      bookingId,
-    });
-
-    const stripeCtx = await getStripeCustomerContext(detail.requesterId);
-    if (!stripeCtx) {
-      throw new ValidationError("payment_method_required", "paymentMethod");
-    }
-
-    let paymentMethodId: string;
-
-    if (detail.status === "payment_failed") {
-      // On retry, always use the requester's current Stripe default — not the previously failed PM.
-      paymentMethodId = stripeCtx.paymentMethodId;
-
-      // Guard: if the default hasn't changed since the failure, reject early.
-      if (
-        detail.selectedPaymentMethodId != null &&
-        detail.selectedPaymentMethodId === paymentMethodId
-      ) {
-        throw new ValidationError(
-          "Payment method is unchanged. Please update your default payment method and ask the provider to retry.",
-          "paymentMethod",
-        );
-      }
-    } else {
-      // First acceptance attempt: prefer the PM the requester chose at booking creation.
-      paymentMethodId =
-        detail.selectedPaymentMethodId ?? stripeCtx.paymentMethodId;
-    }
-
-    // Backstop: never hand Stripe an amount it will reject as invalid. The
-    // listing price floor prevents this for new listings; this catches
-    // legacy/below-floor listings before they hit Stripe with an opaque error.
-    const chargeAmount = Number(detail.totalAmount);
-    if (chargeAmount < STRIPE_MINIMUM_CHARGE_USD) {
-      throw new ValidationError(
-        `This booking total ($${chargeAmount.toFixed(2)}) is below the $${STRIPE_MINIMUM_CHARGE_USD.toFixed(2)} minimum required to process a payment. Please contact support.`,
-        "amount",
+    // Atomically claim the booking for payment processing before any Stripe
+    // work. Flips paymentStatus -> "processing" only from null/"failed", so two
+    // concurrent accept calls (or a retry that races an in-flight attempt)
+    // cannot both reach the charge and double-charge the requester.
+    const claimed = await serviceBookingDAL.claimForAcceptance(bookingId);
+    if (!claimed) {
+      throw new ConflictError(
+        "This booking's payment is already being processed.",
       );
     }
 
+    let customerId: string;
+    let paymentMethodId: string;
+
+    // Pre-charge preconditions. The claim above flipped paymentStatus to
+    // "processing"; any throw in this region must release the claim, restoring
+    // the prior status (null for a first attempt, "failed" for a retry), or a
+    // failed precondition would brick the booking in "processing" forever.
+    try {
+      // Stripe Connect readiness: fast-path on cached flags, then authoritative
+      // live retrieve. Throws PaymentSetupRequiredError on any failure; the
+      // route handler translates that to a 403 PAYMENT_SETUP_REQUIRED response.
+      await assertConnectReady(providerId, {
+        bookingType: "service",
+        bookingId,
+      });
+
+      const stripeCtx = await getStripeCustomerContext(detail.requesterId);
+      if (!stripeCtx) {
+        throw new ValidationError("payment_method_required", "paymentMethod");
+      }
+      customerId = stripeCtx.customerId;
+
+      if (detail.status === "payment_failed") {
+        // On retry, always use the requester's current Stripe default — not the previously failed PM.
+        paymentMethodId = stripeCtx.paymentMethodId;
+
+        // Guard: if the default hasn't changed since the failure, reject early.
+        if (
+          detail.selectedPaymentMethodId != null &&
+          detail.selectedPaymentMethodId === paymentMethodId
+        ) {
+          throw new ValidationError(
+            "Payment method is unchanged. Please update your default payment method and ask the provider to retry.",
+            "paymentMethod",
+          );
+        }
+      } else {
+        // First acceptance attempt: prefer the PM the requester chose at booking creation.
+        paymentMethodId =
+          detail.selectedPaymentMethodId ?? stripeCtx.paymentMethodId;
+      }
+
+      // Backstop: never hand Stripe an amount it will reject as invalid. The
+      // listing price floor prevents this for new listings; this catches
+      // legacy/below-floor listings before they hit Stripe with an opaque error.
+      const chargeAmount = Number(detail.totalAmount);
+      if (chargeAmount < STRIPE_MINIMUM_CHARGE_USD) {
+        throw new ValidationError(
+          `This booking total ($${chargeAmount.toFixed(2)}) is below the $${STRIPE_MINIMUM_CHARGE_USD.toFixed(2)} minimum required to process a payment. Please contact support.`,
+          "amount",
+        );
+      }
+    } catch (err) {
+      // Release the claim so the booking stays acceptable, then rethrow the
+      // original precondition error untouched (the route maps it to a status).
+      await serviceBookingDAL.update(bookingId, {
+        paymentStatus: detail.status === "payment_failed" ? "failed" : null,
+      });
+      throw err;
+    }
+
+    // Deterministic so two concurrent retries with the same card share a key
+    // (Stripe dedupes); a retry with a genuinely new card gets a new key.
     const chargeIdempotencyKey =
       detail.status === "payment_failed"
-        ? `service-charge-${detail.id}-retry-${Date.now()}`
+        ? `service-charge-${detail.id}-retry-${paymentMethodId}`
         : `service-charge-${detail.id}`;
 
+    // Region A — the charge. On failure no money moved, so it is safe to reset
+    // the booking to a retryable state.
+    let chargeResult: Awaited<ReturnType<typeof chargeServicePayment>>;
     try {
-      const { paymentIntent, chargeId } = await chargeServicePayment({
-        customerId: stripeCtx.customerId,
+      chargeResult = await chargeServicePayment({
+        customerId,
         paymentMethodId,
         amount: Number(detail.totalAmount),
         metadata: {
@@ -354,94 +384,13 @@ export class ServiceBookingService {
         },
         idempotencyKey: chargeIdempotencyKey,
       });
-
-      const updated = await serviceBookingDAL.update(bookingId, {
-        status: "accepted",
-        stripePaymentIntentId: paymentIntent.id,
-        stripeChargeId: chargeId,
-        paymentStatus: paymentIntent.status,
-      });
-
-      await paymentDAL.createPayment({
-        serviceBookingId: detail.id,
-        payerId: detail.requesterId,
-        payeeId: detail.providerId,
-        amount: String(detail.totalAmount),
-        platformFee: String(detail.serviceFee),
-        paymentMethodId,
-        stripePaymentIntentId: paymentIntent.id,
-        status: "succeeded",
-        paidAt: new Date(),
-        paymentType: "service_charge",
-      });
-
-      const providerPayout =
-        Math.round(
-          Number(detail.servicePrice) * (1 - PLATFORM_FEE_PERCENTAGE) * 100,
-        ) / 100;
-
-      await servicePaymentLifecycleDAL.create({
-        bookingId: detail.id,
-        chargeId,
-        providerPayout: String(providerPayout),
-        ownerTransferStatus: "pending",
-        payoutStatus: "pending",
-      });
-
-      await auditLogDAL.create({
-        entityType: "service_booking",
-        entityId: bookingId,
-        action: "service_booking.accepted",
-        userId: providerId,
-        metadata: { paymentIntentId: paymentIntent.id },
-        ipAddress: context.ipAddress ?? undefined,
-        userAgent: context.userAgent ?? undefined,
-      });
-
-      await sendBookingAcceptedNotification(detail.requesterId, updated);
-
-      const internalSecret = process.env.INTERNAL_API_SECRET;
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
-      if (internalSecret && baseUrl) {
-        const pdfUrl = `${baseUrl}/api/internal/generate-service-agreement`;
-        after(async () => {
-          try {
-            console.log("[pdf-gen] triggering service agreement", {
-              url: pdfUrl,
-              serviceBookingId: bookingId,
-            });
-            const res = await fetch(pdfUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${internalSecret}`,
-              },
-              body: JSON.stringify({ serviceBookingId: bookingId }),
-              signal: AbortSignal.timeout(30_000),
-            });
-            const body = await res.text().catch(() => "unreadable");
-            console.log("[pdf-gen] service agreement response", {
-              status: res.status,
-              body: body.slice(0, 500),
-            });
-          } catch (err) {
-            console.error("[pdf-gen] service agreement fetch failed", {
-              url: pdfUrl,
-              error: err instanceof Error ? err.message : String(err),
-            });
-            captureNonCriticalError(err, {
-              route: "ServiceBookingService.acceptBooking",
-              action: "trigger_service_agreement_pdf",
-            });
-          }
-        });
-      }
-
-      return updated;
     } catch (error) {
+      // Persist the PM that failed so the "unchanged PM" guard fires on the
+      // next retry even when the requester never explicitly selected a PM.
       await serviceBookingDAL.update(bookingId, {
         status: "payment_failed",
         paymentStatus: "failed",
+        selectedPaymentMethodId: paymentMethodId,
       });
 
       const message = getPaymentErrorMessage(error);
@@ -484,6 +433,127 @@ export class ServiceBookingService {
         "We could not process the requester's payment for this booking.",
       );
     }
+
+    const { paymentIntent, chargeId } = chargeResult;
+
+    // Region B — post-charge persistence. The charge SUCCEEDED; money has
+    // moved. On any failure here we must NOT reset the booking to a retryable
+    // status — that re-arms a second charge (plan 005 STOP #4). Leave the claim
+    // in place (paymentStatus stays "processing") and alert ops for manual
+    // reconciliation.
+    let updated: Awaited<ReturnType<typeof serviceBookingDAL.update>>;
+    try {
+      updated = await serviceBookingDAL.update(bookingId, {
+        status: "accepted",
+        stripePaymentIntentId: paymentIntent.id,
+        stripeChargeId: chargeId,
+        paymentStatus: paymentIntent.status,
+      });
+
+      await paymentDAL.createPayment({
+        serviceBookingId: detail.id,
+        payerId: detail.requesterId,
+        payeeId: detail.providerId,
+        amount: String(detail.totalAmount),
+        platformFee: String(detail.serviceFee),
+        paymentMethodId,
+        stripePaymentIntentId: paymentIntent.id,
+        status: "succeeded",
+        paidAt: new Date(),
+        paymentType: "service_charge",
+      });
+
+      const providerPayout =
+        Math.round(
+          Number(detail.servicePrice) * (1 - PLATFORM_FEE_PERCENTAGE) * 100,
+        ) / 100;
+
+      await servicePaymentLifecycleDAL.create({
+        bookingId: detail.id,
+        chargeId,
+        providerPayout: String(providerPayout),
+        ownerTransferStatus: "pending",
+        payoutStatus: "pending",
+      });
+
+      await auditLogDAL.create({
+        entityType: "service_booking",
+        entityId: bookingId,
+        action: "service_booking.accepted",
+        userId: providerId,
+        metadata: { paymentIntentId: paymentIntent.id },
+        ipAddress: context.ipAddress ?? undefined,
+        userAgent: context.userAgent ?? undefined,
+      });
+    } catch (error) {
+      // The charge succeeded but persistence failed. Do NOT mark the booking
+      // payment_failed — that re-arms a second charge. Leave the claim in
+      // place (paymentStatus stays "processing") and alert ops with the
+      // PaymentIntent id for manual reconciliation.
+      captureNonCriticalError(error, {
+        route: "/api/services/bookings",
+        action: "accept_booking_post_charge_persistence_failed",
+      });
+      await sendOpsAlert({
+        event: "service_booking_accept_post_charge_failure",
+        serviceBookingId: bookingId,
+        message: `Charge ${paymentIntent.id} succeeded but post-charge persistence failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        sendEmailAlert: true,
+      });
+      throw new ConflictError(
+        "Payment was processed but finalizing the booking failed. Support has been alerted; do not retry.",
+      );
+    }
+
+    // Region C — notification is non-critical: a failure here must neither fail
+    // the (already paid) acceptance nor re-arm the charge.
+    sendBookingAcceptedNotification(detail.requesterId, updated).catch((err) =>
+      captureNonCriticalError(err, {
+        route: "/api/services/bookings",
+        action: "accept_booking_notification_failed",
+      }),
+    );
+
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (internalSecret && baseUrl) {
+      const pdfUrl = `${baseUrl}/api/internal/generate-service-agreement`;
+      after(async () => {
+        try {
+          console.log("[pdf-gen] triggering service agreement", {
+            url: pdfUrl,
+            serviceBookingId: bookingId,
+          });
+          const res = await fetch(pdfUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${internalSecret}`,
+            },
+            body: JSON.stringify({ serviceBookingId: bookingId }),
+            signal: AbortSignal.timeout(30_000),
+          });
+          const body = await res.text().catch(() => "unreadable");
+          console.log("[pdf-gen] service agreement response", {
+            status: res.status,
+            body: body.slice(0, 500),
+          });
+        } catch (err) {
+          console.error("[pdf-gen] service agreement fetch failed", {
+            url: pdfUrl,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          captureNonCriticalError(err, {
+            route: "ServiceBookingService.acceptBooking",
+            action: "trigger_service_agreement_pdf",
+          });
+        }
+      });
+    }
+
+    return updated;
   }
 
   /**
