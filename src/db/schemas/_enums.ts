@@ -82,6 +82,9 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "listing_pending_review",
   "review_submitted",
   "admin_dispute_created",
+  // Neighborhood needs
+  "neighborhood_need_created",
+  "neighborhood_need_listing_created",
 ]);
 
 /** User activity types for admin activity log and inactivity filtering. */
@@ -190,6 +193,7 @@ export const notificationCategoryEnum = pgEnum("notification_category", [
   "messages",
   "disputes",
   "reminders",
+  "neighborhood_needs",
 ]);
 
 /** Platform for push subscription (web vs native). */
@@ -289,3 +293,11 @@ export const serviceOwnerTransferStatusEnum = pgEnum(
   "service_owner_transfer_status",
   ["pending", "processing", "completed", "failed", "frozen"],
 );
+
+export const needTypeEnum = pgEnum("need_type", ["rental", "service"]);
+export const needStatusEnum = pgEnum("need_status", ["open", "closed"]);
+export const needCloseReasonEnum = pgEnum("need_close_reason", [
+  "manual",
+  "booking",
+  "admin",
+]);

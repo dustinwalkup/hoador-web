@@ -13,6 +13,7 @@ import {
   SettingsIcon,
   CalendarCheck,
   DollarSign,
+  HandHelping,
 } from "lucide-react";
 import DoorIcon from "@/components/ui/door-icon";
 
@@ -38,6 +39,11 @@ export const MAIN_NAV: MainNavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: HomeIcon },
   // TODO: Add Favorites
   // { title: "Favorites", url: "/dashboard/favorites", icon: HeartIcon },
+  {
+    title: "Neighborhood Needs",
+    url: "/dashboard/needs",
+    icon: HandHelping,
+  },
   {
     title: "Browse",
     icon: DoorIcon,

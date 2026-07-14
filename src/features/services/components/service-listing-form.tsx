@@ -70,6 +70,7 @@ interface ServiceListingFormProps {
   communityId: string;
   categories: CategoryOption[];
   initial?: Partial<ServiceListing>;
+  neighborhoodNeedId?: string;
 }
 
 const baseSchema = z.object({
@@ -129,6 +130,7 @@ export function ServiceListingForm({
   communityId,
   categories,
   initial,
+  neighborhoodNeedId,
 }: ServiceListingFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -149,7 +151,7 @@ export function ServiceListingForm({
     resolver: zodResolver(mode === "create" ? createSchema : baseSchema),
     defaultValues: {
       title: initial?.title ?? "",
-      ...(mode === "create" ? { categoryId: "" } : {}),
+      ...(mode === "create" ? { categoryId: initial?.categoryId ?? "" } : {}),
       pricingType: initial?.pricingType ?? "fixed",
       price: initial?.price != null ? Number(initial.price) : 0,
       description: initial?.description ?? "",
@@ -174,6 +176,7 @@ export function ServiceListingForm({
             price: values.price,
             ownerPoliciesAcknowledged: values.ownerPoliciesAcknowledged,
             serviceNotes: values.serviceNotes?.trim() || null,
+            ...(neighborhoodNeedId ? { neighborhoodNeedId } : {}),
           }),
         });
         const data = await res.json().catch(() => ({}));

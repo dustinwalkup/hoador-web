@@ -275,14 +275,14 @@ describe("ExplorePageContent", () => {
     it("should default to /dashboard/explore for basePath", () => {
       render(<ExplorePageContent listings={[]} />);
 
-      const link = screen.getByTestId("next-link");
+      const link = screen.getByRole("link", { name: /browse all/i });
       expect(link).toHaveAttribute("href", "/dashboard/explore");
     });
 
     it("should use custom basePath when provided", () => {
       render(<ExplorePageContent listings={[]} basePath="/custom/path" />);
 
-      const link = screen.getByTestId("next-link");
+      const link = screen.getByRole("link", { name: /browse all/i });
       expect(link).toHaveAttribute("href", "/custom/path");
     });
 
@@ -290,7 +290,7 @@ describe("ExplorePageContent", () => {
       const customPath = "/explore/tools";
       render(<ExplorePageContent listings={[]} basePath={customPath} />);
 
-      const link = screen.getByTestId("next-link");
+      const link = screen.getByRole("link", { name: /browse all/i });
       expect(link).toHaveAttribute("href", customPath);
     });
   });

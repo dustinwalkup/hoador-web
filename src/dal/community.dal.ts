@@ -958,6 +958,28 @@ export class CommunityDAL extends BaseDAL {
   }
 
   /**
+   * Fan-out audience for a new neighborhood need: every user who has
+   * `is_visible = true` for the given community. The creator is excluded
+   * by the caller (NeighborhoodNeedsService).
+   */
+  async getUserIdsVisibleInCommunity(communityId: string): Promise<string[]> {
+    try {
+      const rows = await this.db
+        .select({ userId: communityVisibility.userId })
+        .from(communityVisibility)
+        .where(
+          and(
+            eq(communityVisibility.communityId, communityId),
+            eq(communityVisibility.isVisible, true),
+          ),
+        );
+      return rows.map((r) => r.userId);
+    } catch (error) {
+      this.handleError(error, "getUserIdsVisibleInCommunity");
+    }
+  }
+
+  /**
    * Hot path: returns the IDs of communities this user is currently visible
    * in. Consumed by the listing search.
    */

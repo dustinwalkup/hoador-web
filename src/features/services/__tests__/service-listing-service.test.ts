@@ -2,6 +2,24 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ServiceListingService } from "../services/service-listing-service";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/dal/errors";
 
+// next/server `after` runs callbacks post-response; in tests we call them
+// synchronously so assertions on side-effects work without await gymnastics.
+vi.mock("next/server", () => ({
+  after: (fn: () => Promise<void>) => fn(),
+}));
+
+vi.mock(
+  "@/features/neighborhood-needs/services/neighborhood-needs-service",
+  () => ({
+    linkListingToNeed: vi.fn().mockResolvedValue(undefined),
+    notifyRequesterListingLive: vi.fn().mockResolvedValue(undefined),
+  }),
+);
+
+vi.mock("@/lib/api/route-helpers", () => ({
+  captureNonCriticalError: vi.fn(),
+}));
+
 const { mockLogGatingEvent } = vi.hoisted(() => ({
   mockLogGatingEvent: vi.fn(),
 }));

@@ -34,6 +34,7 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   messages: "Messages",
   disputes: "Disputes",
   reminders: "Reminders",
+  neighborhood_needs: "Neighborhood Needs",
 };
 
 /**

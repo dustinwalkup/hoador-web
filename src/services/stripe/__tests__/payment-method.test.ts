@@ -8,6 +8,9 @@ const mockCustomersRetrieve = vi.fn();
 const mockFindFailedDepositsForRenter = vi.fn();
 const mockUpdateDepositHoldStatus = vi.fn();
 const mockGetStripeCustomerId = vi.fn();
+const mockFindPaymentFailedByRequester = vi.fn();
+const mockSendPaymentMethodUpdatedProviderNotification = vi.fn();
+const mockSendPaymentMethodUpdatedRequesterConfirmationNotification = vi.fn();
 
 vi.mock("@/services/stripe/server", () => ({
   PAYMENT_SERVER_INSTANCE: {
@@ -30,10 +33,22 @@ vi.mock("@/dal", () => ({
     updateDepositHoldStatus: (...args: unknown[]) =>
       mockUpdateDepositHoldStatus(...args),
   },
+  serviceBookingDAL: {
+    findPaymentFailedByRequester: (...args: unknown[]) =>
+      mockFindPaymentFailedByRequester(...args),
+  },
   userDAL: {
     getStripeCustomerId: (...args: unknown[]) =>
       mockGetStripeCustomerId(...args),
   },
+}));
+
+vi.mock("@/features/services/notifications/service-notifications", () => ({
+  sendPaymentMethodUpdatedProviderNotification: (...args: unknown[]) =>
+    mockSendPaymentMethodUpdatedProviderNotification(...args),
+  sendPaymentMethodUpdatedRequesterConfirmationNotification: (
+    ...args: unknown[]
+  ) => mockSendPaymentMethodUpdatedRequesterConfirmationNotification(...args),
 }));
 
 import {
@@ -41,6 +56,7 @@ import {
   setDefaultPaymentMethod,
   detachPaymentMethod,
   recoverFailedDeposits,
+  recoverFailedServiceBookings,
   getStripeCustomerContext,
   listStripeCardPaymentMethodsForUser,
 } from "../payment-method";
@@ -49,6 +65,13 @@ describe("PaymentMethodService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFindFailedDepositsForRenter.mockResolvedValue([]);
+    mockFindPaymentFailedByRequester.mockResolvedValue([]);
+    mockSendPaymentMethodUpdatedProviderNotification.mockResolvedValue(
+      undefined,
+    );
+    mockSendPaymentMethodUpdatedRequesterConfirmationNotification.mockResolvedValue(
+      undefined,
+    );
   });
 
   describe("attachPaymentMethod", () => {
@@ -203,6 +226,79 @@ describe("PaymentMethodService", () => {
       mockUpdateDepositHoldStatus.mockRejectedValue(new Error("Update failed"));
 
       await expect(recoverFailedDeposits("renter-1")).resolves.toBeUndefined();
+    });
+  });
+
+  describe("recoverFailedServiceBookings", () => {
+    it("sends provider and requester notifications for each unmatched failed booking", async () => {
+      const failedBookings = [
+        {
+          providerId: "prov-1",
+          selectedPaymentMethodId: "pm_old",
+          bookingId: "book-1",
+        },
+        {
+          providerId: "prov-2",
+          selectedPaymentMethodId: null,
+          bookingId: "book-2",
+        },
+      ];
+      mockFindPaymentFailedByRequester.mockResolvedValue(failedBookings);
+
+      await recoverFailedServiceBookings("user-1", "pm_new");
+
+      expect(mockFindPaymentFailedByRequester).toHaveBeenCalledWith("user-1");
+      expect(
+        mockSendPaymentMethodUpdatedProviderNotification,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        mockSendPaymentMethodUpdatedRequesterConfirmationNotification,
+      ).toHaveBeenCalledTimes(2);
+    });
+
+    it("skips bookings whose selectedPaymentMethodId already matches the new one", async () => {
+      const failedBookings = [
+        {
+          providerId: "prov-1",
+          selectedPaymentMethodId: "pm_new",
+          bookingId: "book-1",
+        },
+        {
+          providerId: "prov-2",
+          selectedPaymentMethodId: "pm_old",
+          bookingId: "book-2",
+        },
+      ];
+      mockFindPaymentFailedByRequester.mockResolvedValue(failedBookings);
+
+      await recoverFailedServiceBookings("user-1", "pm_new");
+
+      expect(
+        mockSendPaymentMethodUpdatedProviderNotification,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        mockSendPaymentMethodUpdatedProviderNotification,
+      ).toHaveBeenCalledWith("prov-2", failedBookings[1]);
+    });
+
+    it("does nothing when there are no failed bookings", async () => {
+      mockFindPaymentFailedByRequester.mockResolvedValue([]);
+
+      await recoverFailedServiceBookings("user-1", "pm_new");
+
+      expect(
+        mockSendPaymentMethodUpdatedProviderNotification,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("swallows errors and does not throw", async () => {
+      mockFindPaymentFailedByRequester.mockRejectedValue(
+        new Error("DB connection error"),
+      );
+
+      await expect(
+        recoverFailedServiceBookings("user-1", "pm_new"),
+      ).resolves.toBeUndefined();
     });
   });
 

@@ -18,6 +18,7 @@ export const createServiceListingSchema = z.object({
     message: "You must acknowledge owner policies",
   }),
   serviceNotes: z.string().max(5000).optional().nullable(),
+  neighborhoodNeedId: z.string().uuid().optional(),
 });
 
 /** PATCH /api/services/listings/[id] */

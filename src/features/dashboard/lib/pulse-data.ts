@@ -3,7 +3,14 @@
  * Fetches all counts needed for the pulse collapsed/expanded views.
  */
 
-import { rentalDAL, listingDAL, serviceListingDAL, disputeDAL } from "@/dal";
+import {
+  rentalDAL,
+  listingDAL,
+  serviceListingDAL,
+  disputeDAL,
+  neighborhoodNeedsDAL,
+  communityDAL,
+} from "@/dal";
 import type { DashboardPulseData } from "@/features/dashboard/types";
 import {
   getBorrowedListingsCached,
@@ -152,6 +159,19 @@ export async function getDashboardPulseData(
     (sl) => sl.status === "active",
   ).length;
 
+  // ---------------------------------------------------------------------------
+  // Needs — open neighborhood needs visible to this user
+  // ---------------------------------------------------------------------------
+
+  const visibleCommunityIds = await safe(
+    () => communityDAL.getVisibleCommunityIds(userId),
+    [],
+  );
+  const openNeeds = await safe(
+    () => neighborhoodNeedsDAL.countOpenVisibleNeeds(visibleCommunityIds),
+    0,
+  );
+
   return {
     action: {
       pendingRequests,
@@ -174,6 +194,9 @@ export async function getDashboardPulseData(
     listed: {
       tools: activeToolListings,
       services: activeServiceListings,
+    },
+    needs: {
+      open: openNeeds,
     },
   };
 }

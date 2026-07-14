@@ -5,9 +5,11 @@ import Link from "next/link";
 import { Briefcase } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import type { ServiceListingBrowseItem } from "@/dal/service-listing.dal";
 import { useServiceBrowseFilters } from "@/features/services/hooks/use-service-browse-filters";
 import { cn } from "@/lib/utils";
+import { EmptyStateNeedCTA } from "@/features/neighborhood-needs/components/empty-state-need-cta";
 import { ServiceBrowseFilters } from "./service-browse-filters";
 import { ListingCard } from "./listing-card";
 
@@ -114,41 +116,48 @@ export function ServiceBrowseClient({
       <ServiceBrowseFilters categories={categories} />
 
       {filtered.length === 0 ? (
-        <div className="text-muted-foreground rounded-lg border border-dashed p-12 text-center">
-          <Briefcase className="mx-auto mb-3 size-10 opacity-40" />
-          <p className="text-foreground mb-4 text-lg font-medium">
-            {listings.length === 0
-              ? "No services available in your community yet"
-              : "No services match your search"}
-          </p>
-          {listings.length === 0 && canCreateListing ? (
-            <Button asChild>
-              <Link href="/dashboard/services/listings/create">
-                Create a listing
-              </Link>
-            </Button>
-          ) : listings.length === 0 && !canCreateListing ? (
-            <p className="text-sm">
-              Complete Stripe Connect onboarding under Payments → Earnings to
-              offer services here.
+        <div className="space-y-6">
+          <div className="text-muted-foreground rounded-lg border border-dashed p-12 text-center">
+            <Briefcase className="mx-auto mb-3 size-10 opacity-40" />
+            <p className="text-foreground mb-4 text-lg font-medium">
+              {listings.length === 0
+                ? "No services available in your community yet"
+                : "No services match your search"}
             </p>
-          ) : hasActiveFilters ? (
-            <Button
-              variant="outline"
-              onClick={() =>
-                updateState({
-                  query: undefined,
-                  categoryId: undefined,
-                  minPrice: "",
-                  maxPrice: "",
-                  pricingTypes: [],
-                  sortBy: "newest",
-                })
-              }
-            >
-              Clear filters
-            </Button>
-          ) : null}
+            {listings.length === 0 && canCreateListing ? (
+              <Button asChild>
+                <Link href="/dashboard/services/listings/create">
+                  Create a listing
+                </Link>
+              </Button>
+            ) : listings.length === 0 && !canCreateListing ? (
+              <p className="text-sm">
+                Complete Stripe Connect onboarding under Payments → Earnings to
+                offer services here.
+              </p>
+            ) : hasActiveFilters ? (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  updateState({
+                    query: undefined,
+                    categoryId: undefined,
+                    minPrice: "",
+                    maxPrice: "",
+                    pricingTypes: [],
+                    sortBy: "newest",
+                  })
+                }
+              >
+                Clear filters
+              </Button>
+            ) : null}
+          </div>
+          <Separator />
+          <EmptyStateNeedCTA
+            type="service"
+            categoryId={state.categoryId ?? undefined}
+          />
         </div>
       ) : (
         <div

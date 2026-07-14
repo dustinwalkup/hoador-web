@@ -29,6 +29,7 @@ interface Category {
 interface CreateListingClientProps {
   categories: Category[];
   ownerPolicyDocuments?: OwnerPolicyDocuments;
+  initialValues?: Partial<CreateListingFormClientValues>;
 }
 
 /**
@@ -49,6 +50,7 @@ interface CreateListingClientProps {
 export function CreateListingClient({
   categories,
   ownerPolicyDocuments,
+  initialValues: externalInitialValues,
 }: CreateListingClientProps) {
   const [aiDraft, setAiDraft] = useState<AiDraft | null>(null);
   const [stagedImages, setStagedImages] = useState<ImageFile[]>([]);
@@ -74,16 +76,23 @@ export function CreateListingClient({
     setModalDismissed(true);
   }, []);
 
-  // `initialValues` is rebuilt whenever the AI draft or staged images change.
-  // We pass it as a plain object — the form's `useListingForm` spreads it over
-  // defaults, so undefined/missing keys keep the manual defaults.
+  // `initialValues` is rebuilt whenever the AI draft, staged images, or
+  // external (need pre-fill) values change. AI values win for display fields;
+  // `neighborhoodNeedId` from the external pre-fill is always preserved since
+  // the AI assistant has no knowledge of it.
   const initialValues = useMemo<
     Partial<CreateListingFormClientValues> | undefined
   >(() => {
-    if (aiDraft) return aiDraftToInitialValues(aiDraft, stagedImages);
-    if (stagedImages.length > 0) return { images: stagedImages };
-    return undefined;
-  }, [aiDraft, stagedImages]);
+    const needId = externalInitialValues?.neighborhoodNeedId;
+    if (aiDraft) {
+      const ai = aiDraftToInitialValues(aiDraft, stagedImages);
+      return needId ? { ...ai, neighborhoodNeedId: needId } : ai;
+    }
+    if (stagedImages.length > 0) {
+      return { ...externalInitialValues, images: stagedImages };
+    }
+    return externalInitialValues;
+  }, [aiDraft, stagedImages, externalInitialValues]);
 
   const aiPrefilledFields = useMemo<
     ReadonlyArray<AiPrefilledFieldKey> | undefined
