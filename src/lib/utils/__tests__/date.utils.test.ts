@@ -194,6 +194,18 @@ describe("date.utils", () => {
       );
     });
 
+    it("should format a future date's magnitude without a negative sign", () => {
+      const futureDate = new Date("2024-01-15T15:00:00Z"); // 3 hours from now
+      expect(formatDistanceToNow(futureDate)).toBe("3 hours");
+    });
+
+    it("should prefix future dates with 'in' when addSuffix is true", () => {
+      const futureDate = new Date("2024-01-15T15:00:00Z"); // 3 hours from now
+      expect(formatDistanceToNow(futureDate, { addSuffix: true })).toBe(
+        "in 3 hours",
+      );
+    });
+
     it("should handle string dates", () => {
       const pastDate = "2024-01-15T11:30:00Z";
       expect(formatDistanceToNow(pastDate)).toBe("30 minutes");

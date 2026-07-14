@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, HandHelping } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
@@ -33,7 +34,25 @@ function NeedCardSkeleton() {
 }
 
 export function NeedsFeed() {
-  const [filters, setFilters] = useState<NeedsFeedFilters>({ openOnly: true });
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // `mine` is initialized from (and synced back to) the URL so the view is
+  // bookmarkable, e.g. /dashboard/needs?mine=true.
+  const [filters, setFilters] = useState<NeedsFeedFilters>({
+    openOnly: true,
+    mine: searchParams.get("mine") === "true",
+  });
+
+  const handleChange = (next: NeedsFeedFilters) => {
+    setFilters(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next.mine) params.set("mine", "true");
+    else params.delete("mine");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
 
   const { data, isLoading, error } = useNeedsFeed(filters);
 
@@ -47,7 +66,7 @@ export function NeedsFeed() {
 
   return (
     <div className="space-y-4">
-      <NeedFilters filters={filters} onChange={setFilters} />
+      <NeedFilters filters={filters} onChange={handleChange} />
 
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -74,8 +93,12 @@ export function NeedsFeed() {
             icon={HandHelping}
             iconColor="text-muted-foreground"
             iconBg="bg-muted"
-            headline="No needs found"
-            description="Your neighbors haven't posted any needs yet, or none match your filters."
+            headline={filters.mine ? "No needs yet" : "No needs found"}
+            description={
+              filters.mine
+                ? "You haven't posted any needs yet, or none match your filters."
+                : "Your neighbors haven't posted any needs yet, or none match your filters."
+            }
             cta={{ label: "Post a need", href: "/dashboard/needs/new" }}
           />
         </div>

@@ -24,17 +24,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   useCreateNeed,
   useUpdateNeed,
 } from "@/features/neighborhood-needs/hooks/use-needs-mutations";
 import { NeedShareSuccess } from "./need-share-success";
+import { NeedsIntroCallout } from "./needs-intro-callout";
+import { emojiMap } from "@/constants/garage";
+import { SERVICE_CATEGORY_ICONS } from "@/constants/services";
 import type { NeighborhoodNeed } from "@/db/schemas/neighborhood-needs.schema";
 
 interface Category {
   id: string;
   name: string;
+  /** Rental categories carry an emoji key (mapped via `emojiMap`). */
+  icon?: string | null;
 }
 
 interface CreateNeedFormProps {
@@ -96,6 +107,28 @@ export function CreateNeedForm({
   const categories =
     selectedType === "rental" ? rentalCategories : serviceCategories;
 
+  // Emoji shown next to each category, matching the explore/browse pages:
+  // rentals map a DB icon key via `emojiMap`; services look up by name.
+  const categoryEmoji = (cat: Category) =>
+    selectedType === "rental"
+      ? (cat.icon && emojiMap[cat.icon]) || ""
+      : (SERVICE_CATEGORY_ICONS[cat.name] ?? "💼");
+
+  const watchedStartDate = useWatch({
+    control: form.control,
+    name: "neededStartDate",
+  });
+
+  // Native date-picker guards: block past dates, and stop the end date from
+  // preceding the start date. When editing a need whose start is already in the
+  // past, keep that saved value valid so it isn't rejected on save.
+  const today = new Date().toISOString().split("T")[0];
+  const startDateMin =
+    need?.neededStartDate && need.neededStartDate < today
+      ? need.neededStartDate
+      : today;
+  const endDateMin = watchedStartDate || startDateMin;
+
   const onTypeChange = (newType: "rental" | "service") => {
     form.setValue("type", newType);
     form.setValue("categoryId", ""); // reset category when type changes
@@ -146,173 +179,184 @@ export function CreateNeedForm({
   }
 
   return (
-    <Card className="mx-auto w-full max-w-lg">
-      <CardHeader>
-        <CardTitle>
-          {isEditing ? "Edit Need" : "Post a Neighborhood Need"}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            {/* Type */}
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Type</FormLabel>
-                  <div className="flex gap-2">
-                    {(["rental", "service"] as const).map((t) => (
-                      <Button
-                        key={t}
-                        type="button"
-                        variant={field.value === t ? "default" : "outline"}
-                        size="sm"
-                        disabled={isEditing}
-                        className={
-                          field.value !== t ? "bg-transparent" : undefined
-                        }
-                        onClick={() => onTypeChange(t)}
-                      >
-                        {t === "rental" ? "Rental" : "Service"}
-                      </Button>
-                    ))}
-                  </div>
-                  {isEditing && (
-                    <p className="text-muted-foreground text-xs">
-                      Type can&apos;t be changed after posting.
-                    </p>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Category */}
-            <FormField
-              control={form.control}
-              name="categoryId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    key={selectedType}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
+    <div className="mx-auto w-full max-w-lg">
+      {!isEditing && <NeedsIntroCallout context="post" />}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>
+            {isEditing ? "Edit Need" : "Post a Neighborhood Need"}
+          </CardTitle>
+          <CardDescription>
+            {isEditing
+              ? "Update the details of your request."
+              : "Share a few details so nearby neighbors can help."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              {/* Type */}
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type</FormLabel>
+                    <div className="flex gap-2">
+                      {(["rental", "service"] as const).map((t) => (
+                        <Button
+                          key={t}
+                          type="button"
+                          variant={field.value === t ? "default" : "outline"}
+                          size="sm"
+                          disabled={isEditing}
+                          className={
+                            field.value !== t ? "bg-transparent" : undefined
+                          }
+                          onClick={() => onTypeChange(t)}
+                        >
+                          {t === "rental" ? "Rental" : "Service"}
+                        </Button>
                       ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    </div>
+                    {isEditing && (
+                      <p className="text-muted-foreground text-xs">
+                        Type can&apos;t be changed after posting.
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Title */}
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g. Need a pressure washer for my driveway"
-                      maxLength={120}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Description */}
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Describe what you need, when, and any details that would help a neighbor respond..."
-                      rows={4}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
+              {/* Category */}
               <FormField
                 control={form.control}
-                name="neededStartDate"
+                name="categoryId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      Start date{" "}
-                      <span className="text-muted-foreground font-normal">
-                        (optional)
-                      </span>
-                    </FormLabel>
+                    <FormLabel>Category</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      key={selectedType}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories.map((cat) => {
+                          const emoji = categoryEmoji(cat);
+                          return (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {emoji ? `${emoji} ${cat.name}` : cat.name}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Title */}
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input
+                        placeholder="e.g. Need a pressure washer for my driveway"
+                        maxLength={120}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* Description */}
               <FormField
                 control={form.control}
-                name="neededEndDate"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      End date{" "}
-                      <span className="text-muted-foreground font-normal">
-                        (optional)
-                      </span>
-                    </FormLabel>
+                    <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Textarea
+                        placeholder="Describe what you need, when, and any details that would help a neighbor respond..."
+                        rows={4}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={mutation.isPending}
-            >
-              {isEditing
-                ? mutation.isPending
-                  ? "Saving…"
-                  : "Save Changes"
-                : mutation.isPending
-                  ? "Posting…"
-                  : "Post Need"}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+              {/* Dates */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="neededStartDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Start date{" "}
+                        <span className="text-muted-foreground font-normal">
+                          (optional)
+                        </span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="date" min={startDateMin} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="neededEndDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        End date{" "}
+                        <span className="text-muted-foreground font-normal">
+                          (optional)
+                        </span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="date" min={endDateMin} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={mutation.isPending}
+              >
+                {isEditing
+                  ? mutation.isPending
+                    ? "Saving…"
+                    : "Save Changes"
+                  : mutation.isPending
+                    ? "Posting…"
+                    : "Post Need"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

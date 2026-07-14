@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { NeedsFeed } from "@/features/neighborhood-needs/components/needs-feed";
+import { NeedsIntroCallout } from "@/features/neighborhood-needs/components/needs-intro-callout";
 
 export const metadata = {
   title: "What Your Neighbors Need",
@@ -29,6 +30,7 @@ export default async function NeighborhoodNeedsPage() {
           </Link>
         </Button>
       </PageHeader>
+      <NeedsIntroCallout />
       <NeedsFeed />
     </div>
   );

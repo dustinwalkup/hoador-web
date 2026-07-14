@@ -76,7 +76,7 @@ export function NeedShareSuccess({ need }: NeedShareSuccessProps) {
             <Button className="w-full" onClick={handleCopy} variant="outline">
               {copied ? (
                 <>
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                  <CheckCircle2 className="text-primary mr-2 h-4 w-4" />
                   Copied!
                 </>
               ) : (

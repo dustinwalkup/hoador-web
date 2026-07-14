@@ -22,6 +22,12 @@ export interface NeedFeedFilters {
   type?: NeedType;
   categoryId?: string;
   openOnly?: boolean;
+  /**
+   * Restrict the feed to needs created by this user. Must be a
+   * session-derived id set server-side — never accept a raw user id from the
+   * client (see the `mine` param in the /api/needs route).
+   */
+  createdByUserId?: string;
 }
 
 /**
@@ -219,6 +225,10 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
         : "";
       const openOnlyClause =
         filters.openOnly !== false ? `AND n.status = 'open'` : "";
+      // Session-derived id (see NeedFeedFilters.createdByUserId), not client input.
+      const createdByClause = filters.createdByUserId
+        ? `AND n.created_by_user_id = '${filters.createdByUserId}'`
+        : "";
 
       const baseWhere = `
         n.community_id IN (${communityIdList})
@@ -226,6 +236,7 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
         ${openOnlyClause}
         ${typeClause}
         ${categoryClause}
+        ${createdByClause}
       `;
 
       type FeedRawRow = Record<string, unknown> & {
@@ -251,10 +262,16 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
                    n.needed_end_date AS "neededEndDate",
                    n.status,
                    n.close_reason AS "closeReason",
-                   n.closed_at AS "closedAt",
-                   n.deleted_at AS "deletedAt",
-                   n.created_at AS "createdAt",
-                   n.updated_at AS "updatedAt",
+                   -- created_at/updated_at/etc. are "timestamp without time
+                   -- zone" (stored as UTC wall-clock). The neon driver parses a
+                   -- naive timestamp as LOCAL time, shifting recent rows into
+                   -- the future. AT TIME ZONE 'UTC' reinterprets them as UTC so
+                   -- the driver returns the correct instant. Drizzle's query
+                   -- builder does this implicitly; raw SQL must do it here.
+                   n.closed_at AT TIME ZONE 'UTC' AS "closedAt",
+                   n.deleted_at AT TIME ZONE 'UTC' AS "deletedAt",
+                   n.created_at AT TIME ZONE 'UTC' AS "createdAt",
+                   n.updated_at AT TIME ZONE 'UTC' AS "updatedAt",
                    c.name AS "communityName",
                    u.review_aggregate_rating AS "requesterRating",
                    u.review_count AS "requesterReviewCount",

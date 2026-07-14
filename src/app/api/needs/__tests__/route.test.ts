@@ -302,4 +302,37 @@ describe("GET /api/needs", () => {
       null,
     );
   });
+
+  it("maps mine=true to createdByUserId using the session user id", async () => {
+    const { GET } = await import("../route");
+    await GET(getReq("?mine=true"));
+    expect(mockListFeed).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ createdByUserId: "user-1" }),
+      expect.any(Object),
+      null,
+    );
+  });
+
+  it("leaves createdByUserId undefined when mine is absent", async () => {
+    const { GET } = await import("../route");
+    await GET(getReq());
+    expect(mockListFeed).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ createdByUserId: undefined }),
+      expect.any(Object),
+      null,
+    );
+  });
+
+  it("never trusts a client-supplied user id for the mine filter", async () => {
+    const { GET } = await import("../route");
+    await GET(getReq("?mine=true&userId=someone-else"));
+    expect(mockListFeed).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ createdByUserId: "user-1" }),
+      expect.any(Object),
+      null,
+    );
+  });
 });

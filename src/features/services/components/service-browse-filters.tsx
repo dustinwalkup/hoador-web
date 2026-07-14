@@ -26,18 +26,7 @@ import CategoryButton from "@/components/dashboard/category-button";
 import { useDebouncedSearch } from "@/hooks/use-debounced-search";
 import { useServiceBrowseFilters } from "@/features/services/hooks/use-service-browse-filters";
 import type { ServiceSortKey } from "@/features/services/hooks/use-service-browse-filters";
-
-/** Map known category names to emojis. Falls back to 💼 for unknown names. */
-const CATEGORY_ICONS: Record<string, string> = {
-  "Lawn & Yard": "🌿",
-  Cleaning: "🧹",
-  Handyman: "🔧",
-  "Pet Care": "🐾",
-  Childcare: "👶",
-  "Moving Help": "📦",
-  Tutoring: "📚",
-  Errands: "🛒",
-};
+import { SERVICE_CATEGORY_ICONS } from "@/constants/services";
 
 const SORT_LABELS: Record<ServiceSortKey, string> = {
   newest: "Newest",
@@ -164,7 +153,7 @@ export function ServiceBrowseFilters({
         {categories.map((c) => (
           <CategoryButton
             key={c.id}
-            icon={CATEGORY_ICONS[c.name] ?? "💼"}
+            icon={SERVICE_CATEGORY_ICONS[c.name] ?? "💼"}
             label={c.name}
             active={state.categoryId === c.id}
             onClick={() =>

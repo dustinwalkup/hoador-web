@@ -89,6 +89,9 @@ async function getHandler(request: NextRequest) {
             : undefined,
       categoryId: sp.get("categoryId") ?? undefined,
       openOnly: sp.get("openOnly") !== "false",
+      // The client only signals intent via `mine`; the id is taken from the
+      // authenticated session so a viewer can never request another user's needs.
+      createdByUserId: sp.get("mine") === "true" ? userId : undefined,
     };
 
     const viewerLocation =

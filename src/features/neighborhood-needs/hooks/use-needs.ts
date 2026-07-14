@@ -6,6 +6,8 @@ export interface NeedsFeedFilters {
   type?: "rental" | "service";
   categoryId?: string;
   openOnly?: boolean;
+  /** When true, restrict the feed to the current user's own needs. */
+  mine?: boolean;
   page?: number;
   limit?: number;
 }
@@ -30,6 +32,7 @@ export function useNeedsFeed(
       if (filters.categoryId) params.set("categoryId", filters.categoryId);
       if (filters.openOnly !== undefined)
         params.set("openOnly", String(filters.openOnly));
+      if (filters.mine) params.set("mine", "true");
       if (filters.page !== undefined) params.set("page", String(filters.page));
       if (filters.limit !== undefined)
         params.set("limit", String(filters.limit));

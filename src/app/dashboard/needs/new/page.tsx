@@ -20,7 +20,7 @@ export default async function NewNeedPage() {
   ]);
 
   return (
-    <div className="container max-w-2xl pb-10">
+    <div className="container pb-6">
       <PageHeader
         title="Post a Neighborhood Need"
         description="Tell your neighbors what you're looking for"

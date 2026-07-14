@@ -287,6 +287,38 @@ describe("NeighborhoodNeedsDAL", () => {
       expect(result.pagination.total).toBe(1);
       expect(db.execute).toHaveBeenCalledTimes(2);
     });
+
+    it("filters by creator when createdByUserId is set", async () => {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
+
+      await neighborhoodNeedsDAL.listFeed(
+        ["community-1"],
+        { createdByUserId: "user-1" },
+        { page: 1, limit: 10 },
+      );
+
+      const feedSql = JSON.stringify(vi.mocked(db.execute).mock.calls[0]?.[0]);
+      expect(feedSql).toContain("n.created_by_user_id = 'user-1'");
+    });
+
+    it("omits the creator filter when createdByUserId is not set", async () => {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
+
+      await neighborhoodNeedsDAL.listFeed(
+        ["community-1"],
+        { openOnly: true },
+        { page: 1, limit: 10 },
+      );
+
+      // `created_by_user_id` still appears in the SELECT list and JOINs; assert
+      // the WHERE equality filter specifically is absent.
+      const feedSql = JSON.stringify(vi.mocked(db.execute).mock.calls[0]?.[0]);
+      expect(feedSql).not.toContain("n.created_by_user_id = '");
+    });
   });
 
   // -------------------------------------------------------------------------

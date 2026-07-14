@@ -51,6 +51,17 @@ export function NeedFilters({ filters, onChange }: NeedFiltersProps) {
           Open only
         </Label>
       </div>
+
+      <div className="flex items-center gap-2">
+        <Switch
+          id="mine-only"
+          checked={filters.mine ?? false}
+          onCheckedChange={(checked) => onChange({ ...filters, mine: checked })}
+        />
+        <Label htmlFor="mine-only" className="cursor-pointer text-sm">
+          My needs only
+        </Label>
+      </div>
     </div>
   );
 }
