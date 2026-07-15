@@ -33,6 +33,7 @@ vi.mock("@/features/auth/utils/session", () => ({
 
 const mockGetNeedDetail = vi.fn();
 const mockGetVisibleCommunityIds = vi.fn();
+const mockIsVisibleInCommunity = vi.fn();
 const mockGetUserPrimaryLocation = vi.fn();
 
 vi.mock("@/dal", () => ({
@@ -44,6 +45,7 @@ vi.mock("@/dal", () => ({
   communityDAL: {
     getVisibleCommunityIds: (...a: unknown[]) =>
       mockGetVisibleCommunityIds(...a),
+    isVisibleInCommunity: (...a: unknown[]) => mockIsVisibleInCommunity(...a),
   },
 }));
 
@@ -102,6 +104,7 @@ beforeEach(() => {
   mockRequireAdminResponse.mockResolvedValue(null);
   mockGetNeedDetail.mockResolvedValue(OPEN_NEED_DETAIL);
   mockGetVisibleCommunityIds.mockResolvedValue(["comm-1"]);
+  mockIsVisibleInCommunity.mockResolvedValue(true);
   mockGetUserPrimaryLocation.mockResolvedValue(null);
   mockUpdateNeed.mockResolvedValue({ ...OPEN_NEED_DETAIL, title: "Updated" });
   mockDeleteNeed.mockResolvedValue(undefined);
@@ -134,23 +137,37 @@ describe("GET /api/needs/[id]", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.id).toBe("need-1");
-    expect(mockGetVisibleCommunityIds).not.toHaveBeenCalled();
+    expect(mockIsVisibleInCommunity).not.toHaveBeenCalled();
   });
 
   it("returns 404 for a viewer outside the need's network", async () => {
     mockGetAuthenticatedUserResponse.mockResolvedValue(AUTH_OTHER);
-    mockGetVisibleCommunityIds.mockResolvedValue(["comm-other"]);
+    // viewer (user-2) is not visible in the need's community
+    mockIsVisibleInCommunity.mockImplementation((uid: string) =>
+      Promise.resolve(uid !== "user-2"),
+    );
     const { GET } = await import("../route");
     const res = await GET(getReq("need-1"), params("need-1"));
     expect(res.status).toBe(404);
   });
 
-  it("returns the need to a viewer inside the network", async () => {
+  it("returns the need to a viewer inside the network (viewer + creator both visible)", async () => {
     mockGetAuthenticatedUserResponse.mockResolvedValue(AUTH_OTHER);
-    mockGetVisibleCommunityIds.mockResolvedValue(["comm-1"]);
+    mockIsVisibleInCommunity.mockResolvedValue(true);
     const { GET } = await import("../route");
     const res = await GET(getReq("need-1"), params("need-1"));
     expect(res.status).toBe(200);
+  });
+
+  it("returns 404 when the CREATOR is no longer visible even if the viewer is (symmetric leak guard)", async () => {
+    mockGetAuthenticatedUserResponse.mockResolvedValue(AUTH_OTHER);
+    // viewer (user-2) visible, but creator (user-1) is NOT visible → fail-closed
+    mockIsVisibleInCommunity.mockImplementation((uid: string) =>
+      Promise.resolve(uid === "user-2"),
+    );
+    const { GET } = await import("../route");
+    const res = await GET(getReq("need-1"), params("need-1"));
+    expect(res.status).toBe(404);
   });
 
   it("allows admin to view any need without visibility check", async () => {

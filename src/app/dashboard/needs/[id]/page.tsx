@@ -1,8 +1,7 @@
 export const dynamic = "force-dynamic";
 import { notFound, redirect } from "next/navigation";
 import { getAuthenticatedUser } from "@/features/auth/utils/session";
-import { neighborhoodNeedsDAL } from "@/dal";
-import { getCurrentUserVisibleCommunityIds } from "@/features/community/utils/membership";
+import { communityDAL, neighborhoodNeedsDAL } from "@/dal";
 import { NeedDetail } from "@/features/neighborhood-needs/components/need-detail";
 
 interface NeedDetailPageProps {
@@ -25,12 +24,17 @@ export default async function NeedDetailPage({ params }: NeedDetailPageProps) {
 
   const isOwner = need.createdByUserId === auth.userId;
 
-  // Creator and admins always have access; all others need network visibility.
+  // Creator and admins always have access; everyone else needs SYMMETRIC
+  // visibility — both the viewer AND the creator must be visible in the need's
+  // community (mirrors the feed + listing-detail rule). A viewer-only check
+  // leaks needs whose creator is no longer visible (stale community_visibility,
+  // e.g. after a community changes networks).
   if (!isOwner && !auth.isAdmin) {
-    const visibleIds = await getCurrentUserVisibleCommunityIds();
-    if (!visibleIds.includes(need.communityId)) {
-      // Out-of-network: render neutral "not available" rather than a raw 404
-      // to avoid leaking need existence for shared links (R1.4, R13.4, R13.5).
+    const [viewerVisible, creatorVisible] = await Promise.all([
+      communityDAL.isVisibleInCommunity(auth.userId, need.communityId),
+      communityDAL.isVisibleInCommunity(need.createdByUserId, need.communityId),
+    ]);
+    if (!viewerVisible || !creatorVisible) {
       notFound();
     }
   }

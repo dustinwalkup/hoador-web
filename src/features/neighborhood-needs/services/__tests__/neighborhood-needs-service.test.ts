@@ -15,6 +15,7 @@ import { ValidationError, ForbiddenError, ConflictError } from "@/dal/errors";
 const mockGetPrimary = vi.fn();
 const mockGetVisibleCommunityIds = vi.fn();
 const mockGetUserIdsVisibleInCommunity = vi.fn();
+const mockIsVisibleInCommunity = vi.fn();
 const mockCreateNeed = vi.fn();
 const mockGetNeedById = vi.fn();
 const mockGetNeedByIdIncludingDeleted = vi.fn();
@@ -29,6 +30,8 @@ const mockListCategories = vi.fn();
 const mockSendNotification = vi.fn();
 const mockCaptureError = vi.fn();
 const mockAfter = vi.fn((fn: () => Promise<void>) => fn());
+// Captures the fire-and-forget after() callback so tests can await the fan-out.
+let afterPromise: Promise<void> | undefined;
 
 vi.mock("@/dal", () => ({
   communityDAL: {
@@ -37,6 +40,7 @@ vi.mock("@/dal", () => ({
       mockGetVisibleCommunityIds(...a),
     getUserIdsVisibleInCommunity: (...a: unknown[]) =>
       mockGetUserIdsVisibleInCommunity(...a),
+    isVisibleInCommunity: (...a: unknown[]) => mockIsVisibleInCommunity(...a),
   },
   listingDAL: {
     getListingCategories: (...a: unknown[]) => mockGetListingCategories(...a),
@@ -113,12 +117,16 @@ const CLOSED_NEED = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockSendNotification.mockResolvedValue({ inApp: true });
-  mockAfter.mockImplementation((fn: () => Promise<void>) => fn());
+  mockAfter.mockImplementation((fn: () => Promise<void>) => {
+    afterPromise = fn();
+    return afterPromise;
+  });
   mockGetUserIdsVisibleInCommunity.mockResolvedValue([
     "user-1",
     "user-2",
     "user-3",
   ]);
+  mockIsVisibleInCommunity.mockResolvedValue(true);
 });
 
 // =============================================================================
@@ -182,13 +190,28 @@ describe("createNeed", () => {
     mockCreateNeed.mockResolvedValue(OPEN_NEED);
 
     await createNeed("user-1", input);
+    await afterPromise; // fan-out runs in after(); wait for it to settle
 
-    // after() fires synchronously in tests (mocked above)
     const calls = mockSendNotification.mock.calls;
     const recipientIds = calls.map((c) => (c[0] as { userId: string }).userId);
     expect(recipientIds).not.toContain("user-1");
     expect(recipientIds).toContain("user-2");
     expect(recipientIds).toContain("user-3");
+  });
+
+  it("fan-out is skipped entirely when the creator is not visible in the community", async () => {
+    mockGetPrimary.mockResolvedValue(PRIMARY);
+    mockGetListingCategories.mockResolvedValue([RENTAL_CAT]);
+    mockCreateNeed.mockResolvedValue(OPEN_NEED);
+    // Creator's community_visibility row is missing/false (e.g. stale after a
+    // network move) → need is invisible to everyone → nobody is notified.
+    mockIsVisibleInCommunity.mockResolvedValue(false);
+
+    await createNeed("user-1", input);
+    await afterPromise; // let the fan-out short-circuit settle
+
+    expect(mockGetUserIdsVisibleInCommunity).not.toHaveBeenCalled();
+    expect(mockSendNotification).not.toHaveBeenCalled();
   });
 
   it("validates service category against service_listing_categories", async () => {

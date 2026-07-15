@@ -43,8 +43,18 @@ async function getHandler(_request: NextRequest, { params }: RouteContext) {
     }
 
     if (!isAdmin && detail.createdByUserId !== userId) {
-      const visibleIds = await communityDAL.getVisibleCommunityIds(userId);
-      if (!visibleIds.includes(detail.communityId)) {
+      // Symmetric visibility (same rule as the feed + listing detail): the need
+      // is viewable only if BOTH the viewer and the creator are visible in its
+      // community. A viewer-only check leaks needs whose creator is no longer
+      // visible (e.g. stale community_visibility after a network move).
+      const [viewerVisible, creatorVisible] = await Promise.all([
+        communityDAL.isVisibleInCommunity(userId, detail.communityId),
+        communityDAL.isVisibleInCommunity(
+          detail.createdByUserId,
+          detail.communityId,
+        ),
+      ]);
+      if (!viewerVisible || !creatorVisible) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
     }

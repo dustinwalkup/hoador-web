@@ -284,6 +284,16 @@ async function fanOutNewNeed(
   need: NeighborhoodNeed,
   creatorUserId: string,
 ): Promise<void> {
+  // Symmetric visibility: a need is only visible when its creator is visible in
+  // its community. If the creator isn't visible, the need is invisible to
+  // everyone — skip the fan-out entirely (fail-closed; prevents notifying users
+  // who retain stale visibility into the creator's community).
+  const creatorVisible = await communityDAL.isVisibleInCommunity(
+    creatorUserId,
+    need.communityId,
+  );
+  if (!creatorVisible) return;
+
   const recipientIds = await communityDAL.getUserIdsVisibleInCommunity(
     need.communityId,
   );
