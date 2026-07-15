@@ -24,6 +24,7 @@ import {
 import { sendRentalApprovedNotification } from "@/features/rentals/notifications/rental-approved";
 import { sendRentalRequestCreatedNotification } from "@/features/rentals/notifications/rental-request-created";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
+import { closeNeedsFulfilledByBooking } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { STRIPE_MINIMUM_CHARGE_USD } from "@/constants/payments";
@@ -955,6 +956,21 @@ export class RentalService {
           });
         }
       }
+    });
+
+    const needsListingId = rentalRequest.listingId;
+    const needsRenterId = rentalRequest.renterId;
+    after(async () => {
+      await closeNeedsFulfilledByBooking({
+        listingType: "rental",
+        listingId: needsListingId,
+        bookerUserId: needsRenterId,
+      }).catch((err) =>
+        captureNonCriticalError(err, {
+          route: "RentalService.approveRentalRequest",
+          action: "closeNeedsFulfilledByBooking",
+        }),
+      );
     });
 
     return {

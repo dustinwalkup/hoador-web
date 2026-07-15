@@ -1,4 +1,5 @@
 import { eq, max, count } from "drizzle-orm";
+import { after } from "next/server";
 
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
@@ -17,6 +18,8 @@ import { sendRentalListingPendingAdminNotification } from "@/features/listings/n
 import type { CreateListingFormDataServerType } from "@/features/listings/form-schema/listing.schema";
 import { getPayoutReadiness } from "@/features/payments/lib/payout-readiness";
 import { logGatingEvent } from "@/features/payments/lib/log-events";
+import { linkListingToNeed } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
+import { captureNonCriticalError } from "@/lib/api/route-helpers";
 
 const MAX_IMAGES_PER_LISTING = 10;
 
@@ -254,6 +257,24 @@ export class ListingService {
       await Promise.all(acceptancePromises);
     } catch (error) {
       console.error("Error recording legal document acceptances:", error);
+    }
+
+    if (validatedData.neighborhoodNeedId) {
+      const needId = validatedData.neighborhoodNeedId;
+      const listingId = listing.id;
+      after(async () => {
+        await linkListingToNeed({
+          neighborhoodNeedId: needId,
+          listingType: "rental",
+          listingId,
+          creatorUserId: userId,
+        }).catch((err) =>
+          captureNonCriticalError(err, {
+            route: "/api/listings",
+            action: "linkListingToNeed",
+          }),
+        );
+      });
     }
 
     return { listingId: listing.id };

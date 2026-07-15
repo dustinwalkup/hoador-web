@@ -24,6 +24,7 @@ const eslintConfig = [
       "build/**",
       "dist/**",
       "playwright-report/**",
+      "coverage/**",
       "mcps/**",
       "next-env.d.ts",
     ],

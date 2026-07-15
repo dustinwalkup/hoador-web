@@ -2216,4 +2216,40 @@ describe("CommunityDAL", () => {
       expect(mockAuditCreate).not.toHaveBeenCalled();
     });
   });
+
+  describe("getUserIdsVisibleInCommunity", () => {
+    it("returns user IDs where is_visible = true for the community", async () => {
+      const rows = [{ userId: "user-1" }, { userId: "user-2" }];
+      const where = vi.fn().mockResolvedValue(rows);
+      const from = vi.fn().mockReturnValue({ where });
+      vi.mocked(db.select).mockReturnValue({ from } as any);
+
+      const result =
+        await communityDAL.getUserIdsVisibleInCommunity("community-abc");
+
+      expect(result).toEqual(["user-1", "user-2"]);
+      expect(db.select).toHaveBeenCalled();
+    });
+
+    it("returns an empty array when no visible users exist", async () => {
+      const where = vi.fn().mockResolvedValue([]);
+      const from = vi.fn().mockReturnValue({ where });
+      vi.mocked(db.select).mockReturnValue({ from } as any);
+
+      const result =
+        await communityDAL.getUserIdsVisibleInCommunity("community-empty");
+
+      expect(result).toEqual([]);
+    });
+
+    it("propagates database errors", async () => {
+      const where = vi.fn().mockRejectedValue(new Error("db error"));
+      const from = vi.fn().mockReturnValue({ where });
+      vi.mocked(db.select).mockReturnValue({ from } as any);
+
+      await expect(
+        communityDAL.getUserIdsVisibleInCommunity("community-abc"),
+      ).rejects.toThrow();
+    });
+  });
 });

@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import {
   auditLogDAL,
   reviewEventsDAL,
@@ -14,6 +15,11 @@ import {
 } from "@/features/services/notifications/service-notifications";
 import { getPayoutReadiness } from "@/features/payments/lib/payout-readiness";
 import { logGatingEvent } from "@/features/payments/lib/log-events";
+import {
+  linkListingToNeed,
+  notifyRequesterListingLive,
+} from "@/features/neighborhood-needs/services/neighborhood-needs-service";
+import { captureNonCriticalError } from "@/lib/api/route-helpers";
 
 import type { AuditContext, CreateListingInput } from "../types";
 
@@ -100,6 +106,24 @@ export class ServiceListingService {
     });
 
     await sendListingPendingAdminNotification(listing);
+
+    if (formData.neighborhoodNeedId) {
+      const needId = formData.neighborhoodNeedId;
+      const listingId = listing.id;
+      after(async () => {
+        await linkListingToNeed({
+          neighborhoodNeedId: needId,
+          listingType: "service",
+          listingId,
+          creatorUserId: providerId,
+        }).catch((err) =>
+          captureNonCriticalError(err, {
+            route: "/api/services/listings",
+            action: "linkListingToNeed",
+          }),
+        );
+      });
+    }
 
     return { success: true, listing };
   }
@@ -315,6 +339,15 @@ export class ServiceListingService {
     });
 
     await sendListingApprovedNotification(existing.providerId, updated);
+
+    after(async () => {
+      await notifyRequesterListingLive("service", listingId).catch((err) =>
+        captureNonCriticalError(err, {
+          route: "ServiceListingService.approveListing",
+          action: "notifyRequesterListingLive",
+        }),
+      );
+    });
 
     return updated;
   }

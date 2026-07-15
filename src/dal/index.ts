@@ -22,6 +22,7 @@ import { ServiceBookingDAL } from "./service-booking.dal";
 import { ServicePaymentLifecycleDAL } from "./service-payment-lifecycle.dal";
 import { ReviewEventsDAL } from "./review-events.dal";
 import { BlindReviewDAL } from "./blind-review.dal";
+import { NeighborhoodNeedsDAL } from "./neighborhood-needs.dal";
 
 // Create singleton instances
 export const userDAL = new UserDAL();
@@ -47,3 +48,4 @@ export const serviceBookingDAL = new ServiceBookingDAL();
 export const servicePaymentLifecycleDAL = new ServicePaymentLifecycleDAL();
 export const reviewEventsDAL = new ReviewEventsDAL();
 export const blindReviewDAL = new BlindReviewDAL();
+export const neighborhoodNeedsDAL = new NeighborhoodNeedsDAL();

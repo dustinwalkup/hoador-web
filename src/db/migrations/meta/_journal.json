@@ -456,6 +456,20 @@
       "when": 1781233361976,
       "tag": "0064_add_kc_metro_communities",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1782504312271,
+      "tag": "0065_good_wallow",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1782504312272,
+      "tag": "0066_neighborhood_needs_notification_enums",
+      "breakpoints": true
     }
   ]
 }

@@ -93,6 +93,8 @@ export const formatPPP = (date: DateInput): string => {
  * const pastDate = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
  * console.log(formatDistanceToNow(pastDate)); // "2 hours"
  * console.log(formatDistanceToNow(pastDate, { addSuffix: true })); // "2 hours ago"
+ * const futureDate = new Date(Date.now() + 3 * 60 * 60 * 1000); // in 3 hours
+ * console.log(formatDistanceToNow(futureDate, { addSuffix: true })); // "in 3 hours"
  */
 export const formatDistanceToNow = (
   date: DateInput,
@@ -100,7 +102,12 @@ export const formatDistanceToNow = (
 ): string => {
   const now = new Date();
   const diffMs = now.getTime() - new Date(date).getTime();
-  const diffSeconds = Math.floor(diffMs / 1000);
+  const isFuture = diffMs < 0;
+
+  // Bucket by absolute magnitude so future dates format correctly; direction
+  // only affects the suffix. Without this, a future date falls through every
+  // `> 0` branch and renders as a raw negative like "-16118 seconds".
+  const diffSeconds = Math.floor(Math.abs(diffMs) / 1000);
   const diffMinutes = Math.floor(diffSeconds / 60);
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
@@ -122,7 +129,8 @@ export const formatDistanceToNow = (
     result = `${diffSeconds} second${diffSeconds !== 1 ? "s" : ""}`;
   }
 
-  return options.addSuffix ? `${result} ago` : result;
+  if (!options.addSuffix) return result;
+  return isFuture ? `in ${result}` : `${result} ago`;
 };
 
 /**

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { eq } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
@@ -7,8 +8,10 @@ import {
   requireAdminResponse,
   handleApiError,
   getCurrentUserId,
+  captureNonCriticalError,
 } from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
+import { notifyRequesterListingLive } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import {
@@ -116,6 +119,15 @@ async function postHandler(
           garageUrl,
         }),
       },
+    });
+
+    after(async () => {
+      await notifyRequesterListingLive("rental", listingId).catch((err) =>
+        captureNonCriticalError(err, {
+          route: "/api/admin/listings/[listingId]/approve",
+          action: "notifyRequesterListingLive",
+        }),
+      );
     });
 
     return NextResponse.json({ success: true });

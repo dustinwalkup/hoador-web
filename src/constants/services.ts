@@ -1,3 +1,19 @@
+/**
+ * Emoji shown next to each service category, keyed by category name. Callers
+ * fall back to 💼 for unknown names. Single source of truth for the service
+ * browse filters and the neighborhood-need form.
+ */
+export const SERVICE_CATEGORY_ICONS: Record<string, string> = {
+  "Lawn & Yard": "🌿",
+  Cleaning: "🧹",
+  Handyman: "🔧",
+  "Pet Care": "🐾",
+  Childcare: "👶",
+  "Moving Help": "📦",
+  Tutoring: "📚",
+  Errands: "🛒",
+};
+
 export const STATIC_SERVICE_CATEGORIES = [
   {
     id: "8f3c7a2e-1d4b-4e9f-a5c8-2b6d0e3f7190",

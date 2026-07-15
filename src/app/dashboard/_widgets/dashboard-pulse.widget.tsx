@@ -15,6 +15,7 @@ const PULSE_FALLBACK = {
   active: { borrowing: 0, lending: 0, disputes: 0 },
   upcoming: { rentals: 0, services: 0 },
   listed: { tools: 0, services: 0 },
+  needs: { open: 0 },
 };
 
 export async function DashboardPulseWidget({ userId }: { userId: string }) {

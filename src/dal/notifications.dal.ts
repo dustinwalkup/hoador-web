@@ -1,4 +1,4 @@
-import { desc, eq, and, count, lt, gte, sql } from "drizzle-orm";
+import { desc, eq, ne, and, count, lt, gte, sql } from "drizzle-orm";
 import {
   notifications,
   notificationCategoryPreferences,
@@ -527,6 +527,39 @@ export class PushSubscriptionDAL extends BaseDAL {
           "subscription",
         );
       }
+      // Idempotent by endpoint: a device re-subscribing (app launch, permission
+      // grant, or subscription refresh) must refresh its existing row rather than
+      // stack a new one — otherwise sendPush fans out to every duplicate and the
+      // user receives N identical pushes. Also self-heals any duplicates that
+      // already accumulated for this endpoint by deactivating the extras.
+      const existing = await this.getByEndpoint(subscription.endpoint);
+      if (existing) {
+        const [updated] = await this.db
+          .update(pushSubscriptions)
+          .set({
+            userId,
+            p256dh: subscription.keys.p256dh,
+            auth: subscription.keys.auth,
+            userAgent: userAgent ?? null,
+            isActive: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(pushSubscriptions.id, existing.id))
+          .returning();
+        if (!updated) throw new DALError("Update failed", "UNKNOWN", 500);
+        // Deactivate any other rows sharing this endpoint (collapse dupes).
+        await this.db
+          .update(pushSubscriptions)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(
+            and(
+              eq(pushSubscriptions.endpoint, subscription.endpoint),
+              ne(pushSubscriptions.id, existing.id),
+            ),
+          );
+        return updated;
+      }
+
       const [row] = await this.db
         .insert(pushSubscriptions)
         .values({
