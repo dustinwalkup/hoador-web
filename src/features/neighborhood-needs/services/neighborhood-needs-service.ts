@@ -302,9 +302,10 @@ async function fanOutNewNeed(
           message: `A neighbor posted a new ${need.type} request: "${need.title}"`,
           linkUrl,
           data: { needId: need.id, needType: need.type },
-          // In-app only by default; email/push follow user preference which defaults to off for this category (task 7.2)
+          // In-app always; email hard-off (no fan-out spam). Push is left to
+          // shouldSendPush(), which honors the user's opt-in for the
+          // neighborhood_needs category (default off) — see R12.4 / task 7.2.
           sendEmail: false,
-          sendPush: false,
         }).catch((err) =>
           captureNonCriticalError(err, {
             route: "/api/needs",
