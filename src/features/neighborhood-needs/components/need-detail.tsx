@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Calendar,
   ExternalLink,
   Home,
   Link2,
+  Loader2,
   MapPin,
   Pencil,
   Star,
@@ -16,6 +19,17 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { BackButton } from "@/components/back-button";
 import { formatMMMd, formatDistanceToNow } from "@/lib/utils/date.utils";
@@ -34,12 +48,14 @@ interface NeedDetailProps {
 }
 
 export function NeedDetail({ need, currentUserId, isAdmin }: NeedDetailProps) {
+  const router = useRouter();
   const isOwner = need.createdByUserId === currentUserId;
   const isClosed = need.status === "closed";
   const isDeleted = !!need.deletedAt;
 
   const closeNeed = useCloseNeed();
   const deleteNeed = useDeleteNeed();
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
 
   const typeLabel = need.type === "rental" ? "Rental" : "Service";
   const typeVariant =
@@ -73,6 +89,11 @@ export function NeedDetail({ need, currentUserId, isAdmin }: NeedDetailProps) {
     try {
       await closeNeed.mutateAsync(need.id);
       toast.success("Need closed");
+      setCloseConfirmOpen(false);
+      // This page is server-rendered (need is a prop, not a query), so the
+      // mutation's cache invalidation isn't enough — refresh re-runs the server
+      // component and re-reads the now-closed need.
+      router.refresh();
     } catch {
       toast.error("Failed to close need");
     }
@@ -189,14 +210,50 @@ export function NeedDetail({ need, currentUserId, isAdmin }: NeedDetailProps) {
                         Edit
                       </Link>
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleClose}
-                      disabled={closeNeed.isPending}
+                    <AlertDialog
+                      open={closeConfirmOpen}
+                      onOpenChange={setCloseConfirmOpen}
                     >
-                      <X className="mr-1.5 h-4 w-4" />
-                      Close
-                    </Button>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          disabled={closeNeed.isPending}
+                        >
+                          <X className="mr-1.5 h-4 w-4" />
+                          Close
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Close this need?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            It&apos;ll be marked as closed and drop off the open
+                            needs feed so neighbors no longer see it.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={closeNeed.isPending}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleClose();
+                            }}
+                            disabled={closeNeed.isPending}
+                          >
+                            {closeNeed.isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Closing…
+                              </>
+                            ) : (
+                              "Close need"
+                            )}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </>
                 )}
 
