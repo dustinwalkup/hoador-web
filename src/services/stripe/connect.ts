@@ -110,6 +110,49 @@ export async function createAccountSession(
 }
 
 /**
+ * Create a hosted Connect onboarding Account Link.
+ *
+ * The mobile app cannot use the embedded Account Session flow
+ * (`@stripe/react-connect-js` does not run in React Native), so it opens this
+ * hosted URL in a browser sheet. Stripe requires public https `return_url`/
+ * `refresh_url`, which is why both point at web bounce pages rather than the
+ * `hoador://` scheme directly (the pages forward into the app).
+ *
+ * - `return_url` — where Stripe sends the user when onboarding completes.
+ * - `refresh_url` — where Stripe sends the user if the link expires or is
+ *   reopened; the app requests a fresh link from there.
+ *
+ * Requirements: 2.3.2
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-02-backend-services.md § 2.4
+ */
+export async function createAccountLink(
+  accountId: string,
+  options: { return_url: string; refresh_url: string },
+): Promise<string> {
+  const { data: url, error } = await tryCatch(
+    PAYMENT_SERVER_INSTANCE.accountLinks
+      .create({
+        account: accountId,
+        type: "account_onboarding",
+        return_url: options.return_url,
+        refresh_url: options.refresh_url,
+      })
+      .then((link) => link.url),
+  );
+
+  if (error) {
+    console.error("Error creating account link:", error);
+    throw error;
+  }
+
+  if (!url) {
+    throw new Error("Failed to create account link: no URL returned");
+  }
+
+  return url;
+}
+
+/**
  * Get account status (charges_enabled, payouts_enabled)
  */
 export async function getAccountStatus(accountId: string): Promise<{

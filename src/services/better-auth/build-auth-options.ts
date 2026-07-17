@@ -3,18 +3,17 @@ import { nextCookies } from "better-auth/next-js";
 import { expo } from "@better-auth/expo";
 import type { BetterAuthOptions } from "better-auth";
 import { trackActivity } from "@/features/activity/lib/track-activity";
+import { MOBILE_APP_SCHEME } from "@/constants/mobile";
 import { generateAppleClientSecret } from "./apple-client-secret";
 import { e2eGoogleCallbackPlugin } from "./e2e-google-plugin";
 
 export const EMAIL_VERIFICATION_CALLBACK_URL = "signup/email/callback";
 
-/**
- * Mobile app URL scheme (hoador-mobile). Registered in `trustedOrigins` so the
- * Expo plugin's OAuth callbacks and password-reset deep links resolve into the
- * app. Must stay in sync with `hoador-mobile/app.config.ts`.
- * Spec: hoador-mobile/specs/mobile-app/tasks/epic-01-backend-auth.md (D-E1-3).
- */
-const MOBILE_APP_SCHEME = "hoador";
+// `MOBILE_APP_SCHEME` (the app's custom URL scheme, registered in
+// `trustedOrigins` so the Expo plugin's OAuth callbacks and reset deep links
+// resolve into the app) now lives in `@/constants/mobile` — shared with the
+// Stripe Connect bounce pages rather than re-declared here.
+// Spec: epic-01-backend-auth.md (D-E1-3), epic-02-backend-services.md (D-E2-6).
 
 /**
  * Expo dev-client origins. Only trusted in development — a released build must
