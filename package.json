@@ -91,6 +91,7 @@
     "drizzle-orm": "^0.45.2",
     "embla-carousel-auto-scroll": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
+    "expo-server-sdk": "^6.1.0",
     "framer-motion": "^12.40.0",
     "googleapis": "^173.0.0",
     "heic2any": "^0.0.4",

@@ -202,6 +202,22 @@ export const pushSubscriptionPlatformEnum = pgEnum(
   ["web", "ios", "android"],
 );
 
+/**
+ * Delivery-receipt state for a native (Expo) push send.
+ *
+ * Expo returns a *ticket* at send time and a *receipt* ~15 minutes later; only
+ * the receipt confirms the push actually reached APNs/FCM. Rows start `pending`
+ * and the receipt-check cron resolves them. `NULL` on a row means "web send" —
+ * web-push has no receipt concept, so the column is native-only by
+ * construction.
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-02-backend-services.md (D-E2-2).
+ */
+export const pushReceiptStatusEnum = pgEnum("push_receipt_status", [
+  "pending", // Ticket accepted by Expo; receipt not yet checked
+  "ok", // Receipt confirmed delivery to the transport
+  "error", // Receipt reported an error (see push_notification_audit.error_message)
+]);
+
 /** Deposit hold lifecycle status for rental_payment_lifecycle. */
 export const depositHoldStatusEnum = pgEnum("deposit_hold_status", [
   "scheduled", // Hold scheduled, waiting for 48hrs-before-pickup cron

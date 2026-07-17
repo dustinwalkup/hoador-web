@@ -1,8 +1,13 @@
 import webpush from "web-push";
 import { pushSubscriptionDAL } from "@/dal";
-import type { PushSubscriptionRow } from "@/dal/notifications.dal";
+import {
+  isWebSubscriptionRow,
+  isNativeSubscriptionRow,
+  type PushSubscriptionRow,
+} from "@/dal/notifications.dal";
 import { getLogger } from "@/lib/logger";
 import type { PushPayload } from "./push-payload";
+import { sendExpoPush } from "./expo-push-service";
 
 const EVENT_TYPE_PUSH_SEND = "push_send";
 
@@ -60,8 +65,14 @@ function ensureVapidInitialized(): boolean {
 
 /**
  * Convert DB subscription row to the shape web-push expects.
+ *
+ * Takes a row already narrowed by `isWebSubscriptionRow`: `p256dh`/`auth` are
+ * nullable columns since native push landed, so the caller must prove the row
+ * is a well-formed web subscription rather than trusting the column types.
  */
-function toWebPushSubscription(row: PushSubscriptionRow): {
+function toWebPushSubscription(
+  row: PushSubscriptionRow & { p256dh: string; auth: string },
+): {
   endpoint: string;
   keys: { p256dh: string; auth: string };
 } {
@@ -81,6 +92,24 @@ export async function sendToSubscription(
   payload: PushPayload,
   userId: string,
 ): Promise<boolean> {
+  // This path is web-push only; `sendPush` routes native rows to `sendExpoPush`.
+  // The guard stays because the function is exported and independently callable,
+  // and because `p256dh`/`auth` are nullable columns now — a `web` row with a
+  // null key is corrupt and must be skipped, not handed to web-push (F1).
+  if (!isWebSubscriptionRow(subscriptionRow)) {
+    if (LOG_PUSH_DEBUG) {
+      getLogger({ userId }).debug(
+        {
+          event: "sendToSubscription_skipped_non_web",
+          platform: subscriptionRow.platform,
+          subscriptionId: subscriptionRow.id,
+        },
+        "[push-service] skipping subscription that is not a well-formed web row",
+      );
+    }
+    return false;
+  }
+
   const subscription = toWebPushSubscription(subscriptionRow);
   const payloadStr = JSON.stringify(payload);
   const eventType = payload.data?.type ?? EVENT_TYPE_PUSH_SEND;
@@ -158,16 +187,6 @@ export async function sendPush(
   userId: string,
   payload: PushPayload,
 ): Promise<void> {
-  if (!ensureVapidInitialized()) {
-    if (LOG_PUSH_DEBUG) {
-      getLogger({ userId }).info(
-        { userId, reason: "vapid_missing", event: "push_send_skip" },
-        "Push send skipped: VAPID not configured",
-      );
-    }
-    return;
-  }
-
   const subscriptions = await pushSubscriptionDAL.getActiveByUserId(userId);
   if (!subscriptions?.length) {
     if (LOG_PUSH_DEBUG) {
@@ -184,18 +203,50 @@ export async function sendPush(
     return;
   }
 
+  // Partition before gating. The VAPID check used to sit at the top of this
+  // function and return early for everyone — which, once native landed, would
+  // have dropped every Expo push in any environment without VAPID keys, with no
+  // error anywhere. The gate belongs to the web branch only.
+  // Requirements: 2.2.2. Spec: epic-02-backend-services.md (F5, D-E2-3).
+  const webSubscriptions = subscriptions.filter(isWebSubscriptionRow);
+  const nativeSubscriptions = subscriptions.filter(isNativeSubscriptionRow);
+
   if (LOG_PUSH_DEBUG) {
     getLogger({ userId }).info(
       {
         userId,
         subscriptionCount: subscriptions.length,
+        webCount: webSubscriptions.length,
+        nativeCount: nativeSubscriptions.length,
         event: "push_send_dispatch",
       },
       "Dispatching push to device subscriptions",
     );
   }
 
-  for (const sub of subscriptions) {
+  // Native (Expo). Requirements: 2.2.2.
+  if (nativeSubscriptions.length) {
+    sendExpoPush(userId, nativeSubscriptions, payload).catch((err) => {
+      getLogger({ userId }).error(
+        { err, event: "sendExpoPush_failed", userId },
+        "[push-service] sendExpoPush failed",
+      );
+    });
+  }
+
+  // Web (VAPID). Unchanged behavior, until the post-GA decommission (Req 2.2.7).
+  if (!webSubscriptions.length) return;
+  if (!ensureVapidInitialized()) {
+    if (LOG_PUSH_DEBUG) {
+      getLogger({ userId }).info(
+        { userId, reason: "vapid_missing", event: "push_send_skip_web" },
+        "Web push send skipped: VAPID not configured (native sends unaffected)",
+      );
+    }
+    return;
+  }
+
+  for (const sub of webSubscriptions) {
     sendToSubscription(sub, payload, userId).catch((err) => {
       getLogger({ userId }).error(
         { err, event: "sendToSubscription_failed", userId },

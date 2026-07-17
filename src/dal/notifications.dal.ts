@@ -1,4 +1,15 @@
-import { desc, eq, ne, and, count, lt, gte, sql } from "drizzle-orm";
+import {
+  desc,
+  eq,
+  ne,
+  and,
+  count,
+  lt,
+  lte,
+  gte,
+  isNotNull,
+  sql,
+} from "drizzle-orm";
 import {
   notifications,
   notificationCategoryPreferences,
@@ -487,8 +498,10 @@ export interface PushSubscriptionRow {
   id: string;
   userId: string;
   endpoint: string;
-  p256dh: string;
-  auth: string;
+  /** Null for native rows — an Expo token has no VAPID keypair (F1). */
+  p256dh: string | null;
+  /** Null for native rows. */
+  auth: string | null;
   platform: string;
   token: string | null;
   userAgent: string | null;
@@ -502,6 +515,36 @@ export interface WebPushSubscription {
   endpoint: string;
   keys: { p256dh: string; auth: string };
   expirationTime?: number | null;
+}
+
+/** Native (Expo) subscription — the mobile app's `{platform, token}` payload. */
+export interface NativePushSubscription {
+  platform: "ios" | "android";
+  token: string;
+}
+
+/**
+ * Narrows a subscription row to the web shape.
+ *
+ * `p256dh`/`auth` are nullable at the DB level since native push landed, so the
+ * send path must prove a row is well-formed rather than assume it. A `web` row
+ * missing either key is corrupt, not native — callers skip it rather than
+ * sending a malformed request to the push service.
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-02-backend-services.md (F1, D-E2-1).
+ */
+export function isWebSubscriptionRow(
+  row: PushSubscriptionRow,
+): row is PushSubscriptionRow & { p256dh: string; auth: string } {
+  return row.platform === "web" && Boolean(row.p256dh) && Boolean(row.auth);
+}
+
+/** Narrows a subscription row to the native shape. */
+export function isNativeSubscriptionRow(
+  row: PushSubscriptionRow,
+): row is PushSubscriptionRow & { token: string } {
+  return (
+    (row.platform === "ios" || row.platform === "android") && Boolean(row.token)
+  );
 }
 
 /**
@@ -626,6 +669,237 @@ export class PushSubscriptionDAL extends BaseDAL {
   }
 
   /**
+   * Create or refresh a native (Expo) push subscription.
+   *
+   * Idempotent by token, mirroring `create`'s endpoint idempotency: a device
+   * re-registering (app launch, permission grant, token rotation) refreshes its
+   * row rather than stacking a new one — otherwise the send path fans out to
+   * every duplicate and the user gets N identical pushes.
+   *
+   * `endpoint` is set to the token: it is `NOT NULL` and carries no meaning for
+   * native rows, but keeping it populated means the shared indexes and the
+   * `getByEndpoint` dedup path stay well-defined for both shapes.
+   * Requirements: 2.2.1. Spec: epic-02-backend-services.md § 2.1 (F2).
+   */
+  async createNative(
+    userId: string,
+    subscription: NativePushSubscription,
+    userAgent?: string | null,
+  ): Promise<PushSubscriptionRow> {
+    try {
+      if (!subscription?.token || !subscription?.platform) {
+        throw new ValidationError(
+          "Native subscription must have platform and token",
+          "subscription",
+        );
+      }
+
+      const existing = await this.getByToken(subscription.token);
+      if (existing) {
+        const [updated] = await this.db
+          .update(pushSubscriptions)
+          .set({
+            userId,
+            platform: subscription.platform,
+            endpoint: subscription.token,
+            userAgent: userAgent ?? null,
+            isActive: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(pushSubscriptions.id, existing.id))
+          .returning();
+        if (!updated) throw new DALError("Update failed", "UNKNOWN", 500);
+        // Collapse any duplicates that predate the partial unique index.
+        await this.db
+          .update(pushSubscriptions)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(
+            and(
+              eq(pushSubscriptions.token, subscription.token),
+              ne(pushSubscriptions.id, existing.id),
+            ),
+          );
+        return updated;
+      }
+
+      const [row] = await this.db
+        .insert(pushSubscriptions)
+        .values({
+          userId,
+          platform: subscription.platform,
+          token: subscription.token,
+          endpoint: subscription.token,
+          userAgent: userAgent ?? null,
+        })
+        .returning();
+      if (!row) throw new DALError("Insert failed", "UNKNOWN", 500);
+      return row;
+    } catch (error) {
+      this.handleError(error, "create native push subscription");
+    }
+  }
+
+  /**
+   * Get subscription by Expo push token (dedup + sign-out deactivation).
+   */
+  async getByToken(token: string): Promise<PushSubscriptionRow | null> {
+    try {
+      const row = await this.db.query.pushSubscriptions.findFirst({
+        where: eq(pushSubscriptions.token, token),
+      });
+      return row ?? null;
+    } catch (error) {
+      this.handleError(error, "get push subscription by token");
+    }
+  }
+
+  /**
+   * Deactivate every subscription sharing an Expo token.
+   *
+   * Token-scoped rather than id-scoped because the receipt cron and the send
+   * path only know the token that Expo reported as dead — and a token can span
+   * more than one row if duplicates predate the partial unique index.
+   * Requirements: 2.2.4.
+   */
+  async deactivateByToken(token: string): Promise<void> {
+    try {
+      await this.db
+        .update(pushSubscriptions)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(pushSubscriptions.token, token));
+    } catch (error) {
+      this.handleError(error, "deactivate push subscription by token");
+    }
+  }
+
+  /**
+   * Deactivate all of a user's subscriptions (account deletion, task 2.6.2).
+   * Requirements: 2.5.1.
+   */
+  async deactivateAllForUser(userId: string): Promise<void> {
+    try {
+      await this.db
+        .update(pushSubscriptions)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(pushSubscriptions.userId, userId),
+            eq(pushSubscriptions.isActive, true),
+          ),
+        );
+    } catch (error) {
+      this.handleError(error, "deactivate all push subscriptions for user");
+    }
+  }
+
+  /**
+   * Expo push tickets awaiting a receipt check.
+   *
+   * `olderThanMs` exists because Expo does not produce receipts instantly —
+   * querying too eagerly burns a request and returns nothing. `youngerThanMs`
+   * bounds the other end: receipts are retained ~24h, so older tickets are
+   * unresolvable and must not be retried forever.
+   * Requirements: 2.2.4.
+   */
+  async getPendingReceipts(opts: {
+    olderThanMs: number;
+    youngerThanMs: number;
+    limit: number;
+  }): Promise<
+    {
+      id: string;
+      userId: string;
+      subscriptionId: string | null;
+      expoTicketId: string;
+    }[]
+  > {
+    try {
+      const now = Date.now();
+      const rows = await this.db
+        .select({
+          id: pushNotificationAudit.id,
+          userId: pushNotificationAudit.userId,
+          subscriptionId: pushNotificationAudit.subscriptionId,
+          expoTicketId: pushNotificationAudit.expoTicketId,
+        })
+        .from(pushNotificationAudit)
+        .where(
+          and(
+            eq(pushNotificationAudit.receiptStatus, "pending"),
+            isNotNull(pushNotificationAudit.expoTicketId),
+            lte(pushNotificationAudit.sentAt, new Date(now - opts.olderThanMs)),
+            gte(
+              pushNotificationAudit.sentAt,
+              new Date(now - opts.youngerThanMs),
+            ),
+          ),
+        )
+        .orderBy(pushNotificationAudit.sentAt)
+        .limit(opts.limit);
+
+      return rows.filter(
+        (r): r is (typeof rows)[number] & { expoTicketId: string } =>
+          r.expoTicketId !== null,
+      );
+    } catch (error) {
+      this.handleError(error, "get pending push receipts");
+    }
+  }
+
+  /**
+   * Resolve a checked receipt. Requirements: 2.2.4.
+   */
+  async resolveReceipt(
+    auditId: string,
+    receiptStatus: "ok" | "error",
+    errorMessage?: string | null,
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(pushNotificationAudit)
+        .set({
+          receiptStatus,
+          // A receipt is the authoritative delivery signal — a send recorded as
+          // successful at ticket time is downgraded here if the receipt errored.
+          success: receiptStatus === "ok",
+          ...(errorMessage !== undefined ? { errorMessage } : {}),
+        })
+        .where(eq(pushNotificationAudit.id, auditId));
+    } catch (error) {
+      this.handleError(error, "resolve push receipt");
+    }
+  }
+
+  /**
+   * Give up on tickets whose receipts have aged out of Expo's ~24h retention.
+   * Without this they stay `pending` forever and the cron re-queries them on
+   * every run. Requirements: 2.2.4.
+   */
+  async expireStaleReceipts(olderThanMs: number): Promise<number> {
+    try {
+      const rows = await this.db
+        .update(pushNotificationAudit)
+        .set({
+          receiptStatus: "error",
+          errorMessage: "Receipt expired before it could be checked",
+        })
+        .where(
+          and(
+            eq(pushNotificationAudit.receiptStatus, "pending"),
+            lte(
+              pushNotificationAudit.sentAt,
+              new Date(Date.now() - olderThanMs),
+            ),
+          ),
+        )
+        .returning({ id: pushNotificationAudit.id });
+      return rows.length;
+    } catch (error) {
+      this.handleError(error, "expire stale push receipts");
+    }
+  }
+
+  /**
    * Create an audit log entry for a push send (success or failure).
    * Requirements: 11.1, 11.2, 11.5
    */
@@ -635,6 +909,10 @@ export class PushSubscriptionDAL extends BaseDAL {
     eventType: string,
     success: boolean,
     errorMessage?: string | null,
+    receipt?: {
+      expoTicketId: string | null;
+      receiptStatus: "pending" | "ok" | "error";
+    },
   ): Promise<void> {
     try {
       await this.db.insert(pushNotificationAudit).values({
@@ -643,6 +921,10 @@ export class PushSubscriptionDAL extends BaseDAL {
         eventType,
         success,
         errorMessage: errorMessage ?? null,
+        // Omitted for web sends, leaving both columns null — web-push has no
+        // receipt concept (D-E2-2).
+        expoTicketId: receipt?.expoTicketId ?? null,
+        receiptStatus: receipt?.receiptStatus ?? null,
       });
     } catch (error) {
       // Best-effort: by the time this runs the push has already been

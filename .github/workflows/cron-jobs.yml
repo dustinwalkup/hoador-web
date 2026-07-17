@@ -25,6 +25,15 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/expire-pending-bookings
 
+      # Hourly is the only workable cadence: Expo publishes push receipts ~15
+      # minutes after a send and drops them after ~24h, so a daily run could
+      # miss the window entirely. Requirements: 2.2.4.
+      - name: Check push receipts
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/check-push-receipts
+
   daily:
     if: github.event.schedule == '0 10 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

@@ -10,6 +10,7 @@ import type { WebPushSubscription } from "@/dal/notifications.dal";
 import {
   subscribeBodySchema,
   unsubscribeBodySchema,
+  isNativeSubscribeBody,
 } from "@/features/notifications/lib/validators";
 
 /**
@@ -69,18 +70,34 @@ async function postHandler(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         {
           error:
-            "Invalid payload: endpoint and keys.p256dh and keys.auth required",
+            "Invalid payload: expected { platform, token } for native or " +
+            "{ endpoint, keys: { p256dh, auth } } for web",
         },
         { status: 400 },
       );
     }
 
+    const userAgent = request.headers.get("user-agent") ?? undefined;
+
+    // Native (Expo) subscription — the mobile app. Requirements: 2.2.1.
+    if (isNativeSubscribeBody(parsed.data)) {
+      const nativeRow = await pushSubscriptionDAL.createNative(
+        userId,
+        { platform: parsed.data.platform, token: parsed.data.token },
+        userAgent,
+      );
+      return NextResponse.json(
+        { id: nativeRow.id, platform: nativeRow.platform },
+        { status: 201 },
+      );
+    }
+
+    // Web Push subscription — the PWA. Unchanged behavior and response shape.
     const webPushSubscription: WebPushSubscription = {
       endpoint: parsed.data.endpoint,
       keys: parsed.data.keys,
       expirationTime: parsed.data.expirationTime ?? undefined,
     };
-    const userAgent = request.headers.get("user-agent") ?? undefined;
 
     const row = await pushSubscriptionDAL.create(
       userId,
@@ -129,14 +146,18 @@ async function deleteHandler(request: NextRequest): Promise<NextResponse> {
     const parsed = unsubscribeBodySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid payload: endpoint required" },
+        { error: "Invalid payload: exactly one of endpoint or token required" },
         { status: 400 },
       );
     }
 
-    const existing = await pushSubscriptionDAL.getByEndpoint(
-      parsed.data.endpoint,
-    );
+    const { endpoint, token } = parsed.data;
+    const existing = token
+      ? await pushSubscriptionDAL.getByToken(token)
+      : await pushSubscriptionDAL.getByEndpoint(endpoint!);
+
+    // Ownership is enforced before deactivating: without it, knowing a token
+    // would be enough to silence another user's device.
     if (!existing || existing.userId !== userId) {
       return NextResponse.json(
         { error: "Subscription not found or access denied" },
@@ -144,7 +165,12 @@ async function deleteHandler(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    await pushSubscriptionDAL.deactivate(existing.id);
+    if (token) {
+      // Token-scoped: collapses any duplicate rows for the same device.
+      await pushSubscriptionDAL.deactivateByToken(token);
+    } else {
+      await pushSubscriptionDAL.deactivate(existing.id);
+    }
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleApiError(error);

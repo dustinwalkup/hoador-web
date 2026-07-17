@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   subscribeBodySchema,
+  webSubscribeBodySchema,
   unsubscribeBodySchema,
   patchPreferencesBodySchema,
 } from "../validators";
@@ -17,8 +18,12 @@ describe("subscribeBodySchema", () => {
     expect(result.data).toEqual({ ...valid, expirationTime: undefined });
   });
 
+  // `subscribeBodySchema` became a web|native union when native push landed
+  // (Requirement 2.2.1), so `expirationTime` is no longer on the union type.
+  // These two assert the web branch specifically — parsing still goes through
+  // the union above.
   it("accepts optional expirationTime as number", () => {
-    const result = subscribeBodySchema.safeParse({
+    const result = webSubscribeBodySchema.safeParse({
       ...valid,
       expirationTime: 1234567890,
     });
@@ -27,7 +32,7 @@ describe("subscribeBodySchema", () => {
   });
 
   it("accepts expirationTime as null", () => {
-    const result = subscribeBodySchema.safeParse({
+    const result = webSubscribeBodySchema.safeParse({
       ...valid,
       expirationTime: null,
     });
