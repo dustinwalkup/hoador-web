@@ -77,7 +77,8 @@ export default defineConfig({
         "src/app/**/*.tsx", // Next.js page files - just wrappers
         "src/app/**/*.ts", // layouts, loading, not-found files
         "src/components/ui/**", // shadcn primitives, not your logic
-        "src/services/better-auth/**", // third-party auth config
+        "src/services/better-auth/index.ts", // composition root: builds the drizzle adapter
+        "src/services/better-auth/e2e-google-plugin.ts", // E2E-only OAuth stub
         "src/instrumentation*.ts", // observability setup
         "src/proxy.ts", // infra config
         "src/**/index.ts", // barrel files, no logic

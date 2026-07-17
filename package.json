@@ -47,6 +47,7 @@
     "ci": "bun run type-check && bun run lint && bun run test:ci && bun run build"
   },
   "dependencies": {
+    "@better-auth/expo": "^1.6.23",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -82,7 +83,7 @@
     "@vercel/blob": "^2.4.0",
     "@vercel/speed-insights": "^2.0.0",
     "@walkup/walkup-utils": "^1.1.0",
-    "better-auth": "^1.6.16",
+    "better-auth": "^1.6.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -93,6 +94,7 @@
     "framer-motion": "^12.40.0",
     "googleapis": "^173.0.0",
     "heic2any": "^0.0.4",
+    "jose": "^6.2.3",
     "lucide-react": "^1.17.0",
     "next": "^16.2.9",
     "next-themes": "^0.4.6",
