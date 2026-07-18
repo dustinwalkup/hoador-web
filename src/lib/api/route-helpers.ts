@@ -18,6 +18,7 @@ import {
   ServiceBookingPaymentFailedError,
 } from "@/dal/errors";
 import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
+import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
 import { setSentryUser } from "@/lib/sentry/user-context";
 
 /**
@@ -58,7 +59,8 @@ export function handleApiError(
     !(error instanceof NotFoundError) &&
     !(error instanceof ValidationError) &&
     !(error instanceof ConflictError) &&
-    !(error instanceof PaymentSetupRequiredError);
+    !(error instanceof PaymentSetupRequiredError) &&
+    !(error instanceof AccountDeletionBlockedError);
 
   if (shouldCaptureError) {
     const ctx = getRequestContext();
@@ -127,6 +129,13 @@ export function handleApiError(
         }),
         ...(error.details.reason && { reason: error.details.reason }),
       },
+      { status: error.statusCode },
+    );
+  }
+
+  if (error instanceof AccountDeletionBlockedError) {
+    return NextResponse.json(
+      { error: error.code, blockers: error.details.blockers },
       { status: error.statusCode },
     );
   }

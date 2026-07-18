@@ -82,6 +82,15 @@ export const user = pgTable(
     communityVersion: varchar("community_version", { length: 50 }),
     communityAcceptedAt: timestamp("community_accepted_at"),
 
+    /**
+     * Set when the user self-deletes (task 2.6). Distinguishes an irreversible
+     * self-deletion + PII scrub from an admin `status = "inactive"`
+     * deactivation, which is otherwise indistinguishable. `NULL` for every
+     * account that has not been through self-deletion.
+     * Spec: hoador-mobile/specs/mobile-app/tasks/epic-02-backend-services.md (D-E2-9).
+     */
+    anonymizedAt: timestamp("anonymized_at"),
+
     // ---- Timestamps ----
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")

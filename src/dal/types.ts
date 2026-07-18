@@ -170,6 +170,9 @@ export interface UserProfile extends Omit<
   | "lastLoginAt"
   | "lastActiveAt"
   | "twoFactorEnabled"
+  // Internal account-deletion marker (task 2.6) — not part of the user-facing
+  // profile projection.
+  | "anonymizedAt"
 > {
   stats: UserStats;
   preferences: PreferencesDB | null;

@@ -14,6 +14,7 @@ import {
   ConflictError,
   DALError,
 } from "@/dal/errors";
+import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
 import { mockVerifiedUser, mockAdminUser } from "@/test/fixtures/auth";
 
 // Mock the auth utilities
@@ -71,6 +72,24 @@ describe("route-helpers", () => {
       const response = handleApiError(error);
 
       expect(response.status).toBe(409);
+    });
+
+    it("should handle AccountDeletionBlockedError with 409 and a blockers list", async () => {
+      const blockers = [
+        {
+          type: "open_disputes" as const,
+          count: 2,
+          message: "2 open disputes.",
+        },
+      ];
+      const response = handleApiError(
+        new AccountDeletionBlockedError({ blockers }),
+      );
+
+      expect(response.status).toBe(409);
+      const body = await response.json();
+      // The app branches on this stable code and renders `blockers`.
+      expect(body).toEqual({ error: "ACCOUNT_DELETION_BLOCKED", blockers });
     });
 
     it("should handle DALError with custom status code", () => {

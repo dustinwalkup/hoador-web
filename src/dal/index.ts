@@ -23,6 +23,7 @@ import { ServicePaymentLifecycleDAL } from "./service-payment-lifecycle.dal";
 import { ReviewEventsDAL } from "./review-events.dal";
 import { BlindReviewDAL } from "./blind-review.dal";
 import { NeighborhoodNeedsDAL } from "./neighborhood-needs.dal";
+import { AccountDeletionDAL } from "./account-deletion.dal";
 
 // Create singleton instances
 export const userDAL = new UserDAL();
@@ -43,6 +44,7 @@ export const userActivityDAL = new UserActivityDAL();
 export const auditLogDAL = new AuditLogDAL();
 export const paymentLifecycleDAL = new PaymentLifecycleDAL();
 export const cronRunHistoryDAL = new CronRunHistoryDAL();
+export const accountDeletionDAL = new AccountDeletionDAL();
 export const serviceListingDAL = new ServiceListingDAL();
 export const serviceBookingDAL = new ServiceBookingDAL();
 export const servicePaymentLifecycleDAL = new ServicePaymentLifecycleDAL();
