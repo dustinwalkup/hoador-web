@@ -489,58 +489,12 @@ export class ListingDAL extends BaseDAL {
           ownerId: true,
           communityId: true,
           approvalStatus: true,
-          name: true,
-          description: true,
-          categoryId: true,
-          condition: true,
-          dailyRate: true,
-          weeklyRate: true,
-          monthlyRate: true,
         },
       });
 
       if (!currentListing) {
         throw new NotFoundError("Listing", id);
       }
-
-      // Get current images for comparison
-      const currentImagesData = await this.db
-        .select({
-          id: listingImages.id,
-          imageUrl: listingImages.imageUrl,
-          orderIndex: listingImages.orderIndex,
-        })
-        .from(listingImages)
-        .where(eq(listingImages.listingId, id))
-        .orderBy(listingImages.orderIndex);
-
-      // Map to ensure orderIndex is always a number
-      const currentImages = currentImagesData.map((img) => ({
-        id: img.id,
-        imageUrl: img.imageUrl,
-        orderIndex: img.orderIndex || 0,
-      }));
-
-      // Check if significant changes were made
-      const hasSignificantChanges = this.hasSignificantChanges(
-        {
-          name: currentListing.name,
-          description: currentListing.description,
-          categoryId: currentListing.categoryId,
-          condition: currentListing.condition,
-          dailyRate: Number(currentListing.dailyRate),
-          weeklyRate: currentListing.weeklyRate
-            ? Number(currentListing.weeklyRate)
-            : undefined,
-          monthlyRate: currentListing.monthlyRate
-            ? Number(currentListing.monthlyRate)
-            : undefined,
-        },
-        updates,
-        currentImages,
-        // New images would need to be passed if available, but for now we'll check based on updates
-        undefined,
-      );
 
       // Sanitize text fields if provided
       if (updates.name !== undefined) {
@@ -577,20 +531,15 @@ export class ListingDAL extends BaseDAL {
         updatedAt: new Date(),
       };
 
-      // Handle approval status reset based on listing state:
-      // - Approved listings: significant edits require re-review
-      // - Rejected listings: ANY edit resubmits for review (owner is fixing issues)
+      // Approval status on edit:
+      // - Rejected listings: ANY field edit resubmits for review (the owner is
+      //   fixing the rejection). Unchanged.
+      // - Approved listings: field edits (name, description, pricing, category,
+      //   condition, …) NO LONGER re-trigger review — only image changes do,
+      //   and those come through the image routes, not this method (Req 2.7.1).
+      //   The previous significant-fields trigger is intentionally removed.
       let didResubmit = false;
       if (currentListing.approvalStatus === "rejected") {
-        // Rejected listings reset to pending_review on any edit
-        // This allows owners to fix issues and resubmit
-        updateData.approvalStatus = "pending_review";
-        didResubmit = true;
-      } else if (
-        hasSignificantChanges &&
-        currentListing.approvalStatus === "approved"
-      ) {
-        // Approved listings only reset on significant changes
         updateData.approvalStatus = "pending_review";
         didResubmit = true;
       }
@@ -630,6 +579,58 @@ export class ListingDAL extends BaseDAL {
       return this.getListingById(id, userId);
     } catch (error) {
       this.handleError(error, "updateListing");
+    }
+  }
+
+  /**
+   * Send an **approved** listing back to review because a new image was added.
+   *
+   * This is the images-only re-review rule as amended (Req 2.7.1): only
+   * **adding** an image re-triggers review, because only a new image can
+   * introduce un-moderated content. Removing or reordering already-approved
+   * images does not, and neither do field edits. The sole caller is the image
+   * upload path — none of these flow through `updateListing`, so the trigger
+   * lives here.
+   *
+   * Only `approved` listings move: a `pending_review` listing is already in the
+   * queue, and a `rejected` one stays rejected until the owner resubmits via a
+   * full edit — an added image must not thrash either state. Emits the same
+   * `provider_resubmitted` review event as an owner edit-resubmit, for a
+   * consistent moderation history.
+   *
+   * Idempotent-ish: a no-op (and no event) when the listing is not approved.
+   * Spec: hoador-mobile/specs/mobile-app/tasks/epic-02-backend-services.md § 2.7 (D-E2-12).
+   */
+  async markApprovedListingPendingReview(
+    listingId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    try {
+      // Only flip if currently approved. The conditional UPDATE also guards the
+      // race where two image edits land together — the second sees the row
+      // already `pending_review` and changes nothing.
+      const [updated] = await this.db
+        .update(listings)
+        .set({ approvalStatus: "pending_review", updatedAt: new Date() })
+        .where(
+          and(
+            eq(listings.id, listingId),
+            eq(listings.approvalStatus, "approved"),
+          ),
+        )
+        .returning({ id: listings.id });
+
+      if (!updated) return; // not approved → nothing to do, no event
+
+      await this.db.insert(reviewEvents).values({
+        entityKind: "tool_listing",
+        entityId: listingId,
+        eventType: "provider_resubmitted",
+        actorUserId,
+        note: "Images changed on an approved listing",
+      });
+    } catch (error) {
+      this.handleError(error, "markApprovedListingPendingReview");
     }
   }
 
@@ -2323,71 +2324,6 @@ export class ListingDAL extends BaseDAL {
     } catch (error) {
       this.handleError(error, "getRecentListingsNearUser");
     }
-  }
-
-  /**
-   * Check if listing has significant changes
-   * Compares old and new listing data
-   */
-  private hasSignificantChanges(
-    oldListing: CreateListingDTO | UpdateListingDTO,
-    newListing: CreateListingDTO | UpdateListingDTO,
-    oldImages?: Array<{ id: string; imageUrl: string; orderIndex: number }>,
-    newImages?: Array<{ id: string; imageUrl: string; orderIndex: number }>,
-  ): boolean {
-    // Check significant fields
-    const significantFields: Array<keyof CreateListingDTO> = [
-      "name",
-      "description",
-      "categoryId",
-      "condition",
-    ];
-
-    for (const field of significantFields) {
-      if (
-        oldListing[field] !== undefined &&
-        newListing[field] !== undefined &&
-        oldListing[field] !== newListing[field]
-      ) {
-        return true;
-      }
-    }
-
-    // Check pricing fields
-    const pricingFields: Array<keyof CreateListingDTO> = [
-      "dailyRate",
-      "weeklyRate",
-      "monthlyRate",
-    ];
-
-    for (const field of pricingFields) {
-      if (
-        oldListing[field] !== undefined &&
-        newListing[field] !== undefined &&
-        oldListing[field] !== newListing[field]
-      ) {
-        return true;
-      }
-    }
-
-    // Check image changes (count or order)
-    if (oldImages && newImages) {
-      if (oldImages.length !== newImages.length) {
-        return true;
-      }
-
-      // Check if order changed or any images differ
-      for (let i = 0; i < oldImages.length; i++) {
-        if (
-          oldImages[i].orderIndex !== newImages[i]?.orderIndex ||
-          oldImages[i].imageUrl !== newImages[i]?.imageUrl
-        ) {
-          return true;
-        }
-      }
-    }
-
-    return false;
   }
 
   // async toggleListingFavorite(userId: string, listingId: string): Promise<boolean> {

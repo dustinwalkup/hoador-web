@@ -49,6 +49,10 @@ async function deleteHandler(
     // Delete from database
     await db.delete(listingImages).where(eq(listingImages.id, imageId));
 
+    // Removing an image does NOT re-trigger review (Req 2.7.1, amended): the
+    // remaining images were already approved, and dropping one introduces no
+    // un-moderated content. Only ADDING an image re-triggers review.
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete error:", error);

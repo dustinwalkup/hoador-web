@@ -9,6 +9,7 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 
 import { BackButton } from "@/components/back-button";
 import { RevisionsRequestedBanner } from "@/components/revisions-requested-banner";
+import { ApprovedListingImageReviewNotice } from "@/components/approved-listing-image-review-notice";
 import { AddListingForm } from "@/features/listings/components/listing-form/add-listing-form";
 
 export const metadata = {
@@ -86,6 +87,9 @@ export default async function EditListingPage({
       </div>
       {listing.approvalStatus === "rejected" && (
         <RevisionsRequestedBanner rejectionReason={listing.rejectionReason} />
+      )}
+      {listing.approvalStatus === "approved" && (
+        <ApprovedListingImageReviewNotice />
       )}
       <AddListingForm
         categories={categories}

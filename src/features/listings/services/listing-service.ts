@@ -152,6 +152,11 @@ export class ListingService {
       })
       .returning();
 
+    // Adding an image to an approved listing sends it back to review
+    // (Req 2.7.1, amended: only adds re-trigger review — removing/reordering do
+    // not). No-op unless the listing is currently approved.
+    await listingDAL.markApprovedListingPendingReview(listingId, userId);
+
     return { image: savedImage };
   }
 

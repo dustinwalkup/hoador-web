@@ -34,6 +34,7 @@ vi.mock("@/features/payments/lib/log-events", () => ({
 const mockGetListingById = vi.fn();
 const mockUpdateListing = vi.fn();
 const mockDeleteListing = vi.fn();
+const mockMarkPendingReviewOnImageChange = vi.fn();
 const mockCreateListing = vi.fn();
 const mockGetUserById = vi.fn();
 const mockRequireUserCommunityMembership = vi.fn();
@@ -66,6 +67,8 @@ vi.mock("@/dal", () => ({
     updateListing: (...args: unknown[]) => mockUpdateListing(...args),
     deleteListing: (...args: unknown[]) => mockDeleteListing(...args),
     createListing: (...args: unknown[]) => mockCreateListing(...args),
+    markApprovedListingPendingReview: (...args: unknown[]) =>
+      mockMarkPendingReviewOnImageChange(...args),
   },
   userDAL: {
     getUserById: (...args: unknown[]) => mockGetUserById(...args),
@@ -391,6 +394,13 @@ describe("ListingService", () => {
       expect(result.image).toEqual(savedImage);
       expect(mockProcessImageForUpload).toHaveBeenCalled();
       expect(mockUploadToBlob).toHaveBeenCalled();
+      // Adding an image is the ONLY image action that re-triggers review
+      // (Req 2.7.1, amended). The DAL method no-ops unless the listing is
+      // currently approved.
+      expect(mockMarkPendingReviewOnImageChange).toHaveBeenCalledWith(
+        "listing-123",
+        "owner-123",
+      );
     });
   });
 
