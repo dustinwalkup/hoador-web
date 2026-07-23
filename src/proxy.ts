@@ -48,6 +48,11 @@ const SKIP_MIDDLEWARE_PATHS = [
   "/favicon.ico",
   "/robots.txt",
   "/sitemap.xml",
+  // Apple association files must be publicly reachable without any auth
+  // redirect (AASA for universal links + the Sign in with Apple domain-
+  // association file). The `includes(".")` heuristic below already skips these,
+  // but list the prefix explicitly so the public contract is intentional.
+  "/.well-known",
 ];
 
 // Pages that are always accessible (no auth required; funnel users are not redirected away)

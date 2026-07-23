@@ -80,6 +80,20 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Apple/iOS fetch the AASA over their CDN and expect JSON. The file has
+        // no extension, so pin the content type rather than relying on Vercel's
+        // default. Universal links (P3) associate www.hoador.com (prod) and
+        // staging.hoador.com (staging) with the app; the apex hoador.com cannot
+        // serve this (it 307-redirects to www).
+        source: "/.well-known/apple-app-site-association",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/json",
+          },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           {

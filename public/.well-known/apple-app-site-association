@@ -1,0 +1,30 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "ADTB263RFW.com.hoador.app",
+          "ADTB263RFW.com.hoador.app.staging"
+        ],
+        "components": [
+          {
+            "/": "/mobile/connect-return*",
+            "comment": "Stripe Connect return bounce page -> app (MOBILE_CONNECT_RETURN_PATH)"
+          },
+          {
+            "/": "/mobile/connect-refresh*",
+            "comment": "Stripe Connect refresh bounce page -> app (MOBILE_CONNECT_REFRESH_PATH)"
+          },
+          {
+            "/": "/reset-password*",
+            "comment": "Password-reset deep link (forgot-password.ts redirectTo)"
+          },
+          {
+            "/": "/signup/email/callback*",
+            "comment": "Email-verification deep link (EMAIL_VERIFICATION_CALLBACK_URL)"
+          }
+        ]
+      }
+    ]
+  }
+}
