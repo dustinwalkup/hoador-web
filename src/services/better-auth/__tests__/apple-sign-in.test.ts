@@ -148,6 +148,29 @@ describe("Sign in with Apple", () => {
       expect(socialProviders).toHaveProperty("google"); // unaffected
     });
 
+    it("should omit Apple when the private key is malformed rather than 500 all auth", () => {
+      // Arrange — a key pasted without its PKCS#8 markers (the Vercel footgun)
+      // makes the provider factory's importPKCS8 throw, which better-auth turns
+      // into a 500 on EVERY auth request. The guard degrades to "Apple off".
+      vi.stubEnv(
+        "APPLE_PRIVATE_KEY",
+        "MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkw",
+      ); // base64 body, no BEGIN/END
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      // Act
+      const { socialProviders } = buildAuthOptions({
+        database: memoryAdapter({}),
+      });
+
+      // Assert
+      expect(socialProviders).not.toHaveProperty("apple");
+      expect(socialProviders).toHaveProperty("google"); // unaffected
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("not a PKCS#8 PEM"),
+      );
+    });
+
     it("should trust Apple's authorization server", () => {
       // Arrange & Act
       const { trustedOrigins } = buildAuthOptions({

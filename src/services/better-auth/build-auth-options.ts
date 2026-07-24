@@ -25,18 +25,51 @@ const EXPO_DEV_ORIGINS = ["exp://", "exp://**", "exp://192.168.*.*:*/**"];
 const APPLE_AUTH_ORIGIN = "https://appleid.apple.com";
 
 /**
- * Apple is configured only where its credentials exist. Sign in with Apple needs
- * a Services ID, Team ID, Key ID and the .p8 private key (see the epic file's
- * prerequisite P1); a partially-configured provider fails at request time with
- * an opaque Apple error, so we omit it entirely instead.
+ * A PKCS#8 PEM, after `\n`-unescaping, is delimited by these markers — the exact
+ * shape `importPKCS8` requires. A key pasted without them (the Vercel env
+ * footgun: lost BEGIN/END lines, stray wrapping quotes, newlines collapsed to
+ * spaces) is the common real-world failure, and it is cheap to detect here.
+ */
+function hasPkcs8Shape(rawPrivateKey: string): boolean {
+  const pem = rawPrivateKey.replace(/\\n/g, "\n").trim();
+  return (
+    pem.startsWith("-----BEGIN PRIVATE KEY-----") &&
+    pem.endsWith("-----END PRIVATE KEY-----")
+  );
+}
+
+/**
+ * Apple is configured only where its credentials exist AND the private key is a
+ * well-formed PKCS#8 PEM. Sign in with Apple needs a Services ID, Team ID, Key ID
+ * and the .p8 private key (see the epic file's prerequisite P1).
+ *
+ * Two failure modes are folded in here so a bad config degrades to "Apple off"
+ * rather than taking down all auth:
+ *  - Partial config → a half-registered provider fails at request time with an
+ *    opaque Apple error; absence is easier to diagnose.
+ *  - Malformed private key → the provider factory's `importPKCS8` throws, and
+ *    because better-auth builds every social provider up front, that one throw
+ *    500s EVERY auth request (login, signup, reset). Skipping the provider keeps
+ *    the rest of auth alive and logs the reason loudly.
  */
 function isAppleConfigured(): boolean {
-  return Boolean(
+  const hasAllCredentials = Boolean(
     process.env.APPLE_CLIENT_ID &&
     process.env.APPLE_TEAM_ID &&
     process.env.APPLE_KEY_ID &&
     process.env.APPLE_PRIVATE_KEY,
   );
+  if (!hasAllCredentials) return false;
+
+  if (!hasPkcs8Shape(process.env.APPLE_PRIVATE_KEY!)) {
+    console.error(
+      "[auth] APPLE_PRIVATE_KEY is set but is not a PKCS#8 PEM (missing " +
+        "-----BEGIN/END PRIVATE KEY----- markers). Sign in with Apple is " +
+        "disabled; email, Google, and password reset are unaffected.",
+    );
+    return false;
+  }
+  return true;
 }
 
 type AuthDependencies = {
