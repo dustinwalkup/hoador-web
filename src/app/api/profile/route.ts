@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
-import { userDAL } from "@/dal";
+import { userDAL, communityDAL } from "@/dal";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { updateProfileApiSchema } from "@/features/users/lib/profile.schema";
 import {
@@ -23,7 +23,20 @@ async function getHandler() {
     const { userId } = authResult;
 
     const user = await userDAL.getUserById(userId);
-    return NextResponse.json(user);
+    // D-E4-4: surface the primary community's residency verification so the mobile
+    // "Verification pending" badge (Req 4.3.4) has a source. Additive + null-safe —
+    // web clients ignore it; no DAL/schema change.
+    const primaryMembership =
+      await communityDAL.getPrimaryMembershipForUser(userId);
+    return NextResponse.json(
+      user
+        ? {
+            ...user,
+            verificationStatus:
+              primaryMembership?.membership.verificationStatus ?? null,
+          }
+        : user,
+    );
   } catch (error) {
     return handleApiError(error);
   }
