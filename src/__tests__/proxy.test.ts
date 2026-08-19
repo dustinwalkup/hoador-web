@@ -97,3 +97,73 @@ describe("proxy.ts — community-select routing", () => {
     });
   });
 });
+
+/**
+ * Refusing an unauthenticated request: PAGES redirect to /login, APIs 401.
+ *
+ * Redirecting an `/api/*` request to the login page hands the caller HTML with
+ * status 200 — `res.ok` is true and `res.json()` throws — so neither the web
+ * query layer nor the mobile client can tell an expired session from a parse
+ * bug. These tests pin the distinction so it can't silently regress.
+ */
+describe("proxy.ts — unauthenticated refusals", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
+  });
+
+  it.each([
+    "/api/listings/abc-123",
+    "/api/listings/search",
+    "/api/rentals/r-1",
+    "/api/messages/conversations",
+    "/api/garage/active",
+  ])("401s (not redirects) for %s", async (pathname) => {
+    const res = await proxy(makeRequest(pathname));
+
+    expect(res.status).toBe(401);
+    expect(redirectLocation(res)).toBeNull();
+    await expect(res.json()).resolves.toHaveProperty("error");
+  });
+
+  it("still redirects protected PAGES to /login with a callback", async () => {
+    const res = await proxy(makeRequest("/dashboard"));
+
+    expect(redirectLocation(res)).toBe("/login");
+    expect(res.headers.get("location")).toContain("callbackUrl");
+  });
+
+  it("leaves unprotected API routes alone (they 401 at the route level)", async () => {
+    const res = await proxy(makeRequest("/api/communities"));
+
+    expect(isNextResponse(res)).toBe(true);
+  });
+
+  it("401s an API route when the auth check itself throws", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    vi.mocked(getCurrentUser).mockRejectedValue(
+      new Error("session store down"),
+    );
+
+    const res = await proxy(makeRequest("/api/listings/abc-123"));
+
+    expect(res.status).toBe(401);
+    consoleError.mockRestore();
+  });
+
+  it("still redirects a protected PAGE when the auth check throws", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    vi.mocked(getCurrentUser).mockRejectedValue(
+      new Error("session store down"),
+    );
+
+    const res = await proxy(makeRequest("/dashboard"));
+
+    expect(redirectLocation(res)).toBe("/login");
+    consoleError.mockRestore();
+  });
+});

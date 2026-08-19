@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceListingDAL } from "@/dal";
+import { SERVICE_CATEGORY_ICONS } from "@/constants/services";
 import { handleApiError, requireAuthResponse } from "@/lib/api/route-helpers";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 
@@ -17,8 +18,11 @@ import { withRequestLogging } from "@/lib/api/with-request-logging";
  * `/api/listings/categories` is public; these are reference data either way, so
  * the stricter of the two conventions wins).
  *
- * Unlike listing categories there is no `icon` column here — the table is
- * `{id, name, description}` — so there is no glyph to resolve.
+ * There is no `icon` column here — the table is `{id, name, description}` — so
+ * the glyph comes from `SERVICE_CATEGORY_ICONS`, web's name-keyed map (used by
+ * the web browse filters and the need form). Resolving it here keeps that map
+ * the single source of truth instead of copying it into a released binary, and
+ * mirrors what `/api/listings/categories` does for the rental side.
  */
 async function getHandler() {
   try {
@@ -26,7 +30,15 @@ async function getHandler() {
     if (authError) return authError;
 
     const categories = await serviceListingDAL.listCategories();
-    return NextResponse.json(categories);
+
+    return NextResponse.json(
+      categories.map((category) => ({
+        ...category,
+        // `?? "💼"` mirrors both web call sites: an unmapped category gets the
+        // generic briefcase rather than rendering bare.
+        emoji: SERVICE_CATEGORY_ICONS[category.name] ?? "💼",
+      })),
+    );
   } catch (error) {
     return handleApiError(error);
   }

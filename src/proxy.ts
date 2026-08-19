@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { getAdminUser } from "@/features/auth/utils/admin-session";
+import { SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 
 // Define protected route patterns
 const PROTECTED_ROUTES = [
@@ -57,6 +58,30 @@ const SKIP_MIDDLEWARE_PATHS = [
 
 // Pages that are always accessible (no auth required; funnel users are not redirected away)
 const PUBLIC_PAGE_ROUTES = ["/support", "/help", "/how-it-works"];
+
+/**
+ * How to refuse an unauthenticated request to a protected path.
+ *
+ * **Pages redirect to /login. API routes get a 401.** Redirecting an `/api/*`
+ * request to the login PAGE is actively harmful: the caller follows the 307 and
+ * receives HTML with status **200**, so `res.ok` is true and `res.json()`
+ * throws. Neither the web query layer nor the mobile client can recognise an
+ * expired session from that — the app surfaces a parse error instead of bouncing
+ * to sign-in (found from the mobile app, 2026-08-19).
+ *
+ * Only the four protected API prefixes (`/api/garage`, `/api/listings`,
+ * `/api/rentals`, `/api/messages`) ever reached this path; every other `/api/*`
+ * route already 401s at the route level, so this makes them consistent.
+ */
+function refuseUnauthenticated(request: NextRequest, pathname: string) {
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      { error: SESSION_EXPIRED_MESSAGE },
+      { status: 401 },
+    );
+  }
+  return NextResponse.redirect(createRedirectUrl(request));
+}
 
 /**
  * Check if a path matches any of the protected route patterns
@@ -285,15 +310,14 @@ async function proxyAuth(request: NextRequest): Promise<NextResponse> {
       return NextResponse.next();
     }
 
-    // Redirect to login for protected routes
-    const redirectUrl = createRedirectUrl(request);
-    return NextResponse.redirect(redirectUrl);
+    // Refuse protected routes: pages redirect to login, APIs 401.
+    return refuseUnauthenticated(request, pathname);
   } catch (error) {
     console.error("❌ MIDDLEWARE AUTHENTICATION ERROR:", error);
-    // For protected routes, redirect to login on error
+    // Same split on the error path — an auth check that THREW must not hand an
+    // API caller an HTML login page either.
     if (isProtectedRoute(pathname)) {
-      const redirectUrl = createRedirectUrl(request);
-      return NextResponse.redirect(redirectUrl);
+      return refuseUnauthenticated(request, pathname);
     }
     return NextResponse.next();
   }

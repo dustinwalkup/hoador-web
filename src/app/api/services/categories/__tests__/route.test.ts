@@ -52,10 +52,37 @@ describe("GET /api/services/categories", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json).toEqual([
-      { id: "c1", name: "Lawn care", description: "Mowing and edging" },
-      { id: "c2", name: "Handyman", description: null },
+    expect(json.map((c: { id: string; name: string }) => c.name)).toEqual([
+      "Lawn care",
+      "Handyman",
     ]);
+  });
+
+  // The table has no icon column, so the glyph is resolved from web's
+  // name-keyed `SERVICE_CATEGORY_ICONS` — the same map the web browse filters
+  // and the need form use.
+  it("resolves the category emoji by name", async () => {
+    mockListCategories.mockResolvedValue([
+      { id: "c1", name: "Handyman", description: null },
+      { id: "c2", name: "Pet Care", description: null },
+    ]);
+
+    const { GET } = await import("../route");
+    const json = await (await GET(req())).json();
+
+    expect(json[0].emoji).toBe("🔧");
+    expect(json[1].emoji).toBe("🐾");
+  });
+
+  it("falls back to the generic briefcase for an unmapped category, as web does", async () => {
+    mockListCategories.mockResolvedValue([
+      { id: "c9", name: "Drone Photography", description: null },
+    ]);
+
+    const { GET } = await import("../route");
+    const json = await (await GET(req())).json();
+
+    expect(json[0].emoji).toBe("💼");
   });
 
   it("maps a DAL failure through handleApiError rather than throwing", async () => {
