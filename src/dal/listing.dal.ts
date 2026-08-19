@@ -935,15 +935,19 @@ export class ListingDAL extends BaseDAL {
       if (listingIds.length > 0) {
         // Get first image for each listing individually to match getUserlistings behavior
         for (const listingId of listingIds) {
+          // LOWEST order index, not `orderIndex = 0`. Images are inserted at
+          // `max + 1` and deletion (`DELETE /api/listings/[id]/images/[imageId]`)
+          // removes the row without reindexing the survivors — so deleting a
+          // listing's first image leaves indexes 1,2,… and an `= 0` lookup finds
+          // nothing. That listing then renders with NO thumbnail anywhere
+          // (web explore and the mobile feed both read this) despite having
+          // images. Ordering ascending is correct for every case and needs no
+          // backfill of existing rows.
           const firstImage = await this.db
             .select({ imageUrl: listingImages.imageUrl })
             .from(listingImages)
-            .where(
-              and(
-                eq(listingImages.listingId, listingId),
-                eq(listingImages.orderIndex, 0),
-              ),
-            )
+            .where(eq(listingImages.listingId, listingId))
+            .orderBy(asc(listingImages.orderIndex))
             .limit(1);
 
           if (firstImage[0]?.imageUrl) {
@@ -1343,18 +1347,18 @@ export class ListingDAL extends BaseDAL {
 
     const listingIds = userListings.map((l) => l.id);
 
+    // Same reason as `searchListings`: match on the LOWEST order index rather
+    // than exactly 0, because image deletion doesn't reindex the survivors.
+    // The ascending sort makes the "first row per listing wins" loop below
+    // deterministic — it was previously relying on `= 0` being unique.
     const allFirstImages = await this.db
       .select({
         listingId: listingImages.listingId,
         imageUrl: listingImages.imageUrl,
       })
       .from(listingImages)
-      .where(
-        and(
-          inArray(listingImages.listingId, listingIds),
-          eq(listingImages.orderIndex, 0),
-        ),
-      );
+      .where(inArray(listingImages.listingId, listingIds))
+      .orderBy(asc(listingImages.orderIndex));
 
     const firstImageByListing = new Map<string, string>();
     for (const img of allFirstImages) {

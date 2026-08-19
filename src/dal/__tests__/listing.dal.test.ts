@@ -545,9 +545,16 @@ describe("ListingDAL", () => {
           }),
         });
         // Simpler: return a from that supports both `.where().limit()` and `.where()` patterns.
+        // Supports `.where().limit()`, `.where().orderBy().limit()` (the
+        // first-image lookup now sorts by orderIndex ascending instead of
+        // matching `= 0`), and a bare awaited `.where()`.
         const flexibleFrom = vi.fn().mockReturnValue({
           where: () => ({
             limit: vi.fn().mockResolvedValue([]),
+            orderBy: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([]),
+              then: (resolve: (value: any) => void) => resolve([]),
+            }),
             then: (resolve: (value: any) => void) => resolve([]),
           }),
         });
@@ -676,9 +683,16 @@ describe("ListingDAL", () => {
         if ((db.select as any).mock.calls.length === 1) {
           return { from: mockFromCount } as any;
         }
+        // Supports `.where().limit()`, `.where().orderBy().limit()` (the
+        // first-image lookup now sorts by orderIndex ascending instead of
+        // matching `= 0`), and a bare awaited `.where()`.
         const flexibleFrom = vi.fn().mockReturnValue({
           where: () => ({
             limit: vi.fn().mockResolvedValue([]),
+            orderBy: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([]),
+              then: (resolve: (value: any) => void) => resolve([]),
+            }),
             then: (resolve: (value: any) => void) => resolve([]),
           }),
         });
@@ -740,7 +754,13 @@ describe("ListingDAL", () => {
       vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Mock image query - batched select().from().where() resolving to []
-      const mockImageWhere = vi.fn().mockResolvedValue([]);
+      // The first-image lookup now sorts by orderIndex ascending (it used to
+      // match `= 0`), so the double must support `.where().orderBy()` as well
+      // as a directly-awaited `.where()`.
+      const mockImageWhere = vi.fn().mockReturnValue({
+        orderBy: vi.fn().mockResolvedValue([]),
+        then: (resolve: (value: any) => void) => resolve([]),
+      });
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
       });
@@ -785,6 +805,7 @@ describe("ListingDAL", () => {
       const mockImageLimit = vi.fn().mockResolvedValue([]);
       const mockImageWhere = vi.fn().mockReturnValue({
         limit: mockImageLimit,
+        orderBy: vi.fn().mockReturnValue({ limit: mockImageLimit }),
       });
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
@@ -1351,7 +1372,13 @@ describe("ListingDAL", () => {
       vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Mock the images query (batched select().from().where())
-      const mockImageWhere = vi.fn().mockResolvedValue([]);
+      // The first-image lookup now sorts by orderIndex ascending (it used to
+      // match `= 0`), so the double must support `.where().orderBy()` as well
+      // as a directly-awaited `.where()`.
+      const mockImageWhere = vi.fn().mockReturnValue({
+        orderBy: vi.fn().mockResolvedValue([]),
+        then: (resolve: (value: any) => void) => resolve([]),
+      });
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
       });
@@ -1409,7 +1436,13 @@ describe("ListingDAL", () => {
       vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
 
       // Mock the images query (batched select().from().where())
-      const mockImageWhere = vi.fn().mockResolvedValue([]);
+      // The first-image lookup now sorts by orderIndex ascending (it used to
+      // match `= 0`), so the double must support `.where().orderBy()` as well
+      // as a directly-awaited `.where()`.
+      const mockImageWhere = vi.fn().mockReturnValue({
+        orderBy: vi.fn().mockResolvedValue([]),
+        then: (resolve: (value: any) => void) => resolve([]),
+      });
       const mockImageFrom = vi.fn().mockReturnValue({
         where: mockImageWhere,
       });
@@ -1549,6 +1582,54 @@ describe("ListingDAL", () => {
       const result = await listingDAL.getRecentListingsNearUser(userId, 5);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("first-image lookup (regression: deleted first image)", () => {
+    // Images are inserted at `max(orderIndex) + 1` (so 0,1,2…) and
+    // `DELETE /api/listings/[id]/images/[imageId]` removes the row WITHOUT
+    // reindexing the survivors. A listing whose first image was deleted is left
+    // with indexes 1,2,… — and the old `eq(orderIndex, 0)` lookup found nothing,
+    // so it rendered with no thumbnail in the web explore grid and the mobile
+    // feed despite still having images. Reported from the device 2026-08-19.
+    it("selects the lowest order index rather than requiring index 0", async () => {
+      const orderByCalls: unknown[] = [];
+      const whereCalls: unknown[] = [];
+
+      vi.mocked(db.select).mockImplementation((() => ({
+        from: () => ({
+          where: (...args: unknown[]) => {
+            whereCalls.push(args);
+            return {
+              orderBy: (...orderArgs: unknown[]) => {
+                orderByCalls.push(orderArgs);
+                return Promise.resolve([
+                  {
+                    listingId: "listing-a",
+                    imageUrl: "https://cdn/second.jpg",
+                  },
+                ]);
+              },
+              then: (resolve: (v: unknown[]) => unknown) => resolve([]),
+            };
+          },
+        }),
+      })) as any);
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([] as any);
+
+      const [enriched] = await (
+        listingDAL as any
+      )._enrichListingsWithRatingsAndImages([
+        { ...mockListing, id: "listing-a" },
+      ]);
+
+      // The surviving image (orderIndex 1) is used…
+      expect(enriched.firstImageUrl).toBe("https://cdn/second.jpg");
+      // …because the query sorts instead of pinning the index. (Drizzle's
+      // condition objects are circular, so assert on the call shape, not their
+      // serialized contents.)
+      expect(orderByCalls.length).toBe(1);
+      expect(whereCalls.length).toBe(1);
     });
   });
 
@@ -1717,8 +1798,10 @@ describe("ListingDAL", () => {
               });
               // Thenable so `await db.select(...).from().where()` resolves
               // to the batched rows, while `.limit(1)` still works for the
-              // old N+1 code path.
-              return {
+              // old N+1 code path. `.orderBy()` supports the current code,
+              // which sorts by orderIndex ascending instead of matching `= 0`
+              // (image deletion doesn't reindex, so `= 0` can be absent).
+              const batched = {
                 then: (
                   resolve: (v: typeof batchedRows) => unknown,
                   reject?: (e: unknown) => unknown,
@@ -1728,6 +1811,7 @@ describe("ListingDAL", () => {
                   return Promise.resolve(firstImageByListing[listing.id] ?? []);
                 },
               };
+              return { ...batched, orderBy: () => batched };
             },
           }),
         } as any;
