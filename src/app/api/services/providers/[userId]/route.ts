@@ -121,7 +121,12 @@ async function getHandler(
         profileImageUrl: profileUser.profileImageUrl,
         createdAt: profileUser.createdAt,
       },
-      profile: null,
+      // Mirrors the shape this route's own PATCH returns (`{profile: {bio}}`).
+      // This was hard-coded `null`, so the provider bio — which PATCH writes and
+      // the provider profile screen is required to display (mobile Req 6.2.3) —
+      // was unreachable by any reader. Null bio stays null; the field is simply
+      // no longer dropped.
+      profile: { bio: profileUser.bio ?? null },
       activeListings,
       reviewsReceived: paginatedReviews?.data ?? [],
       aggregate: aggregate ?? { averageRating: 0, totalReviews: 0 },

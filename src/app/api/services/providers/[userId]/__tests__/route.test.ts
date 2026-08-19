@@ -139,6 +139,25 @@ describe("GET /api/services/providers/[userId]", () => {
     ]);
   });
 
+  // Mobile Req 6.2.3 requires the provider profile to show a bio. `profile` was
+  // hard-coded `null` here, so the bio this route's own PATCH writes could not
+  // be read back by anyone.
+  it("returns the provider's bio", async () => {
+    const res = await GET(reqFor(), paramsFor());
+    const body = await res.json();
+
+    expect(body.profile).toEqual({ bio: "hi" });
+  });
+
+  it("returns bio: null (not a dropped field) when the provider has no bio", async () => {
+    mockGetUserById.mockResolvedValue({ ...profileUser, bio: null });
+
+    const res = await GET(reqFor(), paramsFor());
+    const body = await res.json();
+
+    expect(body.profile).toEqual({ bio: null });
+  });
+
   it("returns all active listings (no community filter) when the viewer is the provider", async () => {
     const { getCurrentUserId } = await import("@/lib/api/route-helpers");
     vi.mocked(getCurrentUserId).mockResolvedValue("provider-1");
