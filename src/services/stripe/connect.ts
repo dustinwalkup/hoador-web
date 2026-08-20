@@ -10,6 +10,17 @@ import { PAYMENT_SERVER_INSTANCE } from "./server";
  * Components configuration for Stripe Connect account sessions
  */
 export interface AccountSessionComponents {
+  /**
+   * Declared so a caller can re-enable onboarding alongside other components:
+   * createAccountSession() defaults this to `{enabled: false}` whenever ANY
+   * components are passed, and only a caller-supplied value overrides it. The
+   * mobile app needs onboarding + payouts in one session because it runs a
+   * single Connect instance for the whole app (P-E7-6).
+   */
+  account_onboarding?: {
+    enabled: boolean;
+    features?: { external_account_collection?: boolean };
+  };
   balances?: { enabled: boolean };
   payouts?: { enabled: boolean };
   payouts_list?: { enabled: boolean };

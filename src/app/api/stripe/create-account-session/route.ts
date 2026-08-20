@@ -10,9 +10,23 @@ import { createAccountSession } from "@/services/stripe/connect";
 
 /**
  * Create an account session for embedded Stripe Connect components
- * Supports both onboarding (backward compatible) and payments page components
  * POST /api/stripe/create-account-session
- * Optional query parameter: ?mode=payments (defaults to onboarding for backward compatibility)
+ *
+ * Optional query parameter `mode`:
+ *   - (omitted)  onboarding only — the original web behaviour, unchanged
+ *   - `payments` the web payments page's component set
+ *   - `mobile`   onboarding + payouts + payments in ONE session (P-E7-6)
+ *
+ * Why `mobile` exists: the React Native app runs a **single**
+ * `loadConnectAndInitialize` instance for the whole authenticated shell, and its
+ * `fetchClientSecret` must return a session covering every component the app may
+ * mount — `ConnectAccountOnboarding` (7.2.2) and `ConnectPayouts` (7.4.3). The
+ * two existing modes are mutually exclusive: `payments` explicitly disables
+ * onboarding, and the default enables only onboarding, so neither can serve the
+ * app. Additive — both web callers keep their exact component sets.
+ *
+ * Requirements: 2.3.2, 13.2.1, 13.3.3
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-07-payments-payouts.md § P-E7-6 (D-E7-11)
  */
 async function postHandler(request: NextRequest) {
   try {
@@ -44,7 +58,34 @@ async function postHandler(request: NextRequest) {
 
     let clientSecret: string;
 
-    if (mode === "payments") {
+    if (mode === "mobile") {
+      // `account_onboarding` is listed explicitly: createAccountSession()
+      // defaults it to `{enabled: false}` whenever any components are passed,
+      // and only a caller-supplied value overrides that (it spreads last).
+      const { data, error: sessionError } = await tryCatch(
+        createAccountSession(accountId, {
+          components: {
+            account_onboarding: {
+              enabled: true,
+              features: { external_account_collection: true },
+            },
+            payouts: { enabled: true },
+            payments: { enabled: true },
+          },
+        }),
+      );
+
+      if (sessionError || !data) {
+        return NextResponse.json(
+          {
+            error: sessionError?.message || "Failed to create account session",
+          },
+          { status: 500 },
+        );
+      }
+
+      clientSecret = data;
+    } else if (mode === "payments") {
       // Create account session with all required components for payments page
       // This includes: balances, payouts, payouts_list, payments, documents, notification_banner
       const { data, error: sessionError } = await tryCatch(
