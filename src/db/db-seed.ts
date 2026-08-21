@@ -14,12 +14,19 @@ if (!DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
+/**
+ * Neon requires SSL; the local docker Postgres in `compose.yaml` does not
+ * support it at all and rejects the connection outright ("The server does not
+ * support SSL connections"). Deciding per-target is what makes the documented
+ * local workflow (`docker compose up -d` + a localhost DATABASE_URL) actually
+ * usable for seeding, instead of silently only working against the cloud.
+ */
+const isLocalTarget =
+  /@(localhost|127\.0\.0\.1|host\.docker\.internal)[:/]/.test(DATABASE_URL);
+
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  // Neon requires SSL
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: isLocalTarget ? false : { rejectUnauthorized: false },
 });
 
 export const db = drizzle(pool, { schema, logger: false });
