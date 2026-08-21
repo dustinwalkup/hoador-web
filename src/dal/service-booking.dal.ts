@@ -1,4 +1,4 @@
-import { and, count, desc, eq, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import {
@@ -8,6 +8,7 @@ import {
   type ServiceBooking,
 } from "@/db/schemas/services.schema";
 import { user } from "@/db/schemas/user.schema";
+import { serviceBookingStatusEnum } from "@/db/schemas/_enums";
 import { conversations } from "@/db/schemas/messages.schema";
 
 import { BaseDAL } from "./base";
@@ -63,6 +64,38 @@ const bookingProvider = alias(user, "service_booking_provider");
 /**
  * Data access for HOA service bookings.
  */
+/**
+ * One service booking on the unified Schedule (mobile Req 2.8), in the role the
+ * current user holds. Unlike rentals these carry a real time of day, so
+ * `proposedTime` survives to the client.
+ *
+ * `proposedDate` is a pg `date` and `proposedTime` a `varchar` — **neither
+ * carries a timezone**. They are returned as the raw strings the DB holds and
+ * must never be coerced to a `Date` here: doing so would stamp the server's zone
+ * onto a wall-clock value (mobile D19 / Req 2.8.5).
+ *
+ * Deliberately narrow: no Stripe identifiers, no counterparty email — the fat
+ * dashboard row (`findByRequesterForDashboard`) carries all three.
+ */
+/** The pg `service_booking_status` union, so a status filter stays exhaustive. */
+export type ServiceBookingStatusValue =
+  (typeof serviceBookingStatusEnum.enumValues)[number];
+
+export interface ScheduleServiceBookingRow {
+  id: string;
+  listingTitle: string;
+  /** `YYYY-MM-DD`, wall clock. */
+  proposedDate: string;
+  /** `HH:MM`, wall clock. */
+  proposedTime: string;
+  /** Nullable in the schema — a booking may have no known duration. */
+  hours: string | null;
+  status: string;
+  expiresAt: Date;
+  role: "client" | "provider";
+  counterpartyName: string;
+}
+
 export class ServiceBookingDAL extends BaseDAL {
   /**
    * Inserts a new booking row.
@@ -372,6 +405,144 @@ export class ServiceBookingDAL extends BaseDAL {
   /**
    * Bookings where the user is the requester, with listing title and provider as counterparty.
    */
+  /**
+   * Every service booking scheduled within [from, to] in which the user is the
+   * requester or the provider, for the unified Schedule projection (Req 2.8.1).
+   *
+   * A booking is a single dated appointment, so this is plain containment rather
+   * than the interval overlap rentals need. `proposedDate` is a `date` column, so
+   * the bounds are compared as `YYYY-MM-DD` strings — no `Date` is constructed,
+   * which is what keeps the server's timezone out of a wall-clock value.
+   *
+   * Two queries rather than one `or(requester, provider)`: each side needs a
+   * different user join to name the counterparty.
+   */
+  async getScheduleBookings(
+    userId: string,
+    fromDay: string,
+    toDay: string,
+  ): Promise<ScheduleServiceBookingRow[]> {
+    try {
+      const withinRange = and(
+        gte(serviceBookings.proposedDate, fromDay),
+        lte(serviceBookings.proposedDate, toDay),
+      );
+
+      const selection = {
+        id: serviceBookings.id,
+        listingTitle: serviceListings.title,
+        proposedDate: serviceBookings.proposedDate,
+        proposedTime: serviceBookings.proposedTime,
+        hours: serviceBookings.hours,
+        status: serviceBookings.status,
+        expiresAt: serviceBookings.expiresAt,
+      };
+
+      const asClient = await this.db
+        .select({
+          ...selection,
+          counterpartyName: sql<string>`CONCAT(${bookingProvider.firstName}, ' ', ${bookingProvider.lastName})`,
+        })
+        .from(serviceBookings)
+        .innerJoin(
+          serviceListings,
+          eq(serviceBookings.listingId, serviceListings.id),
+        )
+        .innerJoin(
+          bookingProvider,
+          eq(serviceBookings.providerId, bookingProvider.id),
+        )
+        .where(and(eq(serviceBookings.requesterId, userId), withinRange));
+
+      const asProvider = await this.db
+        .select({
+          ...selection,
+          counterpartyName: sql<string>`CONCAT(${bookingRequester.firstName}, ' ', ${bookingRequester.lastName})`,
+        })
+        .from(serviceBookings)
+        .innerJoin(
+          serviceListings,
+          eq(serviceBookings.listingId, serviceListings.id),
+        )
+        .innerJoin(
+          bookingRequester,
+          eq(serviceBookings.requesterId, bookingRequester.id),
+        )
+        .where(and(eq(serviceBookings.providerId, userId), withinRange));
+
+      return [
+        ...asClient.map((b) => ({ ...b, role: "client" as const })),
+        ...asProvider.map((b) => ({ ...b, role: "provider" as const })),
+      ];
+    } catch (error) {
+      this.handleError(error, "getScheduleBookings");
+    }
+  }
+
+  /**
+   * Bookings in the given statuses, in either role, **with no date bound** — the
+   * service half of Schedule's "needs your attention" (mobile Req 5.6.1). See
+   * `RentalDAL.getActionableRentals` for why this is not range-scoped.
+   */
+  async getActionableBookings(
+    userId: string,
+    statuses: readonly ServiceBookingStatusValue[],
+  ): Promise<ScheduleServiceBookingRow[]> {
+    try {
+      if (statuses.length === 0) return [];
+      const inStatus = inArray(serviceBookings.status, [...statuses]);
+
+      const selection = {
+        id: serviceBookings.id,
+        listingTitle: serviceListings.title,
+        proposedDate: serviceBookings.proposedDate,
+        proposedTime: serviceBookings.proposedTime,
+        hours: serviceBookings.hours,
+        status: serviceBookings.status,
+        expiresAt: serviceBookings.expiresAt,
+      };
+
+      const asClient = await this.db
+        .select({
+          ...selection,
+          counterpartyName: sql<string>`CONCAT(${bookingProvider.firstName}, ' ', ${bookingProvider.lastName})`,
+        })
+        .from(serviceBookings)
+        .innerJoin(
+          serviceListings,
+          eq(serviceBookings.listingId, serviceListings.id),
+        )
+        .innerJoin(
+          bookingProvider,
+          eq(serviceBookings.providerId, bookingProvider.id),
+        )
+        .where(and(eq(serviceBookings.requesterId, userId), inStatus));
+
+      const asProvider = await this.db
+        .select({
+          ...selection,
+          counterpartyName: sql<string>`CONCAT(${bookingRequester.firstName}, ' ', ${bookingRequester.lastName})`,
+        })
+        .from(serviceBookings)
+        .innerJoin(
+          serviceListings,
+          eq(serviceBookings.listingId, serviceListings.id),
+        )
+        .innerJoin(
+          bookingRequester,
+          eq(serviceBookings.requesterId, bookingRequester.id),
+        )
+        .where(and(eq(serviceBookings.providerId, userId), inStatus));
+
+      return [
+        ...asClient.map((b) => ({ ...b, role: "client" as const })),
+        ...asProvider.map((b) => ({ ...b, role: "provider" as const })),
+      ];
+    } catch (error) {
+      this.handleError(error, "getActionableBookings");
+    }
+  }
+
   async findByRequesterForDashboard(
     requesterId: string,
   ): Promise<ServiceBookingDashboardRow[]> {

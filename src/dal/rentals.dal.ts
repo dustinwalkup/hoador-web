@@ -1,5 +1,6 @@
 import { eq, and, inArray, sql, gte, lte, lt, or, desc } from "drizzle-orm";
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
+import { rentalStatusEnum } from "@/db/schemas/_enums";
 import {
   listings,
   listingImages,
@@ -384,6 +385,30 @@ export type RentalMessagesInfo = Pick<
   RentalDetails,
   "message" | "pickupInstructions" | "returnInstructions"
 >;
+
+/**
+ * One rental on the unified Schedule (mobile Req 2.8), in the role the current
+ * user holds. `id` is the **rental request** id — that is what `/api/rentals/[id]`
+ * resolves (`getRentalDetailsById` filters on `rentalRequests.id`), so a Schedule
+ * event can link straight to detail regardless of whether a `rentals` row exists
+ * yet. Deliberately narrow: no money, no addresses, no counterparty email.
+ */
+/** The pg `rental_status` union, so a status filter cannot be a loose string. */
+export type RentalStatusValue = (typeof rentalStatusEnum.enumValues)[number];
+
+export interface ScheduleRentalRow {
+  id: string;
+  listingName: string;
+  startDate: Date;
+  endDate: Date;
+  status: string;
+  /** 72h response deadline; only meaningful while `status === "pending"`. */
+  expiresAt: Date;
+  deliveryRequested: boolean;
+  setupRequested: boolean;
+  role: "renter" | "owner";
+  counterpartyName: string;
+}
 
 export class RentalDAL extends BaseDAL {
   async countBorrowedListings(userId: string): Promise<number> {
@@ -2973,6 +2998,125 @@ export class RentalDAL extends BaseDAL {
    * @param rentalRequestId - The rental request ID
    * @returns Full context or null if not found
    */
+  /**
+   * Every rental **overlapping** [from, to] in which the user is renter or owner,
+   * for the unified Schedule projection (mobile Req 2.8.1).
+   *
+   * Overlap, not containment: a rental running Aug 28 → Sep 3 belongs to BOTH
+   * months, because the item is genuinely out on days in each. `startDate <= to
+   * AND endDate >= from` is the standard interval-intersection predicate.
+   *
+   * Two queries rather than one `or(renter, owner)`: each side needs a different
+   * user join to name the counterparty, and splitting them keeps both able to use
+   * the renter/owner indexes. Status is NOT filtered — Schedule shows cancelled
+   * and completed rentals too, distinguished by their status treatment.
+   */
+  async getScheduleRentals(
+    userId: string,
+    from: Date,
+    to: Date,
+  ): Promise<ScheduleRentalRow[]> {
+    try {
+      const overlapsRange = and(
+        lte(rentalRequests.startDate, to),
+        gte(rentalRequests.endDate, from),
+      );
+
+      const asRenter = await this.db
+        .select({
+          id: rentalRequests.id,
+          listingName: listings.name,
+          startDate: rentalRequests.startDate,
+          endDate: rentalRequests.endDate,
+          status: rentalRequests.status,
+          expiresAt: rentalRequests.expiresAt,
+          deliveryRequested: rentalRequests.deliveryRequested,
+          setupRequested: rentalRequests.setupRequested,
+          counterpartyName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .where(and(eq(rentalRequests.renterId, userId), overlapsRange));
+
+      const asOwner = await this.db
+        .select({
+          id: rentalRequests.id,
+          listingName: listings.name,
+          startDate: rentalRequests.startDate,
+          endDate: rentalRequests.endDate,
+          status: rentalRequests.status,
+          expiresAt: rentalRequests.expiresAt,
+          deliveryRequested: rentalRequests.deliveryRequested,
+          setupRequested: rentalRequests.setupRequested,
+          counterpartyName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+        })
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.renterId, user.id))
+        .where(and(eq(rentalRequests.ownerId, userId), overlapsRange));
+
+      return [
+        ...asRenter.map((r) => ({ ...r, role: "renter" as const })),
+        ...asOwner.map((r) => ({ ...r, role: "owner" as const })),
+      ];
+    } catch (error) {
+      this.handleError(error, "getScheduleRentals");
+    }
+  }
+
+  /**
+   * Rentals in the given statuses, in any role, **with no date bound** — the
+   * "needs your attention" source for Schedule (mobile Req 5.6.1).
+   *
+   * Deliberately unbounded by date: a pending request is time-critical because of
+   * its 72-hour expiry, not because of when the rental starts, so one for a
+   * December booking must still surface while the user is looking at August.
+   * Selective on status, which is what keeps it cheap.
+   */
+  async getActionableRentals(
+    userId: string,
+    statuses: readonly RentalStatusValue[],
+  ): Promise<ScheduleRentalRow[]> {
+    try {
+      if (statuses.length === 0) return [];
+      const inStatus = inArray(rentalRequests.status, [...statuses]);
+
+      const selection = {
+        id: rentalRequests.id,
+        listingName: listings.name,
+        startDate: rentalRequests.startDate,
+        endDate: rentalRequests.endDate,
+        status: rentalRequests.status,
+        expiresAt: rentalRequests.expiresAt,
+        deliveryRequested: rentalRequests.deliveryRequested,
+        setupRequested: rentalRequests.setupRequested,
+        counterpartyName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+      };
+
+      const asRenter = await this.db
+        .select(selection)
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .where(and(eq(rentalRequests.renterId, userId), inStatus));
+
+      const asOwner = await this.db
+        .select(selection)
+        .from(rentalRequests)
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.renterId, user.id))
+        .where(and(eq(rentalRequests.ownerId, userId), inStatus));
+
+      return [
+        ...asRenter.map((r) => ({ ...r, role: "renter" as const })),
+        ...asOwner.map((r) => ({ ...r, role: "owner" as const })),
+      ];
+    } catch (error) {
+      this.handleError(error, "getActionableRentals");
+    }
+  }
+
   async getRentalCancellationContext(
     rentalRequestId: string,
   ): Promise<RentalCancellationContext | null> {

@@ -11,6 +11,7 @@
     "lint:fix": "eslint --fix .",
     "type-check": "tsc --noEmit --skipLibCheck",
     "test": "vitest",
+    "test:tz": "TZ=Pacific/Kiritimati vitest run src/features/schedule",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
