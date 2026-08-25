@@ -15,6 +15,7 @@ import {
 import { getLendingRequestDetailUrl } from "@/features/dashboard/lib/urls";
 import { formatAlertText } from "@/features/rentals/lib/format-alert-text";
 import type { DashboardPulseData } from "@/features/dashboard/types";
+import { toWallClock } from "@/features/schedule/lib/build-schedule";
 
 const ACTIVITY_LIMIT = 10;
 const PENDING_PREVIEW_LIMIT = 5;
@@ -128,7 +129,22 @@ async function getHandler() {
           alert.daysLate,
         ),
       })),
-      upcomingSchedule,
+      // ⚠️ Serialized as a WALL-CLOCK day, not an instant.
+      //
+      // `getUpcomingSchedule` sets each date to local midnight and returns a
+      // `Date`. The web dashboard consumes that object directly and reads its
+      // local components, so it is correct there. But `Response.json` calls
+      // `toJSON()` → `toISOString()`, turning local midnight into a UTC instant
+      // — and a mobile client behind UTC parses it back to the PREVIOUS day.
+      // Measured: a rental dated Aug 22 rendered "Aug 21" at UTC-5, which is
+      // this product's own market. Correct in UTC, so CI never saw it.
+      //
+      // Emitting `YYYY-MM-DD` from local components removes the round-trip
+      // entirely and matches how `/api/schedule` serializes its dates.
+      upcomingSchedule: upcomingSchedule.map((entry) => ({
+        ...entry,
+        date: toWallClock(entry.date, { dateOnly: true }),
+      })),
       activity,
     });
   } catch (error) {

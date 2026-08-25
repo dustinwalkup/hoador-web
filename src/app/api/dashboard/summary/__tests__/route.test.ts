@@ -226,3 +226,54 @@ describe("GET /api/dashboard/summary", () => {
     expect(alert.message).toContain("2 days");
   });
 });
+
+describe("GET /api/dashboard/summary — upcoming schedule dates", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCurrentUser.mockResolvedValue({ id: "user-1", userType: "user" });
+    mockPulse.mockResolvedValue(PULSE);
+    mockAlerts.mockResolvedValue([]);
+    mockActivity.mockResolvedValue([]);
+    mockLendingPending.mockResolvedValue([]);
+    mockProviderBookings.mockResolvedValue([]);
+  });
+
+  const entry = {
+    id: "s-1",
+    // Local midnight, exactly as `getUpcomingSchedule` produces it.
+    date: new Date(2026, 7, 22),
+    description: "Return Ladder",
+    subtitle: "Ladder",
+    type: "return",
+    role: "renter",
+  };
+
+  // The bug this pins: the helper builds LOCAL midnight, and `Response.json`
+  // would serialize that as a UTC instant — which a client BEHIND UTC parses
+  // back as the previous day. Measured at UTC-5: a rental dated Aug 22 rendered
+  // "Aug 21". Correct in UTC, so CI never caught it.
+  it("serializes a wall-clock day, never a zoned instant", async () => {
+    mockSchedule.mockResolvedValue([entry]);
+
+    const { GET } = await import("../route");
+    const body = await (await GET(req())).json();
+
+    expect(body.upcomingSchedule[0].date).toBe("2026-08-22");
+    expect(body.upcomingSchedule[0].date).not.toMatch(/[Zz]|[+-]\d{2}:\d{2}/);
+  });
+
+  it("keeps the rest of the entry untouched", async () => {
+    mockSchedule.mockResolvedValue([entry]);
+
+    const { GET } = await import("../route");
+    const body = await (await GET(req())).json();
+
+    expect(body.upcomingSchedule[0]).toMatchObject({
+      id: "s-1",
+      description: "Return Ladder",
+      subtitle: "Ladder",
+      type: "return",
+      role: "renter",
+    });
+  });
+});
