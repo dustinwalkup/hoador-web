@@ -46,6 +46,11 @@ const RENTAL = {
   renterId: "renter-1",
   ownerId: "owner-1",
   status: "active",
+  // Booked DAYS, held in `timestamp without time zone` columns. Built from
+  // local components (as the driver hands them back) so the assertions below
+  // hold in any server timezone, not just UTC.
+  startDate: new Date(2026, 7, 22, 0, 0, 0),
+  endDate: new Date(2026, 7, 23, 0, 0, 0),
 };
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
@@ -167,5 +172,75 @@ describe("GET /api/rentals/[id] — access control (regression)", () => {
     const res = await GET(req(), params("rental-1"));
 
     expect(res.status).toBe(404);
+  });
+});
+
+/**
+ * Requirements: mobile Req 9.2.2, 9.2.3, 5.7.6
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-08a-rental-lifecycle.md § 8A.2
+ *
+ * The three additions task 8A.2 found missing when it verified the wire form
+ * (the epic's "check the wire form before choosing a parser" step).
+ */
+describe("GET /api/rentals/[id] — mobile detail payload (8A.2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    asParty();
+    mockGetRentalDetailsById.mockResolvedValue(RENTAL);
+    mockGetRentalAgreementAcceptance.mockResolvedValue(null);
+  });
+
+  // R-8.7 all over again: serialized with toISOString() these go out as an
+  // instant at UTC midnight, and a client behind UTC parses them back to the
+  // PREVIOUS day — Aug 22 rendering "Aug 21" at UTC-5. Correct in UTC, which is
+  // why neither CI nor a UTC preview would ever show it.
+  it("serializes startDate/endDate as zoneless YYYY-MM-DD, not an instant", async () => {
+    const body = await (await GET(req(), params("rental-1"))).json();
+
+    expect(body.startDate).toBe("2026-08-22");
+    expect(body.endDate).toBe("2026-08-23");
+    expect(body.startDate).not.toMatch(/[TZ]/);
+  });
+
+  it("keeps genuine instants as ISO (they are deadlines, not days)", async () => {
+    const expiresAt = new Date("2026-08-20T14:30:00.000Z");
+    mockGetRentalDetailsById.mockResolvedValue({
+      ...RENTAL,
+      status: "pending",
+      expiresAt,
+      createdAt: new Date("2026-08-17T14:30:00.000Z"),
+    });
+
+    const body = await (await GET(req(), params("rental-1"))).json();
+
+    // Req 9.2.3's 72-hour countdown has nothing to count without this.
+    expect(body.expiresAt).toBe("2026-08-20T14:30:00.000Z");
+    expect(body.createdAt).toBe("2026-08-17T14:30:00.000Z");
+  });
+
+  it("decides viewerRole server-side for the renter, the owner and an admin", async () => {
+    expect(
+      (await (await GET(req(), params("rental-1"))).json()).viewerRole,
+    ).toBe("renter");
+
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: "owner-1" },
+      userId: "owner-1",
+      isAdmin: false,
+    });
+    expect(
+      (await (await GET(req(), params("rental-1"))).json()).viewerRole,
+    ).toBe("owner");
+
+    // An admin is a party to nothing — the screen must not render them as one.
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: "admin-1" },
+      userId: "admin-1",
+      isAdmin: true,
+    });
+    expect(
+      (await (await GET(req(), params("rental-1"))).json()).viewerRole,
+    ).toBe("admin");
   });
 });

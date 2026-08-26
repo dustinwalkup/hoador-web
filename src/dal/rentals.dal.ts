@@ -289,6 +289,13 @@ export interface RentalDetails {
   approvedAt?: Date;
   deniedAt?: Date;
   denialReason?: string;
+  /**
+   * The pending request's 72-hour deadline (`rental_requests.expires_at`), for
+   * the mobile detail screen's countdown (mobile Req 9.2.3). A genuine instant,
+   * unlike `startDate`/`endDate` — see the route's serialization note.
+   */
+  expiresAt?: Date;
+  cancelledAt?: Date;
   currentUserId: string;
   conversationId?: string | null;
 }
@@ -2157,6 +2164,8 @@ export class RentalDAL extends BaseDAL {
           approvedAt: rentalRequests.approvedAt,
           deniedAt: rentalRequests.deniedAt,
           denialReason: rentalRequests.denialReason,
+          expiresAt: rentalRequests.expiresAt,
+          cancelledAt: rentalRequests.cancelledAt,
           paymentStatus: rentalRequests.paymentStatus,
           paymentFailureReason: rentalRequests.paymentFailureReason,
           // Join with rentals table to get pickup/return instructions and actual dates if approved
@@ -2313,6 +2322,8 @@ export class RentalDAL extends BaseDAL {
           approvedAt: request.approvedAt || undefined,
           deniedAt: request.deniedAt || undefined,
           denialReason: request.denialReason || undefined,
+          expiresAt: request.expiresAt || undefined,
+          cancelledAt: request.cancelledAt || undefined,
           paymentStatus: request.paymentStatus || undefined,
           paymentFailureReason: request.paymentFailureReason || undefined,
           depositHoldStatus: request.depositHoldStatus || undefined,
@@ -2392,6 +2403,9 @@ export class RentalDAL extends BaseDAL {
           serviceFee: rentalRequests.serviceFee,
           message: rentalRequests.message,
           status: rentalRequests.status,
+          approvedAt: rentalRequests.approvedAt,
+          expiresAt: rentalRequests.expiresAt,
+          cancelledAt: rentalRequests.cancelledAt,
         })
         .from(rentalRequests)
         .where(eq(rentalRequests.id, rentalData.requestId))
@@ -2522,6 +2536,9 @@ export class RentalDAL extends BaseDAL {
         extensionApproved: rentalData.extensionApproved || false,
         returnConfirmedAt: rentalData.returnConfirmedAt || undefined,
         status: request[0]?.status || "approved",
+        approvedAt: request[0]?.approvedAt || undefined,
+        expiresAt: request[0]?.expiresAt || undefined,
+        cancelledAt: request[0]?.cancelledAt || undefined,
         depositHoldStatus: rentalData.depositHoldStatus || undefined,
         createdAt: rentalData.createdAt,
         currentUserId: userId || "",
