@@ -296,6 +296,16 @@ export interface RentalDetails {
    */
   expiresAt?: Date;
   cancelledAt?: Date;
+  /**
+   * The owner's take, computed by `calculateRentalPricing` at request creation
+   * and **stored** — never re-derived on read. `ownerPayout` is the rental price
+   * (subtotal + delivery + setup) minus the 20% platform fee;
+   * `applicationFeeAmount` is that platform fee PLUS the renter's service fee.
+   * The mobile detail route inverts these into the owner's earnings preview
+   * (mobile Req 10.1.1) so that no client does the arithmetic.
+   */
+  ownerPayout?: string;
+  applicationFeeAmount?: string;
   currentUserId: string;
   conversationId?: string | null;
 }
@@ -2166,6 +2176,8 @@ export class RentalDAL extends BaseDAL {
           denialReason: rentalRequests.denialReason,
           expiresAt: rentalRequests.expiresAt,
           cancelledAt: rentalRequests.cancelledAt,
+          ownerPayout: rentalRequests.ownerPayout,
+          applicationFeeAmount: rentalRequests.applicationFeeAmount,
           paymentStatus: rentalRequests.paymentStatus,
           paymentFailureReason: rentalRequests.paymentFailureReason,
           // Join with rentals table to get pickup/return instructions and actual dates if approved
@@ -2324,6 +2336,8 @@ export class RentalDAL extends BaseDAL {
           denialReason: request.denialReason || undefined,
           expiresAt: request.expiresAt || undefined,
           cancelledAt: request.cancelledAt || undefined,
+          ownerPayout: request.ownerPayout || undefined,
+          applicationFeeAmount: request.applicationFeeAmount || undefined,
           paymentStatus: request.paymentStatus || undefined,
           paymentFailureReason: request.paymentFailureReason || undefined,
           depositHoldStatus: request.depositHoldStatus || undefined,
@@ -2406,6 +2420,8 @@ export class RentalDAL extends BaseDAL {
           approvedAt: rentalRequests.approvedAt,
           expiresAt: rentalRequests.expiresAt,
           cancelledAt: rentalRequests.cancelledAt,
+          ownerPayout: rentalRequests.ownerPayout,
+          applicationFeeAmount: rentalRequests.applicationFeeAmount,
         })
         .from(rentalRequests)
         .where(eq(rentalRequests.id, rentalData.requestId))
@@ -2539,6 +2555,8 @@ export class RentalDAL extends BaseDAL {
         approvedAt: request[0]?.approvedAt || undefined,
         expiresAt: request[0]?.expiresAt || undefined,
         cancelledAt: request[0]?.cancelledAt || undefined,
+        ownerPayout: request[0]?.ownerPayout || undefined,
+        applicationFeeAmount: request[0]?.applicationFeeAmount || undefined,
         depositHoldStatus: rentalData.depositHoldStatus || undefined,
         createdAt: rentalData.createdAt,
         currentUserId: userId || "",

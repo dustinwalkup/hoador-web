@@ -7,6 +7,76 @@ import {
   getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
 import { toWallClock } from "@/features/schedule/lib/build-schedule";
+import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
+
+/** Decimal string → integer cents, and back. Keeps the split off floats. */
+function toCents(value: string | undefined): number | null {
+  if (value === undefined || value === null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
+}
+function fromCents(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
+/**
+ * The owner's itemized earnings preview (mobile Req 10.1.1), shown before an
+ * approval that charges the renter immediately (Req 10.1.2).
+ *
+ * **Composed from the values STORED at request creation**, not re-derived.
+ * `ownerPayout` and `applicationFeeAmount` are what `calculateRentalPricing`
+ * computed and what the transfer will actually pay out; the two lines here are
+ * exact inversions of that function's own algebra —
+ * `applicationFee = platformFee + serviceFee` and
+ * `ownerPayout = rentalPrice - platformFee`. Re-running the calculator on read
+ * would risk quoting *today's* rules for *yesterday's* rental, and mobile's
+ * rule #1 forbids the client doing the arithmetic at all.
+ *
+ * Returns `null` rather than a wrong number in two cases, and both matter
+ * because this is the figure an owner reads before an irreversible action:
+ *  - the viewer is not the owner (the renter's screen has no business showing
+ *    what the owner takes home), and
+ *  - the stored split is absent or zero on a rental that was not free, which is
+ *    what a row predating these columns looks like. The client then says the
+ *    payout will be confirmed at approval instead of promising $0.00.
+ */
+function buildEarningsPreview(
+  viewerRole: string,
+  data: {
+    ownerPayout?: string;
+    applicationFeeAmount?: string;
+    serviceFee?: string;
+    totalAmount: string;
+  },
+): {
+  rentalPrice: string;
+  platformFee: string;
+  ownerPayout: string;
+  platformFeePercent: number;
+} | null {
+  if (viewerRole !== "owner") return null;
+
+  const payoutCents = toCents(data.ownerPayout);
+  const appFeeCents = toCents(data.applicationFeeAmount);
+  const serviceFeeCents = toCents(data.serviceFee) ?? 0;
+  if (payoutCents === null || appFeeCents === null) return null;
+
+  const platformFeeCents = appFeeCents - serviceFeeCents;
+  if (platformFeeCents < 0) return null;
+
+  const rentalPriceCents = payoutCents + platformFeeCents;
+  // A legacy row carries "0" in both columns. Distinguishable from a genuinely
+  // free rental only by the total, so that is what decides it.
+  if (rentalPriceCents === 0 && (toCents(data.totalAmount) ?? 0) > 0)
+    return null;
+
+  return {
+    rentalPrice: fromCents(rentalPriceCents),
+    platformFee: fromCents(platformFeeCents),
+    ownerPayout: fromCents(payoutCents),
+    platformFeePercent: Math.round(PLATFORM_FEE_PERCENTAGE * 100),
+  };
+}
 
 /**
  * GET /api/rentals/[id]
@@ -78,6 +148,13 @@ async function getHandler(
     // `createdAt`, `approvedAt`, `deniedAt`, `expiresAt`, `cancelledAt`, and
     // `actualStartDate`/`actualEndDate` (set to `new Date()` when the owner
     // starts/ends the rental).
+    const viewerRole =
+      data.renterId === userId
+        ? "renter"
+        : data.ownerId === userId
+          ? "owner"
+          : "admin";
+
     return Response.json({
       ...data,
       startDate: toWallClock(data.startDate, { dateOnly: true }),
@@ -85,12 +162,8 @@ async function getHandler(
       // Server-decided, so the client never compares ids to work out which side
       // of the transaction it is rendering (the `isOwner` precedent from
       // P-E6-1). An admin viewing someone else's rental is neither party.
-      viewerRole:
-        data.renterId === userId
-          ? "renter"
-          : data.ownerId === userId
-            ? "owner"
-            : "admin",
+      viewerRole,
+      earnings: buildEarningsPreview(viewerRole, data),
       agreement,
     });
   } catch (error) {

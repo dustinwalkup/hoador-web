@@ -244,3 +244,125 @@ describe("GET /api/rentals/[id] — mobile detail payload (8A.2)", () => {
     ).toBe("admin");
   });
 });
+
+/**
+ * Requirements: mobile Req 10.1.1
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-08a-rental-lifecycle.md § 8A.4
+ *
+ * The owner's earnings preview (P-E8A-5). The figures come from the columns
+ * `calculateRentalPricing` wrote at request creation; the route only inverts
+ * that function's own algebra so no client has to.
+ */
+describe("GET /api/rentals/[id] — owner earnings preview (8A.4)", () => {
+  // applicationFee = platformFee + serviceFee → platformFee = 20.00
+  // ownerPayout = rentalPrice - platformFee   → rentalPrice = 100.00
+  const PRICED = {
+    ...RENTAL,
+    ownerId: "owner-1",
+    totalAmount: "107.50",
+    serviceFee: "7.50",
+    applicationFeeAmount: "27.50",
+    ownerPayout: "80.00",
+  };
+
+  const asOwner = () =>
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: "owner-1" },
+      userId: "owner-1",
+      isAdmin: false,
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    asOwner();
+    mockGetRentalDetailsById.mockResolvedValue(PRICED);
+    mockGetRentalAgreementAcceptance.mockResolvedValue(null);
+  });
+
+  it("itemizes rental price, platform fee and payout for the owner", async () => {
+    const body = await (await GET(req(), params("rental-1"))).json();
+
+    expect(body.earnings).toEqual({
+      rentalPrice: "100.00",
+      platformFee: "20.00",
+      ownerPayout: "80.00",
+      platformFeePercent: 20,
+    });
+  });
+
+  it("splits on integer cents, so a half-cent rate cannot drift", async () => {
+    mockGetRentalDetailsById.mockResolvedValue({
+      ...PRICED,
+      serviceFee: "1.13",
+      applicationFeeAmount: "4.11",
+      ownerPayout: "11.93",
+    });
+
+    const body = await (await GET(req(), params("rental-1"))).json();
+
+    expect(body.earnings.platformFee).toBe("2.98");
+    expect(body.earnings.rentalPrice).toBe("14.91");
+  });
+
+  // The renter's screen has no business showing what the owner takes home.
+  it("withholds the preview from the renter and from an admin", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: "renter-1" },
+      userId: "renter-1",
+      isAdmin: false,
+    });
+    expect(
+      (await (await GET(req(), params("rental-1"))).json()).earnings,
+    ).toBeNull();
+
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: "admin-1" },
+      userId: "admin-1",
+      isAdmin: true,
+    });
+    expect(
+      (await (await GET(req(), params("rental-1"))).json()).earnings,
+    ).toBeNull();
+  });
+
+  // A row predating these columns carries "0" in both. Promising an owner
+  // $0.00 before an irreversible action is worse than saying "confirmed at
+  // approval", which is what a null makes the client do.
+  it("returns null rather than $0.00 for a row with no stored split", async () => {
+    mockGetRentalDetailsById.mockResolvedValue({
+      ...PRICED,
+      applicationFeeAmount: "0",
+      ownerPayout: "0",
+    });
+
+    expect(
+      (await (await GET(req(), params("rental-1"))).json()).earnings,
+    ).toBeNull();
+  });
+
+  it("still reports a genuinely free rental as zero", async () => {
+    mockGetRentalDetailsById.mockResolvedValue({
+      ...PRICED,
+      totalAmount: "0.00",
+      serviceFee: "0",
+      applicationFeeAmount: "0",
+      ownerPayout: "0",
+    });
+
+    const body = await (await GET(req(), params("rental-1"))).json();
+    expect(body.earnings.ownerPayout).toBe("0.00");
+  });
+
+  it("returns null rather than a negative fee if the columns disagree", async () => {
+    mockGetRentalDetailsById.mockResolvedValue({
+      ...PRICED,
+      serviceFee: "50.00",
+      applicationFeeAmount: "27.50",
+    });
+
+    expect(
+      (await (await GET(req(), params("rental-1"))).json()).earnings,
+    ).toBeNull();
+  });
+});
