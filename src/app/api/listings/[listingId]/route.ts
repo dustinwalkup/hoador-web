@@ -6,13 +6,14 @@ import {
   parseFormData,
   getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
-import { communityDAL, listingDAL } from "@/dal";
+import { communityDAL, listingDAL, rentalDAL } from "@/dal";
 import { NotFoundError } from "@/dal/errors";
 import {
   createListingSchemaServer,
   type CreateListingFormDataServerType,
 } from "@/features/listings/form-schema/listing.schema";
 import { ListingService } from "@/features/listings/services/listing-service";
+import { toBookedRanges } from "@/features/rentals/lib/availability";
 
 // TODO: Add distributed rate limiting for image uploads (e.g., @upstash/ratelimit with Redis).
 // An in-memory limiter is ineffective on serverless (Vercel) deployments.
@@ -45,6 +46,16 @@ const BROWSEABLE_STATUSES = new Set(["available", "rented"]);
  *
  * Note `getListingById` increments `viewCount` when passed a viewer id; that is
  * the web page's behaviour too, and the mobile detail screen wants the same.
+ *
+ * **`bookedRanges` ships with the listing rather than as its own endpoint**
+ * (mobile D-E8A-2 / P-E8A-2). Checkout already fetches the listing, so a second
+ * round trip on a screen the user is waiting on buys nothing, and the ranges are
+ * small. The data itself is not new — `getBookedDatesForListing` already merges
+ * approved/active rentals with manual `listing_availability` blocks, and the web
+ * rent page has been passing it into its date step as a prop; it simply had no
+ * HTTP surface. A lookup failure degrades to `[]` rather than failing the whole
+ * listing: the picker then falls back to server-side validation at submit, which
+ * `createRentalRequest` now enforces (P-E8A-2b).
  */
 async function getHandler(
   _request: NextRequest,
@@ -72,6 +83,11 @@ async function getHandler(
 
     const isOwner = listing.owner.id === userId;
 
+    const { data: blocked } = await tryCatch(
+      (async () => rentalDAL.getBookedDatesForListing(listingId, userId))(),
+    );
+    const bookedRanges = toBookedRanges(blocked ?? []);
+
     if (!isOwner) {
       if (!BROWSEABLE_STATUSES.has(listing.status)) {
         return handleApiError(new NotFoundError("listing", listingId));
@@ -91,10 +107,10 @@ async function getHandler(
       const { approvalStatus, rejectionReason, ...visibleToRenter } = listing;
       void approvalStatus;
       void rejectionReason;
-      return NextResponse.json({ ...visibleToRenter, isOwner });
+      return NextResponse.json({ ...visibleToRenter, isOwner, bookedRanges });
     }
 
-    return NextResponse.json({ ...listing, isOwner });
+    return NextResponse.json({ ...listing, isOwner, bookedRanges });
   } catch (error) {
     return handleApiError(error);
   }

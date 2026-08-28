@@ -19,6 +19,7 @@ import {
   calculateOwnerCancellationRefund,
   calculateNoShowRefund,
 } from "./refund-calculations";
+import { assessCancellation } from "@/features/rentals/lib/cancellation-eligibility";
 
 export type { RefundCalculation } from "./refund-calculations";
 export {
@@ -507,34 +508,32 @@ export async function cancelRental(
     throw new NotFoundError("Rental request", rentalRequestId);
   }
 
-  const isRenter = request.renterId === userId;
-  const isOwner = request.ownerId === userId;
-  if (!isRenter && !isOwner) {
-    throw new ForbiddenError("You are not authorized to cancel this rental");
+  // The same assessment `GET /api/rentals/[id]/cancellation-preview` runs, so
+  // the tier a renter is shown before confirming and the rule applied when they
+  // do are one implementation rather than two that agree today (mobile D-E8A-3).
+  const eligibility = assessCancellation(request, userId);
+
+  if (!eligibility.canCancel) {
+    // Authorization failures stay 403 and state failures stay 400 — the codes
+    // carry that distinction so the mapping lives in one place.
+    if (
+      eligibility.code === "NOT_A_PARTY" ||
+      eligibility.code === "OWNER_MUST_DECLINE"
+    ) {
+      throw new ForbiddenError(eligibility.message);
+    }
+    throw new ValidationError(eligibility.message, "status");
   }
 
-  if (request.status === "pending") {
-    if (!isRenter) {
-      throw new ForbiddenError("Only the renter can cancel a pending request");
-    }
+  if (eligibility.path === "pending") {
     await cancelPendingRequest(rentalRequestId, userId, context);
     return { success: true };
   }
 
-  if (request.status === "approved") {
-    const cancelledBy = isRenter ? "renter" : "owner";
-    return cancelApprovedRental(rentalRequestId, userId, cancelledBy, context);
-  }
-
-  if (request.status === "active") {
-    throw new ValidationError(
-      "Cancellation not allowed for active rentals",
-      "status",
-    );
-  }
-
-  throw new ValidationError(
-    "Rental cannot be cancelled in its current status",
-    "status",
+  return cancelApprovedRental(
+    rentalRequestId,
+    userId,
+    eligibility.cancelledBy,
+    context,
   );
 }

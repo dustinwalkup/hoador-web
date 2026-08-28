@@ -18,10 +18,15 @@ vi.mock("@/lib/api/with-request-logging", () => ({
 
 const mockGetListingById = vi.fn();
 const mockIsVisibleInCommunity = vi.fn();
+const mockGetBookedDatesForListing = vi.fn();
 vi.mock("@/dal", () => ({
   listingDAL: { getListingById: (...a: any[]) => mockGetListingById(...a) },
   communityDAL: {
     isVisibleInCommunity: (...a: any[]) => mockIsVisibleInCommunity(...a),
+  },
+  rentalDAL: {
+    getBookedDatesForListing: (...a: any[]) =>
+      mockGetBookedDatesForListing(...a),
   },
 }));
 
@@ -47,6 +52,7 @@ describe("GET /api/listings/[listingId]", () => {
     mockGetCurrentUser.mockResolvedValue({ id: "viewer-1", userType: "user" });
     mockGetListingById.mockResolvedValue(listing());
     mockIsVisibleInCommunity.mockResolvedValue(true);
+    mockGetBookedDatesForListing.mockResolvedValue([]);
   });
 
   it("returns 401 when not authenticated and reads nothing", async () => {
@@ -157,5 +163,92 @@ describe("GET /api/listings/[listingId]", () => {
     const res = await GET(req(), params());
 
     expect(res.status).toBe(404);
+  });
+});
+
+/**
+ * Requirements: mobile Req 9.1.2
+ * Design: mobile D-E8A-2
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-08a-rental-lifecycle.md (P-E8A-2)
+ *
+ * The date step's availability data, shipped with the listing rather than as a
+ * second round trip on a screen the user is waiting on.
+ */
+describe("GET /api/listings/[listingId] — bookedRanges (P-E8A-2)", () => {
+  const localDay = (iso: string) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCurrentUser.mockResolvedValue({ id: "viewer-1", userType: "user" });
+    mockGetListingById.mockResolvedValue(listing());
+    mockIsVisibleInCommunity.mockResolvedValue(true);
+    mockGetBookedDatesForListing.mockResolvedValue([]);
+  });
+
+  it("returns booked rentals and manual blocks as zoneless day ranges", async () => {
+    mockGetBookedDatesForListing.mockResolvedValue([
+      { startDate: localDay("2026-09-10"), endDate: localDay("2026-09-14") },
+      {
+        startDate: localDay("2026-09-01"),
+        endDate: localDay("2026-09-02"),
+        reason: "Maintenance",
+      },
+    ]);
+
+    const { GET } = await import("../route");
+    const body = await (await GET(req(), params())).json();
+
+    expect(body.bookedRanges).toEqual([
+      { from: "2026-09-01", to: "2026-09-02", reason: "Maintenance" },
+      { from: "2026-09-10", to: "2026-09-14" },
+    ]);
+  });
+
+  // R-8.7 for the third time. An instant at UTC midnight greys out the previous
+  // day on every device behind UTC — a picker that silently blocks the wrong day.
+  it("never emits an instant", async () => {
+    mockGetBookedDatesForListing.mockResolvedValue([
+      { startDate: localDay("2026-09-10"), endDate: localDay("2026-09-14") },
+    ]);
+
+    const { GET } = await import("../route");
+    const body = await (await GET(req(), params())).json();
+
+    expect(JSON.stringify(body.bookedRanges)).not.toMatch(/[TZ]/);
+  });
+
+  it("returns an empty array when nothing is booked", async () => {
+    const { GET } = await import("../route");
+    const body = await (await GET(req(), params())).json();
+    expect(body.bookedRanges).toEqual([]);
+  });
+
+  it("ships it to the owner too, who books around their own blocks", async () => {
+    mockGetListingById.mockResolvedValue(
+      listing({ owner: { id: "viewer-1" }, status: "inactive" }),
+    );
+    mockGetBookedDatesForListing.mockResolvedValue([
+      { startDate: localDay("2026-09-10"), endDate: localDay("2026-09-14") },
+    ]);
+
+    const { GET } = await import("../route");
+    const body = await (await GET(req(), params())).json();
+
+    expect(body.isOwner).toBe(true);
+    expect(body.bookedRanges).toHaveLength(1);
+  });
+
+  // The listing is the point of the screen; availability is supplementary.
+  it("degrades to [] rather than failing the whole listing", async () => {
+    mockGetBookedDatesForListing.mockRejectedValue(new Error("db down"));
+
+    const { GET } = await import("../route");
+    const res = await GET(req(), params());
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).bookedRanges).toEqual([]);
   });
 });

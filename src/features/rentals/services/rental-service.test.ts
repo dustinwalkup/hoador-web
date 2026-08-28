@@ -12,6 +12,7 @@ const mockLegalGetAllCurrentVersions = vi.fn();
 const mockLegalRecordAcceptance = vi.fn();
 const mockTrackActivity = vi.fn();
 
+const mockGetBookedDatesForListing = vi.fn();
 vi.mock("@/dal", () => ({
   listingDAL: {
     getListingById: (...args: unknown[]) => mockGetListingById(...args),
@@ -21,6 +22,8 @@ vi.mock("@/dal", () => ({
       mockInsertRentalRequest(...args),
     getRentalRequestById: (...args: unknown[]) =>
       mockGetRentalRequestById(...args),
+    getBookedDatesForListing: (...args: unknown[]) =>
+      mockGetBookedDatesForListing(...args),
   },
   userDAL: {
     getUserById: (...args: unknown[]) => mockGetUserById(...args),
@@ -55,10 +58,25 @@ vi.mock("@/services/stripe/server", () => ({
   PAYMENT_SERVER_INSTANCE: {},
 }));
 
+/**
+ * Dates relative to today.
+ *
+ * These fixtures used to be pinned to Feb 2024 — harmless while creation had no
+ * opinion about the past, and a landmine once it grew one (P-E8A-2b's no-past
+ * rule). Relative dates make the suite time-independent rather than correct
+ * until the next rule lands.
+ */
+const daysFromToday = (offset: number) => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + offset);
+  return date;
+};
+
 const validFormData: CreateRentalRequestFormData = {
   listingId: "listing-123",
-  startDate: new Date("2024-02-01"),
-  endDate: new Date("2024-02-05"),
+  startDate: daysFromToday(1),
+  endDate: daysFromToday(5),
   deliveryRequested: false,
   setupRequested: false,
   setupFee: 0,
@@ -83,14 +101,15 @@ describe("RentalService", () => {
       minimumRentalPeriod: 1,
       maximumRentalPeriod: 30,
     });
+    mockGetBookedDatesForListing.mockResolvedValue([]);
     mockInsertRentalRequest.mockResolvedValue({ id: "request-456" });
     mockGetRentalRequestById.mockResolvedValue({
       id: "request-456",
       ownerId: "owner-123",
       renterId: "renter-789",
       listingName: "Test Tool",
-      startDate: new Date("2024-02-01"),
-      endDate: new Date("2024-02-05"),
+      startDate: daysFromToday(1),
+      endDate: daysFromToday(5),
       totalAmount: "75.50",
     });
     mockGetUserById.mockImplementation((id: string) =>
@@ -173,8 +192,8 @@ describe("RentalService", () => {
       });
       const shortStay = {
         ...validFormData,
-        startDate: new Date("2024-02-01"),
-        endDate: new Date("2024-02-02"),
+        startDate: daysFromToday(1),
+        endDate: daysFromToday(2),
       };
       await expect(
         RentalService.createRentalRequest(shortStay, "renter-789", context),
@@ -197,8 +216,8 @@ describe("RentalService", () => {
       });
       const longStay = {
         ...validFormData,
-        startDate: new Date("2024-02-01"),
-        endDate: new Date("2024-02-20"),
+        startDate: daysFromToday(1),
+        endDate: daysFromToday(20),
       };
       await expect(
         RentalService.createRentalRequest(longStay, "renter-789", context),
@@ -224,7 +243,7 @@ describe("RentalService", () => {
     });
 
     it("accepts single-day rental when startDate equals endDate", async () => {
-      const sameDay = new Date("2024-02-01");
+      const sameDay = daysFromToday(1);
       const singleDayFormData: CreateRentalRequestFormData = {
         ...validFormData,
         startDate: sameDay,
@@ -239,5 +258,140 @@ describe("RentalService", () => {
       const payload = mockInsertRentalRequest.mock.calls[0][0];
       expect(payload.totalDays).toBe(1);
     });
+  });
+});
+
+/**
+ * Requirements: mobile Req 9.1.2
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-08a-rental-lifecycle.md (P-E8A-2b)
+ *
+ * **The guard that did not exist.** Until this landed, `createRentalRequest`
+ * validated the listing, the own-listing rule and the period bounds and then
+ * inserted — no availability check, no DB constraint. `getBookedDatesForListing`
+ * had exactly one caller, the web rent page, which used it to grey out days in a
+ * date picker. Any client that skipped that picker could book straight over a
+ * live rental, and a second client was about to be able to.
+ */
+describe("RentalService.createRentalRequest — availability (P-E8A-2b)", () => {
+  const daysAhead = (offset: number) => daysFromToday(offset);
+
+  beforeEach(() => {
+    // A sibling describe, so the outer block's reset does not reach here — and
+    // `not.toHaveBeenCalled()` would otherwise read another test's insert.
+    vi.clearAllMocks();
+    mockGetListingById.mockResolvedValue({
+      id: "listing-123",
+      name: "Test Tool",
+      owner: { id: "owner-123" },
+      dailyRate: 15,
+      weeklyRate: null,
+      monthlyRate: null,
+      deliveryFee: 10,
+      setupFee: 20,
+      securityDeposit: 50,
+      minimumRentalPeriod: 1,
+      maximumRentalPeriod: 30,
+    });
+    mockGetBookedDatesForListing.mockResolvedValue([]);
+    mockInsertRentalRequest.mockResolvedValue({ id: "request-456" });
+  });
+
+  it("refuses a request overlapping an existing booking", async () => {
+    mockGetBookedDatesForListing.mockResolvedValue([
+      { startDate: daysAhead(3), endDate: daysAhead(7) },
+    ]);
+
+    await expect(
+      RentalService.createRentalRequest(
+        { ...validFormData, startDate: daysAhead(5), endDate: daysAhead(9) },
+        "renter-789",
+        context,
+      ),
+    ).rejects.toThrow(/already booked/i);
+    expect(mockInsertRentalRequest).not.toHaveBeenCalled();
+  });
+
+  // The item is out on its return day too — half-open would hand two renters
+  // the same drill on the changeover day.
+  it("refuses a request starting the day an existing booking ends", async () => {
+    mockGetBookedDatesForListing.mockResolvedValue([
+      { startDate: daysAhead(3), endDate: daysAhead(7) },
+    ]);
+
+    await expect(
+      RentalService.createRentalRequest(
+        { ...validFormData, startDate: daysAhead(7), endDate: daysAhead(9) },
+        "renter-789",
+        context,
+      ),
+    ).rejects.toThrow(/already booked/i);
+  });
+
+  it("names the reason when a manual block is what clashes", async () => {
+    mockGetBookedDatesForListing.mockResolvedValue([
+      { startDate: daysAhead(3), endDate: daysAhead(7), reason: "Maintenance" },
+    ]);
+
+    await expect(
+      RentalService.createRentalRequest(
+        { ...validFormData, startDate: daysAhead(4), endDate: daysAhead(5) },
+        "renter-789",
+        context,
+      ),
+    ).rejects.toThrow(/Maintenance/);
+  });
+
+  it("allows a request that clears an existing booking", async () => {
+    mockGetBookedDatesForListing.mockResolvedValue([
+      { startDate: daysAhead(3), endDate: daysAhead(7) },
+    ]);
+
+    const result = await RentalService.createRentalRequest(
+      { ...validFormData, startDate: daysAhead(8), endDate: daysAhead(9) },
+      "renter-789",
+      context,
+    );
+
+    expect(result.id).toBe("request-456");
+    expect(mockInsertRentalRequest).toHaveBeenCalled();
+  });
+
+  it("refuses a start date in the past (Req 9.1.2)", async () => {
+    await expect(
+      RentalService.createRentalRequest(
+        { ...validFormData, startDate: daysAhead(-1), endDate: daysAhead(2) },
+        "renter-789",
+        context,
+      ),
+    ).rejects.toThrow(/past/i);
+    expect(mockInsertRentalRequest).not.toHaveBeenCalled();
+  });
+
+  // A booking made for TODAY carries a midnight start, already behind `now` by
+  // the time anyone taps anything. Comparing instants would break same-day
+  // rentals after lunch and only then.
+  it("still allows a booking that starts today", async () => {
+    const result = await RentalService.createRentalRequest(
+      { ...validFormData, startDate: daysAhead(0), endDate: daysAhead(2) },
+      "renter-789",
+      context,
+    );
+
+    expect(result.id).toBe("request-456");
+  });
+
+  // Availability is advisory at read time and authoritative at write time; a
+  // failed read must not become a silent "all clear" that blocks nothing, nor
+  // an outage that blocks everything.
+  it("still creates the request when the availability read fails", async () => {
+    mockGetBookedDatesForListing.mockRejectedValue(new Error("db down"));
+
+    const result = await RentalService.createRentalRequest(
+      validFormData,
+      "renter-789",
+      context,
+    );
+
+    expect(result.id).toBe("request-456");
   });
 });

@@ -1,7 +1,6 @@
 import {
   auditLogDAL,
   legalDocumentDAL,
-  listingDAL,
   paymentDAL,
   paymentLifecycleDAL,
   rentalDAL,
@@ -11,8 +10,7 @@ import type { InsertRentalRequestPayload } from "@/dal/rentals.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import type { CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
-import { calculateRentalPricing } from "@/features/rentals/lib/pricing";
-import type { RentalPricingListingInput } from "@/features/rentals/lib/pricing";
+import { quoteRentalRequest } from "@/features/rentals/services/rental-quote";
 import {
   sendPaymentFailureNotificationToOwner,
   sendPaymentFailureNotificationToRenter,
@@ -25,7 +23,6 @@ import { sendRentalApprovedNotification } from "@/features/rentals/notifications
 import { sendRentalRequestCreatedNotification } from "@/features/rentals/notifications/rental-request-created";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { closeNeedsFulfilledByBooking } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
-import { differenceInDays } from "@/lib/utils/date.utils";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { STRIPE_MINIMUM_CHARGE_USD } from "@/constants/payments";
 import {
@@ -153,47 +150,35 @@ export class RentalService {
     userId: string,
     context: CreateRentalRequestContext,
   ): Promise<{ id: string }> {
-    const listing = await listingDAL.getListingById(formData.listingId);
-    if (!listing) {
-      const { NotFoundError } = await import("@/dal/errors");
-      throw new NotFoundError("Listing", formData.listingId);
+    // The same call the preview endpoint makes, so a quote and the request it
+    // becomes cannot diverge (mobile D-E8A-1). `quoteRentalRequest` throws
+    // NotFoundError for a missing listing; everything else comes back as a
+    // blocker, and creation treats the first one as fatal — preserving the
+    // messages this method has always thrown.
+    const quote = await quoteRentalRequest(
+      {
+        listingId: formData.listingId,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        deliveryRequested: formData.deliveryRequested,
+        setupRequested: formData.setupRequested,
+        setupFee: formData.setupFee,
+      },
+      userId,
+    );
+
+    // **This is the guard that did not exist before** (mobile P-E8A-2b). Until
+    // now the ONLY thing preventing a double-booking was the web date picker:
+    // this method validated the listing, the own-listing rule and the period
+    // bounds, then inserted — with no availability check and no DB constraint
+    // behind it. Any client that skipped the picker could book over a live
+    // rental, which is what a second client was about to be able to do.
+    const [blocker] = quote.blockers;
+    if (blocker) {
+      throw new Error(blocker.message);
     }
 
-    if (listing.owner.id === userId) {
-      throw new Error("Cannot rent your own listing");
-    }
-
-    const totalDays =
-      differenceInDays(formData.endDate, formData.startDate) + 1;
-    if (totalDays < listing.minimumRentalPeriod) {
-      throw new Error(
-        `Minimum rental period is ${listing.minimumRentalPeriod} day(s)`,
-      );
-    }
-    if (totalDays > listing.maximumRentalPeriod) {
-      throw new Error(
-        `Maximum rental period is ${listing.maximumRentalPeriod} days`,
-      );
-    }
-
-    const pricingInputListing: RentalPricingListingInput = {
-      dailyRate: String(listing.dailyRate),
-      weeklyRate:
-        listing.weeklyRate != null ? String(listing.weeklyRate) : null,
-      monthlyRate:
-        listing.monthlyRate != null ? String(listing.monthlyRate) : null,
-      deliveryFee: String(listing.deliveryFee),
-      setupFee: String(listing.setupFee),
-      securityDeposit: String(listing.securityDeposit),
-    };
-
-    const pricing = calculateRentalPricing({
-      listing: pricingInputListing,
-      totalDays,
-      deliveryRequested: formData.deliveryRequested,
-      setupRequested: formData.setupRequested,
-      setupFee: formData.setupFee,
-    });
+    const { totalDays, pricing } = quote;
 
     const sanitizedMessage = formData.message
       ? sanitizeTextWithMaxLength(formData.message, 2000)
@@ -205,7 +190,7 @@ export class RentalService {
     const payload: InsertRentalRequestPayload = {
       listingId: formData.listingId,
       renterId: userId,
-      ownerId: listing.owner.id,
+      ownerId: quote.ownerId,
       startDate: formData.startDate,
       endDate: formData.endDate,
       totalDays,
