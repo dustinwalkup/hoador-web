@@ -8,6 +8,22 @@ import {
   requireAuthResponse,
 } from "@/lib/api/route-helpers";
 import { sendRentalStartedNotification } from "@/features/rentals/notifications/rental-started";
+import { z } from "zod";
+import { parseFormData } from "@/lib/api/route-helpers";
+import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
+
+const CONDITION_MAX_LENGTH = 2000;
+
+/**
+ * The pickup condition (mobile Req 10.2.1).
+ *
+ * Optional: an owner handing over a ladder in obvious condition should not be
+ * forced to type a paragraph about it. The column has existed all along and no
+ * route accepted it until now (mobile P-E8A-6).
+ */
+const startRentalSchema = z.object({
+  conditionAtPickup: z.string().max(CONDITION_MAX_LENGTH).optional(),
+});
 
 /**
  * POST /api/rentals/[id]/start
@@ -24,6 +40,23 @@ async function postHandler(
     if (authError) return authError;
 
     const { id: rentalId } = await params;
+
+    // A body is optional here — an empty POST is a valid "started, nothing to
+    // note", which is how the web client has always called this route.
+    const rawBody = await parseFormData(request).catch(() => ({}));
+    const parsed = startRentalSchema.safeParse(rawBody ?? {});
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid data provided" },
+        { status: 400 },
+      );
+    }
+    const conditionAtPickup = parsed.data.conditionAtPickup?.trim()
+      ? sanitizeTextWithMaxLength(
+          parsed.data.conditionAtPickup.trim(),
+          CONDITION_MAX_LENGTH,
+        )
+      : undefined;
 
     // Get current user ID for authorization
     const { getCurrentUserId } = await import("@/features/auth/utils/session");
@@ -58,7 +91,7 @@ async function postHandler(
 
     // Start the rental and get details for notification
     const { data: result, error } = await tryCatch(
-      rentalDAL.startRental(rentalId, currentUserId),
+      rentalDAL.startRental(rentalId, currentUserId, { conditionAtPickup }),
     );
 
     if (error) {

@@ -1114,6 +1114,117 @@ describe("RentalDAL", () => {
       expect(result).toBeDefined();
     });
 
+    /**
+     * Requirements: mobile Req 10.2.1
+     * Spec: hoador-mobile/specs/mobile-app/tasks/epic-08a-rental-lifecycle.md (P-E8A-6)
+     *
+     * The guard this method's own docblock has promised since it was written.
+     * `startDate` was selected for it and then never read, so an owner could
+     * mark a rental active weeks early — starting the renter's period and
+     * flipping the listing to `rented` before anyone had the item.
+     */
+    const arrangeStart = (startDate: Date) => {
+      const mockLimit = vi.fn().mockResolvedValue([
+        {
+          ...mockRentalRequest,
+          ownerId: "user-123",
+          status: "approved",
+          startDate,
+        },
+      ]);
+      vi.mocked(db.select).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: mockLimit }),
+        }),
+      } as any);
+
+      const mockSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi
+            .fn()
+            .mockResolvedValue([{ ...mockRentalDetails, status: "active" }]),
+        }),
+      });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as any);
+      return mockSet;
+    };
+
+    const daysFromNow = (offset: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + offset);
+      return date;
+    };
+
+    it("refuses to start before the start date (Req 10.2.1)", async () => {
+      arrangeStart(daysFromNow(3));
+
+      await expect(
+        rentalDAL.startRental("rental-123", "user-123"),
+      ).rejects.toThrow(/before its start date/i);
+    });
+
+    // A rental starting TODAY carries a midnight startDate, already behind
+    // `now` by the time anyone taps anything — an instant comparison would be
+    // correct at 00:00 and wrong for the rest of the day.
+    it("allows a start on the start date itself, whatever the time", async () => {
+      arrangeStart(new Date(new Date().setHours(0, 0, 0, 0)));
+
+      await expect(
+        rentalDAL.startRental("rental-123", "user-123"),
+      ).resolves.toBeDefined();
+    });
+
+    // Not hypothetical: the WEB client submits a `Date` from its picker, so
+    // `startDate` is stored at whatever UTC time local midnight mapped to —
+    // 05:00 for US Central, say. An instant comparison would then refuse a
+    // same-day start until 05:00 on the morning of the rental, which is exactly
+    // when an owner is handing the item over.
+    it("allows a start on a start date that is not midnight-normalized", async () => {
+      const today = new Date();
+      today.setHours(23, 30, 0, 0);
+      arrangeStart(today);
+
+      await expect(
+        rentalDAL.startRental("rental-123", "user-123"),
+      ).resolves.toBeDefined();
+    });
+
+    it("allows a late start", async () => {
+      arrangeStart(daysFromNow(-2));
+
+      await expect(
+        rentalDAL.startRental("rental-123", "user-123"),
+      ).resolves.toBeDefined();
+    });
+
+    it("records the pickup condition when one is given", async () => {
+      const mockSet = arrangeStart(daysFromNow(-1));
+
+      await rentalDAL.startRental("rental-123", "user-123", {
+        conditionAtPickup: "Scuff on the handle, works fine.",
+      });
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conditionAtPickup: "Scuff on the handle, works fine.",
+        }),
+      );
+    });
+
+    // An owner handing over a ladder in obvious condition should not be forced
+    // to type a paragraph about it — and an absent note must not blank a stored
+    // one.
+    it("leaves the column alone when no condition is given", async () => {
+      const mockSet = arrangeStart(daysFromNow(-1));
+
+      await rentalDAL.startRental("rental-123", "user-123");
+
+      const rentalUpdate = mockSet.mock.calls.find((call) =>
+        Object.prototype.hasOwnProperty.call(call[0], "actualStartDate"),
+      );
+      expect(rentalUpdate?.[0]).not.toHaveProperty("conditionAtPickup");
+    });
+
     it("should throw NotFoundError when request not found", async () => {
       const mockLimit = vi.fn().mockResolvedValue([]);
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });

@@ -13,9 +13,10 @@ import { conversations } from "@/db/schemas/messages.schema";
 import { serviceBookings, serviceListings } from "@/db/schemas/services.schema";
 import type { AlertType } from "@/features/rentals/lib/format-alert-text";
 import { differenceInDays } from "@/lib/utils/date.utils";
+import { isPastDay } from "@/features/rentals/lib/availability";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BaseDAL } from "./base";
-import { ConflictError, NotFoundError } from "./errors";
+import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import type { CancellationReason } from "./types";
 import { alias } from "drizzle-orm/pg-core";
 import { PENDING_BOOKING_EXPIRY_WINDOW_HOURS } from "@/constants/payments";
@@ -308,6 +309,29 @@ export interface RentalDetails {
   applicationFeeAmount?: string;
   currentUserId: string;
   conversationId?: string | null;
+}
+
+/**
+ * What the owner records when starting a rental (mobile Req 10.2.1).
+ *
+ * The column has existed since the schema was written and was populated only by
+ * the seed — no route ever accepted it (mobile P-E8A-6).
+ */
+export interface StartRentalInput {
+  conditionAtPickup?: string;
+}
+
+/**
+ * What the owner records when confirming a return (mobile Req 10.2.3).
+ *
+ * `damagePhotos` are blob URLs already uploaded via
+ * `POST /api/rentals/[id]/damage-photos`; nothing here handles file bytes.
+ */
+export interface EndRentalInput {
+  conditionAtReturn?: string;
+  damageReported?: boolean;
+  damageDescription?: string;
+  damagePhotos?: string[];
 }
 
 // Utility types for specific components
@@ -2629,8 +2653,8 @@ export class RentalDAL extends BaseDAL {
    */
   async startRental(
     rentalId: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _ownerId: string,
+    input: StartRentalInput = {},
   ): Promise<{
     rental: {
       id: string;
@@ -2668,6 +2692,27 @@ export class RentalDAL extends BaseDAL {
         throw new Error("Only approved rentals can be started");
       }
 
+      // Mobile Req 10.2.1 — starting before the start date is blocked, and this
+      // is the server enforcement that sentence promises. The docblock above has
+      // claimed it since the method was written; `startDate` was even selected
+      // for it, and then never read (mobile P-E8A-6). An owner could mark a
+      // rental active weeks early, which starts the renter's period and flips
+      // the listing to `rented` before anyone has the item.
+      //
+      // Compared as DAYS via `isPastDay`, so a rental starting *today* is
+      // startable: its midnight `startDate` is already behind `now` by the time
+      // anyone taps anything, and an instant comparison would be correct at
+      // 00:00 and wrong for the rest of the day.
+      const startsInFuture =
+        !isPastDay(request.startDate) &&
+        request.startDate.toDateString() !== new Date().toDateString();
+      if (startsInFuture) {
+        throw new ValidationError(
+          "This rental can't be started before its start date.",
+          "startDate",
+        );
+      }
+
       // Update the rental_requests status to active
       await this.db
         .update(rentalRequests)
@@ -2682,6 +2727,9 @@ export class RentalDAL extends BaseDAL {
         .update(rentals)
         .set({
           actualStartDate: new Date(),
+          ...(input.conditionAtPickup !== undefined && {
+            conditionAtPickup: input.conditionAtPickup,
+          }),
           updatedAt: new Date(),
         })
         .where(eq(rentals.requestId, rentalId));
@@ -2751,8 +2799,8 @@ export class RentalDAL extends BaseDAL {
    */
   async endRental(
     rentalId: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _ownerId: string,
+    input: EndRentalInput = {},
   ): Promise<{
     rental: {
       id: string;
@@ -2809,6 +2857,18 @@ export class RentalDAL extends BaseDAL {
         .set({
           actualEndDate: new Date(),
           returnConfirmedAt: new Date(),
+          ...(input.conditionAtReturn !== undefined && {
+            conditionAtReturn: input.conditionAtReturn,
+          }),
+          ...(input.damageReported !== undefined && {
+            damageReported: input.damageReported,
+          }),
+          ...(input.damageDescription !== undefined && {
+            damageDescription: input.damageDescription,
+          }),
+          ...(input.damagePhotos !== undefined && {
+            damagePhotos: input.damagePhotos,
+          }),
           updatedAt: new Date(),
         })
         .where(eq(rentals.requestId, rentalId));

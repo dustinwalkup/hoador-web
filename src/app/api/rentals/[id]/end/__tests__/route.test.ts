@@ -136,3 +136,97 @@ describe("POST /api/rentals/[id]/end", () => {
     });
   });
 });
+
+/**
+ * Requirements: mobile Req 10.2.3
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-08a-rental-lifecycle.md (P-E8A-6)
+ *
+ * The return condition and damage report. These columns have existed since the
+ * schema was written and were populated only by the seed — this route accepted
+ * no body at all until now.
+ */
+describe("POST /api/rentals/[id]/end — condition and damage (P-E8A-6)", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { getCurrentUserId } = await import("@/features/auth/utils/session");
+    vi.mocked(getCurrentUserId).mockResolvedValue("owner-1");
+    mockGetRentalRequestById.mockResolvedValue({
+      id: "rental-1",
+      ownerId: "owner-1",
+      renterId: "renter-1",
+      listingName: "Tool",
+      listingId: "list-1",
+    });
+    mockEndRental.mockResolvedValue({
+      rental: {
+        id: "rental-1",
+        ownerId: "owner-1",
+        renterId: "renter-1",
+        listingId: "list-1",
+        status: "completed",
+      },
+      renterName: "Renter",
+      ownerName: "Owner",
+      listingName: "Tool",
+    });
+  });
+
+  const withBody = (body: Record<string, unknown>) =>
+    new NextRequest("http://localhost/api/rentals/rental-1/end", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  it("records the return condition and the damage report", async () => {
+    const { POST } = await import("../route");
+    const res = await POST(
+      withBody({
+        conditionAtReturn: "Returned clean.",
+        damageReported: true,
+        damageDescription: "Cracked housing on the left side.",
+        damagePhotos: ["https://blob.test/damage/1.jpg"],
+      }),
+      { params: Promise.resolve({ id: "rental-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockEndRental).toHaveBeenCalledWith(
+      "rental-1",
+      expect.any(String),
+      expect.objectContaining({
+        conditionAtReturn: "Returned clean.",
+        damageReported: true,
+        damageDescription: "Cracked housing on the left side.",
+        damagePhotos: ["https://blob.test/damage/1.jpg"],
+      }),
+    );
+  });
+
+  // "Damaged, no further comment" starts a dispute the other party cannot
+  // answer.
+  it("refuses a damage report with no description", async () => {
+    const { POST } = await import("../route");
+    const res = await POST(withBody({ damageReported: true }), {
+      params: Promise.resolve({ id: "rental-1" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/describe the damage/i);
+    expect(mockEndRental).not.toHaveBeenCalled();
+  });
+
+  // The web client has always called this route with no body, and must keep
+  // working: an empty POST is a valid "returned, nothing to note".
+  it("still accepts a bodyless call", async () => {
+    const { POST } = await import("../route");
+    const res = await POST(
+      new NextRequest("http://localhost/api/rentals/rental-1/end", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "rental-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+  });
+});
