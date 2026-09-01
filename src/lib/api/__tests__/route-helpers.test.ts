@@ -13,6 +13,7 @@ import {
   ValidationError,
   ConflictError,
   DALError,
+  ServiceBookingPaymentFailedError,
 } from "@/dal/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
 import { mockVerifiedUser, mockAdminUser } from "@/test/fixtures/auth";
@@ -65,6 +66,23 @@ describe("route-helpers", () => {
       const response = handleApiError(error);
 
       expect(response.status).toBe(400);
+    });
+
+    it("should give ServiceBookingPaymentFailedError a machine-readable code", async () => {
+      // The class has carried this code since it was written and the body used
+      // to drop it, leaving `paymentFailed` as the only signal — and a human
+      // message in `error`, which mobile is forbidden to branch on (P-E9-6).
+      const response = handleApiError(
+        new ServiceBookingPaymentFailedError("Your card was declined."),
+      );
+
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.code).toBe("SERVICE_BOOKING_PAYMENT_FAILED");
+      // Both retained: `paymentFailed` is what the web surfaces already read,
+      // and `error` is still the message a user sees.
+      expect(body.paymentFailed).toBe(true);
+      expect(body.error).toBe("Your card was declined.");
     });
 
     it("should handle ConflictError with 409 status", () => {

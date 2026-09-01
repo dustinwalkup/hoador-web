@@ -113,6 +113,13 @@ export function handleApiError(
     return NextResponse.json(
       {
         error: error.message || "Payment failed",
+        // The class has carried this code since it was written and the body
+        // dropped it, so the only machine-readable signal was `paymentFailed`.
+        // Mobile derives `ApiError.code` from the `error` field when it is
+        // SCREAMING_SNAKE_CASE, which a human message never is — leaving the
+        // app to branch on prose, which its rule #8 forbids (mobile P-E9-6).
+        // `error` keeps the message so existing surfaces still render it.
+        code: error.code,
         paymentFailed: true,
       },
       { status: 400 },

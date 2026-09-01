@@ -89,6 +89,21 @@ export const serviceBookings = pgTable(
     hours: numeric("hours", { precision: 4, scale: 2 }),
     notes: text("notes"),
     declineReason: text("decline_reason"),
+    /**
+     * When the provider accepted (and the client was charged), and when the
+     * provider declined. Added 2026-08-31 (mobile P-E9-4) for parity with the
+     * rental side's `approvedAt`/`deniedAt`, which have existed since that
+     * schema was written — services were simply missed. Without these the
+     * booking Timeline (mobile Req 5.7.6) cannot date the one transition a
+     * service booking turns on.
+     *
+     * Nullable by nature: only one of them is ever set, and neither is for a
+     * booking still pending. Rows predating the migration were backfilled from
+     * `updated_at`, which APPROXIMATES the transition (it is the time of the
+     * last write of any kind); rows written after it are exact.
+     */
+    acceptedAt: timestamp("accepted_at"),
+    declinedAt: timestamp("declined_at"),
     servicePrice: numeric("service_price", {
       precision: 10,
       scale: 2,

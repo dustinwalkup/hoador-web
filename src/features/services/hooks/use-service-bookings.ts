@@ -1,9 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
-import type {
-  ServiceBookingDashboardRow,
-  ServiceBookingWithDetails,
-} from "@/dal/service-booking.dal";
+import type { ServiceBookingDashboardRow } from "@/dal/service-booking.dal";
+import type { ServiceBookingDetailResponse } from "@/app/api/services/bookings/[id]/route";
 import type { CreateBookingInput } from "@/features/services/types";
 
 /** React Query keys for HOA service bookings. */
@@ -45,17 +43,29 @@ export function useServiceBookings(role: "requester" | "provider" | null) {
 
 /**
  * Booking detail when the viewer is the requester or provider.
+ *
+ * Typed against `ServiceBookingDetailResponse` — the route's own wire type —
+ * rather than `ServiceBookingWithDetails`, the DAL row. Those stopped being the
+ * same thing when the route was narrowed (mobile P-E9-3): it no longer emits
+ * Stripe identifiers or either party's email, and it adds `viewerRole`,
+ * `cancelledByRole` and a provider-only `earnings`. A type-only import, so no
+ * server module reaches the client bundle.
+ *
+ * **This hook currently has no callers** — `/dashboard/services/bookings/[id]`
+ * is a server component that reads the DAL directly. It is typed correctly
+ * anyway, because a hook that compiles against a shape the endpoint stopped
+ * returning is a trap for whoever calls it first.
  */
 export function useServiceBooking(bookingId: string | null | undefined) {
   return useQuery({
     queryKey: serviceBookingsKeys.detail(bookingId ?? ""),
-    queryFn: async (): Promise<ServiceBookingWithDetails> => {
+    queryFn: async (): Promise<ServiceBookingDetailResponse> => {
       const res = await fetch(`/api/services/bookings/${bookingId}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Failed to load booking");
       }
-      return res.json() as Promise<ServiceBookingWithDetails>;
+      return res.json() as Promise<ServiceBookingDetailResponse>;
     },
     enabled: Boolean(bookingId),
     staleTime: 1 * 60 * 1000,

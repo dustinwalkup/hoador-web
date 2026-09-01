@@ -484,6 +484,13 @@
       "when": 1784318727699,
       "tag": "0068_lazy_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1788231166938,
+      "tag": "0069_charming_mentor",
+      "breakpoints": true
     }
   ]
 }

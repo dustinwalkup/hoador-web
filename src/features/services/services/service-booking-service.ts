@@ -358,6 +358,12 @@ export class ServiceBookingService {
 
       const updated = await serviceBookingDAL.update(bookingId, {
         status: "accepted",
+        // The moment the client was charged (P-E9-4). Written INSIDE the
+        // success branch, after the charge returned, so it dates the
+        // transition rather than the attempt — a `payment_failed` booking
+        // that is later retried and succeeds gets the successful accept's
+        // time, which is the one a Timeline should show.
+        acceptedAt: new Date(),
         stripePaymentIntentId: paymentIntent.id,
         stripeChargeId: chargeId,
         paymentStatus: paymentIntent.status,
@@ -529,6 +535,7 @@ export class ServiceBookingService {
 
     const updated = await serviceBookingDAL.update(bookingId, {
       status: "declined",
+      declinedAt: new Date(),
       declineReason: trimmed,
     });
 

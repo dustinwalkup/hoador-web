@@ -523,6 +523,67 @@ describe("ServiceBookingService", () => {
       expect(mockSendNotification.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
 
+    it("dates the acceptance, and only after the charge succeeded (P-E9-4)", async () => {
+      // `accepted_at` did not exist until 2026-08-31 — the rental side has had
+      // `approvedAt` since its schema was written, and services were missed.
+      // Without it the booking Timeline (mobile Req 5.7.6) cannot date the one
+      // transition a service booking turns on.
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm",
+      });
+      mockChargeServicePayment.mockResolvedValue({
+        paymentIntent: { id: "pi_1", status: "succeeded" },
+        chargeId: "ch_1",
+      });
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "accepted" as const,
+      });
+
+      await ServiceBookingService.acceptBooking("book-1", "prov-1", ctx);
+
+      const [, patch] = mockBookingUpdate.mock.calls[0];
+      expect(patch.status).toBe("accepted");
+      expect(patch.acceptedAt).toBeInstanceOf(Date);
+      expect(patch.declinedAt).toBeUndefined();
+    });
+
+    it("does not date an acceptance that failed to charge", async () => {
+      // The timestamp belongs to the transition, not the attempt: a booking
+      // sitting in `payment_failed` was never accepted, and a Timeline that
+      // dated it would say the client was charged when they were not.
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm",
+      });
+      mockChargeServicePayment.mockRejectedValue(new Error("fail"));
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "payment_failed",
+      });
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow();
+
+      const [, patch] = mockBookingUpdate.mock.calls[0];
+      expect(patch.status).toBe("payment_failed");
+      expect(patch.acceptedAt).toBeUndefined();
+    });
+
     describe("Stripe Connect gating", () => {
       it("throws PaymentSetupRequiredError with not_started when provider has no Stripe Connect account", async () => {
         mockBookingGetById.mockResolvedValue(bookingPending);
@@ -882,6 +943,26 @@ describe("ServiceBookingService", () => {
 
       expect(out.status).toBe("declined");
       expect(mockSendDeclined).toHaveBeenCalledWith("req-1", declined, "busy");
+    });
+
+    it("dates the decline (P-E9-4)", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "declined" as const,
+      });
+
+      await ServiceBookingService.declineBooking(
+        "book-1",
+        "prov-1",
+        "busy",
+        ctx,
+      );
+
+      const [, patch] = mockBookingUpdate.mock.calls[0];
+      expect(patch.status).toBe("declined");
+      expect(patch.declinedAt).toBeInstanceOf(Date);
+      expect(patch.acceptedAt).toBeUndefined();
     });
 
     it("declines when status is payment_failed", async () => {
