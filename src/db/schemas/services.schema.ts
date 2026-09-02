@@ -123,7 +123,15 @@ export const serviceBookings = pgTable(
     cancelledBy: text("cancelled_by").references(() => user.id),
     cancellationReason: text("cancellation_reason"),
     completedAt: timestamp("completed_at"),
-    /** Stripe payment method id chosen at booking time (used when provider accepts). */
+    /**
+     * The Stripe payment method this booking will be, or was, charged on.
+     *
+     * Written at booking time with the client's choice, and **overwritten with
+     * the card that failed** whenever a charge attempt fails (F12, 2026-09-01)
+     * — which is what the retry guard in `acceptBooking` compares against. The
+     * booking-time choice has no reader once a charge has failed, because the
+     * retry deliberately falls back to the client's current default.
+     */
     selectedPaymentMethodId: varchar("selected_payment_method_id", {
       length: 255,
     }),

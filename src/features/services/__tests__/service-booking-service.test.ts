@@ -584,6 +584,128 @@ describe("ServiceBookingService", () => {
       expect(patch.acceptedAt).toBeUndefined();
     });
 
+    it("records the card that failed, so the guard has something true to compare (F12)", async () => {
+      // The guard's whole job is "do not re-charge a card we know is dead". It
+      // compared the current default against the card chosen at BOOKING time —
+      // a field nothing ever updated — so it worked once and then stopped.
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm_default",
+      });
+      mockChargeServicePayment.mockRejectedValue(new Error("declined"));
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "payment_failed",
+      });
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow();
+
+      const [, patch] = mockBookingUpdate.mock.calls[0];
+      expect(patch.selectedPaymentMethodId).toBe("pm_default");
+    });
+
+    it("records the CHOSEN card when that is the one that failed", async () => {
+      // A client who picked a non-default card: the attempt used their choice,
+      // so that is the card the guard must remember.
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        selectedPaymentMethodId: "pm_chosen",
+      });
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm_default",
+      });
+      mockChargeServicePayment.mockRejectedValue(new Error("declined"));
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "payment_failed",
+      });
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow();
+
+      const [, patch] = mockBookingUpdate.mock.calls[0];
+      expect(patch.selectedPaymentMethodId).toBe("pm_chosen");
+      // And the charge really was on the chosen card, not the default.
+      expect(mockChargeServicePayment).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentMethodId: "pm_chosen" }),
+      );
+    });
+
+    it("refuses a retry against the card that just failed (F12)", async () => {
+      // Previously reachable in two ways the guard could not see: a booking
+      // made with no explicit card (the field was null, so the `!= null` check
+      // skipped the guard entirely), and any second retry after a fallback to
+      // the default had itself failed.
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        status: "payment_failed" as const,
+        selectedPaymentMethodId: "pm_default",
+      });
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm_default",
+      });
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(/Payment method is unchanged/);
+
+      // Refused BEFORE Stripe — a repeated decline on a card the issuer has
+      // already rejected is what trips fraud flags.
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
+    it("allows the retry once the client has actually changed their card", async () => {
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        status: "payment_failed" as const,
+        selectedPaymentMethodId: "pm_dead",
+      });
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm_new",
+      });
+      mockChargeServicePayment.mockResolvedValue({
+        paymentIntent: { id: "pi_1", status: "succeeded" },
+        chargeId: "ch_1",
+      });
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "accepted" as const,
+      });
+
+      await ServiceBookingService.acceptBooking("book-1", "prov-1", ctx);
+
+      expect(mockChargeServicePayment).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentMethodId: "pm_new" }),
+      );
+    });
+
     describe("Stripe Connect gating", () => {
       it("throws PaymentSetupRequiredError with not_started when provider has no Stripe Connect account", async () => {
         mockBookingGetById.mockResolvedValue(bookingPending);
@@ -778,6 +900,36 @@ describe("ServiceBookingService", () => {
       expect(mockProcessRefund).toHaveBeenCalledWith(
         expect.objectContaining({ refundAmountCents: 10330 }),
       );
+    });
+
+    it("reads the job time in the MARKET zone, not the server's (F4)", async () => {
+      // The regression the timezone fix exists for, placed in the six-hour
+      // window where the old and new implementations disagree.
+      //
+      // The job is 14:00 on Dec 20 in Chicago = 20:00Z (CST, UTC-6). At
+      // 17:00Z on Dec 19 the client is **27 real hours** from it, so Req
+      // 11.1.5 gives them a full refund.
+      //
+      // The old code parsed the wall clock as server-local — UTC in CI and on
+      // Vercel — making the job 14:00Z, putting the client 21 hours out and
+      // charging them the 50% tier. It was correct in UTC, so every existing
+      // test here passed straight through it.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2025-12-19T17:00:00Z"));
+
+      mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockBookingUpdate.mockResolvedValue({ ...accepted, status: "cancelled" });
+
+      await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
+
+      // 10330 (the full total) — NOT 5000, which is what the bug charged.
+      expect(mockProcessRefund).toHaveBeenCalledWith(
+        expect.objectContaining({ refundAmountCents: 10330 }),
+      );
+      // And no provider transfer, because nothing was retained.
+      expect(mockCreateServiceTransfer).not.toHaveBeenCalled();
     });
 
     it("uses 50% refund for requester within 24h of proposed start", async () => {

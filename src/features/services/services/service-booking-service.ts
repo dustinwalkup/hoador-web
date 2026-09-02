@@ -22,6 +22,13 @@ import {
   PENDING_BOOKING_EXPIRY_WINDOW_HOURS,
   STRIPE_MINIMUM_CHARGE_USD,
 } from "@/constants/payments";
+import {
+  assessServiceCancellation,
+  hoursUntilService,
+  serviceInstant,
+  serviceRefundBreakdown,
+  serviceRefundTierFor,
+} from "@/features/services/lib/booking-cancellation";
 import { assertConnectReady } from "@/features/payments/lib/assert-connect-ready";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
@@ -46,23 +53,6 @@ import type { AuditContext, CreateBookingInput } from "../types";
 
 function appBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
-}
-
-/**
- * Parses proposed date + time into a local Date for refund window checks.
- */
-function parseProposedDateTime(
-  proposedDate: string,
-  proposedTime: string,
-): Date {
-  const safeTime =
-    proposedTime.length >= 5 ? proposedTime.slice(0, 5) : proposedTime;
-  const iso = `${proposedDate}T${safeTime}:00`;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) {
-    return new Date();
-  }
-  return d;
 }
 
 /**
@@ -309,7 +299,9 @@ export class ServiceBookingService {
       // On retry, always use the requester's current Stripe default — not the previously failed PM.
       paymentMethodId = stripeCtx.paymentMethodId;
 
-      // Guard: if the default hasn't changed since the failure, reject early.
+      // Guard: if the default is the card that just failed, reject early. The
+      // failure branch below writes that card here, so this compares against
+      // what was actually attempted rather than what was once chosen (F12).
       if (
         detail.selectedPaymentMethodId != null &&
         detail.selectedPaymentMethodId === paymentMethodId
@@ -464,6 +456,24 @@ export class ServiceBookingService {
       await serviceBookingDAL.update(bookingId, {
         status: "payment_failed",
         paymentStatus: "failed",
+        // Record the card that ACTUALLY failed, so the retry guard above has
+        // something true to compare against (mobile F12, fixed 2026-09-01).
+        //
+        // The guard's intent has always been "do not re-charge a card we know
+        // is dead", but it compared the client's current default against the
+        // card chosen at *booking* time — a field nothing ever updated. It
+        // therefore worked on the first retry and stopped working after that:
+        // once a fallback to the default had failed, the field still named the
+        // original choice, so the same dead default could be re-charged
+        // indefinitely. A booking made without an explicit card
+        // (`selectedPaymentMethodId: null`) skipped the guard entirely and
+        // could be retried against the same failing default with no limit.
+        //
+        // Overwriting is lossless: after a failure the booking-time choice has
+        // no reader left — the retry path deliberately uses the current
+        // default (see above), no route serializes this column, and P-E9-3
+        // removed it from the wire.
+        selectedPaymentMethodId: paymentMethodId,
       });
 
       const message = getPaymentErrorMessage(error);
@@ -612,47 +622,44 @@ export class ServiceBookingService {
       throw new NotFoundError("Service booking", bookingId);
     }
 
-    if (detail.requesterId !== userId && detail.providerId !== userId) {
-      throw new ForbiddenError("You cannot cancel this booking");
-    }
-
-    if (detail.status !== "pending" && detail.status !== "accepted") {
-      throw new ValidationError("Booking cannot be cancelled", "status");
-    }
-
     const activeDispute =
       await disputeDAL.getActiveByServiceBookingId(bookingId);
-    if (activeDispute) {
-      throw new ConflictError(
-        "Cannot cancel a booking with an active dispute. Resolve the dispute first.",
-      );
-    }
 
-    const isRequester = detail.requesterId === userId;
-    const servicePriceNum = Number(detail.servicePrice);
-    const totalAmountNum = Number(detail.totalAmount);
-    let refundFraction = 0;
-
-    if (detail.status === "accepted" && detail.stripeChargeId) {
-      const proposed = parseProposedDateTime(
-        typeof detail.proposedDate === "string"
-          ? detail.proposedDate
-          : String(detail.proposedDate),
-        detail.proposedTime,
-      );
-      const hoursUntil = (proposed.getTime() - Date.now()) / (1000 * 60 * 60);
-
-      if (isRequester) {
-        refundFraction = hoursUntil > 24 ? 1 : 0.5;
-      } else {
-        refundFraction = 1;
+    // The SAME assessment the preview route runs (mobile D-E9-3, P-E9-2). The
+    // quote a client confirmed against and the refusal they might get instead
+    // are now one code path by construction, rather than two implementations
+    // kept in step by a test.
+    const eligibility = assessServiceCancellation(
+      detail,
+      userId,
+      Boolean(activeDispute),
+    );
+    if (!eligibility.canCancel) {
+      if (eligibility.code === "NOT_A_PARTY") {
+        throw new ForbiddenError(eligibility.message);
       }
+      if (eligibility.code === "ACTIVE_DISPUTE") {
+        throw new ConflictError(eligibility.message);
+      }
+      throw new ValidationError(eligibility.message, "status");
     }
 
-    // Partial refunds: base on servicePrice — service fee is non-refundable
-    // Full refunds (>24hr client cancel or provider cancel): refund totalAmount including service fee
-    const refundBase = refundFraction < 1 ? servicePriceNum : totalAmountNum;
-    const refundAmountCents = Math.round(refundBase * refundFraction * 100);
+    const isRequester = eligibility.cancelledBy === "requester";
+
+    // ⚠️ The job time is now read in the MARKET zone, not the server's. Until
+    // 2026-09-01 this was `new Date("YYYY-MM-DDTHH:MM:00")`, parsed as
+    // server-local — UTC on Vercel — so a 6pm job in a UTC-5 market was treated
+    // as 1pm and the 24-hour boundary moved five hours earlier, pushing clients
+    // into the 50% tier while they still had a day to spare (F4). Correct in
+    // UTC, so no test could ever have caught it.
+    const serviceAt = serviceInstant(detail);
+    const tier = serviceRefundTierFor(
+      eligibility,
+      hoursUntilService(serviceAt),
+      Boolean(detail.stripeChargeId),
+    );
+    const breakdown = serviceRefundBreakdown(tier, detail);
+    const refundAmountCents = breakdown.refundCents;
     let stripeRefundId: string | null = null;
     let refundAmountStr: string | null = null;
 
@@ -687,15 +694,15 @@ export class ServiceBookingService {
       }
     }
 
-    // If requester cancels within 24hr, transfer provider's retained portion (50% - 20% fee = 30%)
-    if (isRequester && refundFraction === 0.5 && detail.stripeChargeId) {
+    // The provider's retained share on a late client cancellation (50% kept,
+    // less the platform's 20% = 30% of the service price). The figure comes
+    // from the same breakdown the preview quotes, so what a provider is told
+    // they will receive is what the transfer actually moves.
+    if (breakdown.providerTransferCents > 0 && detail.stripeChargeId) {
       const providerUser = await userDAL.getUserById(detail.providerId);
       const providerConnectedAccountId =
         providerUser?.stripeConnectedAccountId ?? null;
-      const providerPayoutAmount =
-        Math.round(
-          servicePriceNum * (refundFraction - PLATFORM_FEE_PERCENTAGE) * 100,
-        ) / 100;
+      const providerPayoutAmount = breakdown.providerTransferCents / 100;
 
       if (providerConnectedAccountId && providerPayoutAmount > 0) {
         const transferResult = await createServiceTransfer({
