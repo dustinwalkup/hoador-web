@@ -68,7 +68,12 @@ async function getHandler(
       );
     }
 
-    return NextResponse.json(listing);
+    // `isProvider` is decided here rather than left to the client comparing
+    // `providerId` against its own session — the `isOwner` precedent from
+    // P-E6-1, and the same reasoning as `viewerRole` on booking detail. It also
+    // lets the booking CTA explain itself before someone walks into a
+    // four-step flow the preview will then refuse (mobile P-E9-7, Req 11.1).
+    return NextResponse.json({ ...listing, isProvider });
   } catch (error) {
     return handleApiError(error);
   }

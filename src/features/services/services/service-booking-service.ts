@@ -4,7 +4,6 @@ import {
   legalDocumentDAL,
   paymentDAL,
   serviceBookingDAL,
-  serviceListingDAL,
   servicePaymentLifecycleDAL,
   userDAL,
 } from "@/dal";
@@ -17,7 +16,6 @@ import {
   ValidationError,
 } from "@/dal/errors";
 import {
-  calculateServiceFee,
   PLATFORM_FEE_PERCENTAGE,
   PENDING_BOOKING_EXPIRY_WINDOW_HOURS,
   STRIPE_MINIMUM_CHARGE_USD,
@@ -30,6 +28,7 @@ import {
   serviceRefundTierFor,
 } from "@/features/services/lib/booking-cancellation";
 import { assertConnectReady } from "@/features/payments/lib/assert-connect-ready";
+import { quoteServiceBooking } from "@/features/services/services/service-booking-quote";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
@@ -67,48 +66,50 @@ export class ServiceBookingService {
     requesterId: string,
     context: AuditContext,
   ) {
-    const listingDetail = await serviceListingDAL.getById(formData.listingId);
-    if (!listingDetail || listingDetail.status !== "active") {
-      throw new NotFoundError("Service listing", formData.listingId);
+    // The same call the preview endpoint makes, so a quote and the booking it
+    // becomes cannot diverge (mobile D-E9-1). `quoteServiceBooking` throws
+    // NotFoundError for a missing or inactive listing; everything else comes
+    // back as a blocker, and creation maps the first one to the error type this
+    // method has always thrown — preserving both the status codes and the
+    // messages down to the character.
+    const quote = await quoteServiceBooking(
+      {
+        listingId: formData.listingId,
+        proposedDate: formData.proposedDate,
+        hours: formData.hours,
+      },
+      requesterId,
+    );
+
+    const [blocker] = quote.blockers;
+    if (blocker) {
+      if (blocker.code === "OWN_LISTING") {
+        throw new ForbiddenError(blocker.message);
+      }
+      throw new ValidationError(
+        blocker.message,
+        blocker.code === "HOURS_REQUIRED" ? "hours" : "proposedDate",
+      );
     }
 
-    if (listingDetail.providerId === requesterId) {
-      throw new ForbiddenError("cannot_book_own_listing");
-    }
-
+    // Deliberately still here rather than in the quote: this is up to two live
+    // Stripe calls and a fact about the account, not an input to the price, and
+    // the preview is re-fetched every time someone edits the hours.
     const pm = await getStripeCustomerContext(requesterId);
     if (!pm) {
       throw new ValidationError("payment_method_required", "paymentMethod");
     }
 
-    const priceNum = Number(listingDetail.price);
-    let servicePrice =
-      listingDetail.pricingType === "hourly"
-        ? priceNum * (formData.hours ?? 0)
-        : priceNum;
-
-    if (listingDetail.pricingType === "hourly") {
-      if (formData.hours == null || formData.hours <= 0) {
-        throw new ValidationError(
-          "Hours are required for hourly listings",
-          "hours",
-        );
-      }
-    }
-
-    servicePrice = Math.round(servicePrice * 100) / 100;
-    const serviceFee = calculateServiceFee(servicePrice);
-    const totalAmount = Math.round((servicePrice + serviceFee) * 100) / 100;
+    const { servicePrice, serviceFee, totalAmount } = quote;
 
     const booking = await serviceBookingDAL.create({
       listingId: formData.listingId,
       requesterId,
-      providerId: listingDetail.providerId,
-      communityId: listingDetail.communityId,
+      providerId: quote.providerId,
+      communityId: quote.communityId,
       proposedDate: formData.proposedDate,
       proposedTime: formData.proposedTime,
-      hours:
-        listingDetail.pricingType === "hourly" ? String(formData.hours) : null,
+      hours: quote.pricingType === "hourly" ? String(formData.hours) : null,
       notes: formData.notes ?? null,
       declineReason: null,
       servicePrice: String(servicePrice),
@@ -137,13 +138,13 @@ export class ServiceBookingService {
       userId: requesterId,
       metadata: {
         listingId: formData.listingId,
-        providerId: listingDetail.providerId,
+        providerId: quote.providerId,
       },
       ipAddress: context.ipAddress ?? undefined,
       userAgent: context.userAgent ?? undefined,
     });
 
-    await sendNewBookingRequestNotification(listingDetail.providerId, booking);
+    await sendNewBookingRequestNotification(quote.providerId, booking);
 
     if (
       formData.serviceAgreementAccepted ||

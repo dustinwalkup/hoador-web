@@ -169,6 +169,19 @@ const bookingPending = {
 
 const ctx = { ipAddress: "127.0.0.1", userAgent: "vitest" };
 
+/**
+ * A proposed day that is always in the future.
+ *
+ * These fixtures used to hardcode `2025-07-01`, which was future when written
+ * and had quietly become past by the time `createBooking` gained a date guard
+ * (P-E9-1b) — five tests failed on a rule they were not testing. A relative
+ * date cannot rot the same way.
+ */
+const futureDay = (daysAhead = 30) =>
+  new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
 describe("ServiceBookingService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -186,7 +199,7 @@ describe("ServiceBookingService", () => {
   describe("createBooking", () => {
     const form = {
       listingId: "list-1",
-      proposedDate: "2025-07-01",
+      proposedDate: futureDay(),
       proposedTime: "09:00",
       notes: null as string | null,
       serviceAgreementAccepted: true,
@@ -210,6 +223,46 @@ describe("ServiceBookingService", () => {
       await expect(
         ServiceBookingService.createBooking(form, "prov-1", ctx),
       ).rejects.toThrow(ForbiddenError);
+    });
+
+    it("refuses a booking for a day that has already gone (P-E9-1b)", async () => {
+      // ⚠️ **A guard that did not exist before 2026-09-08.** `createBooking`
+      // validated the listing, the own-listing rule and the hours, then
+      // inserted — with no check on the date at all, so a service could be
+      // booked for last year and sit in the schedule as a pending request
+      // against a day that had gone. The rental side gained the same guard
+      // with P-E8A-2b.
+      mockListingGetById.mockResolvedValue(listingActive);
+
+      await expect(
+        ServiceBookingService.createBooking(
+          { ...form, proposedDate: "2020-01-01" },
+          "req-1",
+          ctx,
+        ),
+      ).rejects.toThrow(/Proposed date cannot be in the past/);
+
+      expect(mockBookingCreate).not.toHaveBeenCalled();
+    });
+
+    it("still allows a booking made LATER on the same day", async () => {
+      // Day granularity, matching `isPastDay` on the rental side. A booking
+      // made at 3pm for 9am today is late, not invalid — and the provider is
+      // the one who decides whether to accept it.
+      mockListingGetById.mockResolvedValue(listingActive);
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm",
+      });
+      mockBookingCreate.mockResolvedValue({ id: "book-1" });
+
+      await ServiceBookingService.createBooking(
+        { ...form, proposedDate: futureDay(0), proposedTime: "09:00" },
+        "req-1",
+        ctx,
+      );
+
+      expect(mockBookingCreate).toHaveBeenCalled();
     });
 
     it("throws ValidationError when requester has no default payment method", async () => {
@@ -316,7 +369,7 @@ describe("ServiceBookingService", () => {
       await ServiceBookingService.createBooking(
         {
           listingId: "list-1",
-          proposedDate: "2025-07-01",
+          proposedDate: futureDay(),
           proposedTime: "09:00",
           hours: 2,
           notes: null,

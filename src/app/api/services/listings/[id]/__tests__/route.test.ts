@@ -119,6 +119,26 @@ describe("GET /api/services/listings/[id]", () => {
     );
   });
 
+  it("tells the provider it is theirs (P-E9-7)", async () => {
+    // Computed for the visibility check since this route was written, and
+    // simply never returned. The booking CTA can now explain itself before
+    // someone walks into a flow the preview will refuse — the `isOwner`
+    // precedent from P-E6-1, and the same reasoning as `viewerRole`.
+    const { getCurrentUserId } = await import("@/lib/api/route-helpers");
+    vi.mocked(getCurrentUserId).mockResolvedValue("provider-1");
+
+    const res = await GET(reqFor(), paramsFor());
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).isProvider).toBe(true);
+  });
+
+  it("tells a prospective client it is not theirs", async () => {
+    const res = await GET(reqFor(), paramsFor());
+
+    expect((await res.json()).isProvider).toBe(false);
+  });
+
   it("returns 403 to a non-provider when the listing is not active", async () => {
     mockGetById.mockResolvedValue({ ...activeListing, status: "paused" });
 
