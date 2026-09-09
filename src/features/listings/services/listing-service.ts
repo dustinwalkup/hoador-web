@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
+import { MAX_IMAGES_PER_LISTING } from "@/constants/listings";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
 import {
   communityDAL,
@@ -30,8 +31,6 @@ import { getPayoutReadiness } from "@/features/payments/lib/payout-readiness";
 import { logGatingEvent } from "@/features/payments/lib/log-events";
 import { linkListingToNeed } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
-
-const MAX_IMAGES_PER_LISTING = 10;
 
 export interface UploadListingImageInput {
   listingId: string;

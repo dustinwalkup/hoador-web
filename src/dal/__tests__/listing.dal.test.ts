@@ -395,6 +395,128 @@ describe("ListingDAL", () => {
     });
   });
 
+  // P-E10-2. `updateListing` resubmits a rejected listing on any field edit; it
+  // must also clear the reason, or every consumer that renders `rejectionReason`
+  // shows a rejection banner on a listing that is queued for review.
+  describe("updateListing — resubmit clears the rejection reason (P-E10-2)", () => {
+    /**
+     * Capture what `.set()` receives — that object is the whole behaviour under
+     * test — and stub out the `getListingById` read `updateListing` ends with.
+     */
+    const arrangeUpdate = (currentApprovalStatus: string) => {
+      const capturedSet: Record<string, unknown>[] = [];
+      const mockReturning = vi.fn().mockResolvedValue([mockListing]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn((data: Record<string, unknown>) => {
+        capturedSet.push(data);
+        return { where: mockWhere };
+      });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as any);
+
+      // reviewEvents insert on the resubmit path
+      vi.mocked(db.insert).mockReturnValue({
+        values: vi.fn().mockResolvedValue(undefined),
+      } as any);
+
+      // getListingById's tail reads
+      const mockOrderBy = vi.fn().mockResolvedValue([]);
+      const mockWhereSel = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      vi.mocked(db.select).mockImplementation(
+        () =>
+          ({ from: vi.fn().mockReturnValue({ where: mockWhereSel }) }) as any,
+      );
+      vi.mocked(db.query.blindReviews.findMany).mockResolvedValue([]);
+      vi.mocked(db.query.userFavorites.findFirst).mockResolvedValue(undefined);
+      vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue(undefined);
+
+      vi.mocked(db.query.listings.findFirst)
+        .mockResolvedValueOnce({
+          ownerId: "user-123",
+          communityId: "community-123",
+          approvalStatus: currentApprovalStatus,
+        } as any)
+        .mockResolvedValueOnce({
+          ...mockListing,
+          owner: {
+            id: "user-123",
+            firstName: "John",
+            lastName: "Doe",
+            createdAt: new Date("2024-01-01"),
+          },
+          category: { id: "category-123", name: "Power Tools", icon: "drill" },
+          reviews: [],
+          availability: [],
+        } as any);
+
+      return { capturedSet };
+    };
+
+    it("clears rejectionReason when a rejected listing is edited", async () => {
+      const { capturedSet } = arrangeUpdate("rejected");
+
+      await listingDAL.updateListing(
+        "listing-123",
+        { name: "Fixed the title" },
+        "user-123",
+      );
+
+      expect(capturedSet[0]).toMatchObject({
+        approvalStatus: "pending_review",
+        rejectionReason: null,
+      });
+    });
+
+    it("does not touch rejectionReason when an approved listing is edited", async () => {
+      const { capturedSet } = arrangeUpdate("approved");
+
+      await listingDAL.updateListing(
+        "listing-123",
+        { name: "New name" },
+        "user-123",
+      );
+
+      // Req 2.7.1: field edits on an approved listing don't re-review, and there
+      // is no reason to clear.
+      expect(capturedSet[0]).not.toHaveProperty("approvalStatus");
+      expect(capturedSet[0]).not.toHaveProperty("rejectionReason");
+    });
+
+    it("does not touch rejectionReason when a pending listing is edited", async () => {
+      const { capturedSet } = arrangeUpdate("pending_review");
+
+      await listingDAL.updateListing(
+        "listing-123",
+        { name: "New name" },
+        "user-123",
+      );
+
+      expect(capturedSet[0]).not.toHaveProperty("approvalStatus");
+      expect(capturedSet[0]).not.toHaveProperty("rejectionReason");
+    });
+
+    it("still records the provider_resubmitted review event", async () => {
+      arrangeUpdate("rejected");
+      const mockValues = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(db.insert).mockReturnValue({ values: mockValues } as any);
+
+      await listingDAL.updateListing(
+        "listing-123",
+        { name: "Fixed" },
+        "user-123",
+      );
+
+      // The durable history lives here, which is why clearing the scalar is safe.
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityKind: "tool_listing",
+          entityId: "listing-123",
+          eventType: "provider_resubmitted",
+          actorUserId: "user-123",
+        }),
+      );
+    });
+  });
+
   describe("updateListingStatus", () => {
     it("should update status when user is owner", async () => {
       // Arrange

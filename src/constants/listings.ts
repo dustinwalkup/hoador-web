@@ -1,3 +1,10 @@
+/**
+ * Hard cap on images per rental listing. Enforced server-side on upload
+ * (`ListingService.uploadListingImage`) and on reorder, and mirrored by the
+ * clients' min-1/max-10 form validation.
+ */
+export const MAX_IMAGES_PER_LISTING = 10;
+
 export const STATIC_CATEGORIES = [
   {
     id: "ce4622d8-e9cf-40c2-8fbc-d99495aad651",

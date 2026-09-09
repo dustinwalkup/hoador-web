@@ -58,10 +58,19 @@ import { PUT } from "../route";
 const params = (listingId: string) => ({
   params: Promise.resolve({ listingId }),
 });
-const req = (imageIds: string[]) =>
+// Image ids are `uuid()` columns and the route now validates that (P-E10-5),
+// so these fixtures are real UUIDs rather than the readable placeholders the
+// pre-validation tests used.
+const IMG_A = "11111111-1111-4111-8111-111111111111";
+const IMG_B = "22222222-2222-4222-8222-222222222222";
+
+const req = (imageIds: unknown) => rawReq({ imageIds });
+
+/** Send a body verbatim, so a case that says "null" really sends null. */
+const rawReq = (body: unknown) =>
   new NextRequest("http://localhost/api/listings/L1/images/reorder", {
     method: "PUT",
-    body: JSON.stringify({ imageIds }),
+    body: JSON.stringify(body),
   });
 
 describe("PUT /api/listings/[listingId]/images/reorder", () => {
@@ -75,7 +84,7 @@ describe("PUT /api/listings/[listingId]/images/reorder", () => {
   });
 
   it("scopes every reorder update to the listing id, not just the image id (F32)", async () => {
-    const res = await PUT(req(["img-b", "img-a"]), params("L1"));
+    const res = await PUT(req([IMG_B, IMG_A]), params("L1"));
 
     expect(res.status).toBe(200);
     // Two images → two scoped updates.
@@ -99,7 +108,7 @@ describe("PUT /api/listings/[listingId]/images/reorder", () => {
     // un-moderated content, so an approved listing stays approved. This is the
     // exact bug a user hit — a field-only save re-sends the image order and must
     // not bounce the listing back to moderation.
-    await PUT(req(["img-b", "img-a"]), params("L1"));
+    await PUT(req([IMG_B, IMG_A]), params("L1"));
 
     expect(mockMarkPendingReview).not.toHaveBeenCalled();
   });
@@ -107,7 +116,7 @@ describe("PUT /api/listings/[listingId]/images/reorder", () => {
   it("403s a non-owner and does not reorder", async () => {
     mockGetListingById.mockResolvedValue({ owner: { id: "someone-else" } });
 
-    const res = await PUT(req(["img-a"]), params("L1"));
+    const res = await PUT(req([IMG_A]), params("L1"));
 
     expect(res.status).toBe(403);
     expect(capturedWheres).toHaveLength(0);
@@ -118,7 +127,7 @@ describe("PUT /api/listings/[listingId]/images/reorder", () => {
       NextResponse.json({ error: "unauth" }, { status: 401 }),
     );
 
-    const res = await PUT(req(["img-a"]), params("L1"));
+    const res = await PUT(req([IMG_A]), params("L1"));
 
     expect(res.status).toBe(401);
     expect(mockGetListingById).not.toHaveBeenCalled();
@@ -127,8 +136,62 @@ describe("PUT /api/listings/[listingId]/images/reorder", () => {
   it("404s when the listing does not exist", async () => {
     mockGetListingById.mockResolvedValue(null);
 
-    const res = await PUT(req(["img-a"]), params("L1"));
+    const res = await PUT(req([IMG_A]), params("L1"));
 
     expect(res.status).toBe(404);
+  });
+
+  // P-E10-5. `imageIds` was destructured straight off `request.json()` and
+  // `.map`ped, so every malformed body below used to throw a TypeError and
+  // surface as a 500 — an input error reported as a server fault.
+  describe("body validation (P-E10-5)", () => {
+    it.each([
+      ["a missing imageIds key", {}],
+      ["a non-array imageIds", { imageIds: "img-a" }],
+      ["a number", { imageIds: 42 }],
+      ["null", { imageIds: null }],
+      ["an empty array", { imageIds: [] }],
+      ["non-uuid ids", { imageIds: ["img-a", "img-b"] }],
+      ["ids that are not strings", { imageIds: [1, 2] }],
+      ["duplicate ids", { imageIds: [IMG_A, IMG_A] }],
+    ])("400s on %s, and reorders nothing", async (_label, body) => {
+      const res = await PUT(rawReq(body), params("L1"));
+
+      expect(res.status).toBe(400);
+      expect(capturedWheres).toHaveLength(0);
+    });
+
+    it("400s on more ids than a listing may hold", async () => {
+      const tooMany = Array.from(
+        { length: 11 },
+        (_, i) => `${i}1111111-1111-4111-8111-111111111111`,
+      );
+
+      const res = await PUT(req(tooMany), params("L1"));
+
+      expect(res.status).toBe(400);
+      expect(capturedWheres).toHaveLength(0);
+    });
+
+    it("400s on unparseable JSON rather than throwing", async () => {
+      const bad = new NextRequest(
+        "http://localhost/api/listings/L1/images/reorder",
+        { method: "PUT", body: "{not json" },
+      );
+
+      const res = await PUT(bad, params("L1"));
+
+      expect(res.status).toBe(400);
+      expect(capturedWheres).toHaveLength(0);
+    });
+
+    it("returns field details the client can render", async () => {
+      const res = await PUT(rawReq({ nope: true }), params("L1"));
+
+      expect(res.status).toBe(400);
+      await expect(res.json()).resolves.toMatchObject({
+        error: "Validation failed",
+      });
+    });
   });
 });

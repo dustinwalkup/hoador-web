@@ -538,9 +538,25 @@ export class ListingDAL extends BaseDAL {
       //   condition, …) NO LONGER re-trigger review — only image changes do,
       //   and those come through the image routes, not this method (Req 2.7.1).
       //   The previous significant-fields trigger is intentionally removed.
+      //
+      // Resubmitting also CLEARS `rejectionReason`. The column answers "why is
+      // this listing currently rejected", so once it is back in `pending_review`
+      // any value there is stale by definition — and every consumer that renders
+      // it (the garage's pending-review tab, the owner's edit banner, the mobile
+      // Manage tab) keys off the row rather than the status, so a leftover reason
+      // shows an owner a rejection banner on a listing that is queued for review.
+      //
+      // Nothing is lost. `rejectionReason` is an accumulating "latest display"
+      // scalar (see `appendReviewScalar`), while the durable moderation history
+      // lives in `review_events` — every rejection writes a row there carrying
+      // its note, and the admin review card reads that timeline, not this column.
+      // The one visible consequence: after a resubmit, a subsequent rejection
+      // starts a fresh chain instead of appending to the old one. That is the
+      // intent — the chain is a display convenience, not the record.
       let didResubmit = false;
       if (currentListing.approvalStatus === "rejected") {
         updateData.approvalStatus = "pending_review";
+        updateData.rejectionReason = null;
         didResubmit = true;
       }
       if (updates.dailyRate !== undefined)
