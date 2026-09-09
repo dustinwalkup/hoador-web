@@ -2112,14 +2112,12 @@ describe("RentalDAL", () => {
     });
 
     it("gives a rental no id, so nothing can try to 'unblock' a booking", async () => {
-      const mockOrderBy1 = vi
-        .fn()
-        .mockResolvedValue([
-          {
-            startDate: new Date("2024-03-01"),
-            endDate: new Date("2024-03-05"),
-          },
-        ]);
+      const mockOrderBy1 = vi.fn().mockResolvedValue([
+        {
+          startDate: new Date("2024-03-01"),
+          endDate: new Date("2024-03-05"),
+        },
+      ]);
       const mockFrom1 = vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({ orderBy: mockOrderBy1 }),
       });

@@ -68,6 +68,24 @@ vi.mock("@/features/payments/lib/log-events", () => ({
   logGatingEvent: vi.fn(),
 }));
 
+const mockUploadToBlob = vi.fn();
+const mockDeleteFromBlob = vi.fn();
+vi.mock("@/services/vercel-blob", () => ({
+  uploadToBlob: (...args: unknown[]) => mockUploadToBlob(...args),
+  deleteFromBlob: (...args: unknown[]) => mockDeleteFromBlob(...args),
+}));
+
+const mockValidateForProcessing = vi.fn();
+const mockValidateMagicBytes = vi.fn();
+const mockProcessImage = vi.fn();
+vi.mock("@/lib/image/server", () => ({
+  validateImageForProcessing: (...args: unknown[]) =>
+    mockValidateForProcessing(...args),
+  validateImageMagicBytes: (...args: unknown[]) =>
+    mockValidateMagicBytes(...args),
+  processImageForUpload: (...args: unknown[]) => mockProcessImage(...args),
+}));
+
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
 const MOCK_LISTING = {
@@ -191,5 +209,312 @@ describe("ServiceListingService.approveListing", () => {
 
     expect(result.status).toBe("active");
     expect(mockCaptureNonCriticalError).toHaveBeenCalled();
+  });
+});
+
+// ── photos (P-E10-4) ─────────────────────────────────────────────────────────
+
+describe("ServiceListingService photos", () => {
+  const file = () =>
+    new File([new Uint8Array([1, 2, 3])], "photo.jpg", { type: "image/jpeg" });
+  const ctx = { ipAddress: "1.1.1.1", userAgent: "test" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockValidateForProcessing.mockReturnValue(null);
+    mockValidateMagicBytes.mockReturnValue(true);
+    mockProcessImage.mockResolvedValue(Buffer.from([1, 2, 3]));
+    mockUploadToBlob.mockResolvedValue({
+      url: "https://cdn.test/new.jpg",
+      pathname: "service-listings/x/new.jpg",
+    });
+    mockDeleteFromBlob.mockResolvedValue(undefined);
+  });
+
+  describe("addPhoto", () => {
+    it("appends the uploaded URL to the array", async () => {
+      mockGetById.mockResolvedValue({
+        ...MOCK_LISTING,
+        providerId: "provider-1",
+        photos: ["https://cdn.test/a.jpg"],
+      });
+      mockUpdate.mockResolvedValue({ ...MOCK_LISTING, photos: ["a", "b"] });
+
+      await ServiceListingService.addPhoto(
+        "listing-svc-1",
+        "provider-1",
+        file(),
+        ctx,
+      );
+
+      expect(mockUpdate).toHaveBeenCalledWith("listing-svc-1", {
+        photos: ["https://cdn.test/a.jpg", "https://cdn.test/new.jpg"],
+      });
+    });
+
+    it("refuses a provider who does not own the listing", async () => {
+      mockGetById.mockResolvedValue({
+        ...MOCK_LISTING,
+        providerId: "someone-else",
+      });
+
+      await expect(
+        ServiceListingService.addPhoto(
+          "listing-svc-1",
+          "provider-1",
+          file(),
+          ctx,
+        ),
+      ).rejects.toThrow(/do not own/i);
+      expect(mockUploadToBlob).not.toHaveBeenCalled();
+    });
+
+    it("refuses past the cap, before touching blob storage", async () => {
+      mockGetById.mockResolvedValue({
+        ...MOCK_LISTING,
+        providerId: "provider-1",
+        photos: Array.from(
+          { length: 10 },
+          (_, i) => `https://cdn.test/${i}.jpg`,
+        ),
+      });
+
+      await expect(
+        ServiceListingService.addPhoto(
+          "listing-svc-1",
+          "provider-1",
+          file(),
+          ctx,
+        ),
+      ).rejects.toThrow(/Maximum 10 photos/);
+      expect(mockUploadToBlob).not.toHaveBeenCalled();
+    });
+
+    it("rejects a file whose magic bytes are not an image", async () => {
+      mockGetById.mockResolvedValue({
+        ...MOCK_LISTING,
+        providerId: "provider-1",
+        photos: [],
+      });
+      mockValidateMagicBytes.mockReturnValue(false);
+
+      await expect(
+        ServiceListingService.addPhoto(
+          "listing-svc-1",
+          "provider-1",
+          file(),
+          ctx,
+        ),
+      ).rejects.toThrow(/Invalid image/);
+      expect(mockUploadToBlob).not.toHaveBeenCalled();
+    });
+
+    it("re-encodes before storing, as the rental path does", async () => {
+      mockGetById.mockResolvedValue({
+        ...MOCK_LISTING,
+        providerId: "provider-1",
+        photos: [],
+      });
+      mockUpdate.mockResolvedValue({ ...MOCK_LISTING, photos: [] });
+
+      await ServiceListingService.addPhoto(
+        "listing-svc-1",
+        "provider-1",
+        file(),
+        ctx,
+      );
+
+      expect(mockProcessImage).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ maxWidth: 2048, format: "jpeg" }),
+      );
+    });
+
+    // Service moderation is unchanged by Req 2.7 — only RENTAL listings have the
+    // images-only re-review rule, so an active service listing stays live.
+    it("does not send an active listing back to review", async () => {
+      mockGetById.mockResolvedValue({
+        ...MOCK_LISTING,
+        providerId: "provider-1",
+        status: "active",
+        photos: [],
+      });
+      mockUpdate.mockResolvedValue({ ...MOCK_LISTING, photos: [] });
+
+      await ServiceListingService.addPhoto(
+        "listing-svc-1",
+        "provider-1",
+        file(),
+        ctx,
+      );
+
+      expect(mockUpdate).toHaveBeenCalledWith(
+        "listing-svc-1",
+        expect.not.objectContaining({ status: expect.anything() }),
+      );
+    });
+  });
+
+  describe("setPhotos", () => {
+    const withPhotos = (photos: string[]) => {
+      mockGetById.mockResolvedValue({
+        ...MOCK_LISTING,
+        providerId: "provider-1",
+        photos,
+      });
+      mockUpdate.mockResolvedValue({ ...MOCK_LISTING, photos });
+    };
+
+    it("reorders by replacing the array", async () => {
+      withPhotos(["https://cdn.test/a.jpg", "https://cdn.test/b.jpg"]);
+
+      await ServiceListingService.setPhotos(
+        "listing-svc-1",
+        "provider-1",
+        ["https://cdn.test/b.jpg", "https://cdn.test/a.jpg"],
+        ctx,
+      );
+
+      expect(mockUpdate).toHaveBeenCalledWith("listing-svc-1", {
+        photos: ["https://cdn.test/b.jpg", "https://cdn.test/a.jpg"],
+      });
+    });
+
+    it("removes by omission, and cleans up the dropped blob", async () => {
+      withPhotos(["https://cdn.test/a.jpg", "https://cdn.test/b.jpg"]);
+
+      await ServiceListingService.setPhotos(
+        "listing-svc-1",
+        "provider-1",
+        ["https://cdn.test/a.jpg"],
+        ctx,
+      );
+
+      expect(mockUpdate).toHaveBeenCalledWith("listing-svc-1", {
+        photos: ["https://cdn.test/a.jpg"],
+      });
+      expect(mockDeleteFromBlob).toHaveBeenCalledWith("b.jpg");
+    });
+
+    // ⚠️ THE load-bearing guard. These URLs render as images in other members'
+    // clients, so an unchecked array is an arbitrary-URL injection into someone
+    // else's feed — with the request-time tracking that implies.
+    it("REFUSES a URL the listing does not already own", async () => {
+      withPhotos(["https://cdn.test/a.jpg"]);
+
+      await expect(
+        ServiceListingService.setPhotos(
+          "listing-svc-1",
+          "provider-1",
+          ["https://cdn.test/a.jpg", "https://evil.test/tracker.gif"],
+          ctx,
+        ),
+      ).rejects.toThrow(/only be reordered or removed/i);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("refuses duplicates", async () => {
+      withPhotos(["https://cdn.test/a.jpg"]);
+
+      await expect(
+        ServiceListingService.setPhotos(
+          "listing-svc-1",
+          "provider-1",
+          ["https://cdn.test/a.jpg", "https://cdn.test/a.jpg"],
+          ctx,
+        ),
+      ).rejects.toThrow(/unique/i);
+    });
+
+    it("refuses a provider who does not own the listing", async () => {
+      mockGetById.mockResolvedValue({
+        ...MOCK_LISTING,
+        providerId: "someone-else",
+      });
+
+      await expect(
+        ServiceListingService.setPhotos("listing-svc-1", "provider-1", [], ctx),
+      ).rejects.toThrow(/do not own/i);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+  });
+});
+
+// ── resubmission (mirrors the rental fix, P-E10-2) ───────────────────────────
+
+describe("ServiceListingService.editListing resubmission", () => {
+  const ctx = { ipAddress: "1.1.1.1", userAgent: "test" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUpdate.mockResolvedValue(MOCK_LISTING);
+    mockSendPendingAdmin.mockResolvedValue(undefined);
+  });
+
+  it("resubmits a denied listing AND clears the reason", async () => {
+    mockGetById.mockResolvedValue({
+      ...MOCK_LISTING,
+      providerId: "provider-1",
+      status: "denied",
+      rejectionReason: "Photos are unclear",
+    });
+
+    await ServiceListingService.editListing(
+      "listing-svc-1",
+      "provider-1",
+      { title: "Fixed title" },
+      ctx,
+    );
+
+    // A reason surviving into `pending_approval` is stale by definition, and
+    // every surface that renders it keys off the row rather than the status.
+    expect(mockUpdate).toHaveBeenCalledWith("listing-svc-1", {
+      title: "Fixed title",
+      status: "pending_approval",
+      rejectionReason: null,
+    });
+  });
+
+  it("leaves an active listing's status and reason untouched", async () => {
+    mockGetById.mockResolvedValue({
+      ...MOCK_LISTING,
+      providerId: "provider-1",
+      status: "active",
+    });
+
+    await ServiceListingService.editListing(
+      "listing-svc-1",
+      "provider-1",
+      { title: "New title" },
+      ctx,
+    );
+
+    expect(mockUpdate).toHaveBeenCalledWith("listing-svc-1", {
+      title: "New title",
+    });
+  });
+
+  it("still records the resubmission and re-notifies admins", async () => {
+    mockGetById.mockResolvedValue({
+      ...MOCK_LISTING,
+      providerId: "provider-1",
+      status: "denied",
+    });
+
+    await ServiceListingService.editListing(
+      "listing-svc-1",
+      "provider-1",
+      { title: "Fixed" },
+      ctx,
+    );
+
+    // The durable history lives here — which is what makes clearing the scalar safe.
+    expect(mockReviewEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityKind: "service_listing",
+        eventType: "provider_resubmitted",
+      }),
+    );
+    expect(mockSendPendingAdmin).toHaveBeenCalled();
   });
 });

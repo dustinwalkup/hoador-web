@@ -26,6 +26,13 @@ async function getHandler() {
     // D-E4-4: surface the primary community's residency verification so the mobile
     // "Verification pending" badge (Req 4.3.4) has a source. Additive + null-safe —
     // web clients ignore it; no DAL/schema change.
+    //
+    // `primaryCommunityId` rides along on the same membership read, for the same
+    // reason and at no extra cost (mobile 9.3 / F20): creating a SERVICE listing
+    // requires the client to supply `communityId`, where creating a rental
+    // listing derives it server-side from membership. Without this the mobile
+    // provider form has no source for a value the server insists on — and the
+    // membership row was already being fetched and discarded here.
     const primaryMembership =
       await communityDAL.getPrimaryMembershipForUser(userId);
     return NextResponse.json(
@@ -34,6 +41,7 @@ async function getHandler() {
             ...user,
             verificationStatus:
               primaryMembership?.membership.verificationStatus ?? null,
+            primaryCommunityId: primaryMembership?.community.id ?? null,
           }
         : user,
     );

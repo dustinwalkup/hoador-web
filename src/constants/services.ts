@@ -1,4 +1,13 @@
 /**
+ * Hard cap on photos per service listing (mobile Req 11.3.1, P-E10-4).
+ *
+ * Matches `MAX_IMAGES_PER_LISTING` for rentals — a provider photographing a
+ * service has no reason to be held to a different limit than an owner
+ * photographing a tool, and one number is easier to keep true in copy.
+ */
+export const MAX_SERVICE_PHOTOS = 10;
+
+/**
  * Emoji shown next to each service category, keyed by category name. Callers
  * fall back to 💼 for unknown names. Single source of truth for the service
  * browse filters and the neighborhood-need form.
