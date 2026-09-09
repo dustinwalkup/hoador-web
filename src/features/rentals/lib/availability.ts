@@ -20,11 +20,25 @@ import { toWallClock } from "@/features/schedule/lib/build-schedule";
  *      (D-E8A-2, P-E8A-2 / P-E8A-2b)
  */
 
+/**
+ * Why a window is unavailable.
+ *
+ * The owner's calendar needs this and the renter's does not: a `block` is the
+ * owner's own doing and they can lift it, a `rental` is someone else's booking
+ * and they cannot. Before this the two were concatenated into one anonymous
+ * list, and `reason` was not a usable discriminator — it is nullable on manual
+ * blocks and absent on rentals, so "no reason" meant either (mobile F11).
+ */
+export type BlockedRangeSource = "rental" | "block";
+
 /** A blocked window as `getBookedDatesForListing` returns it. */
 export interface BlockedRange {
   startDate: Date;
   endDate: Date;
   reason?: string;
+  source?: BlockedRangeSource;
+  /** The `listing_availability` row id — present for `block` only. */
+  id?: string;
 }
 
 /** A blocked window on the wire — zoneless days, never instants. */
@@ -32,6 +46,9 @@ export interface BookedRange {
   from: string;
   to: string;
   reason?: string;
+  source?: BlockedRangeSource;
+  /** Present for owner-created blocks, so the owner's calendar can lift them. */
+  id?: string;
 }
 
 /**
@@ -49,6 +66,8 @@ export function toBookedRanges(ranges: BlockedRange[]): BookedRange[] {
       from: toWallClock(range.startDate, { dateOnly: true }),
       to: toWallClock(range.endDate, { dateOnly: true }),
       ...(range.reason ? { reason: range.reason } : {}),
+      ...(range.source ? { source: range.source } : {}),
+      ...(range.id ? { id: range.id } : {}),
     }))
     .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
 }

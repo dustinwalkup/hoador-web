@@ -2659,7 +2659,15 @@ export class RentalDAL extends BaseDAL {
     listingId: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _userId?: string,
-  ): Promise<Array<{ startDate: Date; endDate: Date; reason?: string }>> {
+  ): Promise<
+    Array<{
+      startDate: Date;
+      endDate: Date;
+      reason?: string;
+      source?: "rental" | "block";
+      id?: string;
+    }>
+  > {
     try {
       // Get booked rentals (approved/active)
       const bookedRentals = await this.db
@@ -2679,6 +2687,7 @@ export class RentalDAL extends BaseDAL {
       // Get manual availability blocks
       const manualBlocks = await this.db
         .select({
+          id: listingAvailability.id,
           startDate: listingAvailability.startDate,
           endDate: listingAvailability.endDate,
           reason: listingAvailability.reason,
@@ -2693,15 +2702,21 @@ export class RentalDAL extends BaseDAL {
         .orderBy(listingAvailability.startDate);
 
       // Combine both sources of blocked dates
+      // `source` (and, for blocks, the row `id`) rides along so the OWNER's
+      // calendar can tell a booking it cannot touch from a block it can lift
+      // (mobile F11). The renter's picker ignores both — to it, taken is taken.
       const allBlockedDates = [
         ...bookedRentals.map((rental) => ({
           startDate: rental.startDate,
           endDate: rental.endDate,
+          source: "rental" as const,
         })),
         ...manualBlocks.map((block) => ({
+          id: block.id,
           startDate: block.startDate,
           endDate: block.endDate,
           reason: block.reason || undefined,
+          source: "block" as const,
         })),
       ];
 

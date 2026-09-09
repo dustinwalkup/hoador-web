@@ -2070,6 +2070,7 @@ describe("RentalDAL", () => {
       ];
       const blocks = [
         {
+          id: "block-1",
           startDate: new Date("2024-03-10"),
           endDate: new Date("2024-03-12"),
           reason: "Maintenance",
@@ -2093,11 +2094,52 @@ describe("RentalDAL", () => {
       const result = await rentalDAL.getBookedDatesForListing("listing-1");
 
       expect(result).toHaveLength(2);
+      // ⚠️ Changed deliberately by P-E10-3: rows now carry `source`, and blocks
+      // carry their row `id`. The owner's availability calendar has to tell a
+      // booking it cannot touch from a block it can lift, and `reason` was not a
+      // usable discriminator — nullable on blocks, absent on rentals, so "no
+      // reason" meant either (mobile F11). The renter's picker ignores both.
       expect(result[0]).toEqual({
         startDate: booked[0].startDate,
         endDate: booked[0].endDate,
+        source: "rental",
       });
-      expect(result[1].reason).toBe("Maintenance");
+      expect(result[1]).toMatchObject({
+        id: "block-1",
+        reason: "Maintenance",
+        source: "block",
+      });
+    });
+
+    it("gives a rental no id, so nothing can try to 'unblock' a booking", async () => {
+      const mockOrderBy1 = vi
+        .fn()
+        .mockResolvedValue([
+          {
+            startDate: new Date("2024-03-01"),
+            endDate: new Date("2024-03-05"),
+          },
+        ]);
+      const mockFrom1 = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ orderBy: mockOrderBy1 }),
+      });
+      const mockOrderBy2 = vi.fn().mockResolvedValue([]);
+      const mockFrom2 = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ orderBy: mockOrderBy2 }),
+      });
+
+      let calls = 0;
+      vi.mocked(db.select).mockImplementation(() => {
+        calls++;
+        return calls === 1
+          ? ({ from: mockFrom1 } as any)
+          : ({ from: mockFrom2 } as any);
+      });
+
+      const result = await rentalDAL.getBookedDatesForListing("listing-1");
+
+      expect(result[0].source).toBe("rental");
+      expect(result[0].id).toBeUndefined();
     });
   });
 
