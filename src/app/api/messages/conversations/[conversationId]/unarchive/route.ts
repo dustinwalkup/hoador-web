@@ -24,7 +24,7 @@ async function postHandler(
     const { userId } = authResult;
 
     const { conversationId } = await params;
-    const { data, error } = await tryCatch(
+    const { error } = await tryCatch(
       messagesDAL.unarchiveConversation(conversationId, userId),
     );
 
@@ -32,10 +32,9 @@ async function postHandler(
       return handleApiError(error);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: data[0],
-    });
+    // Narrowed from the whole conversation row — it carried both user ids and
+    // both read timestamps to a caller that only needs the acknowledgement.
+    return NextResponse.json({ success: true });
   } catch (error) {
     return handleApiError(error);
   }

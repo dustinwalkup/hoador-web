@@ -30,6 +30,7 @@ import { BLOCKING_RENTAL_STATUSES } from "./account-deletion.dal";
 import { BaseDAL } from "./base";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import type { CancellationReason } from "./types";
+import { conversationBetween } from "./conversation-pair";
 import { alias } from "drizzle-orm/pg-core";
 import { PENDING_BOOKING_EXPIRY_WINDOW_HOURS } from "@/constants/payments";
 
@@ -819,16 +820,7 @@ export class RentalDAL extends BaseDAL {
         .innerJoin(user, eq(rentalRequests.ownerId, user.id))
         .leftJoin(
           conversations,
-          and(
-            eq(
-              conversations.user1Id,
-              sql`LEAST(${renterId}, ${rentalRequests.ownerId})`,
-            ),
-            eq(
-              conversations.user2Id,
-              sql`GREATEST(${renterId}, ${rentalRequests.ownerId})`,
-            ),
-          ),
+          conversationBetween(renterId, rentalRequests.ownerId),
         )
         .where(
           and(
@@ -929,16 +921,7 @@ export class RentalDAL extends BaseDAL {
         .innerJoin(user, eq(rentalRequests.renterId, user.id))
         .leftJoin(
           conversations,
-          and(
-            eq(
-              conversations.user1Id,
-              sql`LEAST(${ownerId}, ${rentalRequests.renterId})`,
-            ),
-            eq(
-              conversations.user2Id,
-              sql`GREATEST(${ownerId}, ${rentalRequests.renterId})`,
-            ),
-          ),
+          conversationBetween(ownerId, rentalRequests.renterId),
         )
         .where(
           and(
@@ -1574,16 +1557,7 @@ export class RentalDAL extends BaseDAL {
         .innerJoin(user, eq(rentalRequests.ownerId, user.id))
         .leftJoin(
           conversations,
-          and(
-            eq(
-              conversations.user1Id,
-              sql`LEAST(${renterId}, ${rentalRequests.ownerId})`,
-            ),
-            eq(
-              conversations.user2Id,
-              sql`GREATEST(${renterId}, ${rentalRequests.ownerId})`,
-            ),
-          ),
+          conversationBetween(renterId, rentalRequests.ownerId),
         )
         .where(
           and(
@@ -1683,16 +1657,7 @@ export class RentalDAL extends BaseDAL {
         .innerJoin(user, eq(rentalRequests.renterId, user.id))
         .leftJoin(
           conversations,
-          and(
-            eq(
-              conversations.user1Id,
-              sql`LEAST(${ownerId}, ${rentalRequests.renterId})`,
-            ),
-            eq(
-              conversations.user2Id,
-              sql`GREATEST(${ownerId}, ${rentalRequests.renterId})`,
-            ),
-          ),
+          conversationBetween(ownerId, rentalRequests.renterId),
         )
         .where(
           and(
@@ -2233,16 +2198,7 @@ export class RentalDAL extends BaseDAL {
         )
         .leftJoin(
           conversations,
-          and(
-            eq(
-              conversations.user1Id,
-              sql`LEAST(${rentalRequests.renterId}, ${rentalRequests.ownerId})`,
-            ),
-            eq(
-              conversations.user2Id,
-              sql`GREATEST(${rentalRequests.renterId}, ${rentalRequests.ownerId})`,
-            ),
-          ),
+          conversationBetween(rentalRequests.renterId, rentalRequests.ownerId),
         )
         .where(eq(rentalRequests.id, rentalId))
         .limit(1);
@@ -2420,16 +2376,7 @@ export class RentalDAL extends BaseDAL {
         )
         .leftJoin(
           conversations,
-          and(
-            eq(
-              conversations.user1Id,
-              sql`LEAST(${rentals.renterId}, ${rentals.ownerId})`,
-            ),
-            eq(
-              conversations.user2Id,
-              sql`GREATEST(${rentals.renterId}, ${rentals.ownerId})`,
-            ),
-          ),
+          conversationBetween(rentals.renterId, rentals.ownerId),
         )
         .where(eq(rentals.id, rentalId))
         .limit(1);

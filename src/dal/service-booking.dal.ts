@@ -13,6 +13,7 @@ import { conversations } from "@/db/schemas/messages.schema";
 
 import { BaseDAL } from "./base";
 import { NotFoundError } from "./errors";
+import { conversationBetween } from "./conversation-pair";
 
 /** Insert payload for a new booking (no id / timestamps). */
 export type CreateBookingData = Omit<
@@ -251,15 +252,9 @@ export class ServiceBookingDAL extends BaseDAL {
         )
         .leftJoin(
           conversations,
-          and(
-            eq(
-              conversations.user1Id,
-              sql`LEAST(${serviceBookings.requesterId}, ${serviceBookings.providerId})`,
-            ),
-            eq(
-              conversations.user2Id,
-              sql`GREATEST(${serviceBookings.requesterId}, ${serviceBookings.providerId})`,
-            ),
+          conversationBetween(
+            serviceBookings.requesterId,
+            serviceBookings.providerId,
           ),
         )
         .where(eq(serviceBookings.id, bookingId))

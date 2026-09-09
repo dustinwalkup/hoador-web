@@ -31,7 +31,20 @@ const startConversationSchema = z
 
 /**
  * GET /api/messages/conversations
- * Get user's conversations (paginated)
+ * Get user's conversations (paginated).
+ *
+ * Query params (all optional):
+ * - `archived` — `"true"` for the archived tab; anything else means the inbox.
+ * - `offset` / `limit` — paging. `limit` defaults to 20 and is clamped to
+ *   1–100 in the DAL; garbage takes the default rather than reaching Drizzle.
+ * - `search`  — case-insensitive `contains` over the other participant's name
+ *   and over the content of any message in the thread, composed with
+ *   `archived`. A blank term is not a search.
+ *
+ * Response shape is unchanged, so a caller that passes no `search` gets exactly
+ * what it always did.
+ *
+ * Spec: hoador-mobile/specs/mobile-app/tasks/epic-11-messaging.md § P-E11-3
  */
 async function getHandler(request: NextRequest) {
   try {
@@ -46,6 +59,7 @@ async function getHandler(request: NextRequest) {
     const archived = searchParams.get("archived") === "true";
     const offset = parseInt(searchParams.get("offset") || "0");
     const limit = parseInt(searchParams.get("limit") || "20");
+    const search = searchParams.get("search") ?? undefined;
 
     const { data, error } = await tryCatch(
       messagesDAL.getUserConversationsPaginated(
@@ -53,15 +67,12 @@ async function getHandler(request: NextRequest) {
         archived,
         offset,
         limit,
+        search,
       ),
     );
 
     if (error) {
-      console.error("Error fetching conversations:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to fetch conversations" },
-        { status: 500 },
-      );
+      return handleApiError(error);
     }
 
     return NextResponse.json(data);

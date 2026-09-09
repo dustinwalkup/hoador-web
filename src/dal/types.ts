@@ -360,8 +360,21 @@ export interface RentalDetails {
 export interface ConversationSummary {
   id: string;
   otherUser: {
+    /**
+     * Composed from `first_name`/`last_name`, falling back to better-auth's
+     * `name` and then a neutral label — never the literal `"null null"` a
+     * template literal produced for profile-less social sign-ups (P-E11-2).
+     */
     id: string;
     name: string;
+    /**
+     * Raw parts, so a client can compose its own label. Optional so existing
+     * client-side literals (optimistic updates, fixtures) still satisfy the
+     * type — the API always sends them.
+     */
+    firstName?: string | null;
+    lastName?: string | null;
+    /** `profile_image_url`, then better-auth `image`, then null. */
     avatar: string | null;
     initials: string;
   };
@@ -379,7 +392,10 @@ export interface ConversationDetails {
   id: string;
   otherUser: {
     id: string;
+    /** See `ConversationSummary.otherUser.name`. */
     name: string;
+    firstName?: string | null;
+    lastName?: string | null;
     avatar: string | null;
     initials: string;
   };
@@ -389,6 +405,8 @@ export interface ConversationDetails {
     time: Date;
     sender: "me" | "them";
     senderName: string;
+    /** `profile_image_url`, then better-auth `image`, then null. */
+    senderAvatar?: string | null;
     listingId?: string | null;
     listingName?: string | null;
     /** HOA service listing (`service_listings.id` / `title`). */
@@ -397,6 +415,12 @@ export interface ConversationDetails {
   }>;
   unread: boolean;
   archived: boolean;
+  /**
+   * Whether messages older than the returned window exist — the thread read is
+   * paginated (newest `limit`, default 50, oldest-first). Optional so existing
+   * client-side literals still satisfy the type; the API always sends it.
+   */
+  hasMore?: boolean;
 }
 
 // Review-related types for listing approval workflow

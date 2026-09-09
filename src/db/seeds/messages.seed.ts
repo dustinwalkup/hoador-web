@@ -60,10 +60,19 @@ async function main(): Promise<void> {
         archivedConversationCount++;
       }
 
+      // Store the pair sorted, the way `findOrCreateConversation` writes it.
+      // Seeding it verbatim broke that invariant: the find-or-create lookup
+      // missed the seeded row and inserted a *second* conversation for the same
+      // two people (the unique constraint is on the ordered pair, so both
+      // survive), and every `conversationId` join on rental/booking detail came
+      // back null for those pairs.
+      // Spec: hoador-mobile/specs/mobile-app/tasks/epic-11-messaging.md § F20
+      const [pairUser1Id, pairUser2Id] = [user.id, otherUser.id].sort();
+
       const conversation: NewConversation = {
         id: faker.string.uuid(),
-        user1Id: user.id,
-        user2Id: otherUser.id,
+        user1Id: pairUser1Id,
+        user2Id: pairUser2Id,
         lastMessageAt: faker.date.recent({ days: 30 }),
         user1LastReadAt: faker.date.recent({ days: 7 }),
         user2LastReadAt: faker.date.recent({ days: 7 }),

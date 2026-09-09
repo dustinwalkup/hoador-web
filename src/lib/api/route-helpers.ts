@@ -16,6 +16,8 @@ import {
   ValidationError,
   ConflictError,
   ServiceBookingPaymentFailedError,
+  ConversationArchivedError,
+  CannotMessageSelfError,
 } from "@/dal/errors";
 import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
@@ -60,6 +62,8 @@ export function handleApiError(
     !(error instanceof NotFoundError) &&
     !(error instanceof ValidationError) &&
     !(error instanceof ConflictError) &&
+    !(error instanceof ConversationArchivedError) &&
+    !(error instanceof CannotMessageSelfError) &&
     !(error instanceof PaymentSetupRequiredError) &&
     !(error instanceof AccountDeletionBlockedError) &&
     !(error instanceof ListingDeletionBlockedError);
@@ -101,6 +105,23 @@ export function handleApiError(
         details: error.field ? { field: error.field } : undefined,
       },
       { status: 400 },
+    );
+  }
+
+  // Before the generic ConflictError/DALError branches so the machine-readable
+  // `code` survives — mobile branches on it to offer "unarchive to reply"
+  // rather than parsing the message (its rule #8).
+  if (error instanceof ConversationArchivedError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+
+  if (error instanceof CannotMessageSelfError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
     );
   }
 
