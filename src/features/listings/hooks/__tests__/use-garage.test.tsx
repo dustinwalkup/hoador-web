@@ -11,6 +11,7 @@ import {
   useGarageCacheInvalidation,
   usePrefetchGarageListing,
   useAllGarageData,
+  useDeleteListing,
   garageKeys,
 } from "../use-garage";
 
@@ -533,5 +534,104 @@ describe("useAllGarageData", () => {
     });
 
     expect(result.current.isLoading).toBe(true);
+  });
+});
+
+// P-E10-1. The server refuses a delete while rentals are in flight, and puts a
+// stable CODE in `error` with the human copy in `blockers[].message`. The modal
+// toasts `error.message`, so without the blocker branch the owner is shown
+// "LISTING_DELETION_BLOCKED".
+describe("useDeleteListing — blocked deletions (P-E10-1)", () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = createTestQueryClient();
+    mockFetch.mockReset();
+  });
+
+  afterEach(() => {
+    queryClient.clear();
+  });
+
+  const renderDelete = () =>
+    renderHook(() => useDeleteListing(), {
+      wrapper: ({ children }) => (
+        <QueryWrapper queryClient={queryClient}>{children}</QueryWrapper>
+      ),
+    });
+
+  it("surfaces the blocker copy, not the machine code", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: "LISTING_DELETION_BLOCKED",
+        blockers: [
+          {
+            type: "active_rentals",
+            count: 1,
+            message: "This listing has 1 rental in progress.",
+          },
+        ],
+      }),
+    });
+
+    const { result } = renderDelete();
+
+    await expect(result.current.mutateAsync("listing-1")).rejects.toThrow(
+      "This listing has 1 rental in progress.",
+    );
+  });
+
+  it("joins multiple blockers into one message", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: "LISTING_DELETION_BLOCKED",
+        blockers: [
+          { type: "active_rentals", count: 1, message: "Rental in progress." },
+          {
+            type: "pending_requests",
+            count: 2,
+            message: "2 requests waiting.",
+          },
+        ],
+      }),
+    });
+
+    const { result } = renderDelete();
+
+    await expect(result.current.mutateAsync("listing-1")).rejects.toThrow(
+      "Rental in progress. 2 requests waiting.",
+    );
+  });
+
+  it("falls back to `error` for failures that carry no blockers", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "Forbidden" }),
+    });
+
+    const { result } = renderDelete();
+
+    await expect(result.current.mutateAsync("listing-1")).rejects.toThrow(
+      "Forbidden",
+    );
+  });
+
+  it("still deletes when nothing blocks", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true }),
+    });
+
+    const { result } = renderDelete();
+
+    await expect(result.current.mutateAsync("listing-1")).resolves.toEqual({
+      success: true,
+    });
   });
 });

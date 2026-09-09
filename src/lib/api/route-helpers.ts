@@ -19,6 +19,7 @@ import {
 } from "@/dal/errors";
 import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
+import { ListingDeletionBlockedError } from "@/features/listings/lib/listing-deletion-errors";
 import { setSentryUser } from "@/lib/sentry/user-context";
 
 /**
@@ -60,7 +61,8 @@ export function handleApiError(
     !(error instanceof ValidationError) &&
     !(error instanceof ConflictError) &&
     !(error instanceof PaymentSetupRequiredError) &&
-    !(error instanceof AccountDeletionBlockedError);
+    !(error instanceof AccountDeletionBlockedError) &&
+    !(error instanceof ListingDeletionBlockedError);
 
   if (shouldCaptureError) {
     const ctx = getRequestContext();
@@ -141,6 +143,15 @@ export function handleApiError(
   }
 
   if (error instanceof AccountDeletionBlockedError) {
+    return NextResponse.json(
+      { error: error.code, blockers: error.details.blockers },
+      { status: error.statusCode },
+    );
+  }
+
+  // Same body shape as the account-deletion blocker above, deliberately: a
+  // client that already renders one blocker list renders this one unchanged.
+  if (error instanceof ListingDeletionBlockedError) {
     return NextResponse.json(
       { error: error.code, blockers: error.details.blockers },
       { status: error.statusCode },

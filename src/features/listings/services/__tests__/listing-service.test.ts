@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ListingService } from "../listing-service";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
+import { ListingDeletionBlockedError } from "@/features/listings/lib/listing-deletion-errors";
 import type { CreateListingFormDataServerType } from "@/features/listings/form-schema/listing.schema";
 
 const mockAfter = vi.fn((fn: () => Promise<void>) => fn());
@@ -34,6 +35,7 @@ vi.mock("@/features/payments/lib/log-events", () => ({
 const mockGetListingById = vi.fn();
 const mockUpdateListing = vi.fn();
 const mockDeleteListing = vi.fn();
+const mockCountInFlightRentalsForListing = vi.fn();
 const mockMarkPendingReviewOnImageChange = vi.fn();
 const mockCreateListing = vi.fn();
 const mockGetUserById = vi.fn();
@@ -72,6 +74,10 @@ vi.mock("@/dal", () => ({
   },
   userDAL: {
     getUserById: (...args: unknown[]) => mockGetUserById(...args),
+  },
+  rentalDAL: {
+    countInFlightRentalsForListing: (...args: unknown[]) =>
+      mockCountInFlightRentalsForListing(...args),
   },
   communityDAL: {
     requireUserCommunityMembership: (...args: unknown[]) =>
@@ -158,6 +164,10 @@ describe("ListingService", () => {
     mockAfter.mockImplementation((fn: () => Promise<void>) => fn());
     mockLinkListingToNeed.mockResolvedValue(undefined);
     mockGetListingById.mockResolvedValue(mockListing);
+    mockCountInFlightRentalsForListing.mockResolvedValue({
+      active: 0,
+      pending: 0,
+    });
     mockGetUserById.mockResolvedValue({
       id: "user-1",
       stripeConnectedAccountId: "acct_123",
@@ -468,6 +478,106 @@ describe("ListingService", () => {
         "listing_deleted",
         { listingId: "listing-123" },
       );
+    });
+
+    // The guard exists because `listings` cascades into `rental_requests` →
+    // `rentals` → `rental_payment_lifecycle` / `rental_agreement_documents`.
+    // These tests pin the refusal; the cascade itself is asserted below.
+    describe("in-flight rental guard", () => {
+      it("refuses when a rental is in flight, and does not reach the DAL", async () => {
+        mockCountInFlightRentalsForListing.mockResolvedValue({
+          active: 1,
+          pending: 0,
+        });
+
+        await expect(
+          ListingService.deleteListing("listing-123", "owner-123"),
+        ).rejects.toThrow(ListingDeletionBlockedError);
+
+        // The whole point: nothing was deleted, so nothing cascaded.
+        expect(mockDeleteListing).not.toHaveBeenCalled();
+        expect(mockTrackActivity).not.toHaveBeenCalled();
+      });
+
+      it("refuses when a request is awaiting a decision", async () => {
+        mockCountInFlightRentalsForListing.mockResolvedValue({
+          active: 0,
+          pending: 2,
+        });
+
+        await expect(
+          ListingService.deleteListing("listing-123", "owner-123"),
+        ).rejects.toThrow(ListingDeletionBlockedError);
+        expect(mockDeleteListing).not.toHaveBeenCalled();
+      });
+
+      it("carries a typed blocker per group, with counts the client can render", async () => {
+        mockCountInFlightRentalsForListing.mockResolvedValue({
+          active: 2,
+          pending: 1,
+        });
+
+        const error = await ListingService.deleteListing(
+          "listing-123",
+          "owner-123",
+        ).catch((e: unknown) => e);
+
+        expect(error).toBeInstanceOf(ListingDeletionBlockedError);
+        const blocked = error as ListingDeletionBlockedError;
+        expect(blocked.code).toBe("LISTING_DELETION_BLOCKED");
+        expect(blocked.statusCode).toBe(409);
+        expect(blocked.details.blockers).toEqual([
+          {
+            type: "active_rentals",
+            count: 2,
+            message: expect.stringContaining("2 rentals in progress"),
+          },
+          {
+            type: "pending_requests",
+            count: 1,
+            message: expect.stringContaining("1 request awaiting"),
+          },
+        ]);
+      });
+
+      it("pluralizes the single-rental message", async () => {
+        mockCountInFlightRentalsForListing.mockResolvedValue({
+          active: 1,
+          pending: 0,
+        });
+
+        const error = (await ListingService.deleteListing(
+          "listing-123",
+          "owner-123",
+        ).catch((e: unknown) => e)) as ListingDeletionBlockedError;
+
+        expect(error.details.blockers[0].message).toContain(
+          "1 rental in progress",
+        );
+      });
+
+      // Terminal states must not block, or a listing that once had a rental
+      // becomes permanently undeletable — the reasoning
+      // `BLOCKING_RENTAL_STATUSES` already encodes for account deletion.
+      it("allows deletion when only terminal rentals exist", async () => {
+        mockCountInFlightRentalsForListing.mockResolvedValue({
+          active: 0,
+          pending: 0,
+        });
+        mockDeleteListing.mockResolvedValue(undefined);
+
+        await ListingService.deleteListing("listing-123", "owner-123");
+
+        expect(mockDeleteListing).toHaveBeenCalledWith("listing-123");
+      });
+
+      it("checks ownership before counting rentals", async () => {
+        await expect(
+          ListingService.deleteListing("listing-123", "other-user"),
+        ).rejects.toThrow(ForbiddenError);
+
+        expect(mockCountInFlightRentalsForListing).not.toHaveBeenCalled();
+      });
     });
   });
 });

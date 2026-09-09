@@ -1,4 +1,15 @@
-import { eq, and, inArray, sql, gte, lte, lt, or, desc } from "drizzle-orm";
+import {
+  eq,
+  and,
+  inArray,
+  sql,
+  gte,
+  lte,
+  lt,
+  or,
+  desc,
+  count,
+} from "drizzle-orm";
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { rentalStatusEnum } from "@/db/schemas/_enums";
 import {
@@ -15,6 +26,7 @@ import type { AlertType } from "@/features/rentals/lib/format-alert-text";
 import { differenceInDays } from "@/lib/utils/date.utils";
 import { isPastDay } from "@/features/rentals/lib/availability";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
+import { BLOCKING_RENTAL_STATUSES } from "./account-deletion.dal";
 import { BaseDAL } from "./base";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import type { CancellationReason } from "./types";
@@ -2588,6 +2600,58 @@ export class RentalDAL extends BaseDAL {
       };
     } catch (error) {
       this.handleError(error, "getRentalDetailsById");
+    }
+  }
+
+  /**
+   * How many rentals are still in flight against a listing, split into the two
+   * groups a user can act on.
+   *
+   * Backs the delete guard in `ListingService.deleteListing`: `listings` cascades
+   * into `rental_requests` → `rentals` → `rental_payment_lifecycle` and
+   * `rental_agreement_documents`, so a delete performed while any of these rows
+   * exist destroys the money trail and the signed agreement while the Stripe-side
+   * charge or deposit hold stays live.
+   *
+   * `active` reuses `BLOCKING_RENTAL_STATUSES` — the same vocabulary the
+   * account-deletion blockers already use for "in flight", `overdue` included —
+   * rather than growing a second list that can drift from it. `pending` is
+   * counted separately because it is a different sentence to the user: an
+   * awaiting-decision request is theirs to decline, an approved one is not.
+   *
+   * Status lives on `rental_requests`; `rentals` is the post-approval record and
+   * has no status of its own.
+   *
+   * Spec: hoador-mobile/specs/mobile-app/tasks/epic-10-manage-listings-ai.md
+   *       § F1 / P-E10-1
+   */
+  async countInFlightRentalsForListing(
+    listingId: string,
+  ): Promise<{ active: number; pending: number }> {
+    try {
+      const [active] = await this.db
+        .select({ n: count() })
+        .from(rentalRequests)
+        .where(
+          and(
+            eq(rentalRequests.listingId, listingId),
+            inArray(rentalRequests.status, [...BLOCKING_RENTAL_STATUSES]),
+          ),
+        );
+
+      const [pending] = await this.db
+        .select({ n: count() })
+        .from(rentalRequests)
+        .where(
+          and(
+            eq(rentalRequests.listingId, listingId),
+            eq(rentalRequests.status, "pending"),
+          ),
+        );
+
+      return { active: active?.n ?? 0, pending: pending?.n ?? 0 };
+    } catch (error) {
+      this.handleError(error, "countInFlightRentalsForListing");
     }
   }
 

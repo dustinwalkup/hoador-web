@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { ForbiddenError } from "@/dal/errors";
+import { ListingDeletionBlockedError } from "@/features/listings/lib/listing-deletion-errors";
 
 // Per CLAUDE.md: mock the SESSION module so the route's real auth path runs.
 const mockGetCurrentUser = vi.fn();
@@ -27,6 +29,13 @@ vi.mock("@/dal", () => ({
   rentalDAL: {
     getBookedDatesForListing: (...a: any[]) =>
       mockGetBookedDatesForListing(...a),
+  },
+}));
+
+const mockServiceDeleteListing = vi.fn();
+vi.mock("@/features/listings/services/listing-service", () => ({
+  ListingService: {
+    deleteListing: (...a: any[]) => mockServiceDeleteListing(...a),
   },
 }));
 
@@ -250,5 +259,99 @@ describe("GET /api/listings/[listingId] — bookedRanges (P-E8A-2)", () => {
 
     expect(res.status).toBe(200);
     expect((await res.json()).bookedRanges).toEqual([]);
+  });
+});
+
+// P-E10-1. The service owns the decision (tested in listing-service.test.ts);
+// what this block pins is the WIRE — that a blocked delete reaches the client as
+// a 409 with a stable machine-readable code and a renderable blocker list,
+// rather than as prose the app would have to string-match (mobile rule #8).
+describe("DELETE /api/listings/[listingId] — deletion blockers (P-E10-1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCurrentUser.mockResolvedValue({ id: "owner-1", userType: "user" });
+    mockServiceDeleteListing.mockResolvedValue(undefined);
+  });
+
+  it("returns 401 when not authenticated and never reaches the service", async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+
+    const { DELETE } = await import("../route");
+    const res = await DELETE(req(), params());
+
+    expect(res.status).toBe(401);
+    expect(mockServiceDeleteListing).not.toHaveBeenCalled();
+  });
+
+  it("deletes when nothing is in flight", async () => {
+    const { DELETE } = await import("../route");
+    const res = await DELETE(req(), params());
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ success: true });
+    expect(mockServiceDeleteListing).toHaveBeenCalledWith("l-1", "owner-1");
+  });
+
+  it("maps a blocked deletion to 409 with a stable code and the blockers", async () => {
+    mockServiceDeleteListing.mockRejectedValue(
+      new ListingDeletionBlockedError({
+        blockers: [
+          {
+            type: "active_rentals",
+            count: 2,
+            message: "This listing has 2 rentals in progress.",
+          },
+          {
+            type: "pending_requests",
+            count: 1,
+            message: "This listing has 1 request awaiting your decision.",
+          },
+        ],
+      }),
+    );
+
+    const { DELETE } = await import("../route");
+    const res = await DELETE(req(), params());
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      // SCREAMING_SNAKE_CASE in `error` is what the mobile client derives
+      // `ApiError.code` from — a human message never is.
+      error: "LISTING_DELETION_BLOCKED",
+      blockers: [
+        {
+          type: "active_rentals",
+          count: 2,
+          message: "This listing has 2 rentals in progress.",
+        },
+        {
+          type: "pending_requests",
+          count: 1,
+          message: "This listing has 1 request awaiting your decision.",
+        },
+      ],
+    });
+  });
+
+  it("still maps ownership failures to 403, not 409", async () => {
+    mockServiceDeleteListing.mockRejectedValue(
+      new ForbiddenError("You do not have permission to modify this listing"),
+    );
+
+    const { DELETE } = await import("../route");
+    const res = await DELETE(req(), params());
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.not.toHaveProperty("blockers");
+  });
+
+  it("returns 400 when the listing id is missing", async () => {
+    const { DELETE } = await import("../route");
+    const res = await DELETE(req(), {
+      params: Promise.resolve({ listingId: "" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockServiceDeleteListing).not.toHaveBeenCalled();
   });
 });

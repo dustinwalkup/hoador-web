@@ -5,7 +5,13 @@ import { db } from "@/db/db";
 import { listingImages } from "@/db/schemas/listings.schema";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
-import { communityDAL, legalDocumentDAL, listingDAL, userDAL } from "@/dal";
+import {
+  communityDAL,
+  legalDocumentDAL,
+  listingDAL,
+  rentalDAL,
+  userDAL,
+} from "@/dal";
 import { uploadToBlob } from "@/services/vercel-blob";
 import {
   processImageForUpload,
@@ -16,6 +22,10 @@ import {
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalListingPendingAdminNotification } from "@/features/listings/notifications/listing-pending-review";
 import type { CreateListingFormDataServerType } from "@/features/listings/form-schema/listing.schema";
+import {
+  ListingDeletionBlockedError,
+  type ListingDeletionBlocker,
+} from "@/features/listings/lib/listing-deletion-errors";
 import { getPayoutReadiness } from "@/features/payments/lib/payout-readiness";
 import { logGatingEvent } from "@/features/payments/lib/log-events";
 import { linkListingToNeed } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
@@ -308,11 +318,60 @@ export class ListingService {
   /**
    * Delete a listing.
    *
+   * Refuses while any rental is still in flight against it. The refusal is not
+   * cosmetic: `listings` cascades into `rental_requests` → `rentals` →
+   * `rental_payment_lifecycle` and `rental_agreement_documents`, so deleting a
+   * listing mid-rental erased the payment record and the signed agreement while
+   * the Stripe-side charge or deposit hold stayed live and unreconcilable. The
+   * service side has always had this protection
+   * (`service_bookings.listing_id` is ON DELETE RESTRICT, and its route refuses
+   * when bookings exist); rentals were missed.
+   *
+   * Completed, cancelled and denied rentals do NOT block — they are terminal,
+   * and an unclearable blocker would make a listing permanently undeletable
+   * (the same reasoning `BLOCKING_RENTAL_STATUSES` encodes for accounts).
+   *
+   * Every blocker here is clearable. A pending request is the owner's to decline
+   * immediately, and the hourly `expire-pending-bookings` cron auto-cancels it
+   * once `expiresAt` passes even if they do nothing; an in-flight rental ends by
+   * completion or cancellation. Nothing leaves a listing stuck.
+   *
+   * Requirements: mobile Req 7.1.4
+   * Spec: hoador-mobile/specs/mobile-app/tasks/epic-10-manage-listings-ai.md
+   *       § F1 / D-E10-1 / P-E10-1
+   *
    * @throws NotFoundError if listing not found
    * @throws ForbiddenError if user doesn't own the listing
+   * @throws ListingDeletionBlockedError if rentals are in flight against it
    */
   static async deleteListing(listingId: string, userId: string): Promise<void> {
     await this.verifyOwnership(listingId, userId);
+
+    const inFlight = await rentalDAL.countInFlightRentalsForListing(listingId);
+    const blockers: ListingDeletionBlocker[] = [];
+    if (inFlight.active > 0) {
+      blockers.push({
+        type: "active_rentals",
+        count: inFlight.active,
+        message:
+          inFlight.active === 1
+            ? "This listing has 1 rental in progress. It can be deleted once that rental is completed or cancelled."
+            : `This listing has ${inFlight.active} rentals in progress. It can be deleted once those rentals are completed or cancelled.`,
+      });
+    }
+    if (inFlight.pending > 0) {
+      blockers.push({
+        type: "pending_requests",
+        count: inFlight.pending,
+        message:
+          inFlight.pending === 1
+            ? "This listing has 1 request awaiting your decision. Decline or approve it first."
+            : `This listing has ${inFlight.pending} requests awaiting your decision. Decline or approve them first.`,
+      });
+    }
+    if (blockers.length > 0) {
+      throw new ListingDeletionBlockedError({ blockers });
+    }
 
     await listingDAL.deleteListing(listingId);
 

@@ -2003,6 +2003,63 @@ describe("RentalDAL", () => {
     });
   });
 
+  describe("countInFlightRentalsForListing", () => {
+    // Two ordered queries: blocking statuses first, then pending.
+    const mockTwoCounts = (active: number, pending: number) => {
+      const orderedbFrom = vi
+        .fn()
+        .mockReturnValueOnce({
+          where: vi.fn().mockResolvedValue([{ n: active }]),
+        })
+        .mockReturnValueOnce({
+          where: vi.fn().mockResolvedValue([{ n: pending }]),
+        });
+      vi.mocked(db.select).mockReturnValue({ from: orderedbFrom } as any);
+    };
+
+    it("returns the two groups separately", async () => {
+      mockTwoCounts(2, 1);
+
+      const result =
+        await rentalDAL.countInFlightRentalsForListing("listing-123");
+
+      expect(result).toEqual({ active: 2, pending: 1 });
+    });
+
+    it("returns zeros when nothing is in flight", async () => {
+      mockTwoCounts(0, 0);
+
+      const result =
+        await rentalDAL.countInFlightRentalsForListing("listing-123");
+
+      expect(result).toEqual({ active: 0, pending: 0 });
+    });
+
+    it("defaults to 0 when a count query returns no row", async () => {
+      const emptyFrom = vi
+        .fn()
+        .mockReturnValueOnce({ where: vi.fn().mockResolvedValue([]) })
+        .mockReturnValueOnce({ where: vi.fn().mockResolvedValue([]) });
+      vi.mocked(db.select).mockReturnValue({ from: emptyFrom } as any);
+
+      const result =
+        await rentalDAL.countInFlightRentalsForListing("listing-123");
+
+      expect(result).toEqual({ active: 0, pending: 0 });
+    });
+
+    it("wraps a query failure as a DALError", async () => {
+      const failingFrom = vi.fn().mockReturnValue({
+        where: vi.fn().mockRejectedValue(new Error("connection lost")),
+      });
+      vi.mocked(db.select).mockReturnValue({ from: failingFrom } as any);
+
+      await expect(
+        rentalDAL.countInFlightRentalsForListing("listing-123"),
+      ).rejects.toThrow(DALError);
+    });
+  });
+
   describe("getBookedDatesForListing", () => {
     it("should return booked dates and manual blocks with reason", async () => {
       const booked = [

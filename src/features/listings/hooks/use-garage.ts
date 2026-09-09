@@ -237,6 +237,20 @@ export function useDeleteListing() {
 
       if (!response.ok) {
         const error = await response.json();
+
+        // A blocked deletion (409, P-E10-1) puts a stable CODE in `error` for
+        // machine consumers and the human copy in `blockers[].message`. Without
+        // this branch the modal toasts "LISTING_DELETION_BLOCKED" at the owner,
+        // which is exactly the prose-vs-code split the body exists to avoid.
+        const blockers = (error as { blockers?: { message?: string }[] } | null)
+          ?.blockers;
+        if (Array.isArray(blockers) && blockers.length > 0) {
+          const messages = blockers
+            .map((b) => b.message)
+            .filter((m): m is string => Boolean(m));
+          if (messages.length > 0) throw new Error(messages.join(" "));
+        }
+
         throw new Error(error.error || "Failed to delete listing");
       }
 
