@@ -18,14 +18,30 @@
  *
  * Usage:
  *   bun scripts/normalize-conversation-pairs.ts           # audit only
- *   bun scripts/normalize-conversation-pairs.ts --apply   # rewrite rows
+ *   bun scripts/normalize-conversation-pairs.ts --apply   # rewrite rows (confirms first)
+ *   bun scripts/normalize-conversation-pairs.ts --apply --yes   # non-interactive (CI)
  *
  * (`bun`, not `tsx`: `src/db/db.ts` uses top-level await, which tsx's CJS
  * transform rejects.)
  *
- * Refuses to run against production. Swapping the pair swaps the per-user
- * columns with it (`userNLastReadAt`, `userNArchived`) so nobody's read state or
- * archive flag moves to the other person.
+ * ⚠️ **There is no way to detect production from the connection string, and this
+ * script does not pretend otherwise.** Dev, staging and production are all
+ * `neondb` on an opaque `ep-*.neon.tech` host, so any "looks like production"
+ * regex would be guesswork wearing the costume of a safety net —
+ * `clear-database-complete.ts` can demand `localhost` because it is only ever
+ * meant to run there; this one legitimately targets cloud databases.
+ * `NODE_ENV` is no better: `bun` leaves it unset, so a production URL pasted on
+ * the command line sails straight past that check.
+ *
+ * What actually protects the operator is **seeing where they are**. The target
+ * host and database are printed on every run, credentials stripped, and
+ * `--apply` will not write until someone confirms that target — interactively,
+ * or with `--yes` where the environment was chosen by something other than a
+ * paste (a GitHub Actions `environment:` and its scoped secret).
+ *
+ * Swapping the pair swaps the per-user columns with it (`userNLastReadAt`,
+ * `userNArchived`) so nobody's read state or archive flag moves to the other
+ * person.
  *
  * Spec: hoador-mobile/specs/mobile-app/tasks/epic-11-messaging.md § F20 / P-E11-7
  */
@@ -34,10 +50,64 @@ import { sql } from "drizzle-orm";
 import { db } from "../src/db/db";
 
 const apply = process.argv.includes("--apply");
+const assumeYes = process.argv.includes("--yes");
 
-if (process.env.NODE_ENV === "production") {
-  console.error("REFUSING to run against production (NODE_ENV=production).");
+/**
+ * `host/database` for display — **never the credentials**, which is why this
+ * builds the label by hand rather than logging the URL. Falls back to a literal
+ * when the value is unparseable, so an unreadable target still reads as one
+ * rather than as an empty string that looks like localhost.
+ */
+function describeTarget(url: string): string {
+  const match = /^[^:]+:\/\/(?:[^@]*@)?([^/?#]+)(?:\/([^?#]*))?/.exec(url);
+  if (!match) return "<unparseable DATABASE_URL>";
+  return `${match[1]}/${match[2] || "<no database>"}`;
+}
+
+const databaseUrl = process.env.DATABASE_URL;
+
+// `src/db/db.ts` falls back to a mock localhost URL when this is unset, which
+// would fail later with a connection error that says nothing about the cause.
+if (!databaseUrl) {
+  console.error("DATABASE_URL is not set. Nothing to audit.");
   process.exit(1);
+}
+
+const target = describeTarget(databaseUrl);
+console.log(`Target: ${target}\n`);
+
+// Kept, but it is a speed bump rather than a safety net — see the header.
+if (process.env.NODE_ENV === "production") {
+  console.error("REFUSING to run: NODE_ENV=production.");
+  process.exit(1);
+}
+
+/**
+ * Confirm the target before writing.
+ *
+ * A non-TTY run without `--yes` **refuses** rather than proceeding: a piped or
+ * backgrounded invocation is exactly the case where nobody is reading the
+ * target line above, so silently continuing would defeat the point.
+ */
+function confirmTarget(): boolean {
+  if (assumeYes) {
+    console.log(`--yes given; writing to ${target} without confirmation.\n`);
+    return true;
+  }
+  if (!process.stdin.isTTY) {
+    console.error(
+      "\nREFUSING to write without confirmation: not an interactive terminal.\n" +
+        "Re-run with --yes if the target was chosen deliberately (e.g. a CI\n" +
+        "environment and its scoped secret) rather than typed.",
+    );
+    return false;
+  }
+  const answer = prompt(`Write to ${target}? Type the host to confirm:`);
+  if (answer?.trim() !== target.split("/")[0]) {
+    console.error("Target not confirmed. Nothing was written.");
+    return false;
+  }
+  return true;
 }
 
 type UnsortedRow = {
@@ -107,6 +177,10 @@ async function main() {
     return;
   }
 
+  if (!confirmTarget()) {
+    process.exit(1);
+  }
+
   const result = await db.execute(sql`
     UPDATE conversations
        SET user1_id = user2_id,
@@ -119,7 +193,7 @@ async function main() {
   `);
 
   console.log(
-    `\nNormalized ${result.rowCount ?? unsorted.rows.length} row(s).`,
+    `\nNormalized ${result.rowCount ?? unsorted.rows.length} row(s) on ${target}.`,
   );
 }
 
