@@ -319,7 +319,13 @@ export async function cancelApprovedRental(
       userId: renterUser.id,
       type: "payment_refunded",
       title: "Refund Processed",
-      message: `Your refund of $${(calc.refundAmountCents / 100).toFixed(2)} has been processed for ${ctx.listingName}.`,
+      // ⚠️ NO AMOUNT IN THIS MESSAGE. `sendNotification` passes `message`
+      // straight into `buildPushPayload` as the push BODY, so anything here
+      // reaches a lock screen — and mobile Req 2.2.3/18.2.4 bars financial
+      // amounts from a push. There is no in-app/push split to exploit: it is
+      // both or neither. The notification's job is to bring the user to the
+      // screen that has the number, which is server-authoritative.
+      message: `Your refund for ${ctx.listingName} has been processed. Open the rental to see the amount.`,
       data: {
         rentalId: ctx.rentalId,
         rentalRequestId,

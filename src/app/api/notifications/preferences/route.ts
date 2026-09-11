@@ -51,8 +51,6 @@ async function patchHandler(request: NextRequest): Promise<NextResponse> {
     const authError = await requireAuthResponse();
     if (authError) return authError;
 
-    console.log("PATCH /api/notifications/preferences");
-
     const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json(

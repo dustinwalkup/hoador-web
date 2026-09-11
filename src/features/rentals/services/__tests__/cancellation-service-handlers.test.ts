@@ -287,6 +287,71 @@ describe("CancellationService", () => {
       );
     });
 
+    // ⚠️ The regression for P-E12-1 (mobile Req 2.2.3 / 18.2.4). `sendNotification`
+    // passes `message` straight into `buildPushPayload` as the push BODY, and
+    // there is no in-app/push split — whatever is written here reaches a lock
+    // screen. This body used to read "Your refund of $100.00 has been
+    // processed", which put a dollar figure on a locked phone.
+    //
+    // The `data` bag is a different matter and deliberately still carries the
+    // amount: `buildPushPayload` allowlists reference ids and drops everything
+    // else, so `refundAmount` never leaves the server. That allowlist is the
+    // mechanism, which is why widening it (P-E12-4) must add keys and never
+    // become a passthrough.
+    it("keeps every money figure out of the refund notification's push body", async () => {
+      const startDate = addHours(new Date(), 48);
+      mockGetRentalCancellationContext.mockResolvedValue({
+        rentalRequestId: "req-1",
+        rentalId: "rental-1",
+        renterId: "renter-1",
+        ownerId: "owner-1",
+        status: "approved",
+        startDate,
+        listingName: "Pressure Washer",
+        rentalPrice: "100",
+        serviceFee: "12",
+        totalChargeAmount: "112",
+        depositHoldStatus: "held",
+        securityDepositAuthId: "pi_dep_1",
+        rentalChargeId: "ch_1",
+        paymentId: "pay-1",
+        paymentStatus: "succeeded",
+        ownerConnectedAccountId: "acct_1",
+      });
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockRecordRefund.mockResolvedValue(undefined);
+      mockReleaseDepositHold.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockCancelApprovedRental.mockResolvedValue(undefined);
+      mockMarkCancelled.mockResolvedValue(undefined);
+      mockSendNotification.mockResolvedValue(undefined);
+      mockSendOpsAlert.mockResolvedValue(undefined);
+
+      await cancelApprovedRental("req-1", "renter-1", "renter", {});
+
+      const refundCall = mockSendNotification.mock.calls
+        .map(
+          ([arg]) =>
+            arg as {
+              type: string;
+              message: string;
+              data?: Record<string, unknown>;
+            },
+        )
+        .find((arg) => arg.type === "payment_refunded");
+      expect(refundCall).toBeDefined();
+
+      // The listing name carries no digits, so ANY digit in the body is a
+      // number that should not be there — a stricter guard than hunting for
+      // a "$", which a future currency or a bare "100.00" would slip past.
+      expect(refundCall!.message).not.toMatch(/\d/);
+      expect(refundCall!.message).not.toContain("$");
+      expect(refundCall!.message).toContain("Pressure Washer");
+
+      // Still in `data`, where the allowlist keeps it off the device.
+      expect(refundCall!.data).toMatchObject({ refundAmount: "100" });
+    });
+
     it("when refund fails, returns error and does not mark rental cancelled", async () => {
       mockGetRentalCancellationContext.mockResolvedValue({
         rentalRequestId: "req-1",
