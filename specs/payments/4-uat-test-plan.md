@@ -202,21 +202,15 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
 - **Actor:** Renter, System
 - **Overview:** §2 Deposit Handling
 - **Preconditions:** Rental with depositHoldStatus = 'failed'; renter's payment method is still invalid or will decline.
-- **Note:** There are two retry paths — the renter-triggered button (`POST /api/rentals/[id]/retry-deposit`) and the schedule-deposit-holds cron (which also processes 'failed' deposits within the 48h window). This test covers both.
-- **Steps (button path):**
+- **Note:** The renter's button (`POST /api/rentals/[id]/retry-deposit`) is the only retry path; the schedule-deposit-holds cron skips 'failed' deposits (UAT-P1-16).
+- **Steps:**
   1. As renter, click "Retry Deposit Hold" on the rental detail page.
   2. Verify the hold fails; an inline error message is shown to the renter.
   3. Verify depositHoldStatus remains 'failed'.
   4. Verify no notifications are sent to renter or owner from the button retry endpoint.
-- **Steps (cron path):**
-  1. With a rental in depositHoldStatus = 'failed' and startDate within 48h, run the schedule-deposit-holds cron.
-  2. Verify the cron attempts the hold with the renter's current payment method.
-  3. Verify the hold fails; depositHoldStatus remains 'failed'; ops receives an email alert (OPS_ALERT_EMAIL).
-  4. Verify renter and owner do NOT receive duplicate notifications (since status was already 'failed' before the cron ran).
 - **Expected results:**
-  - Button retry: failure shown inline to renter; no notifications sent.
-  - Cron retry: failure keeps status 'failed'; ops alerted; no duplicate renter/owner notifications.
-- [x] Pass / [ ] Fail
+  - Failure shown inline to renter; status stays 'failed'; no notifications sent.
+- [ ] Pass / [ ] Fail (re-run: cron path removed 2026-09-23)
 - **Automated coverage (Vitest):** [`src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts`](../../src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts) (`scheduleDepositHolds`, `retryDepositHold`); [`src/features/rentals/components/detail-page/__tests__/retry-deposit-button.test.tsx`](../../src/features/rentals/components/detail-page/__tests__/retry-deposit-button.test.tsx)
 
 ### UAT-P1-11: Deposit released after 24h dispute window (clean return)
@@ -288,22 +282,22 @@ This document defines **User Acceptance Test (UAT)** scenarios for the full Stri
   - Cron runs; holds placed for eligible rentals; status updated.
 - [x] Pass / [ ] Fail
 
-### UAT-P1-16: Schedule-deposit-holds retries failed deposits within 48h window
+### UAT-P1-16: Failed deposit is retried on the renter's new default card, never by the cron
 
 - **Phase:** 1
-- **Actor:** System
+- **Actor:** Renter, System
 - **Overview:** §2 Deposit Handling
-- **Preconditions:** Rental with depositHoldStatus = 'failed' and startDate within 48 hours; renter has a valid (or updated) payment method.
+- **Preconditions:** Rental with depositHoldStatus = 'failed' and startDate within 48 hours; the card stored on the rental request declines.
 - **Steps:**
-  1. Run schedule-deposit-holds cron.
-  2. Verify the cron picks up the rental (status 'failed' is included in eligible query).
-  3. Verify it attempts the hold with the renter's current default payment method.
-  4. If the hold succeeds: verify depositHoldStatus = 'held' and depositHoldPlacedAt is set.
-  5. If the hold fails again: verify depositHoldStatus remains 'failed'; ops receives an email alert; renter and owner do NOT receive duplicate notifications.
+  1. Run schedule-deposit-holds cron. Verify the rental is not picked up (only 'scheduled' rows are eligible) and its status stays 'failed'.
+  2. As renter, add a new valid card and set it as default. Verify depositHoldStatus is still 'failed' (a card change does not reset it).
+  3. Click "Retry Deposit Hold". Verify the hold is placed on the new default card, not the stored card.
+  4. Verify depositHoldStatus = 'held', depositHoldPlacedAt is set, and the rental request's paymentMethodId is now the new card.
+  5. In Stripe, verify the PaymentIntent was created with idempotency key `deposit-hold-{rentalId}-{newPaymentMethodId}`.
 - **Expected results:**
-  - Cron retries 'failed' deposits within the 48h window using the renter's current payment method; renter/owner notifications are suppressed on repeat failures (ops-only alert).
-- [x] Pass / [ ] Fail
-- **Automated coverage (Vitest):** [`src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts`](../../src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts) — `UAT-P1-16: retries previously failed deposit` (success path); `does not re-notify renter or owner when hold fails again and status was already failed` (repeat failure / ops-only).
+  - The cron never retries failed holds; the renter's retry uses their current default card and succeeds.
+- [ ] Pass / [ ] Fail (new scenario 2026-09-23)
+- **Automated coverage (Vitest):** [`src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts`](../../src/features/rentals/services/__tests__/payment-lifecycle-service.test.ts) (`retryDepositHold`: default card, card-scoped key, write-back); [`src/dal/__tests__/payment-lifecycle.dal.test.ts`](../../src/dal/__tests__/payment-lifecycle.dal.test.ts) (cron query is 'scheduled' only); [`src/services/stripe/__tests__/payment-method.test.ts`](../../src/services/stripe/__tests__/payment-method.test.ts) (card change leaves deposit status alone).
 
 ### UAT-P1-17: Deposit hold is authorization only (no capture until dispute)
 

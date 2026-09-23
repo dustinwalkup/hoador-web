@@ -14,6 +14,12 @@ interface PlaceDepositHoldParams {
     listingId: string;
     renterId: string;
   };
+  /**
+   * Overrides the default `deposit-hold-{rentalId}` key. The renter's retry
+   * passes a card-scoped key so a retry on a new card isn't answered with the
+   * earlier attempt's saved result.
+   */
+  idempotencyKey?: string;
 }
 
 type DepositHoldResult =
@@ -22,13 +28,15 @@ type DepositHoldResult =
 
 /**
  * Place an authorization hold for a security deposit.
- * Uses deterministic idempotency key: deposit-hold-{rentalId}.
+ * Uses deterministic idempotency key deposit-hold-{rentalId} unless the caller
+ * passes one.
  */
 export async function placeDepositHold(
   params: PlaceDepositHoldParams,
 ): Promise<DepositHoldResult> {
   try {
-    const idempotencyKey = `deposit-hold-${params.rentalId}`;
+    const idempotencyKey =
+      params.idempotencyKey ?? `deposit-hold-${params.rentalId}`;
 
     const paymentIntent = await authorizeSecurityDeposit(
       params.customerId,

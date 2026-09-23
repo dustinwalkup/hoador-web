@@ -103,8 +103,10 @@ vi.mock("@/features/notifications/utils/send-notification", () => ({
   sendNotification: (...args: unknown[]) => mockSendNotification(...args),
 }));
 
+const mockCaptureNonCriticalError = vi.fn();
 vi.mock("@/lib/api/route-helpers", () => ({
-  captureNonCriticalError: vi.fn(),
+  captureNonCriticalError: (...args: unknown[]) =>
+    mockCaptureNonCriticalError(...args),
 }));
 
 vi.mock("next/server", () => ({
@@ -212,7 +214,33 @@ describe("RentalService.approveRentalRequest", () => {
     );
   });
 
-  // Service test 3 from plan 005 (unexpected throw after the claim resets
-  // paymentStatus to "failed") is intentionally absent: plan 005 Step 3 is
-  // BLOCKED on its STOP condition 4 — see plans/README.md.
+  it("still approves when the post-charge audit log write fails", async () => {
+    mockClaimRentalRequestPaymentProcessing.mockResolvedValue(true);
+    mockChargeRentalPayment.mockResolvedValue({
+      id: "pi_123",
+      status: "succeeded",
+      latest_charge: "ch_123",
+    });
+    mockAuditLogCreate.mockRejectedValue(new Error("audit insert failed"));
+
+    const result = await RentalService.approveRentalRequest(
+      "req-1",
+      "owner-1",
+      {},
+      context,
+    );
+
+    // A throw here would strand the charged request in `processing`.
+    expect(result.success).toBe(true);
+    expect(mockApproveRentalRequest).toHaveBeenCalled();
+    expect(mockCaptureNonCriticalError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ action: "audit_payment_captured" }),
+    );
+  });
+
+  // There is deliberately no catch-all that resets paymentStatus to "failed"
+  // after the claim: once the charge has succeeded, a reset would let a retry
+  // charge again under a fresh Date.now() key. A claim left behind is surfaced
+  // by the detect-stale-charge-claims cron instead.
 });

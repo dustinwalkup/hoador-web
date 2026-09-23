@@ -45,9 +45,9 @@ Neither amount is transferred to the owner at this stage.
 - If the auth hold fails, the rental **still proceeds** — it is not cancelled.
 - Both renter and owner are notified once: renter is told to update their payment method, owner is told the rental is proceeding without deposit protection.
 - `depositHoldStatus` is set to `'failed'`.
-- There are two retry paths:
-  - **Manual (renter-triggered):** The rental detail page shows a **"Retry Deposit Hold"** button when `depositHoldStatus = 'failed'` and the rental has not yet started. Clicking it (`POST /api/rentals/[id]/retry-deposit`) immediately attempts the hold using the renter's current default payment method. On success: `'held'`. On failure: an error is shown inline; status stays `'failed'`; no additional notifications are sent.
-  - **Automatic (cron):** The schedule-deposit-holds cron also picks up `'failed'` deposits within the 48h pickup window and retries the hold with the renter's current payment method. On success: `'held'`. On failure: status stays `'failed'`; ops is alerted; renter and owner are **not** re-notified (initial notification was already sent).
+- A failed hold has exactly one retry path, the renter's:
+  - The rental detail screen shows a **"Retry Deposit Hold"** button when `depositHoldStatus = 'failed'` and the rental has not yet started. Tapping it (`POST /api/rentals/[id]/retry-deposit`) immediately attempts the hold using the renter's **current default payment method** (falling back to their newest card if none is set), not the stored card that failed. The Stripe idempotency key is `deposit-hold-{rentalId}-{paymentMethodId}`, so a retry on a new card is a fresh attempt while a double tap on the same card places one hold. On success: `'held'`, and the card is recorded on the rental request. On failure: an error is shown inline; status stays `'failed'`; no additional notifications are sent.
+  - The schedule-deposit-holds cron does **not** retry `'failed'` deposits: it processes `'scheduled'` rows only, so it can never race the renter's retry into placing a second hold. Changing or adding a payment method does not change the deposit status either.
 
 ### Release (Clean Return)
 

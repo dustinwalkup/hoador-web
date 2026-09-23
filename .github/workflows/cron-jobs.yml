@@ -25,6 +25,14 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/expire-pending-bookings
 
+      # Hourly, unlike the daily payout detectors: a stuck charge claim can mean
+      # a charged renter/requester whose booking never moved on.
+      - name: Detect stale charge claims
+        run: |
+          curl --fail -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-charge-claims
+
       # Hourly is the only workable cadence: Expo publishes push receipts ~15
       # minutes after a send and drops them after ~24h, so a daily run could
       # miss the window entirely. Requirements: 2.2.4.

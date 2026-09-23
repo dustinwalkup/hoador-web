@@ -3,6 +3,8 @@ import { rentalDAL } from "../index";
 import { ConflictError, DALError, NotFoundError } from "../errors";
 import { mockRentalRequest, mockRentalDetails } from "@/test/fixtures/rentals";
 import { db } from "@/db/db";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 // Mock dependencies
 vi.mock("@/features/auth/utils/session");
@@ -38,6 +40,10 @@ vi.mock("@/db/db", () => ({
     delete: vi.fn(),
   },
 }));
+
+/** Render a captured drizzle WHERE clause to SQL text and bound params. */
+const renderWhere = (where: unknown) =>
+  new PgDialect().sqlToQuery(where as SQL);
 
 describe("RentalDAL", () => {
   beforeEach(() => {
@@ -2297,6 +2303,69 @@ describe("RentalDAL", () => {
         await rentalDAL.claimRentalRequestPaymentProcessing("request-123");
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe("findPendingExpiredRequests", () => {
+    it("skips requests an approval has claimed", async () => {
+      const mockWhere = vi.fn().mockResolvedValue([]);
+      const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      await rentalDAL.findPendingExpiredRequests(new Date());
+
+      const { sql, params } = renderWhere(mockWhere.mock.calls[0][0]);
+      expect(sql).toContain('"rental_requests"."payment_status" is null');
+      expect(sql).toContain('"rental_requests"."payment_status" <> $');
+      expect(params).toContain("processing");
+    });
+  });
+
+  describe("markRequestExpired", () => {
+    it("never expires a request an approval has claimed", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as any);
+
+      const result = await rentalDAL.markRequestExpired("request-123");
+
+      // A claimed pending request may already be charged; expiring it would
+      // cancel a paid request with no refund.
+      expect(result).toBe(false);
+      const { sql, params } = renderWhere(mockWhere.mock.calls[0][0]);
+      expect(sql).toContain('"rental_requests"."status" = $');
+      expect(sql).toContain('"rental_requests"."payment_status" <> $');
+      expect(params).toContain("processing");
+    });
+  });
+
+  describe("findStaleProcessingRequests", () => {
+    it("selects approval claims older than the threshold", async () => {
+      const staleRow = {
+        id: "request-123",
+        status: "pending",
+        updatedAt: new Date(),
+      };
+      const mockWhere = vi.fn().mockResolvedValue([staleRow]);
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      const before = Date.now();
+      const result = await rentalDAL.findStaleProcessingRequests(15);
+
+      expect(result).toEqual([staleRow]);
+      const { sql, params } = renderWhere(mockWhere.mock.calls[0][0]);
+      expect(sql).toContain('"rental_requests"."payment_status" = $');
+      expect(sql).toContain('"rental_requests"."updated_at" <= $');
+      expect(params).toContain("processing");
+      // The timestamp column serializes the cutoff when the SQL is rendered.
+      const cutoffMs = params
+        .map((p) => new Date(p as string | Date).getTime())
+        .find((ms) => !Number.isNaN(ms)) as number;
+      expect(before - cutoffMs).toBeGreaterThanOrEqual(15 * 60 * 1000 - 1000);
+      expect(before - cutoffMs).toBeLessThan(16 * 60 * 1000);
     });
   });
 });

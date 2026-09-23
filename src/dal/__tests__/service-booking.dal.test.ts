@@ -225,6 +225,36 @@ describe("ServiceBookingDAL", () => {
     });
   });
 
+  describe("findStaleProcessingBookings", () => {
+    it("selects claims older than the threshold", async () => {
+      const staleRow = {
+        id: "book-1",
+        status: "pending",
+        updatedAt: new Date(),
+      };
+      const mockWhere = vi.fn().mockResolvedValue([staleRow]);
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as never);
+
+      const before = Date.now();
+      const result = await serviceBookingDAL.findStaleProcessingBookings(15);
+
+      expect(result).toEqual([staleRow]);
+      const { sql, params } = new PgDialect().sqlToQuery(
+        mockWhere.mock.calls[0][0] as SQL,
+      );
+      expect(sql).toContain('"service_bookings"."payment_status" = $');
+      expect(sql).toContain('"service_bookings"."updated_at" <= $');
+      expect(params).toContain("processing");
+      // The timestamp column serializes the cutoff when the SQL is rendered.
+      const cutoffMs = params
+        .map((p) => new Date(p as string | Date).getTime())
+        .find((ms) => !Number.isNaN(ms)) as number;
+      expect(before - cutoffMs).toBeGreaterThanOrEqual(15 * 60 * 1000 - 1000);
+      expect(before - cutoffMs).toBeLessThan(16 * 60 * 1000);
+    });
+  });
+
   describe("getCancellationContext", () => {
     it("returns required fields for cancellation", async () => {
       const mockLimit = vi.fn().mockResolvedValue([

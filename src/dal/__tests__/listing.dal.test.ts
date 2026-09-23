@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { listingDAL } from "../index";
 import { NotFoundError, ValidationError } from "../errors";
 import { mockListing } from "@/test/fixtures/listings";
@@ -837,6 +838,81 @@ describe("ListingDAL", () => {
       expect(result.data).toHaveLength(1);
       expect(result.pagination.total).toBe(1);
       expect(db.selectDistinct).toHaveBeenCalledTimes(1);
+    });
+
+    it("loads every listing's first image in one query, lowest orderIndex first", async () => {
+      // Arrange — three listings; the images query returns rows already sorted
+      // by orderIndex ascending, as the database would.
+      vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue(
+        null as any,
+      );
+
+      const row = (id: string) => ({
+        listing: { ...mockListing, id },
+        category: { id: "category-1", name: "Tools", icon: null },
+        owner: { id: "owner-1", firstName: "Alice", lastName: "Doe" },
+      });
+      const { mockFromCount } = buildCountChain(3);
+      const { mockFrom } = buildDataChain([
+        row("listing-a"),
+        row("listing-b"),
+        row("listing-c"),
+      ]);
+
+      const mockImagesOrderBy = vi.fn().mockResolvedValue([
+        // listing-a's orderIndex-0 image was deleted; index 1 is now first.
+        { listingId: "listing-a", imageUrl: "https://img/a-1.jpg" },
+        { listingId: "listing-b", imageUrl: "https://img/b-0.jpg" },
+        { listingId: "listing-a", imageUrl: "https://img/a-2.jpg" },
+        { listingId: "listing-b", imageUrl: "https://img/b-1.jpg" },
+        // listing-c has no images.
+      ]);
+      const mockImagesWhere = vi
+        .fn()
+        .mockReturnValue({ orderBy: mockImagesOrderBy });
+      const mockImagesFrom = vi
+        .fn()
+        .mockReturnValue({ where: mockImagesWhere });
+
+      vi.mocked(db.select).mockImplementation(() => {
+        if ((db.select as any).mock.calls.length === 1) {
+          return { from: mockFromCount } as any;
+        }
+        return { from: mockImagesFrom } as any;
+      });
+      vi.mocked(db.selectDistinct).mockReturnValue({
+        from: mockFrom,
+      } as any);
+
+      // Act
+      const result = await listingDAL.searchListings(
+        {},
+        { page: 1, limit: 12 },
+        "user-123",
+        ["community-123"],
+        false,
+      );
+
+      // Assert — one image query for the whole page, not one per listing.
+      expect(db.select).toHaveBeenCalledTimes(2); // count + images
+      expect(mockImagesFrom).toHaveBeenCalledTimes(1);
+      const dialect = new PgDialect();
+      const whereSql = dialect.sqlToQuery(mockImagesWhere.mock.calls[0][0]).sql;
+      expect(whereSql).toContain('"listing_images"."listing_id" in');
+      // No `orderIndex = 0` match — that loses thumbnails after a delete.
+      expect(whereSql).not.toContain("order_index");
+      expect(
+        dialect.sqlToQuery(mockImagesOrderBy.mock.calls[0][0]).sql,
+      ).toContain('"listing_images"."order_index" asc');
+
+      const thumbnails = Object.fromEntries(
+        result.data.map((l) => [l.id, l.firstImageUrl]),
+      );
+      expect(thumbnails).toEqual({
+        "listing-a": "https://img/a-1.jpg",
+        "listing-b": "https://img/b-0.jpg",
+        "listing-c": null,
+      });
     });
 
     it("should validate pagination parameters", async () => {

@@ -5,7 +5,6 @@ const mockPaymentMethodsDetach = vi.fn();
 const mockPaymentMethodsList = vi.fn();
 const mockCustomersUpdate = vi.fn();
 const mockCustomersRetrieve = vi.fn();
-const mockFindFailedDepositsForRenter = vi.fn();
 const mockUpdateDepositHoldStatus = vi.fn();
 const mockGetStripeCustomerId = vi.fn();
 const mockFindPaymentFailedByRequester = vi.fn();
@@ -27,9 +26,9 @@ vi.mock("@/services/stripe/server", () => ({
 }));
 
 vi.mock("@/dal", () => ({
+  // Not used by payment-method.ts; present so the tests can assert that a card
+  // change never touches rental deposit holds.
   paymentLifecycleDAL: {
-    findFailedDepositsForRenter: (...args: unknown[]) =>
-      mockFindFailedDepositsForRenter(...args),
     updateDepositHoldStatus: (...args: unknown[]) =>
       mockUpdateDepositHoldStatus(...args),
   },
@@ -55,7 +54,6 @@ import {
   attachPaymentMethod,
   setDefaultPaymentMethod,
   detachPaymentMethod,
-  recoverFailedDeposits,
   recoverFailedServiceBookings,
   getStripeCustomerContext,
   listStripeCardPaymentMethodsForUser,
@@ -64,7 +62,6 @@ import {
 describe("PaymentMethodService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFindFailedDepositsForRenter.mockResolvedValue([]);
     mockFindPaymentFailedByRequester.mockResolvedValue([]);
     mockSendPaymentMethodUpdatedProviderNotification.mockResolvedValue(
       undefined,
@@ -94,25 +91,12 @@ describe("PaymentMethodService", () => {
       expect(result).toEqual(mockPM);
     });
 
-    it("calls recoverFailedDeposits after successful attach", async () => {
+    it("leaves failed deposit holds for the renter's retry", async () => {
       mockPaymentMethodsAttach.mockResolvedValue({ id: "pm_123" });
-      const failedDeposits = [
-        { rentalId: "rental-1" },
-        { rentalId: "rental-2" },
-      ];
-      mockFindFailedDepositsForRenter.mockResolvedValue(failedDeposits);
 
       await attachPaymentMethod("cus_123", "pm_456", "renter-1");
 
-      expect(mockFindFailedDepositsForRenter).toHaveBeenCalledWith("renter-1");
-      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
-        "rental-1",
-        "scheduled",
-      );
-      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
-        "rental-2",
-        "scheduled",
-      );
+      expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalled();
     });
 
     it("throws on Stripe API failure", async () => {
@@ -137,18 +121,12 @@ describe("PaymentMethodService", () => {
       });
     });
 
-    it("calls recoverFailedDeposits after success", async () => {
+    it("leaves failed deposit holds for the renter's retry", async () => {
       mockCustomersUpdate.mockResolvedValue({});
-      const failedDeposits = [{ rentalId: "rental-1" }];
-      mockFindFailedDepositsForRenter.mockResolvedValue(failedDeposits);
 
       await setDefaultPaymentMethod("cus_123", "pm_456", "renter-1");
 
-      expect(mockFindFailedDepositsForRenter).toHaveBeenCalledWith("renter-1");
-      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
-        "rental-1",
-        "scheduled",
-      );
+      expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalled();
     });
 
     it("throws on Stripe API failure", async () => {
@@ -173,59 +151,6 @@ describe("PaymentMethodService", () => {
       mockPaymentMethodsDetach.mockRejectedValue(new Error("Not found"));
 
       await expect(detachPaymentMethod("pm_456")).rejects.toThrow("Not found");
-    });
-  });
-
-  describe("recoverFailedDeposits", () => {
-    it("resets each failed deposit to 'scheduled'", async () => {
-      const failedDeposits = [
-        { rentalId: "rental-1" },
-        { rentalId: "rental-2" },
-        { rentalId: "rental-3" },
-      ];
-      mockFindFailedDepositsForRenter.mockResolvedValue(failedDeposits);
-
-      await recoverFailedDeposits("renter-1");
-
-      expect(mockFindFailedDepositsForRenter).toHaveBeenCalledWith("renter-1");
-      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledTimes(3);
-      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
-        "rental-1",
-        "scheduled",
-      );
-      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
-        "rental-2",
-        "scheduled",
-      );
-      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
-        "rental-3",
-        "scheduled",
-      );
-    });
-
-    it("does nothing when no failed deposits exist", async () => {
-      mockFindFailedDepositsForRenter.mockResolvedValue([]);
-
-      await recoverFailedDeposits("renter-1");
-
-      expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalled();
-    });
-
-    it("swallows errors and does not throw", async () => {
-      mockFindFailedDepositsForRenter.mockRejectedValue(
-        new Error("DB connection error"),
-      );
-
-      await expect(recoverFailedDeposits("renter-1")).resolves.toBeUndefined();
-    });
-
-    it("swallows errors from updateDepositHoldStatus", async () => {
-      mockFindFailedDepositsForRenter.mockResolvedValue([
-        { rentalId: "rental-1" },
-      ]);
-      mockUpdateDepositHoldStatus.mockRejectedValue(new Error("Update failed"));
-
-      await expect(recoverFailedDeposits("renter-1")).resolves.toBeUndefined();
     });
   });
 

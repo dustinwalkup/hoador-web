@@ -10,6 +10,8 @@ import {
   desc,
   count,
   isNotNull,
+  isNull,
+  ne,
   notExists,
 } from "drizzle-orm";
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
@@ -473,6 +475,15 @@ export interface ScheduleRentalRow {
    */
   reviewPending?: boolean;
 }
+
+/**
+ * Excludes rental requests an approval has claimed for charging. `paymentStatus`
+ * is nullable, and `<>` alone would also drop NULL rows.
+ */
+const notPaymentProcessing = or(
+  isNull(rentalRequests.paymentStatus),
+  ne(rentalRequests.paymentStatus, "processing"),
+);
 
 export class RentalDAL extends BaseDAL {
   async countBorrowedListings(userId: string): Promise<number> {
@@ -1745,6 +1756,8 @@ export class RentalDAL extends BaseDAL {
           and(
             eq(rentalRequests.status, "pending"),
             lt(rentalRequests.expiresAt, now),
+            // See markRequestExpired: a claimed request is mid-charge or charged.
+            notPaymentProcessing,
           ),
         );
       return rows;
@@ -1756,7 +1769,11 @@ export class RentalDAL extends BaseDAL {
   /**
    * Atomically transitions a rental request to `cancelled` with
    * cancellationReason='expired_no_acceptance'. The WHERE clause guards
-   * against double-expiry under concurrent cron ticks.
+   * against double-expiry under concurrent cron ticks, and skips requests an
+   * approval has claimed (`paymentStatus = 'processing'`). A claimed `pending`
+   * request is mid-charge, or was charged and then failed to approve;
+   * expiring it would cancel a paid request with no refund. The
+   * detect-stale-charge-claims cron alerts ops about those instead.
    *
    * @returns `true` if a row was updated, `false` if the row was no longer pending.
    */
@@ -1774,6 +1791,7 @@ export class RentalDAL extends BaseDAL {
           and(
             eq(rentalRequests.id, requestId),
             eq(rentalRequests.status, "pending"),
+            notPaymentProcessing,
           ),
         )
         .returning({ id: rentalRequests.id });
@@ -1880,6 +1898,35 @@ export class RentalDAL extends BaseDAL {
       return result.length > 0;
     } catch (error) {
       this.handleError(error, "claimRentalRequestPaymentProcessing");
+    }
+  }
+
+  /**
+   * Rental requests an approval claimed (`paymentStatus = 'processing'`) more
+   * than `thresholdMinutes` ago and never released. A charge takes seconds, so
+   * these were charged and then failed to approve, or failed mid-charge.
+   * Drives the detect-stale-charge-claims cron.
+   */
+  async findStaleProcessingRequests(
+    thresholdMinutes: number,
+  ): Promise<Array<{ id: string; status: string; updatedAt: Date }>> {
+    try {
+      const cutoff = new Date(Date.now() - thresholdMinutes * 60 * 1000);
+      return await this.db
+        .select({
+          id: rentalRequests.id,
+          status: rentalRequests.status,
+          updatedAt: rentalRequests.updatedAt,
+        })
+        .from(rentalRequests)
+        .where(
+          and(
+            eq(rentalRequests.paymentStatus, "processing"),
+            lte(rentalRequests.updatedAt, cutoff),
+          ),
+        );
+    } catch (error) {
+      this.handleError(error, "findStaleProcessingRequests");
     }
   }
 

@@ -592,19 +592,30 @@ export class RentalService {
       };
     }
 
-    await auditLogDAL.create({
-      entityType: "payment",
-      entityId: rentalPaymentIntent.id,
-      action: "payment.captured",
-      userId,
-      metadata: {
-        amount: totalAmount,
-        currency: "usd",
-        status: "succeeded",
-      },
-      ipAddress: context.ipAddress ?? undefined,
-      userAgent: context.userAgent ?? undefined,
-    });
+    // The charge succeeded and the claim is still held: an audit-log failure
+    // must not throw here, or the request strands in `processing` with the
+    // renter charged.
+    const { error: capturedAuditError } = await tryCatch(
+      auditLogDAL.create({
+        entityType: "payment",
+        entityId: rentalPaymentIntent.id,
+        action: "payment.captured",
+        userId,
+        metadata: {
+          amount: totalAmount,
+          currency: "usd",
+          status: "succeeded",
+        },
+        ipAddress: context.ipAddress ?? undefined,
+        userAgent: context.userAgent ?? undefined,
+      }),
+    );
+    if (capturedAuditError) {
+      captureNonCriticalError(capturedAuditError, {
+        route: "RentalService.approveRentalRequest",
+        action: "audit_payment_captured",
+      });
+    }
 
     // Extract Charge ID for later use as source_transaction on owner transfer
     const rentalChargeId =

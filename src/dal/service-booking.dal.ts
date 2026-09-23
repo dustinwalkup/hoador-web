@@ -203,6 +203,34 @@ export class ServiceBookingDAL extends BaseDAL {
   }
 
   /**
+   * Bookings an accept call claimed (`paymentStatus = 'processing'`) more than
+   * `thresholdMinutes` ago and never released: charged and then failed to
+   * persist, or failed mid-charge. Drives the detect-stale-charge-claims cron.
+   */
+  async findStaleProcessingBookings(
+    thresholdMinutes: number,
+  ): Promise<Array<{ id: string; status: string; updatedAt: Date }>> {
+    try {
+      const cutoff = new Date(Date.now() - thresholdMinutes * 60 * 1000);
+      return await this.db
+        .select({
+          id: serviceBookings.id,
+          status: serviceBookings.status,
+          updatedAt: serviceBookings.updatedAt,
+        })
+        .from(serviceBookings)
+        .where(
+          and(
+            eq(serviceBookings.paymentStatus, "processing"),
+            lte(serviceBookings.updatedAt, cutoff),
+          ),
+        );
+    } catch (error) {
+      this.handleError(error, "ServiceBookingDAL.findStaleProcessingBookings");
+    }
+  }
+
+  /**
    * Atomically claim a booking for payment processing.
    * Sets paymentStatus -> "processing" only when the booking is still
    * acceptable (status pending|payment_failed) and no other accept call

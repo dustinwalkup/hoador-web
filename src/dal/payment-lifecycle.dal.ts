@@ -406,6 +406,9 @@ export class PaymentLifecycleDAL extends BaseDAL {
 
   /**
    * Find rentals with scheduled deposits approaching pickup (within 48 hours).
+   * Only `scheduled` rows: a `failed` hold is re-attempted solely by the
+   * renter's retry (`retryDepositHold`), so the cron and the retry never place
+   * competing holds for the same rental.
    */
   async findScheduledDepositsNearPickup(
     limit: number = 20,
@@ -433,10 +436,7 @@ export class PaymentLifecycleDAL extends BaseDAL {
         .innerJoin(user, eq(rentals.renterId, user.id))
         .where(
           and(
-            or(
-              eq(rentalPaymentLifecycle.depositHoldStatus, "scheduled"),
-              eq(rentalPaymentLifecycle.depositHoldStatus, "failed"),
-            ),
+            eq(rentalPaymentLifecycle.depositHoldStatus, "scheduled"),
             lte(rentals.startDate, fortyEightHoursFromNow),
             sql`${rentals.startDate} > ${now}`,
           ),
@@ -620,40 +620,6 @@ export class PaymentLifecycleDAL extends BaseDAL {
         .where(eq(rentalPaymentLifecycle.rentalId, rentalId));
     } catch (error) {
       this.handleError(error, "PaymentLifecycleDAL.markDepositCaptured");
-    }
-  }
-
-  /**
-   * Find failed deposits for a renter (for recovery when they update payment method).
-   * Only returns deposits where the rental hasn't started yet.
-   */
-  async findFailedDepositsForRenter(
-    renterId: string,
-  ): Promise<Array<{ rentalId: string; startDate: Date }>> {
-    try {
-      const now = new Date();
-
-      const rows = await this.db
-        .select({
-          rentalId: rentals.id,
-          startDate: rentals.startDate,
-        })
-        .from(rentalPaymentLifecycle)
-        .innerJoin(rentals, eq(rentalPaymentLifecycle.rentalId, rentals.id))
-        .where(
-          and(
-            eq(rentalPaymentLifecycle.depositHoldStatus, "failed"),
-            eq(rentals.renterId, renterId),
-            sql`${rentals.startDate} > ${now}`,
-          ),
-        );
-
-      return rows;
-    } catch (error) {
-      this.handleError(
-        error,
-        "PaymentLifecycleDAL.findFailedDepositsForRenter",
-      );
     }
   }
 

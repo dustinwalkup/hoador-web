@@ -24,6 +24,7 @@ const JOB_OPTIONS = [
     value: "detect-stale-service-processing",
     label: "Detect stale service processing",
   },
+  { value: "detect-stale-charge-claims", label: "Detect stale charge claims" },
 ];
 
 function formatDate(d: Date | string) {

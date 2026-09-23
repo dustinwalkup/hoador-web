@@ -1,10 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockFindStaleProcessingRecords = vi.fn();
+const mockFindStaleProcessingRequests = vi.fn();
+const mockFindStaleProcessingBookings = vi.fn();
 vi.mock("@/dal", () => ({
   paymentLifecycleDAL: {
     findStaleProcessingRecords: (...args: unknown[]) =>
       mockFindStaleProcessingRecords(...args),
+  },
+  rentalDAL: {
+    findStaleProcessingRequests: (...args: unknown[]) =>
+      mockFindStaleProcessingRequests(...args),
+  },
+  serviceBookingDAL: {
+    findStaleProcessingBookings: (...args: unknown[]) =>
+      mockFindStaleProcessingBookings(...args),
   },
 }));
 
@@ -114,5 +124,76 @@ describe("StaleProcessingDetectionService", () => {
     await StaleProcessingDetectionService.detectStaleProcessing(60);
 
     expect(mockFindStaleProcessingRecords).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("StaleProcessingDetectionService.detectStaleChargeClaims", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindStaleProcessingRequests.mockResolvedValue([]);
+    mockFindStaleProcessingBookings.mockResolvedValue([]);
+  });
+
+  const staleRow = (id: string) => ({
+    id,
+    status: "pending",
+    updatedAt: new Date(),
+  });
+
+  it("checks rental requests and service bookings with a 15-minute default", async () => {
+    const { StaleProcessingDetectionService } =
+      await import("../stale-processing-detection-service");
+
+    await StaleProcessingDetectionService.detectStaleChargeClaims();
+
+    expect(mockFindStaleProcessingRequests).toHaveBeenCalledWith(15);
+    expect(mockFindStaleProcessingBookings).toHaveBeenCalledWith(15);
+  });
+
+  it("sends one ops alert listing both kinds of stuck claim", async () => {
+    const { StaleProcessingDetectionService } =
+      await import("../stale-processing-detection-service");
+    mockFindStaleProcessingRequests.mockResolvedValue([
+      staleRow("req-1"),
+      staleRow("req-2"),
+    ]);
+    mockFindStaleProcessingBookings.mockResolvedValue([staleRow("book-1")]);
+
+    const result =
+      await StaleProcessingDetectionService.detectStaleChargeClaims(20);
+
+    expect(result).toEqual({
+      staleCount: 3,
+      rentalRequestIds: ["req-1", "req-2"],
+      serviceBookingIds: ["book-1"],
+      thresholdMinutes: 20,
+    });
+    expect(mockSendOpsAlert).toHaveBeenCalledTimes(1);
+    expect(mockSendOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "stale_charge_claim_detected",
+        message: expect.stringContaining(
+          "2 rental request(s) and 1 service booking(s)",
+        ),
+        metadata: {
+          staleCount: 3,
+          rentalRequestIds: ["req-1", "req-2"],
+          serviceBookingIds: ["book-1"],
+          thresholdMinutes: 20,
+        },
+        sendEmailAlert: true,
+      }),
+    );
+  });
+
+  it("does not alert when no claims are stuck", async () => {
+    const { StaleProcessingDetectionService } =
+      await import("../stale-processing-detection-service");
+
+    const result =
+      await StaleProcessingDetectionService.detectStaleChargeClaims();
+
+    expect(result.staleCount).toBe(0);
+    expect(mockSendOpsAlert).not.toHaveBeenCalled();
   });
 });

@@ -87,6 +87,14 @@ const SERVICE_STATUS_LABEL: Record<string, string> = {
  * of "needs action" cannot drift apart. `actionFor` still has the final say —
  * these statuses are the superset the query fetches, and a row that turns out
  * not to need this user's action (a renter's pending request) is filtered out.
+ *
+ * **Not every attention class is a status.** *Review available* (Req 5.6.1 as
+ * amended 2026-09-23) is a completed booking with no review from the viewer
+ * inside its window — `completed` either way, so it cannot be listed here. It is
+ * JOINED in instead (`getReviewableRentals` / `getReviewableBookings`, P-E13-1)
+ * and flagged through `reviewPending`, which `actionFor` checks first. A future
+ * class that depends on something other than status belongs beside those, not
+ * in this list.
  */
 export const ACTIONABLE_RENTAL_STATUSES = ["pending", "overdue"] as const;
 export const ACTIONABLE_BOOKING_STATUSES = [

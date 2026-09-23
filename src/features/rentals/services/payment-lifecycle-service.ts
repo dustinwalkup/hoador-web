@@ -315,56 +315,54 @@ export class PaymentLifecycleService {
 
         successCount++;
       } else {
-        const previousStatus = rental.lifecycle.depositHoldStatus;
         await paymentLifecycleDAL.updateDepositHoldStatus(
           rental.rentalId,
           "failed",
         );
 
-        // Only notify on first failure (not on retries where status was already "failed")
-        if (previousStatus !== "failed") {
-          try {
-            const { sendNotification } =
-              await import("@/features/notifications/utils/send-notification");
+        // The cron only sees `scheduled` rows, so this is always the first
+        // failure: tell both parties once. Re-attempts are the renter's retry.
+        try {
+          const { sendNotification } =
+            await import("@/features/notifications/utils/send-notification");
 
+          await sendNotification({
+            userId: rental.renterId,
+            type: "payment_failed",
+            title: "Security Deposit Hold Failed",
+            message:
+              "The security deposit hold could not be placed. Please verify or update your payment method.",
+            data: { rentalId: rental.rentalId },
+            linkUrl: "/dashboard/profile/payments",
+            category: "payments",
+          }).catch((err) =>
+            captureNonCriticalError(err, {
+              route: "cron/schedule-deposit-holds",
+              action: "notify_renter_deposit_failed",
+            }),
+          );
+
+          if (rental.ownerId) {
             await sendNotification({
-              userId: rental.renterId,
+              userId: rental.ownerId,
               type: "payment_failed",
-              title: "Security Deposit Hold Failed",
+              title: "Deposit Hold Not Placed",
               message:
-                "The security deposit hold could not be placed. Please verify or update your payment method.",
+                "The security deposit hold could not be placed for an upcoming rental. The rental is proceeding without deposit protection.",
               data: { rentalId: rental.rentalId },
-              linkUrl: "/dashboard/profile/payments",
               category: "payments",
             }).catch((err) =>
               captureNonCriticalError(err, {
                 route: "cron/schedule-deposit-holds",
-                action: "notify_renter_deposit_failed",
+                action: "notify_owner_deposit_failed",
               }),
             );
-
-            if (rental.ownerId) {
-              await sendNotification({
-                userId: rental.ownerId,
-                type: "payment_failed",
-                title: "Deposit Hold Not Placed",
-                message:
-                  "The security deposit hold could not be placed for an upcoming rental. The rental is proceeding without deposit protection.",
-                data: { rentalId: rental.rentalId },
-                category: "payments",
-              }).catch((err) =>
-                captureNonCriticalError(err, {
-                  route: "cron/schedule-deposit-holds",
-                  action: "notify_owner_deposit_failed",
-                }),
-              );
-            }
-          } catch (notifyError) {
-            captureNonCriticalError(notifyError, {
-              route: "cron/schedule-deposit-holds",
-              action: "deposit_failure_notifications",
-            });
           }
+        } catch (notifyError) {
+          captureNonCriticalError(notifyError, {
+            route: "cron/schedule-deposit-holds",
+            action: "deposit_failure_notifications",
+          });
         }
 
         // Ops escalation
@@ -525,31 +523,30 @@ export class PaymentLifecycleService {
       return { success: false, error: "No payment account found" };
     }
 
-    let paymentMethodId = rentalRequest.paymentMethodId;
-    if (!paymentMethodId) {
-      const { PAYMENT_SERVER_INSTANCE } =
-        await import("@/services/stripe/server");
-      const { data: customer } = await tryCatch(
-        PAYMENT_SERVER_INSTANCE.customers.retrieve(
-          renterRecord.stripeCustomerId,
-        ),
-      );
-      if (customer && !("deleted" in customer && customer.deleted)) {
-        const defaultPm =
-          typeof customer.invoice_settings?.default_payment_method === "string"
-            ? customer.invoice_settings.default_payment_method
-            : customer.invoice_settings?.default_payment_method?.id;
-        if (defaultPm) {
-          paymentMethodId = defaultPm;
-        } else {
-          const { data: methods } = await tryCatch(
-            PAYMENT_SERVER_INSTANCE.paymentMethods.list({
-              customer: renterRecord.stripeCustomerId,
-              type: "card",
-            }),
-          );
-          paymentMethodId = methods?.data?.[0]?.id ?? null;
-        }
+    // Use the renter's current default card, never the stored one: the stored
+    // card is the one whose hold just failed, and the renter is told to update
+    // their card before retrying.
+    let paymentMethodId: string | null = null;
+    const { PAYMENT_SERVER_INSTANCE } =
+      await import("@/services/stripe/server");
+    const { data: customer } = await tryCatch(
+      PAYMENT_SERVER_INSTANCE.customers.retrieve(renterRecord.stripeCustomerId),
+    );
+    if (customer && !("deleted" in customer && customer.deleted)) {
+      const defaultPm =
+        typeof customer.invoice_settings?.default_payment_method === "string"
+          ? customer.invoice_settings.default_payment_method
+          : customer.invoice_settings?.default_payment_method?.id;
+      if (defaultPm) {
+        paymentMethodId = defaultPm;
+      } else {
+        const { data: methods } = await tryCatch(
+          PAYMENT_SERVER_INSTANCE.paymentMethods.list({
+            customer: renterRecord.stripeCustomerId,
+            type: "card",
+          }),
+        );
+        paymentMethodId = methods?.data?.[0]?.id ?? null;
       }
     }
 
@@ -571,6 +568,9 @@ export class PaymentLifecycleService {
         listingId: rentalRequest.listingId,
         renterId: rentalRequest.renterId,
       },
+      // Card-scoped: a retry on a new card gets a fresh key, while a double
+      // tap resolves the same card and key, so Stripe places only one hold.
+      idempotencyKey: `deposit-hold-${rental.id}-${paymentMethodId}`,
     });
 
     if (holdResult.success) {
@@ -583,6 +583,23 @@ export class PaymentLifecycleService {
         .update(rentals)
         .set({ securityDepositAuthId: holdResult.paymentIntentId })
         .where(eq(rentals.id, rental.id));
+
+      // Record the card now holding the deposit. The hold is already placed,
+      // so a failure here must not fail the retry.
+      if (paymentMethodId !== rentalRequest.paymentMethodId) {
+        const { error: pmWriteError } = await tryCatch(
+          rentalDAL.updateRentalRequestPaymentMethod(
+            rentalRequest.id,
+            paymentMethodId,
+          ),
+        );
+        if (pmWriteError) {
+          captureNonCriticalError(pmWriteError, {
+            route: "PaymentLifecycleService.retryDepositHold",
+            action: "record_deposit_payment_method",
+          });
+        }
+      }
 
       return { success: true };
     }

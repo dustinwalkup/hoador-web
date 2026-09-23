@@ -1,30 +1,10 @@
 import type Stripe from "stripe";
 import { PAYMENT_SERVER_INSTANCE } from "./server";
-import { paymentLifecycleDAL, serviceBookingDAL, userDAL } from "@/dal";
+import { serviceBookingDAL, userDAL } from "@/dal";
 import {
   sendPaymentMethodUpdatedProviderNotification,
   sendPaymentMethodUpdatedRequesterConfirmationNotification,
 } from "@/features/services/notifications/service-notifications";
-
-/**
- * Recover failed deposit holds after a payment method change.
- * Resets failed deposits to "scheduled" so the next cron run retries them.
- * Never throws — catches and logs errors internally.
- */
-export async function recoverFailedDeposits(renterId: string): Promise<void> {
-  try {
-    const failedDeposits =
-      await paymentLifecycleDAL.findFailedDepositsForRenter(renterId);
-    for (const deposit of failedDeposits) {
-      await paymentLifecycleDAL.updateDepositHoldStatus(
-        deposit.rentalId,
-        "scheduled",
-      );
-    }
-  } catch (error) {
-    console.error("Error resetting failed deposits:", error);
-  }
-}
 
 /**
  * Notify providers of payment_failed service bookings when the requester updates their
@@ -56,7 +36,10 @@ export async function recoverFailedServiceBookings(
 }
 
 /**
- * Attach a payment method to a Stripe customer, then recover any failed deposits.
+ * Attach a payment method to a Stripe customer, then notify providers of any
+ * payment-failed service bookings. Failed rental deposit holds are left alone:
+ * the renter re-attempts them with the retry-deposit action, which uses their
+ * current default card.
  */
 export async function attachPaymentMethod(
   customerId: string,
@@ -68,14 +51,15 @@ export async function attachPaymentMethod(
     { customer: customerId },
   );
 
-  await recoverFailedDeposits(renterId);
   await recoverFailedServiceBookings(renterId, paymentMethod.id);
 
   return paymentMethod;
 }
 
 /**
- * Set a payment method as the default for a Stripe customer, then recover any failed deposits.
+ * Set a payment method as the default for a Stripe customer, then notify
+ * providers of any payment-failed service bookings. Failed rental deposit holds
+ * are left alone (see `attachPaymentMethod`).
  */
 export async function setDefaultPaymentMethod(
   customerId: string,
@@ -88,7 +72,6 @@ export async function setDefaultPaymentMethod(
     },
   });
 
-  await recoverFailedDeposits(renterId);
   await recoverFailedServiceBookings(renterId, paymentMethodId);
 }
 

@@ -59,6 +59,18 @@ describe("DepositHoldService", () => {
       expect(idempotencyKey).toBe("deposit-hold-rental-1");
     });
 
+    it("uses the caller's idempotency key when one is passed", async () => {
+      mockAuthorizeSecurityDeposit.mockResolvedValue({ id: "pi_dep_123" });
+
+      await placeDepositHold({
+        ...defaultParams,
+        idempotencyKey: "deposit-hold-rental-1-pm_456",
+      });
+
+      const idempotencyKey = mockAuthorizeSecurityDeposit.mock.calls[0][4];
+      expect(idempotencyKey).toBe("deposit-hold-rental-1-pm_456");
+    });
+
     it("returns { success: true, paymentIntentId } on success", async () => {
       mockAuthorizeSecurityDeposit.mockResolvedValue({ id: "pi_dep_789" });
 
