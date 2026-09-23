@@ -1,13 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
-const mockGetAuthenticatedUserResponse = vi.fn();
-vi.mock("@/lib/api/route-helpers", () => ({
-  getAuthenticatedUserResponse: (...a: unknown[]) =>
-    mockGetAuthenticatedUserResponse(...a),
-  handleApiError: (error: unknown) =>
-    NextResponse.json({ error: String(error) }, { status: 500 }),
+/**
+ * Pattern: mock the SESSION layer (`@/features/auth/utils/session`) and the
+ * DAL, but run the REAL `@/lib/api/route-helpers`, so a removed or broken
+ * auth call fails here (CLAUDE.md route-test convention).
+ */
+const mockGetAuthenticatedUser = vi.fn();
+vi.mock("@/features/auth/utils/session", () => ({
+  getAuthenticatedUser: (...a: unknown[]) => mockGetAuthenticatedUser(...a),
+  getCurrentUser: vi.fn(),
+  getCurrentUserId: vi.fn(),
+  requireAuth: vi.fn(),
 }));
+
+/** Session fixture in the shape `getAuthenticatedUser` returns. */
+const signedInAs = (userId: string, isAdmin = false) => ({
+  user: { id: userId },
+  userId,
+  isAdmin,
+});
 
 vi.mock("@/lib/api/with-request-logging", () => ({
   withRequestLogging: (h: (...a: unknown[]) => unknown) => h,
@@ -122,28 +134,23 @@ describe("GET /api/disputes/[id]", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthenticatedUserResponse.mockResolvedValue(
-      NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    );
+    mockGetAuthenticatedUser.mockResolvedValue(null);
     const { GET } = await import("../route");
     expect((await GET(req(), ctx)).status).toBe(401);
+    expect(mockDisputeGetById).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the dispute does not exist", async () => {
-    mockGetAuthenticatedUserResponse.mockResolvedValue({
-      userId: RENTER,
-      isAdmin: false,
-    });
+    mockGetAuthenticatedUser.mockResolvedValue(signedInAs(RENTER, false));
     mockDisputeGetById.mockResolvedValue(null);
     const { GET } = await import("../route");
     expect((await GET(req(), ctx)).status).toBe(404);
   });
 
   it("returns 403 for a signed-in non-participant", async () => {
-    mockGetAuthenticatedUserResponse.mockResolvedValue({
-      userId: "user-stranger",
-      isAdmin: false,
-    });
+    mockGetAuthenticatedUser.mockResolvedValue(
+      signedInAs("user-stranger", false),
+    );
     mockGetRentalDetailsById.mockResolvedValue({
       id: "rental-1",
       renterId: RENTER,
@@ -162,10 +169,7 @@ describe("GET /api/disputes/[id]", () => {
   // second one that was wrong.
   describe("participant payload", () => {
     beforeEach(() => {
-      mockGetAuthenticatedUserResponse.mockResolvedValue({
-        userId: RENTER,
-        isAdmin: false,
-      });
+      mockGetAuthenticatedUser.mockResolvedValue(signedInAs(RENTER, false));
     });
 
     it("does not send internal notes, audit logs, Stripe ids or emails", async () => {
@@ -212,10 +216,7 @@ describe("GET /api/disputes/[id]", () => {
   });
 
   it("gives an admin the full row plus the timeline", async () => {
-    mockGetAuthenticatedUserResponse.mockResolvedValue({
-      userId: ADMIN,
-      isAdmin: true,
-    });
+    mockGetAuthenticatedUser.mockResolvedValue(signedInAs(ADMIN, true));
     const { GET } = await import("../route");
     const json = await (await GET(req(), ctx)).json();
 
@@ -227,12 +228,79 @@ describe("GET /api/disputes/[id]", () => {
   });
 
   it("does not run the participation lookups for an admin", async () => {
-    mockGetAuthenticatedUserResponse.mockResolvedValue({
-      userId: ADMIN,
-      isAdmin: true,
-    });
+    mockGetAuthenticatedUser.mockResolvedValue(signedInAs(ADMIN, true));
     const { GET } = await import("../route");
     await GET(req(), ctx);
     expect(mockGetRentalDetailsById).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 to the owner of a rental dispute", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue(signedInAs(OWNER, false));
+    const { GET } = await import("../route");
+    const res = await GET(req(), ctx);
+    expect(res.status).toBe(200);
+    expect((await res.json()).filedByYou).toBe(false);
+  });
+
+  it("returns 404 when the linked rental cannot be loaded for the caller", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue(signedInAs(RENTER, false));
+    mockGetRentalDetailsById.mockResolvedValue(null);
+    const { GET } = await import("../route");
+    expect((await GET(req(), ctx)).status).toBe(404);
+  });
+
+  describe("service dispute", () => {
+    const serviceDispute = () => ({
+      ...dispute(),
+      rentalId: null,
+      rental: null,
+      serviceBookingId: "sb-1",
+    });
+
+    beforeEach(() => {
+      mockDisputeGetById.mockResolvedValue(serviceDispute());
+      mockServiceBookingGetById.mockResolvedValue({
+        id: "sb-1",
+        requesterId: "user-requester",
+        providerId: "user-provider",
+      });
+    });
+
+    it("returns 200 to the requester", async () => {
+      mockGetAuthenticatedUser.mockResolvedValue(
+        signedInAs("user-requester", false),
+      );
+      const { GET } = await import("../route");
+      expect((await GET(req(), ctx)).status).toBe(200);
+      expect(mockGetRentalDetailsById).not.toHaveBeenCalled();
+    });
+
+    it("returns 200 to the provider", async () => {
+      mockGetAuthenticatedUser.mockResolvedValue(
+        signedInAs("user-provider", false),
+      );
+      const { GET } = await import("../route");
+      expect((await GET(req(), ctx)).status).toBe(200);
+    });
+
+    it("returns 403 to a non-party", async () => {
+      mockGetAuthenticatedUser.mockResolvedValue(
+        signedInAs("user-stranger", false),
+      );
+      const { GET } = await import("../route");
+      expect((await GET(req(), ctx)).status).toBe(403);
+    });
+  });
+
+  it("returns 400 for a dispute with no linked transaction", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue(signedInAs(RENTER, false));
+    mockDisputeGetById.mockResolvedValue({
+      ...dispute(),
+      rentalId: null,
+      rental: null,
+      serviceBookingId: null,
+    });
+    const { GET } = await import("../route");
+    expect((await GET(req(), ctx)).status).toBe(400);
   });
 });

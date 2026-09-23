@@ -22,12 +22,11 @@ row when done.
 
 ## Execution order & status
 
-| Rank | Plan                                             | Title                                                                     | Priority | Effort | Depends on | Status                                                                                                                |
-| ---- | ------------------------------------------------ | ------------------------------------------------------------------------- | -------- | ------ | ---------- | --------------------------------------------------------------------------------------------------------------------- |
-| 1    | [015](015-dispute-route-tests.md)                | Dispute route tests (detail/evidence first)                               | P2       | M      | —          | PARTIALLY DONE. The `[id]` GET test exists but uses the wholesale-mock pattern; land the rest before mobile Epic 13.2 |
-| 2    | [013](013-search-nplus1-and-detail-waterfall.md) | Batch the searchListings image N+1 (Part A only)                          | P3       | S      | —          | TODO. Part B is obsolete (web-only); Part A drifted, so use `asc(orderIndex)` rather than `= 0`                       |
-| 3    | [005](005-approve-double-charge-guard.md)        | Rental approve: surface requests stuck in `processing` (Step 3 remainder) | P3       | S      | —          | PARTIAL. Steps 1-2 are on develop. Step 3 is BLOCKED as written; rescope it to extend the stale-processing detector   |
-| 4    | [004](004-deposit-hold-lifecycle-fixes.md)       | Deposit-hold retry idempotency (Step 3 remainder)                         | P3       | M      | —          | PARTIAL. Steps 1-2 are on develop. Step 3 is BLOCKED on a human design decision                                       |
+| Rank | Plan                                             | Title                                                                     | Priority | Effort | Depends on | Status                                                                                                              |
+| ---- | ------------------------------------------------ | ------------------------------------------------------------------------- | -------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| 1    | [013](013-search-nplus1-and-detail-waterfall.md) | Batch the searchListings image N+1 (Part A only)                          | P3       | S      | —          | TODO. Part B is obsolete (web-only); Part A drifted, so use `asc(orderIndex)` rather than `= 0`                     |
+| 2    | [005](005-approve-double-charge-guard.md)        | Rental approve: surface requests stuck in `processing` (Step 3 remainder) | P3       | S      | —          | PARTIAL. Steps 1-2 are on develop. Step 3 is BLOCKED as written; rescope it to extend the stale-processing detector |
+| 3    | [004](004-deposit-hold-lifecycle-fixes.md)       | Deposit-hold retry idempotency (Step 3 remainder)                         | P3       | M      | —          | PARTIAL. Steps 1-2 are on develop. Step 3 is BLOCKED on a human design decision                                     |
 
 Status values: TODO | IN PROGRESS | DONE | PARTIAL | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -35,7 +34,8 @@ Status values: TODO | IN PROGRESS | DONE | PARTIAL | BLOCKED (with one-line reas
 
 | Plan | Title                                                                                        | Status                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ---- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 014  | Notification-convention hardening and releaseExpired guard                                   | DONE 2026-09-23. The three `console.error` catches in `BlindReviewService` now go to `captureNonCriticalError`; the service payout notification is fire-and-forget, so a notification failure no longer counts a completed payout as failed or fires `service_payout_unexpected_error`; `releaseExpired` skips already-released rows so overlapping cron runs don't re-notify. Rider B (arch doc) was already done             |
+| 015  | Route tests for the dispute `[id]`, evidence, state, notes and audit endpoints               | DONE 2026-09-23. 72 dispute route tests (was 25), no production changes. `[id]` GET converted to the real-helpers pattern and extended; new files for evidence (incl. the `EVIDENCE_DEADLINE_PASSED` / `EVIDENCE_LIMIT_REACHED` mapping), state (real `DisputeStateMachine`, so non-admin transitions are pinned), notes and audit                                                                                             |
+| 014  | Notification-convention hardening and releaseExpired guard                                   | DONE 2026-09-23 (`4cd7495`). The three `console.error` catches in `BlindReviewService` now go to `captureNonCriticalError`; the service payout notification is fire-and-forget, so a notification failure no longer counts a completed payout as failed or fires `service_payout_unexpected_error`; `releaseExpired` skips already-released rows so overlapping cron runs don't re-notify. Rider B (arch doc) was already done |
 | 012  | Tests: blind-review system and service payment-lifecycle DAL                                 | DONE 2026-09-23 (`69bee1a`). 42 tests, no production changes: `blind-review-service.test.ts` (26, incl. both exact-deadline boundaries and Epic 13's F3/F4/F7), `blind-review.dal.test.ts` (6) and `service-payment-lifecycle.dal.test.ts` (10). The DAL tests render the WHERE clauses to SQL to pin the guards (pending-only payout claim, frozen-only unfreeze, payout eligibility excluding frozen/disputed/unlocked rows) |
 | 010  | Remove public dev routes (test-serp/test-upload) and fix the profile-image delete IDOR       | DONE 2026-09-23 (`8fd33d6`). Deleted `/api/test-serp`, `/api/test-upload` and the `/test-image-upload` page outright (dead dev tools; the web UI is retiring) instead of gating them, and dropped them from `PUBLIC_API_ROUTES`. Profile uploads now go to `profiles/<userId>/…`; DELETE allows only the caller's own prefix or the exact legacy blob behind their current image (403 otherwise) and rejects `..` segments     |
 | 011  | Atomic status guards on service complete/cancel (refund + double payout)                     | DONE 2026-09-23 (`fc66916`). `ServiceBookingDAL.updateIfStatus` CAS; complete flips `accepted → completed` atomically; cancel claims `→ cancelled` (blocked while an accept charge holds `processing`) BEFORE the lifecycle cancel, refund and provider transfer. A throw mid-refund now leaves the booking `cancelled` pending reconciliation                                                                                 |
@@ -49,12 +49,9 @@ Status values: TODO | IN PROGRESS | DONE | PARTIAL | BLOCKED (with one-line reas
 
 ## Ranking rationale
 
-1. **015: pin backend behaviour before mobile builds on it.** Mobile Epic
-   13.2 (disputes) is next after 13.1 and consumes the dispute detail,
-   create and evidence routes.
-2. **013 Part A:** the N+1 is in the mobile explore feed, but pages are capped
+1. **013 Part A:** the N+1 is in the mobile explore feed, but pages are capped
    at 12 items, so this is a performance fix rather than a correctness fix.
-3. **005 and 004 remainders: no double-charge exposure.** Both are UX
+2. **005 and 004 remainders: no double-charge exposure.** Both are UX
    dead-ends: a rental stuck in `processing`, and a failed deposit retry on a
    new card. Both need a human design call.
 
@@ -79,7 +76,19 @@ Status values: TODO | IN PROGRESS | DONE | PARTIAL | BLOCKED (with one-line reas
   stale-claim detector yet (same gap as 005's rescope; one detector could
   cover both). `declineBooking` is still an unguarded update and can race an
   in-flight accept.
-- 013 and 015 are independent of everything else.
+- **Follow-ups left by 015** (unplanned):
+  - `PUT /api/disputes/[id]/notes` saves the edit **before** checking the note
+    belongs to the dispute, so an admin can change another dispute's note and
+    still get a 400. Admin-only; the fix is to check membership first, as
+    DELETE does. The notes test pins today's behaviour and says which
+    assertion to flip.
+  - `PATCH /api/disputes/[id]/state` never checks the caller is a party; its
+    only authorization is every target being in `ADMIN_ONLY_STATES`. The state
+    test fails if that changes, which is the moment to add a party check.
+  - Two dispute tests still mock `route-helpers` wholesale: the list/create
+    route (`disputes/__tests__/route.test.ts`, which mobile Epic 13.2 calls
+    for create) and `[id]/resolve`. Convert them when next touched.
+- 013 is independent of everything else.
 
 ## Findings considered and rejected (do not re-audit)
 
