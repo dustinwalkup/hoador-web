@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { serviceBookingDAL } from "../index";
 import { NotFoundError } from "../errors";
 import { db } from "@/db/db";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 vi.mock("@/db/db", () => ({
   db: {
@@ -10,6 +12,10 @@ vi.mock("@/db/db", () => ({
     select: vi.fn(),
   },
 }));
+
+/** Render a captured drizzle WHERE clause to SQL text for guard assertions. */
+const whereSql = (where: unknown) =>
+  new PgDialect().sqlToQuery(where as SQL).sql;
 
 const bookingRow = {
   id: "book-1",
@@ -111,6 +117,54 @@ describe("ServiceBookingDAL", () => {
           expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
         }),
       ).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("claimForAcceptance", () => {
+    it("returns true when a row is claimed", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([{ id: "book-1" }]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
+
+      const result = await serviceBookingDAL.claimForAcceptance("book-1");
+
+      expect(result).toBe(true);
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentStatus: "processing" }),
+      );
+      // Claim only an acceptable booking that nobody else holds.
+      const sql = whereSql(mockWhere.mock.calls[0][0]);
+      expect(sql).toContain('"service_bookings"."status" in');
+      expect(sql).toContain('"service_bookings"."payment_status" is null');
+    });
+
+    it("returns false when no row matches (already claimed or succeeded)", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
+
+      const result = await serviceBookingDAL.claimForAcceptance("book-1");
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("markExpired", () => {
+    it("never expires a booking an accept call has claimed", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
+
+      await serviceBookingDAL.markExpired("book-1");
+
+      // A claimed pending booking may already be charged; expiring it would
+      // cancel a paid booking with no refund.
+      expect(whereSql(mockWhere.mock.calls[0][0])).toContain(
+        '"service_bookings"."payment_status" is null',
+      );
     });
   });
 

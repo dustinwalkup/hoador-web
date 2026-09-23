@@ -6,9 +6,11 @@ import {
   gte,
   inArray,
   isNotNull,
+  isNull,
   lt,
   lte,
   notExists,
+  or,
   sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -163,6 +165,36 @@ export class ServiceBookingDAL extends BaseDAL {
   }
 
   /**
+   * Atomically claim a booking for payment processing.
+   * Sets paymentStatus -> "processing" only when the booking is still
+   * acceptable (status pending|payment_failed) and no other accept call
+   * holds the claim (paymentStatus null|failed).
+   * Returns false when another call already claimed it or the charge
+   * already succeeded.
+   */
+  async claimForAcceptance(bookingId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .update(serviceBookings)
+        .set({ paymentStatus: "processing", updatedAt: new Date() })
+        .where(
+          and(
+            eq(serviceBookings.id, bookingId),
+            inArray(serviceBookings.status, ["pending", "payment_failed"]),
+            or(
+              isNull(serviceBookings.paymentStatus),
+              eq(serviceBookings.paymentStatus, "failed"),
+            ),
+          ),
+        )
+        .returning({ id: serviceBookings.id });
+      return result.length > 0;
+    } catch (error) {
+      this.handleError(error, "ServiceBookingDAL.claimForAcceptance");
+    }
+  }
+
+  /**
    * Returns pending service bookings whose expiresAt has passed.
    * Drives the /api/cron/expire-pending-bookings job; uses the partial
    * index `sb_pending_expires_at_idx`.
@@ -194,6 +226,8 @@ export class ServiceBookingDAL extends BaseDAL {
           and(
             eq(serviceBookings.status, "pending"),
             lt(serviceBookings.expiresAt, now),
+            // See markExpired: a claimed booking is mid-charge or charged.
+            isNull(serviceBookings.paymentStatus),
           ),
         );
       return rows;
@@ -205,7 +239,11 @@ export class ServiceBookingDAL extends BaseDAL {
   /**
    * Atomically transitions a service booking to `cancelled` with
    * cancellationReason='expired_no_acceptance'. The WHERE clause guards
-   * against double-expiry under concurrent cron ticks.
+   * against double-expiry under concurrent cron ticks, and skips bookings
+   * an accept call has claimed (`paymentStatus` non-null — only
+   * `acceptBooking` writes it). A claimed `pending` booking is mid-charge,
+   * or was charged and then failed to persist; expiring it would cancel a
+   * paid booking with no refund.
    *
    * @returns `true` if a row was updated, `false` if the row was no longer pending.
    */
@@ -223,6 +261,7 @@ export class ServiceBookingDAL extends BaseDAL {
           and(
             eq(serviceBookings.id, bookingId),
             eq(serviceBookings.status, "pending"),
+            isNull(serviceBookings.paymentStatus),
           ),
         )
         .returning({ id: serviceBookings.id });
