@@ -26,6 +26,7 @@ const mockBookingCreate = vi.fn();
 const mockBookingGetById = vi.fn();
 const mockBookingUpdate = vi.fn();
 const mockBookingClaim = vi.fn();
+const mockBookingUpdateIfStatus = vi.fn();
 const mockGetStripePm = vi.fn();
 const mockGetUserById = vi.fn();
 const mockAuditCreate = vi.fn();
@@ -65,6 +66,7 @@ vi.mock("@/dal", () => ({
     getById: (...a: unknown[]) => mockBookingGetById(...a),
     update: (...a: unknown[]) => mockBookingUpdate(...a),
     claimForAcceptance: (...a: unknown[]) => mockBookingClaim(...a),
+    updateIfStatus: (...a: unknown[]) => mockBookingUpdateIfStatus(...a),
   },
   serviceListingDAL: { getById: (...a: unknown[]) => mockListingGetById(...a) },
   servicePaymentLifecycleDAL: {
@@ -198,6 +200,14 @@ describe("ServiceBookingService", () => {
     mockLifecycleGetByBookingId.mockResolvedValue(null);
     // The atomic claim succeeds by default; individual tests override it.
     mockBookingClaim.mockResolvedValue(true);
+    // The compare-and-swap wins by default; race tests override it with null.
+    mockBookingUpdateIfStatus.mockImplementation(
+      async (id: string, _expected: string, updates: object) => ({
+        ...bookingPending,
+        id,
+        ...updates,
+      }),
+    );
     // Accept notification is now fire-and-forget (.catch); give it a promise.
     mockSendAccepted.mockResolvedValue(undefined);
     // Post-charge persistence resolves by default (clearAllMocks keeps prior
@@ -1043,7 +1053,7 @@ describe("ServiceBookingService", () => {
         status: "completed" as const,
         completedAt: new Date(),
       };
-      mockBookingUpdate.mockResolvedValue(completed);
+      mockBookingUpdateIfStatus.mockResolvedValue(completed);
 
       const out = await ServiceBookingService.completeBooking(
         "book-1",
@@ -1052,11 +1062,35 @@ describe("ServiceBookingService", () => {
       );
 
       expect(out.status).toBe("completed");
+      // The status flip is a compare-and-swap from "accepted".
+      expect(mockBookingUpdateIfStatus).toHaveBeenCalledWith(
+        "book-1",
+        "accepted",
+        expect.objectContaining({ status: "completed" }),
+      );
+      expect(mockBookingUpdate).not.toHaveBeenCalled();
       expect(mockLifecycleUpdatePayout).toHaveBeenCalledWith(
         "book-1",
         "pending",
       );
       expect(mockSendJobCompleted).toHaveBeenCalledWith("req-1", completed);
+    });
+
+    it("rejects with ConflictError and queues no payout when the booking left accepted", async () => {
+      // e.g. a concurrent cancel won the race after our read.
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        status: "accepted" as const,
+      });
+      mockBookingUpdateIfStatus.mockResolvedValue(null);
+
+      await expect(
+        ServiceBookingService.completeBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(ConflictError);
+
+      expect(mockLifecycleUpdatePayout).not.toHaveBeenCalled();
+      expect(mockSendJobCompleted).not.toHaveBeenCalled();
+      expect(mockAuditCreate).not.toHaveBeenCalled();
     });
   });
 
@@ -1265,9 +1299,89 @@ describe("ServiceBookingService", () => {
         }),
       );
       // Booking was still cancelled
-      expect(mockBookingUpdate).toHaveBeenCalledWith(
+      expect(mockBookingUpdateIfStatus).toHaveBeenCalledWith(
         "book-1",
+        "accepted",
         expect.objectContaining({ status: "cancelled" }),
+        { blockWhilePaymentProcessing: true },
+      );
+    });
+
+    it("claims the cancellation before any money moves, then records the refund", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2025-12-18T12:00:00Z"));
+
+      mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockBookingUpdate.mockResolvedValue({ ...accepted, status: "cancelled" });
+
+      await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
+
+      // Expected status is the one the refund math was computed from.
+      expect(mockBookingUpdateIfStatus).toHaveBeenCalledWith(
+        "book-1",
+        "accepted",
+        expect.objectContaining({
+          status: "cancelled",
+          cancelledBy: "req-1",
+          cancellationReason: "bye",
+        }),
+        { blockWhilePaymentProcessing: true },
+      );
+      // The claim precedes both lifecycle cancellation and the refund.
+      const claimOrder = mockBookingUpdateIfStatus.mock.invocationCallOrder[0];
+      expect(claimOrder).toBeLessThan(
+        mockLifecycleMarkCancelled.mock.invocationCallOrder[0],
+      );
+      expect(claimOrder).toBeLessThan(
+        mockProcessRefund.mock.invocationCallOrder[0],
+      );
+      // The trailing update only records the refund outcome.
+      expect(mockBookingUpdate).toHaveBeenCalledWith("book-1", {
+        refundAmount: "103.30",
+        stripeRefundId: "re_1",
+      });
+    });
+
+    it("rejects with ConflictError and moves no money when the claim loses", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2025-12-20T13:00:00Z"));
+
+      // e.g. a concurrent complete already moved it to completed, or an
+      // accept-charge holds paymentStatus="processing".
+      mockBookingGetById.mockResolvedValue(accepted);
+      mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct_provider",
+      });
+      mockBookingUpdateIfStatus.mockResolvedValue(null);
+
+      await expect(
+        ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx),
+      ).rejects.toThrow(ConflictError);
+
+      expect(mockProcessRefund).not.toHaveBeenCalled();
+      expect(mockCreateServiceTransfer).not.toHaveBeenCalled();
+      expect(mockLifecycleMarkCancelled).not.toHaveBeenCalled();
+      expect(mockBookingUpdate).not.toHaveBeenCalled();
+      expect(mockSendNotification).not.toHaveBeenCalled();
+    });
+
+    it("guards a pending cancel against an in-flight accept charge", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "cancelled",
+      });
+
+      await ServiceBookingService.cancelBooking("book-1", "req-1", "n", ctx);
+
+      expect(mockBookingUpdateIfStatus).toHaveBeenCalledWith(
+        "book-1",
+        "pending",
+        expect.objectContaining({ status: "cancelled" }),
+        { blockWhilePaymentProcessing: true },
       );
     });
 

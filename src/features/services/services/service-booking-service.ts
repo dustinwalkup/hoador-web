@@ -656,11 +656,24 @@ export class ServiceBookingService {
       );
     }
 
+    // Compare-and-swap: only one terminal transition can win. Without it a
+    // concurrent cancel could refund the client while this queues the
+    // provider's payout. The pre-checks above give better messages for the
+    // common non-race cases; this is the correctness backstop.
     const now = new Date();
-    const updated = await serviceBookingDAL.update(bookingId, {
-      status: "completed",
-      completedAt: now,
-    });
+    const updated = await serviceBookingDAL.updateIfStatus(
+      bookingId,
+      "accepted",
+      {
+        status: "completed",
+        completedAt: now,
+      },
+    );
+    if (!updated) {
+      throw new ConflictError(
+        "This booking is no longer in an accepted state — it may have been cancelled or already completed.",
+      );
+    }
 
     await servicePaymentLifecycleDAL.updatePayoutStatus(bookingId, "pending");
 
@@ -732,6 +745,31 @@ export class ServiceBookingService {
     const refundAmountCents = breakdown.refundCents;
     let stripeRefundId: string | null = null;
     let refundAmountStr: string | null = null;
+
+    // Point of no return. Claim the cancellation atomically BEFORE any money
+    // moves: only one terminal transition can win (a concurrent complete would
+    // otherwise queue a payout on top of this refund), and never while an
+    // accept-charge is in flight (paymentStatus="processing"). The expected
+    // status is the one the eligibility and refund math were computed from.
+    // If the refund below then throws, the booking is left cancelled pending
+    // reconciliation — strictly safer than an accepted booking that may
+    // already have refunded and could still be completed and paid out.
+    const claimed = await serviceBookingDAL.updateIfStatus(
+      bookingId,
+      detail.status,
+      {
+        status: "cancelled",
+        cancelledAt: new Date(),
+        cancelledBy: userId,
+        cancellationReason: reason?.trim() ?? null,
+      },
+      { blockWhilePaymentProcessing: true },
+    );
+    if (!claimed) {
+      throw new ConflictError(
+        "This booking changed state while cancelling — refresh and try again.",
+      );
+    }
 
     const existingLifecycle =
       await servicePaymentLifecycleDAL.getByBookingId(bookingId);
@@ -808,13 +846,10 @@ export class ServiceBookingService {
       }
     }
 
+    // Status was already flipped by the claim above; record the refund outcome.
     const updated = await serviceBookingDAL.update(bookingId, {
-      status: "cancelled",
       refundAmount: refundAmountStr,
       stripeRefundId,
-      cancelledAt: new Date(),
-      cancelledBy: userId,
-      cancellationReason: reason?.trim() ?? null,
     });
 
     if (context) {

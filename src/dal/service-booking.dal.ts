@@ -9,6 +9,7 @@ import {
   isNull,
   lt,
   lte,
+  ne,
   notExists,
   or,
   sql,
@@ -161,6 +162,43 @@ export class ServiceBookingDAL extends BaseDAL {
       return row;
     } catch (error) {
       this.handleError(error, "ServiceBookingDAL.update");
+    }
+  }
+
+  /**
+   * Compare-and-swap update: applies `updates` only when the booking is
+   * still in `expectedStatus`. With `blockWhilePaymentProcessing`, also
+   * refuses while an accept-charge claim holds paymentStatus="processing"
+   * (see ServiceBookingService.acceptBooking). Returns null when the guard
+   * fails — caller decides how to surface the conflict.
+   */
+  async updateIfStatus(
+    bookingId: string,
+    expectedStatus: ServiceBooking["status"],
+    updates: Partial<Omit<ServiceBooking, "id" | "createdAt">>,
+    opts: { blockWhilePaymentProcessing?: boolean } = {},
+  ): Promise<ServiceBooking | null> {
+    try {
+      const conditions = [
+        eq(serviceBookings.id, bookingId),
+        eq(serviceBookings.status, expectedStatus),
+      ];
+      if (opts.blockWhilePaymentProcessing) {
+        conditions.push(
+          or(
+            isNull(serviceBookings.paymentStatus),
+            ne(serviceBookings.paymentStatus, "processing"),
+          )!,
+        );
+      }
+      const [row] = await this.db
+        .update(serviceBookings)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(and(...conditions))
+        .returning();
+      return row ?? null;
+    } catch (error) {
+      this.handleError(error, "ServiceBookingDAL.updateIfStatus");
     }
   }
 
