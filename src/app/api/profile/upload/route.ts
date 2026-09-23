@@ -22,7 +22,7 @@ async function postHandler(request: NextRequest) {
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401
     }
-    const { user } = authResult;
+    const { user, userId } = authResult;
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -64,10 +64,11 @@ async function postHandler(request: NextRequest) {
       compressionRatio: `${((1 - processedMetadata.size / originalMetadata.size) * 100).toFixed(1)}%`,
     });
 
-    // Generate unique filename with .jpg extension
+    // Generate unique filename with .jpg extension, scoped under the owner's
+    // id so DELETE can check ownership by prefix.
     const timestamp = Date.now();
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const filename = `profiles/${timestamp}-${sanitizedName.replace(/\.[^/.]+$/, ".jpg")}`;
+    const filename = `profiles/${userId}/${timestamp}-${sanitizedName.replace(/\.[^/.]+$/, ".jpg")}`;
 
     // Get current user's profile image before upload (for cleanup)
     const currentProfileImageUrl = user.profileImageUrl;
@@ -123,6 +124,7 @@ async function deleteHandler(request: NextRequest) {
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401
     }
+    const { user, userId } = authResult;
 
     const { searchParams } = new URL(request.url);
     const pathname = searchParams.get("pathname");
@@ -134,11 +136,39 @@ async function deleteHandler(request: NextRequest) {
       );
     }
 
-    // Validate that this is a profile image path
-    if (!pathname.startsWith("profiles/")) {
+    // Validate that this is a profile image path. Dot segments are refused so
+    // a path like `profiles/<me>/../<victim>.jpg` cannot pass the prefix check.
+    if (
+      !pathname.startsWith("profiles/") ||
+      pathname.split("/").some((segment) => segment === "..")
+    ) {
       return NextResponse.json(
         { error: "Invalid profile image path" },
         { status: 400 },
+      );
+    }
+
+    // Ownership: a user may delete only their own uploads — anything under
+    // their user-scoped prefix, or the exact blob backing their current
+    // profile image (legacy flat paths from before user-scoped uploads).
+    let currentImagePathname: string | null = null;
+    if (user.profileImageUrl) {
+      try {
+        currentImagePathname = new URL(user.profileImageUrl).pathname.replace(
+          /^\//,
+          "",
+        );
+      } catch {
+        currentImagePathname = null;
+      }
+    }
+    const ownsBlob =
+      pathname.startsWith(`profiles/${userId}/`) ||
+      (currentImagePathname !== null && pathname === currentImagePathname);
+    if (!ownsBlob) {
+      return NextResponse.json(
+        { error: "You can only delete your own profile image" },
+        { status: 403 },
       );
     }
 
