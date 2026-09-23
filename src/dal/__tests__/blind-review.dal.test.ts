@@ -105,7 +105,7 @@ describe("BlindReviewDAL", () => {
       expect(db.update).not.toHaveBeenCalled();
     });
 
-    it("updates the given reviews", async () => {
+    it("updates only the given reviews that are still unreleased", async () => {
       const mockWhere = vi.fn().mockResolvedValue(undefined);
       const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
       vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
@@ -116,9 +116,10 @@ describe("BlindReviewDAL", () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({ releasedAt: expect.anything() }),
       );
-      expect(whereSql(mockWhere.mock.calls[0][0])).toContain(
-        '"blind_reviews"."id" in',
-      );
+      const sql = whereSql(mockWhere.mock.calls[0][0]);
+      expect(sql).toContain('"blind_reviews"."id" in');
+      // An overlapping cron run must not re-release (and re-notify) rows.
+      expect(sql).toContain('"blind_reviews"."released_at" is null');
     });
   });
 

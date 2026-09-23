@@ -1,5 +1,6 @@
 import { serviceBookingDAL, servicePaymentLifecycleDAL } from "@/dal";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
+import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { sendServicePayoutNotification } from "@/features/services/notifications/service-notifications";
 import { createServiceTransfer } from "@/services/stripe/service-payments";
 
@@ -98,9 +99,17 @@ export class ServicePaymentLifecycleService {
           "completed",
         );
 
+        // The transfer has completed; a notification failure must not count
+        // this payout as failed or raise an unexpected-error ops alert.
         const updatedBooking = await serviceBookingDAL.getById(row.bookingId);
         if (updatedBooking) {
-          await sendServicePayoutNotification(row.providerId, updatedBooking);
+          sendServicePayoutNotification(row.providerId, updatedBooking).catch(
+            (err) =>
+              captureNonCriticalError(err, {
+                route: "ServicePaymentLifecycleService.processPayouts",
+                action: "payout_notification_failed",
+              }),
+          );
         }
 
         succeeded += 1;

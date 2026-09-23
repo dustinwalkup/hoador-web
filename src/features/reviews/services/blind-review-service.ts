@@ -9,6 +9,7 @@ import { serviceBookings } from "@/db/schemas/services.schema";
 import { user } from "@/db/schemas/user.schema";
 import { REVIEW_WINDOW_DAYS } from "../constants";
 import { sendReviewReleasedNotification } from "../notifications/blind-review-released";
+import { captureNonCriticalError } from "@/lib/api/route-helpers";
 
 /** Resolved booking info needed for review logic. */
 interface ResolvedBooking {
@@ -98,7 +99,11 @@ export class BlindReviewService {
 
       // Send notifications (fire-and-forget)
       BlindReviewService.notifyReleasedReviews(allReviews, booking.type).catch(
-        (err) => console.error("Failed to send release notifications:", err),
+        (err) =>
+          captureNonCriticalError(err, {
+            route: "BlindReviewService.submitReview",
+            action: "notify_released_reviews",
+          }),
       );
     }
 
@@ -243,12 +248,18 @@ export class BlindReviewService {
         // Notify (fire-and-forget)
         BlindReviewService.notifyReleasedReviews(reviews, bookingType).catch(
           (err) =>
-            console.error("Failed to send cron release notifications:", err),
+            captureNonCriticalError(err, {
+              route: "BlindReviewService.releaseExpiredReviews",
+              action: "notify_cron_released_reviews",
+            }),
         );
 
         released += reviews.length;
       } catch (err) {
-        console.error("Failed to release expired review group:", err);
+        captureNonCriticalError(err, {
+          route: "BlindReviewService.releaseExpiredReviews",
+          action: "release_expired_review_group",
+        });
         failed += reviews.length;
       }
     }

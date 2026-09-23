@@ -22,6 +22,7 @@ const mockReleaseExpired = vi.fn();
 const mockUpdateReviewAggregate = vi.fn();
 const mockSendReleased = vi.fn();
 const mockDbSelect = vi.fn();
+const mockCaptureError = vi.fn();
 
 vi.mock("@/dal", () => ({
   blindReviewDAL: {
@@ -44,6 +45,10 @@ vi.mock("../../notifications/blind-review-released", () => ({
 
 vi.mock("@/db/db", () => ({
   db: { select: (...a: unknown[]) => mockDbSelect(...a) },
+}));
+
+vi.mock("@/lib/api/route-helpers", () => ({
+  captureNonCriticalError: (...a: unknown[]) => mockCaptureError(...a),
 }));
 
 /** A drizzle select chain that resolves `rows` via `.limit()` or `await`. */
@@ -270,10 +275,11 @@ describe("BlindReviewService", () => {
 
       // Fire-and-forget: the reviews were still released.
       expect(mockReleaseReviews).toHaveBeenCalled();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "Failed to send release notifications:",
-        expect.any(Error),
-      );
+      // Reported to Sentry rather than lost in the logs.
+      expect(mockCaptureError).toHaveBeenCalledWith(expect.any(Error), {
+        route: "BlindReviewService.submitReview",
+        action: "notify_released_reviews",
+      });
     });
 
     it("resolves a rental-request id to the rental id it stores (F4)", async () => {
@@ -550,6 +556,10 @@ describe("BlindReviewService", () => {
       );
 
       expect(mockReleaseExpired).toHaveBeenCalledWith(["s1", "s2"]);
+      expect(mockCaptureError).toHaveBeenCalledWith(expect.any(Error), {
+        route: "BlindReviewService.releaseExpiredReviews",
+        action: "release_expired_review_group",
+      });
       // The failed group's reviewees are not re-aggregated.
       expect(mockUpdateReviewAggregate).not.toHaveBeenCalledWith("owner-1");
       expect(mockUpdateReviewAggregate).not.toHaveBeenCalledWith("renter-1");

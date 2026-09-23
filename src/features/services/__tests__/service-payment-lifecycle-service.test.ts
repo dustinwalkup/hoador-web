@@ -9,6 +9,7 @@ const mockGetById = vi.fn();
 const mockCreateTransfer = vi.fn();
 const mockSendOpsAlert = vi.fn();
 const mockSendPayoutNotif = vi.fn();
+const mockCaptureError = vi.fn();
 
 vi.mock("@/dal", () => ({
   servicePaymentLifecycleDAL: {
@@ -35,6 +36,10 @@ vi.mock("@/features/services/notifications/service-notifications", () => ({
   sendServicePayoutNotification: (...a: unknown[]) => mockSendPayoutNotif(...a),
 }));
 
+vi.mock("@/lib/api/route-helpers", () => ({
+  captureNonCriticalError: (...a: unknown[]) => mockCaptureError(...a),
+}));
+
 const baseLifecycle = {
   id: "spl-1",
   bookingId: "b1",
@@ -59,6 +64,8 @@ const baseRow = {
 describe("ServicePaymentLifecycleService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The payout notification is fire-and-forget (.catch); give it a promise.
+    mockSendPayoutNotif.mockResolvedValue(undefined);
   });
 
   it("returns zero summary when no eligible bookings", async () => {
@@ -146,6 +153,30 @@ describe("ServicePaymentLifecycleService", () => {
     expect(mockUpdatePayout).toHaveBeenCalledWith("b1", "completed");
     expect(mockSendPayoutNotif).toHaveBeenCalledWith("prov-1", bookingDetail);
     expect(summary.succeeded).toBe(1);
+  });
+
+  it("counts a completed payout as succeeded even when the notification fails", async () => {
+    mockFindEligible.mockResolvedValue([baseRow]);
+    mockClaim.mockResolvedValue(true);
+    mockCreateTransfer.mockResolvedValue({ success: true, transferId: "tr_1" });
+    mockGetById.mockResolvedValue({ id: "b1" });
+    mockSendPayoutNotif.mockRejectedValue(new Error("resend down"));
+
+    const summary = await ServicePaymentLifecycleService.processPayouts(10);
+
+    // The transfer already completed; the notification cannot un-pay it.
+    expect(summary.succeeded).toBe(1);
+    expect(summary.failed).toBe(0);
+    expect(mockUpdatePayout).toHaveBeenCalledWith("b1", "completed");
+    expect(mockSendOpsAlert).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: "service_payout_unexpected_error" }),
+    );
+    await vi.waitFor(() =>
+      expect(mockCaptureError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({ action: "payout_notification_failed" }),
+      ),
+    );
   });
 
   // UAT-SVC-32: Payout cron — transfer fails, ops alerted

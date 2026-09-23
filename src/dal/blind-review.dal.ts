@@ -379,7 +379,14 @@ export class BlindReviewDAL extends BaseDAL {
       await this.db
         .update(blindReviews)
         .set({ releasedAt: blindReviews.reviewWindowEndAt })
-        .where(inArray(blindReviews.id, reviewIds));
+        // Skip rows an overlapping cron run already released, so their
+        // release notifications are not sent twice.
+        .where(
+          and(
+            isNull(blindReviews.releasedAt),
+            inArray(blindReviews.id, reviewIds),
+          ),
+        );
     } catch (error) {
       this.handleError(error, "BlindReviewDAL.releaseExpired");
     }
