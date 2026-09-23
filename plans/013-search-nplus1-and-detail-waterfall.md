@@ -1,5 +1,7 @@
 # Plan 013: Batch the searchListings image N+1 and parallelize the rental-details fetch waterfall
 
+> **Re-verified 2026-09-23 against develop `7f49271`**: PART B (rental-details waterfall) IS OBSOLETE. `rental-details-server.tsx` only serves the retiring web page; mobile uses `GET /api/rentals/[id]`. Skip part B. PART A IS STILL NEEDED, since `/api/listings/search` drives the mobile explore feed, but it has drifted: the loop (`listing.dal.ts:947-972`) now picks the LOWEST `orderIndex` (`asc(orderIndex).limit(1)`), not `orderIndex = 0`. The plan's `eq(orderIndex, 0)` replacement would bring back missing thumbnails after image deletes. Mirror the current `_enrichListingsWithRatingsAndImages` (`:1359`, `inArray` + `asc(orderIndex)`, first-row-wins) instead.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and

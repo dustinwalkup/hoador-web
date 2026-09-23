@@ -1,5 +1,7 @@
 # Plan 010: Close the public test routes and the profile-image delete IDOR
 
+> **Re-verified 2026-09-23 against develop `7f49271`**: Minimal drift: `proxy.ts` gained the API-401 split and `/.well-known`, and `PUBLIC_API_ROUTES` shifted about one line. Mobile uses only POST `/api/profile/upload` and reads only `url`, so step 4's user-scoped path is safe. The web `test-image-upload` page is being retired anyway, so prefer deleting the test routes and page outright over gating them.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and

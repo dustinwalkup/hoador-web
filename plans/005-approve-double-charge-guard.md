@@ -1,5 +1,7 @@
 # Plan 005: Prevent concurrent rental approvals from double-charging the renter
 
+> **Re-verified 2026-09-23 against develop `7f49271`**: Steps 1-2 are on develop (`claimRentalRequestPaymentProcessing`, `rentals.dal.ts:1861-1883`; called at `rental-service.ts:454-465`), so the advisor branch is effectively merged. The step 3 gap is still real: post-charge throws at `rental-service.ts:595/673-676/679` strand the request in `processing`. The existing `detect-stale-processing` cron checks only lifecycle `payoutStatus`, not `rentalRequests.paymentStatus`. Do NOT implement step 3 as written. Recommended rescope: extend the stale-processing detector to cover rental requests.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and

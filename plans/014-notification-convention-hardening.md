@@ -1,5 +1,7 @@
 # Plan 014: Notification-convention hardening (Sentry-visible failures, no awaited sends in money paths)
 
+> **Re-verified 2026-09-23 against develop `7f49271`**: Sites 1-4 and rider A are unchanged and still needed. RIDER B IS ALREADY DONE (`docs/ARCHITECTURE_V2.md:13-15, :233-246`), so skip it. Rider A's done-criterion of "2 hits" for `isNull(blindReviews.releasedAt)` is wrong: there are already 2, and there will be 3 after the fix.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and

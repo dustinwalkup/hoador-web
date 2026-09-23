@@ -1,5 +1,7 @@
 # Plan 015: Route tests for the five untested dispute endpoints
 
+> **Re-verified 2026-09-23 against develop `7f49271`**: PARTIALLY DONE. `src/app/api/disputes/[id]/__tests__/route.test.ts` now exists (commit `7f49271`), but it mocks `route-helpers` wholesale, and the renter/requester 200 cases and the "no linked transaction → 400" case are missing. Bring it to the real-helpers pattern. `evidence/route.ts` now throws `EvidenceDeadlinePassedError`/`EvidenceLimitReachedError` (see `features/disputes/lib/dispute-errors.ts`), so step 2's cases 4-5 must assert on the handleApiError mapping. Mobile Epic 13.2 consumes detail, create and evidence; do those first. Notes, audit and state are admin/web-only and lower priority. The notes PUT ordering wrinkle is still present (`notes/route.ts:142` vs `:145-150`).
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and

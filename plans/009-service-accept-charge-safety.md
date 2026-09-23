@@ -1,5 +1,7 @@
 # Plan 009: Make service-booking acceptance charge-safe (no double charge on retry or post-charge failure)
 
+> **Re-verified 2026-09-23 against develop `7f49271`**: STILL NEEDED. The code lives on the unmerged branch `advisor/009-service-accept-charge-safety` (merge-base `414ccc5`), which CONFLICTS with develop in three files: service-booking-service.ts, its test, and service-booking.dal.ts. Rebase it by hand; do not cherry-pick. Inside `acceptBooking`, develop has since added `acceptedAt`, `closeNeedsFulfilledByBooking` in `after()`, and the F12 fix, where the catch writes back `selectedPaymentMethodId` so a retry on the same card is rejected (`:307-315`). F12 narrows the bug but does not close it: a retry on a different card, or two concurrent retries (`Date.now()` key, `:331-334`), can still double-charge. Review the branch's payment-method-scoped key together with the F12 guard.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and

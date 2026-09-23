@@ -1,5 +1,7 @@
 # Plan 012: Test coverage for the blind-review system and the service payment-lifecycle DAL
 
+> **Re-verified 2026-09-23 against develop `7f49271`**: Zero drift in scope. Still needed, and it should land BEFORE mobile Epic 13.1, which adds `POST /api/reviews`, the `?rentalId=`/`?serviceBookingId=` modes and `getReviewStatus`. Consider adding cases for Epic 13 findings F3/F7 (`hoador-mobile/specs/mobile-app/tasks/epic-13-reviews-disputes-needs.md`).
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and

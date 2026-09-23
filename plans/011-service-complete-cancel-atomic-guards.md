@@ -1,5 +1,7 @@
 # Plan 011: Atomic status guards on service-booking complete/cancel (no refund+payout double-spend)
 
+> **Re-verified 2026-09-23 against develop `7f49271`**: STILL NEEDED, and more severe than written. The line refs are stale: `completeBooking` is now at about `:571-609` and `cancelBooking` at about `:615-794`. `cancelBooking` was restructured around `assessServiceCancellation`/`serviceRefundBreakdown`, and it now also transfers to the provider on a late client cancel (key `service-cancel-transfer-${id}`, `:700-738`). The payout cron uses `service-transfer-${id}`, so in the complete/cancel race the provider can be paid TWICE on top of the refund. STEP 3'S EXCERPT NO LONGER MATCHES; rewrite it against the live `cancelBooking` before executing. Still hard-depends on 009.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and

@@ -1,5 +1,7 @@
 # Plan 004: Stop cancellation from clobbering failed deposit releases; make deposit-hold retries actually retryable
 
+> **Re-verified 2026-09-23 against develop `7f49271`**: Steps 1-2 are on develop, and step 1 also covers the no-show path at `cancellation-service.ts:396-470`. Step 3 is still BLOCKED on a design decision (see README). The cron query is at `payment-lifecycle.dal.ts:434-439`, the fixed key at `deposit-hold.ts:31`, and the retry at `payment-lifecycle-service.ts:563`. Symptom: a renter retrying on a new card within 24h hits a Stripe `idempotency_error`. It is a UX dead-end, not a money bug.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
