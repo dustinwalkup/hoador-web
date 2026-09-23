@@ -355,10 +355,45 @@ describe("closeNeed", () => {
 // =============================================================================
 
 describe("deleteNeed", () => {
-  it("throws ForbiddenError for non-admin", async () => {
+  // P-E13-4 / Req 20.1.3. This used to throw `ForbiddenError` for *every*
+  // non-admin, before it had even looked up the need — so the creator could
+  // edit and close their own need but not delete it.
+  it("lets the creator soft-delete their own need", async () => {
+    mockGetNeedByIdIncludingDeleted.mockResolvedValue(OPEN_NEED);
+    mockSoftDeleteNeed.mockResolvedValue(undefined);
+
+    await deleteNeed("need-1", { userId: "user-1", isAdmin: false });
+
+    expect(mockSoftDeleteNeed).toHaveBeenCalledWith("need-1");
+  });
+
+  it("throws ForbiddenError for a signed-in non-owner", async () => {
+    mockGetNeedByIdIncludingDeleted.mockResolvedValue(OPEN_NEED);
+
+    await expect(
+      deleteNeed("need-1", { userId: "user-someone-else", isAdmin: false }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(mockSoftDeleteNeed).not.toHaveBeenCalled();
+  });
+
+  it("throws ForbiddenError when no actor id is supplied", async () => {
+    mockGetNeedByIdIncludingDeleted.mockResolvedValue(OPEN_NEED);
+
     await expect(deleteNeed("need-1", { isAdmin: false })).rejects.toThrow(
       ForbiddenError,
     );
+    expect(mockSoftDeleteNeed).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the creator deletes an already-deleted need", async () => {
+    mockGetNeedByIdIncludingDeleted.mockResolvedValue({
+      ...OPEN_NEED,
+      deletedAt: new Date(),
+    });
+
+    await deleteNeed("need-1", { userId: "user-1", isAdmin: false });
+
+    expect(mockSoftDeleteNeed).not.toHaveBeenCalled();
   });
 
   it("calls softDeleteNeed for admin", async () => {

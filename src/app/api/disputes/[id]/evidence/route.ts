@@ -11,6 +11,13 @@ import {
   processImageForUpload,
   validateImageForProcessing,
 } from "@/lib/image/server";
+import {
+  EvidenceDeadlinePassedError,
+  EvidenceLimitReachedError,
+} from "@/features/disputes/lib/dispute-errors";
+
+/** Per-participant evidence cap. Exported so a client can be told it up front. */
+export const MAX_EVIDENCE_ITEMS = 10;
 
 /**
  * POST /api/disputes/[id]/evidence
@@ -96,30 +103,28 @@ async function postHandler(
       );
     }
 
-    // Check evidence deadline
+    // Check evidence deadline. Thrown rather than returned so it carries a
+    // stable `code` — the client has to tell "you are out of time" apart from
+    // "that file was not an image", and both were bare 400s (P-E13-3).
     const deadlineCheck = await disputeDAL.checkEvidenceDeadline(disputeId);
     if (deadlineCheck.expired) {
-      return NextResponse.json(
-        {
-          error: "Evidence deadline has expired",
-          deadline: deadlineCheck.deadline,
-        },
-        { status: 400 },
-      );
+      throw new EvidenceDeadlinePassedError("Evidence deadline has expired", {
+        deadline: deadlineCheck.deadline
+          ? new Date(deadlineCheck.deadline).toISOString()
+          : null,
+      });
     }
 
-    // Enforce per-participant evidence upload limit
-    const MAX_EVIDENCE_ITEMS = 10;
+    // Enforce per-participant evidence upload limit. The count ships with it so
+    // a client can warn *before* someone picks and uploads a photo.
     const existingCount = await disputeDAL.countEvidenceByDisputeAndUser(
       disputeId,
       userId,
     );
     if (existingCount >= MAX_EVIDENCE_ITEMS) {
-      return NextResponse.json(
-        {
-          error: `Maximum of ${MAX_EVIDENCE_ITEMS} evidence items per participant`,
-        },
-        { status: 422 },
+      throw new EvidenceLimitReachedError(
+        `Maximum of ${MAX_EVIDENCE_ITEMS} evidence items per participant`,
+        { limit: MAX_EVIDENCE_ITEMS, count: existingCount },
       );
     }
 

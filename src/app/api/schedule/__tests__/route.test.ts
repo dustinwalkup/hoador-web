@@ -27,15 +27,19 @@ const mockScheduleRentals = vi.fn();
 const mockScheduleBookings = vi.fn();
 const mockActionableRentals = vi.fn();
 const mockActionableBookings = vi.fn();
+const mockReviewableRentals = vi.fn();
+const mockReviewableBookings = vi.fn();
 
 vi.mock("@/dal", () => ({
   rentalDAL: {
     getScheduleRentals: (...a: any[]) => mockScheduleRentals(...a),
     getActionableRentals: (...a: any[]) => mockActionableRentals(...a),
+    getReviewableRentals: (...a: any[]) => mockReviewableRentals(...a),
   },
   serviceBookingDAL: {
     getScheduleBookings: (...a: any[]) => mockScheduleBookings(...a),
     getActionableBookings: (...a: any[]) => mockActionableBookings(...a),
+    getReviewableBookings: (...a: any[]) => mockReviewableBookings(...a),
   },
 }));
 
@@ -81,6 +85,8 @@ beforeEach(() => {
   mockScheduleBookings.mockResolvedValue([BOOKING_ROW]);
   mockActionableRentals.mockResolvedValue([RENTAL_ROW]);
   mockActionableBookings.mockResolvedValue([]);
+  mockReviewableRentals.mockResolvedValue([]);
+  mockReviewableBookings.mockResolvedValue([]);
 });
 
 describe("GET /api/schedule — auth", () => {
@@ -281,5 +287,107 @@ describe("GET /api/schedule — per-source isolation", () => {
     const body = await res.json();
     expect(body.events).toEqual([]);
     expect(body.needsAttention).toHaveLength(1);
+  });
+});
+
+// ── P-E13-1: Req 5.6.1's *review available* attention class ──────────────────
+//
+// Deferred on 2026-08-21 because attention was derived from booking STATUS and
+// none expresses "a review is outstanding". It is a join, so it arrives as its
+// own source rather than as two more entries in ACTIONABLE_*_STATUSES.
+describe("GET /api/schedule — review available", () => {
+  const REVIEWABLE_RENTAL = {
+    ...RENTAL_ROW,
+    id: "req-done",
+    status: "completed",
+    role: "renter" as const,
+    reviewPending: true,
+  };
+
+  const REVIEWABLE_BOOKING = {
+    ...BOOKING_ROW,
+    id: "sb-done",
+    status: "completed",
+    role: "client" as const,
+    reviewPending: true,
+  };
+
+  it("surfaces a completed rental awaiting this user's review", async () => {
+    mockActionableRentals.mockResolvedValue([]);
+    mockReviewableRentals.mockResolvedValue([REVIEWABLE_RENTAL]);
+
+    const body = await (await GET(req(RANGE))).json();
+    const item = body.needsAttention.find(
+      (e: any) => e.id === "rental:req-done",
+    );
+
+    expect(item).toBeDefined();
+    expect(item.needsAction).toBe(true);
+    expect(item.actionLabel).toBe("Leave a review");
+    // The event is still Completed — "review available" is not a status, and
+    // faking one would put a wrong word on the card (D-E8-1's vocabulary).
+    expect(item.status).toBe("completed");
+    expect(item.statusLabel).toBe("Completed");
+  });
+
+  it("surfaces a completed service booking the same way", async () => {
+    mockActionableRentals.mockResolvedValue([]);
+    mockReviewableBookings.mockResolvedValue([REVIEWABLE_BOOKING]);
+
+    const body = await (await GET(req(RANGE))).json();
+    const item = body.needsAttention.find(
+      (e: any) => e.id === "service:sb-done",
+    );
+
+    expect(item?.actionLabel).toBe("Leave a review");
+  });
+
+  it("asks BOTH sides for a review, unlike a pending request", async () => {
+    mockActionableRentals.mockResolvedValue([]);
+    mockReviewableRentals.mockResolvedValue([
+      { ...REVIEWABLE_RENTAL, id: "req-a", role: "renter" as const },
+      { ...REVIEWABLE_RENTAL, id: "req-b", role: "owner" as const },
+    ]);
+
+    const body = await (await GET(req(RANGE))).json();
+
+    // A pending request is asymmetric — only the receiving side acts. A review
+    // is not: Req 15.1.1 surfaces the opportunity to *each* party.
+    expect(
+      body.needsAttention.filter(
+        (e: any) => e.actionLabel === "Leave a review",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("carries no review countdown — expiresAt stays a pending-request field", async () => {
+    mockActionableRentals.mockResolvedValue([]);
+    mockReviewableRentals.mockResolvedValue([REVIEWABLE_RENTAL]);
+
+    const body = await (await GET(req(RANGE))).json();
+    const item = body.needsAttention.find(
+      (e: any) => e.id === "rental:req-done",
+    );
+
+    expect(item.expiresAt).toBeNull();
+  });
+
+  it("does not let a failing review lookup cost the user a pending request", async () => {
+    mockReviewableRentals.mockRejectedValue(new Error("boom"));
+    mockReviewableBookings.mockRejectedValue(new Error("boom"));
+
+    const response = await GET(req(RANGE));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.needsAttention).toHaveLength(1);
+    expect(body.needsAttention[0].actionLabel).toBe("Respond to request");
+  });
+
+  it("adds nothing when there is nothing to review", async () => {
+    const body = await (await GET(req(RANGE))).json();
+    expect(
+      body.needsAttention.some((e: any) => e.actionLabel === "Leave a review"),
+    ).toBe(false);
   });
 });

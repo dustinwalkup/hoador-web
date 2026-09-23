@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  ForbiddenError,
-  NotFoundError,
-  ValidationError,
-  ConflictError,
-} from "@/dal/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/dal/errors";
 import { mockDispute } from "@/test/fixtures/disputes";
 
 vi.mock("@/dal", () => ({
@@ -178,7 +173,12 @@ describe("DisputeCreationService.createDispute", () => {
     expect(disputeDAL.create).not.toHaveBeenCalled();
   });
 
-  it("34.3 Filing window expired - validateFilingWindowUnified returns invalid → throws ValidationError", async () => {
+  // P-E13-3 retyped these three. They were `ValidationError` / `ConflictError`
+  // — the same class, status and body as "description too short" — so a client
+  // could only tell them apart by matching the prose, which mobile's rule #8
+  // forbids. The assertions now pin the code AND the payload, because the
+  // payload is the point: `disputeId` is what Req 19.1.3's "route to it" needs.
+  it("34.3 Filing window expired → DISPUTE_WINDOW_CLOSED with the deadline", async () => {
     vi.mocked(rentalDAL.getRentalDetailsById).mockResolvedValue(
       mockRentalDetails as never,
     );
@@ -186,8 +186,10 @@ describe("DisputeCreationService.createDispute", () => {
       id: "rental-actual-123",
     });
     vi.mocked(disputeDAL.getActiveByRentalId).mockResolvedValue(null);
+    const deadline = new Date("2026-03-01T00:00:00Z");
     vi.mocked(disputeDAL.validateFilingWindowUnified).mockResolvedValue({
       valid: false,
+      deadline,
       message:
         "The dispute filing window closed 24 hours after the return was confirmed",
     });
@@ -199,12 +201,42 @@ describe("DisputeCreationService.createDispute", () => {
         description: "Test",
         userId: "user-renter",
       }),
-    ).rejects.toThrow(ValidationError);
+    ).rejects.toMatchObject({
+      code: "DISPUTE_WINDOW_CLOSED",
+      statusCode: 400,
+      details: { deadline: deadline.toISOString(), reason: "closed" },
+    });
 
     expect(disputeDAL.create).not.toHaveBeenCalled();
   });
 
-  it("34.4 Active dispute exists - getActiveByRentalId returns dispute → throws ConflictError", async () => {
+  it("34.3b Filing window not open yet → DISPUTE_WINDOW_CLOSED with no deadline", async () => {
+    vi.mocked(rentalDAL.getRentalDetailsById).mockResolvedValue(
+      mockRentalDetails as never,
+    );
+    vi.mocked(rentalDAL.getRentalByRequestId).mockResolvedValue({
+      id: "rental-actual-123",
+    });
+    vi.mocked(disputeDAL.getActiveByRentalId).mockResolvedValue(null);
+    vi.mocked(disputeDAL.validateFilingWindowUnified).mockResolvedValue({
+      valid: false,
+      message: "Disputes cannot be filed before the rental start date",
+    });
+
+    await expect(
+      DisputeCreationService.createDispute({
+        rentalId: "request-123",
+        reasonCode: "damage",
+        description: "Test",
+        userId: "user-renter",
+      }),
+    ).rejects.toMatchObject({
+      code: "DISPUTE_WINDOW_CLOSED",
+      details: { deadline: null, reason: "not_open_yet" },
+    });
+  });
+
+  it("34.4 Active dispute exists → DISPUTE_ALREADY_EXISTS carrying its id", async () => {
     vi.mocked(rentalDAL.getRentalDetailsById).mockResolvedValue(
       mockRentalDetails as never,
     );
@@ -222,12 +254,49 @@ describe("DisputeCreationService.createDispute", () => {
         description: "Test",
         userId: "user-renter",
       }),
-    ).rejects.toThrow(ConflictError);
+    ).rejects.toMatchObject({
+      code: "DISPUTE_ALREADY_EXISTS",
+      statusCode: 409,
+      details: { disputeId: mockDispute.id, resolved: false },
+    });
 
     expect(disputeDAL.create).not.toHaveBeenCalled();
   });
 
-  it("34.5 Rate limits - checkRateLimits returns withinLimits false → throws ValidationError", async () => {
+  it("34.4b Resolved dispute exists → DISPUTE_ALREADY_EXISTS with resolved: true", async () => {
+    vi.mocked(rentalDAL.getRentalDetailsById).mockResolvedValue(
+      mockRentalDetails as never,
+    );
+    vi.mocked(rentalDAL.getRentalByRequestId).mockResolvedValue({
+      id: "rental-actual-123",
+    });
+    vi.mocked(disputeDAL.getActiveByRentalId).mockResolvedValue(null);
+    // `...Once`, not `...Value`: these mocks are configured per test and never
+    // reset, so a persistent implementation here leaks a resolved prior dispute
+    // into every test that follows and fails them all.
+    vi.mocked(disputeDAL.getAnyByRentalId).mockResolvedValueOnce({
+      ...mockDispute,
+      id: "dispute-old",
+      status: "resolved",
+    } as never);
+
+    // F19: the unique index makes this one dispute per rental *ever*, not one
+    // at a time — so the client has to be able to say "this is finished", not
+    // just "there is one open".
+    await expect(
+      DisputeCreationService.createDispute({
+        rentalId: "request-123",
+        reasonCode: "damage",
+        description: "Test",
+        userId: "user-renter",
+      }),
+    ).rejects.toMatchObject({
+      code: "DISPUTE_ALREADY_EXISTS",
+      details: { disputeId: "dispute-old", resolved: true },
+    });
+  });
+
+  it("34.5 Rate limits exceeded → DISPUTE_RATE_LIMITED (429) with the counts", async () => {
     vi.mocked(rentalDAL.getRentalDetailsById).mockResolvedValue(
       mockRentalDetails as never,
     );
@@ -251,7 +320,16 @@ describe("DisputeCreationService.createDispute", () => {
         description: "Test",
         userId: "user-renter",
       }),
-    ).rejects.toThrow(ValidationError);
+    ).rejects.toMatchObject({
+      code: "DISPUTE_RATE_LIMITED",
+      statusCode: 429,
+      details: {
+        monthlyCount: 4,
+        monthlyLimit: 3,
+        yearlyCount: 5,
+        yearlyLimit: 10,
+      },
+    });
 
     expect(disputeDAL.create).not.toHaveBeenCalled();
   });

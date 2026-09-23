@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { BaseDAL } from "./base";
 import { ConflictError, NotFoundError } from "./errors";
 import { type PaginatedResult, type PaginationOptions } from "./types";
@@ -13,7 +13,15 @@ import { schema } from "@/db/schemas";
 import type { needCloseReasonEnum, needTypeEnum } from "@/db/schemas/_enums";
 import { haversineMiles, type LatLng } from "@/lib/utils/geo.utils";
 
-const { listings, serviceListings, communities, user, userAddresses } = schema;
+const {
+  listings,
+  serviceListings,
+  communities,
+  user,
+  userAddresses,
+  listingCategories,
+  serviceListingCategories,
+} = schema;
 
 export type NeedType = (typeof needTypeEnum.enumValues)[number];
 export type NeedCloseReason = (typeof needCloseReasonEnum.enumValues)[number];
@@ -33,15 +41,43 @@ export interface NeedFeedFilters {
 /**
  * Enrichment shared by the feed and detail views:
  * - community name for the need
+ * - **who posted it** — display name and avatar (P-E13-6)
  * - the requester's aggregate rating (numeric string, or null if unrated)
+ * - **the category's name** (P-E13-6)
  * - distance in miles from the viewer to the requester's home (null when either
  *   party has no saved address)
+ *
+ * `requesterName` and `categoryName` were added because a need card could not
+ * say who posted it or what it was about: the row carried `createdByUserId` and
+ * a bare `categoryId` and nothing else. Every other card in the product names a
+ * person, and `category_id` has **no foreign key** — it points at
+ * `listing_categories` or `service_listing_categories` depending on `type`
+ * (validated in the service layer), so a client cannot resolve it without
+ * knowing that rule and holding both lists.
  */
 export interface NeedEnrichment {
   communityName: string;
+  /**
+   * Composed server-side from two nullable columns. Null — never the string
+   * `"null null"` — when the creator has filled in neither: the trap Epic 11's
+   * F5 found live on the messaging endpoints.
+   */
+  requesterName: string | null;
+  requesterAvatarUrl: string | null;
   requesterRating: string | null;
   requesterReviewCount: number;
+  /** Resolved against the type-appropriate table; null if the category is gone. */
+  categoryName: string | null;
   distanceMiles: number | null;
+}
+
+/** Join two nullable name columns without ever emitting "null null" (Epic 11 F5). */
+function displayName(
+  firstName: string | null | undefined,
+  lastName: string | null | undefined,
+): string | null {
+  const composed = [firstName, lastName].filter(Boolean).join(" ").trim();
+  return composed.length > 0 ? composed : null;
 }
 
 export interface NeedFeedRow extends NeighborhoodNeed, NeedEnrichment {
@@ -215,34 +251,49 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
       this.validatePagination(pagination.page, pagination.limit);
       const offset = (pagination.page - 1) * pagination.limit;
 
-      const communityIdList = visibleCommunityIds
-        .map((id) => `'${id}'`)
-        .join(",");
+      // ⚠️ EVERY value below is BOUND, never interpolated. This block used to
+      // build the predicate by string concatenation, and `categoryId` reaches it
+      // straight off the query string (`/api/needs` reads `sp.get("categoryId")`)
+      // — a bare `AND n.category_id = '<client text>'` inside `sql.raw` is a SQL
+      // injection, and it was one. `sql` (tagged) parameterizes; `sql.raw` does
+      // not. The route now also rejects a non-uuid `categoryId` with a 400, but
+      // THIS is the fix: a second caller must not be able to reopen the hole by
+      // forgetting to validate.
+      const communityFilter = sql.join(
+        visibleCommunityIds.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      );
 
-      const typeClause = filters.type ? `AND n.type = '${filters.type}'` : "";
+      const typeClause = filters.type
+        ? sql` AND n.type = ${filters.type}`
+        : sql``;
+      // Cast explicitly: `category_id` is `uuid`, and an unparameterized-looking
+      // comparison against a text parameter is what tempted the concatenation.
       const categoryClause = filters.categoryId
-        ? `AND n.category_id = '${filters.categoryId}'`
-        : "";
+        ? sql` AND n.category_id = ${filters.categoryId}::uuid`
+        : sql``;
       const openOnlyClause =
-        filters.openOnly !== false ? `AND n.status = 'open'` : "";
-      // Session-derived id (see NeedFeedFilters.createdByUserId), not client input.
+        filters.openOnly !== false ? sql` AND n.status = 'open'` : sql``;
+      // Session-derived id (see NeedFeedFilters.createdByUserId), not client input
+      // — bound anyway, because "this caller is trusted" is how the other one got
+      // written.
       const createdByClause = filters.createdByUserId
-        ? `AND n.created_by_user_id = '${filters.createdByUserId}'`
-        : "";
+        ? sql` AND n.created_by_user_id = ${filters.createdByUserId}`
+        : sql``;
 
-      const baseWhere = `
-        n.community_id IN (${communityIdList})
-        AND n.deleted_at IS NULL
-        ${openOnlyClause}
-        ${typeClause}
-        ${categoryClause}
-        ${createdByClause}
+      const baseWhere = sql`
+        n.community_id IN (${communityFilter})
+        AND n.deleted_at IS NULL${openOnlyClause}${typeClause}${categoryClause}${createdByClause}
       `;
 
       type FeedRawRow = Record<string, unknown> & {
         communityName?: string;
+        requesterFirstName?: string | null;
+        requesterLastName?: string | null;
+        requesterAvatarUrl?: string | null;
         requesterRating?: string | null;
         requesterReviewCount?: number | string;
+        categoryName?: string | null;
         requesterLat?: string | null;
         requesterLng?: string | null;
         linkedListingCount?: number;
@@ -250,7 +301,7 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
 
       const [rows, countRows] = await Promise.all([
         this.db.execute<FeedRawRow>(
-          sql.raw(`
+          sql`
             SELECT n.id,
                    n.created_by_user_id AS "createdByUserId",
                    n.community_id AS "communityId",
@@ -273,8 +324,16 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
                    n.created_at AT TIME ZONE 'UTC' AS "createdAt",
                    n.updated_at AT TIME ZONE 'UTC' AS "updatedAt",
                    c.name AS "communityName",
+                   u.first_name AS "requesterFirstName",
+                   u.last_name AS "requesterLastName",
+                   u.profile_image_url AS "requesterAvatarUrl",
                    u.review_aggregate_rating AS "requesterRating",
                    u.review_count AS "requesterReviewCount",
+                   -- category_id has no FK: it means listing_categories for a
+                   -- rental need and service_listing_categories for a service
+                   -- one (D4, validated in the service layer). Both joins are
+                   -- guarded on n.type, so exactly one can match.
+                   COALESCE(lc.name, slc.name) AS "categoryName",
                    addr.latitude AS "requesterLat",
                    addr.longitude AS "requesterLng",
                    COALESCE(l.cnt, 0)::int AS "linkedListingCount"
@@ -285,6 +344,10 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
              AND cv.is_visible = true
             JOIN communities c ON c.id = n.community_id
             JOIN "user" u ON u.id = n.created_by_user_id
+            LEFT JOIN listing_categories lc
+              ON n.type = 'rental' AND lc.id = n.category_id
+            LEFT JOIN service_listing_categories slc
+              ON n.type = 'service' AND slc.id = n.category_id
             LEFT JOIN LATERAL (
               SELECT ua.latitude, ua.longitude
               FROM user_addresses ua
@@ -300,10 +363,10 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
             WHERE ${baseWhere}
             ORDER BY n.created_at DESC
             LIMIT ${pagination.limit} OFFSET ${offset}
-          `),
+          `,
         ),
         this.db.execute<Record<string, unknown> & { total?: string }>(
-          sql.raw(`
+          sql`
             SELECT count(*)::int AS total
             FROM neighborhood_needs n
             JOIN community_visibility cv
@@ -311,7 +374,7 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
              AND cv.community_id = n.community_id
              AND cv.is_visible = true
             WHERE ${baseWhere}
-          `),
+          `,
         ),
       ]);
 
@@ -319,8 +382,12 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
         const {
           requesterLat,
           requesterLng,
+          requesterFirstName,
+          requesterLastName,
+          requesterAvatarUrl,
           requesterRating,
           requesterReviewCount,
+          categoryName,
           communityName,
           ...rest
         } = raw as FeedRawRow;
@@ -336,9 +403,12 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
         return {
           ...rest,
           communityName: String(communityName ?? ""),
+          requesterName: displayName(requesterFirstName, requesterLastName),
+          requesterAvatarUrl: requesterAvatarUrl ?? null,
           requesterRating:
             requesterRating != null ? String(requesterRating) : null,
           requesterReviewCount: Number(requesterReviewCount ?? 0),
+          categoryName: categoryName ?? null,
           distanceMiles,
           linkedListingCount: Number(rest.linkedListingCount ?? 0),
         };
@@ -424,8 +494,9 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
   }
 
   /**
-   * Resolve the community name, requester rating, and viewer→requester distance
-   * for a single need. Distance is null when either party has no saved address.
+   * Resolve the community name, the requester's identity and rating, the
+   * category name, and the viewer→requester distance for a single need.
+   * Distance is null when either party has no saved address.
    */
   private async getNeedEnrichment(
     need: NeighborhoodNeed,
@@ -439,12 +510,17 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
 
     const [requester] = await this.db
       .select({
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatarUrl: user.profileImageUrl,
         rating: user.reviewAggregateRating,
         reviewCount: user.reviewCount,
       })
       .from(user)
       .where(eq(user.id, need.createdByUserId))
       .limit(1);
+
+    const categoryName = await this.getCategoryName(need.type, need.categoryId);
 
     const requesterLocation = await this.getUserPrimaryLocation(
       need.createdByUserId,
@@ -457,10 +533,42 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
 
     return {
       communityName: community?.name ?? "",
+      requesterName: displayName(requester?.firstName, requester?.lastName),
+      requesterAvatarUrl: requester?.avatarUrl ?? null,
       requesterRating: requester?.rating ?? null,
       requesterReviewCount: requester?.reviewCount ?? 0,
+      categoryName,
       distanceMiles,
     };
+  }
+
+  /**
+   * Resolve a need's category name from the table its `type` points at.
+   *
+   * `neighborhood_needs.category_id` carries **no foreign key** — it references
+   * `listing_categories` for a rental need and `service_listing_categories` for
+   * a service one, enforced in the service layer (D4). That rule lives here so
+   * a client does not have to know it, or hold both category lists to apply it.
+   */
+  private async getCategoryName(
+    type: NeedType,
+    categoryId: string,
+  ): Promise<string | null> {
+    if (type === "rental") {
+      const [row] = await this.db
+        .select({ name: listingCategories.name })
+        .from(listingCategories)
+        .where(eq(listingCategories.id, categoryId))
+        .limit(1);
+      return row?.name ?? null;
+    }
+
+    const [row] = await this.db
+      .select({ name: serviceListingCategories.name })
+      .from(serviceListingCategories)
+      .where(eq(serviceListingCategories.id, categoryId))
+      .limit(1);
+    return row?.name ?? null;
   }
 
   /**
@@ -540,9 +648,12 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
           and(
             eq(neighborhoodNeeds.status, "open"),
             isNull(neighborhoodNeeds.deletedAt),
-            // Drizzle doesn't have inArray for uuid[] parameter natively here,
-            // but the array is already validated above so we can use sql tag.
-            sql`${neighborhoodNeeds.communityId} = ANY(ARRAY[${sql.raw(visibleCommunityIds.map((id) => `'${id}'`).join(","))}]::uuid[])`,
+            // Was a hand-built `ANY(ARRAY['<id>',…])` through `sql.raw`. These
+            // ids come from the session's visibility set rather than the client,
+            // so it was not the injection `listFeed` was — but it is the same
+            // pattern one refactor away from taking client input, and `inArray`
+            // binds them. Leave no interpolated identifier lists in this file.
+            inArray(neighborhoodNeeds.communityId, visibleCommunityIds),
           ),
         );
       return Number(result?.total ?? 0);

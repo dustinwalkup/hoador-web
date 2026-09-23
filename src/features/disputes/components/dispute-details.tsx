@@ -146,10 +146,13 @@ export function DisputeDetails({
     );
   };
 
-  // Filter audit logs for state transitions
-  const stateTransitions =
-    dispute?.auditLogs?.filter((log) => log.actionType === "state_change") ||
-    [];
+  // State transitions, from the server's curated timeline (P-E13-2). This used
+  // to filter `dispute.auditLogs`, which is admin-only data the route no longer
+  // sends to participants — and it rendered each row's `reason`, an admin's free
+  // text written for the record rather than for the parties.
+  const stateTransitions = (dispute?.timeline ?? []).filter(
+    (event) => event.type === "state_change",
+  );
 
   // Separate evidence by type
   const imageEvidence =
@@ -197,10 +200,24 @@ export function DisputeDetails({
     );
   }
 
-  const listingLabel =
-    dispute.rental?.listing?.name ??
-    dispute.serviceBooking?.listing?.title ??
-    undefined;
+  // `subject` rather than `dispute.rental` / `dispute.serviceBooking`: those
+  // relations are admin-only now (P-E13-2), and a participant reading this page
+  // would otherwise see an untitled dispute with no way back to the
+  // transaction. Both roles get `subject`.
+  const listingLabel = dispute.subject?.name ?? undefined;
+
+  const transactionLink =
+    dispute.subject?.type === "rental"
+      ? {
+          href: `/dashboard/rental/${dispute.subject.rentalRequestId ?? dispute.subject.id}`,
+          label: "View Rental",
+        }
+      : dispute.subject?.type === "service"
+        ? {
+            href: `/dashboard/services/bookings/${dispute.subject.id}`,
+            label: "View Service Booking",
+          }
+        : null;
 
   const disputeIdentifier = formatDisputeIdentifier(
     dispute.referenceNumber,
@@ -224,21 +241,12 @@ export function DisputeDetails({
                 {disputeIdentifier} • {getReasonCodeLabel(dispute.reasonCode)}
               </CardDescription>
             </div>
-            {dispute.rental && (
+            {transactionLink && (
               <Link
-                href={`/dashboard/rental/${dispute.rental.requestId}`}
+                href={transactionLink.href}
                 className="text-primary flex items-center gap-1 text-sm hover:underline"
               >
-                View Rental
-                <ExternalLink className="h-3 w-3" />
-              </Link>
-            )}
-            {dispute.serviceBooking && (
-              <Link
-                href={`/dashboard/services/bookings/${dispute.serviceBooking.id}`}
-                className="text-primary flex items-center gap-1 text-sm hover:underline"
-              >
-                View Service Booking
+                {transactionLink.label}
                 <ExternalLink className="h-3 w-3" />
               </Link>
             )}
@@ -410,13 +418,8 @@ export function DisputeDetails({
                       </Badge>
                     </div>
                     <p className="text-muted-foreground mt-1 text-sm">
-                      {formatDateTime(transition.createdAt)}
+                      {formatDateTime(transition.at)}
                     </p>
-                    {transition.reason && (
-                      <p className="text-muted-foreground mt-1 text-sm">
-                        {transition.reason}
-                      </p>
-                    )}
                   </div>
                 </div>
               ))}

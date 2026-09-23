@@ -9,27 +9,28 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { DisputeWithRelations } from "@/dal/types";
-
-type DisputeAuditLog = NonNullable<DisputeWithRelations["auditLogs"]>[number];
+import type { DisputeTimelineEvent } from "../lib/participant-view";
 
 interface DisputeTimelineProps {
-  auditLogs: DisputeAuditLog[];
+  /**
+   * The server's curated timeline (`GET /api/disputes/[id]` → `timeline`).
+   *
+   * Was `auditLogs`, the raw `dispute_audit_logs` rows — which the route no
+   * longer sends to participants at all (P-E13-2), and which carried an admin's
+   * free-text `reason` and the acting user's id. `toDisputeTimeline` resolves
+   * the actor to you / the other party / support and drops the rest.
+   */
+  timeline: DisputeTimelineEvent[];
 }
 
 /**
  * Component for displaying dispute timeline
- * Shows state transitions from audit logs in chronological order
- * Filters for state_change actions only
+ * Shows state transitions in chronological order
  */
-export function DisputeTimeline({ auditLogs }: DisputeTimelineProps) {
-  // Filter for state_change actions and sort chronologically
-  const stateTransitions = auditLogs
-    .filter((log) => log.actionType === "state_change")
-    .sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    );
+export function DisputeTimeline({ timeline }: DisputeTimelineProps) {
+  const stateTransitions = timeline
+    .filter((event) => event.type === "state_change")
+    .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
   const formatDateTime = (date: Date | string) => {
     return new Date(date).toLocaleString("en-US", {
@@ -39,6 +40,12 @@ export function DisputeTimeline({ auditLogs }: DisputeTimelineProps) {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const ACTOR_LABELS: Record<DisputeTimelineEvent["actor"], string> = {
+    you: "By you",
+    other_party: "By the other party",
+    support: "By Hoador support",
   };
 
   const formatStateLabel = (state: string | null) => {
@@ -95,18 +102,11 @@ export function DisputeTimeline({ auditLogs }: DisputeTimelineProps) {
                   </Badge>
                 </div>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  {formatDateTime(transition.createdAt)}
+                  {formatDateTime(transition.at)}
                 </p>
-                {transition.reason && (
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    {transition.reason}
-                  </p>
-                )}
-                {transition.userId && (
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    Initiated by user: {transition.userId.slice(0, 8)}
-                  </p>
-                )}
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {ACTOR_LABELS[transition.actor]}
+                </p>
               </div>
             </div>
           ))}

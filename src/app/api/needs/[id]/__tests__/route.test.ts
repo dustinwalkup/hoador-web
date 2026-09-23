@@ -262,25 +262,53 @@ describe("PATCH /api/needs/[id]", () => {
 // DELETE /api/needs/[id]
 // =============================================================================
 
+// P-E13-4: delete was gated on `requireAdminResponse()` and the service threw
+// "Only admins may delete a Neighborhood Need." before it looked at ownership,
+// while Req 20.1.3 gives the creator delete alongside edit and close. The route
+// now authenticates and hands ownership to the service, which is where the
+// other two already decided it.
 describe("DELETE /api/needs/[id]", () => {
-  it("returns 403 for non-admin", async () => {
-    mockRequireAdminResponse.mockResolvedValue(
-      NextResponse.json(
-        { error: "Admin privileges required" },
-        { status: 403 },
-      ),
+  it("returns 401 when unauthenticated", async () => {
+    mockGetAuthenticatedUserResponse.mockResolvedValue(
+      NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    );
+    const { DELETE } = await import("../route");
+    const res = await DELETE(deleteReq("need-1"), params("need-1"));
+    expect(res.status).toBe(401);
+    expect(mockDeleteNeed).not.toHaveBeenCalled();
+  });
+
+  it("no longer requires admin — a signed-in user reaches the service", async () => {
+    const { DELETE } = await import("../route");
+    const res = await DELETE(deleteReq("need-1"), params("need-1"));
+    expect(res.status).toBe(200);
+    expect(mockDeleteNeed).toHaveBeenCalledWith("need-1", {
+      userId: "user-1",
+      isAdmin: false,
+    });
+    expect(mockRequireAdminResponse).not.toHaveBeenCalled();
+  });
+
+  it("passes isAdmin through for an admin", async () => {
+    mockGetAuthenticatedUserResponse.mockResolvedValue({
+      userId: "admin-1",
+      isAdmin: true,
+    });
+    const { DELETE } = await import("../route");
+    await DELETE(deleteReq("need-1"), params("need-1"));
+    expect(mockDeleteNeed).toHaveBeenCalledWith("need-1", {
+      userId: "admin-1",
+      isAdmin: true,
+    });
+  });
+
+  it("returns 403 when the service refuses a non-owner", async () => {
+    mockDeleteNeed.mockRejectedValue(
+      new ForbiddenError("Only the owner or an admin may delete this Need."),
     );
     const { DELETE } = await import("../route");
     const res = await DELETE(deleteReq("need-1"), params("need-1"));
     expect(res.status).toBe(403);
-    expect(mockDeleteNeed).not.toHaveBeenCalled();
-  });
-
-  it("returns 200 for admin soft-delete", async () => {
-    const { DELETE } = await import("../route");
-    const res = await DELETE(deleteReq("need-1"), params("need-1"));
-    expect(res.status).toBe(200);
-    expect(mockDeleteNeed).toHaveBeenCalledWith("need-1", { isAdmin: true });
   });
 
   it("returns 400 when need does not exist", async () => {

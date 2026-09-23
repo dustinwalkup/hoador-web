@@ -116,32 +116,45 @@ async function getHandler(request: NextRequest) {
         return fallback;
       });
 
-    const [rentals, bookings, actionableRentals, actionableBookings] =
-      await Promise.all([
-        safe(
-          rentalDAL.getScheduleRentals(userId, from, rangeEnd),
-          "rental",
-          [],
+    const [
+      rentals,
+      bookings,
+      actionableRentals,
+      actionableBookings,
+      reviewableRentals,
+      reviewableBookings,
+    ] = await Promise.all([
+      safe(rentalDAL.getScheduleRentals(userId, from, rangeEnd), "rental", []),
+      safe(
+        serviceBookingDAL.getScheduleBookings(userId, fromRaw, toRaw),
+        "service-booking",
+        [],
+      ),
+      safe(
+        rentalDAL.getActionableRentals(userId, ACTIONABLE_RENTAL_STATUSES),
+        "actionable-rental",
+        [],
+      ),
+      safe(
+        serviceBookingDAL.getActionableBookings(
+          userId,
+          ACTIONABLE_BOOKING_STATUSES,
         ),
-        safe(
-          serviceBookingDAL.getScheduleBookings(userId, fromRaw, toRaw),
-          "service-booking",
-          [],
-        ),
-        safe(
-          rentalDAL.getActionableRentals(userId, ACTIONABLE_RENTAL_STATUSES),
-          "actionable-rental",
-          [],
-        ),
-        safe(
-          serviceBookingDAL.getActionableBookings(
-            userId,
-            ACTIONABLE_BOOKING_STATUSES,
-          ),
-          "actionable-booking",
-          [],
-        ),
-      ]);
+        "actionable-booking",
+        [],
+      ),
+      // Req 5.6.1's *review available* class (P-E13-1). Two more sources
+      // rather than two more statuses: "a review is outstanding" is a join
+      // against `blind_reviews` inside a 7-day window, not a booking state —
+      // see REVIEW_ACTION_LABEL. Each degrades to [] on its own, so a review
+      // lookup failing cannot cost the user a pending request.
+      safe(rentalDAL.getReviewableRentals(userId), "reviewable-rental", []),
+      safe(
+        serviceBookingDAL.getReviewableBookings(userId),
+        "reviewable-booking",
+        [],
+      ),
+    ]);
 
     const events: ScheduleEvent[] = buildSchedule(rentals, bookings);
 
@@ -152,8 +165,8 @@ async function getHandler(request: NextRequest) {
     // matters. `actionFor` decides membership — the query fetches a superset of
     // statuses, and a row needing the OTHER party's action drops out here.
     const needsAttention = buildSchedule(
-      actionableRentals,
-      actionableBookings,
+      [...actionableRentals, ...reviewableRentals],
+      [...actionableBookings, ...reviewableBookings],
     ).filter((event) => event.needsAction);
 
     return NextResponse.json({

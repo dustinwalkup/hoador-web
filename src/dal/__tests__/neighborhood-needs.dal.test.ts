@@ -1,7 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 import { neighborhoodNeedsDAL } from "../index";
 import { ConflictError, NotFoundError } from "../errors";
 import { db } from "@/db/db";
+
+/**
+ * Render the SQL `listFeed` handed to `db.execute` into the statement text and
+ * parameter list Postgres would actually receive.
+ *
+ * Asserting on the rendered query rather than on the template object is what
+ * makes the injection tests meaningful: a bound value appears in `params` and
+ * as `$n` in `sql`, and an interpolated one appears in `sql` itself. A substring
+ * check against the template would pass either way.
+ */
+function renderFeedQuery(callIndex = 0): { sql: string; params: unknown[] } {
+  const chunk = vi.mocked(db.execute).mock.calls[callIndex]?.[0] as SQL;
+  const { sql, params } = new PgDialect().sqlToQuery(chunk);
+  return { sql, params };
+}
 
 vi.mock("@/db/db", () => ({
   db: {
@@ -299,8 +316,9 @@ describe("NeighborhoodNeedsDAL", () => {
         { page: 1, limit: 10 },
       );
 
-      const feedSql = JSON.stringify(vi.mocked(db.execute).mock.calls[0]?.[0]);
-      expect(feedSql).toContain("n.created_by_user_id = 'user-1'");
+      const { sql, params } = renderFeedQuery();
+      expect(sql).toContain("n.created_by_user_id = $");
+      expect(params).toContain("user-1");
     });
 
     it("omits the creator filter when createdByUserId is not set", async () => {
@@ -316,8 +334,161 @@ describe("NeighborhoodNeedsDAL", () => {
 
       // `created_by_user_id` still appears in the SELECT list and JOINs; assert
       // the WHERE equality filter specifically is absent.
-      const feedSql = JSON.stringify(vi.mocked(db.execute).mock.calls[0]?.[0]);
-      expect(feedSql).not.toContain("n.created_by_user_id = '");
+      const { sql } = renderFeedQuery();
+      expect(sql).not.toContain("n.created_by_user_id = $");
+    });
+
+    // ── P-E13-5: the feed predicate is BOUND, never interpolated ──────────────
+    //
+    // `listFeed` used to build its WHERE by string concatenation inside
+    // `sql.raw`, and `categoryId` arrives from the query string — so
+    // `?categoryId=' OR '1'='1` was a live SQL injection. These assert on the
+    // SQL drizzle actually emits, not on a substring of a template: a value that
+    // shows up in `params` and a `$n` placeholder in `sql` is the definition of
+    // "not injectable", and it is the assertion that fails the moment somebody
+    // reaches for `sql.raw` again.
+    it.each([
+      ["a quote-escape injection", "' OR '1'='1"],
+      ["a UNION probe", "x' UNION SELECT NULL--"],
+      ["a statement terminator", "'; DROP TABLE neighborhood_needs;--"],
+    ])("binds a categoryId carrying %s", async (_label, value) => {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
+
+      await neighborhoodNeedsDAL.listFeed(
+        ["community-1"],
+        { categoryId: value },
+        { page: 1, limit: 10 },
+      );
+
+      const { sql, params } = renderFeedQuery();
+      expect(sql).toContain("n.category_id = $");
+      expect(params).toContain(value);
+      // The payload never reaches the statement text — the whole point.
+      expect(sql).not.toContain(value);
+      expect(sql).not.toContain("DROP TABLE");
+      expect(sql).not.toContain("UNION");
+    });
+
+    it("binds the visible community ids rather than interpolating them", async () => {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
+
+      await neighborhoodNeedsDAL.listFeed(
+        ["community-1", "community-2"],
+        {},
+        { page: 1, limit: 10 },
+      );
+
+      const { sql, params } = renderFeedQuery();
+      expect(sql).toContain("n.community_id IN (");
+      expect(params).toContain("community-1");
+      expect(params).toContain("community-2");
+      expect(sql).not.toContain("'community-1'");
+    });
+
+    // ── P-E13-6: the feed row can name who posted it and what it is ──────────
+    //
+    // `NeedFeedRow` carried `createdByUserId` and a bare `categoryId` — no name,
+    // no avatar, no category name — so a need card was the one card in the
+    // product that could not say who posted it.
+    it("composes the requester's display name and carries their avatar", async () => {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ...mockNeed,
+              communityName: "Maple Street HOA",
+              requesterFirstName: "Dana",
+              requesterLastName: "Nguyen",
+              requesterAvatarUrl: "https://blob/dana.jpg",
+              categoryName: "Power Tools",
+            },
+          ],
+        } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "1" }] } as any);
+
+      const result = await neighborhoodNeedsDAL.listFeed(
+        ["community-1"],
+        {},
+        { page: 1, limit: 10 },
+      );
+
+      expect(result.data[0].requesterName).toBe("Dana Nguyen");
+      expect(result.data[0].requesterAvatarUrl).toBe("https://blob/dana.jpg");
+      expect(result.data[0].categoryName).toBe("Power Tools");
+    });
+
+    // Epic 11's F5: `${firstName} ${lastName}` over two NULLABLE columns put the
+    // literal string "null null" on the messaging endpoints. Both columns are
+    // "Nullable for Better Auth compatibility", so a social sign-in that never
+    // completed a profile hits this.
+    it.each([
+      ["both names null", null, null, null],
+      ["first name only", "Dana", null, "Dana"],
+      ["last name only", null, "Nguyen", "Nguyen"],
+    ])("resolves %s to %s", async (_label, first, last, expected) => {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ...mockNeed,
+              communityName: "Maple Street HOA",
+              requesterFirstName: first,
+              requesterLastName: last,
+            },
+          ],
+        } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "1" }] } as any);
+
+      const result = await neighborhoodNeedsDAL.listFeed(
+        ["community-1"],
+        {},
+        { page: 1, limit: 10 },
+      );
+
+      expect(result.data[0].requesterName).toBe(expected);
+      // Null, never the literal "null null" — the whole point.
+      expect(String(result.data[0].requesterName)).not.toContain("null null");
+    });
+
+    it("joins both category tables, each guarded on the need's type", async () => {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
+
+      await neighborhoodNeedsDAL.listFeed(
+        ["community-1"],
+        {},
+        { page: 1, limit: 10 },
+      );
+
+      // `category_id` has no FK — it points at one table or the other depending
+      // on `type` — so both joins must be present and both must be guarded.
+      const { sql } = renderFeedQuery();
+      expect(sql).toContain("LEFT JOIN listing_categories lc");
+      expect(sql).toContain("n.type = 'rental' AND lc.id = n.category_id");
+      expect(sql).toContain("LEFT JOIN service_listing_categories slc");
+      expect(sql).toContain("n.type = 'service' AND slc.id = n.category_id");
+      expect(sql).toContain('COALESCE(lc.name, slc.name) AS "categoryName"');
+    });
+
+    it("binds the type filter", async () => {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
+
+      await neighborhoodNeedsDAL.listFeed(
+        ["community-1"],
+        { type: "service" },
+        { page: 1, limit: 10 },
+      );
+
+      const { sql, params } = renderFeedQuery();
+      expect(sql).toContain("n.type = $");
+      expect(params).toContain("service");
     });
   });
 

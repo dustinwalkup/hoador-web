@@ -1,4 +1,16 @@
-import { and, count, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  lt,
+  lte,
+  notExists,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import {
@@ -10,6 +22,8 @@ import {
 import { user } from "@/db/schemas/user.schema";
 import { serviceBookingStatusEnum } from "@/db/schemas/_enums";
 import { conversations } from "@/db/schemas/messages.schema";
+import { blindReviews } from "@/db/schemas/blind-reviews.schema";
+import { REVIEW_WINDOW_DAYS } from "@/features/reviews/constants";
 
 import { BaseDAL } from "./base";
 import { NotFoundError } from "./errors";
@@ -95,6 +109,12 @@ export interface ScheduleServiceBookingRow {
   expiresAt: Date;
   role: "client" | "provider";
   counterpartyName: string;
+  /**
+   * Set only by `getReviewableBookings` (P-E13-1): the booking is completed, the
+   * 7-day blind-review window is still open, and THIS user has not submitted.
+   * Not a status — see `REVIEW_ACTION_LABEL` in `build-schedule.ts`.
+   */
+  reviewPending?: boolean;
 }
 
 export class ServiceBookingDAL extends BaseDAL {
@@ -535,6 +555,95 @@ export class ServiceBookingDAL extends BaseDAL {
       ];
     } catch (error) {
       this.handleError(error, "getActionableBookings");
+    }
+  }
+
+  /**
+   * Completed service bookings this user still owes a review on (P-E13-1).
+   *
+   * The service-side twin of `rentalDAL.getReviewableRentals`. Simpler in one
+   * way — a booking has one id across its whole lifecycle, so the NOT EXISTS
+   * keys on the same id the schedule event carries — and identical in the rest:
+   * `completed` **with** a `completed_at` (the reviews service refuses a booking
+   * without one), inside the 7-day window, and unreviewed *by this user*.
+   */
+  async getReviewableBookings(
+    userId: string,
+  ): Promise<ScheduleServiceBookingRow[]> {
+    try {
+      const selection = {
+        id: serviceBookings.id,
+        listingTitle: serviceListings.title,
+        proposedDate: serviceBookings.proposedDate,
+        proposedTime: serviceBookings.proposedTime,
+        hours: serviceBookings.hours,
+        status: serviceBookings.status,
+        expiresAt: serviceBookings.expiresAt,
+      };
+
+      const base = and(
+        eq(serviceBookings.status, "completed"),
+        isNotNull(serviceBookings.completedAt),
+        sql`now() <= ${serviceBookings.completedAt} + make_interval(days => ${REVIEW_WINDOW_DAYS})`,
+        notExists(
+          this.db
+            .select({ one: sql`1` })
+            .from(blindReviews)
+            .where(
+              and(
+                eq(blindReviews.serviceBookingId, serviceBookings.id),
+                eq(blindReviews.reviewerId, userId),
+              ),
+            ),
+        ),
+      );
+
+      const asClient = await this.db
+        .select({
+          ...selection,
+          counterpartyName: sql<string>`CONCAT(${bookingProvider.firstName}, ' ', ${bookingProvider.lastName})`,
+        })
+        .from(serviceBookings)
+        .innerJoin(
+          serviceListings,
+          eq(serviceBookings.listingId, serviceListings.id),
+        )
+        .innerJoin(
+          bookingProvider,
+          eq(serviceBookings.providerId, bookingProvider.id),
+        )
+        .where(and(eq(serviceBookings.requesterId, userId), base));
+
+      const asProvider = await this.db
+        .select({
+          ...selection,
+          counterpartyName: sql<string>`CONCAT(${bookingRequester.firstName}, ' ', ${bookingRequester.lastName})`,
+        })
+        .from(serviceBookings)
+        .innerJoin(
+          serviceListings,
+          eq(serviceBookings.listingId, serviceListings.id),
+        )
+        .innerJoin(
+          bookingRequester,
+          eq(serviceBookings.requesterId, bookingRequester.id),
+        )
+        .where(and(eq(serviceBookings.providerId, userId), base));
+
+      return [
+        ...asClient.map((b) => ({
+          ...b,
+          role: "client" as const,
+          reviewPending: true,
+        })),
+        ...asProvider.map((b) => ({
+          ...b,
+          role: "provider" as const,
+          reviewPending: true,
+        })),
+      ];
+    } catch (error) {
+      this.handleError(error, "getReviewableBookings");
     }
   }
 

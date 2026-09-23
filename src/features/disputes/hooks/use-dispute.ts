@@ -1,7 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import type { DisputeWithRelations } from "@/dal/types";
+import type {
+  DisputeTimelineEvent,
+  ParticipantDisputeSubject,
+} from "../lib/participant-view";
 import { disputeKeys } from "./use-disputes";
+
+/**
+ * `GET /api/disputes/[id]` returns two different payloads (P-E13-2).
+ *
+ * An **admin** gets the whole DAL row plus `timeline`. A **participant** gets
+ * the narrowed projection: `internalNotes`, `auditLogs`, the Stripe identifiers
+ * on `financialOperations`, and both users' emails are not sent at all. Those
+ * relations are already optional on `DisputeWithRelations`, so the union is
+ * expressible as a `Partial` widening rather than a discriminated type — and
+ * every consumer already guards them (`dispute?.internalNotes || []`).
+ */
+export type DisputeDetailResponse = DisputeWithRelations & {
+  timeline?: DisputeTimelineEvent[];
+  subject?: ParticipantDisputeSubject | null;
+};
 
 const disputeInternalNoteFromApiSchema = z.object({
   id: z.string(),
@@ -20,20 +39,20 @@ const disputeInternalNoteFromApiSchema = z.object({
  */
 function parseDisputeJsonWithInternalNoteDates(
   json: unknown,
-): DisputeWithRelations {
+): DisputeDetailResponse {
   if (typeof json !== "object" || json === null) {
     throw new Error("Invalid dispute response");
   }
   const body = json as Record<string, unknown>;
   const rawNotes = body.internalNotes;
   if (!Array.isArray(rawNotes)) {
-    return json as DisputeWithRelations;
+    return json as DisputeDetailResponse;
   }
   const parsed = z.array(disputeInternalNoteFromApiSchema).safeParse(rawNotes);
   return {
     ...body,
     internalNotes: parsed.success ? parsed.data : rawNotes,
-  } as DisputeWithRelations;
+  } as DisputeDetailResponse;
 }
 
 /**
@@ -43,7 +62,7 @@ function parseDisputeJsonWithInternalNoteDates(
 export function useDispute(disputeId: string | null) {
   return useQuery({
     queryKey: disputeKeys.detail(disputeId || ""),
-    queryFn: async (): Promise<DisputeWithRelations> => {
+    queryFn: async (): Promise<DisputeDetailResponse> => {
       if (!disputeId) {
         throw new Error("Dispute ID is required");
       }

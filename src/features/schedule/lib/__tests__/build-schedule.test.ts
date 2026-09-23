@@ -313,3 +313,78 @@ describe("buildSchedule ordering", () => {
     expect(buildSchedule([], [])).toEqual([]);
   });
 });
+
+// ── P-E13-1: "review available" (Req 5.6.1's deferred class) ─────────────────
+//
+// The 2026-08-21 amendment predicted this would arrive by extending
+// `ACTIONABLE_*_STATUSES`. It could not: the booking is `completed` whether or
+// not a review is outstanding, so the fact comes off a join and rides on the
+// row as `reviewPending`. These tests pin the two things that made it different
+// from every other attention class.
+describe("review available is an attention class, not a status", () => {
+  it("makes a completed rental actionable without touching its status", () => {
+    const event = rentalToEvent(
+      rental({ status: "completed", reviewPending: true }),
+    );
+
+    expect(event.needsAction).toBe(true);
+    expect(event.actionLabel).toBe("Leave a review");
+    // The card still says Completed. Inventing a "review_pending" status would
+    // have put a word on it that D-E8-1's vocabulary does not contain, and that
+    // the client's status pill has no icon or tone for.
+    expect(event.status).toBe("completed");
+    expect(event.statusLabel).toBe("Completed");
+  });
+
+  it("does the same for a completed service booking", () => {
+    const event = serviceBookingToEvent(
+      booking({ status: "completed", reviewPending: true }),
+    );
+
+    expect(event.needsAction).toBe(true);
+    expect(event.actionLabel).toBe("Leave a review");
+    expect(event.statusLabel).toBe("Completed");
+  });
+
+  it("applies to BOTH roles — a review is symmetric, a request is not", () => {
+    for (const role of ["renter", "owner"] as const) {
+      const event = rentalToEvent(
+        rental({ status: "completed", reviewPending: true, role }),
+      );
+      expect(event.actionLabel).toBe("Leave a review");
+    }
+
+    // Contrast: the demand side of a pending request is NOT asked to act.
+    expect(
+      rentalToEvent(rental({ status: "pending", role: "renter" })),
+    ).toMatchObject({ needsAction: false, actionLabel: "Awaiting response" });
+  });
+
+  it("leaves a completed booking alone when nothing is owed", () => {
+    const event = rentalToEvent(rental({ status: "completed" }));
+
+    expect(event.needsAction).toBe(false);
+    expect(event.actionLabel).toBeNull();
+  });
+
+  it("renders no countdown — expiresAt belongs to pending requests", () => {
+    // The review window has a deadline, but `expiresAt` means "this request
+    // dies in 72 hours" everywhere else in Schedule, and the client sorts
+    // attention by it. Borrowing the field would rank a week-long review
+    // deadline against a four-hour one.
+    expect(
+      rentalToEvent(rental({ status: "completed", reviewPending: true }))
+        .expiresAt,
+    ).toBeNull();
+  });
+
+  it("wins over the status branch when both could apply", () => {
+    // Defensive: `reviewPending` is only ever set on completed rows today, but
+    // the check runs first so a future source cannot have its label silently
+    // replaced by a status branch.
+    const event = rentalToEvent(
+      rental({ status: "overdue", reviewPending: true }),
+    );
+    expect(event.actionLabel).toBe("Leave a review");
+  });
+});

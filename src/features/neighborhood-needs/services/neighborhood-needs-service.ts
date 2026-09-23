@@ -128,16 +128,34 @@ export async function closeNeed(
   return neighborhoodNeedsDAL.closeNeed(id, reason);
 }
 
+/**
+ * Soft-delete a Need. **Creator or admin** (P-E13-4).
+ *
+ * This was admin-only — it threw `ForbiddenError("Only admins may delete a
+ * Neighborhood Need.")` before it even looked at ownership, and the route
+ * gated on `requireAdminResponse()` on top of that. Requirement 20.1.3 says
+ * *"The creator shall be able to edit, manually close, **and delete** their
+ * need"*, so a creator had two of the three.
+ *
+ * Deletion is a soft delete (`deleted_at`), and `getNeedById` already excludes
+ * deleted rows, so a deleted need leaves the feed, the detail view and every
+ * link fan-out without touching the listings that were created from it.
+ *
+ * Idempotent: deleting an already-deleted need is a no-op success, matching
+ * `closeNeed`.
+ */
 export async function deleteNeed(
   id: string,
-  actor: { isAdmin: boolean },
+  actor: { userId?: string; isAdmin: boolean },
 ): Promise<void> {
-  if (!actor.isAdmin) {
-    throw new ForbiddenError("Only admins may delete a Neighborhood Need.");
-  }
-
   const need = await neighborhoodNeedsDAL.getNeedByIdIncludingDeleted(id);
   if (!need) throw new ValidationError("Neighborhood Need not found.");
+
+  if (!actor.isAdmin && need.createdByUserId !== actor.userId) {
+    throw new ForbiddenError(
+      "Only the owner or an admin may delete this Need.",
+    );
+  }
 
   if (need.deletedAt) return; // already soft-deleted, no-op
 

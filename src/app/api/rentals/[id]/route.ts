@@ -7,6 +7,10 @@ import {
   getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
 import { toWallClock } from "@/features/schedule/lib/build-schedule";
+import {
+  rentalDisputeEligibility,
+  resolveRentalIdForDispute,
+} from "@/features/disputes/lib/filing-eligibility";
 import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 
 /** Decimal string → integer cents, and back. Keeps the split off floats. */
@@ -155,6 +159,18 @@ async function getHandler(
           ? "owner"
           : "admin";
 
+    // Whether "File a dispute" should be offered, decided here rather than by
+    // each client re-implementing the filing window (P-E13-7). Degrades to
+    // "not eligible" on a lookup failure, the same way `agreement` degrades to
+    // null: a dispute CTA is supplementary to this screen, and the filing call
+    // is authoritative either way.
+    const { data: dispute } = await tryCatch(
+      (async () => {
+        const rentalId = await resolveRentalIdForDispute(data);
+        return rentalDisputeEligibility(rentalId, viewerRole !== "admin");
+      })(),
+    );
+
     return Response.json({
       ...data,
       startDate: toWallClock(data.startDate, { dateOnly: true }),
@@ -165,6 +181,7 @@ async function getHandler(
       viewerRole,
       earnings: buildEarningsPreview(viewerRole, data),
       agreement,
+      dispute: dispute ?? null,
     });
   } catch (error) {
     return handleApiError(error);

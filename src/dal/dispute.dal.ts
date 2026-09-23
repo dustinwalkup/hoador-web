@@ -913,7 +913,9 @@ export class DisputeDAL extends BaseDAL {
    * Applies the same 24-hour rule for ALL dispute reason codes.
    *
    * @param rentalId - Rental UUID to validate filing window for
-   * @returns Validation result with valid flag and optional error message
+   * @returns Validation result with valid flag, optional error message, and the
+   *   closing deadline when the rental has been returned (there is no deadline
+   *   on the not-yet-open branch)
    */
   async validateFilingWindowUnified(
     rentalId: string,
@@ -941,6 +943,7 @@ export class DisputeDAL extends BaseDAL {
         const valid = now <= deadline;
         return {
           valid,
+          deadline,
           message: valid
             ? undefined
             : "The dispute filing window closed 24 hours after the return was confirmed",

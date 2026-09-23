@@ -695,6 +695,15 @@ export interface RateLimitResult {
 export interface TimeWindowValidationResult {
   valid: boolean;
   message?: string;
+  /**
+   * When the window closes, when there is one.
+   *
+   * Absent on the "not open yet" branch (a rental before its start date), which
+   * has an *opening* time but no deadline. Added for P-E13-3 so
+   * `DISPUTE_WINDOW_CLOSED` can tell the client which deadline it missed rather
+   * than only that it missed one.
+   */
+  deadline?: Date;
 }
 
 export interface EvidenceDeadlineResult {

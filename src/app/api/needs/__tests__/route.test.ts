@@ -335,4 +335,35 @@ describe("GET /api/needs", () => {
       null,
     );
   });
+
+  it("passes a valid uuid categoryId through to listFeed", async () => {
+    const { GET } = await import("../route");
+    const id = "00000000-0000-4000-a000-000000000001";
+    await GET(getReq(`?categoryId=${id}`));
+    expect(mockListFeed).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ categoryId: id }),
+      expect.any(Object),
+      null,
+    );
+  });
+
+  // P-E13-5. `categoryId` used to be interpolated into raw SQL by
+  // `listFeed`; the DAL binds it now, and the route rejects anything that
+  // isn't a uuid before it gets there. Both halves matter: the DAL fix is
+  // what closes the hole, this is what keeps a malformed id a 400.
+  it.each([
+    ["a quote-escape injection", "' OR '1'='1"],
+    ["a UNION probe", "x' UNION SELECT NULL--"],
+    ["a statement terminator", "'; DROP TABLE neighborhood_needs;--"],
+    ["a plain non-uuid", "cat-1"],
+  ])(
+    "rejects %s in categoryId with 400 and never calls the DAL",
+    async (_label, value) => {
+      const { GET } = await import("../route");
+      const res = await GET(getReq(`?categoryId=${encodeURIComponent(value)}`));
+      expect(res.status).toBe(400);
+      expect(mockListFeed).not.toHaveBeenCalled();
+    },
+  );
 });

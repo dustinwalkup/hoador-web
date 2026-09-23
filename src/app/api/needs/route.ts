@@ -55,6 +55,9 @@ async function postHandler(request: NextRequest) {
   }
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * GET /api/needs
  * Return the network-scoped Neighborhood Needs feed for the authenticated viewer.
@@ -79,6 +82,19 @@ async function getHandler(request: NextRequest) {
       return NextResponse.json(emptyPaginatedResult(page, limit));
     }
 
+    // `categoryId` is the one feed filter whose value is free-form client text.
+    // The DAL binds it now (it used to interpolate it into raw SQL), so this is
+    // the second line of defence, not the only one — but an unparsable uuid is a
+    // client error, and letting it reach Postgres as a bound param would surface
+    // as a 500 from `22P02`, not a 400.
+    const rawCategoryId = sp.get("categoryId");
+    if (rawCategoryId !== null && !UUID_RE.test(rawCategoryId)) {
+      return NextResponse.json(
+        { error: "categoryId must be a valid UUID" },
+        { status: 400 },
+      );
+    }
+
     const rawType = sp.get("type");
     const filters: NeedFeedFilters = {
       type:
@@ -87,7 +103,7 @@ async function getHandler(request: NextRequest) {
           : rawType === "service"
             ? "service"
             : undefined,
-      categoryId: sp.get("categoryId") ?? undefined,
+      categoryId: rawCategoryId ?? undefined,
       openOnly: sp.get("openOnly") !== "false",
       // The client only signals intent via `mine`; the id is taken from the
       // authenticated session so a viewer can never request another user's needs.

@@ -4,7 +4,6 @@ import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   getAuthenticatedUserResponse,
   handleApiError,
-  requireAdminResponse,
 } from "@/lib/api/route-helpers";
 import { communityDAL, neighborhoodNeedsDAL } from "@/dal";
 import {
@@ -101,16 +100,18 @@ async function patchHandler(request: NextRequest, { params }: RouteContext) {
 
 /**
  * DELETE /api/needs/[id]
- * Admin-only soft delete.
+ * Soft delete. Creator or admin (P-E13-4 — this was admin-only, while
+ * Req 20.1.3 gives the creator delete alongside edit and close).
  */
 async function deleteHandler(_request: NextRequest, { params }: RouteContext) {
   try {
-    const adminError = await requireAdminResponse();
-    if (adminError) return adminError;
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId, isAdmin } = authResult;
 
     const { id } = await params;
 
-    await deleteNeed(id, { isAdmin: true });
+    await deleteNeed(id, { userId, isAdmin });
     return NextResponse.json({ success: true });
   } catch (error) {
     return handleApiError(error);

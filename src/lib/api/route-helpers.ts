@@ -22,6 +22,7 @@ import {
 import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
 import { ListingDeletionBlockedError } from "@/features/listings/lib/listing-deletion-errors";
+import { isDisputeError } from "@/features/disputes/lib/dispute-errors";
 import { setSentryUser } from "@/lib/sentry/user-context";
 
 /**
@@ -66,7 +67,10 @@ export function handleApiError(
     !(error instanceof CannotMessageSelfError) &&
     !(error instanceof PaymentSetupRequiredError) &&
     !(error instanceof AccountDeletionBlockedError) &&
-    !(error instanceof ListingDeletionBlockedError);
+    !(error instanceof ListingDeletionBlockedError) &&
+    // A refused filing — window closed, rate limit hit, dispute already open —
+    // is an expected user outcome, not an incident (P-E13-3).
+    !isDisputeError(error);
 
   if (shouldCaptureError) {
     const ctx = getRequestContext();
@@ -166,6 +170,20 @@ export function handleApiError(
   if (error instanceof AccountDeletionBlockedError) {
     return NextResponse.json(
       { error: error.code, blockers: error.details.blockers },
+      { status: error.statusCode },
+    );
+  }
+
+  // These are standalone `Error`s, not `DALError`s, so no earlier branch claims
+  // them — which is the point: `DISPUTE_ALREADY_EXISTS` used to be thrown as a
+  // `ConflictError` and lost its payload to the generic 409 branch above.
+  // `DISPUTE_ALREADY_EXISTS` carries the `disputeId`
+  // Req 19.1.3 needs to route to, and `DISPUTE_RATE_LIMITED` the counts Req
+  // 19.1.4 asks to be shown (P-E13-3). `error` stays the human message so the
+  // web hooks, which throw `new Error(body.error)`, keep rendering prose.
+  if (isDisputeError(error)) {
+    return NextResponse.json(
+      { error: error.message, code: error.code, ...error.details },
       { status: error.statusCode },
     );
   }

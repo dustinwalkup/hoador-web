@@ -15,6 +15,7 @@ import type {
   DisputeRole,
 } from "@/dal/types";
 import { DisputeCreationService } from "@/features/disputes/services/dispute-creation-service";
+import { toParticipantDisputeListItem } from "@/features/disputes/lib/participant-view";
 
 /**
  * GET /api/disputes
@@ -60,7 +61,14 @@ async function getHandler(request: NextRequest) {
         limit,
       });
 
-      return NextResponse.json(disputes);
+      // `getUserDisputes` joins `createdByUser` **including `email`** — so a
+      // dispute the counterparty filed handed the viewer their email address
+      // (P-E13-2 / F23). Nothing on either client renders it. Strip it here
+      // rather than in a client schema: the wire is the problem.
+      return NextResponse.json({
+        ...disputes,
+        data: disputes.data.map(toParticipantDisputeListItem),
+      });
     }
   } catch (error) {
     return handleApiError(error);

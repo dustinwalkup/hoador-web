@@ -9,8 +9,11 @@ import {
   or,
   desc,
   count,
+  isNotNull,
+  notExists,
 } from "drizzle-orm";
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
+import { blindReviews } from "@/db/schemas/blind-reviews.schema";
 import { rentalStatusEnum } from "@/db/schemas/_enums";
 import {
   listings,
@@ -33,6 +36,7 @@ import type { CancellationReason } from "./types";
 import { conversationBetween } from "./conversation-pair";
 import { alias } from "drizzle-orm/pg-core";
 import { PENDING_BOOKING_EXPIRY_WINDOW_HOURS } from "@/constants/payments";
+import { REVIEW_WINDOW_DAYS } from "@/features/reviews/constants";
 
 const serviceBookingRequesterForAlerts = alias(user, "sb_req_alerts");
 const serviceBookingProviderForAlerts = alias(user, "sb_prov_alerts");
@@ -462,6 +466,12 @@ export interface ScheduleRentalRow {
   setupRequested: boolean;
   role: "renter" | "owner";
   counterpartyName: string;
+  /**
+   * Set only by `getReviewableRentals` (P-E13-1): the rental is completed, the
+   * 7-day blind-review window is still open, and THIS user has not submitted.
+   * Not a status — see `REVIEW_ACTION_LABEL` in `build-schedule.ts`.
+   */
+  reviewPending?: boolean;
 }
 
 export class RentalDAL extends BaseDAL {
@@ -3235,6 +3245,96 @@ export class RentalDAL extends BaseDAL {
       ];
     } catch (error) {
       this.handleError(error, "getActionableRentals");
+    }
+  }
+
+  /**
+   * Completed rentals this user still owes a review on (P-E13-1).
+   *
+   * Feeds Schedule's **Needs your attention** with Req 5.6.1's *review
+   * available* class, deferred on 2026-08-21 because no booking status expresses
+   * it. Three conditions, none of which is a status:
+   *
+   *  1. the request is `completed` **and** `rentals.return_confirmed_at` is set —
+   *     the reviews service measures the window from that timestamp and refuses
+   *     a rental without one, so a `completed` request that lacks it would offer
+   *     a review the server would reject (epic F7);
+   *  2. `now() <= return_confirmed_at + 7 days` — `REVIEW_WINDOW_DAYS`;
+   *  3. **this** user has no `blind_reviews` row for the rental.
+   *
+   * ⚠️ The NOT EXISTS is keyed on `rentals.id`, not `rentalRequests.id`:
+   * `blind_reviews.rental_id` references the `rentals` table, while the schedule
+   * event's id is the *request* id (the two-table split). Getting that backwards
+   * matches nothing and shows every completed rental as reviewable, forever.
+   *
+   * Says nothing about the counterparty's review — Req 15.1.2's blind window
+   * holds here as it does on the reviews endpoint.
+   */
+  async getReviewableRentals(userId: string): Promise<ScheduleRentalRow[]> {
+    try {
+      const windowOpen = sql`now() <= ${rentals.returnConfirmedAt} + make_interval(days => ${REVIEW_WINDOW_DAYS})`;
+
+      const selection = {
+        id: rentalRequests.id,
+        listingName: listings.name,
+        startDate: rentalRequests.startDate,
+        endDate: rentalRequests.endDate,
+        status: rentalRequests.status,
+        expiresAt: rentalRequests.expiresAt,
+        deliveryRequested: rentalRequests.deliveryRequested,
+        setupRequested: rentalRequests.setupRequested,
+        counterpartyName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,
+      };
+
+      const notReviewedByMe = notExists(
+        this.db
+          .select({ one: sql`1` })
+          .from(blindReviews)
+          .where(
+            and(
+              eq(blindReviews.rentalId, rentals.id),
+              eq(blindReviews.reviewerId, userId),
+            ),
+          ),
+      );
+
+      const base = and(
+        eq(rentalRequests.status, "completed"),
+        isNotNull(rentals.returnConfirmedAt),
+        windowOpen,
+        notReviewedByMe,
+      );
+
+      const asRenter = await this.db
+        .select(selection)
+        .from(rentalRequests)
+        .innerJoin(rentals, eq(rentals.requestId, rentalRequests.id))
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.ownerId, user.id))
+        .where(and(eq(rentalRequests.renterId, userId), base));
+
+      const asOwner = await this.db
+        .select(selection)
+        .from(rentalRequests)
+        .innerJoin(rentals, eq(rentals.requestId, rentalRequests.id))
+        .innerJoin(listings, eq(rentalRequests.listingId, listings.id))
+        .innerJoin(user, eq(rentalRequests.renterId, user.id))
+        .where(and(eq(rentalRequests.ownerId, userId), base));
+
+      return [
+        ...asRenter.map((r) => ({
+          ...r,
+          role: "renter" as const,
+          reviewPending: true,
+        })),
+        ...asOwner.map((r) => ({
+          ...r,
+          role: "owner" as const,
+          reviewPending: true,
+        })),
+      ];
+    } catch (error) {
+      this.handleError(error, "getReviewableRentals");
     }
   }
 

@@ -95,6 +95,26 @@ export const ACTIONABLE_BOOKING_STATUSES = [
 ] as const;
 
 /**
+ * ⚠️ **"Review available" is not a status, and that is why it is not in the two
+ * lists above** (P-E13-1).
+ *
+ * Req 5.6.1 originally named four more attention classes. The 2026-08-21
+ * amendment deferred them because `GET /api/schedule` derives attention from
+ * booking *status*, and no status expresses "a review is outstanding" — the
+ * booking is simply `completed`, exactly like one that has already been
+ * reviewed. The note said the deferred classes would "extend
+ * `ACTIONABLE_*_STATUSES`" when their epics landed; for this one that turned out
+ * to be wrong. Whether a review is outstanding is a **join** against
+ * `blind_reviews` plus a 7-day window measured from the completion timestamp
+ * (`rentals.return_confirmed_at` / `service_bookings.completed_at`), which is
+ * why the DAL answers it and the row carries the answer here as a flag.
+ *
+ * Marking it on the row rather than inventing a pseudo-status keeps the status
+ * vocabulary (D-E8-1) honest: the event still says **Completed**, because it is.
+ */
+export const REVIEW_ACTION_LABEL = "Leave a review";
+
+/**
  * Format a `Date` as a **wall-clock** string, using its local components.
  *
  * `toISOString()` is forbidden on schedule dates and this is why: the columns are
@@ -170,8 +190,17 @@ function momentLabel(
 function actionFor(
   status: string,
   role: ScheduleRole,
+  reviewPending = false,
 ): { needsAction: boolean; actionLabel: string | null } {
   const isSupplySide = role === "owner" || role === "provider";
+
+  // Checked first: it is the only attention class that applies to a COMPLETED
+  // booking, and the `return {needsAction: false}` floor below would swallow it.
+  // Symmetric by design — both parties owe a review, unlike a pending request
+  // (Req 15.1.1: the opportunity is surfaced to *each* party).
+  if (reviewPending) {
+    return { needsAction: true, actionLabel: REVIEW_ACTION_LABEL };
+  }
 
   if (status === "pending") {
     return isSupplySide
@@ -209,7 +238,11 @@ function expiryFor(status: string, expiresAt: Date | null): string | null {
 export function rentalToEvent(row: ScheduleRentalRow): ScheduleEvent {
   const startDay = toWallClock(row.startDate, { dateOnly: true });
   const endDay = toWallClock(row.endDate, { dateOnly: true });
-  const { needsAction, actionLabel } = actionFor(row.status, row.role);
+  const { needsAction, actionLabel } = actionFor(
+    row.status,
+    row.role,
+    row.reviewPending,
+  );
 
   const moments: ScheduleMoment[] = [
     {
@@ -269,7 +302,11 @@ export function serviceBookingToEvent(
   row: ScheduleServiceBookingRow,
 ): ScheduleEvent {
   const start = `${row.proposedDate}T${normalizeTime(row.proposedTime)}`;
-  const { needsAction, actionLabel } = actionFor(row.status, row.role);
+  const { needsAction, actionLabel } = actionFor(
+    row.status,
+    row.role,
+    row.reviewPending,
+  );
 
   return {
     id: `service:${row.id}`,

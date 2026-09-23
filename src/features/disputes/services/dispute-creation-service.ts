@@ -22,8 +22,17 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { sendDisputeNotifications } from "@/features/disputes/notifications/dispute-notifications";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
+import {
+  DisputeAlreadyExistsError,
+  DisputeRateLimitedError,
+  DisputeWindowClosedError,
+} from "@/features/disputes/lib/dispute-errors";
 
 const FILING_WINDOW_HOURS = 24;
+
+/** Filing limits, mirrored from `disputeDAL.checkRateLimits` (3/month, 10/year). */
+export const DISPUTE_MONTHLY_LIMIT = 3;
+export const DISPUTE_YEARLY_LIMIT = 10;
 
 /** Parameters accepted by {@link DisputeCreationService.createDispute}. */
 export interface CreateDisputeParams {
@@ -154,11 +163,14 @@ export class DisputeCreationService {
     }
     const createdByRole: DisputeRole = isRenter ? "renter" : "owner";
 
+    // Carries the id so the client can route to the dispute that already
+    // exists (Req 19.1.3) instead of only being told that one does (P-E13-3).
     const existingDispute =
       await disputeDAL.getActiveByRentalId(actualRentalId);
     if (existingDispute) {
-      throw new ConflictError(
+      throw new DisputeAlreadyExistsError(
         "An active dispute already exists for this rental",
+        { disputeId: existingDispute.id, resolved: false },
       );
     }
 
@@ -167,23 +179,34 @@ export class DisputeCreationService {
       priorDispute &&
       (priorDispute.status === "resolved" || priorDispute.status === "closed")
     ) {
-      throw new ConflictError(
+      throw new DisputeAlreadyExistsError(
         "A dispute for this rental has already been resolved",
+        { disputeId: priorDispute.id, resolved: true },
       );
     }
 
     const filingCheck =
       await disputeDAL.validateFilingWindowUnified(actualRentalId);
     if (!filingCheck.valid) {
-      throw new ValidationError(
+      throw new DisputeWindowClosedError(
         filingCheck.message ?? "Filing window has expired",
+        {
+          deadline: filingCheck.deadline?.toISOString() ?? null,
+          reason: filingCheck.deadline ? "closed" : "not_open_yet",
+        },
       );
     }
 
     const rateLimits = await disputeDAL.checkRateLimits(userId);
     if (!rateLimits.withinLimits) {
-      throw new ValidationError(
-        `Rate limit exceeded (${rateLimits.monthlyCount}/3 monthly, ${rateLimits.yearlyCount}/10 yearly)`,
+      throw new DisputeRateLimitedError(
+        `Rate limit exceeded (${rateLimits.monthlyCount}/${DISPUTE_MONTHLY_LIMIT} monthly, ${rateLimits.yearlyCount}/${DISPUTE_YEARLY_LIMIT} yearly)`,
+        {
+          monthlyCount: rateLimits.monthlyCount,
+          monthlyLimit: DISPUTE_MONTHLY_LIMIT,
+          yearlyCount: rateLimits.yearlyCount,
+          yearlyLimit: DISPUTE_YEARLY_LIMIT,
+        },
       );
     }
 
@@ -316,8 +339,9 @@ export class DisputeCreationService {
     const existing =
       await disputeDAL.getActiveByServiceBookingId(serviceBookingId);
     if (existing) {
-      throw new ConflictError(
+      throw new DisputeAlreadyExistsError(
         "An active dispute already exists for this service booking",
+        { disputeId: existing.id, resolved: false },
       );
     }
 
@@ -328,8 +352,9 @@ export class DisputeCreationService {
       (priorServiceDispute.status === "resolved" ||
         priorServiceDispute.status === "closed")
     ) {
-      throw new ConflictError(
+      throw new DisputeAlreadyExistsError(
         "A dispute for this service booking has already been resolved",
+        { disputeId: priorServiceDispute.id, resolved: true },
       );
     }
 
@@ -357,17 +382,26 @@ export class DisputeCreationService {
         });
         // Allow the filing to proceed — ops will review the incomplete booking
       } else {
-        throw new ValidationError(
+        throw new DisputeWindowClosedError(
           window.message ?? "Filing window has expired",
-          "status",
+          {
+            deadline: window.deadline?.toISOString() ?? null,
+            reason: window.deadline ? "closed" : "not_open_yet",
+          },
         );
       }
     }
 
     const rateLimits = await disputeDAL.checkRateLimits(userId);
     if (!rateLimits.withinLimits) {
-      throw new ValidationError(
-        `Rate limit exceeded (${rateLimits.monthlyCount}/3 monthly, ${rateLimits.yearlyCount}/10 yearly)`,
+      throw new DisputeRateLimitedError(
+        `Rate limit exceeded (${rateLimits.monthlyCount}/${DISPUTE_MONTHLY_LIMIT} monthly, ${rateLimits.yearlyCount}/${DISPUTE_YEARLY_LIMIT} yearly)`,
+        {
+          monthlyCount: rateLimits.monthlyCount,
+          monthlyLimit: DISPUTE_MONTHLY_LIMIT,
+          yearlyCount: rateLimits.yearlyCount,
+          yearlyLimit: DISPUTE_YEARLY_LIMIT,
+        },
       );
     }
 

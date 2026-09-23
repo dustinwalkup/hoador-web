@@ -16,6 +16,10 @@ import type { ServiceBookingWithDetails } from "@/dal/service-booking.dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 import { toWallClock } from "@/features/schedule/lib/build-schedule";
+import {
+  serviceBookingDisputeEligibility,
+  type DisputeFilingEligibility,
+} from "@/features/disputes/lib/filing-eligibility";
 
 /** Which side of the booking the viewer is on — decided here, never by the client. */
 export type ServiceBookingViewerRole = "requester" | "provider";
@@ -85,6 +89,13 @@ export interface ServiceBookingDetailResponse {
   viewerRole: ServiceBookingViewerRole;
   earnings: ServiceBookingEarnings | null;
   agreement: { pdfUrl: string; templateVersion: string } | null;
+  /**
+   * Whether "File a dispute" should be offered, and the dispute that already
+   * exists if one does (P-E13-7). Null when the lookup failed — a dispute CTA
+   * is supplementary to this screen, and `POST /api/disputes` is authoritative
+   * regardless of what this says.
+   */
+  dispute: DisputeFilingEligibility | null;
 }
 
 /** Names and avatars only — never an email (see the handler's docblock). */
@@ -302,6 +313,12 @@ async function getHandler(
       storedPayout = lifecycle?.providerPayout ?? null;
     }
 
+    // See the rental route's twin: the filing window lives on the server so a
+    // client does not carry its own copy of the rule (P-E13-7).
+    const { data: dispute } = await tryCatch(
+      serviceBookingDisputeEligibility(booking, true),
+    );
+
     return NextResponse.json<ServiceBookingDetailResponse>({
       id: booking.id,
       listingId: booking.listingId,
@@ -367,6 +384,7 @@ async function getHandler(
       viewerRole,
       earnings: buildProviderEarnings(viewerRole, booking, storedPayout),
       agreement,
+      dispute: dispute ?? null,
     });
   } catch (error) {
     return handleApiError(error);
