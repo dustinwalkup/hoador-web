@@ -1,20 +1,15 @@
 import { NextRequest } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { getCurrentUserId } from "@/features/auth/utils/session";
+import { getAuthenticatedUserResponse } from "@/lib/api/route-helpers";
 import { listingDAL } from "@/dal";
 import type { GarageListingFilters } from "@/dal/listing.dal";
 
 async function getHandler(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const userId = await getCurrentUserId();
-
-    if (!userId) {
-      return Response.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
+    const authResult = await getAuthenticatedUserResponse();
+    if (authResult instanceof Response) return authResult;
+    const { userId } = authResult;
 
     // Parse search parameters into GarageListingFilters
     const filters: GarageListingFilters = {

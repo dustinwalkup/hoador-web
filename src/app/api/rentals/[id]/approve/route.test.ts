@@ -33,12 +33,22 @@ const mockRentalRequest = {
 // the auth chain (requireAuthResponse → getCurrentUserId) and the real
 // handleApiError mapping (PaymentSetupRequiredError → 403) are exercised here,
 // not stubbed. The owner is authenticated as "owner-1" by default.
-vi.mock("@/features/auth/utils/session", () => ({
-  getCurrentUserId: vi.fn().mockResolvedValue("owner-1"),
-  getCurrentUser: vi.fn(),
-  getAuthenticatedUser: vi.fn(),
-  requireAuth: vi.fn(),
-}));
+vi.mock("@/features/auth/utils/session", () => {
+  const getCurrentUserId = vi.fn().mockResolvedValue("owner-1");
+  return {
+    getCurrentUserId,
+    getCurrentUser: vi.fn(),
+    // Derived from getCurrentUserId so a test that re-mocks it still decides
+    // who is signed in (requireAuthResponse reads this since SEC-01).
+    getAuthenticatedUser: async () => {
+      const id = await getCurrentUserId();
+      return id
+        ? { user: { id, status: "active" }, userId: id, isAdmin: false }
+        : null;
+    },
+    requireAuth: vi.fn(),
+  };
+});
 
 vi.mock("@/dal", () => ({
   rentalDAL: {

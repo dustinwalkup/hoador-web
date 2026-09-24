@@ -5,6 +5,7 @@ import { ConflictError, NotFoundError } from "../errors";
 import { ValidationError } from "../errors";
 import { mockUser, mockUserMinimal, mockAddress } from "@/test/fixtures/users";
 import { db } from "@/db/db";
+import { PgDialect } from "drizzle-orm/pg-core";
 
 // Mock dependencies
 vi.mock("@/db/db", () => ({
@@ -1452,6 +1453,95 @@ describe("UserDAL", () => {
       const result = await userDAL.getStripeCustomerId("user-1");
 
       expect(result).toBeNull();
+    });
+  });
+
+  /** SEC-01: a suspension must end the sessions, not just flip a column. */
+  describe("adminUpdateUser session revocation", () => {
+    const whereDelete = vi.fn();
+
+    beforeEach(() => {
+      vi.mocked(db.update).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      } as any);
+      whereDelete.mockResolvedValue(undefined);
+      vi.mocked(db.delete).mockReturnValue({ where: whereDelete } as any);
+      vi.spyOn(userDAL, "getUserById").mockResolvedValue(mockUser as any);
+    });
+
+    it.each(["suspended", "inactive"] as const)(
+      "deletes the user's sessions when status becomes %s",
+      async (status) => {
+        await userDAL.adminUpdateUser("user-123", { status });
+
+        expect(db.delete).toHaveBeenCalledTimes(1);
+        expect(whereDelete).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it("leaves sessions alone when the account is reactivated", async () => {
+      await userDAL.adminUpdateUser("user-123", { status: "active" });
+
+      expect(db.delete).not.toHaveBeenCalled();
+    });
+
+    it("leaves sessions alone for a userType-only change", async () => {
+      await userDAL.adminUpdateUser("user-123", { userType: "admin" });
+
+      expect(db.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  /** SEC-01: onboarding must not be a way back from suspension. */
+  describe("completeOnboarding", () => {
+    const profile = {
+      firstName: "Jane",
+      lastName: "Doe",
+      phone: "5551234567",
+      bio: "",
+      profileImageUrl: "",
+    };
+
+    const updateReturning = (rows: unknown[]) => {
+      const where = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue(rows),
+      });
+      const set = vi.fn().mockReturnValue({ where });
+      vi.mocked(db.update).mockReturnValue({ set } as any);
+      return { set, where };
+    };
+
+    beforeEach(() => {
+      vi.spyOn(userDAL, "getUserById").mockResolvedValue(mockUser as any);
+    });
+
+    it("activates an incomplete_profile account and writes the profile", async () => {
+      const { set, where } = updateReturning([{ id: "user-123" }]);
+
+      await userDAL.completeOnboarding("user-123", profile);
+
+      expect(set).toHaveBeenCalledWith(
+        expect.objectContaining({ ...profile, status: "active" }),
+      );
+      // The compare-and-set itself: rendered to SQL, the WHERE must pin the
+      // current status, or any account could re-onboard its way to active.
+      const { sql, params } = new PgDialect().sqlToQuery(
+        where.mock.calls[0][0],
+      );
+      expect(sql).toMatch(/"status" = \$\d/);
+      expect(params).toEqual(["user-123", "incomplete_profile"]);
+    });
+
+    // The status predicate lives in the WHERE, so an account in any other
+    // status (active, suspended, inactive) matches no row.
+    it("throws ConflictError when no incomplete_profile row matched", async () => {
+      updateReturning([]);
+
+      await expect(
+        userDAL.completeOnboarding("user-123", profile),
+      ).rejects.toThrow(ConflictError);
     });
   });
 });

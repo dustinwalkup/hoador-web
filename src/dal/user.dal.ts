@@ -14,6 +14,7 @@ import {
 
 import { geocodeAddress } from "@/services/geocoding";
 import { schema } from "@/db/schemas";
+import { session } from "@/db/schemas/user.schema";
 import { BaseDAL } from "./base";
 import {
   type CreateUserDTO,
@@ -226,6 +227,38 @@ export class UserDAL extends BaseDAL {
       return this.getUserById(id);
     } catch (error) {
       this.handleError(error, "updateUser");
+    }
+  }
+
+  /**
+   * Finish onboarding: write the profile and move `incomplete_profile` →
+   * `active`, in one compare-and-set. `updateUser` used to write
+   * `status: "active"` unconditionally, so a suspended user could reactivate
+   * themselves by re-posting onboarding (SEC-01).
+   *
+   * @throws ConflictError when the account is not `incomplete_profile`
+   */
+  async completeOnboarding(
+    userId: string,
+    profileData: Pick<
+      UpdateUserDTO,
+      "firstName" | "lastName" | "phone" | "bio" | "profileImageUrl"
+    >,
+  ): Promise<UserProfile> {
+    try {
+      const [updated] = await this.db
+        .update(user)
+        .set({ ...profileData, status: "active", updatedAt: new Date() })
+        .where(and(eq(user.id, userId), eq(user.status, "incomplete_profile")))
+        .returning();
+      if (!updated) {
+        throw new ConflictError(
+          "Onboarding cannot be completed from the current account status.",
+        );
+      }
+      return this.getUserById(userId);
+    } catch (error) {
+      this.handleError(error, "completeOnboarding");
     }
   }
 
@@ -480,6 +513,12 @@ export class UserDAL extends BaseDAL {
     try {
       if (updates.status !== undefined) {
         await this.updateUserStatus(userId, updates.status);
+        // A suspension that leaves the sessions alive suspends nothing: they
+        // refresh on use and would keep working for as long as they are used
+        // (SEC-01). Covers the single-user PATCH and bulk actions alike.
+        if (updates.status === "suspended" || updates.status === "inactive") {
+          await this.db.delete(session).where(eq(session.userId, userId));
+        }
       }
       if (updates.userType !== undefined) {
         await this.db

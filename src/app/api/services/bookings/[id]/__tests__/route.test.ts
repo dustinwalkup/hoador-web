@@ -18,7 +18,12 @@ import { NextRequest } from "next/server";
 const mockGetCurrentUserId = vi.fn();
 vi.mock("@/features/auth/utils/session", () => ({
   getCurrentUserId: (...a: unknown[]) => mockGetCurrentUserId(...a),
-  getAuthenticatedUser: vi.fn(),
+  getAuthenticatedUser: async () => {
+    const id = await mockGetCurrentUserId();
+    return id
+      ? { user: { id, status: "active" }, userId: id, isAdmin: false }
+      : null;
+  },
   getCurrentUser: vi.fn(),
   getSession: vi.fn(),
   requireAuth: vi.fn(),

@@ -257,20 +257,59 @@ export function captureNonCriticalError(
   });
 }
 
+/** Options shared by the session-requiring route helpers. */
+export interface AuthGateOptions {
+  /**
+   * Let a suspended or inactive account through. Only for the few routes such
+   * a user still needs: reading their own status (`GET /api/profile`, which the
+   * mobile app routes to its "account isn't active" screen) and unsubscribing
+   * the device during the forced sign-out that follows. Verify any new use
+   * against the actual caller.
+   */
+  allowRestricted?: boolean;
+}
+
+export type RestrictedAccountCode = "ACCOUNT_SUSPENDED" | "ACCOUNT_INACTIVE";
+
+/**
+ * Admin suspension (and self-deactivation, which also covers anonymized
+ * accounts) must stop the API, not just the web pages (SEC-01). The onboarding
+ * statuses stay unrestricted here: they are a funnel, not a sanction.
+ */
+function restrictedStatusCode(user: {
+  status?: string | null;
+}): RestrictedAccountCode | null {
+  if (user.status === "suspended") return "ACCOUNT_SUSPENDED";
+  if (user.status === "inactive") return "ACCOUNT_INACTIVE";
+  return null;
+}
+
+function restrictedAccountResponse(code: RestrictedAccountCode) {
+  return NextResponse.json(
+    { error: "This account is no longer active.", code },
+    { status: 403 },
+  );
+}
+
 /**
  * Require authentication in API routes
- * Returns NextResponse with 401 if not authenticated, otherwise returns null
+ * Returns NextResponse with 401 if not authenticated, 403 if the account is
+ * suspended or inactive (unless `allowRestricted`), otherwise returns null
  */
-export async function requireAuthResponse(): Promise<NextResponse<{
+export async function requireAuthResponse(
+  options: AuthGateOptions = {},
+): Promise<NextResponse<{
   error: string;
 }> | null> {
-  const userId = await getCurrentUserId();
-  if (!userId) {
+  const result = await getAuthenticatedUser();
+  if (!result) {
     return NextResponse.json(
       { error: "Authentication required" },
       { status: 401 },
     );
   }
+  const code = !options.allowRestricted && restrictedStatusCode(result.user);
+  if (code) return restrictedAccountResponse(code);
   return null;
 }
 
@@ -387,9 +426,12 @@ export { requireAdmin };
 
 /**
  * Get authenticated user with admin check for API routes
- * Returns NextResponse with 401 if not authenticated, otherwise returns user data
+ * Returns NextResponse with 401 if not authenticated, 403 if the account is
+ * suspended or inactive (unless `allowRestricted`), otherwise returns user data
  */
-export async function getAuthenticatedUserResponse(): Promise<
+export async function getAuthenticatedUserResponse(
+  options: AuthGateOptions = {},
+): Promise<
   | NextResponse<{ error: string }>
   | {
       user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
@@ -404,5 +446,7 @@ export async function getAuthenticatedUserResponse(): Promise<
       { status: 401 },
     );
   }
+  const code = !options.allowRestricted && restrictedStatusCode(result.user);
+  if (code) return restrictedAccountResponse(code);
   return result;
 }

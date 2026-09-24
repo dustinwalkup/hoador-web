@@ -125,7 +125,9 @@ export const POST = withRequestLogging(postHandler, "POST /api/push/subscribe");
  */
 async function deleteHandler(request: NextRequest): Promise<NextResponse> {
   try {
-    const authError = await requireAuthResponse();
+    // Runs during the forced sign-out of a just-restricted account, before
+    // the session is gone, so the device can still be unsubscribed (SEC-01).
+    const authError = await requireAuthResponse({ allowRestricted: true });
     if (authError) return authError;
 
     const userId = await getCurrentUserId();

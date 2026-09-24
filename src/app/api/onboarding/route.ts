@@ -53,12 +53,11 @@ async function postHandler(request: NextRequest) {
     // Separate address from user profile data
     const { address, ...profileData } = validatedData;
 
-    // Step 1: Update user profile (critical - must succeed)
+    // Step 1: Update user profile (critical - must succeed). Only from
+    // `incomplete_profile`: anything else is a 409, so a suspended account
+    // cannot reactivate itself by re-posting onboarding (SEC-01).
     const { data: updatedUser, error: userError } = await tryCatch(
-      userDAL.updateUser(userId, {
-        ...profileData,
-        status: "active" as const,
-      }),
+      userDAL.completeOnboarding(userId, profileData),
     );
 
     if (userError) {

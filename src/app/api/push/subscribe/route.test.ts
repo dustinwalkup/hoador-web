@@ -55,6 +55,15 @@ describe("POST /api/push/subscribe", () => {
     } as Awaited<ReturnType<typeof pushSubscriptionDAL.create>>);
   });
 
+  it("keeps a restricted account out (default gate)", async () => {
+    const req = new NextRequest("http://localhost/api/push/subscribe", {
+      method: "POST",
+      body: JSON.stringify(validBody),
+    });
+    await POST(req);
+    expect(mockRequireAuthResponse).toHaveBeenCalledWith();
+  });
+
   it("returns 401 when not authenticated", async () => {
     mockRequireAuthResponse.mockResolvedValue(
       NextResponse.json({ error: "Authentication required" }, { status: 401 }),
@@ -217,6 +226,22 @@ describe("DELETE /api/push/subscribe", () => {
     vi.clearAllMocks();
     mockRequireAuthResponse.mockResolvedValue(null);
     mockGetCurrentUserId.mockResolvedValue("user-1");
+  });
+
+  // SEC-01: the mobile sign-out of a just-suspended account unsubscribes the
+  // device before the session is cleared, so DELETE must not be gated.
+  it("lets a restricted account through the auth gate", async () => {
+    vi.mocked(pushSubscriptionDAL.getByToken).mockResolvedValue({
+      id: "sub-native-1",
+      userId: "user-1",
+      token: EXPO_TOKEN,
+    } as Awaited<ReturnType<typeof pushSubscriptionDAL.getByToken>>);
+
+    await del({ token: EXPO_TOKEN });
+
+    expect(mockRequireAuthResponse).toHaveBeenCalledWith({
+      allowRestricted: true,
+    });
   });
 
   it("deactivates a native subscription by token", async () => {

@@ -13,11 +13,21 @@ import { NextRequest } from "next/server";
 
 const mockGetCurrentUserId = vi.fn();
 const mockApprove = vi.fn();
+const mockAccountStatus = { value: "active" };
 
 vi.mock("@/features/auth/utils/session", () => ({
   getCurrentUserId: (...args: unknown[]) => mockGetCurrentUserId(...args),
   getCurrentUser: vi.fn(),
-  getAuthenticatedUser: vi.fn(),
+  getAuthenticatedUser: async () => {
+    const id = await mockGetCurrentUserId();
+    return id
+      ? {
+          user: { id, status: mockAccountStatus.value },
+          userId: id,
+          isAdmin: false,
+        }
+      : null;
+  },
   requireAuth: vi.fn(),
 }));
 
@@ -45,6 +55,19 @@ describe("POST /api/rentals/[id]/approve (auth + result mapping)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCurrentUserId.mockResolvedValue("user-1");
+    mockAccountStatus.value = "active";
+  });
+
+  // SEC-01: a suspended owner's live session must not move money.
+  it("403s a suspended account from the real helper, without calling the service", async () => {
+    mockAccountStatus.value = "suspended";
+
+    const { POST } = await import("../route");
+    const res = await POST(postApprove("req-1"), ctx("req-1"));
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: "ACCOUNT_SUSPENDED" });
+    expect(mockApprove).not.toHaveBeenCalled();
   });
 
   it("returns 401 from the real helper when unauthenticated, without calling the service", async () => {

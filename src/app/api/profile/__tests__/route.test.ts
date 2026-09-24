@@ -165,3 +165,47 @@ describe("PATCH /api/profile", () => {
     expect(mockUpdateUser).toHaveBeenCalledWith("user-1", { firstName: "New" });
   });
 });
+
+/**
+ * SEC-01: the mobile app reads `GET /api/profile` to learn the account is
+ * suspended and route to its "account isn't active" screen. A 403 would strand
+ * it on a retry loop, so GET opts out of the gate. PATCH does not.
+ */
+describe("/api/profile for a suspended account (SEC-01)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      status: "suspended",
+    });
+    mockGetUserById.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      status: "suspended",
+    });
+    mockGetPrimaryMembership.mockResolvedValue(null);
+  });
+
+  it("still answers GET with the account's status", async () => {
+    const res = await GET({} as never);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ status: "suspended" });
+  });
+
+  it("refuses PATCH with ACCOUNT_SUSPENDED and writes nothing", async () => {
+    const res = await PATCH(
+      new NextRequest("http://localhost/api/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ firstName: "New" }),
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "ACCOUNT_SUSPENDED",
+    });
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+});

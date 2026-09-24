@@ -31,7 +31,6 @@ vi.mock("@/features/auth/utils/guards", () => ({
 }));
 
 import {
-  getCurrentUserId,
   getCurrentUser,
   getAuthenticatedUser,
 } from "@/features/auth/utils/session";
@@ -170,7 +169,11 @@ describe("route-helpers", () => {
 
   describe("requireAuthResponse", () => {
     it("should return null when user is authenticated", async () => {
-      vi.mocked(getCurrentUserId).mockResolvedValue("user-123");
+      vi.mocked(getAuthenticatedUser).mockResolvedValue({
+        user: mockVerifiedUser,
+        userId: "verified-user-123",
+        isAdmin: false,
+      });
 
       const result = await requireAuthResponse();
 
@@ -178,7 +181,7 @@ describe("route-helpers", () => {
     });
 
     it("should return 401 response when user is not authenticated", async () => {
-      vi.mocked(getCurrentUserId).mockResolvedValue(null);
+      vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
 
       const result = await requireAuthResponse();
 
@@ -417,6 +420,70 @@ describe("route-helpers", () => {
         const json = await result.json();
         expect(json.error).toBe("Your session expired. Please sign in again.");
       }
+    });
+  });
+
+  /**
+   * SEC-01: admin suspension (and self-deactivation) must stop the API. Both
+   * helpers 403 a restricted account unless the route opts it in; the
+   * onboarding statuses are a funnel, not a sanction, and pass through.
+   */
+  describe("account status gate (SEC-01)", () => {
+    const as = (status: string | undefined) =>
+      vi.mocked(getAuthenticatedUser).mockResolvedValue({
+        user: { ...mockVerifiedUser, status } as typeof mockVerifiedUser,
+        userId: "verified-user-123",
+        isAdmin: false,
+      });
+
+    describe.each([
+      ["suspended", "ACCOUNT_SUSPENDED"],
+      ["inactive", "ACCOUNT_INACTIVE"],
+    ])("a %s account", (status, code) => {
+      it("gets a 403 with its code from getAuthenticatedUserResponse", async () => {
+        as(status);
+
+        const result = await getAuthenticatedUserResponse();
+
+        expect(result).toBeInstanceOf(NextResponse);
+        const res = result as NextResponse;
+        expect(res.status).toBe(403);
+        await expect(res.json()).resolves.toMatchObject({ code });
+      });
+
+      it("gets a 403 with its code from requireAuthResponse", async () => {
+        as(status);
+
+        const result = await requireAuthResponse();
+
+        expect(result?.status).toBe(403);
+        await expect(result!.json()).resolves.toMatchObject({ code });
+      });
+
+      it("passes both helpers when the route allows restricted accounts", async () => {
+        as(status);
+
+        const user = await getAuthenticatedUserResponse({
+          allowRestricted: true,
+        });
+        expect(user).not.toBeInstanceOf(Response);
+        expect(await requireAuthResponse({ allowRestricted: true })).toBeNull();
+      });
+    });
+
+    // Regression guard: nothing here may gate the onboarding funnel. A mock
+    // user with no status at all is treated as unrestricted too.
+    it.each([
+      "active",
+      "pending_verification",
+      "email_verified",
+      "incomplete_profile",
+      undefined,
+    ])("lets a %s account through both helpers", async (status) => {
+      as(status);
+
+      expect(await getAuthenticatedUserResponse()).not.toBeInstanceOf(Response);
+      expect(await requireAuthResponse()).toBeNull();
     });
   });
 });

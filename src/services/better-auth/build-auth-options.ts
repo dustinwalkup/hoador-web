@@ -128,6 +128,10 @@ export function buildAuthOptions({ database }: AuthDependencies) {
           throw new Error("Failed to send reset password email");
         }
       },
+      // A reset is how a user recovers a compromised account, so it must evict
+      // every existing session, the attacker's included. better-auth leaves
+      // them alive unless this is set (SEC-05).
+      revokeSessionsOnPasswordReset: true,
       onPasswordReset: async ({ user }) => {
         // logic here
         console.log(`Password for user ${user.email} has been reset.`);
