@@ -13,6 +13,7 @@ import {
   ForbiddenError,
   NotFoundError,
   ServiceBookingPaymentFailedError,
+  ServiceNotYetDueError,
   ValidationError,
 } from "@/dal/errors";
 import {
@@ -656,11 +657,21 @@ export class ServiceBookingService {
       );
     }
 
+    // R-BIZ-02: no completion before the scheduled instant — early completion
+    // paid for unperformed work and could leave the requester an empty dispute
+    // window. Mobile still shows "Mark complete" pre-date; it gets this 409.
+    // An unreadable schedule (`null`) is unknown, not "now": allow it rather
+    // than strand the booking.
+    const scheduledAt = serviceInstant(detail);
+    const now = new Date();
+    if (scheduledAt && now < scheduledAt) {
+      throw new ServiceNotYetDueError();
+    }
+
     // Compare-and-swap: only one terminal transition can win. Without it a
     // concurrent cancel could refund the client while this queues the
     // provider's payout. The pre-checks above give better messages for the
     // common non-race cases; this is the correctness backstop.
-    const now = new Date();
     const updated = await serviceBookingDAL.updateIfStatus(
       bookingId,
       "accepted",
@@ -675,7 +686,10 @@ export class ServiceBookingService {
       );
     }
 
-    await servicePaymentLifecycleDAL.updatePayoutStatus(bookingId, "pending");
+    // No payout re-arm here: acceptBooking already created the lifecycle with
+    // payoutStatus "pending", so resetting it could only undo a terminal state
+    // — e.g. a favor_renter dispute refund — and pay the provider out of
+    // platform funds against a fully refunded charge (BIZ-03).
 
     await auditLogDAL.create({
       entityType: "service_booking",

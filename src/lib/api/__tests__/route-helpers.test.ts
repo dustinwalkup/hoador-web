@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 import {
   handleApiError,
@@ -15,6 +15,7 @@ import {
   DALError,
   ServiceBookingPaymentFailedError,
   RentalRequestNotPendingError,
+  ServiceNotYetDueError,
 } from "@/dal/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
 import { mockVerifiedUser, mockAdminUser } from "@/test/fixtures/auth";
@@ -31,11 +32,17 @@ vi.mock("@/features/auth/utils/guards", () => ({
   requireAdmin: vi.fn(),
 }));
 
+vi.mock("@sentry/nextjs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@sentry/nextjs")>()),
+  captureException: vi.fn(),
+}));
+
 import {
   getCurrentUser,
   getAuthenticatedUser,
 } from "@/features/auth/utils/session";
 import { requireAdmin } from "@/features/auth/utils/guards";
+import * as Sentry from "@sentry/nextjs";
 
 describe("route-helpers", () => {
   beforeEach(() => {
@@ -62,6 +69,44 @@ describe("route-helpers", () => {
       expect(response.status).toBe(409);
       await expect(response.json()).resolves.toMatchObject({
         code: "REQUEST_NOT_PENDING",
+      });
+    });
+
+    // Refused approvals and not-yet-due completions are expected user
+    // outcomes, not incidents — in production they must not reach Sentry.
+    describe("Sentry capture in production", () => {
+      beforeEach(() => {
+        vi.stubEnv("NODE_ENV", "production");
+      });
+      afterEach(() => {
+        vi.unstubAllEnvs();
+      });
+
+      it.each([
+        ["RentalRequestNotPendingError", new RentalRequestNotPendingError()],
+        ["ServiceNotYetDueError", new ServiceNotYetDueError()],
+      ])("does not capture %s", (_name, error) => {
+        handleApiError(error);
+
+        expect(Sentry.captureException).not.toHaveBeenCalled();
+      });
+
+      it("still captures an unexpected error", () => {
+        handleApiError(new Error("boom"));
+
+        expect(Sentry.captureException).toHaveBeenCalled();
+      });
+    });
+
+    // BIZ-02: a client can explain the wait on this code; the generic
+    // ConflictError branch would drop it.
+    it("should give ServiceNotYetDueError a 409 with its code", async () => {
+      const response = handleApiError(new ServiceNotYetDueError());
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        error: expect.stringContaining("hasn't happened yet"),
+        code: "SERVICE_NOT_YET_DUE",
       });
     });
 

@@ -3,7 +3,13 @@ import {
   getDepositOperationForOutcome,
   DisputeResolutionService,
 } from "../dispute-resolution-service";
-import { disputeDAL, paymentLifecycleDAL, rentalDAL } from "@/dal";
+import {
+  disputeDAL,
+  paymentLifecycleDAL,
+  rentalDAL,
+  serviceBookingDAL,
+  servicePaymentLifecycleDAL,
+} from "@/dal";
 import { releaseSecurityDeposit } from "@/services/stripe/rental-payments";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
 import { ValidationError } from "@/dal/errors";
@@ -25,6 +31,10 @@ vi.mock("@/dal", () => ({
   rentalDAL: {
     getSecurityDepositAuthId: vi.fn(),
     getSecurityDepositAmount: vi.fn().mockResolvedValue(null),
+  },
+  serviceBookingDAL: {
+    getById: vi.fn(),
+    updateIfStatus: vi.fn(),
   },
   servicePaymentLifecycleDAL: {
     getByBookingId: vi.fn().mockResolvedValue(null),
@@ -236,6 +246,92 @@ describe("DisputeResolutionService.resolveDispute", () => {
       expect(paymentLifecycleDAL.unfreezeAfterResolution).toHaveBeenCalledWith(
         "rental-123",
       );
+    });
+  });
+
+  // BIZ-03: a full refund to the requester must leave nothing a provider can
+  // later "complete" into a payout.
+  describe("service booking favor_renter", () => {
+    const serviceDispute = {
+      ...baseMockDispute,
+      rentalId: null,
+      rental: null,
+      serviceBookingId: "booking-123",
+    };
+
+    const arrange = (bookingStatus: "accepted" | "completed") => {
+      vi.mocked(disputeDAL.getById).mockResolvedValue(serviceDispute as never);
+      vi.mocked(servicePaymentLifecycleDAL.getByBookingId).mockResolvedValue({
+        chargeId: "ch_svc_1",
+        providerPayout: "80.00",
+      } as never);
+      vi.mocked(PAYMENT_SERVER_INSTANCE.refunds.create).mockResolvedValue({
+        id: "re_svc_1",
+      } as never);
+      vi.mocked(serviceBookingDAL.getById).mockResolvedValue({
+        id: "booking-123",
+        status: bookingStatus,
+      } as never);
+      vi.mocked(disputeDAL.resolve).mockResolvedValue({
+        ...mockResolvedDispute,
+        resolutionOutcome: "favor_renter",
+      } as never);
+    };
+
+    it("cancels an accepted booking so it can no longer be completed", async () => {
+      arrange("accepted");
+
+      await DisputeResolutionService.resolveDispute({
+        disputeId: "dispute-123",
+        outcome: "favor_renter",
+        reason,
+        adminId,
+      });
+
+      expect(
+        servicePaymentLifecycleDAL.markRefundedAfterDispute,
+      ).toHaveBeenCalledWith("booking-123");
+      expect(serviceBookingDAL.updateIfStatus).toHaveBeenCalledWith(
+        "booking-123",
+        "accepted",
+        expect.objectContaining({
+          status: "cancelled",
+          cancelledBy: adminId,
+          cancellationReason: "dispute_favor_renter_refund",
+          cancelledAt: expect.any(Date),
+        }),
+      );
+    });
+
+    it("leaves an already-completed booking completed", async () => {
+      arrange("completed");
+
+      await DisputeResolutionService.resolveDispute({
+        disputeId: "dispute-123",
+        outcome: "favor_renter",
+        reason,
+        adminId,
+      });
+
+      expect(
+        servicePaymentLifecycleDAL.markRefundedAfterDispute,
+      ).toHaveBeenCalledWith("booking-123");
+      expect(serviceBookingDAL.updateIfStatus).not.toHaveBeenCalled();
+    });
+
+    it("still resolves when the booking changed state before the CAS", async () => {
+      arrange("accepted");
+      vi.mocked(serviceBookingDAL.updateIfStatus).mockResolvedValue(null);
+
+      await expect(
+        DisputeResolutionService.resolveDispute({
+          disputeId: "dispute-123",
+          outcome: "favor_renter",
+          reason,
+          adminId,
+        }),
+      ).resolves.toBeDefined();
+      expect(disputeDAL.resolve).toHaveBeenCalled();
     });
   });
 

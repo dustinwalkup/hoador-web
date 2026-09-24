@@ -7,7 +7,6 @@ import {
   isNull,
   lt,
   lte,
-  ne,
   sql,
 } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
@@ -35,6 +34,13 @@ export interface PayoutEligibleServiceBooking {
   providerConnectedAccountId: string | null;
   /** Locked provider payout in dollars (from lifecycle row). */
   providerPayout: string;
+  /**
+   * The booking's scheduled wall clock, so the cron can refuse to pay before
+   * the service happened (BIZ-02). Not filtered in SQL: turning it into an
+   * instant needs the market zone's `Intl` math (`serviceInstant`).
+   */
+  proposedDate: string;
+  proposedTime: string;
 }
 
 /** Stale processing rows for cron detection. */
@@ -226,7 +232,7 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
   }
 
   /**
-   * Completed bookings past the cooldown with pending payout and non-frozen transfer.
+   * Completed bookings past the cooldown with pending payout and a pending transfer.
    */
   async findEligibleForPayout(
     cutoff: Date,
@@ -239,6 +245,8 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
           bookingId: serviceBookings.id,
           providerId: serviceBookings.providerId,
           providerConnectedAccountId: user.stripeConnectedAccountId,
+          proposedDate: serviceBookings.proposedDate,
+          proposedTime: serviceBookings.proposedTime,
         })
         .from(servicePaymentLifecycle)
         .innerJoin(
@@ -263,7 +271,12 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
             isNotNull(serviceBookings.completedAt),
             lt(serviceBookings.completedAt, cutoff),
             eq(servicePaymentLifecycle.payoutStatus, "pending"),
-            ne(servicePaymentLifecycle.ownerTransferStatus, "frozen"),
+            // Only a transfer still owed. `frozen` belongs to an open
+            // dispute; `completed` is either paid already or closed by a
+            // favor_renter refund (markRefundedAfterDispute) — paying that
+            // would be platform-funded, as a refund does not reduce a
+            // `source_transaction` transfer (BIZ-03).
+            eq(servicePaymentLifecycle.ownerTransferStatus, "pending"),
             isNotNull(servicePaymentLifecycle.providerPayout),
             isNull(disputes.id),
           ),
@@ -277,6 +290,8 @@ export class ServicePaymentLifecycleDAL extends BaseDAL {
         providerId: r.providerId,
         providerPayout: String(r.lifecycle.providerPayout),
         providerConnectedAccountId: r.providerConnectedAccountId,
+        proposedDate: r.proposedDate,
+        proposedTime: r.proposedTime,
       }));
     } catch (error) {
       this.handleError(

@@ -59,7 +59,14 @@ const baseRow = {
   providerId: "prov-1",
   providerPayout: "80.00",
   providerConnectedAccountId: "acct_1",
+  // Long past, so the scheduled-instant guard (BIZ-02) lets it through.
+  proposedDate: "2026-01-10",
+  proposedTime: "10:00",
 };
+
+/** `YYYY-MM-DD` `days` from today — for schedules relative to the real clock. */
+const isoDay = (days: number) =>
+  new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 describe("ServicePaymentLifecycleService", () => {
   beforeEach(() => {
@@ -273,6 +280,65 @@ describe("ServicePaymentLifecycleService", () => {
       expect(summary.failed).toBe(0); // not a failure — just lost the race
       expect(mockSendOpsAlert).not.toHaveBeenCalled();
       expect(mockCreateTransfer).not.toHaveBeenCalled();
+    });
+  });
+
+  // BIZ-02: a booking completed before its scheduled day (possible until
+  // completeBooking refused it) must not be paid until the job's time. The
+  // guard runs BEFORE the claim: a claimed-then-skipped row would sit in
+  // payoutStatus "processing" forever.
+  describe("scheduled instant not reached", () => {
+    it("skips a booking scheduled in the future without claiming it", async () => {
+      mockFindEligible.mockResolvedValue([
+        { ...baseRow, bookingId: "early", proposedDate: isoDay(3) },
+      ]);
+
+      const summary = await ServicePaymentLifecycleService.processPayouts(10);
+
+      expect(mockClaim).not.toHaveBeenCalled();
+      expect(mockCreateTransfer).not.toHaveBeenCalled();
+      expect(mockSendOpsAlert).not.toHaveBeenCalled();
+      expect(summary).toEqual({
+        eligible: 0,
+        processed: 0,
+        succeeded: 0,
+        failed: 0,
+      });
+    });
+
+    it("still pays the due bookings in the same batch", async () => {
+      mockFindEligible.mockResolvedValue([
+        { ...baseRow, bookingId: "early", proposedDate: isoDay(3) },
+        {
+          ...baseRow,
+          bookingId: "due",
+          lifecycle: { ...baseLifecycle, bookingId: "due" },
+        },
+      ]);
+      mockClaim.mockResolvedValue(true);
+      mockCreateTransfer.mockResolvedValue({ success: true, transferId: "tr" });
+      mockGetById.mockResolvedValue({ id: "due" });
+
+      const summary = await ServicePaymentLifecycleService.processPayouts(10);
+
+      expect(mockClaim).toHaveBeenCalledTimes(1);
+      expect(mockClaim).toHaveBeenCalledWith("due");
+      expect(summary.succeeded).toBe(1);
+    });
+
+    // `serviceInstant` returns null for an unreadable wall clock: unknown, not
+    // future. Holding it back would strand the payout with no alert.
+    it("pays a booking whose schedule cannot be read", async () => {
+      mockFindEligible.mockResolvedValue([
+        { ...baseRow, proposedDate: "not-a-date" },
+      ]);
+      mockClaim.mockResolvedValue(true);
+      mockCreateTransfer.mockResolvedValue({ success: true, transferId: "tr" });
+      mockGetById.mockResolvedValue({ id: "b1" });
+
+      await ServicePaymentLifecycleService.processPayouts(10);
+
+      expect(mockClaim).toHaveBeenCalledWith("b1");
     });
   });
 

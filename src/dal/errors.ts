@@ -91,6 +91,24 @@ export class RentalRequestNotPendingError extends DALError {
 }
 
 /**
+ * Thrown when a provider marks a service booking complete before its scheduled
+ * instant. Completing early paid the provider for work not yet done and could
+ * leave the requester an empty dispute window (BIZ-02).
+ *
+ * `code: "SERVICE_NOT_YET_DUE"` lets a client explain the wait instead of
+ * parsing the message. Not a `ConflictError` subclass, for the same reason as
+ * `ConversationArchivedError`: the generic branch would drop the code.
+ */
+export class ServiceNotYetDueError extends DALError {
+  constructor(
+    message = "This service hasn't happened yet — you can mark it complete on or after the scheduled date.",
+  ) {
+    super(message, "SERVICE_NOT_YET_DUE", 409);
+    this.name = "ServiceNotYetDueError";
+  }
+}
+
+/**
  * Thrown when a user tries to open a conversation with themselves. Req 16.1.3
  * says 1:1 conversations are between two *different* people; until this class
  * existed only the UI enforced it, and a self-pair row would have made every

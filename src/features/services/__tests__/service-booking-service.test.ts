@@ -4,6 +4,7 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  ServiceNotYetDueError,
   ValidationError,
 } from "@/dal/errors";
 import { calculateServiceFee } from "@/constants/payments";
@@ -1045,7 +1046,7 @@ describe("ServiceBookingService", () => {
   });
 
   describe("completeBooking", () => {
-    it("sets completed, payout pending on lifecycle, and notifies requester", async () => {
+    it("sets completed and notifies requester, leaving the payout state alone", async () => {
       const accepted = { ...bookingPending, status: "accepted" as const };
       mockBookingGetById.mockResolvedValue(accepted);
       const completed = {
@@ -1069,11 +1070,28 @@ describe("ServiceBookingService", () => {
         expect.objectContaining({ status: "completed" }),
       );
       expect(mockBookingUpdate).not.toHaveBeenCalled();
-      expect(mockLifecycleUpdatePayout).toHaveBeenCalledWith(
-        "book-1",
-        "pending",
-      );
+      // acceptBooking already created the lifecycle with payoutStatus
+      // "pending"; completing must not write it (BIZ-03).
+      expect(mockLifecycleUpdatePayout).not.toHaveBeenCalled();
       expect(mockSendJobCompleted).toHaveBeenCalledWith("req-1", completed);
+    });
+
+    // BIZ-03: a favor_renter resolution refunds the requester in full and
+    // closes the lifecycle (payout + transfer "completed"). Completing the job
+    // afterwards used to reset payoutStatus to "pending", and the next cron
+    // paid the provider out of platform funds against the refunded charge.
+    it("does not re-arm the payout of a booking refunded by a dispute", async () => {
+      const accepted = { ...bookingPending, status: "accepted" as const };
+      mockBookingGetById.mockResolvedValue(accepted);
+      mockBookingUpdateIfStatus.mockResolvedValue({
+        ...accepted,
+        status: "completed" as const,
+        completedAt: new Date(),
+      });
+
+      await ServiceBookingService.completeBooking("book-1", "prov-1", ctx);
+
+      expect(mockLifecycleUpdatePayout).not.toHaveBeenCalled();
     });
 
     it("rejects with ConflictError and queues no payout when the booking left accepted", async () => {
@@ -1091,6 +1109,81 @@ describe("ServiceBookingService", () => {
       expect(mockLifecycleUpdatePayout).not.toHaveBeenCalled();
       expect(mockSendJobCompleted).not.toHaveBeenCalled();
       expect(mockAuditCreate).not.toHaveBeenCalled();
+    });
+
+    // BIZ-02: the fixture's job is 2025-06-15 10:00 America/Chicago, i.e.
+    // 15:00Z. Completing before that instant paid for unperformed work and
+    // could close the requester's dispute window before it opened.
+    describe("before the scheduled instant", () => {
+      const accepted = { ...bookingPending, status: "accepted" as const };
+      const arrangeAt = (iso: string) => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date(iso));
+        mockBookingGetById.mockResolvedValue(accepted);
+        mockBookingUpdateIfStatus.mockResolvedValue({
+          ...accepted,
+          status: "completed" as const,
+          completedAt: new Date(iso),
+        });
+      };
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("refuses the day before, with SERVICE_NOT_YET_DUE and no writes", async () => {
+        arrangeAt("2025-06-14T15:00:00Z");
+
+        const err = await ServiceBookingService.completeBooking(
+          "book-1",
+          "prov-1",
+          ctx,
+        ).catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(ServiceNotYetDueError);
+        expect((err as ServiceNotYetDueError).code).toBe("SERVICE_NOT_YET_DUE");
+        expect((err as ServiceNotYetDueError).statusCode).toBe(409);
+        expect(mockBookingUpdateIfStatus).not.toHaveBeenCalled();
+        expect(mockSendJobCompleted).not.toHaveBeenCalled();
+      });
+
+      // An instant, not a day: 09:00 on the day is still before a 10:00 job.
+      it("refuses earlier on the service day itself", async () => {
+        arrangeAt("2025-06-15T14:00:00Z");
+
+        await expect(
+          ServiceBookingService.completeBooking("book-1", "prov-1", ctx),
+        ).rejects.toThrow(ServiceNotYetDueError);
+        expect(mockBookingUpdateIfStatus).not.toHaveBeenCalled();
+      });
+
+      it("completes once the scheduled time has passed, stamping that same now", async () => {
+        arrangeAt("2025-06-15T16:00:00Z");
+
+        await ServiceBookingService.completeBooking("book-1", "prov-1", ctx);
+
+        expect(mockBookingUpdateIfStatus).toHaveBeenCalledWith(
+          "book-1",
+          "accepted",
+          expect.objectContaining({
+            status: "completed",
+            completedAt: new Date("2025-06-15T16:00:00Z"),
+          }),
+        );
+      });
+
+      // `serviceInstant` null = unknown, not future: refusing would strand the
+      // booking with no way to complete it.
+      it("allows completion when the schedule cannot be read", async () => {
+        arrangeAt("2025-06-14T15:00:00Z");
+        mockBookingGetById.mockResolvedValue({
+          ...accepted,
+          proposedTime: "whenever",
+        });
+
+        await ServiceBookingService.completeBooking("book-1", "prov-1", ctx);
+
+        expect(mockBookingUpdateIfStatus).toHaveBeenCalled();
+      });
     });
   });
 

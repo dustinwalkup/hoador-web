@@ -19,6 +19,7 @@ import {
   ConversationArchivedError,
   CannotMessageSelfError,
   RentalRequestNotPendingError,
+  ServiceNotYetDueError,
 } from "@/dal/errors";
 import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
@@ -65,6 +66,8 @@ export function handleApiError(
     !(error instanceof ValidationError) &&
     !(error instanceof ConflictError) &&
     !(error instanceof ConversationArchivedError) &&
+    !(error instanceof ServiceNotYetDueError) &&
+    !(error instanceof RentalRequestNotPendingError) &&
     !(error instanceof CannotMessageSelfError) &&
     !(error instanceof PaymentSetupRequiredError) &&
     !(error instanceof AccountDeletionBlockedError) &&
@@ -131,6 +134,13 @@ export function handleApiError(
   }
 
   if (error instanceof RentalRequestNotPendingError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+
+  if (error instanceof ServiceNotYetDueError) {
     return NextResponse.json(
       { error: error.message, code: error.code },
       { status: error.statusCode },

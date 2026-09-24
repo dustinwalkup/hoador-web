@@ -3,6 +3,8 @@ import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { sendServicePayoutNotification } from "@/features/services/notifications/service-notifications";
 import { createServiceTransfer } from "@/services/stripe/service-payments";
+import { serviceInstant } from "@/features/services/lib/booking-cancellation";
+import { getLogger } from "@/lib/logger";
 
 export interface ServicePayoutSummary {
   eligible: number;
@@ -22,10 +24,28 @@ export class ServicePaymentLifecycleService {
     batchSize: number,
   ): Promise<ServicePayoutSummary> {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const eligibleRows = await servicePaymentLifecycleDAL.findEligibleForPayout(
+    const fetchedRows = await servicePaymentLifecycleDAL.findEligibleForPayout(
       cutoff,
       batchSize,
     );
+
+    // Never pay before the scheduled instant (BIZ-02). completeBooking now
+    // refuses early completion, so this only catches rows completed early
+    // before that shipped. Filtered BEFORE the claim: a claimed-then-skipped
+    // row would sit in payoutStatus "processing" forever. An unreadable
+    // schedule (`null`) is unknown, not future — pay as before.
+    const now = new Date();
+    const eligibleRows = fetchedRows.filter((row) => {
+      const scheduledAt = serviceInstant(row);
+      if (scheduledAt && scheduledAt > now) {
+        getLogger().info(
+          { bookingId: row.bookingId, scheduledAt: scheduledAt.toISOString() },
+          "Service payout skipped — scheduled service time not reached yet",
+        );
+        return false;
+      }
+      return true;
+    });
 
     let processed = 0;
     let succeeded = 0;

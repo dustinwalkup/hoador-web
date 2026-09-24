@@ -185,7 +185,8 @@ export class TimeWindowValidation {
 
   /**
    * Service booking dispute window (aligned with rental 24h rule):
-   * - Opens on or after the scheduled service date (calendar day).
+   * - Opens on the scheduled service date (calendar day), or at `completedAt`
+   *   if the booking was marked complete before that day.
    * - Closes 24 hours after `completedAt` if set, otherwise 24 hours after scheduled date+time.
    */
   static validateServiceFilingWindow(
@@ -195,7 +196,12 @@ export class TimeWindowValidation {
     now: Date = new Date(),
   ): TimeWindowValidationResult {
     const dayStart = TimeWindowValidation.parseServiceDayStart(proposedDate);
-    if (now < dayStart) {
+    // A booking completed before its day (possible until BIZ-02 blocked it)
+    // would otherwise close its window before opening it: the close is
+    // `completedAt + 24h`, the open was `dayStart`.
+    const windowOpensAt =
+      completedAt && completedAt < dayStart ? completedAt : dayStart;
+    if (now < windowOpensAt) {
       return {
         valid: false,
         message: "Disputes cannot be filed before the scheduled service date",

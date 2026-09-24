@@ -263,4 +263,78 @@ describe("TimeWindowValidation", () => {
       expect(description).toBe("14 days after rental end date");
     });
   });
+
+  // Local-time constructors throughout: `parseServiceDayStart` reads the date
+  // as local midnight, so these hold in any test-runner zone.
+  describe("validateServiceFilingWindow", () => {
+    const serviceDate = "2026-06-15";
+    const serviceTime = "10:00";
+
+    it("opens on the service day for a booking completed on time", () => {
+      const completedAt = new Date(2026, 5, 15, 12, 0);
+
+      expect(
+        TimeWindowValidation.validateServiceFilingWindow(
+          serviceDate,
+          serviceTime,
+          completedAt,
+          new Date(2026, 5, 14, 12, 0),
+        ).valid,
+      ).toBe(false);
+      expect(
+        TimeWindowValidation.validateServiceFilingWindow(
+          serviceDate,
+          serviceTime,
+          completedAt,
+          new Date(2026, 5, 15, 18, 0),
+        ),
+      ).toEqual({
+        valid: true,
+        deadline: new Date(2026, 5, 16, 12, 0),
+      });
+    });
+
+    // BIZ-02 regression. Completed two days early, the window used to open at
+    // the service day's start and close 24h after completion — a day before
+    // it opened. It is now [completedAt, completedAt + 24h].
+    describe("after an early completion", () => {
+      const completedAt = new Date(2026, 5, 13, 10, 0);
+
+      it("is open right after completion", () => {
+        expect(
+          TimeWindowValidation.validateServiceFilingWindow(
+            serviceDate,
+            serviceTime,
+            completedAt,
+            new Date(2026, 5, 13, 20, 0),
+          ),
+        ).toEqual({
+          valid: true,
+          deadline: new Date(2026, 5, 14, 10, 0),
+        });
+      });
+
+      it("is closed before completion", () => {
+        expect(
+          TimeWindowValidation.validateServiceFilingWindow(
+            serviceDate,
+            serviceTime,
+            completedAt,
+            new Date(2026, 5, 13, 9, 0),
+          ).valid,
+        ).toBe(false);
+      });
+
+      it("keeps the 24h close boundary", () => {
+        const result = TimeWindowValidation.validateServiceFilingWindow(
+          serviceDate,
+          serviceTime,
+          completedAt,
+          new Date(2026, 5, 14, 11, 0),
+        );
+        expect(result.valid).toBe(false);
+        expect(result.message).toMatch(/marked complete/);
+      });
+    });
+  });
 });

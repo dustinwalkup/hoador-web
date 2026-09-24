@@ -3,6 +3,7 @@ import {
   auditLogDAL,
   paymentLifecycleDAL,
   rentalDAL,
+  serviceBookingDAL,
   servicePaymentLifecycleDAL,
 } from "@/dal";
 import { NotFoundError, ValidationError } from "@/dal/errors";
@@ -339,6 +340,21 @@ export class DisputeResolutionService {
       }
 
       await servicePaymentLifecycleDAL.markRefundedAfterDispute(bookingId);
+
+      // The requester was refunded in full, so an `accepted` booking must not
+      // stay completable: completing it used to re-arm the provider's payout
+      // (BIZ-03). A booking already `completed` keeps that status — the work
+      // was done; the payout guard keeps it from being paid. A lost CAS is
+      // fine either way: the payout guard makes every outcome safe.
+      const booking = await serviceBookingDAL.getById(bookingId);
+      if (booking?.status === "accepted") {
+        await serviceBookingDAL.updateIfStatus(bookingId, "accepted", {
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancelledBy: adminId,
+          cancellationReason: "dispute_favor_renter_refund",
+        });
+      }
     } else if (outcome === "partial_provider" || outcome === "partial_renter") {
       // partialAmount is the amount to refund to the requester (in dollars)
       const refundAmountDollars = partialAmount ?? 0;

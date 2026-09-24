@@ -158,6 +158,8 @@ describe("ServicePaymentLifecycleDAL", () => {
           bookingId: "book-1",
           providerId: "prov-1",
           providerConnectedAccountId: "acct_1",
+          proposedDate: "2026-06-15",
+          proposedTime: "10:00",
         },
       ]);
       const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
@@ -185,14 +187,30 @@ describe("ServicePaymentLifecycleDAL", () => {
           providerId: "prov-1",
           providerPayout: "80.00",
           providerConnectedAccountId: "acct_1",
+          proposedDate: "2026-06-15",
+          proposedTime: "10:00",
         },
       ]);
       expect(mockLimit).toHaveBeenCalledWith(10);
-      // Never pay a frozen transfer, a booking under active dispute, or one
-      // without a locked payout amount.
-      const sql = whereSql(mockWhere.mock.calls[0][0]);
-      expect(sql).toContain(
-        '"service_payment_lifecycle"."owner_transfer_status" <> $',
+      // BIZ-02: the schedule is selected (not filtered in SQL) so the cron
+      // can refuse to pay before the job's instant.
+      expect(vi.mocked(db.select).mock.calls[0][0]).toMatchObject({
+        proposedDate: expect.anything(),
+        proposedTime: expect.anything(),
+      });
+      // Pay only a transfer still owed (`pending` — never a frozen one, nor a
+      // `completed` one left by a favor_renter refund, BIZ-03), never a
+      // booking under active dispute, and never one without a locked payout.
+      const { sql, params } = new PgDialect().sqlToQuery(
+        mockWhere.mock.calls[0][0] as SQL,
+      );
+      const transferGuard = sql.match(
+        /"service_payment_lifecycle"\."owner_transfer_status" = \$(\d+)/,
+      );
+      expect(transferGuard).not.toBeNull();
+      expect(params[Number(transferGuard![1]) - 1]).toBe("pending");
+      expect(sql).not.toContain(
+        '"service_payment_lifecycle"."owner_transfer_status" <>',
       );
       expect(sql).toContain('"disputes"."id" is null');
       expect(sql).toContain(
