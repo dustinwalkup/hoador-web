@@ -6,7 +6,9 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   test: {
-    exclude: ["e2e/**", "**/node_modules/**"],
+    // Real-Postgres tests run only via `bun run test:integration`
+    // (vitest.integration.config.mjs); they would fail here without a DB.
+    exclude: ["e2e/**", "**/node_modules/**", "**/*.integration.test.ts"],
     onConsoleLog(log) {
       if (log.includes("NotSupportedError")) return false;
       if (log.includes("non-boolean attribute `fill`")) return false;
