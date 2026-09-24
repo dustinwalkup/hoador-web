@@ -16,7 +16,7 @@ const previewSchema = z.object({
   endDate: z.coerce.date({ message: "End date is required" }),
   deliveryRequested: z.boolean().optional(),
   setupRequested: z.boolean().optional(),
-  setupFee: z.number().optional(),
+  // No `setupFee`: priced from the listing only (SEC-03).
 });
 
 /** Money leaves this route as decimal STRINGS, as it does everywhere else. */

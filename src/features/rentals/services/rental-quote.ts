@@ -43,7 +43,9 @@ export type QuoteBlockerCode =
   | "START_IN_PAST"
   | "BELOW_MINIMUM_PERIOD"
   | "ABOVE_MAXIMUM_PERIOD"
-  | "DATES_UNAVAILABLE";
+  | "DATES_UNAVAILABLE"
+  | "SETUP_NOT_OFFERED"
+  | "DELIVERY_NOT_OFFERED";
 
 export interface QuoteBlocker {
   /** Stable, for the client to branch on — never the message (mobile rule #8). */
@@ -60,8 +62,7 @@ export interface RentalQuoteInput {
   endDate: Date;
   deliveryRequested?: boolean;
   setupRequested?: boolean;
-  /** Override; the listing's own setup fee is used when absent. */
-  setupFee?: number | null;
+  // No `setupFee`: every fee is priced from the listing, never the client (SEC-03).
 }
 
 export interface RentalQuote {
@@ -157,6 +158,22 @@ export async function quoteRentalRequest(
     });
   }
 
+  // The listing's fee only applies to a service the listing offers. Without
+  // these, a client could request setup or delivery the owner never agreed to
+  // provide, at whatever fee happens to sit on the listing row (SEC-03).
+  if (setupRequested && !listing.setupAvailable) {
+    blockers.push({
+      code: "SETUP_NOT_OFFERED",
+      message: "This listing does not offer setup service",
+    });
+  }
+  if (deliveryRequested && listing.deliveryMode === "pickup_only") {
+    blockers.push({
+      code: "DELIVERY_NOT_OFFERED",
+      message: "This listing does not offer delivery",
+    });
+  }
+
   const pricingListing: RentalPricingListingInput = {
     dailyRate: String(listing.dailyRate),
     weeklyRate: listing.weeklyRate != null ? String(listing.weeklyRate) : null,
@@ -174,7 +191,6 @@ export async function quoteRentalRequest(
     totalDays: Math.max(totalDays, 0),
     deliveryRequested,
     setupRequested,
-    setupFee: input.setupFee,
   });
 
   return {

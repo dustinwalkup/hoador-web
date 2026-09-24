@@ -13,7 +13,8 @@ export const createRentalRequestSchema = z
     deliveryAddress: z.string().optional(),
     deliveryInstructions: z.string().max(500).optional(),
     setupRequested: z.boolean().default(false),
-    setupFee: z.number().default(0),
+    // No `setupFee`: it is priced from the listing, never taken from the
+    // client (SEC-03). A client that still sends one has it dropped here.
     message: z.string().optional(),
     paymentIntentId: z.string().optional(), // Stripe payment intent ID
     paymentMethodId: z.string().min(1, "Payment method is required"), // Stripe payment method ID

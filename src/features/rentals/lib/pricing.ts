@@ -24,9 +24,12 @@ export interface RentalPricingInput {
   listing: RentalPricingListingInput;
   totalDays: number;
   deliveryRequested: boolean;
+  /**
+   * Priced at `listing.setupFee`. There is deliberately no fee override here:
+   * one existed, fed straight from the request body, and let a renter set
+   * their own (even negative) setup fee (SEC-03).
+   */
   setupRequested: boolean;
-  /** Optional override; when not provided, listing.setupFee is used when setupRequested is true */
-  setupFee?: number | null;
 }
 
 /**
@@ -82,9 +85,7 @@ export function calculateRentalPricing(
   const dailyRate = getEffectiveDailyRate(listing, totalDays);
   const subtotal = Math.round(dailyRate * totalDays * 100) / 100;
   const deliveryFee = deliveryRequested ? Number(listing.deliveryFee) : 0;
-  const setupFeeAmount = setupRequested
-    ? Number(input.setupFee ?? listing.setupFee ?? 0)
-    : 0;
+  const setupFeeAmount = setupRequested ? Number(listing.setupFee ?? 0) : 0;
   const rentalPriceBeforeServiceFee = subtotal + deliveryFee + setupFeeAmount;
   const serviceFee = calculateServiceFee(rentalPriceBeforeServiceFee);
   const securityDeposit = Number(listing.securityDeposit);

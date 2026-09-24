@@ -162,7 +162,6 @@ export class RentalService {
         endDate: formData.endDate,
         deliveryRequested: formData.deliveryRequested,
         setupRequested: formData.setupRequested,
-        setupFee: formData.setupFee,
       },
       userId,
     );

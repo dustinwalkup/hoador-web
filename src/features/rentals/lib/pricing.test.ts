@@ -86,7 +86,7 @@ describe("calculateRentalPricing", () => {
     );
   });
 
-  it("adds setup fee when setupRequested is true, using listing.setupFee by default", () => {
+  it("adds listing.setupFee when setupRequested is true", () => {
     const result = calculateRentalPricing({
       listing: baseListing,
       totalDays: 2,
@@ -96,16 +96,22 @@ describe("calculateRentalPricing", () => {
     expect(result.setupFee).toBe(20);
   });
 
-  it("uses input.setupFee override when provided", () => {
-    const result = calculateRentalPricing({
-      listing: baseListing,
-      totalDays: 2,
-      deliveryRequested: false,
-      setupRequested: true,
-      setupFee: 25,
-    });
-    expect(result.setupFee).toBe(25);
-  });
+  // SEC-03: there used to be a `setupFee` override on the input, fed from the
+  // request body, so a renter could price their own setup (even negatively).
+  it.each([25, 0, -499.5])(
+    "ignores a setupFee of %s smuggled into the input",
+    (smuggled) => {
+      const input = {
+        listing: baseListing,
+        totalDays: 2,
+        deliveryRequested: false,
+        setupRequested: true,
+        setupFee: smuggled,
+      };
+      const result = calculateRentalPricing(input);
+      expect(result.setupFee).toBe(Number(baseListing.setupFee));
+    },
+  );
 
   it("computes service fee on subtotal + delivery + setup", () => {
     const result = calculateRentalPricing({
@@ -182,17 +188,6 @@ describe("calculateRentalPricing", () => {
       totalDays: 2,
       deliveryRequested: false,
       setupRequested: true,
-    });
-    expect(result.setupFee).toBe(0);
-  });
-
-  it("handles setupRequested true with explicit setupFee 0", () => {
-    const result = calculateRentalPricing({
-      listing: baseListing,
-      totalDays: 2,
-      deliveryRequested: false,
-      setupRequested: true,
-      setupFee: 0,
     });
     expect(result.setupFee).toBe(0);
   });

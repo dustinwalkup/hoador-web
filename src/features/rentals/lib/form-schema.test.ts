@@ -6,7 +6,6 @@ describe("createRentalRequestSchema", () => {
     listingId: "a1b2c3d4-e5f6-4789-a012-345678901234",
     deliveryRequested: false,
     setupRequested: false,
-    setupFee: 0,
     paymentMethodId: "pm_test_123",
   };
 
@@ -42,4 +41,23 @@ describe("createRentalRequestSchema", () => {
       expect(endDateError?.[0]).toMatch(/on or after start date/i);
     }
   });
+
+  // SEC-03: the fee is priced from the listing. Older clients (the shipped
+  // mobile app included) still send one; it must be dropped, not rejected.
+  it.each([0, 20, -499.5])(
+    "accepts and drops a client-supplied setupFee of %s",
+    (setupFee) => {
+      const result = createRentalRequestSchema.safeParse({
+        ...basePayload,
+        deliveryRequested: true,
+        deliveryAddress: "1 Main St",
+        setupRequested: true,
+        setupFee,
+        startDate: new Date("2024-02-01"),
+        endDate: new Date("2024-02-05"),
+      });
+      expect(result.success).toBe(true);
+      expect(result.data).not.toHaveProperty("setupFee");
+    },
+  );
 });

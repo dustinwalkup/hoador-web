@@ -54,6 +54,8 @@ const listing = (over: Record<string, unknown> = {}) => ({
   monthlyRate: null,
   deliveryFee: 10,
   setupFee: 20,
+  setupAvailable: true,
+  deliveryMode: "both_available",
   securityDeposit: 100,
   minimumRentalPeriod: 1,
   maximumRentalPeriod: 30,
@@ -286,5 +288,74 @@ describe("POST /api/rentals/preview — failures", () => {
     await preview();
 
     expect(mockGetListingById).toHaveBeenCalledWith(LISTING_ID);
+  });
+});
+
+/**
+ * SEC-03: the setup fee used to be taken from the request body in preference
+ * to the listing's, so a renter could discount (or negate) it. And nothing
+ * stopped a request for setup or delivery the listing does not offer.
+ */
+describe("POST /api/rentals/preview — server-priced setup and delivery (SEC-03)", () => {
+  it.each([-100, 0, 999])(
+    "prices setup from the listing, ignoring a client setupFee of %s",
+    async (setupFee) => {
+      const { body: honest } = await preview({
+        setupRequested: true,
+        deliveryRequested: true,
+      });
+      const { body: forged } = await preview({
+        setupRequested: true,
+        deliveryRequested: true,
+        setupFee,
+      });
+
+      expect(forged.setupFee).toBe("20.00");
+      expect(forged.totalAmount).toBe(honest.totalAmount);
+    },
+  );
+
+  it("blocks setup on a listing that does not offer it", async () => {
+    mockGetListingById.mockResolvedValue(listing({ setupAvailable: false }));
+
+    const { body } = await preview({
+      deliveryRequested: true,
+      setupRequested: true,
+    });
+
+    expect(body.canBook).toBe(false);
+    expect(codes(body)).toEqual(["SETUP_NOT_OFFERED"]);
+  });
+
+  it("blocks delivery on a pickup-only listing", async () => {
+    mockGetListingById.mockResolvedValue(
+      listing({ deliveryMode: "pickup_only" }),
+    );
+
+    const { body } = await preview({ deliveryRequested: true });
+
+    expect(body.canBook).toBe(false);
+    expect(codes(body)).toEqual(["DELIVERY_NOT_OFFERED"]);
+  });
+
+  it.each(["delivery_only", "both_available"])(
+    "allows delivery on a %s listing",
+    async (deliveryMode) => {
+      mockGetListingById.mockResolvedValue(listing({ deliveryMode }));
+
+      const { body } = await preview({ deliveryRequested: true });
+
+      expect(body.canBook).toBe(true);
+    },
+  );
+
+  it("does not block a pickup-only listing when delivery is not requested", async () => {
+    mockGetListingById.mockResolvedValue(
+      listing({ deliveryMode: "pickup_only", setupAvailable: false }),
+    );
+
+    const { body } = await preview();
+
+    expect(body.canBook).toBe(true);
   });
 });

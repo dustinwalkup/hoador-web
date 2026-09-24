@@ -278,10 +278,6 @@ export function RentListingPageContent({
             : undefined,
         setupRequested:
           data.setupRequested && data.deliveryMethod === "delivery",
-        setupFee:
-          data.setupRequested && data.deliveryMethod === "delivery"
-            ? listing.setupFee
-            : 0,
         message: data.message || undefined,
         paymentMethodId: data.paymentMethodId.trim(),
         // Legal document acknowledgements

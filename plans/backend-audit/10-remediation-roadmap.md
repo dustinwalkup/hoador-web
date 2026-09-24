@@ -118,27 +118,27 @@ Goal: close the remaining HIGH findings and the MEDIUM items that are cheap, exp
 
 ## Execution order & status (executors: update your row)
 
-| Order | Plan                       | Priority | Effort | Depends on                                    | Status                                                                                   |
-| ----- | -------------------------- | -------- | ------ | --------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 1     | R-PRIV-01                  | P0       | S      | —                                             | DONE (2026-09-24, 53bfb56; `overdue` also unlocks addresses; own address always visible) |
-| 2     | R-PRIV-03                  | P0       | S      | —                                             | DONE (2026-09-24, uncommitted; provider projection also allowlisted in the route helper) |
-| 3     | R-SEC-03                   | P0       | S      | —                                             | TODO                                                                                     |
-| 4     | R-SEC-02                   | P0       | S      | —                                             | TODO                                                                                     |
-| 5     | R-SEC-01 (+ SEC-05 config) | P0       | M      | —                                             | TODO                                                                                     |
-| 6     | R-TEST-HARNESS             | P0       | M      | —                                             | TODO                                                                                     |
-| 7     | R-BIZ-05                   | P0       | S      | —                                             | TODO                                                                                     |
-| 8     | R-BIZ-01                   | P0       | M      | R-TEST-HARNESS (race tests only)              | TODO                                                                                     |
-| 9     | R-CONC-02                  | P0       | M      | R-BIZ-05 (shared payout code), R-TEST-HARNESS | TODO                                                                                     |
-| 10    | R-BIZ-03                   | P0       | S      | —                                             | TODO                                                                                     |
-| 11    | R-BIZ-02                   | P0       | S      | R-BIZ-03 (same function)                      | TODO                                                                                     |
-| 12    | R-BIZ-06                   | P0       | S      | ops check 5                                   | TODO                                                                                     |
-| 13    | R-BIZ-07                   | P0       | S      | —                                             | TODO                                                                                     |
-| 14    | R-CONC-01                  | P1       | M      | R-BIZ-01                                      | TODO                                                                                     |
-| 15    | R-DB-01                    | P1       | M      | —                                             | TODO                                                                                     |
-| 16    | R-BIZ-04                   | P1       | M      | —                                             | TODO                                                                                     |
-| 17    | R-PRIV-02                  | P1       | M      | —                                             | TODO                                                                                     |
-| 18    | R-PERF-01                  | P1       | M      | —                                             | TODO                                                                                     |
-| 19    | R-PERF-02                  | P1       | M      | —                                             | TODO                                                                                     |
+| Order | Plan                       | Priority | Effort | Depends on                                    | Status                                                                                                  |
+| ----- | -------------------------- | -------- | ------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 1     | R-PRIV-01                  | P0       | S      | —                                             | DONE (2026-09-24, 53bfb56; `overdue` also unlocks addresses; own address always visible)                |
+| 2     | R-PRIV-03                  | P0       | S      | —                                             | DONE (2026-09-24, 7e5ffe6; provider projection also allowlisted in the route helper)                    |
+| 3     | R-SEC-03                   | P0       | S      | —                                             | DONE (2026-09-24, uncommitted; also touched rental-service.ts + web checkout, which forwarded setupFee) |
+| 4     | R-SEC-02                   | P0       | S      | —                                             | TODO                                                                                                    |
+| 5     | R-SEC-01 (+ SEC-05 config) | P0       | M      | —                                             | TODO                                                                                                    |
+| 6     | R-TEST-HARNESS             | P0       | M      | —                                             | TODO                                                                                                    |
+| 7     | R-BIZ-05                   | P0       | S      | —                                             | TODO                                                                                                    |
+| 8     | R-BIZ-01                   | P0       | M      | R-TEST-HARNESS (race tests only)              | TODO                                                                                                    |
+| 9     | R-CONC-02                  | P0       | M      | R-BIZ-05 (shared payout code), R-TEST-HARNESS | TODO                                                                                                    |
+| 10    | R-BIZ-03                   | P0       | S      | —                                             | TODO                                                                                                    |
+| 11    | R-BIZ-02                   | P0       | S      | R-BIZ-03 (same function)                      | TODO                                                                                                    |
+| 12    | R-BIZ-06                   | P0       | S      | ops check 5                                   | TODO                                                                                                    |
+| 13    | R-BIZ-07                   | P0       | S      | —                                             | TODO                                                                                                    |
+| 14    | R-CONC-01                  | P1       | M      | R-BIZ-01                                      | TODO                                                                                                    |
+| 15    | R-DB-01                    | P1       | M      | —                                             | TODO                                                                                                    |
+| 16    | R-BIZ-04                   | P1       | M      | —                                             | TODO                                                                                                    |
+| 17    | R-PRIV-02                  | P1       | M      | —                                             | TODO                                                                                                    |
+| 18    | R-PERF-01                  | P1       | M      | —                                             | TODO                                                                                                    |
+| 19    | R-PERF-02                  | P1       | M      | —                                             | TODO                                                                                                    |
 
 Status values: TODO | IN PROGRESS | DONE | PARTIAL | BLOCKED (one-line reason) | REJECTED (one-line rationale).
 

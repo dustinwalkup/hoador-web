@@ -89,7 +89,6 @@ describe("useCreateRentalRequest", () => {
     endDate: new Date("2024-01-20"),
     deliveryRequested: false,
     setupRequested: false,
-    setupFee: 0,
     paymentMethodId: "pm_test_123",
     rentalAgreementAccepted: true,
     safetyLiabilityPackageAccepted: true,

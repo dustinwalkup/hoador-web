@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RentalService } from "./rental-service";
 import type { CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { NotFoundError } from "@/dal/errors";
+import { quoteRentalRequest } from "./rental-quote";
 
 const mockInsertRentalRequest = vi.fn();
 const mockGetListingById = vi.fn();
@@ -79,7 +80,6 @@ const validFormData: CreateRentalRequestFormData = {
   endDate: daysFromToday(5),
   deliveryRequested: false,
   setupRequested: false,
-  setupFee: 0,
   paymentMethodId: "pm_test_123",
   message: "I need this",
 };
@@ -97,6 +97,8 @@ describe("RentalService", () => {
       monthlyRate: 400,
       deliveryFee: 10,
       setupFee: 20,
+      setupAvailable: true,
+      deliveryMode: "both_available",
       securityDeposit: 50,
       minimumRentalPeriod: 1,
       maximumRentalPeriod: 30,
@@ -167,6 +169,8 @@ describe("RentalService", () => {
         monthlyRate: 400,
         deliveryFee: 10,
         setupFee: 20,
+        setupAvailable: true,
+        deliveryMode: "both_available",
         securityDeposit: 50,
         minimumRentalPeriod: 1,
         maximumRentalPeriod: 30,
@@ -186,6 +190,8 @@ describe("RentalService", () => {
         monthlyRate: null,
         deliveryFee: 10,
         setupFee: 20,
+        setupAvailable: true,
+        deliveryMode: "both_available",
         securityDeposit: 50,
         minimumRentalPeriod: 5,
         maximumRentalPeriod: 30,
@@ -210,6 +216,8 @@ describe("RentalService", () => {
         monthlyRate: null,
         deliveryFee: 10,
         setupFee: 20,
+        setupAvailable: true,
+        deliveryMode: "both_available",
         securityDeposit: 50,
         minimumRentalPeriod: 1,
         maximumRentalPeriod: 5,
@@ -288,6 +296,8 @@ describe("RentalService.createRentalRequest — availability (P-E8A-2b)", () => 
       monthlyRate: null,
       deliveryFee: 10,
       setupFee: 20,
+      setupAvailable: true,
+      deliveryMode: "both_available",
       securityDeposit: 50,
       minimumRentalPeriod: 1,
       maximumRentalPeriod: 30,
@@ -393,5 +403,74 @@ describe("RentalService.createRentalRequest — availability (P-E8A-2b)", () => 
     );
 
     expect(result.id).toBe("request-456");
+  });
+});
+
+/**
+ * SEC-03: the create path must persist the listing's setup fee whatever the
+ * body says, and the figure the preview quoted must be the figure stored.
+ */
+describe("RentalService.createRentalRequest — server-priced setup (SEC-03)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetListingById.mockResolvedValue({
+      id: "listing-123",
+      name: "Test Tool",
+      owner: { id: "owner-123" },
+      dailyRate: 15,
+      weeklyRate: null,
+      monthlyRate: null,
+      deliveryFee: 10,
+      setupFee: 20,
+      setupAvailable: true,
+      deliveryMode: "both_available",
+      securityDeposit: 50,
+      minimumRentalPeriod: 1,
+      maximumRentalPeriod: 30,
+    });
+    mockGetBookedDatesForListing.mockResolvedValue([]);
+    mockInsertRentalRequest.mockResolvedValue({ id: "request-456" });
+  });
+
+  const withSetup: CreateRentalRequestFormData = {
+    ...validFormData,
+    deliveryRequested: true,
+    deliveryAddress: "1 Main St",
+    setupRequested: true,
+  };
+
+  it.each([-100, 0])(
+    "stores the listing's setup fee, not a forged %s",
+    async (setupFee) => {
+      // As a non-app client would send it, past the type the schema now infers.
+      const forged = { ...withSetup, setupFee } as CreateRentalRequestFormData;
+
+      await RentalService.createRentalRequest(forged, "renter-789", context);
+
+      const payload = mockInsertRentalRequest.mock.calls[0][0];
+      expect(Number(payload.setupFee)).toBe(20);
+    },
+  );
+
+  it("stores exactly the setup fee and total the preview quotes", async () => {
+    const quote = await quoteRentalRequest(withSetup, "renter-789");
+
+    await RentalService.createRentalRequest(withSetup, "renter-789", context);
+
+    const payload = mockInsertRentalRequest.mock.calls[0][0];
+    expect(Number(payload.setupFee)).toBe(quote.pricing.setupFee);
+    expect(Number(payload.totalAmount)).toBe(quote.pricing.totalAmount);
+  });
+
+  it("refuses setup on a listing that does not offer it", async () => {
+    mockGetListingById.mockResolvedValue({
+      ...(await mockGetListingById()),
+      setupAvailable: false,
+    });
+
+    await expect(
+      RentalService.createRentalRequest(withSetup, "renter-789", context),
+    ).rejects.toThrow("This listing does not offer setup service");
+    expect(mockInsertRentalRequest).not.toHaveBeenCalled();
   });
 });
