@@ -16,17 +16,18 @@ Everything the backend-audit fixes need done **by hand, outside the code**, when
 
 ## Step status
 
-| #   | Step                                                             | From          | dev                                   | staging                               | prod                   |
-| --- | ---------------------------------------------------------------- | ------------- | ------------------------------------- | ------------------------------------- | ---------------------- |
-| B1  | Snapshot the database (Neon branch) before migrating             | —             | —                                     | —                                     | TODO                   |
-| B2  | Run and triage the roadmap's ops checks 1–10                     | Phase 0       | moot                                  | moot                                  | TODO                   |
-| B3  | Resolve overlapping bookings (before 0072)                       | R-CONC-01     | DONE 2026-09-24: 4 requests cancelled | DONE 2026-09-24: 4 requests cancelled | TODO                   |
-| B4  | Mobile build that handles the new error codes is live            | R-SEC-01 etc. | n/a                                   | n/a                                   | TODO                   |
-| M1  | `bun run db:migrate`                                             | all           | DONE 2026-09-24 (0069–0072)           | DONE 2026-09-24 (0072)                | TODO                   |
-| M2  | `bun run db:migrate` for 0073 (RESTRICT money/legal FKs)         | R-DB-01       | TODO                                  | TODO                                  | TODO                   |
-| A1  | Verify `rental_requests_no_overlap` exists                       | R-CONC-01     | DONE                                  | DONE                                  | TODO                   |
-| A2  | Resend failed `charge.dispute.created` webhooks (within 30 days) | R-BIZ-06      | n/a                                   | n/a                                   | TODO                   |
-| A3  | Pay owners their captured deposits (backfill)                    | R-BIZ-04      | —                                     | —                                     | TODO (plan not landed) |
+| #   | Step                                                             | From          | dev                                   | staging                               | prod |
+| --- | ---------------------------------------------------------------- | ------------- | ------------------------------------- | ------------------------------------- | ---- |
+| B1  | Snapshot the database (Neon branch) before migrating             | —             | —                                     | —                                     | TODO |
+| B2  | Run and triage the roadmap's ops checks 1–10                     | Phase 0       | moot                                  | moot                                  | TODO |
+| B3  | Resolve overlapping bookings (before 0072)                       | R-CONC-01     | DONE 2026-09-24: 4 requests cancelled | DONE 2026-09-24: 4 requests cancelled | TODO |
+| B4  | Mobile build that handles the new error codes is live            | R-SEC-01 etc. | n/a                                   | n/a                                   | TODO |
+| M1  | `bun run db:migrate`                                             | all           | DONE 2026-09-24 (0069–0072)           | DONE 2026-09-24 (0072)                | TODO |
+| M2  | `bun run db:migrate` for 0073 (RESTRICT money/legal FKs)         | R-DB-01       | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
+| M3  | `bun run db:migrate` for 0074 (`transfer_deposit` enum value)    | R-BIZ-04      | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
+| A1  | Verify `rental_requests_no_overlap` exists                       | R-CONC-01     | DONE                                  | DONE                                  | TODO |
+| A2  | Resend failed `charge.dispute.created` webhooks (within 30 days) | R-BIZ-06      | n/a                                   | n/a                                   | TODO |
+| A3  | Pay owners deposits captured before R-BIZ-04 (backfill)          | R-BIZ-04      | moot (no real captures)               | moot (no real captures)               | TODO |
 
 ## Before deploying
 
@@ -58,11 +59,12 @@ ORDER BY a.listing_id;
 
 **M1. Migrate.** `bun run db:migrate`, after checking the host. drizzle-kit runs **every pending migration in one transaction**, so one failure rolls back the whole batch, and the plain output hides the Postgres error. If it fails, rerun with `npx drizzle-kit migrate --verbose`. The migrations the audit fixes depend on:
 
-| Migration                            | Fix       | Notes                                                                                                                                                                                                                                                                                                            |
-| ------------------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0070_seed_system_user`              | R-BIZ-06  | Idempotent (`ON CONFLICT DO NOTHING`). Nothing to prepare.                                                                                                                                                                                                                                                       |
-| `0072_rental_requests_no_overlap`    | R-CONC-01 | Needs B3 first. Installs `btree_gist`. Not in the Drizzle schema (see below).                                                                                                                                                                                                                                    |
-| `0073_restrict_financial_record_fks` | R-DB-01   | No data prep: it only changes FK delete actions and drops NOT NULL on `dispute_financial_operations.performed_by`. Postgres truncates one constraint name to 63 chars (`rental_agreement_documents_rental_request_id_rental_requests_id`) and prints a NOTICE when the migration refers to it; that is expected. |
+| Migration                                | Fix       | Notes                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0070_seed_system_user`                  | R-BIZ-06  | Idempotent (`ON CONFLICT DO NOTHING`). Nothing to prepare.                                                                                                                                                                                                                                                       |
+| `0072_rental_requests_no_overlap`        | R-CONC-01 | Needs B3 first. Installs `btree_gist`. Not in the Drizzle schema (see below).                                                                                                                                                                                                                                    |
+| `0073_restrict_financial_record_fks`     | R-DB-01   | No data prep: it only changes FK delete actions and drops NOT NULL on `dispute_financial_operations.performed_by`. Postgres truncates one constraint name to 63 chars (`rental_agreement_documents_rental_request_id_rental_requests_id`) and prints a NOTICE when the migration refers to it; that is expected. |
+| `0074_add_transfer_deposit_financial_op` | R-BIZ-04  | No data prep. A single `ALTER TYPE ... ADD VALUE`.                                                                                                                                                                                                                                                               |
 
 ## After deploying
 
@@ -74,7 +76,28 @@ SELECT conname FROM pg_constraint WHERE conname = 'rental_requests_no_overlap';
 
 **A2. Resend chargebacks (R-BIZ-06).** Before the fix, every `charge.dispute.created` webhook failed on the missing `system` user. List `audit_logs` rows with `action = 'webhook.failed'` whose metadata `eventType` is `charge.dispute.created` (ops check 5), then resend those events from Stripe → Developers → Events. **Stripe keeps events for 30 days only**, so do this as soon as the fix is live.
 
-**A3. Captured-deposit backfill (R-BIZ-04).** Once R-BIZ-04 lands, pay each owner the full amount ops check 6 found. There's no platform fee on deposits (decided 2026-09-24).
+**A3. Captured-deposit backfill (R-BIZ-04).** From deploy on, a deposit captured in a dispute is transferred to the owner automatically. Deposits captured **before** deploy never were. Find them. The `NOT EXISTS` checks for a _succeeded_ transfer, because a failed attempt leaves a `failed` row:
+
+```sql
+SELECT dfo.dispute_id, dfo.amount, dfo.stripe_payment_intent_id, d.rental_id
+FROM dispute_financial_operations dfo
+JOIN disputes d ON d.id = dfo.dispute_id
+WHERE dfo.operation_type = 'capture_deposit'
+  AND dfo.status = 'succeeded'
+  -- A deposit RELEASE is also recorded as a succeeded capture_deposit; only a
+  -- real capture sets stripe_operation_id, and only these outcomes capture.
+  AND dfo.stripe_operation_id IS NOT NULL
+  AND d.resolution_outcome IN ('favor_provider','partial_provider','partial_renter')
+  AND NOT EXISTS (
+    SELECT 1 FROM dispute_financial_operations t
+    WHERE t.dispute_id = dfo.dispute_id
+      AND t.operation_type = 'transfer_deposit'
+      AND t.status = 'succeeded');
+```
+
+A full capture records no `amount`, so take the captured amount from the PaymentIntent in Stripe (`amount_received`). Transfer all of it to the owner's Connect account (there's no platform fee on deposits, decided 2026-09-24), with `source_transaction` set to the deposit's charge. Record a `transfer_deposit` row with the transfer id. Do it one row at a time, with sign-off; don't bulk-automate.
+
+The same query also finds **live failures** after deploy: each `deposit_transfer_failed` ops alert leaves a `failed` row. A retry must use a new idempotency key (`deposit-transfer-{disputeId}-retry-{n}`, via `createDepositTransfer`'s `retryCount`), because Stripe replays a cached failure for a reused key. A `deposit_transfer_unrecorded` alert means the owner **was** paid and only the row is missing. Add the row and don't pay again.
 
 ## Standing rules
 

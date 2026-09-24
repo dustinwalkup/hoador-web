@@ -16,6 +16,9 @@ import { releaseSecurityDeposit } from "@/services/stripe/rental-payments";
 import { sendDisputeNotifications } from "@/features/disputes/notifications/dispute-notifications";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
+import { createDepositTransfer } from "@/services/stripe/payout";
+import { assertConnectReady } from "@/features/payments/lib/assert-connect-ready";
+import type Stripe from "stripe";
 
 type DepositAction = "capture_full" | "capture_partial" | "release" | "skip";
 
@@ -525,6 +528,8 @@ export class DisputeResolutionService {
   /**
    * Capture the security deposit (full or partial) with idempotency.
    * Updates lifecycle on success; records failure in dispute_financial_operations.
+   * A successful capture is then paid on to the owner, which never fails the
+   * capture (BIZ-04).
    */
   private static async executeCapture(
     dispute: DisputeWithRelations,
@@ -544,20 +549,20 @@ export class DisputeResolutionService {
       return "failed";
     }
 
+    let paymentIntent: Stripe.PaymentIntent;
     try {
       const captureAmount =
         depositOp.action === "capture_partial"
           ? depositOp.partialAmountDollars
           : undefined;
 
-      const paymentIntent =
-        await PAYMENT_SERVER_INSTANCE.paymentIntents.capture(
-          securityDepositAuthId,
-          captureAmount != null
-            ? { amount_to_capture: Math.round(captureAmount * 100) }
-            : {},
-          { idempotencyKey: `deposit-capture-${dispute.id}` },
-        );
+      paymentIntent = await PAYMENT_SERVER_INSTANCE.paymentIntents.capture(
+        securityDepositAuthId,
+        captureAmount != null
+          ? { amount_to_capture: Math.round(captureAmount * 100) }
+          : {},
+        { idempotencyKey: `deposit-capture-${dispute.id}` },
+      );
 
       await paymentLifecycleDAL.markDepositCaptured(rentalId);
 
@@ -570,8 +575,6 @@ export class DisputeResolutionService {
         status: "succeeded",
         performedBy: adminId,
       });
-
-      return "captured";
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
@@ -586,6 +589,128 @@ export class DisputeResolutionService {
       });
 
       return "failed";
+    }
+
+    await this.payCapturedDepositToOwner(dispute, paymentIntent, adminId);
+    return "captured";
+  }
+
+  /**
+   * Transfer a captured deposit to the owner's Connect account: the full
+   * captured amount, no platform fee (decided 2026-09-24). Capturing used to
+   * be the end of it, so the platform kept money that is the owner's (BIZ-04).
+   *
+   * Never throws. The renter's money has already moved and the resolution
+   * must complete, so a failure (no Connect account, account not ready,
+   * Stripe refusing the transfer) records a failed `transfer_deposit`
+   * operation and alerts ops to pay the owner by hand.
+   */
+  private static async payCapturedDepositToOwner(
+    dispute: DisputeWithRelations,
+    paymentIntent: Stripe.PaymentIntent,
+    adminId: string,
+  ): Promise<void> {
+    const rentalId = dispute.rentalId!;
+    const amountCents = paymentIntent.amount_received;
+    const amount = (amountCents / 100).toFixed(2);
+
+    const fail = async (errorMessage: string) => {
+      try {
+        await disputeDAL.createFinancialOperation({
+          disputeId: dispute.id,
+          operationType: "transfer_deposit",
+          amount,
+          stripePaymentIntentId: paymentIntent.id,
+          status: "failed",
+          errorMessage,
+          performedBy: adminId,
+        });
+      } catch (error) {
+        console.error("Failed to record deposit transfer failure:", error);
+      }
+      await sendOpsAlert({
+        event: "deposit_transfer_failed",
+        rentalId,
+        message: `Captured deposit of $${amount} for dispute ${dispute.id} was not paid to the owner: ${errorMessage}. Transfer it by hand.`,
+        metadata: {
+          disputeId: dispute.id,
+          amountCents,
+          paymentIntentId: paymentIntent.id,
+        },
+        sendEmailAlert: true,
+      }).catch(() => {});
+    };
+
+    if (!(amountCents > 0)) return;
+
+    let transferId: string | null = null;
+    try {
+      const depositChargeId =
+        typeof paymentIntent.latest_charge === "string"
+          ? paymentIntent.latest_charge
+          : (paymentIntent.latest_charge?.id ?? null);
+      if (!depositChargeId) {
+        await fail("The captured deposit has no charge to transfer from");
+        return;
+      }
+
+      const owner = await rentalDAL.getRentalOwnerTransferContext(rentalId);
+      if (!owner?.ownerConnectedAccountId) {
+        await fail("The owner has no Stripe Connect account");
+        return;
+      }
+
+      try {
+        await assertConnectReady(owner.ownerId, {
+          bookingType: "rental",
+          bookingId: rentalId,
+        });
+      } catch (error) {
+        await fail(
+          `The owner's Stripe Connect account is not ready: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return;
+      }
+
+      const transfer = await createDepositTransfer({
+        disputeId: dispute.id,
+        rentalId,
+        ownerId: owner.ownerId,
+        ownerConnectedAccountId: owner.ownerConnectedAccountId,
+        depositChargeId,
+        amountCents,
+      });
+      if (!transfer.success) {
+        await fail(transfer.error);
+        return;
+      }
+      transferId = transfer.transferId;
+
+      await disputeDAL.createFinancialOperation({
+        disputeId: dispute.id,
+        operationType: "transfer_deposit",
+        amount,
+        stripeOperationId: transfer.transferId,
+        stripePaymentIntentId: paymentIntent.id,
+        stripeTransferId: transfer.transferId,
+        status: "succeeded",
+        performedBy: adminId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (transferId) {
+        // The owner WAS paid; only the record is missing. A failed row here
+        // would read as unpaid and invite paying them twice.
+        await sendOpsAlert({
+          event: "deposit_transfer_unrecorded",
+          rentalId,
+          message: `Captured deposit of $${amount} for dispute ${dispute.id} was transferred (${transferId}) but not recorded: ${message}. Do not pay it again; add the record.`,
+          metadata: { disputeId: dispute.id, amountCents, transferId },
+          sendEmailAlert: true,
+        }).catch(() => {});
+        return;
+      }
+      await fail(`Unexpected error: ${message}`);
     }
   }
 

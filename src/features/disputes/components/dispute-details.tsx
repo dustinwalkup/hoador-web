@@ -117,6 +117,7 @@ export function DisputeDetails({
       refund_partial: "Partial Refund",
       refund_full: "Full Refund",
       capture_deposit: "Capture Deposit",
+      transfer_deposit: "Deposit Paid to Owner",
     };
     return labels[type] || type;
   };

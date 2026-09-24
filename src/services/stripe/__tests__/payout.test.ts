@@ -10,7 +10,7 @@ vi.mock("@/services/stripe/server", () => ({
   },
 }));
 
-import { createOwnerTransfer } from "../payout";
+import { createDepositTransfer, createOwnerTransfer } from "../payout";
 
 describe("PayoutService", () => {
   beforeEach(() => {
@@ -179,6 +179,54 @@ describe("PayoutService", () => {
 
       const createArgs = mockTransfersCreate.mock.calls[0][0];
       expect(createArgs.amount).toBe(2666);
+    });
+  });
+
+  // BIZ-04: the captured deposit goes to the owner in full.
+  describe("createDepositTransfer", () => {
+    const depositParams = {
+      disputeId: "dispute-1",
+      rentalId: "rental-1",
+      ownerId: "owner-1",
+      ownerConnectedAccountId: "acct_123",
+      depositChargeId: "ch_dep",
+      amountCents: 15000,
+    };
+
+    it("transfers exactly the captured cents from the deposit charge", async () => {
+      mockTransfersCreate.mockResolvedValue({ id: "tr_dep" });
+
+      const result = await createDepositTransfer(depositParams);
+
+      expect(result).toEqual({ success: true, transferId: "tr_dep" });
+      expect(mockTransfersCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 15000,
+          currency: "usd",
+          destination: "acct_123",
+          source_transaction: "ch_dep",
+        }),
+        { idempotencyKey: "deposit-transfer-dispute-1" },
+      );
+    });
+
+    it("uses a fresh idempotency key for a manual retry", async () => {
+      mockTransfersCreate.mockResolvedValue({ id: "tr_dep" });
+
+      await createDepositTransfer({ ...depositParams, retryCount: 2 });
+
+      expect(mockTransfersCreate).toHaveBeenCalledWith(expect.anything(), {
+        idempotencyKey: "deposit-transfer-dispute-1-retry-2",
+      });
+    });
+
+    it("returns the error instead of throwing", async () => {
+      mockTransfersCreate.mockRejectedValue(new Error("Insufficient funds"));
+
+      await expect(createDepositTransfer(depositParams)).resolves.toEqual({
+        success: false,
+        error: "Insufficient funds",
+      });
     });
   });
 });

@@ -179,6 +179,8 @@ export const financialOperationTypeEnum = pgEnum("financial_operation_type", [
   "refund_partial",
   "refund_full",
   "capture_deposit",
+  // The captured deposit paid on to the owner (BIZ-04).
+  "transfer_deposit",
 ]);
 
 export const financialOperationStatusEnum = pgEnum(

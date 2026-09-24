@@ -217,6 +217,13 @@ const disputeFinancialOperationsTable = [
       "Security deposit PaymentIntent captured (captureSecurityDeposit).",
     dbEffect: "Row in dispute_financial_operations with stripeOperationId.",
   },
+  {
+    operation: "transfer_deposit",
+    stripeEffect:
+      "After a capture: the full captured amount transferred to the owner's Connect account (createDepositTransfer, source_transaction = the deposit charge, key deposit-transfer-{disputeId}). No platform fee.",
+    dbEffect:
+      "Row in dispute_financial_operations with stripeTransferId. On failure: a failed row and a deposit_transfer_failed ops alert; the resolution still completes.",
+  },
 ];
 
 export default function HowItWorksPaymentsPage() {

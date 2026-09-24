@@ -668,6 +668,45 @@ describe("RentalDAL", () => {
     });
   });
 
+  // BIZ-04: who gets a captured deposit, and where to send it.
+  describe("getRentalOwnerTransferContext", () => {
+    const stubJoin = (rows: unknown[]) => {
+      const mockWhere = vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue(rows),
+      });
+      vi.mocked(db.select).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          innerJoin: vi.fn().mockReturnValue({ where: mockWhere }),
+        }),
+      } as any);
+      return mockWhere;
+    };
+
+    it("returns the owner and their Connect account", async () => {
+      const row = {
+        ownerId: "owner-1",
+        requestId: "request-1",
+        ownerConnectedAccountId: "acct_1",
+      };
+      const where = stubJoin([row]);
+
+      await expect(
+        rentalDAL.getRentalOwnerTransferContext("rental-1"),
+      ).resolves.toEqual(row);
+      expect(boundTo(where.mock.calls[0][0], '"rentals"."id"', "=")).toBe(
+        "rental-1",
+      );
+    });
+
+    it("returns null for an unknown rental", async () => {
+      stubJoin([]);
+
+      await expect(
+        rentalDAL.getRentalOwnerTransferContext("missing"),
+      ).resolves.toBeNull();
+    });
+  });
+
   describe("declineRentalRequest", () => {
     it("should decline rental request when user is owner", async () => {
       // Arrange

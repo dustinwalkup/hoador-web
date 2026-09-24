@@ -1,0 +1,1 @@
+ALTER TYPE "public"."financial_operation_type" ADD VALUE 'transfer_deposit';

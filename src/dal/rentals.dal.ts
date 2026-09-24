@@ -3256,6 +3256,33 @@ export class RentalDAL extends BaseDAL {
   }
 
   /**
+   * The owner and their Connect account for a rental, for paying a captured
+   * security deposit on to the owner after a dispute (BIZ-04). Null if the
+   * rental does not exist.
+   */
+  async getRentalOwnerTransferContext(rentalId: string): Promise<{
+    ownerId: string;
+    requestId: string;
+    ownerConnectedAccountId: string | null;
+  } | null> {
+    try {
+      const [row] = await this.db
+        .select({
+          ownerId: rentals.ownerId,
+          requestId: rentals.requestId,
+          ownerConnectedAccountId: user.stripeConnectedAccountId,
+        })
+        .from(rentals)
+        .innerJoin(user, eq(rentals.ownerId, user.id))
+        .where(eq(rentals.id, rentalId))
+        .limit(1);
+      return row ?? null;
+    } catch (error) {
+      this.handleError(error, "getRentalOwnerTransferContext");
+    }
+  }
+
+  /**
    * Rental request row for pickup/return reminder cron.
    * Requirements: 13.1, 13.2, 13.3
    */
