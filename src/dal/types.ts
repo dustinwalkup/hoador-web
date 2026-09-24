@@ -494,6 +494,13 @@ export interface DocumentVersionsMap {
   [documentId: string]: CurrentDocumentVersion;
 }
 
+/** One acceptance, reduced to what a user-facing read may show. */
+export interface LegalAcceptanceSummary {
+  documentId: string;
+  version: string;
+  acceptedAt: Date;
+}
+
 export interface LegalAcceptance {
   id: string;
   userId: string;

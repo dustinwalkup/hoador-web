@@ -19,10 +19,12 @@ export const LEGAL_DOCUMENT_IDS = {
 
   // Community
   COMMUNITY: "community",
+  // @deprecated - Not used (product decision 2026-09-24). Kept so existing rows and acceptance records still type-check.
   REVIEW_POLICY: "review_policy",
 
   // Transactional
   PER_RENTAL_AGREEMENT: "per_rental_agreement",
+  // @deprecated - Not used (product decision 2026-09-24): a booking's agreement is generated on acceptance, with no generic fallback (Req 22.1.3). Kept for existing acceptance records.
   PER_SERVICE_AGREEMENT: "per_service_agreement",
   CANCELLATION_REFUND: "cancellation_refund",
   DISPUTE_POLICY: "dispute_policy",
@@ -35,6 +37,23 @@ export const LEGAL_DOCUMENT_IDS = {
 
 export type LegalDocumentId =
   (typeof LEGAL_DOCUMENT_IDS)[keyof typeof LEGAL_DOCUMENT_IDS];
+
+/**
+ * The documents a user can read from the app's settings, in display order:
+ * web's footer list plus the dispute policy (the app has no footer, and only a
+ * dispute links that policy in context). Per-transaction agreements are left
+ * out; each rental or booking links its own.
+ */
+export const USER_FACING_LEGAL_DOCUMENT_IDS = [
+  LEGAL_DOCUMENT_IDS.TOS,
+  LEGAL_DOCUMENT_IDS.PRIVACY,
+  LEGAL_DOCUMENT_IDS.COMMUNITY,
+  LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND,
+  LEGAL_DOCUMENT_IDS.SAFETY_LIABILITY_PACKAGE,
+  LEGAL_DOCUMENT_IDS.PAYMENTS_PAYOUTS,
+  LEGAL_DOCUMENT_IDS.PROHIBITED_ITEMS_AND_LISTING_CONTENT,
+  LEGAL_DOCUMENT_IDS.DISPUTE_POLICY,
+] as const satisfies readonly LegalDocumentId[];
 
 /**
  * Document categories for organizing in admin UI

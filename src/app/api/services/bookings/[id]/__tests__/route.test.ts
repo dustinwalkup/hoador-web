@@ -150,11 +150,11 @@ describe("GET /api/services/bookings/[id] — agreement serialization", () => {
       templateVersion: "v3",
     });
     expect(body.id).toBe("booking-1");
-    // The generic fallback must not be consulted when a real PDF exists.
-    expect(mockGetCurrentVersion).not.toHaveBeenCalled();
   });
 
-  it("falls back to the generic per_service_agreement document (D-E2-7)", async () => {
+  it("returns agreement: null without a generated PDF, never a generic document (Req 22.1.3)", async () => {
+    // Even if a stale `per_service_agreement` row were still published, a
+    // booking has no generic agreement: the client shows "unavailable".
     mockGetCurrentVersion.mockResolvedValue({
       version: "1.0",
       url: "https://blob.hoador.com/legal/per-service-agreement-1.0.pdf",
@@ -162,16 +162,11 @@ describe("GET /api/services/bookings/[id] — agreement serialization", () => {
 
     const res = await GET(req(), params("booking-1"));
 
-    const body = await res.json();
-    expect(body.agreement).toEqual({
-      pdfUrl: "https://blob.hoador.com/legal/per-service-agreement-1.0.pdf",
-      templateVersion: "1.0",
-    });
-    // The generic doc must be the *service* agreement, never the rental one.
-    expect(mockGetCurrentVersion).toHaveBeenCalledWith("per_service_agreement");
+    expect((await res.json()).agreement).toBeNull();
+    expect(mockGetCurrentVersion).not.toHaveBeenCalled();
   });
 
-  it("returns agreement: null when neither the PDF nor the generic doc exists", async () => {
+  it("returns agreement: null when no PDF exists", async () => {
     const res = await GET(req(), params("booking-1"));
 
     expect((await res.json()).agreement).toBeNull();
@@ -179,7 +174,6 @@ describe("GET /api/services/bookings/[id] — agreement serialization", () => {
 
   it("degrades to null (does not 500) when the agreement lookup throws", async () => {
     mockGetByServiceBookingId.mockRejectedValue(new Error("blob down"));
-    mockGetCurrentVersion.mockRejectedValue(new Error("blob down"));
 
     const res = await GET(req(), params("booking-1"));
 

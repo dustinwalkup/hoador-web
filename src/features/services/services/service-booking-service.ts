@@ -158,8 +158,10 @@ export class ServiceBookingService {
 
     await sendNewBookingRequestNotification(quote.providerId, booking);
 
+    // `serviceAgreementAccepted` records nothing: a booking has no generic
+    // agreement document (`per_service_agreement` is not used; Req 22.1.3).
+    // Its signed agreement is generated when the provider accepts.
     if (
-      formData.serviceAgreementAccepted ||
       formData.cancellationRefundAcknowledged ||
       formData.safetyLiabilityAccepted ||
       formData.paymentPayoutAccepted ||
@@ -169,25 +171,6 @@ export class ServiceBookingService {
         const documentVersions = await legalDocumentDAL.getAllCurrentVersions();
         const acceptancePromises = [];
 
-        if (
-          formData.serviceAgreementAccepted &&
-          documentVersions[LEGAL_DOCUMENT_IDS.PER_SERVICE_AGREEMENT]
-        ) {
-          const doc =
-            documentVersions[LEGAL_DOCUMENT_IDS.PER_SERVICE_AGREEMENT];
-          acceptancePromises.push(
-            legalDocumentDAL.recordAcceptance(
-              requesterId,
-              LEGAL_DOCUMENT_IDS.PER_SERVICE_AGREEMENT,
-              doc.version,
-              context.ipAddress ?? null,
-              context.userAgent ?? null,
-              "service_booking_checkout",
-              undefined,
-              formData.listingId,
-            ),
-          );
-        }
         if (
           formData.cancellationRefundAcknowledged &&
           documentVersions[LEGAL_DOCUMENT_IDS.CANCELLATION_REFUND]

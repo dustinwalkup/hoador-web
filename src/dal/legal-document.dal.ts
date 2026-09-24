@@ -1,4 +1,4 @@
-import { desc, eq, and } from "drizzle-orm";
+import { desc, eq, and, inArray } from "drizzle-orm";
 import { tryCatch } from "@walkup/walkup-utils";
 
 import {
@@ -18,6 +18,7 @@ import type {
   DocumentVersionsMap,
   LegalAcceptance,
   DocumentVersion,
+  LegalAcceptanceSummary,
 } from "./types";
 
 export class LegalDocumentDAL extends BaseDAL {
@@ -85,6 +86,59 @@ export class LegalDocumentDAL extends BaseDAL {
       return versionsMap;
     } catch (error) {
       console.error("Error fetching all current document versions:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Every version of every document, newest first. For callers that need a
+   * past version's URL as well as the current one; the table holds one row
+   * per published version, so it stays small.
+   */
+  async getAllDocumentVersions(): Promise<CurrentDocumentVersion[]> {
+    try {
+      return await this.db
+        .select({
+          id: legalDocuments.id,
+          version: legalDocuments.version,
+          url: legalDocuments.url,
+          publishedAt: legalDocuments.publishedAt,
+        })
+        .from(legalDocuments)
+        .orderBy(desc(legalDocuments.publishedAt));
+    } catch (error) {
+      console.error("Error fetching all document versions:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * A user's acceptances of the given documents, newest first, from whichever
+   * flow recorded them (checkout, listing creation, …). Selects only what a
+   * user-facing read needs: never the IP address or user agent.
+   */
+  async getAcceptancesForDocuments(
+    userId: string,
+    documentIds: readonly string[],
+  ): Promise<LegalAcceptanceSummary[]> {
+    if (documentIds.length === 0) return [];
+    try {
+      return await this.db
+        .select({
+          documentId: userLegalAcceptances.documentId,
+          version: userLegalAcceptances.version,
+          acceptedAt: userLegalAcceptances.acceptedAt,
+        })
+        .from(userLegalAcceptances)
+        .where(
+          and(
+            eq(userLegalAcceptances.userId, userId),
+            inArray(userLegalAcceptances.documentId, [...documentIds]),
+          ),
+        )
+        .orderBy(desc(userLegalAcceptances.acceptedAt));
+    } catch (error) {
+      console.error("Error fetching user acceptances for documents:", error);
       throw error;
     }
   }

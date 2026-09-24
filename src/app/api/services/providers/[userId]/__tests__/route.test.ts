@@ -6,11 +6,14 @@ const mockFindByProvider = vi.fn();
 const mockGetUserById = vi.fn();
 const mockGetAggregate = vi.fn();
 const mockFindReleasedByReviewee = vi.fn();
+const mockGetPrimaryMembershipForUser = vi.fn();
 
 vi.mock("@/dal", () => ({
   communityDAL: {
     getVisibleCommunityIds: (...args: unknown[]) =>
       mockGetVisibleCommunityIds(...args),
+    getPrimaryMembershipForUser: (...args: unknown[]) =>
+      mockGetPrimaryMembershipForUser(...args),
   },
   serviceListingDAL: {
     findByProvider: (...args: unknown[]) => mockFindByProvider(...args),
@@ -88,6 +91,7 @@ describe("GET /api/services/providers/[userId]", () => {
     mockGetUserById.mockResolvedValue(profileUser);
     mockGetAggregate.mockResolvedValue({ averageRating: 0, totalReviews: 0 });
     mockFindReleasedByReviewee.mockResolvedValue({ data: [] });
+    mockGetPrimaryMembershipForUser.mockResolvedValue(null);
     mockFindByProvider.mockResolvedValue([
       listingIn("l-shared", "comm-shared"),
       listingIn("l-private", "comm-provider-only"),
@@ -156,6 +160,78 @@ describe("GET /api/services/providers/[userId]", () => {
     const body = await res.json();
 
     expect(body.profile).toEqual({ bio: null });
+  });
+
+  // Mobile P-E14-3: the public profile's community badge.
+  describe("community", () => {
+    const membership = (verificationStatus: string) => ({
+      membership: {
+        id: "m-1",
+        userId: "provider-1",
+        communityId: "comm-home",
+        isPrimary: true,
+        verificationStatus,
+      },
+      community: {
+        id: "comm-home",
+        name: "Foxcroft",
+        joinCode: "SECRET-CODE",
+        address: "1 Home St",
+      },
+    });
+
+    it("returns the home community's name and a verified flag", async () => {
+      mockGetPrimaryMembershipForUser.mockResolvedValue(membership("verified"));
+
+      const res = await GET(reqFor(), paramsFor());
+      const body = await res.json();
+
+      expect(mockGetPrimaryMembershipForUser).toHaveBeenCalledWith(
+        "provider-1",
+      );
+      expect(body.community).toEqual({ name: "Foxcroft", verified: true });
+    });
+
+    it.each(["pending", "denied"])(
+      "reports a %s membership as not verified",
+      async (status) => {
+        mockGetPrimaryMembershipForUser.mockResolvedValue(membership(status));
+
+        const res = await GET(reqFor(), paramsFor());
+        const body = await res.json();
+
+        expect(body.community).toEqual({ name: "Foxcroft", verified: false });
+      },
+    );
+
+    it("returns community: null (not a dropped field) without a membership", async () => {
+      const res = await GET(reqFor(), paramsFor());
+      const body = await res.json();
+
+      expect(body).toHaveProperty("community", null);
+    });
+
+    it("never serializes the community's id, join code or address", async () => {
+      mockGetPrimaryMembershipForUser.mockResolvedValue(membership("verified"));
+
+      const res = await GET(reqFor(), paramsFor());
+      const raw = await res.text();
+
+      expect(raw).not.toContain("SECRET-CODE");
+      expect(raw).not.toContain("1 Home St");
+      expect(raw).not.toContain("comm-home");
+    });
+
+    it("is not read for a viewer the visibility gate refuses", async () => {
+      mockGetVisibleCommunityIds.mockImplementation(async (userId: string) =>
+        userId === "viewer-1" ? ["comm-viewer-only"] : ["comm-provider-only"],
+      );
+
+      const res = await GET(reqFor(), paramsFor());
+
+      expect(res.status).toBe(403);
+      expect(mockGetPrimaryMembershipForUser).not.toHaveBeenCalled();
+    });
   });
 
   it("returns all active listings (no community filter) when the viewer is the provider", async () => {

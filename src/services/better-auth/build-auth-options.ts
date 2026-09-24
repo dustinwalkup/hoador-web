@@ -278,8 +278,19 @@ export function buildAuthOptions({ database }: AuthDependencies) {
       },
     },
 
-    // Track login activity for admin inactivity filtering
     hooks: {
+      // A password change must evict every other session, the attacker's
+      // included, so revocation can't be left to the client's
+      // `revokeOtherSessions` flag (SEC-05). better-auth rotates the changing
+      // session too and sets its new cookie on the response.
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/change-password") return;
+        return {
+          context: { body: { ...ctx.body, revokeOtherSessions: true } },
+        };
+      }),
+
+      // Track login activity for admin inactivity filtering
       after: createAuthMiddleware(async (ctx) => {
         const newSession = ctx.context?.newSession as
           | {

@@ -51,7 +51,9 @@ async function resolveProviderProfileVisibility(
 
 /**
  * GET /api/services/providers/[userId]
- * Provider profile, active listings, and recent reviews received.
+ * Provider profile, home community, active listings, and recent reviews
+ * received. Any user id works, not only providers: the app's public profile
+ * reads it.
  */
 async function getHandler(
   _request: NextRequest,
@@ -92,6 +94,7 @@ async function getHandler(
       { data: allListings, error: lErr },
       { data: aggregate, error: aggErr },
       { data: paginatedReviews, error: revErr },
+      { data: primaryMembership, error: commErr },
     ] = await Promise.all([
       tryCatch(serviceListingDAL.findByProvider(targetUserId)),
       tryCatch(blindReviewDAL.getAggregate(targetUserId)),
@@ -101,10 +104,12 @@ async function getHandler(
           offset: 0,
         }),
       ),
+      tryCatch(communityDAL.getPrimaryMembershipForUser(targetUserId)),
     ]);
     if (lErr) return handleApiError(lErr);
     if (aggErr) return handleApiError(aggErr);
     if (revErr) return handleApiError(revErr);
+    if (commErr) return handleApiError(commErr);
 
     const activeListings = (allListings ?? []).filter(
       (l) =>
@@ -127,6 +132,17 @@ async function getHandler(
       // was unreachable by any reader. Null bio stays null; the field is simply
       // no longer dropped.
       profile: { bio: profileUser.bio ?? null },
+      // The home community's badge (mobile P-E14-3). Only the name and whether
+      // the membership is verified: never the id, join code or address. The
+      // primary is always visible (it cannot be hidden), so naming it reveals
+      // nothing the user chose to hide.
+      community: primaryMembership
+        ? {
+            name: primaryMembership.community.name,
+            verified:
+              primaryMembership.membership.verificationStatus === "verified",
+          }
+        : null,
       activeListings,
       reviewsReceived: paginatedReviews?.data ?? [],
       aggregate: aggregate ?? { averageRating: 0, totalReviews: 0 },

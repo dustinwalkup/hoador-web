@@ -51,9 +51,12 @@ const mockLifecycleMarkCancelled = vi.fn();
 const mockLifecycleUpdateOwnerTransfer = vi.fn();
 const mockCreateServiceTransfer = vi.fn();
 
-const { mockLegalGetAllVersions } = vi.hoisted(() => ({
-  mockLegalGetAllVersions: vi.fn(),
-}));
+const { mockLegalGetAllVersions, mockLegalRecordAcceptance } = vi.hoisted(
+  () => ({
+    mockLegalGetAllVersions: vi.fn(),
+    mockLegalRecordAcceptance: vi.fn(),
+  }),
+);
 
 vi.mock("@/dal", () => ({
   auditLogDAL: { create: (...a: unknown[]) => mockAuditCreate(...a) },
@@ -62,6 +65,7 @@ vi.mock("@/dal", () => ({
   },
   legalDocumentDAL: {
     getAllCurrentVersions: (...a: unknown[]) => mockLegalGetAllVersions(...a),
+    recordAcceptance: (...a: unknown[]) => mockLegalRecordAcceptance(...a),
   },
   paymentDAL: { createPayment: (...a: unknown[]) => mockPaymentCreate(...a) },
   serviceBookingDAL: {
@@ -237,6 +241,38 @@ describe("ServiceBookingService", () => {
       paymentPayoutAccepted: true,
       platformTermsAccepted: true,
     };
+
+    it("records each acknowledged policy, but never a per_service_agreement (Req 22.1.3)", async () => {
+      mockListingGetById.mockResolvedValue(listingActive);
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus_1",
+        paymentMethodId: "pm_1",
+      });
+      mockBookingCreate.mockResolvedValue(bookingPending);
+      const doc = (id: string) => ({ id, version: "1.0", url: `u/${id}` });
+      // Even if a stale generic agreement is still published.
+      mockLegalGetAllVersions.mockResolvedValue(
+        Object.fromEntries(
+          [
+            "per_service_agreement",
+            "cancellation_refund",
+            "safety_liability_package",
+            "payments_payouts",
+            "tos",
+          ].map((id) => [id, doc(id)]),
+        ),
+      );
+
+      await ServiceBookingService.createBooking(form, "req-1", ctx);
+
+      const recorded = mockLegalRecordAcceptance.mock.calls.map((c) => c[1]);
+      expect(recorded.sort()).toEqual([
+        "cancellation_refund",
+        "payments_payouts",
+        "safety_liability_package",
+        "tos",
+      ]);
+    });
 
     it("throws NotFoundError when listing is not active", async () => {
       mockListingGetById.mockResolvedValue(null);

@@ -25,6 +25,8 @@ const TRUNCATE_LIST = [
   "service_listings",
   "service_bookings",
   "service_payment_lifecycle",
+  // No FK to anything above, so CASCADE never reaches it.
+  "legal_documents",
 ].join(", ");
 
 if (!process.env.DATABASE_URL) {

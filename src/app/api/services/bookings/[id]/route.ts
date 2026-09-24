@@ -10,10 +10,8 @@ import {
   serviceBookingDAL,
   serviceAgreementDocumentDAL,
   servicePaymentLifecycleDAL,
-  legalDocumentDAL,
 } from "@/dal";
 import type { ServiceBookingWithDetails } from "@/dal/service-booking.dal";
-import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 import { toWallClock } from "@/features/schedule/lib/build-schedule";
 import {
@@ -185,15 +183,13 @@ function buildProviderEarnings(
 }
 
 /**
- * The signed agreement for a booking, or the generic fallback, or `null`.
+ * The generated agreement for a booking, or `null`.
  *
- * Two tiers, mirroring the rental side's intent: the generated per-booking PDF
- * if one exists, otherwise the current published `per_service_agreement`
- * document (Req 22.1.3). Any failure resolves to `null` — the agreement is
- * supplementary to the booking detail and must not fail the response.
- *
- * The generated PDF is produced *on acceptance*, so a pending booking
- * legitimately resolves to the generic document.
+ * Services have no generic agreement document (`per_service_agreement` is not
+ * used; Req 22.1.3), so there is no fallback tier: the PDF is produced *on
+ * acceptance*, and a pending booking legitimately resolves to `null`. Any
+ * failure also resolves to `null`; the agreement is supplementary to the
+ * booking detail and must not fail the response.
  */
 async function resolveBookingAgreement(
   bookingId: string,
@@ -201,23 +197,11 @@ async function resolveBookingAgreement(
   const { data: generated } = await tryCatch(
     serviceAgreementDocumentDAL.getByServiceBookingId(bookingId),
   );
-  if (generated) {
-    return {
-      pdfUrl: generated.pdfUrl,
-      templateVersion: generated.templateVersion,
-    };
-  }
-
-  const { data: fallback } = await tryCatch(
-    legalDocumentDAL.getCurrentVersion(
-      LEGAL_DOCUMENT_IDS.PER_SERVICE_AGREEMENT,
-    ),
-  );
-  if (fallback) {
-    return { pdfUrl: fallback.url, templateVersion: fallback.version };
-  }
-
-  return null;
+  if (!generated) return null;
+  return {
+    pdfUrl: generated.pdfUrl,
+    templateVersion: generated.templateVersion,
+  };
 }
 
 /**
@@ -295,11 +279,9 @@ async function getHandler(
       booking.requesterId === userId ? "requester" : "provider";
 
     // Serialize the signed agreement (Req 22.1.2). Access is already party-only
-    // above. Unlike rentals, the service side has no built-in fallback DAL, so
-    // it is composed here: prefer the generated PDF, else degrade to the generic
-    // `per_service_agreement` document (Req 22.1.3, D-E2-7 — NOT the rental
-    // agreement the index suggested; that would be the wrong document for a
-    // booking). A lookup failure degrades to `null`, never failing the detail.
+    // above. There is no generic fallback (Req 22.1.3): the client shows the
+    // agreement as unavailable. A lookup failure degrades to `null`, never
+    // failing the detail.
     const agreement = await resolveBookingAgreement(id);
 
     // Only the provider has earnings, so only the provider costs a lookup. A
