@@ -6,6 +6,7 @@ import { RentalContent } from "./rental-content";
 import { getAuthenticatedUser } from "@/features/auth/utils/session";
 import { BlindReviewService } from "@/features/reviews/services/blind-review-service";
 import { getPayoutReadiness } from "@/features/payments/lib/payout-readiness";
+import { toRentalDetailResponse } from "@/features/rentals/lib/rental-detail-response";
 
 interface RentalDetailsServerProps {
   rentalId: string;
@@ -25,19 +26,28 @@ export async function RentalDetailsServer({
   }
   const { userId } = auth;
 
-  const rentalDetails = await rentalDAL.getRentalDetailsById(rentalId, userId);
+  const rentalRow = await rentalDAL.getRentalDetailsById(rentalId, userId);
 
-  if (!rentalDetails) {
+  if (!rentalRow) {
     notFound();
   }
 
   // Verify user has access to this rental (is either renter or owner)
-  if (rentalDetails.renterId !== userId && rentalDetails.ownerId !== userId) {
+  if (rentalRow.renterId !== userId && rentalRow.ownerId !== userId) {
     notFound();
   }
 
-  const isRenter = userId === rentalDetails.renterId;
-  const isOwner = userId === rentalDetails.ownerId;
+  const isRenter = userId === rentalRow.renterId;
+  const isOwner = userId === rentalRow.ownerId;
+
+  // Every prop handed to a client component is serialized into the page's RSC
+  // payload, so the raw DAL row would leak the counterparty's email, phone and
+  // home address to anyone who opens this page — the same projection as
+  // GET /api/rentals/[id] applies here (PRIV-01).
+  const rentalDetails = toRentalDetailResponse(
+    rentalRow,
+    isRenter ? "renter" : "owner",
+  );
 
   // Determine the view context
   let viewContext: "renting" | "lending" | "auto" = "auto";

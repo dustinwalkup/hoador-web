@@ -366,3 +366,83 @@ describe("GET /api/rentals/[id] — owner earnings preview (8A.4)", () => {
     ).toBeNull();
   });
 });
+
+/**
+ * PRIV-01 (CRITICAL): any verified account could request → read → cancel a
+ * rental to harvest the owner's email, phone and home address. The route must
+ * serialize through `toRentalDetailResponse`, never the raw DAL row.
+ */
+describe("GET /api/rentals/[id] — counterparty contact info (PRIV-01)", () => {
+  const WITH_PII = {
+    ...RENTAL,
+    renterEmail: "jane@example.com",
+    renterPhone: "555-0100",
+    ownerEmail: "john@example.com",
+    ownerPhone: "555-0199",
+    pickupAddress: "12 Owner Lane, Springfield",
+    deliveryAddress: "34 Renter Road, Springfield",
+  };
+
+  const as = (userId: string) =>
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: userId },
+      userId,
+      isAdmin: false,
+    });
+
+  const fetchBody = async () =>
+    (await GET(req(), params("rental-1"))).json() as Promise<
+      Record<string, unknown>
+    >;
+
+  const stringValues = (body: Record<string, unknown>) =>
+    Object.values(body).filter((v): v is string => typeof v === "string");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockGetRentalAgreementAcceptance.mockResolvedValue(null);
+  });
+
+  describe.each(["renter-1", "owner-1"])("as %s", (userId) => {
+    it("reveals no contact info or counterparty address on a pending request", async () => {
+      as(userId);
+      mockGetRentalDetailsById.mockResolvedValue({
+        ...WITH_PII,
+        status: "pending",
+      });
+
+      const body = await fetchBody();
+
+      for (const value of stringValues(body)) expect(value).not.toContain("@");
+      for (const field of [
+        "renterEmail",
+        "renterPhone",
+        "ownerEmail",
+        "ownerPhone",
+      ]) {
+        expect(body).not.toHaveProperty(field);
+      }
+      // Only the viewer's own address may come back before approval.
+      const counterpartyAddress =
+        userId === "renter-1" ? "pickupAddress" : "deliveryAddress";
+      expect(body).not.toHaveProperty(counterpartyAddress);
+    });
+
+    it("reveals the counterparty address but still no contact info once approved", async () => {
+      as(userId);
+      mockGetRentalDetailsById.mockResolvedValue({
+        ...WITH_PII,
+        status: "approved",
+      });
+
+      const body = await fetchBody();
+
+      expect(body.pickupAddress).toBe("12 Owner Lane, Springfield");
+      expect(body.deliveryAddress).toBe("34 Renter Road, Springfield");
+      expect(body).not.toHaveProperty("ownerPhone");
+      expect(body).not.toHaveProperty("renterPhone");
+      for (const value of stringValues(body)) expect(value).not.toContain("@");
+    });
+  });
+});

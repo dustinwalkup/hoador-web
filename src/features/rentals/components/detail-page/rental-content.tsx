@@ -1,4 +1,4 @@
-import type { RentalDetails } from "@/dal/rentals.dal";
+import type { RentalDetailResponse } from "@/features/rentals/lib/rental-detail-response";
 import type { DisputeWithRelations } from "@/dal/types";
 import {
   RentalListingInfo,
@@ -13,7 +13,7 @@ import { BookingReviewsSection } from "@/features/reviews/components/booking-rev
 import type { OnboardingStatus } from "@/features/payments/lib/payout-readiness";
 
 interface RentalContentProps {
-  rentalDetails: RentalDetails;
+  rentalDetails: RentalDetailResponse;
   viewContext: "renting" | "lending" | "auto";
   isRenter: boolean;
   isOwner: boolean;

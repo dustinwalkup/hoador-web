@@ -12,6 +12,10 @@ import {
   resolveRentalIdForDispute,
 } from "@/features/disputes/lib/filing-eligibility";
 import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
+import {
+  toRentalDetailResponse,
+  type RentalViewerRole,
+} from "@/features/rentals/lib/rental-detail-response";
 
 /** Decimal string → integer cents, and back. Keeps the split off floats. */
 function toCents(value: string | undefined): number | null {
@@ -152,7 +156,7 @@ async function getHandler(
     // `createdAt`, `approvedAt`, `deniedAt`, `expiresAt`, `cancelledAt`, and
     // `actualStartDate`/`actualEndDate` (set to `new Date()` when the owner
     // starts/ends the rental).
-    const viewerRole =
+    const viewerRole: RentalViewerRole =
       data.renterId === userId
         ? "renter"
         : data.ownerId === userId
@@ -172,7 +176,9 @@ async function getHandler(
     );
 
     return Response.json({
-      ...data,
+      // Never spread the raw DAL row: it carries both parties' contact info
+      // and home addresses, which the mapper strips or gates by role (PRIV-01).
+      ...toRentalDetailResponse(data, viewerRole),
       startDate: toWallClock(data.startDate, { dateOnly: true }),
       endDate: toWallClock(data.endDate, { dateOnly: true }),
       // Server-decided, so the client never compares ids to work out which side

@@ -1,9 +1,9 @@
-import type { RentalDetails } from "@/dal/rentals.dal";
+import type { RentalDetailResponse } from "@/features/rentals/lib/rental-detail-response";
 import { PushPermissionPromptFromUrl } from "@/features/rentals/components/detail-page/push-permission-prompt-from-url";
 import { RentalHeader } from "./rental-header";
 
 interface RentalLayoutProps {
-  rentalDetails: RentalDetails;
+  rentalDetails: RentalDetailResponse;
   viewContext: "renting" | "lending" | "auto";
   isRenter: boolean;
   isOwner: boolean;
