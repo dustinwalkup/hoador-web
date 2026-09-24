@@ -14,6 +14,7 @@ import {
   ConflictError,
   DALError,
   ServiceBookingPaymentFailedError,
+  RentalRequestNotPendingError,
 } from "@/dal/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
 import { mockVerifiedUser, mockAdminUser } from "@/test/fixtures/auth";
@@ -51,6 +52,17 @@ describe("route-helpers", () => {
 
       expect(response.status).toBe(401);
       expect(response).toBeInstanceOf(NextResponse);
+    });
+
+    // BIZ-01: a client refreshes the request on this code instead of parsing
+    // the message, so it must survive (the generic ConflictError branch drops it).
+    it("should give RentalRequestNotPendingError a 409 with its code", async () => {
+      const response = handleApiError(new RentalRequestNotPendingError());
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "REQUEST_NOT_PENDING",
+      });
     });
 
     it("should handle NotFoundError with 404 status", () => {

@@ -38,12 +38,42 @@ vi.mock("@/db/db", () => ({
     },
     update: vi.fn(),
     delete: vi.fn(),
+    transaction: vi.fn(),
   },
 }));
 
 /** Render a captured drizzle WHERE clause to SQL text and bound params. */
 const renderWhere = (where: unknown) =>
   new PgDialect().sqlToQuery(where as SQL);
+
+/**
+ * The value bound to `"table"."column" <op> $n` in a rendered WHERE, so a test
+ * pins which value a predicate compares against, not merely that the value
+ * appears somewhere in the params.
+ */
+const boundTo = (where: unknown, column: string, op: "=" | "<>") => {
+  const { sql, params } = renderWhere(where);
+  const escaped = column.replace(/[."]/g, (c) => `\\${c}`);
+  const match = sql.match(new RegExp(`${escaped} ${op} \\$(\\d+)`));
+  return match ? params[Number(match[1]) - 1] : undefined;
+};
+
+/** Stub `db.update(...).set(...).where(...).returning()`. */
+const stubUpdate = (returned: unknown[]) => {
+  const mockReturning = vi.fn().mockResolvedValue(returned);
+  const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+  const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+  vi.mocked(db.update).mockReturnValue({ set: mockSet } as any);
+  return { mockSet, mockWhere };
+};
+
+/** Stub the select(...).from(...).where(...).limit() existence pre-check. */
+const stubExisting = (rows: unknown[]) => {
+  const mockLimit = vi.fn().mockResolvedValue(rows);
+  const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+  const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+  vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+};
 
 describe("RentalDAL", () => {
   beforeEach(() => {
@@ -413,175 +443,98 @@ describe("RentalDAL", () => {
     });
   });
 
+  /**
+   * BIZ-01: one transaction, one compare-and-set. The request must still be
+   * pending AND hold this approval's payment claim; the rentals insert runs on
+   * the same transaction, from the row the UPDATE returned.
+   */
   describe("approveRentalRequest", () => {
-    it("should approve rental request when user is owner", async () => {
-      // Arrange
-      const requestId = "rental-request-123";
-      const ownerId = "user-123";
+    const stubTransaction = (returned: unknown[]) => {
+      const mockReturning = vi.fn().mockResolvedValue(returned);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockValues = vi.fn().mockResolvedValue(undefined);
+      const tx = {
+        update: vi.fn().mockReturnValue({ set: mockSet }),
+        insert: vi.fn().mockReturnValue({ values: mockValues }),
+      };
+      vi.mocked(db.transaction).mockImplementation((async (
+        cb: (t: typeof tx) => Promise<unknown>,
+      ) => cb(tx)) as any);
+      return { tx, mockSet, mockWhere, mockValues };
+    };
 
-      vi.mocked(db.query.rentalRequests.findFirst).mockResolvedValue({
-        ...mockRentalRequest,
-        ownerId: ownerId,
-        status: "pending",
-      } as any);
+    const claimedRow = {
+      ...mockRentalRequest,
+      securityDeposit: "50.00",
+      setupFee: "0",
+      status: "approved",
+      paymentStatus: "succeeded",
+    };
 
-      // Mock select().from().where().limit() chain for rental request check
-      const mockLimit = vi.fn().mockResolvedValue([mockRentalRequest]);
-      const mockWhereSelect = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFromSelect = vi.fn().mockReturnValue({
-        where: mockWhereSelect,
-      });
+    it("approves and creates the rental in one transaction", async () => {
+      const { tx, mockSet, mockValues } = stubTransaction([claimedRow]);
 
-      // Mock select().from().where() chain for conflict check
-      const mockWhereConflict = vi.fn().mockResolvedValue([]);
-      const mockFromConflict = vi.fn().mockReturnValue({
-        where: mockWhereConflict,
-      });
-
-      // Mock select to return different chains based on call
-      let selectCallCount = 0;
-      vi.mocked(db.select).mockImplementation(() => {
-        selectCallCount++;
-        if (selectCallCount === 1) {
-          // First call is for rental request check
-          return { from: mockFromSelect } as any;
-        } else {
-          // Subsequent calls are for conflict checks
-          return { from: mockFromConflict } as any;
-        }
+      await rentalDAL.approveRentalRequest("rental-request-123", "user-123", {
+        rentalPaymentIntentId: "pi_1",
+        applicationFeeAmount: "12.00",
       });
 
-      const mockReturning = vi
-        .fn()
-        .mockResolvedValue([{ ...mockRentalRequest, status: "approved" }]);
-      const mockWhere = vi.fn().mockReturnValue({
-        returning: mockReturning,
-      });
-      const mockSet = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-
-      vi.mocked(db.update).mockReturnValue({
-        set: mockSet,
-      } as any);
-
-      // Act
-      await rentalDAL.approveRentalRequest(requestId, ownerId);
-
-      // Assert
-      // approveRentalRequest returns void, so we just check it completes without error
-      expect(db.update).toHaveBeenCalled();
-    });
-
-    it("should throw NotFoundError when request not found", async () => {
-      // Arrange
-      const requestId = "non-existent-request";
-      const ownerId = "user-123";
-
-      // Mock select().from().where().limit() chain returning empty
-      const mockLimit = vi.fn().mockResolvedValue([]);
-      const mockWhereSelect = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFromSelect = vi.fn().mockReturnValue({
-        where: mockWhereSelect,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFromSelect,
-      } as any);
-
-      // Act & Assert
-      await expect(
-        rentalDAL.approveRentalRequest(requestId, ownerId),
-      ).rejects.toThrow(NotFoundError);
-    });
-
-    it("should check for date conflicts before approving", async () => {
-      // Arrange
-      const requestId = "rental-request-123";
-      const ownerId = "user-123";
-
-      // Mock select().from().where().limit() chain for rental request check
-      const mockLimit = vi.fn().mockResolvedValue([
-        {
-          ...mockRentalRequest,
-          ownerId: ownerId,
-          status: "pending",
-        },
-      ]);
-      const mockWhereSelect = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFromSelect = vi.fn().mockReturnValue({
-        where: mockWhereSelect,
-      });
-
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFromSelect,
-      } as any);
-
-      // Mock update and insert for approval
-      const mockReturning = vi.fn().mockResolvedValue([
-        {
-          ...mockRentalRequest,
+      expect(db.transaction).toHaveBeenCalledTimes(1);
+      // Everything on the transaction, nothing on the bare connection.
+      expect(db.update).not.toHaveBeenCalled();
+      expect(db.insert).not.toHaveBeenCalled();
+      expect(tx.update).toHaveBeenCalledTimes(1);
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
           status: "approved",
-        },
-      ]);
-      const mockWhere = vi.fn().mockReturnValue({
-        returning: mockReturning,
-      });
-      const mockSet = vi.fn().mockReturnValue({
-        where: mockWhere,
-      });
-      vi.mocked(db.update).mockReturnValue({
-        set: mockSet,
-      } as any);
-
-      const mockInsertReturning = vi
-        .fn()
-        .mockResolvedValue([{ id: "rental-123" }]);
-      const mockInsertValues = vi.fn().mockReturnValue({
-        returning: mockInsertReturning,
-      });
-      vi.mocked(db.insert).mockReturnValue({
-        values: mockInsertValues,
-      } as any);
-
-      // Note: Date conflict checking is not currently implemented in approveRentalRequest
-      // This test verifies that approval succeeds even with potential conflicts
-      // TODO: When conflict checking is implemented, update this test to expect rejection
-
-      // Act
-      await rentalDAL.approveRentalRequest(requestId, ownerId);
-
-      // Assert
-      expect(db.update).toHaveBeenCalled();
-      expect(db.insert).toHaveBeenCalled();
+          paymentStatus: "succeeded",
+          paymentIntentId: "pi_1",
+        }),
+      );
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: "rental-request-123",
+          listingId: claimedRow.listingId,
+          renterId: claimedRow.renterId,
+          ownerId: claimedRow.ownerId,
+          securityDeposit: "50.00",
+          rentalPaymentIntentId: "pi_1",
+          applicationFeeAmount: "12.00",
+        }),
+      );
     });
 
-    it("should throw when request status is not pending", async () => {
-      const requestId = "rental-request-123";
-      const ownerId = "user-123";
-      const mockLimit = vi
-        .fn()
-        .mockResolvedValue([
-          { ...mockRentalRequest, ownerId, status: "approved" },
-        ]);
-      const mockWhereSelect = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFromSelect = vi.fn().mockReturnValue({
-        where: mockWhereSelect,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFromSelect,
-      } as any);
+    it("updates only a pending request holding the payment claim", async () => {
+      const { mockWhere } = stubTransaction([claimedRow]);
+
+      await rentalDAL.approveRentalRequest("rental-request-123", "user-123");
+
+      const where = mockWhere.mock.calls[0][0];
+      expect(boundTo(where, '"rental_requests"."status"', "=")).toBe("pending");
+      expect(boundTo(where, '"rental_requests"."payment_status"', "=")).toBe(
+        "processing",
+      );
+    });
+
+    // A cancel or decline that landed first leaves no row to approve: the
+    // approval must fail, not overwrite it, and no rental may be created.
+    it("throws ConflictError and creates no rental when the CAS matches nothing", async () => {
+      const { tx } = stubTransaction([]);
 
       await expect(
-        rentalDAL.approveRentalRequest(requestId, ownerId),
-      ).rejects.toThrow(/only pending requests can be approved/i);
+        rentalDAL.approveRentalRequest("rental-request-123", "user-123"),
+      ).rejects.toThrow(ConflictError);
+      expect(tx.insert).not.toHaveBeenCalled();
+    });
+
+    it("propagates a failed rental insert so the transaction rolls back", async () => {
+      const { mockValues } = stubTransaction([claimedRow]);
+      mockValues.mockRejectedValue(new Error("insert failed"));
+
+      await expect(
+        rentalDAL.approveRentalRequest("rental-request-123", "user-123"),
+      ).rejects.toThrow(DALError);
     });
   });
 
@@ -653,17 +606,28 @@ describe("RentalDAL", () => {
       ).rejects.toThrow(NotFoundError);
     });
 
-    it("should throw when request status is not pending", async () => {
-      const mockLimit = vi
-        .fn()
-        .mockResolvedValue([{ ...mockRentalRequest, status: "approved" }]);
-      const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
-      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+    // BIZ-01: a compare-and-set, so a request that is no longer pending, or
+    // whose approval has claimed the charge, is a 409 rather than overwritten.
+    it("throws ConflictError when the request is no longer declinable", async () => {
+      stubExisting([{ ...mockRentalRequest, status: "approved" }]);
+      stubUpdate([]);
 
       await expect(
         rentalDAL.declineRentalRequest("req-1", "Not available", "owner-1"),
-      ).rejects.toThrow(/only pending requests can be declined/i);
+      ).rejects.toThrow(ConflictError);
+    });
+
+    it("declines only a pending request that is not being charged", async () => {
+      stubExisting([{ ...mockRentalRequest, status: "pending" }]);
+      const { mockWhere } = stubUpdate([{ id: "req-1" }]);
+
+      await rentalDAL.declineRentalRequest("req-1", "Not available", "owner-1");
+
+      const where = mockWhere.mock.calls[0][0];
+      expect(boundTo(where, '"rental_requests"."status"', "=")).toBe("pending");
+      expect(boundTo(where, '"rental_requests"."payment_status"', "<>")).toBe(
+        "processing",
+      );
     });
   });
 
@@ -755,33 +719,30 @@ describe("RentalDAL", () => {
       expect(db.update).toHaveBeenCalled();
     });
 
-    it("should not allow cancellation of approved/active rentals", async () => {
-      // Arrange
-      const requestId = "rental-request-123";
-      const userId = "user-456";
-
-      // Mock select().from().where().limit() chain
-      const mockLimit = vi.fn().mockResolvedValue([
-        {
-          ...mockRentalRequest,
-          renterId: userId,
-          status: "approved", // Cannot cancel approved
-        },
+    // BIZ-01: a compare-and-set, so an approved request, or a pending one
+    // whose approval has already claimed the charge, is a 409.
+    it("throws ConflictError when the request is no longer cancellable", async () => {
+      stubExisting([
+        { ...mockRentalRequest, renterId: "user-456", status: "approved" },
       ]);
-      const mockWhereSelect = vi.fn().mockReturnValue({
-        limit: mockLimit,
-      });
-      const mockFromSelect = vi.fn().mockReturnValue({
-        where: mockWhereSelect,
-      });
-      vi.mocked(db.select).mockReturnValue({
-        from: mockFromSelect,
-      } as any);
+      stubUpdate([]);
 
-      // Act & Assert
       await expect(
-        rentalDAL.cancelRentalRequest(requestId, userId),
-      ).rejects.toThrow();
+        rentalDAL.cancelRentalRequest("rental-request-123", "user-456"),
+      ).rejects.toThrow(ConflictError);
+    });
+
+    it("cancels only a pending request that is not being charged", async () => {
+      stubExisting([{ ...mockRentalRequest, status: "pending" }]);
+      const { mockWhere } = stubUpdate([{ id: "rental-request-123" }]);
+
+      await rentalDAL.cancelRentalRequest("rental-request-123", "user-456");
+
+      const where = mockWhere.mock.calls[0][0];
+      expect(boundTo(where, '"rental_requests"."status"', "=")).toBe("pending");
+      expect(boundTo(where, '"rental_requests"."payment_status"', "<>")).toBe(
+        "processing",
+      );
     });
 
     it("should throw NotFoundError when rental request not found", async () => {
@@ -2064,6 +2025,31 @@ describe("RentalDAL", () => {
         rentalDAL.countInFlightRentalsForListing("listing-123"),
       ).rejects.toThrow(DALError);
     });
+
+    // BIZ-01: a request an approval has claimed is money in motion, so it
+    // blocks deletion as in flight, and is not double-counted as awaiting a
+    // decision.
+    it("counts a claimed charge as active, not as pending", async () => {
+      const activeWhere = vi.fn().mockResolvedValue([{ n: 0 }]);
+      const pendingWhere = vi.fn().mockResolvedValue([{ n: 0 }]);
+      const from = vi
+        .fn()
+        .mockReturnValueOnce({ where: activeWhere })
+        .mockReturnValueOnce({ where: pendingWhere });
+      vi.mocked(db.select).mockReturnValue({ from } as any);
+
+      await rentalDAL.countInFlightRentalsForListing("listing-123");
+
+      const active = activeWhere.mock.calls[0][0];
+      expect(boundTo(active, '"rental_requests"."payment_status"', "=")).toBe(
+        "processing",
+      );
+      expect(renderWhere(active).sql).toContain(" or ");
+      const pending = pendingWhere.mock.calls[0][0];
+      expect(boundTo(pending, '"rental_requests"."payment_status"', "<>")).toBe(
+        "processing",
+      );
+    });
   });
 
   describe("getBookedDatesForListing", () => {
@@ -2303,6 +2289,20 @@ describe("RentalDAL", () => {
         await rentalDAL.claimRentalRequestPaymentProcessing("request-123");
 
       expect(result).toBe(false);
+    });
+
+    // BIZ-01: cancel, decline and expiry leave paymentStatus at 'pending', so
+    // the payment predicate alone would let a dead request be claimed and
+    // charged. The claim must also require the request itself to be pending.
+    it("claims only a request whose status is still pending", async () => {
+      const { mockWhere } = mockUpdateChain([{ id: "request-123" }]);
+
+      await rentalDAL.claimRentalRequestPaymentProcessing("request-123");
+
+      const where = mockWhere.mock.calls[0][0];
+      expect(boundTo(where, '"rental_requests"."status"', "=")).toBe("pending");
+      const { params } = renderWhere(where);
+      expect(params).toEqual(expect.arrayContaining(["pending", "failed"]));
     });
   });
 

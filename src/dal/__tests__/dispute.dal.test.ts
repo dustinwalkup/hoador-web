@@ -402,6 +402,50 @@ describe("DisputeDAL", () => {
       expect(result.status).toBe("under_review");
     });
 
+    // P-E13-9: the deadline was set once at filing, so a request after day 7
+    // began already expired, and the new cron would have closed it at once.
+    describe("evidence window (P-E13-9)", () => {
+      function captureSet(status: DisputeStatus) {
+        const updated = { ...mockDispute, status };
+        const mockSet = vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([updated]),
+          }),
+        });
+        vi.mocked(db.update).mockReturnValue({ set: mockSet } as any);
+        vi.mocked(db.query.disputes.findFirst).mockResolvedValue(
+          updated as any,
+        );
+        return mockSet;
+      }
+
+      it("starts a fresh 7-day window, and clears the extension, on every evidence request", async () => {
+        const mockSet = captureSet("evidence_requested");
+        const before = Date.now();
+
+        await disputeDAL.updateState("dispute-123", "evidence_requested");
+
+        const values = mockSet.mock.calls[0][0];
+        const window = values.evidenceDeadline.getTime() - before;
+        expect(window).toBeGreaterThanOrEqual(7 * 24 * 60 * 60 * 1000);
+        expect(window).toBeLessThan(7 * 24 * 60 * 60 * 1000 + 5_000);
+        expect(values.additionalEvidenceDeadline).toBeNull();
+      });
+
+      it.each(["open", "under_review", "closed"] as const)(
+        "leaves the deadlines alone on a move to %s",
+        async (status) => {
+          const mockSet = captureSet(status);
+
+          await disputeDAL.updateState("dispute-123", status);
+
+          const values = mockSet.mock.calls[0][0];
+          expect(values).not.toHaveProperty("evidenceDeadline");
+          expect(values).not.toHaveProperty("additionalEvidenceDeadline");
+        },
+      );
+    });
+
     it("should throw NotFoundError when dispute not found", async () => {
       // Arrange
       const mockReturning = vi.fn().mockResolvedValue([]);

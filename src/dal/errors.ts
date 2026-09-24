@@ -72,6 +72,25 @@ export class ConversationArchivedError extends DALError {
 }
 
 /**
+ * Thrown when an owner approves a rental request that is no longer pending
+ * (cancelled, declined, expired, or already approved). Raised BEFORE any Stripe
+ * call: approval used to check only the payment claim, so a stale owner screen
+ * could charge the renter for a request that no longer existed (BIZ-01).
+ *
+ * `code: "REQUEST_NOT_PENDING"` lets a client refresh the request instead of
+ * parsing the message. Not a `ConflictError` subclass, for the same reason as
+ * `ConversationArchivedError`: the generic branch would drop the code.
+ */
+export class RentalRequestNotPendingError extends DALError {
+  constructor(
+    message = "This rental request is no longer pending and cannot be approved.",
+  ) {
+    super(message, "REQUEST_NOT_PENDING", 409);
+    this.name = "RentalRequestNotPendingError";
+  }
+}
+
+/**
  * Thrown when a user tries to open a conversation with themselves. Req 16.1.3
  * says 1:1 conversations are between two *different* people; until this class
  * existed only the UI enforced it, and a self-pair row would have made every

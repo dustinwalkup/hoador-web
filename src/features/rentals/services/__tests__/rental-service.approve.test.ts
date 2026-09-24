@@ -125,6 +125,7 @@ vi.mock("@walkup/walkup-utils", () => ({
 }));
 
 import { RentalService } from "../rental-service";
+import { RentalRequestNotPendingError } from "@/dal/errors";
 
 // --- Helpers ---
 function createMockRentalRequest(overrides = {}) {
@@ -159,6 +160,45 @@ describe("RentalService.approveRentalRequest", () => {
     mockGetRentalByRequestId.mockResolvedValue({ id: "rental-1" });
     mockCreatePayment.mockResolvedValue(undefined);
     mockLifecycleCreate.mockResolvedValue(undefined);
+  });
+
+  // BIZ-01: cancel, decline and expiry never touch paymentStatus, so the
+  // payment claim alone could not stop a stale owner screen charging a renter
+  // for a request that no longer exists. Refused before anything reaches
+  // Stripe, customer lookup included.
+  it.each(["cancelled", "denied", "approved", "active"])(
+    "refuses a %s request before any Stripe call",
+    async (status) => {
+      mockGetRentalRequestById.mockResolvedValue(
+        createMockRentalRequest({ status, paymentStatus: "pending" }),
+      );
+
+      await expect(
+        RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+      ).rejects.toThrow(RentalRequestNotPendingError);
+
+      expect(mockGetOrCreateStripeCustomerId).not.toHaveBeenCalled();
+      expect(mockAssertConnectReady).not.toHaveBeenCalled();
+      expect(mockClaimRentalRequestPaymentProcessing).not.toHaveBeenCalled();
+      expect(mockChargeRentalPayment).not.toHaveBeenCalled();
+      expect(mockPlaceDepositHold).not.toHaveBeenCalled();
+      expect(mockApproveRentalRequest).not.toHaveBeenCalled();
+    },
+  );
+
+  // An expired request is `cancelled` with reason expired_no_acceptance.
+  it("refuses an expired request before any Stripe call", async () => {
+    mockGetRentalRequestById.mockResolvedValue(
+      createMockRentalRequest({
+        status: "cancelled",
+        cancellationReason: "expired_no_acceptance",
+      }),
+    );
+
+    await expect(
+      RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+    ).rejects.toThrow(RentalRequestNotPendingError);
+    expect(mockChargeRentalPayment).not.toHaveBeenCalled();
   });
 
   it("returns already-processing failure without charging when the claim is lost", async () => {

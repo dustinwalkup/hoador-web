@@ -18,6 +18,7 @@ import {
   ServiceBookingPaymentFailedError,
   ConversationArchivedError,
   CannotMessageSelfError,
+  RentalRequestNotPendingError,
 } from "@/dal/errors";
 import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
@@ -123,6 +124,13 @@ export function handleApiError(
   }
 
   if (error instanceof CannotMessageSelfError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+
+  if (error instanceof RentalRequestNotPendingError) {
     return NextResponse.json(
       { error: error.message, code: error.code },
       { status: error.statusCode },

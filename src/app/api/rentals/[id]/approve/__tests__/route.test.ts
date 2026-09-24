@@ -58,6 +58,19 @@ describe("POST /api/rentals/[id]/approve (auth + result mapping)", () => {
     mockAccountStatus.value = "active";
   });
 
+  // BIZ-01: approving a request that was cancelled, declined or expired is a
+  // 409 with a code the app can act on, through the route's real error chain.
+  it("maps a no-longer-pending request to 409 REQUEST_NOT_PENDING", async () => {
+    const { RentalRequestNotPendingError } = await import("@/dal/errors");
+    mockApprove.mockRejectedValue(new RentalRequestNotPendingError());
+
+    const { POST } = await import("../route");
+    const res = await POST(postApprove("req-1"), ctx("req-1"));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "REQUEST_NOT_PENDING" });
+  });
+
   // SEC-01: a suspended owner's live session must not move money.
   it("403s a suspended account from the real helper, without calling the service", async () => {
     mockAccountStatus.value = "suspended";

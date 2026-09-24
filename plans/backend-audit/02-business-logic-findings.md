@@ -481,6 +481,8 @@ const idempotencyKey = isRetryAfterFailure
 
 **Severity:** LOW · **Confidence:** High · **Auditor source(s):** BIZ-17
 
+> **Status 2026-09-24 — first half fixed** by mobile Epic 13's prerequisite **P-E13-9** (outside the remediation roadmap). `GET /api/cron/evidence-deadlines` runs hourly. It sends `dispute_evidence_deadline_approaching` once per active deadline, 24h ahead, marked in `audit_logs`, and moves expired `evidence_requested` disputes to `under_review` through `checkAndEnforce`. That transition is now compare-and-set, and its notice covers service disputes too. Every move into `evidence_requested` now starts a fresh 7-day window (`disputeDAL.updateState`). **Still open:** the second half, "enforce the deadline in `open`". Evidence in `open` stays unbounded.
+
 > **Adversarial review (lead auditor):** Kept LOW.
 
 - **Confidence:** High

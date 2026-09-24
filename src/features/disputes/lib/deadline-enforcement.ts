@@ -1,10 +1,14 @@
 import { disputeDAL } from "@/dal";
 import type { DisputeWithRelations } from "@/dal/types";
-import { sendNotification } from "@/features/notifications/utils/send-notification";
+import { sendEvidenceDeadlineExpired } from "@/features/disputes/notifications/deadline-notifications";
 
 /**
  * Deadline enforcement service
- * Handles automatic state transitions when evidence deadlines expire
+ * Handles automatic state transitions when evidence deadlines expire.
+ *
+ * Run hourly by `GET /api/cron/evidence-deadlines` (P-E13-9). Until then it
+ * had no production caller, so an expired `evidence_requested` dispute stayed
+ * there until support moved it.
  */
 export class DeadlineEnforcementService {
   /**
@@ -48,13 +52,17 @@ export class DeadlineEnforcementService {
         };
       }
 
-      // Deadline has expired - transition to UNDER_REVIEW
-      const updatedDispute = await disputeDAL.updateState(
+      // Deadline has expired - transition to UNDER_REVIEW, but only if it is
+      // still EVIDENCE_REQUESTED. Support can move or resolve it between the
+      // read above and this write, and a plain update would overwrite that.
+      const moved = await disputeDAL.transitionIfStatus(
         disputeId,
+        "evidence_requested",
         "under_review",
-        undefined, // System-initiated transition (no userId)
-        "Evidence deadline expired - automatically moved to review",
       );
+      if (!moved) {
+        return { enforced: false };
+      }
 
       // Create audit log for automatic transition
       await disputeDAL.createAuditLog({
@@ -66,49 +74,23 @@ export class DeadlineEnforcementService {
         reason: "Evidence deadline expired - automatic transition",
       });
 
-      // Send notification about deadline expiration
-      // Get rental to find both parties
-      if (dispute.rental) {
-        const renterId = dispute.rental.renterId;
-        const ownerId = dispute.rental.ownerId;
-
-        // Notify both parties
-        await Promise.all([
-          sendNotification({
-            userId: renterId,
-            type: "dispute_evidence_deadline_expired",
-            title: "Evidence Deadline Expired",
-            message: `The evidence deadline for dispute ${disputeId} has expired. The dispute has been moved to review.`,
-            data: {
-              disputeId,
-              rentalId: dispute.rentalId,
-            },
-            linkUrl: `/dashboard/disputes/${disputeId}`,
-          }),
-          sendNotification({
-            userId: ownerId,
-            type: "dispute_evidence_deadline_expired",
-            title: "Evidence Deadline Expired",
-            message: `The evidence deadline for dispute ${disputeId} has expired. The dispute has been moved to review.`,
-            data: {
-              disputeId,
-              rentalId: dispute.rentalId,
-            },
-            linkUrl: `/dashboard/disputes/${disputeId}`,
-          }),
-        ]).catch((error) => {
-          // Log notification errors but don't fail the enforcement
-          console.error(
-            "Failed to send deadline expiration notifications:",
-            error,
-          );
-        });
-      }
+      // Both parties, either marketplace. This used to notify rental disputes
+      // only (`if (dispute.rental)`), so a service dispute moved silently.
+      // Deliberately no additional 48h window: the state route adds one when
+      // SUPPORT moves a dispute to review, but here the window just ran out,
+      // and reopening it for two more days would undo the deadline.
+      await sendEvidenceDeadlineExpired(dispute).catch((error) => {
+        // Log notification errors but don't fail the enforcement
+        console.error(
+          "Failed to send deadline expiration notifications:",
+          error,
+        );
+      });
 
       return {
         enforced: true,
         previousStatus: dispute.status,
-        newStatus: updatedDispute.status,
+        newStatus: "under_review",
       };
     } catch (error) {
       console.error("Deadline enforcement failed:", error);

@@ -1,3 +1,4 @@
+import { and, eq, sql } from "drizzle-orm";
 import { auditLogs } from "@/db/schemas/audit-logs.schema";
 import type { AuditLogRow } from "@/db/schemas/audit-logs.schema";
 import { BaseDAL } from "./base";
@@ -18,6 +19,8 @@ export interface CreateAuditLogInput {
 
 /**
  * Append-only DAL for audit_logs. No update or delete methods (LOG-RET-003).
+ * Reads are allowed; a row, once written, is a durable fact other code can
+ * check for.
  */
 export class AuditLogDAL extends BaseDAL {
   /**
@@ -49,6 +52,41 @@ export class AuditLogDAL extends BaseDAL {
       return inserted;
     } catch (error) {
       this.handleError(error, "create audit log");
+    }
+  }
+
+  /**
+   * Whether a row exists for this entity and action whose metadata CONTAINS
+   * `metadata` (jsonb `@>`: every given key with that value).
+   *
+   * Used as a once-only marker by jobs that must not repeat an effect, such
+   * as the evidence-deadline reminder (P-E13-9), which records the deadline it
+   * reminded about. Served by the `(entity_type, entity_id)` index.
+   */
+  async exists(filter: {
+    entityType: string;
+    entityId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<boolean> {
+    try {
+      const rows = await this.db
+        .select({ id: auditLogs.id })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.entityType, filter.entityType),
+            eq(auditLogs.entityId, filter.entityId),
+            eq(auditLogs.action, filter.action),
+            filter.metadata
+              ? sql`${auditLogs.metadata} @> ${JSON.stringify(filter.metadata)}::jsonb`
+              : undefined,
+          ),
+        )
+        .limit(1);
+      return rows.length > 0;
+    } catch (error) {
+      this.handleError(error, "audit log exists");
     }
   }
 }

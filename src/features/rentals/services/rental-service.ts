@@ -390,6 +390,14 @@ export class RentalService {
         "Forbidden: Only the listing owner can approve rental requests",
       );
     }
+    // Before anything reaches Stripe (the customer lookup below already does).
+    // The payment claim alone cannot catch this: cancel, decline and expiry
+    // leave `paymentStatus` at 'pending', so a stale owner screen could charge
+    // the renter for a request that no longer exists (BIZ-01).
+    if (rentalRequest.status !== "pending") {
+      const { RentalRequestNotPendingError } = await import("@/dal/errors");
+      throw new RentalRequestNotPendingError();
+    }
 
     const { data: stripeCustomerId, error: customerError } = await tryCatch(
       userDAL.getOrCreateStripeCustomerId(rentalRequest.renterId),

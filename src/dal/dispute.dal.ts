@@ -1,4 +1,16 @@
-import { eq, and, or, ne, sql, desc, asc, gte, isNotNull } from "drizzle-orm";
+import {
+  eq,
+  and,
+  or,
+  ne,
+  sql,
+  desc,
+  asc,
+  gte,
+  lte,
+  inArray,
+  isNotNull,
+} from "drizzle-orm";
 import { BaseDAL } from "./base";
 import { NotFoundError, ValidationError } from "./errors";
 import {
@@ -29,6 +41,21 @@ import {
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { serviceBookings } from "@/db/schemas/services.schema";
 
+/**
+ * How long a party has to send evidence: from filing, and again from every
+ * move into `evidence_requested` (P-E13-9). A request is a new ask, so it gets
+ * a full window rather than whatever was left of the filing one.
+ */
+export const EVIDENCE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** A dispute whose active evidence deadline falls in a sweep's window. */
+export interface EvidenceDeadlineCandidate {
+  id: string;
+  status: DisputeStatus;
+  /** The deadline the evidence route enforces in this status. */
+  deadline: Date;
+}
+
 export class DisputeDAL extends BaseDAL {
   /**
    * Create a new dispute
@@ -41,7 +68,7 @@ export class DisputeDAL extends BaseDAL {
     try {
       // Calculate evidence deadline if not provided (7 days from now)
       const evidenceDeadline =
-        data.evidenceDeadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        data.evidenceDeadline || new Date(Date.now() + EVIDENCE_WINDOW_MS);
 
       const [dispute] = await this.db
         .insert(disputes)
@@ -721,6 +748,16 @@ export class DisputeDAL extends BaseDAL {
   /**
    * Update dispute state
    * Note: State transition validation happens in service layer
+   *
+   * **Every move into `evidence_requested` starts a fresh evidence window**
+   * (`EVIDENCE_WINDOW_MS` from now, P-E13-9). The deadline used to be set once
+   * at filing and never again, so a request made after day 7 began already
+   * expired. Harmless while nothing enforced deadlines; wrong once the
+   * `evidence-deadlines` cron does, since it would have moved the dispute to
+   * review within the hour. The additional (under-review) deadline is cleared
+   * with it, so a later move to `under_review` gets its own fresh 48h rather
+   * than an extension that expired in an earlier round.
+   *
    * @param id - Dispute UUID
    * @param newState - New dispute status
    * @param _userId - User ID who initiated the change (for audit purposes, currently unused)
@@ -737,11 +774,18 @@ export class DisputeDAL extends BaseDAL {
     _reason?: string,
   ): Promise<DisputeWithRelations> {
     try {
+      const now = new Date();
       const [updated] = await this.db
         .update(disputes)
         .set({
           status: newState,
-          updatedAt: new Date(),
+          updatedAt: now,
+          ...(newState === "evidence_requested"
+            ? {
+                evidenceDeadline: new Date(now.getTime() + EVIDENCE_WINDOW_MS),
+                additionalEvidenceDeadline: null,
+              }
+            : {}),
         })
         .where(eq(disputes.id, id))
         .returning();
@@ -754,6 +798,120 @@ export class DisputeDAL extends BaseDAL {
       return (await this.getById(updated.id)) as DisputeWithRelations;
     } catch (error) {
       this.handleError(error, "updateState");
+    }
+  }
+
+  /**
+   * Move a dispute from `from` to `to` only if it is still in `from`: one
+   * `UPDATE … WHERE status = from`. Returns false when it had already moved.
+   *
+   * For system transitions that read the status and act later. The evidence
+   * deadline cron reads `evidence_requested`, then moves the dispute to review;
+   * a plain `updateState` would overwrite a resolution support saved in
+   * between (P-E13-9).
+   */
+  async transitionIfStatus(
+    id: string,
+    from: DisputeStatus,
+    to: DisputeStatus,
+  ): Promise<boolean> {
+    try {
+      const updated = await this.db
+        .update(disputes)
+        .set({ status: to, updatedAt: new Date() })
+        .where(and(eq(disputes.id, id), eq(disputes.status, from)))
+        .returning({ id: disputes.id });
+      return updated.length > 0;
+    } catch (error) {
+      this.handleError(error, "transitionIfStatus");
+    }
+  }
+
+  /**
+   * Disputes whose ACTIVE evidence deadline falls in `(after, upTo]`, for the
+   * approaching-deadline reminder (P-E13-9).
+   *
+   * "Active" is what `checkEvidenceDeadline` and the evidence route enforce:
+   * `evidence_deadline` while `evidence_requested`, and
+   * `COALESCE(additional_evidence_deadline, evidence_deadline)` while
+   * `under_review`. No other status takes evidence, so none is reminded.
+   *
+   * ⚠️ The bounds are bound as **ISO strings**, not `Date`s. The columns are
+   * `timestamp` without a zone holding UTC wall clock (deadlines are written
+   * through the column mapper's `toISOString()`, F21). Inside a raw `sql`
+   * template there is no column to map through, and node-postgres serializes
+   * a bare `Date` in the process's LOCAL zone, which Postgres then reads as
+   * wall clock with the offset dropped. Correct on a UTC server by luck, off
+   * by the offset anywhere else.
+   */
+  async listActiveEvidenceDeadlinesBetween(
+    after: Date,
+    upTo: Date,
+    limit = 100,
+  ): Promise<EvidenceDeadlineCandidate[]> {
+    try {
+      const active = sql<Date>`CASE
+        WHEN ${disputes.status} = 'evidence_requested' THEN ${disputes.evidenceDeadline}
+        ELSE COALESCE(${disputes.additionalEvidenceDeadline}, ${disputes.evidenceDeadline})
+      END`;
+      const rows = await this.db
+        .select({
+          id: disputes.id,
+          status: disputes.status,
+          evidenceDeadline: disputes.evidenceDeadline,
+          additionalEvidenceDeadline: disputes.additionalEvidenceDeadline,
+        })
+        .from(disputes)
+        .where(
+          and(
+            inArray(disputes.status, ["evidence_requested", "under_review"]),
+            sql`${active} > ${after.toISOString()}`,
+            sql`${active} <= ${upTo.toISOString()}`,
+          ),
+        )
+        .orderBy(asc(active))
+        .limit(limit);
+
+      // Recomputed from the mapped columns rather than selected as `active`: a
+      // raw `sql` selection skips the column mapper and would arrive as
+      // Postgres text, not a Date (the 13.3.1 finding).
+      return rows.flatMap((row) => {
+        const deadline =
+          row.status === "evidence_requested"
+            ? row.evidenceDeadline
+            : (row.additionalEvidenceDeadline ?? row.evidenceDeadline);
+        return deadline ? [{ id: row.id, status: row.status, deadline }] : [];
+      });
+    } catch (error) {
+      this.handleError(error, "listActiveEvidenceDeadlinesBetween");
+    }
+  }
+
+  /**
+   * `evidence_requested` disputes whose deadline is at or before `now`: the
+   * ones the cron moves to review (P-E13-9). An `under_review` dispute past
+   * its deadline needs nothing: it is already where an expiry sends it, and
+   * the evidence route refuses late items by itself.
+   *
+   * `lte` against the column encodes `now` through that column's mapper
+   * (`toISOString()`), so no manual conversion is needed here.
+   */
+  async listExpiredEvidenceRequests(now: Date, limit = 100): Promise<string[]> {
+    try {
+      const rows = await this.db
+        .select({ id: disputes.id })
+        .from(disputes)
+        .where(
+          and(
+            eq(disputes.status, "evidence_requested"),
+            lte(disputes.evidenceDeadline, now),
+          ),
+        )
+        .orderBy(asc(disputes.evidenceDeadline))
+        .limit(limit);
+      return rows.map((row) => row.id);
+    } catch (error) {
+      this.handleError(error, "listExpiredEvidenceRequests");
     }
   }
 

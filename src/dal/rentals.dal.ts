@@ -1826,12 +1826,10 @@ export class RentalDAL extends BaseDAL {
         throw new NotFoundError("Rental request not found");
       }
 
-      if (request[0].status !== "pending") {
-        throw new Error("Only pending requests can be cancelled");
-      }
-
-      // Update the request status to cancelled
-      await this.db
+      // Compare-and-set: still pending, and not mid-charge. A read-then-write
+      // here could cancel a request an approval had just claimed and charged
+      // (BIZ-01). Losing is a 409, not a silent overwrite.
+      const updated = await this.db
         .update(rentalRequests)
         .set({
           status: "cancelled",
@@ -1840,7 +1838,19 @@ export class RentalDAL extends BaseDAL {
           ...(cancellationNotes != null && { cancellationNotes }),
           updatedAt: new Date(),
         })
-        .where(eq(rentalRequests.id, requestId));
+        .where(
+          and(
+            eq(rentalRequests.id, requestId),
+            eq(rentalRequests.status, "pending"),
+            notPaymentProcessing,
+          ),
+        )
+        .returning({ id: rentalRequests.id });
+      if (updated.length === 0) {
+        throw new ConflictError(
+          "Only pending requests that are not being approved can be cancelled",
+        );
+      }
     } catch (error) {
       this.handleError(error, "cancelRentalRequest");
     }
@@ -1878,7 +1888,10 @@ export class RentalDAL extends BaseDAL {
 
   /**
    * Atomically claim a rental request for payment processing.
-   * Transitions paymentStatus -> "processing" only from "pending" or "failed".
+   * Transitions paymentStatus -> "processing" only from "pending" or "failed",
+   * and only while the request itself is still `pending`: cancel, decline and
+   * expiry leave `paymentStatus` untouched, so without the status predicate a
+   * dead request could still be claimed and charged (BIZ-01).
    * Returns false if another request already claimed it (or it already succeeded).
    */
   async claimRentalRequestPaymentProcessing(
@@ -1891,6 +1904,7 @@ export class RentalDAL extends BaseDAL {
         .where(
           and(
             eq(rentalRequests.id, requestId),
+            eq(rentalRequests.status, "pending"),
             inArray(rentalRequests.paymentStatus, ["pending", "failed"]),
           ),
         )
@@ -1966,54 +1980,59 @@ export class RentalDAL extends BaseDAL {
     },
   ): Promise<void> {
     try {
-      // Get the rental request
-      const [request] = await this.db
-        .select()
-        .from(rentalRequests)
-        .where(eq(rentalRequests.id, requestId))
-        .limit(1);
+      // One transaction, one compare-and-set: the request must still be
+      // pending AND hold this approval's payment claim. The old
+      // read-check-write let a cancel land between the check and the update,
+      // and a failed rentals insert left an approved request with no rental
+      // (BIZ-01).
+      await this.db.transaction(async (tx) => {
+        const [request] = await tx
+          .update(rentalRequests)
+          .set({
+            status: "approved",
+            approvedAt: new Date(),
+            paymentStatus: "succeeded",
+            updatedAt: new Date(),
+            ...(options?.rentalPaymentIntentId && {
+              paymentIntentId: options.rentalPaymentIntentId,
+            }),
+            ...(options?.securityDepositAuthId && {
+              securityDepositAuthId: options.securityDepositAuthId,
+            }),
+          })
+          .where(
+            and(
+              eq(rentalRequests.id, requestId),
+              eq(rentalRequests.status, "pending"),
+              eq(rentalRequests.paymentStatus, "processing"),
+            ),
+          )
+          .returning();
 
-      if (!request) {
-        throw new NotFoundError("Rental request not found");
-      }
+        if (!request) {
+          throw new ConflictError(
+            "Only pending requests held for payment can be approved",
+          );
+        }
 
-      if (request.status !== "pending") {
-        throw new Error("Only pending requests can be approved");
-      }
-
-      // Update the rental request status and payment info
-      await this.db
-        .update(rentalRequests)
-        .set({
-          status: "approved",
-          approvedAt: new Date(),
-          paymentStatus: "succeeded",
-          ...(options?.rentalPaymentIntentId && {
-            paymentIntentId: options.rentalPaymentIntentId,
-          }),
-          ...(options?.securityDepositAuthId && {
-            securityDepositAuthId: options.securityDepositAuthId,
-          }),
-        })
-        .where(eq(rentalRequests.id, requestId));
-
-      // Create a rental entry
-      await this.db.insert(rentals).values({
-        requestId: requestId,
-        listingId: request.listingId,
-        renterId: request.renterId,
-        ownerId: request.ownerId,
-        startDate: request.startDate,
-        endDate: request.endDate,
-        totalAmount: request.totalAmount,
-        securityDeposit: request.securityDeposit,
-        setupRequested: request.setupRequested,
-        setupFee: request.setupFee,
-        rentalPaymentIntentId: options?.rentalPaymentIntentId || null,
-        securityDepositAuthId: options?.securityDepositAuthId || null,
-        applicationFeeAmount: options?.applicationFeeAmount || null,
-        pickupInstructions: options?.pickupInstructions || null,
-        returnInstructions: options?.returnInstructions || null,
+        // Create a rental entry
+        await tx.insert(rentals).values({
+          requestId: requestId,
+          listingId: request.listingId,
+          renterId: request.renterId,
+          ownerId: request.ownerId,
+          startDate: request.startDate,
+          endDate: request.endDate,
+          totalAmount: request.totalAmount,
+          securityDeposit: request.securityDeposit,
+          setupRequested: request.setupRequested,
+          setupFee: request.setupFee,
+          rentalPaymentIntentId: options?.rentalPaymentIntentId || null,
+          securityDepositAuthId: options?.securityDepositAuthId || null,
+          applicationFeeAmount: options?.applicationFeeAmount || null,
+          pickupInstructions: options?.pickupInstructions || null,
+          returnInstructions: options?.returnInstructions || null,
+        });
       });
     } catch (error) {
       this.handleError(error, "approveRentalRequest");
@@ -2060,19 +2079,30 @@ export class RentalDAL extends BaseDAL {
         throw new NotFoundError("Rental request not found");
       }
 
-      if (request.status !== "pending") {
-        throw new Error("Only pending requests can be declined");
-      }
-
-      // Update the rental request status
-      await this.db
+      // Compare-and-set, as in cancelRentalRequest: declining a request whose
+      // approval has already claimed the charge would strand a paid renter
+      // with a denied request (BIZ-01).
+      const updated = await this.db
         .update(rentalRequests)
         .set({
           status: "denied",
           deniedAt: new Date(),
           denialReason: denialReason,
+          updatedAt: new Date(),
         })
-        .where(eq(rentalRequests.id, requestId));
+        .where(
+          and(
+            eq(rentalRequests.id, requestId),
+            eq(rentalRequests.status, "pending"),
+            notPaymentProcessing,
+          ),
+        )
+        .returning({ id: rentalRequests.id });
+      if (updated.length === 0) {
+        throw new ConflictError(
+          "Only pending requests that are not being approved can be declined",
+        );
+      }
     } catch (error) {
       this.handleError(error, "declineRentalRequest");
     }
@@ -2633,13 +2663,19 @@ export class RentalDAL extends BaseDAL {
     listingId: string,
   ): Promise<{ active: number; pending: number }> {
     try {
+      // A request mid-charge (`paymentStatus = 'processing'`) is in flight
+      // whatever its status says: the owner has already decided, and money is
+      // moving (BIZ-01). It counts here, and not again as awaiting a decision.
       const [active] = await this.db
         .select({ n: count() })
         .from(rentalRequests)
         .where(
           and(
             eq(rentalRequests.listingId, listingId),
-            inArray(rentalRequests.status, [...BLOCKING_RENTAL_STATUSES]),
+            or(
+              inArray(rentalRequests.status, [...BLOCKING_RENTAL_STATUSES]),
+              eq(rentalRequests.paymentStatus, "processing"),
+            ),
           ),
         );
 
@@ -2650,6 +2686,7 @@ export class RentalDAL extends BaseDAL {
           and(
             eq(rentalRequests.listingId, listingId),
             eq(rentalRequests.status, "pending"),
+            notPaymentProcessing,
           ),
         );
 
