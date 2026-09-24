@@ -25,15 +25,27 @@ vi.mock("@/lib/api/with-request-logging", () => ({
 
 const mockGetUserById = vi.fn();
 const mockGetPrimaryMembership = vi.fn();
+const mockUpdateUser = vi.fn();
+const mockUpdateUserPrimaryAddress = vi.fn();
 vi.mock("@/dal", () => ({
-  userDAL: { getUserById: (...a: any[]) => mockGetUserById(...a) },
+  userDAL: {
+    getUserById: (...a: any[]) => mockGetUserById(...a),
+    updateUser: (...a: any[]) => mockUpdateUser(...a),
+    updateUserPrimaryAddress: (...a: any[]) =>
+      mockUpdateUserPrimaryAddress(...a),
+  },
   communityDAL: {
     getPrimaryMembershipForUser: (...a: any[]) =>
       mockGetPrimaryMembership(...a),
   },
 }));
 
-import { GET } from "../route";
+vi.mock("@/features/activity/lib/track-activity", () => ({
+  trackActivity: vi.fn(),
+}));
+
+import { NextRequest } from "next/server";
+import { GET, PATCH } from "../route";
 
 describe("GET /api/profile", () => {
   beforeEach(() => {
@@ -76,5 +88,80 @@ describe("GET /api/profile", () => {
 
     expect(res.status).toBe(401);
     expect(mockGetUserById).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * SEC-02: this route used to write `email` straight to the user row, leaving
+ * `emailVerified` true on an address nobody had verified. better-auth trusts
+ * Google/Apple and links a new OAuth sign-in onto an account whose local email
+ * is verified, so claiming a victim's email here pre-hijacked their account.
+ */
+describe("PATCH /api/profile", () => {
+  const patch = (body: Record<string, unknown>) =>
+    PATCH(
+      new NextRequest("http://localhost/api/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
+    mockGetUserById.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+    });
+    mockUpdateUser.mockResolvedValue(undefined);
+    mockUpdateUserPrimaryAddress.mockResolvedValue(undefined);
+  });
+
+  it("refuses to change the login email and writes nothing", async () => {
+    const res = await patch({
+      email: "attacker-controlled@evil.example",
+      firstName: "New",
+    });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "EMAIL_CHANGE_NOT_SUPPORTED",
+    });
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockUpdateUserPrimaryAddress).not.toHaveBeenCalled();
+  });
+
+  // Re-sending the address the account already has (a form echoing it back) is
+  // not a change, so it must not fail the rest of the update.
+  it("accepts the current email in another case, and never writes it", async () => {
+    const res = await patch({
+      email: "  Owner@Example.COM ",
+      firstName: "New",
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateUser).toHaveBeenCalledWith("user-1", { firstName: "New" });
+  });
+
+  it("does not look the user up when no email is sent", async () => {
+    const res = await patch({ firstName: "New" });
+
+    expect(res.status).toBe(200);
+    expect(mockGetUserById).not.toHaveBeenCalled();
+    expect(mockUpdateUser).toHaveBeenCalledWith("user-1", { firstName: "New" });
+  });
+
+  // Mass-assignment regression: only schema fields reach the DAL.
+  it("drops fields outside the profile schema", async () => {
+    const res = await patch({
+      status: "active",
+      userType: "admin",
+      emailVerified: true,
+      firstName: "New",
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateUser).toHaveBeenCalledWith("user-1", { firstName: "New" });
   });
 });

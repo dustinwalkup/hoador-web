@@ -67,6 +67,24 @@ async function patchHandler(request: NextRequest) {
     // Parse request body
     const body = await parseFormData(request);
 
+    // Refuse an email change outright (SEC-02). This reads the RAW body: the
+    // schema no longer has `email`, so Zod would silently strip it and a client
+    // trying to change its login email would get a 200 for a change that never
+    // happened. Re-sending the current address, in any case, is harmless and
+    // falls through; the field never reaches `updateUser` either way.
+    if (typeof body.email === "string") {
+      const current = await userDAL.getUserById(userId);
+      if (body.email.trim().toLowerCase() !== current.email.toLowerCase()) {
+        return NextResponse.json(
+          {
+            error: "Email cannot be changed here.",
+            code: "EMAIL_CHANGE_NOT_SUPPORTED",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     // Validate form data
     const validationResult = updateProfileApiSchema.safeParse(body);
 

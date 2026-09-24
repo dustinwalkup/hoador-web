@@ -11,7 +11,6 @@ import { z } from "zod";
 
 const firstName = z.string().min(1, "First name is required");
 const lastName = z.string().min(1, "Last name is required");
-const email = z.string().email("Please enter a valid email");
 const phone = z.string().refine((val) => !val || /^\d{10}$/.test(val), {
   message: "Please enter a valid 10-digit phone number",
 });
@@ -39,11 +38,17 @@ export const editProfileFormSchema = z.object({
 
 export type EditProfileFormData = z.infer<typeof editProfileFormSchema>;
 
-/** API PATCH schema — every field optional (partial updates allowed). */
+/**
+ * API PATCH schema — every field optional (partial updates allowed).
+ *
+ * No `email`: it is the login identity. Writing it here left `emailVerified`
+ * true on an address nobody had verified, which better-auth then trusted when
+ * linking a Google/Apple sign-in onto the account (SEC-02). An email change
+ * needs a verified flow of its own; the route refuses one outright.
+ */
 export const updateProfileApiSchema = z.object({
   firstName: firstName.optional(),
   lastName: lastName.optional(),
-  email: email.optional(),
   phone: phone.optional(),
   bio: bio.optional(),
   profileImageUrl: profileImageUrl.optional(),
