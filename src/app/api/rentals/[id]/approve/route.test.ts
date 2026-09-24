@@ -69,6 +69,7 @@ vi.mock("@/dal", () => ({
     getConnectedAccountId: vi.fn().mockResolvedValue("acct_123"),
     isConnectOnboardingComplete: vi.fn().mockResolvedValue(true),
     updateConnectOnboardingStatus: vi.fn().mockResolvedValue(undefined),
+    isActiveAccount: vi.fn().mockResolvedValue(true),
     getUserById: vi.fn().mockImplementation((id: string) =>
       Promise.resolve({
         id,

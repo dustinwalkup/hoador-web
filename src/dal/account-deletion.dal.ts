@@ -1,4 +1,4 @@
-import { and, or, eq, inArray, sql, count } from "drizzle-orm";
+import { and, or, eq, ne, inArray, isNull, sql, count } from "drizzle-orm";
 import { BaseDAL } from "./base";
 import { NotFoundError } from "./errors";
 import {
@@ -16,6 +16,26 @@ import { pushSubscriptions } from "@/db/schemas/notifications.schema";
 import { rentalPaymentLifecycle } from "@/db/schemas/rental-payment-lifecycle.schema";
 import { servicePaymentLifecycle } from "@/db/schemas/service-payment-lifecycle.schema";
 import { disputes } from "@/db/schemas/disputes.schema";
+
+/** What `anonymizeUser` leaves the service to finish after the commit. */
+export interface AnonymizeUserResult {
+  /** Local card rows (seed-only in practice; kept for completeness). */
+  paymentMethodIds: string[];
+  /** The Stripe customer whose cards must all be detached (BIZ-07). */
+  stripeCustomerId: string | null;
+  /** Pending rental requests withdrawn, for telling each owner. */
+  cancelledRentalRequests: {
+    id: string;
+    ownerId: string;
+    listingName: string;
+  }[];
+  /** Pending service bookings withdrawn, for telling each provider. */
+  cancelledServiceBookings: {
+    id: string;
+    providerId: string;
+    serviceTitle: string;
+  }[];
+}
 
 /**
  * Blocking state sets for account deletion (D-E2-8, user-approved).
@@ -252,8 +272,9 @@ export class AccountDeletionDAL extends BaseDAL {
   }
 
   /**
-   * Anonymize a user in a single transaction and return the Stripe payment
-   * method ids that still need detaching.
+   * Anonymize a user in a single transaction and return what the service must
+   * finish outside it: the Stripe customer whose cards need detaching, and the
+   * outbound requests this withdrew, so their counterparts can be told.
    *
    * **Anonymize, never destroy** (gotcha #7): `payments`, `rentals`, `disputes`,
    * `audit_logs` and their lifecycle rows are retained keyed to the now-scrubbed
@@ -263,17 +284,23 @@ export class AccountDeletionDAL extends BaseDAL {
    *
    * Stripe PM detach is intentionally **not** done here — it is a non-
    * transactional external call, so it must not be able to roll back committed
-   * DB state (or be rolled back by a later failure). The ids are returned for
-   * the service to detach best-effort after the transaction commits.
+   * DB state (or be rolled back by a later failure). The customer id is
+   * returned for the service to detach every card best-effort after commit.
+   *
+   * The user's own pending rental requests and service bookings are withdrawn
+   * here (BIZ-07). Self-deletion deliberately does not block on them, so left
+   * alone an owner or provider could still approve one and charge "Deleted
+   * User", who can no longer see, dispute or cancel it. A request whose charge
+   * is already claimed (`processing`) is left for the stale-claim detector.
    *
    * Requirements: 2.5.1
    * Spec: hoador-mobile/specs/mobile-app/tasks/epic-02-backend-services.md § 2.6.2
    */
-  async anonymizeUser(userId: string): Promise<{ paymentMethodIds: string[] }> {
+  async anonymizeUser(userId: string): Promise<AnonymizeUserResult> {
     try {
       return await this.db.transaction(async (tx) => {
         const existing = await tx
-          .select({ id: user.id })
+          .select({ id: user.id, stripeCustomerId: user.stripeCustomerId })
           .from(user)
           .where(eq(user.id, userId))
           .limit(1);
@@ -350,10 +377,110 @@ export class AccountDeletionDAL extends BaseDAL {
             ),
           );
 
+        // Withdraw the user's own pending requests (see method doc). Same
+        // predicates as the claims they race, so a claim mid-charge wins.
+        const now = new Date();
+        const withdrawnRequests = await tx
+          .update(rentalRequests)
+          .set({
+            status: "cancelled",
+            cancelledAt: now,
+            cancelledBy: userId,
+            cancellationReason: "renter_cancellation",
+            denialReason: "Account deleted",
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(rentalRequests.renterId, userId),
+              eq(rentalRequests.status, "pending"),
+              or(
+                isNull(rentalRequests.paymentStatus),
+                ne(rentalRequests.paymentStatus, "processing"),
+              ),
+            ),
+          )
+          .returning({
+            id: rentalRequests.id,
+            ownerId: rentalRequests.ownerId,
+            listingId: rentalRequests.listingId,
+          });
+
+        // `payment_failed` too: the provider can retry the charge on it.
+        const withdrawnBookings = await tx
+          .update(serviceBookings)
+          .set({
+            status: "cancelled",
+            cancelledAt: now,
+            cancelledBy: userId,
+            cancellationReason: "account_deleted",
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(serviceBookings.requesterId, userId),
+              inArray(serviceBookings.status, ["pending", "payment_failed"]),
+              or(
+                isNull(serviceBookings.paymentStatus),
+                ne(serviceBookings.paymentStatus, "processing"),
+              ),
+            ),
+          )
+          .returning({
+            id: serviceBookings.id,
+            providerId: serviceBookings.providerId,
+            listingId: serviceBookings.listingId,
+          });
+
+        const listingNames = withdrawnRequests.length
+          ? new Map(
+              (
+                await tx
+                  .select({ id: listings.id, name: listings.name })
+                  .from(listings)
+                  .where(
+                    inArray(
+                      listings.id,
+                      withdrawnRequests.map((r) => r.listingId),
+                    ),
+                  )
+              ).map((l) => [l.id, l.name]),
+            )
+          : new Map<string, string>();
+        const serviceTitles = withdrawnBookings.length
+          ? new Map(
+              (
+                await tx
+                  .select({
+                    id: serviceListings.id,
+                    title: serviceListings.title,
+                  })
+                  .from(serviceListings)
+                  .where(
+                    inArray(
+                      serviceListings.id,
+                      withdrawnBookings.map((b) => b.listingId),
+                    ),
+                  )
+              ).map((l) => [l.id, l.title]),
+            )
+          : new Map<string, string>();
+
         return {
           paymentMethodIds: pmRows
             .map((r) => r.stripeId)
             .filter((id): id is string => Boolean(id)),
+          stripeCustomerId: existing[0].stripeCustomerId ?? null,
+          cancelledRentalRequests: withdrawnRequests.map((r) => ({
+            id: r.id,
+            ownerId: r.ownerId,
+            listingName: listingNames.get(r.listingId) ?? "your listing",
+          })),
+          cancelledServiceBookings: withdrawnBookings.map((b) => ({
+            id: b.id,
+            providerId: b.providerId,
+            serviceTitle: serviceTitles.get(b.listingId) ?? "your service",
+          })),
         };
       });
     } catch (error) {

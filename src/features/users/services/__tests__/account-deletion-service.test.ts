@@ -18,19 +18,37 @@ const { mockCounts, mockAnonymizeUser, mockAuditCreate } = vi.hoisted(() => ({
   mockAuditCreate: vi.fn(),
 }));
 
+const mockGetUserById = vi.hoisted(() => vi.fn());
 vi.mock("@/dal", () => ({
   accountDeletionDAL: { ...mockCounts, anonymizeUser: mockAnonymizeUser },
   auditLogDAL: { create: mockAuditCreate },
+  userDAL: { getUserById: (...a: unknown[]) => mockGetUserById(...a) },
 }));
 
-const mockDetach = vi.hoisted(() => vi.fn());
+const mockDetachAll = vi.hoisted(() => vi.fn());
 vi.mock("@/services/stripe/payment-method", () => ({
-  detachPaymentMethod: (...a: unknown[]) => mockDetach(...a),
+  detachAllPaymentMethodsForCustomer: (...a: unknown[]) => mockDetachAll(...a),
 }));
 
 const mockCapture = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/api/route-helpers", () => ({
   captureNonCriticalError: (...a: unknown[]) => mockCapture(...a),
+}));
+
+const mockOpsAlert = vi.hoisted(() => vi.fn());
+vi.mock("@/features/notifications/lib/ops-alerts", () => ({
+  sendOpsAlert: (...a: unknown[]) => mockOpsAlert(...a),
+}));
+
+const mockRentalCancelled = vi.hoisted(() => vi.fn());
+vi.mock("@/features/rentals/notifications/rental-cancelled", () => ({
+  sendRentalCancelledNotification: (...a: unknown[]) =>
+    mockRentalCancelled(...a),
+}));
+
+const mockSendNotification = vi.hoisted(() => vi.fn());
+vi.mock("@/features/notifications/utils/send-notification", () => ({
+  sendNotification: (...a: unknown[]) => mockSendNotification(...a),
 }));
 
 import {
@@ -116,13 +134,34 @@ describe("getDeletionBlockers", () => {
   });
 });
 
+/** What `anonymizeUser` returns for a user with nothing outstanding. */
+const anonymized = (over: Record<string, unknown> = {}) => ({
+  paymentMethodIds: [],
+  stripeCustomerId: "cus_1",
+  cancelledRentalRequests: [],
+  cancelledServiceBookings: [],
+  ...over,
+});
+
+/** Let fire-and-forget notifications settle before asserting on them. */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe("deleteOwnAccount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     allClear();
-    mockAnonymizeUser.mockResolvedValue({ paymentMethodIds: [] });
+    mockAnonymizeUser.mockResolvedValue(anonymized());
     mockAuditCreate.mockResolvedValue({ id: "audit-1" });
-    mockDetach.mockResolvedValue(undefined);
+    mockDetachAll.mockResolvedValue({ detached: 0, failed: 0 });
+    mockOpsAlert.mockResolvedValue(undefined);
+    mockRentalCancelled.mockResolvedValue(undefined);
+    mockSendNotification.mockResolvedValue(undefined);
+    mockGetUserById.mockResolvedValue({
+      id: "owner-1",
+      name: "Olive Owner",
+      firstName: "Olive",
+      lastName: "Owner",
+    });
   });
 
   it("throws a 409 AccountDeletionBlockedError and mutates nothing when blocked", async () => {
@@ -148,39 +187,115 @@ describe("deleteOwnAccount", () => {
     });
   });
 
-  it("anonymizes then detaches payment methods after the transaction commits", async () => {
-    mockAnonymizeUser.mockResolvedValue({ paymentMethodIds: ["pm_1", "pm_2"] });
+  // BIZ-07: the local card table is empty in practice, so every card must be
+  // detached from the Stripe customer itself.
+  it("detaches every card on the Stripe customer, after the transaction commits", async () => {
     const order: string[] = [];
     mockAnonymizeUser.mockImplementation(async () => {
       order.push("anonymize");
-      return { paymentMethodIds: ["pm_1", "pm_2"] };
+      return anonymized({ stripeCustomerId: "cus_42" });
     });
-    mockDetach.mockImplementation(async (id) => {
-      order.push(`detach:${id}`);
+    mockDetachAll.mockImplementation(async (customerId: string) => {
+      order.push(`detach-all:${customerId}`);
+      return { detached: 3, failed: 0 };
     });
 
     await deleteOwnAccount("user-1");
 
-    expect(mockDetach).toHaveBeenCalledWith("pm_1");
-    expect(mockDetach).toHaveBeenCalledWith("pm_2");
     // Detach must happen after the DB anonymize commits, never before.
-    expect(order[0]).toBe("anonymize");
+    expect(order).toEqual(["anonymize", "detach-all:cus_42"]);
+    expect(mockOpsAlert).not.toHaveBeenCalled();
   });
 
-  it("does not fail the deletion when a Stripe detach errors", async () => {
-    // A Stripe outage must not leave the user un-deletable — the local PM rows
-    // are already deactivated in the transaction.
-    mockAnonymizeUser.mockResolvedValue({ paymentMethodIds: ["pm_1"] });
-    mockDetach.mockRejectedValue(new Error("stripe down"));
+  it("skips the Stripe call for a user who never had a customer", async () => {
+    mockAnonymizeUser.mockResolvedValue(anonymized({ stripeCustomerId: null }));
+
+    await deleteOwnAccount("user-1");
+
+    expect(mockDetachAll).not.toHaveBeenCalled();
+  });
+
+  // A card left attached can still be charged: that needs a human, not a log.
+  it("alerts ops, and still deletes, when some cards fail to detach", async () => {
+    mockDetachAll.mockResolvedValue({ detached: 1, failed: 2 });
+
+    await expect(deleteOwnAccount("user-1")).resolves.toBeUndefined();
+
+    expect(mockOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "account_deletion_card_detach_failed",
+        metadata: expect.objectContaining({ failed: 2 }),
+      }),
+    );
+    expect(mockAuditCreate).toHaveBeenCalled();
+  });
+
+  it("does not fail the deletion when Stripe cannot list the cards", async () => {
+    // A Stripe outage must not leave the user un-deletable.
+    mockDetachAll.mockRejectedValue(new Error("stripe down"));
 
     await expect(deleteOwnAccount("user-1")).resolves.toBeUndefined();
     expect(mockCapture).toHaveBeenCalled();
+    expect(mockOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "account_deletion_card_detach_failed" }),
+    );
     // The account is still recorded as deleted.
     expect(mockAuditCreate).toHaveBeenCalled();
   });
 
+  // BIZ-07: the requests anonymize withdrew would otherwise vanish from the
+  // owner's and provider's view with no explanation.
+  it("tells each owner and provider whose request was withdrawn", async () => {
+    mockAnonymizeUser.mockResolvedValue(
+      anonymized({
+        cancelledRentalRequests: [
+          { id: "req-1", ownerId: "owner-1", listingName: "Pressure Washer" },
+        ],
+        cancelledServiceBookings: [
+          { id: "sb-1", providerId: "prov-1", serviceTitle: "Lawn mowing" },
+        ],
+      }),
+    );
+
+    await deleteOwnAccount("user-1");
+    await flush();
+
+    expect(mockRentalCancelled).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserId: "owner-1",
+        recipientName: "Olive Owner",
+        listingName: "Pressure Washer",
+        rentalId: "req-1",
+        cancelledBy: "renter",
+      }),
+    );
+    expect(mockSendNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "prov-1",
+        type: "system",
+        title: "Booking cancelled",
+        data: { bookingId: "sb-1" },
+      }),
+    );
+  });
+
+  it("does not fail the deletion when a notification fails", async () => {
+    mockAnonymizeUser.mockResolvedValue(
+      anonymized({
+        cancelledRentalRequests: [
+          { id: "req-1", ownerId: "owner-1", listingName: "Drill" },
+        ],
+      }),
+    );
+    mockRentalCancelled.mockRejectedValue(new Error("push down"));
+
+    await expect(deleteOwnAccount("user-1")).resolves.toBeUndefined();
+    await flush();
+    expect(mockCapture).toHaveBeenCalled();
+  });
+
   it("writes an audit row with no PII in metadata", async () => {
-    mockAnonymizeUser.mockResolvedValue({ paymentMethodIds: ["pm_1"] });
+    mockDetachAll.mockResolvedValue({ detached: 2, failed: 0 });
 
     await deleteOwnAccount("user-1");
 
@@ -190,6 +305,7 @@ describe("deleteOwnAccount", () => {
         entityId: "user-1",
         action: "user.self_deleted",
         userId: "user-1",
+        metadata: expect.objectContaining({ paymentMethodsDetached: 2 }),
       }),
     );
     // The metadata is retained 5 years and append-only — it must not re-record

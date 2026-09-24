@@ -10,6 +10,7 @@ import {
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import {
   ConflictError,
+  CounterpartyUnavailableError,
   ForbiddenError,
   NotFoundError,
   ServiceBookingPaymentFailedError,
@@ -50,6 +51,16 @@ import { processRefund } from "@/services/stripe/refund";
 import { after } from "next/server";
 import { closeNeedsFulfilledByBooking } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
 import type { AuditContext, CreateBookingInput } from "../types";
+
+/**
+ * Throws `CounterpartyUnavailableError` unless the requester is an active
+ * account that has not self-deleted (BIZ-07).
+ */
+async function assertRequesterActive(requesterId: string): Promise<void> {
+  if (!(await userDAL.isActiveAccount(requesterId))) {
+    throw new CounterpartyUnavailableError();
+  }
+}
 
 function appBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
@@ -280,6 +291,10 @@ export class ServiceBookingService {
     if (detail.status !== "pending" && detail.status !== "payment_failed") {
       throw new ValidationError("Booking is not pending", "status");
     }
+    // Never charge a requester who can no longer see or dispute it: a deleted
+    // (anonymized) or otherwise inactive account (BIZ-07). The claim below
+    // re-checks atomically in case the account goes between the two.
+    await assertRequesterActive(detail.requesterId);
 
     // Atomically claim the booking for payment processing before any Stripe
     // work. Flips paymentStatus -> "processing" only from null/"failed", so two
@@ -287,6 +302,9 @@ export class ServiceBookingService {
     // cannot both reach the charge and double-charge the requester.
     const claimed = await serviceBookingDAL.claimForAcceptance(bookingId);
     if (!claimed) {
+      // The claim also refuses a requester who stopped being active in
+      // between; say so rather than "already being processed" (BIZ-07).
+      await assertRequesterActive(detail.requesterId);
       throw new ConflictError(
         "This booking's payment is already being processed.",
       );

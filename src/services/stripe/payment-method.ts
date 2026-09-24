@@ -162,3 +162,30 @@ export async function detachPaymentMethod(
 ): Promise<void> {
   await PAYMENT_SERVER_INSTANCE.paymentMethods.detach(paymentMethodId);
 }
+
+/**
+ * Detach every card a Stripe customer has, so nothing can charge it again.
+ * Used on account deletion (BIZ-07): the local `user_payment_methods` table is
+ * never written by the app, so Stripe is the only complete list.
+ *
+ * Every page is collected BEFORE detaching: detaching while paging would shift
+ * the cursor and skip cards, and the first page alone stops at 100. Each
+ * detach is independent, so one failure does not skip the rest.
+ */
+export async function detachAllPaymentMethodsForCustomer(
+  customerId: string,
+): Promise<{ detached: number; failed: number }> {
+  const ids: string[] = [];
+  for await (const pm of PAYMENT_SERVER_INSTANCE.paymentMethods.list({
+    customer: customerId,
+    type: "card",
+    limit: 100,
+  })) {
+    ids.push(pm.id);
+  }
+  const results = await Promise.allSettled(ids.map(detachPaymentMethod));
+  return {
+    detached: results.filter((r) => r.status === "fulfilled").length,
+    failed: results.filter((r) => r.status === "rejected").length,
+  };
+}

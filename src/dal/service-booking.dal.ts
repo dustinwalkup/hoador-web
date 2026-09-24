@@ -235,6 +235,9 @@ export class ServiceBookingDAL extends BaseDAL {
    * Sets paymentStatus -> "processing" only when the booking is still
    * acceptable (status pending|payment_failed) and no other accept call
    * holds the claim (paymentStatus null|failed).
+   * The requester must also still be an active, non-deleted account, checked
+   * in the same statement so a deletion cannot land between check and claim
+   * (BIZ-07).
    * Returns false when another call already claimed it or the charge
    * already succeeded.
    */
@@ -251,6 +254,12 @@ export class ServiceBookingDAL extends BaseDAL {
               isNull(serviceBookings.paymentStatus),
               eq(serviceBookings.paymentStatus, "failed"),
             ),
+            sql`EXISTS (
+              SELECT 1 FROM ${user} u
+              WHERE u.id = ${serviceBookings.requesterId}
+                AND u.anonymized_at IS NULL
+                AND u.status = 'active'
+            )`,
           ),
         )
         .returning({ id: serviceBookings.id });

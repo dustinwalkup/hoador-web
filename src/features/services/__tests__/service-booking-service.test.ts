@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ServiceBookingService } from "../services/service-booking-service";
 import {
   ConflictError,
+  CounterpartyUnavailableError,
   ForbiddenError,
   NotFoundError,
   ServiceNotYetDueError,
@@ -30,6 +31,7 @@ const mockBookingClaim = vi.fn();
 const mockBookingUpdateIfStatus = vi.fn();
 const mockGetStripePm = vi.fn();
 const mockGetUserById = vi.fn();
+const mockIsActiveAccount = vi.fn().mockResolvedValue(true);
 const mockAuditCreate = vi.fn();
 const mockPaymentCreate = vi.fn();
 const mockChargeServicePayment = vi.fn();
@@ -80,6 +82,7 @@ vi.mock("@/dal", () => ({
   },
   userDAL: {
     getUserById: (...a: unknown[]) => mockGetUserById(...a),
+    isActiveAccount: (...a: unknown[]) => mockIsActiveAccount(...a),
     updateConnectOnboardingStatus: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -195,6 +198,7 @@ const futureDay = (daysAhead = 30) =>
 describe("ServiceBookingService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsActiveAccount.mockResolvedValue(true);
     mockGetPaymentErrorMessage.mockReturnValue("card declined");
     mockLegalGetAllVersions.mockResolvedValue({});
     mockLifecycleCreate.mockResolvedValue({});
@@ -785,6 +789,36 @@ describe("ServiceBookingService", () => {
       expect(mockChargeServicePayment).toHaveBeenCalledWith(
         expect.objectContaining({ paymentMethodId: "pm_new" }),
       );
+    });
+
+    // BIZ-07: a requester who deleted their account (or is otherwise
+    // inactive) can no longer see or dispute a charge.
+    it("refuses to charge a requester whose account is no longer active", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockIsActiveAccount.mockResolvedValue(false);
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(CounterpartyUnavailableError);
+
+      expect(mockIsActiveAccount).toHaveBeenCalledWith(
+        bookingPending.requesterId,
+      );
+      expect(mockBookingClaim).not.toHaveBeenCalled();
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
+    it("reports a requester deleted between check and claim as unavailable", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockIsActiveAccount
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false);
+      mockBookingClaim.mockResolvedValue(false);
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(CounterpartyUnavailableError);
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
     });
 
     it("rejects with ConflictError when the booking is already being processed", async () => {

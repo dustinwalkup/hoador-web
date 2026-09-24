@@ -1418,6 +1418,40 @@ describe("UserDAL", () => {
     });
   });
 
+  describe("isActiveAccount", () => {
+    const withRow = (rows: unknown[]) => {
+      const mockWhere = vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue(rows),
+      });
+      vi.mocked(db.select).mockReturnValue({
+        from: vi.fn().mockReturnValue({ where: mockWhere }),
+      } as any);
+    };
+
+    it("is true for an active account that has not self-deleted", async () => {
+      withRow([{ status: "active", anonymizedAt: null }]);
+
+      expect(await userDAL.isActiveAccount("user-1")).toBe(true);
+    });
+
+    it.each([
+      ["self-deleted", { status: "inactive", anonymizedAt: new Date() }],
+      ["suspended", { status: "suspended", anonymizedAt: null }],
+      // Belt and braces: anonymizedAt alone is enough to refuse.
+      ["anonymized but active", { status: "active", anonymizedAt: new Date() }],
+    ])("is false for a %s account", async (_label, row) => {
+      withRow([row]);
+
+      expect(await userDAL.isActiveAccount("user-1")).toBe(false);
+    });
+
+    it("is false for a missing user", async () => {
+      withRow([]);
+
+      expect(await userDAL.isActiveAccount("user-missing")).toBe(false);
+    });
+  });
+
   describe("getStripeCustomerId", () => {
     it("returns the stripeCustomerId when found", async () => {
       const mockWhere = vi.fn().mockReturnValue({

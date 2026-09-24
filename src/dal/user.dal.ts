@@ -438,6 +438,25 @@ export class UserDAL extends BaseDAL {
   /**
    * Returns the user's Stripe customer ID, or null if none exists.
    */
+  /**
+   * Whether the user can still be charged: an `active` account that has not
+   * self-deleted. The same test the approve/accept claims apply atomically
+   * (BIZ-07); this is the cheap pre-check that gives the caller a clear error
+   * before any Stripe work.
+   */
+  async isActiveAccount(userId: string): Promise<boolean> {
+    try {
+      const [u] = await this.db
+        .select({ status: user.status, anonymizedAt: user.anonymizedAt })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1);
+      return !!u && u.status === "active" && u.anonymizedAt === null;
+    } catch (error) {
+      this.handleError(error, "isActiveAccount");
+    }
+  }
+
   async getStripeCustomerId(userId: string): Promise<string | null> {
     try {
       const [u] = await this.db

@@ -1895,7 +1895,9 @@ export class RentalDAL extends BaseDAL {
    * Transitions paymentStatus -> "processing" only from "pending" or "failed",
    * and only while the request itself is still `pending`: cancel, decline and
    * expiry leave `paymentStatus` untouched, so without the status predicate a
-   * dead request could still be claimed and charged (BIZ-01).
+   * dead request could still be claimed and charged (BIZ-01). The renter must
+   * also still be an active, non-deleted account, checked in the same
+   * statement so a deletion cannot land between check and claim (BIZ-07).
    * Returns false if another request already claimed it (or it already succeeded).
    */
   async claimRentalRequestPaymentProcessing(
@@ -1910,6 +1912,12 @@ export class RentalDAL extends BaseDAL {
             eq(rentalRequests.id, requestId),
             eq(rentalRequests.status, "pending"),
             inArray(rentalRequests.paymentStatus, ["pending", "failed"]),
+            sql`EXISTS (
+              SELECT 1 FROM ${user} u
+              WHERE u.id = ${rentalRequests.renterId}
+                AND u.anonymized_at IS NULL
+                AND u.status = 'active'
+            )`,
           ),
         )
         .returning({ id: rentalRequests.id });

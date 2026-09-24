@@ -57,6 +57,7 @@ import {
   recoverFailedServiceBookings,
   getStripeCustomerContext,
   listStripeCardPaymentMethodsForUser,
+  detachAllPaymentMethodsForCustomer,
 } from "../payment-method";
 
 describe("PaymentMethodService", () => {
@@ -151,6 +152,72 @@ describe("PaymentMethodService", () => {
       mockPaymentMethodsDetach.mockRejectedValue(new Error("Not found"));
 
       await expect(detachPaymentMethod("pm_456")).rejects.toThrow("Not found");
+    });
+  });
+
+  /**
+   * BIZ-07: account deletion detaches every card Stripe holds for the
+   * customer. The local card table is never written by the app, so the list
+   * must come from Stripe, across every page.
+   */
+  describe("detachAllPaymentMethodsForCustomer", () => {
+    /** Stripe's list result is async-iterable across every page. */
+    const cards = (...ids: string[]) => ({
+      async *[Symbol.asyncIterator]() {
+        for (const id of ids) yield { id };
+      },
+    });
+
+    it("detaches each of the customer's cards", async () => {
+      mockPaymentMethodsList.mockReturnValue(cards("pm_1", "pm_2", "pm_3"));
+      mockPaymentMethodsDetach.mockResolvedValue({});
+
+      const result = await detachAllPaymentMethodsForCustomer("cus_1");
+
+      expect(mockPaymentMethodsList).toHaveBeenCalledWith(
+        expect.objectContaining({ customer: "cus_1", type: "card" }),
+      );
+      expect(mockPaymentMethodsDetach).toHaveBeenCalledTimes(3);
+      expect(mockPaymentMethodsDetach).toHaveBeenCalledWith("pm_3");
+      expect(result).toEqual({ detached: 3, failed: 0 });
+    });
+
+    // Detaching while paging would move Stripe's cursor and skip cards.
+    it("lists every card before detaching any", async () => {
+      const order: string[] = [];
+      mockPaymentMethodsList.mockReturnValue({
+        async *[Symbol.asyncIterator]() {
+          for (const id of ["pm_1", "pm_2"]) {
+            order.push(`list:${id}`);
+            yield { id };
+          }
+        },
+      });
+      mockPaymentMethodsDetach.mockImplementation(async (id: string) => {
+        order.push(`detach:${id}`);
+      });
+
+      await detachAllPaymentMethodsForCustomer("cus_1");
+
+      expect(order).toEqual([
+        "list:pm_1",
+        "list:pm_2",
+        "detach:pm_1",
+        "detach:pm_2",
+      ]);
+    });
+
+    it("keeps going past a failed detach and counts it", async () => {
+      mockPaymentMethodsList.mockReturnValue(cards("pm_1", "pm_2", "pm_3"));
+      mockPaymentMethodsDetach
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce(new Error("stripe down"))
+        .mockResolvedValueOnce({});
+
+      const result = await detachAllPaymentMethodsForCustomer("cus_1");
+
+      expect(mockPaymentMethodsDetach).toHaveBeenCalledTimes(3);
+      expect(result).toEqual({ detached: 2, failed: 1 });
     });
   });
 

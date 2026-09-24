@@ -15,6 +15,7 @@ import {
   DALError,
   ServiceBookingPaymentFailedError,
   RentalRequestNotPendingError,
+  CounterpartyUnavailableError,
   ServiceNotYetDueError,
 } from "@/dal/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
@@ -107,6 +108,17 @@ describe("route-helpers", () => {
       await expect(response.json()).resolves.toEqual({
         error: expect.stringContaining("hasn't happened yet"),
         code: "SERVICE_NOT_YET_DUE",
+      });
+    });
+
+    // BIZ-07: the approve/accept routes return this code when the other party
+    // has deleted their account; it must survive like REQUEST_NOT_PENDING.
+    it("should give CounterpartyUnavailableError a 409 with its code", async () => {
+      const response = handleApiError(new CounterpartyUnavailableError());
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "COUNTERPARTY_UNAVAILABLE",
       });
     });
 

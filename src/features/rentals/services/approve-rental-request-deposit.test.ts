@@ -82,6 +82,7 @@ const mockPaymentCreate = vi.fn();
 const mockPaymentLifecycleCreate = vi.fn();
 const mockAuditLogCreate = vi.fn();
 const mockGetUserById = vi.fn();
+const mockIsActiveAccount = vi.fn().mockResolvedValue(true);
 
 vi.mock("@/dal", () => ({
   rentalDAL: {
@@ -108,6 +109,7 @@ vi.mock("@/dal", () => ({
     isConnectOnboardingComplete: (...args: unknown[]) =>
       mockIsConnectOnboardingComplete(...args),
     getUserById: (...args: unknown[]) => mockGetUserById(...args),
+    isActiveAccount: (...args: unknown[]) => mockIsActiveAccount(...args),
   },
   paymentDAL: {
     createPayment: (...args: unknown[]) => mockPaymentCreate(...args),

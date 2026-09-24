@@ -1,6 +1,10 @@
-import { accountDeletionDAL, auditLogDAL } from "@/dal";
-import { detachPaymentMethod } from "@/services/stripe/payment-method";
+import { accountDeletionDAL, auditLogDAL, userDAL } from "@/dal";
+import type { AnonymizeUserResult } from "@/dal/account-deletion.dal";
+import { detachAllPaymentMethodsForCustomer } from "@/services/stripe/payment-method";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
+import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
+import { sendRentalCancelledNotification } from "@/features/rentals/notifications/rental-cancelled";
+import { sendNotification } from "@/features/notifications/utils/send-notification";
 import {
   AccountDeletionBlockedError,
   type AccountDeletionBlocker,
@@ -92,13 +96,13 @@ export async function getDeletionBlockers(
  * 1. Blockers first — throw `AccountDeletionBlockedError` (409) before any
  *    mutation, so a blocked attempt changes nothing.
  * 2. Anonymize in a single transaction (PII scrub, session revoke, delist,
- *    retain financial/audit rows).
- * 3. Stripe PM detach **after** the commit, best-effort — a non-transactional
- *    external call must not roll back the deletion, and a Stripe outage must not
- *    leave the user un-deletable. Local PM rows are already deactivated in the
- *    transaction, so a failed detach only leaves an orphaned Stripe object, not
- *    a usable card.
- * 4. Audit row with **no PII in metadata** — audit logs are retained five years
+ *    withdraw the user's own pending requests, retain financial/audit rows).
+ * 3. Detach every Stripe card on the customer **after** the commit,
+ *    best-effort — a non-transactional external call must not roll back the
+ *    deletion, and a Stripe outage must not leave the user un-deletable. A
+ *    failure alerts ops: an attached card is still chargeable (BIZ-07).
+ * 4. Tell each owner/provider whose request was withdrawn, fire-and-forget.
+ * 5. Audit row with **no PII in metadata** — audit logs are retained five years
  *    and append-only, and would otherwise re-introduce the email just scrubbed.
  *
  * Requirements: 2.5.1, 2.5.3
@@ -110,20 +114,13 @@ export async function deleteOwnAccount(userId: string): Promise<void> {
     throw new AccountDeletionBlockedError({ blockers });
   }
 
-  const { paymentMethodIds } = await accountDeletionDAL.anonymizeUser(userId);
+  const anonymized = await accountDeletionDAL.anonymizeUser(userId);
 
-  // Best-effort, outside the transaction. Each detach is independent — one
-  // failing must not skip the rest.
-  await Promise.all(
-    paymentMethodIds.map((pmId) =>
-      detachPaymentMethod(pmId).catch((error) =>
-        captureNonCriticalError(error, {
-          route: "account-deletion",
-          action: "detach-payment-method",
-        }),
-      ),
-    ),
+  const paymentMethodsDetached = await detachAllCards(
+    userId,
+    anonymized.stripeCustomerId,
   );
+  notifyCounterparts(anonymized);
 
   await auditLogDAL.create({
     entityType: "user",
@@ -131,6 +128,91 @@ export async function deleteOwnAccount(userId: string): Promise<void> {
     action: "user.self_deleted",
     userId,
     // No PII: the row outlives the scrub by five years and is append-only.
-    metadata: { paymentMethodsDetached: paymentMethodIds.length },
+    metadata: {
+      paymentMethodsDetached,
+      rentalRequestsWithdrawn: anonymized.cancelledRentalRequests.length,
+      serviceBookingsWithdrawn: anonymized.cancelledServiceBookings.length,
+    },
   });
+}
+
+/**
+ * Best-effort, after the commit: never fails the deletion. Any card left
+ * attached can still be charged, so a failure goes to ops, not just Sentry.
+ */
+async function detachAllCards(
+  userId: string,
+  stripeCustomerId: string | null,
+): Promise<number> {
+  if (!stripeCustomerId) return 0;
+  try {
+    const { detached, failed } =
+      await detachAllPaymentMethodsForCustomer(stripeCustomerId);
+    if (failed > 0) {
+      await sendOpsAlert({
+        event: "account_deletion_card_detach_failed",
+        message: `${failed} card(s) could not be detached after account deletion`,
+        metadata: { userId, stripeCustomerId, detached, failed },
+        sendEmailAlert: true,
+      });
+    }
+    return detached;
+  } catch (error) {
+    // The card list itself failed: nothing was detached.
+    captureNonCriticalError(error, {
+      route: "account-deletion",
+      action: "detach-all-payment-methods",
+    });
+    await sendOpsAlert({
+      event: "account_deletion_card_detach_failed",
+      message: "Could not list cards to detach after account deletion",
+      metadata: { userId, stripeCustomerId },
+      sendEmailAlert: true,
+    }).catch((e) =>
+      captureNonCriticalError(e, {
+        route: "account-deletion",
+        action: "ops-alert-card-detach",
+      }),
+    );
+    return 0;
+  }
+}
+
+/** Fire-and-forget: a notification failure must not fail the deletion. */
+function notifyCounterparts(anonymized: AnonymizeUserResult): void {
+  for (const request of anonymized.cancelledRentalRequests) {
+    (async () => {
+      const owner = await userDAL.getUserById(request.ownerId);
+      await sendRentalCancelledNotification({
+        recipientUserId: request.ownerId,
+        recipientName:
+          `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim() ||
+          owner.name,
+        otherPartyName: "The renter",
+        listingName: request.listingName,
+        rentalId: request.id,
+        cancelledBy: "renter",
+        cancellationReason: "Renter's account was deleted",
+      });
+    })().catch((e) =>
+      captureNonCriticalError(e, {
+        route: "account-deletion",
+        action: "notify-owner-request-withdrawn",
+      }),
+    );
+  }
+  for (const booking of anonymized.cancelledServiceBookings) {
+    sendNotification({
+      userId: booking.providerId,
+      type: "system",
+      title: "Booking cancelled",
+      message: `The requester's account was deleted; their booking for ${booking.serviceTitle} was withdrawn.`,
+      data: { bookingId: booking.id },
+    }).catch((e) =>
+      captureNonCriticalError(e, {
+        route: "account-deletion",
+        action: "notify-provider-booking-withdrawn",
+      }),
+    );
+  }
 }

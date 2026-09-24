@@ -194,6 +194,11 @@ describe("ServiceBookingDAL", () => {
       const sql = whereSql(mockWhere.mock.calls[0][0]);
       expect(sql).toContain('"service_bookings"."status" in');
       expect(sql).toContain('"service_bookings"."payment_status" is null');
+      // BIZ-07: and only while the requester is still an active account.
+      expect(sql).toMatch(/EXISTS \(\s*SELECT 1 FROM "user" u/);
+      expect(sql).toContain('u.id = "service_bookings"."requester_id"');
+      expect(sql).toContain("u.anonymized_at IS NULL");
+      expect(sql).toContain("u.status = 'active'");
     });
 
     it("returns false when no row matches (already claimed or succeeded)", async () => {

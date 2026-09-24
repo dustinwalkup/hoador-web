@@ -109,6 +109,21 @@ export class ServiceNotYetDueError extends DALError {
 }
 
 /**
+ * Thrown when approving/accepting would charge someone whose account is gone:
+ * self-deleted (anonymized) or otherwise not `active`. They can no longer log
+ * in to see, dispute or cancel the charge (BIZ-07).
+ *
+ * `code: "COUNTERPARTY_UNAVAILABLE"`; not a `ConflictError` subclass, for the
+ * same reason as `RentalRequestNotPendingError`.
+ */
+export class CounterpartyUnavailableError extends DALError {
+  constructor(message = "The other party's account is no longer active.") {
+    super(message, "COUNTERPARTY_UNAVAILABLE", 409);
+    this.name = "CounterpartyUnavailableError";
+  }
+}
+
+/**
  * Thrown when a user tries to open a conversation with themselves. Req 16.1.3
  * says 1:1 conversations are between two *different* people; until this class
  * existed only the UI enforced it, and a self-pair row would have made every

@@ -2408,6 +2408,20 @@ describe("RentalDAL", () => {
       const { params } = renderWhere(where);
       expect(params).toEqual(expect.arrayContaining(["pending", "failed"]));
     });
+
+    // BIZ-07: never claim a charge on a renter who has self-deleted or is
+    // otherwise inactive, checked in the same statement as the claim.
+    it("claims only while the renter is an active, non-deleted account", async () => {
+      const { mockWhere } = mockUpdateChain([{ id: "request-123" }]);
+
+      await rentalDAL.claimRentalRequestPaymentProcessing("request-123");
+
+      const { sql } = renderWhere(mockWhere.mock.calls[0][0]);
+      expect(sql).toMatch(/EXISTS \(\s*SELECT 1 FROM "user" u/);
+      expect(sql).toContain('u.id = "rental_requests"."renter_id"');
+      expect(sql).toContain("u.anonymized_at IS NULL");
+      expect(sql).toContain("u.status = 'active'");
+    });
   });
 
   describe("findPendingExpiredRequests", () => {

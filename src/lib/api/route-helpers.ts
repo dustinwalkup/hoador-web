@@ -19,6 +19,7 @@ import {
   ConversationArchivedError,
   CannotMessageSelfError,
   RentalRequestNotPendingError,
+  CounterpartyUnavailableError,
   ServiceNotYetDueError,
 } from "@/dal/errors";
 import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
@@ -68,6 +69,7 @@ export function handleApiError(
     !(error instanceof ConversationArchivedError) &&
     !(error instanceof ServiceNotYetDueError) &&
     !(error instanceof RentalRequestNotPendingError) &&
+    !(error instanceof CounterpartyUnavailableError) &&
     !(error instanceof CannotMessageSelfError) &&
     !(error instanceof PaymentSetupRequiredError) &&
     !(error instanceof AccountDeletionBlockedError) &&
@@ -134,6 +136,13 @@ export function handleApiError(
   }
 
   if (error instanceof RentalRequestNotPendingError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+
+  if (error instanceof CounterpartyUnavailableError) {
     return NextResponse.json(
       { error: error.message, code: error.code },
       { status: error.statusCode },

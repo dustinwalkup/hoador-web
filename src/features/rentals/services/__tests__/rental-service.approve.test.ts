@@ -9,6 +9,7 @@ const mockApproveRentalRequest = vi.fn();
 const mockGetRentalByRequestId = vi.fn();
 const mockGetOrCreateStripeCustomerId = vi.fn();
 const mockGetUserById = vi.fn();
+const mockIsActiveAccount = vi.fn().mockResolvedValue(true);
 const mockAuditLogCreate = vi.fn();
 const mockCreatePayment = vi.fn();
 const mockLifecycleCreate = vi.fn();
@@ -49,6 +50,7 @@ vi.mock("@/dal", () => ({
     getOrCreateStripeCustomerId: (...args: unknown[]) =>
       mockGetOrCreateStripeCustomerId(...args),
     getUserById: (...args: unknown[]) => mockGetUserById(...args),
+    isActiveAccount: (...args: unknown[]) => mockIsActiveAccount(...args),
   },
 }));
 
@@ -125,7 +127,10 @@ vi.mock("@walkup/walkup-utils", () => ({
 }));
 
 import { RentalService } from "../rental-service";
-import { RentalRequestNotPendingError } from "@/dal/errors";
+import {
+  CounterpartyUnavailableError,
+  RentalRequestNotPendingError,
+} from "@/dal/errors";
 
 // --- Helpers ---
 function createMockRentalRequest(overrides = {}) {
@@ -152,6 +157,7 @@ const context = { ipAddress: "127.0.0.1", userAgent: "vitest" };
 describe("RentalService.approveRentalRequest", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsActiveAccount.mockResolvedValue(true);
     mockGetRentalRequestById.mockResolvedValue(createMockRentalRequest());
     mockGetOrCreateStripeCustomerId.mockResolvedValue("cus_123");
     mockAssertConnectReady.mockResolvedValue(undefined);
@@ -185,6 +191,35 @@ describe("RentalService.approveRentalRequest", () => {
       expect(mockApproveRentalRequest).not.toHaveBeenCalled();
     },
   );
+
+  // BIZ-07: a renter who deleted their account (or is otherwise inactive) can
+  // no longer see or dispute a charge. Refused before any Stripe work.
+  it("refuses to charge a renter whose account is no longer active", async () => {
+    mockIsActiveAccount.mockResolvedValue(false);
+
+    await expect(
+      RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+    ).rejects.toThrow(CounterpartyUnavailableError);
+
+    expect(mockIsActiveAccount).toHaveBeenCalledWith("renter-1");
+    expect(mockGetOrCreateStripeCustomerId).not.toHaveBeenCalled();
+    expect(mockClaimRentalRequestPaymentProcessing).not.toHaveBeenCalled();
+    expect(mockChargeRentalPayment).not.toHaveBeenCalled();
+  });
+
+  // The claim re-checks atomically; if the renter went between the pre-check
+  // and the claim, the owner is told why, not "already being processed".
+  it("reports an account deleted between check and claim as unavailable", async () => {
+    mockIsActiveAccount
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    mockClaimRentalRequestPaymentProcessing.mockResolvedValue(false);
+
+    await expect(
+      RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+    ).rejects.toThrow(CounterpartyUnavailableError);
+    expect(mockChargeRentalPayment).not.toHaveBeenCalled();
+  });
 
   // An expired request is `cancelled` with reason expired_no_acceptance.
   it("refuses an expired request before any Stripe call", async () => {

@@ -86,6 +86,17 @@ export interface ApproveRentalRequestInput {
   returnInstructions?: string;
 }
 
+/**
+ * Throws `CounterpartyUnavailableError` unless the user is an active account
+ * that has not self-deleted (BIZ-07).
+ */
+async function assertCounterpartyActive(userId: string): Promise<void> {
+  if (!(await userDAL.isActiveAccount(userId))) {
+    const { CounterpartyUnavailableError } = await import("@/dal/errors");
+    throw new CounterpartyUnavailableError();
+  }
+}
+
 /** Result of approveRentalRequest: success with payment ids, or failure with message. */
 export type ApproveRentalRequestResult =
   | {
@@ -398,6 +409,11 @@ export class RentalService {
       const { RentalRequestNotPendingError } = await import("@/dal/errors");
       throw new RentalRequestNotPendingError();
     }
+    // Never charge a renter who can no longer see or dispute it: a deleted
+    // (anonymized) or otherwise inactive account (BIZ-07). Checked here so the
+    // owner gets the right answer before any Stripe work; the claim below
+    // re-checks atomically in case the account goes between the two.
+    await assertCounterpartyActive(rentalRequest.renterId);
 
     const { data: stripeCustomerId, error: customerError } = await tryCatch(
       userDAL.getOrCreateStripeCustomerId(rentalRequest.renterId),
@@ -463,6 +479,9 @@ export class RentalService {
     const claimed =
       await rentalDAL.claimRentalRequestPaymentProcessing(rentalId);
     if (!claimed) {
+      // The claim also refuses a renter who stopped being active in between;
+      // say so rather than "already being processed" (BIZ-07).
+      await assertCounterpartyActive(rentalRequest.renterId);
       return {
         success: false,
         error:
