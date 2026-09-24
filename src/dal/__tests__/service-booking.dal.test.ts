@@ -50,6 +50,64 @@ describe("ServiceBookingDAL", () => {
     vi.clearAllMocks();
   });
 
+  // PERF-01: the dashboard reads are capped; the bookings list page and
+  // GET /api/services/bookings call the same finders and need every row.
+  describe.each([
+    ["findByProviderForDashboard", "prov-1"],
+    ["findByRequesterForDashboard", "req-1"],
+  ] as const)("%s", (method, userId) => {
+    const joined = (i: number) => ({
+      booking: { ...bookingRow, id: `book-${i}` },
+      listingTitle: "Lawn mowing",
+      counterparty: {
+        id: "u-9",
+        firstName: "Ada",
+        lastName: "Lovelace",
+        profileImageUrl: null,
+        email: "ada@example.com",
+      },
+    });
+
+    /** select → from → innerJoin → innerJoin → where → orderBy [→ limit]. */
+    function mockChain(total: number) {
+      const rows = Array.from({ length: total }, (_, i) => joined(i));
+      // The DB applies the LIMIT; the mock mirrors it.
+      const limit = vi.fn((n: number) => Promise.resolve(rows.slice(0, n)));
+      const orderBy = vi.fn().mockReturnValue({
+        limit,
+        then: (resolve: (v: unknown) => void) => resolve(rows),
+      });
+      const where = vi.fn().mockReturnValue({ orderBy });
+      const innerJoin2 = vi.fn().mockReturnValue({ where });
+      const innerJoin1 = vi.fn().mockReturnValue({ innerJoin: innerJoin2 });
+      const from = vi.fn().mockReturnValue({ innerJoin: innerJoin1 });
+      vi.mocked(db.select).mockReturnValue({ from } as never);
+      return { limit };
+    }
+
+    it("returns at most `limit` rows when given one", async () => {
+      const { limit } = mockChain(10);
+
+      const result = await serviceBookingDAL[method](userId, { limit: 5 });
+
+      expect(limit).toHaveBeenCalledWith(5);
+      expect(result).toHaveLength(5);
+      expect(result[0]).toMatchObject({
+        id: "book-0",
+        listingTitle: "Lawn mowing",
+      });
+    });
+
+    it("stays unbounded without a limit", async () => {
+      const { limit } = mockChain(10);
+
+      const result = await serviceBookingDAL[method](userId);
+
+      expect(limit).not.toHaveBeenCalled();
+      expect(result).toHaveLength(10);
+    });
+  });
+
   describe("create", () => {
     it("inserts and returns the booking", async () => {
       const mockReturning = vi.fn().mockResolvedValue([bookingRow]);

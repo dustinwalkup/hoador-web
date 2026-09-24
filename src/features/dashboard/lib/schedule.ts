@@ -14,6 +14,31 @@ import {
   findServiceBookingsByProviderCached,
 } from "./cached-fetchers";
 
+type MaybePromise<T> = T | Promise<T>;
+
+/**
+ * Sources `getUpcomingSchedule` would otherwise fetch itself. A caller that
+ * already holds them (the dashboard summary route, which shares them with
+ * pulse and the activity feed) passes them in, as values or in-flight
+ * promises, so each is queried once per request. `cache()` can't dedupe
+ * outside an RSC render, so a route handler must share them explicitly.
+ */
+export interface UpcomingScheduleSources {
+  borrowed: MaybePromise<Awaited<ReturnType<typeof getBorrowedListingsCached>>>;
+  lendingApproved: MaybePromise<
+    Awaited<ReturnType<typeof getLendingRequestsByStatusCached>>
+  >;
+  lendingActive: MaybePromise<
+    Awaited<ReturnType<typeof getLendingRequestsByStatusCached>>
+  >;
+  asClient: MaybePromise<
+    Awaited<ReturnType<typeof findServiceBookingsByRequesterCached>>
+  >;
+  asProvider: MaybePromise<
+    Awaited<ReturnType<typeof findServiceBookingsByProviderCached>>
+  >;
+}
+
 /**
  * Natural-language rental line for the current user role and delivery mode.
  */
@@ -72,19 +97,31 @@ function normalizeRentalCounterpartyName(
  * plus accepted service bookings (as client or provider).
  *
  * @param userId - Current user id
+ * @param prefetched - Sources the caller already fetched; omitted, they're fetched here
  * @returns ScheduleEntry[] sorted by date
  */
 export async function getUpcomingSchedule(
   userId: string,
+  prefetched?: UpcomingScheduleSources,
 ): Promise<ScheduleEntry[]> {
   const [borrowed, lendingApproved, lendingActive, asClient, asProvider] =
-    await Promise.all([
-      getBorrowedListingsCached(userId),
-      getLendingRequestsByStatusCached("approved", userId),
-      getLendingRequestsByStatusCached("active", userId),
-      findServiceBookingsByRequesterCached(userId),
-      findServiceBookingsByProviderCached(userId),
-    ]);
+    await Promise.all(
+      prefetched
+        ? [
+            prefetched.borrowed,
+            prefetched.lendingApproved,
+            prefetched.lendingActive,
+            prefetched.asClient,
+            prefetched.asProvider,
+          ]
+        : [
+            getBorrowedListingsCached(userId),
+            getLendingRequestsByStatusCached("approved", userId),
+            getLendingRequestsByStatusCached("active", userId),
+            findServiceBookingsByRequesterCached(userId),
+            findServiceBookingsByProviderCached(userId),
+          ],
+    );
 
   // Use calendar-day bounds so dates at midnight (e.g. same-day returns) are included.
   const today = new Date();

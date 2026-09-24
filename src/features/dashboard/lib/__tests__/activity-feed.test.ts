@@ -9,7 +9,7 @@ import {
 
 vi.mock("@/dal", () => ({
   rentalDAL: { getRecentRentalActivity: vi.fn() },
-  listingDAL: { getUserListings: vi.fn() },
+  listingDAL: { getUserListingsForFeed: vi.fn() },
   serviceBookingDAL: {
     findByRequesterForDashboard: vi.fn(),
     findByProviderForDashboard: vi.fn(),
@@ -27,7 +27,7 @@ describe("getDashboardActivityFeed", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(rentalDAL.getRecentRentalActivity).mockResolvedValue([]);
-    vi.mocked(listingDAL.getUserListings).mockResolvedValue([]);
+    vi.mocked(listingDAL.getUserListingsForFeed).mockResolvedValue([]);
     vi.mocked(serviceBookingDAL.findByRequesterForDashboard).mockResolvedValue(
       [],
     );
@@ -44,12 +44,16 @@ describe("getDashboardActivityFeed", () => {
       userId,
       expect.any(Number),
     );
-    expect(listingDAL.getUserListings).toHaveBeenCalledWith(userId);
+    // The lean, capped listing read — not every listing with its images.
+    expect(listingDAL.getUserListingsForFeed).toHaveBeenCalledWith(userId, 10);
+    // Booking reads are capped at the feed's own fetch window.
     expect(serviceBookingDAL.findByRequesterForDashboard).toHaveBeenCalledWith(
       userId,
+      { limit: 20 },
     );
     expect(serviceBookingDAL.findByProviderForDashboard).toHaveBeenCalledWith(
       userId,
+      { limit: 20 },
     );
     expect(serviceListingDAL.findByProvider).toHaveBeenCalledWith(userId);
   });
@@ -116,5 +120,50 @@ describe("getDashboardActivityFeed", () => {
       description: "Lawn mowing",
       linkTo: "/dashboard/services/bookings/sb-1",
     });
+  });
+
+  it("renders listing updates from the lean feed query", async () => {
+    const updatedAt = new Date("2025-01-15T12:00:00Z");
+    vi.mocked(listingDAL.getUserListingsForFeed).mockResolvedValue([
+      { id: "l-1", name: "Pressure washer", updatedAt },
+    ]);
+
+    const result = await getDashboardActivityFeed(userId, 10);
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: "listing-l-1",
+        title: "Listing updated",
+        description: "Pressure washer",
+        timestamp: updatedAt,
+        linkTo: "/dashboard/listings/l-1/edit",
+      }),
+    ]);
+  });
+
+  // PERF-01: the summary route shares these with pulse and the schedule.
+  it("uses prefetched sources instead of querying them again", async () => {
+    const updatedAt = new Date("2025-01-15T12:00:00Z");
+    const result = await getDashboardActivityFeed(userId, 10, {
+      serviceBookingsAsRequester: Promise.resolve([]),
+      serviceBookingsAsProvider: [
+        {
+          id: "sb-2",
+          status: "pending",
+          updatedAt,
+          listingTitle: "Gutter cleaning",
+        } as any,
+      ],
+      serviceListingsOwned: [],
+    });
+
+    expect(result.map((i) => [i.id, i.title])).toEqual([
+      ["service-booking-sb-2", "New service booking request"],
+    ]);
+    expect(
+      serviceBookingDAL.findByRequesterForDashboard,
+    ).not.toHaveBeenCalled();
+    expect(serviceBookingDAL.findByProviderForDashboard).not.toHaveBeenCalled();
+    expect(serviceListingDAL.findByProvider).not.toHaveBeenCalled();
   });
 });

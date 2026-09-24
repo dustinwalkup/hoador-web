@@ -50,7 +50,14 @@ vi.mock("../schedule", () => ({
 }));
 
 // Import the mocks after vi.mock declarations
-import { neighborhoodNeedsDAL, communityDAL } from "@/dal";
+import { neighborhoodNeedsDAL, communityDAL, serviceListingDAL } from "@/dal";
+import {
+  getBorrowedListingsCached,
+  getLendingRequestsByStatusCached,
+  getActionableAlertsCached,
+  findServiceBookingsByProviderCached,
+} from "../cached-fetchers";
+import { getUpcomingSchedule } from "../schedule";
 
 const USER_ID = "user-abc-123";
 
@@ -139,5 +146,56 @@ describe("getDashboardPulseData — needs section", () => {
 
     expect(result).toHaveProperty("needs");
     expect(result.needs).toHaveProperty("open");
+  });
+});
+
+// PERF-01: the summary route fetches these once and shares them with the
+// schedule and the activity feed; pulse must not fetch them again.
+describe("getDashboardPulseData — prefetched sources", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("derives its counts from the prefetched sources without re-querying", async () => {
+    const result = await getDashboardPulseData(USER_ID, {
+      pendingLendingRequests: Promise.resolve([{}, {}] as any),
+      serviceBookingsAsProvider: [
+        { status: "pending" },
+        { status: "accepted" },
+      ] as any,
+      borrowed: Promise.resolve({
+        currentRentals: [{}] as any,
+        upcomingRentals: [],
+      }),
+      serviceListings: [{ status: "active" }, { status: "denied" }] as any,
+      actionableAlerts: [
+        { alertType: "overdue_return" },
+        { alertType: "end_today" },
+      ] as any,
+      upcomingSchedule: Promise.resolve([
+        { type: "pickup" },
+        { type: "service" },
+        { type: "service" },
+      ] as any),
+    });
+
+    expect(result.action).toMatchObject({
+      pendingRequests: 2,
+      unconfirmedServices: 1,
+      overdueReturns: 1,
+      serviceListingRevisions: 1,
+    });
+    expect(result.active.borrowing).toBe(1);
+    expect(result.upcoming).toEqual({
+      rentals: 1,
+      services: 2,
+      pickupsToday: 1,
+    });
+    expect(result.listed.services).toBe(1);
+
+    expect(getLendingRequestsByStatusCached).not.toHaveBeenCalled();
+    expect(findServiceBookingsByProviderCached).not.toHaveBeenCalled();
+    expect(getBorrowedListingsCached).not.toHaveBeenCalled();
+    expect(getActionableAlertsCached).not.toHaveBeenCalled();
+    expect(serviceListingDAL.findByProvider).not.toHaveBeenCalled();
+    expect(getUpcomingSchedule).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,15 @@ import { messagesDAL, rentalDAL, serviceBookingDAL } from "@/dal";
  * counts drop, but per-widget breakdowns may look uneven across runs.
  */
 
+/**
+ * Row cap for the dashboard's service-booking reads, newest first. Well above
+ * any realistic "recent" or "pending" need; it bounds a heavy provider's
+ * read without a purpose-built query per widget (PERF-01). Known limit: a
+ * pending count above 100 would under-count. The bookings list page reads
+ * the DAL directly and stays unbounded.
+ */
+export const DASHBOARD_BOOKINGS_LIMIT = 100;
+
 export const getUnreadMessageCountCached = cache((userId: string) =>
   messagesDAL.getUnreadMessageCount(userId),
 );
@@ -32,9 +41,13 @@ export const getActionableAlertsCached = cache((userId: string) =>
 );
 
 export const findServiceBookingsByRequesterCached = cache((userId: string) =>
-  serviceBookingDAL.findByRequesterForDashboard(userId),
+  serviceBookingDAL.findByRequesterForDashboard(userId, {
+    limit: DASHBOARD_BOOKINGS_LIMIT,
+  }),
 );
 
 export const findServiceBookingsByProviderCached = cache((userId: string) =>
-  serviceBookingDAL.findByProviderForDashboard(userId),
+  serviceBookingDAL.findByProviderForDashboard(userId, {
+    limit: DASHBOARD_BOOKINGS_LIMIT,
+  }),
 );

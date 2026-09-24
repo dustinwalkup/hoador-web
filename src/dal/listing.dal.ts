@@ -1130,6 +1130,32 @@ export class ListingDAL extends BaseDAL {
   }
 
   /**
+   * The user's most recently updated listings, id/name/updatedAt only, for the
+   * dashboard activity feed. `getUserListings` loads every listing plus every
+   * image and rating for each, only for the feed to keep the newest few
+   * (PERF-01).
+   */
+  async getUserListingsForFeed(
+    userId: string,
+    limit: number,
+  ): Promise<Array<{ id: string; name: string; updatedAt: Date }>> {
+    try {
+      return await this.db
+        .select({
+          id: listings.id,
+          name: listings.name,
+          updatedAt: listings.updatedAt,
+        })
+        .from(listings)
+        .where(eq(listings.ownerId, userId))
+        .orderBy(desc(listings.updatedAt))
+        .limit(limit);
+    } catch (error) {
+      this.handleError(error, "getUserListingsForFeed");
+    }
+  }
+
+  /**
    * Count total listings for a user
    */
   async countUserListings(userId: string): Promise<number> {

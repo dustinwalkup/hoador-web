@@ -1149,6 +1149,36 @@ describe("ListingDAL", () => {
     });
   });
 
+  // PERF-01: the activity feed used getUserListings (every listing, plus
+  // every image and rating) and kept the newest 10.
+  describe("getUserListingsForFeed", () => {
+    it("selects id/name/updatedAt, newest updated first, capped at limit", async () => {
+      const rows = [
+        { id: "l-1", name: "Ladder", updatedAt: new Date("2026-09-20") },
+      ];
+      const mockLimit = vi.fn().mockResolvedValue(rows);
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      const result = await listingDAL.getUserListingsForFeed("owner-1", 10);
+
+      expect(result).toEqual(rows);
+      expect(
+        Object.keys(vi.mocked(db.select).mock.calls[0][0] as object),
+      ).toEqual(["id", "name", "updatedAt"]);
+      const dialect = new PgDialect();
+      expect(dialect.sqlToQuery(mockWhere.mock.calls[0][0]).sql).toContain(
+        '"listings"."owner_id" = $1',
+      );
+      expect(dialect.sqlToQuery(mockOrderBy.mock.calls[0][0]).sql).toContain(
+        '"listings"."updated_at" desc',
+      );
+      expect(mockLimit).toHaveBeenCalledWith(10);
+    });
+  });
+
   describe("getPendingReviews", () => {
     const mockPagination = { page: 1, limit: 10 };
 

@@ -13,6 +13,24 @@ import {
 import { formatDistanceToNow } from "@/lib/utils/date.utils";
 import type { ActivityFeedItem } from "@/features/dashboard/types";
 
+type MaybePromise<T> = T | Promise<T>;
+
+/**
+ * Sources the dashboard summary route also reads for other keys. Passed in (as
+ * values or in-flight promises), they're used instead of a second query.
+ */
+export interface ActivityFeedSources {
+  serviceBookingsAsRequester: MaybePromise<
+    Awaited<ReturnType<typeof serviceBookingDAL.findByRequesterForDashboard>>
+  >;
+  serviceBookingsAsProvider: MaybePromise<
+    Awaited<ReturnType<typeof serviceBookingDAL.findByProviderForDashboard>>
+  >;
+  serviceListingsOwned: MaybePromise<
+    Awaited<ReturnType<typeof serviceListingDAL.findByProvider>>
+  >;
+}
+
 /** Internal item before mapping to ActivityFeedItem. */
 type RawFeedItem = {
   id: string;
@@ -29,11 +47,13 @@ type RawFeedItem = {
  *
  * @param userId - Current user id
  * @param limit - Max items (e.g. 10)
+ * @param prefetched - Shared sources the caller already fetched; omitted, they're fetched here
  * @returns ActivityFeedItem[] with title, description, timestamp, relativeTime, linkTo
  */
 export async function getDashboardActivityFeed(
   userId: string,
   limit: number,
+  prefetched?: ActivityFeedSources,
 ): Promise<ActivityFeedItem[]> {
   const fetchLimit = Math.max(limit * 2, 20);
 
@@ -45,10 +65,19 @@ export async function getDashboardActivityFeed(
     serviceListingsOwned,
   ] = await Promise.all([
     rentalDAL.getRecentRentalActivity(userId, fetchLimit),
-    listingDAL.getUserListings(userId),
-    serviceBookingDAL.findByRequesterForDashboard(userId),
-    serviceBookingDAL.findByProviderForDashboard(userId),
-    serviceListingDAL.findByProvider(userId),
+    // Newest `limit` by updatedAt, as the loop below needs — not every
+    // listing with its images and ratings.
+    listingDAL.getUserListingsForFeed(userId, limit),
+    prefetched?.serviceBookingsAsRequester ??
+      serviceBookingDAL.findByRequesterForDashboard(userId, {
+        limit: fetchLimit,
+      }),
+    prefetched?.serviceBookingsAsProvider ??
+      serviceBookingDAL.findByProviderForDashboard(userId, {
+        limit: fetchLimit,
+      }),
+    prefetched?.serviceListingsOwned ??
+      serviceListingDAL.findByProvider(userId),
   ]);
 
   const raw: RawFeedItem[] = [];
@@ -65,10 +94,7 @@ export async function getDashboardActivityFeed(
     });
   }
 
-  const sortedListings = [...userListings].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-  );
-  for (const listing of sortedListings.slice(0, limit)) {
+  for (const listing of userListings) {
     raw.push({
       id: `listing-${listing.id}`,
       timestamp: new Date(listing.updatedAt),

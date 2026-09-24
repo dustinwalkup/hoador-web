@@ -11,7 +11,10 @@ import {
   neighborhoodNeedsDAL,
   communityDAL,
 } from "@/dal";
-import type { DashboardPulseData } from "@/features/dashboard/types";
+import type {
+  DashboardPulseData,
+  ScheduleEntry,
+} from "@/features/dashboard/types";
 import {
   getBorrowedListingsCached,
   getLendingRequestsByStatusCached,
@@ -20,13 +23,41 @@ import {
 } from "./cached-fetchers";
 import { getUpcomingSchedule } from "./schedule";
 
+type MaybePromise<T> = T | Promise<T>;
+
+/**
+ * Sources the dashboard summary route also reads for its own keys. Passed in
+ * (as values or in-flight promises), they're used instead of a second query;
+ * `cache()` can't dedupe them in a route handler. The caller owns failure
+ * handling for what it passes: a passed promise must not reject.
+ */
+export interface DashboardPulseSources {
+  pendingLendingRequests: MaybePromise<
+    Awaited<ReturnType<typeof getLendingRequestsByStatusCached>>
+  >;
+  serviceBookingsAsProvider: MaybePromise<
+    Awaited<ReturnType<typeof findServiceBookingsByProviderCached>>
+  >;
+  borrowed: MaybePromise<Awaited<ReturnType<typeof getBorrowedListingsCached>>>;
+  serviceListings: MaybePromise<
+    Awaited<ReturnType<typeof serviceListingDAL.findByProvider>>
+  >;
+  actionableAlerts: MaybePromise<
+    Awaited<ReturnType<typeof getActionableAlertsCached>>
+  >;
+  upcomingSchedule: MaybePromise<ScheduleEntry[]>;
+}
+
 /**
  * Aggregate all pulse data for the given user in parallel.
  * Each sub-fetch is individually wrapped so a single failure
  * doesn't take down the whole pulse widget.
+ *
+ * @param prefetched - Shared sources the caller already fetched; omitted, they're fetched here
  */
 export async function getDashboardPulseData(
   userId: string,
+  prefetched?: DashboardPulseSources,
 ): Promise<DashboardPulseData> {
   const safe = <T>(fn: () => Promise<T>, fallback: T): Promise<T> =>
     fn().catch((err) => {
@@ -49,18 +80,21 @@ export async function getDashboardPulseData(
     rejectedRentalListings,
     disputes,
     actionableAlerts,
-    // Upcoming schedule entries (all roles) — uses cached fetchers internally
+    // Upcoming schedule entries (all roles)
     upcomingSchedule,
   ] = await Promise.all([
     // Owner role: requests sent TO me that I need to approve/decline
-    safe(() => getLendingRequestsByStatusCached("pending", userId), []),
+    prefetched?.pendingLendingRequests ??
+      safe(() => getLendingRequestsByStatusCached("pending", userId), []),
     // Provider role: bookings where I'm the provider and need to accept/decline
-    safe(() => findServiceBookingsByProviderCached(userId), []),
+    prefetched?.serviceBookingsAsProvider ??
+      safe(() => findServiceBookingsByProviderCached(userId), []),
     // Renter role: items I'm borrowing (current + upcoming)
-    safe(() => getBorrowedListingsCached(userId), {
-      currentRentals: [],
-      upcomingRentals: [],
-    }),
+    prefetched?.borrowed ??
+      safe(() => getBorrowedListingsCached(userId), {
+        currentRentals: [],
+        upcomingRentals: [],
+      }),
     // Owner role: items I'm actively lending
     safe(() => rentalDAL.countSharedListings(userId), 0),
     safe(() => listingDAL.getInventoryUsage(userId), {
@@ -68,7 +102,8 @@ export async function getDashboardPulseData(
       totalCount: 0,
       usagePercent: 0,
     }),
-    safe(() => serviceListingDAL.findByProvider(userId), []),
+    prefetched?.serviceListings ??
+      safe(() => serviceListingDAL.findByProvider(userId), []),
     safe(
       () => listingDAL.getUserListingsByApprovalStatus("rejected", userId),
       [],
@@ -84,10 +119,12 @@ export async function getDashboardPulseData(
         hasPrev: false,
       },
     }),
-    safe(() => getActionableAlertsCached(userId), []),
-    // Reuse the same schedule logic the Coming Up widget uses; underlying
-    // cached fetchers deduplicate any overlapping DB calls.
-    safe(() => getUpcomingSchedule(userId), []),
+    prefetched?.actionableAlerts ??
+      safe(() => getActionableAlertsCached(userId), []),
+    // Reuse the same schedule logic the Coming Up widget uses. In an RSC
+    // render the cached fetchers dedupe its overlapping DB calls; the summary
+    // route passes the schedule in instead.
+    prefetched?.upcomingSchedule ?? safe(() => getUpcomingSchedule(userId), []),
   ]);
 
   // ---------------------------------------------------------------------------

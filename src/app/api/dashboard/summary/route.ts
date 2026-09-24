@@ -9,9 +9,12 @@ import {
   getUpcomingSchedule,
   getActionableAlertsCached,
   getDashboardActivityFeed,
+  getBorrowedListingsCached,
   getLendingRequestsByStatusCached,
+  findServiceBookingsByRequesterCached,
   findServiceBookingsByProviderCached,
 } from "@/features/dashboard/lib";
+import { serviceListingDAL } from "@/dal";
 import { getLendingRequestDetailUrl } from "@/features/dashboard/lib/urls";
 import { formatAlertText } from "@/features/rentals/lib/format-alert-text";
 import type { DashboardPulseData } from "@/features/dashboard/types";
@@ -41,7 +44,7 @@ const PULSE_FALLBACK: DashboardPulseData = {
 
 /**
  * Per-source failure isolation, matching the RSC widgets' `safe()` helper: the
- * dashboard is a composite of six independent reads, and one failing source must
+ * dashboard is a composite of independent reads, and one failing source must
  * degrade to its own fallback rather than 500 the whole screen (Req 5.1.2).
  */
 function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
@@ -72,6 +75,53 @@ async function getHandler() {
     }
     const { userId } = authResult;
 
+    // Every source that two or more sections read is started ONCE here and
+    // handed down as an in-flight promise. The helpers' `cache()` wrappers
+    // only dedupe inside an RSC render, not in a route handler, so without
+    // this each section re-ran the same queries: provider bookings 5x per
+    // request, requester bookings and borrowed listings 3x (PERF-01). Each
+    // promise is `safe()`-wrapped, so it never rejects into a consumer.
+    const borrowed = safe(() => getBorrowedListingsCached(userId), {
+      currentRentals: [],
+      upcomingRentals: [],
+    });
+    const lendingPendingP = safe(
+      () => getLendingRequestsByStatusCached("pending", userId),
+      [],
+    );
+    const lendingApproved = safe(
+      () => getLendingRequestsByStatusCached("approved", userId),
+      [],
+    );
+    const lendingActive = safe(
+      () => getLendingRequestsByStatusCached("active", userId),
+      [],
+    );
+    const alertsP = safe(() => getActionableAlertsCached(userId), []);
+    const asClient = safe(
+      () => findServiceBookingsByRequesterCached(userId),
+      [],
+    );
+    const asProvider = safe(
+      () => findServiceBookingsByProviderCached(userId),
+      [],
+    );
+    const serviceListings = safe(
+      () => serviceListingDAL.findByProvider(userId),
+      [],
+    );
+    const upcomingScheduleP = safe(
+      () =>
+        getUpcomingSchedule(userId, {
+          borrowed,
+          lendingApproved,
+          lendingActive,
+          asClient,
+          asProvider,
+        }),
+      [],
+    );
+
     const [
       pulse,
       upcomingSchedule,
@@ -80,12 +130,31 @@ async function getHandler() {
       lendingPending,
       providerBookings,
     ] = await Promise.all([
-      safe(() => getDashboardPulseData(userId), PULSE_FALLBACK),
-      safe(() => getUpcomingSchedule(userId), []),
-      safe(() => getActionableAlertsCached(userId), []),
-      safe(() => getDashboardActivityFeed(userId, ACTIVITY_LIMIT), []),
-      safe(() => getLendingRequestsByStatusCached("pending", userId), []),
-      safe(() => findServiceBookingsByProviderCached(userId), []),
+      safe(
+        () =>
+          getDashboardPulseData(userId, {
+            pendingLendingRequests: lendingPendingP,
+            serviceBookingsAsProvider: asProvider,
+            borrowed,
+            serviceListings,
+            actionableAlerts: alertsP,
+            upcomingSchedule: upcomingScheduleP,
+          }),
+        PULSE_FALLBACK,
+      ),
+      upcomingScheduleP,
+      alertsP,
+      safe(
+        () =>
+          getDashboardActivityFeed(userId, ACTIVITY_LIMIT, {
+            serviceBookingsAsRequester: asClient,
+            serviceBookingsAsProvider: asProvider,
+            serviceListingsOwned: serviceListings,
+          }),
+        [],
+      ),
+      lendingPendingP,
+      asProvider,
     ]);
 
     const pendingServiceBookings = providerBookings.filter(

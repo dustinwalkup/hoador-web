@@ -76,6 +76,11 @@ export type ServiceBookingDashboardRow = ServiceBooking & {
   counterparty: ServiceBookingUserInfo;
 };
 
+export interface DashboardBookingsOptions {
+  /** Newest-first row cap; omitted, every row is returned. */
+  limit?: number;
+}
+
 const bookingRequester = alias(user, "service_booking_requester");
 const bookingProvider = alias(user, "service_booking_provider");
 
@@ -761,11 +766,18 @@ export class ServiceBookingDAL extends BaseDAL {
     }
   }
 
+  /**
+   * Bookings where the user is the requester, with listing title and provider
+   * as counterparty, newest first. Unbounded unless `options.limit` is given:
+   * the bookings list page and `GET /api/services/bookings` need every row,
+   * while the dashboard only needs recent ones (PERF-01).
+   */
   async findByRequesterForDashboard(
     requesterId: string,
+    options?: DashboardBookingsOptions,
   ): Promise<ServiceBookingDashboardRow[]> {
     try {
-      const rows = await this.db
+      const query = this.db
         .select({
           booking: serviceBookings,
           listingTitle: serviceListings.title,
@@ -788,6 +800,9 @@ export class ServiceBookingDAL extends BaseDAL {
         )
         .where(eq(serviceBookings.requesterId, requesterId))
         .orderBy(desc(serviceBookings.createdAt));
+      const rows = await (options?.limit !== undefined
+        ? query.limit(options.limit)
+        : query);
 
       return rows.map((row) => ({
         ...row.booking,
@@ -800,13 +815,16 @@ export class ServiceBookingDAL extends BaseDAL {
   }
 
   /**
-   * Bookings where the user is the provider, with listing title and requester as counterparty.
+   * Bookings where the user is the provider, with listing title and requester
+   * as counterparty, newest first. Unbounded unless `options.limit` is given
+   * (see `findByRequesterForDashboard`).
    */
   async findByProviderForDashboard(
     providerId: string,
+    options?: DashboardBookingsOptions,
   ): Promise<ServiceBookingDashboardRow[]> {
     try {
-      const rows = await this.db
+      const query = this.db
         .select({
           booking: serviceBookings,
           listingTitle: serviceListings.title,
@@ -829,6 +847,9 @@ export class ServiceBookingDAL extends BaseDAL {
         )
         .where(eq(serviceBookings.providerId, providerId))
         .orderBy(desc(serviceBookings.createdAt));
+      const rows = await (options?.limit !== undefined
+        ? query.limit(options.limit)
+        : query);
 
       return rows.map((row) => ({
         ...row.booking,

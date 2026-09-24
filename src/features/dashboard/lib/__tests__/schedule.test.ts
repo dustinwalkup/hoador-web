@@ -50,12 +50,50 @@ describe("getUpcomingSchedule", () => {
       "active",
       userId,
     );
+    // Dashboard booking reads are capped (PERF-01).
     expect(serviceBookingDAL.findByRequesterForDashboard).toHaveBeenCalledWith(
       userId,
+      { limit: 100 },
     );
     expect(serviceBookingDAL.findByProviderForDashboard).toHaveBeenCalledWith(
       userId,
+      { limit: 100 },
     );
+  });
+
+  // PERF-01: the summary route fetches these once and shares them with pulse
+  // and the activity feed; the schedule must not fetch them again.
+  it("uses prefetched sources (values or promises) instead of querying", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(TODAY_NOON);
+    const inTwoDays = new Date(2026, 2, 17, 0, 0, 0, 0);
+
+    const result = await getUpcomingSchedule(userId, {
+      borrowed: Promise.resolve({ currentRentals: [], upcomingRentals: [] }),
+      lendingApproved: [
+        {
+          id: "req-approved",
+          listingName: "Ladder",
+          renterName: "Riley Renter",
+          deliveryRequested: false,
+          startDate: inTwoDays,
+          endDate: inTwoDays,
+        } as any,
+      ],
+      lendingActive: [],
+      asClient: Promise.resolve([]),
+      asProvider: [],
+    });
+
+    expect(result.map((e) => e.id)).toEqual([
+      "rental-req-approved-pickup-owner",
+    ]);
+    expect(rentalDAL.getBorrowedListings).not.toHaveBeenCalled();
+    expect(rentalDAL.getLendingRequestsByStatus).not.toHaveBeenCalled();
+    expect(
+      serviceBookingDAL.findByRequesterForDashboard,
+    ).not.toHaveBeenCalled();
+    expect(serviceBookingDAL.findByProviderForDashboard).not.toHaveBeenCalled();
   });
 
   it("should return schedule entries for returns and pickups in next 7 days", async () => {

@@ -41,6 +41,15 @@ vi.mock("@/features/dashboard/lib", () => ({
   getLendingRequestsByStatusCached: (...a: any[]) => mockLendingPending(...a),
   findServiceBookingsByProviderCached: (...a: any[]) =>
     mockProviderBookings(...a),
+  getBorrowedListingsCached: async () => ({
+    currentRentals: [],
+    upcomingRentals: [],
+  }),
+  findServiceBookingsByRequesterCached: async () => [],
+}));
+
+vi.mock("@/dal", () => ({
+  serviceListingDAL: { findByProvider: async () => [] },
 }));
 
 const PULSE = {
@@ -107,8 +116,9 @@ describe("GET /api/dashboard/summary", () => {
 
     expect(res.status).toBe(200);
     expect(json.pulse).toEqual(PULSE);
-    expect(mockPulse).toHaveBeenCalledWith("user-1");
-    expect(mockActivity).toHaveBeenCalledWith("user-1", 10);
+    // Shared sources are handed down, not re-fetched (PERF-01).
+    expect(mockPulse).toHaveBeenCalledWith("user-1", expect.any(Object));
+    expect(mockActivity).toHaveBeenCalledWith("user-1", 10, expect.any(Object));
     expect(mockLendingPending).toHaveBeenCalledWith("pending", "user-1");
   });
 
