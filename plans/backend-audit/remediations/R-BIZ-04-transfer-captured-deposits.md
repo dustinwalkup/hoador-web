@@ -24,8 +24,8 @@ to the owner. The rental payout cron transfers only the pre-computed rental
 healthy on every dashboard while the platform silently keeps money that is
 contractually the owner's. This is required by
 `specs/payments/phase3/1-requirements.md` Req 10.1/10.3/10.4 and by
-`specs/cancellation-refund-policy.html` §4 ("Rental amount + captured deposit
-minus platform fee"). Audit finding BIZ-04 (HIGH).
+`specs/cancellation-refund-policy.html` §4 (the owner gets the full captured
+deposit on top of the rental payout). Audit finding BIZ-04 (HIGH).
 
 ## Current state
 
@@ -62,19 +62,17 @@ export async function createOwnerTransfer(params: CreateOwnerTransferParams) {
   `createFinancialOperation` already accepts `stripeTransferId` in its input
   type — only the enum needs a new value, not the DAL method.
 - `constants/payments.ts` — `PLATFORM_FEE_PERCENTAGE = 0.2`.
-- **Spec fee-rule ambiguity, resolved**: Req 10.1 says the owner transfer
-  "SHALL include the rental amount **(minus platform fee)** plus the captured
-  deposit amount" — the fee parenthetical is placed only on the rental
-  amount. The customer-facing policy table (§4) instead reads "Rental amount
-  - captured deposit **minus platform fee**" as one combined subtraction.
-    This plan applies the fee to the captured-deposit leg **alone**, as its own
-    transfer: `depositTransfer = capturedAmount × (1 − PLATFORM_FEE_PERCENTAGE)`
-    — consistent with Req 10.1's literal placement and with every other
-    fee-adjusted amount in the codebase, which is computed per-flow, not
-    combined (e.g. `providerPayout` in `service-payment-lifecycle.dal.ts:340-348`
-    uses the identical formula on its own base). The existing rental
-    `ownerPayout` transfer is untouched — this plan adds a **second, separate**
-    transfer for the deposit leg, not a change to the first.
+- **Fee rule — decided by the product owner 2026-09-24: no platform fee on a
+  captured deposit.** The owner receives the **full** captured amount:
+  `depositTransfer = capturedAmount`. The deposit compensates the owner for
+  damage; it is not platform revenue (matches Turo, which pays hosts 100% of
+  reimbursements, and Airbnb/Vrbo damage claims). The platform absorbs
+  Stripe's processing fee on the capture. The spec (phase 3 Req 10) and the
+  policy page (§4) were reworded to say so; the audit-time wording of §4
+  ("… captured deposit minus platform fee") is superseded. The existing
+  rental `ownerPayout` transfer is untouched — this plan adds a **second,
+  separate** transfer for the deposit leg, not a change to the first.
+  `PLATFORM_FEE_PERCENTAGE` must **not** appear in the deposit-transfer code.
 - No `rentalDAL` method returns owner + Connect-account info by `rentalId`
   alone; the closest existing pattern is
   `getRentalDepositReleaseContext(rentalId)` (`rentals.dal.ts:3066-3089`), a
@@ -147,10 +145,10 @@ In `executeCapture` (`dispute-resolution-service.ts`), after
 Step 2; call `assertConnectReady(ctx.ownerId, {bookingType: "rental", bookingId: rentalId})`
 (catch and treat a throw the same as "not ready" below — do not let it
 propagate and fail the whole capture); if ready and
-`ctx.ownerConnectedAccountId` is set, compute
-`depositTransferAmount = captureAmount × (1 - PLATFORM_FEE_PERCENTAGE)` (use
-the same `captureAmount` already computed at line 532-535; for a full
-capture it's the full deposit) and call a new transfer with idempotency key
+`ctx.ownerConnectedAccountId` is set, set
+`depositTransferAmount = captureAmount` — the full captured amount, no
+platform fee (see "Fee rule" above; use the same `captureAmount` already
+computed at line 532-535; for a full capture it's the full deposit) and call a new transfer with idempotency key
 `` `deposit-transfer-${dispute.id}` `` and `source_transaction` = the
 just-captured `paymentIntent.latest_charge` (coerce
 `string | Stripe.Charge`, same pattern as `chargeback-service.ts:37-38`'s
@@ -174,7 +172,7 @@ against past captures that predate this plan.
 
 - **Service** (`dispute-resolution-service.test.ts`): `favor_provider` (full
   capture) on a rental with a ready Connect account → one
-  `transfers.create` call with amount = `capturedAmount × 0.8` and key
+  `transfers.create` call with amount = the full `capturedAmount` in cents (no fee deducted) and key
   `deposit-transfer-{disputeId}`; one new `transfer_deposit` financial
   operation with `status: "succeeded"` and the transfer id. A
   `partial_provider` capture → same, scaled to the partial amount.
@@ -226,13 +224,13 @@ against past captures that predate this plan.
 - **Ops backfill** for captures that predate this plan (manual, not
   automated here):
   `SELECT dfo.dispute_id, dfo.amount, d.rental_id FROM dispute_financial_operations dfo JOIN disputes d ON d.id = dfo.dispute_id WHERE dfo.operation_type = 'capture_deposit' AND dfo.status = 'succeeded' AND NOT EXISTS (SELECT 1 FROM dispute_financial_operations t WHERE t.dispute_id = dfo.dispute_id AND t.operation_type = 'transfer_deposit')`
-  — for each row, transfer `amount × 0.8` to the owner's Connect account with
+  — for each row, transfer the full `amount` (no fee) to the owner's Connect account with
   key `deposit-transfer-{dispute_id}` (safe to reuse — Stripe dedupes) via
   the Stripe Dashboard or a one-off script; do not bulk-automate without
   ops sign-off per row.
-- If Req 10.1 vs policy §4's fee-rule ambiguity is ever resolved explicitly
-  by the product owner in favor of the combined-subtraction reading, only
-  Step 3's `depositTransferAmount` formula needs to change.
+- The no-fee rule is a product decision (2026-09-24). If it is ever reversed,
+  only Step 3's `depositTransferAmount` and the test amounts change — and the
+  policy page §4 and phase 3 Req 10 must be reworded with it.
 - Depends conceptually on R-BIZ-05's rental eligibility work only in that
   both touch payout correctness for rentals; they do not touch the same
   functions, so no rebase coordination is needed.

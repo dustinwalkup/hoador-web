@@ -153,10 +153,10 @@ Significant dispute infrastructure already exists: `disputes`, `dispute_evidence
 
 #### Acceptance Criteria
 
-1. **favor_provider:** The system SHALL capture the full deposit (Requirement 9). The owner transfer SHALL include the rental amount (minus platform fee) plus the captured deposit amount when the payout cron runs. The system SHALL unfreeze `ownerTransferStatus` to `'pending'` after capture succeeds.
+1. **favor_provider:** The system SHALL capture the full deposit (Requirement 9). The owner transfer SHALL include the rental amount (minus platform fee) plus the full captured deposit amount (no platform fee is taken on a captured deposit) when the payout cron runs. The system SHALL unfreeze `ownerTransferStatus` to `'pending'` after capture succeeds.
 2. **favor_renter:** The system SHALL release the deposit hold if `depositHoldStatus` is `'held'` (via `stripe.paymentIntents.cancel()`), set `depositHoldStatus` to `'released'`, and set `depositReleasedAt`. The owner transfer SHALL be for the rental amount only (minus platform fee). The system SHALL unfreeze `ownerTransferStatus` to `'pending'` after release succeeds.
-3. **partial_provider:** The system SHALL capture the partial deposit amount as specified in the resolution and release the remainder. The owner transfer SHALL include the rental amount plus the captured partial deposit. The system SHALL unfreeze after the partial capture and release complete.
-4. **partial_renter:** The system SHALL release the portion of the deposit that is not being captured and capture the agreed portion (if any). The owner transfer SHALL reflect the rental amount plus any captured portion. The system SHALL unfreeze after operations complete.
+3. **partial_provider:** The system SHALL capture the partial deposit amount as specified in the resolution and release the remainder. The owner transfer SHALL include the rental amount (minus platform fee) plus the full captured partial deposit (no platform fee). The system SHALL unfreeze after the partial capture and release complete.
+4. **partial_renter:** The system SHALL release the portion of the deposit that is not being captured and capture the agreed portion (if any). The owner transfer SHALL reflect the rental amount (minus platform fee) plus any captured portion in full (no platform fee). The system SHALL unfreeze after operations complete.
 5. **dismissed:** The system SHALL treat this the same as `favor_renter`: release deposit, owner transfer for rental amount only, unfreeze to `'pending'`
 6. All financial operations SHALL be recorded in `dispute_financial_operations` with the appropriate `operationType` (`capture_deposit`, etc.), amount, Stripe IDs, and status
 

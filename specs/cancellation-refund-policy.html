@@ -444,7 +444,9 @@
         <tr>
           <td>Favor Owner</td>
           <td>Full capture</td>
-          <td>Rental amount + captured deposit minus platform fee</td>
+          <td>
+            Rental amount minus platform fee, plus the full captured deposit
+          </td>
         </tr>
         <tr>
           <td>Favor Renter</td>
@@ -454,12 +456,16 @@
         <tr>
           <td>Partial (Owner)</td>
           <td>Partial capture; remainder released</td>
-          <td>Rental + partial capture minus platform fee</td>
+          <td>
+            Rental amount minus platform fee, plus the full captured portion
+          </td>
         </tr>
         <tr>
           <td>Partial (Renter)</td>
           <td>Partial release; remainder captured</td>
-          <td>Rental + partial capture minus platform fee</td>
+          <td>
+            Rental amount minus platform fee, plus the full captured portion
+          </td>
         </tr>
         <tr>
           <td>Dismissed</td>
@@ -468,6 +474,12 @@
         </tr>
       </tbody>
     </table>
+    <p>
+      Hoador takes <strong>no platform fee on a captured deposit</strong>: the
+      deposit compensates the Owner for damage or loss, so the full captured
+      amount is paid to the Owner. The platform fee applies to the rental amount
+      only.
+    </p>
 
     <hr class="divider" />
 
