@@ -99,8 +99,8 @@ export async function quoteRentalRequest(
   const setupRequested = input.setupRequested ?? false;
   const totalDays = differenceInDays(input.endDate, input.startDate) + 1;
 
-  // Availability degrades to "unknown" rather than failing the quote: a price is
-  // still useful, and the clash re-checks at submit where it is authoritative.
+  // A failed availability read still returns a price, but the dates cannot be
+  // booked until availability is known (the blocker below).
   const { data: blocked } = await tryCatch(
     (async () => rentalDAL.getBookedDatesForListing(input.listingId))(),
   );
@@ -143,12 +143,18 @@ export async function quoteRentalRequest(
     });
   }
 
-  // A failed availability read is "unknown", not "clear": no clash is reported
-  // and the submit-time check stays authoritative.
+  // Fail closed: `createRentalRequest` runs this same quote, so an unreadable
+  // availability must block rather than read as "no clash" (CONC-01).
   const conflict = blocked
     ? findConflict(blocked, input.startDate, input.endDate)
     : null;
-  if (conflict) {
+  if (!blocked) {
+    blockers.push({
+      code: "DATES_UNAVAILABLE",
+      message:
+        "We couldn't verify availability for these dates — please try again.",
+    });
+  } else if (conflict) {
     blockers.push({
       code: "DATES_UNAVAILABLE",
       message: conflict.reason

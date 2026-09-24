@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // --- Mocks ---
 const mockGetRentalRequestById = vi.fn();
 const mockClaimRentalRequestPaymentProcessing = vi.fn();
+const mockReserveDatesForApproval = vi.fn();
 const mockUpdateRentalRequestPaymentStatus = vi.fn();
 const mockUpdateRentalRequestPaymentMethod = vi.fn();
 const mockApproveRentalRequest = vi.fn();
@@ -35,6 +36,8 @@ vi.mock("@/dal", () => ({
       mockGetRentalRequestById(...args),
     claimRentalRequestPaymentProcessing: (...args: unknown[]) =>
       mockClaimRentalRequestPaymentProcessing(...args),
+    reserveDatesForApproval: (...args: unknown[]) =>
+      mockReserveDatesForApproval(...args),
     updateRentalRequestPaymentStatus: (...args: unknown[]) =>
       mockUpdateRentalRequestPaymentStatus(...args),
     updateRentalRequestPaymentMethod: (...args: unknown[]) =>
@@ -65,6 +68,20 @@ vi.mock("@/services/stripe/rental-payments", () => ({
 const mockPlaceDepositHold = vi.fn();
 vi.mock("@/services/stripe/deposit-hold", () => ({
   placeDepositHold: (...args: unknown[]) => mockPlaceDepositHold(...args),
+}));
+
+// A retry after a failed charge re-resolves the renter's card from Stripe.
+vi.mock("@/services/stripe/server", () => ({
+  PAYMENT_SERVER_INSTANCE: {
+    customers: {
+      retrieve: vi.fn().mockResolvedValue({
+        invoice_settings: { default_payment_method: "pm_new" },
+      }),
+    },
+    paymentMethods: {
+      list: vi.fn().mockResolvedValue({ data: [{ id: "pm_new" }] }),
+    },
+  },
 }));
 
 const mockAssertConnectReady = vi.fn();
@@ -129,6 +146,7 @@ vi.mock("@walkup/walkup-utils", () => ({
 import { RentalService } from "../rental-service";
 import {
   CounterpartyUnavailableError,
+  RentalDatesUnavailableError,
   RentalRequestNotPendingError,
 } from "@/dal/errors";
 
@@ -166,6 +184,7 @@ describe("RentalService.approveRentalRequest", () => {
     mockGetRentalByRequestId.mockResolvedValue({ id: "rental-1" });
     mockCreatePayment.mockResolvedValue(undefined);
     mockLifecycleCreate.mockResolvedValue(undefined);
+    mockReserveDatesForApproval.mockResolvedValue({ ok: true });
   });
 
   // BIZ-01: cancel, decline and expiry never touch paymentStatus, so the
@@ -254,6 +273,40 @@ describe("RentalService.approveRentalRequest", () => {
     );
     expect(mockChargeRentalPayment).not.toHaveBeenCalled();
     expect(mockUpdateRentalRequestPaymentStatus).not.toHaveBeenCalled();
+  });
+
+  // CONC-01: another request on the listing was approved over these dates
+  // after this one was made. Refused after the claim, before the charge; the
+  // DAL has already released the claim.
+  it("refuses dates another request now holds, and charges nothing", async () => {
+    mockClaimRentalRequestPaymentProcessing.mockResolvedValue(true);
+    mockReserveDatesForApproval.mockResolvedValue({ ok: false });
+
+    await expect(
+      RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+    ).rejects.toThrow(RentalDatesUnavailableError);
+
+    expect(mockReserveDatesForApproval).toHaveBeenCalledWith(
+      "req-1",
+      "pending",
+    );
+    expect(mockChargeRentalPayment).not.toHaveBeenCalled();
+    expect(mockPlaceDepositHold).not.toHaveBeenCalled();
+    expect(mockApproveRentalRequest).not.toHaveBeenCalled();
+  });
+
+  it("releases a retry's claim back to failed, not pending", async () => {
+    mockGetRentalRequestById.mockResolvedValue(
+      createMockRentalRequest({ paymentStatus: "failed" }),
+    );
+    mockClaimRentalRequestPaymentProcessing.mockResolvedValue(true);
+    mockReserveDatesForApproval.mockResolvedValue({ ok: false });
+
+    await expect(
+      RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+    ).rejects.toThrow(RentalDatesUnavailableError);
+
+    expect(mockReserveDatesForApproval).toHaveBeenCalledWith("req-1", "failed");
   });
 
   it("charges and approves when the claim is won (happy path)", async () => {

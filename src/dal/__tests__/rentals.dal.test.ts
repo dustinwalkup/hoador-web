@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { rentalDAL } from "../index";
-import { ConflictError, DALError, NotFoundError } from "../errors";
+import {
+  ConflictError,
+  DALError,
+  NotFoundError,
+  RentalDatesUnavailableError,
+} from "../errors";
 import { mockRentalRequest, mockRentalDetails } from "@/test/fixtures/rentals";
 import { db } from "@/db/db";
 import { PgDialect } from "drizzle-orm/pg-core";
@@ -528,6 +533,21 @@ describe("RentalDAL", () => {
       expect(tx.insert).not.toHaveBeenCalled();
     });
 
+    // The exclusion constraint's backstop: drizzle wraps the pg error, so the
+    // code is on `.cause` (SEC-16).
+    it("maps an exclusion violation to RentalDatesUnavailableError", async () => {
+      const { mockValues } = stubTransaction([claimedRow]);
+      mockValues.mockRejectedValue(
+        Object.assign(new Error("Failed query"), {
+          cause: { code: "23P01" },
+        }),
+      );
+
+      await expect(
+        rentalDAL.approveRentalRequest("rental-request-123", "user-123"),
+      ).rejects.toThrow(RentalDatesUnavailableError);
+    });
+
     it("propagates a failed rental insert so the transaction rolls back", async () => {
       const { mockValues } = stubTransaction([claimedRow]);
       mockValues.mockRejectedValue(new Error("insert failed"));
@@ -535,6 +555,116 @@ describe("RentalDAL", () => {
       await expect(
         rentalDAL.approveRentalRequest("rental-request-123", "user-123"),
       ).rejects.toThrow(DALError);
+    });
+  });
+
+  /**
+   * CONC-01: approve re-checks the request's days under a per-listing advisory
+   * lock, after the payment claim and before the charge.
+   */
+  describe("reserveDatesForApproval", () => {
+    const stubReserve = (
+      conflicts: unknown[],
+      request: unknown[] = [{ listingId: "listing-1" }],
+    ) => {
+      const readLimit = vi.fn().mockResolvedValue(request);
+      const conflictLimit = vi.fn().mockResolvedValue(conflicts);
+      const conflictWhere = vi.fn().mockReturnValue({ limit: conflictLimit });
+      const innerJoin = vi.fn().mockReturnValue({ where: conflictWhere });
+      const select = vi
+        .fn()
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({ limit: readLimit }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({ innerJoin }),
+        });
+      const updateWhere = vi.fn().mockResolvedValue(undefined);
+      const set = vi.fn().mockReturnValue({ where: updateWhere });
+      const tx = {
+        select,
+        execute: vi.fn().mockResolvedValue(undefined),
+        update: vi.fn().mockReturnValue({ set }),
+      };
+      vi.mocked(db.transaction).mockImplementation((async (
+        cb: (t: typeof tx) => Promise<unknown>,
+      ) => cb(tx)) as any);
+      return { tx, conflictWhere, set, updateWhere };
+    };
+
+    it("takes the listing's advisory lock before looking for clashes", async () => {
+      const { tx } = stubReserve([]);
+
+      await rentalDAL.reserveDatesForApproval("request-1", "pending");
+
+      const { sql, params } = new PgDialect().sqlToQuery(
+        tx.execute.mock.calls[0][0],
+      );
+      expect(sql).toContain("pg_advisory_xact_lock(hashtext(");
+      expect(params).toEqual(["listing-1"]);
+    });
+
+    it("counts date-holding statuses and in-flight pending claims as clashes", async () => {
+      const { conflictWhere } = stubReserve([]);
+
+      await rentalDAL.reserveDatesForApproval("request-1", "pending");
+
+      const { sql, params } = renderWhere(conflictWhere.mock.calls[0][0]);
+      expect(sql).toContain(
+        '"rental_requests"."listing_id" = "self"."listing_id"',
+      );
+      expect(sql).toContain('"rental_requests"."id" <> "self"."id"');
+      expect(params).toEqual(
+        expect.arrayContaining([
+          "approved",
+          "active",
+          "overdue",
+          "pending",
+          "processing",
+        ]),
+      );
+      // Whole days, inclusive at both ends, like findConflict.
+      expect(sql).toContain(
+        '"rental_requests"."start_date"::date <= "self"."end_date"::date',
+      );
+      expect(sql).toContain(
+        '"rental_requests"."end_date"::date >= "self"."start_date"::date',
+      );
+    });
+
+    it("reports the dates free and leaves the claim alone when nothing clashes", async () => {
+      const { tx } = stubReserve([]);
+
+      await expect(
+        rentalDAL.reserveDatesForApproval("request-1", "pending"),
+      ).resolves.toEqual({ ok: true });
+      expect(tx.update).not.toHaveBeenCalled();
+    });
+
+    it("releases the claim to its prior status on a clash, without throwing", async () => {
+      const { set, updateWhere } = stubReserve([{ id: "request-2" }]);
+
+      await expect(
+        rentalDAL.reserveDatesForApproval("request-1", "failed"),
+      ).resolves.toEqual({ ok: false });
+      expect(set).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentStatus: "failed" }),
+      );
+      const where = updateWhere.mock.calls[0][0];
+      expect(boundTo(where, '"rental_requests"."id"', "=")).toBe("request-1");
+      expect(boundTo(where, '"rental_requests"."payment_status"', "=")).toBe(
+        "processing",
+      );
+    });
+
+    it("throws NotFoundError for an unknown request", async () => {
+      stubReserve([], []);
+
+      await expect(
+        rentalDAL.reserveDatesForApproval("missing", "pending"),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -2189,6 +2319,10 @@ describe("RentalDAL", () => {
 
       const result = await rentalDAL.getBookedDatesForListing("listing-1");
 
+      // An overdue item is still out, so it holds its dates (CONC-01).
+      expect(renderWhere(mockWhere1.mock.calls[0][0]).params).toEqual(
+        expect.arrayContaining(["approved", "active", "overdue"]),
+      );
       expect(result).toHaveLength(2);
       // ⚠️ Changed deliberately by P-E10-3: rows now carry `source`, and blocks
       // carry their row `id`. The owner's availability calendar has to tell a

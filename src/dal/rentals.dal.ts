@@ -33,12 +33,23 @@ import { isPastDay } from "@/features/rentals/lib/availability";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BLOCKING_RENTAL_STATUSES } from "./account-deletion.dal";
 import { BaseDAL } from "./base";
-import { ConflictError, NotFoundError, ValidationError } from "./errors";
+import {
+  ConflictError,
+  NotFoundError,
+  RentalDatesUnavailableError,
+  ValidationError,
+} from "./errors";
 import type { CancellationReason } from "./types";
 import { conversationBetween } from "./conversation-pair";
 import { alias } from "drizzle-orm/pg-core";
 import { PENDING_BOOKING_EXPIRY_WINDOW_HOURS } from "@/constants/payments";
 import { REVIEW_WINDOW_DAYS } from "@/features/reviews/constants";
+
+/**
+ * Statuses in which a rental request holds its dates against every other
+ * request on the listing. `overdue` still holds them: the item is still out.
+ */
+const DATE_HOLDING_STATUSES = ["approved", "active", "overdue"] as const;
 
 const serviceBookingRequesterForAlerts = alias(user, "sb_req_alerts");
 const serviceBookingProviderForAlerts = alias(user, "sb_prov_alerts");
@@ -1977,6 +1988,85 @@ export class RentalDAL extends BaseDAL {
   }
 
   /**
+   * Re-check, at approval time, that no other request on the listing holds
+   * any of this request's days. Availability is otherwise checked only when a
+   * request is created, and pending requests never block each other, so an
+   * owner could approve two overlapping requests and charge two renters for
+   * one item (CONC-01).
+   *
+   * Run after the payment claim and before the charge. A transaction-scoped
+   * advisory lock on the listing serializes concurrent approvals, and a
+   * pending request whose charge is in flight counts as holding its days, so
+   * of two racing approvals at most one gets through.
+   *
+   * Days overlap inclusively at both ends, like `findConflict`, so a request
+   * starting the day another ends is a clash.
+   *
+   * On a clash the claim goes back to `priorPaymentStatus` inside the same
+   * transaction, which is why this returns `{ ok: false }` rather than
+   * throwing (a throw would roll the release back too).
+   */
+  async reserveDatesForApproval(
+    requestId: string,
+    priorPaymentStatus: "pending" | "failed",
+  ): Promise<{ ok: boolean }> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const [request] = await tx
+          .select({ listingId: rentalRequests.listingId })
+          .from(rentalRequests)
+          .where(eq(rentalRequests.id, requestId))
+          .limit(1);
+        if (!request) throw new NotFoundError("Rental request", requestId);
+
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext(${request.listingId}))`,
+        );
+
+        const self = alias(rentalRequests, "self");
+        const conflicts = await tx
+          .select({ id: rentalRequests.id })
+          .from(rentalRequests)
+          .innerJoin(self, eq(self.id, requestId))
+          .where(
+            and(
+              eq(rentalRequests.listingId, self.listingId),
+              ne(rentalRequests.id, self.id),
+              or(
+                inArray(rentalRequests.status, [...DATE_HOLDING_STATUSES]),
+                // The claim requires `pending`, so a `processing` row in any
+                // other status is a stranded claim that can never approve.
+                and(
+                  eq(rentalRequests.status, "pending"),
+                  eq(rentalRequests.paymentStatus, "processing"),
+                ),
+              ),
+              sql`${rentalRequests.startDate}::date <= ${self.endDate}::date`,
+              sql`${rentalRequests.endDate}::date >= ${self.startDate}::date`,
+            ),
+          )
+          .limit(1);
+
+        if (conflicts.length > 0) {
+          await tx
+            .update(rentalRequests)
+            .set({ paymentStatus: priorPaymentStatus, updatedAt: new Date() })
+            .where(
+              and(
+                eq(rentalRequests.id, requestId),
+                eq(rentalRequests.paymentStatus, "processing"),
+              ),
+            );
+          return { ok: false };
+        }
+        return { ok: true };
+      });
+    } catch (error) {
+      this.handleError(error, "reserveDatesForApproval");
+    }
+  }
+
+  /**
    * Approve a rental request
    * Only the owner can approve their own pending requests
    */
@@ -2047,6 +2137,13 @@ export class RentalDAL extends BaseDAL {
         });
       });
     } catch (error) {
+      // The `rental_requests_no_overlap` exclusion constraint: backstop for
+      // anything that slips past `reserveDatesForApproval`. drizzle wraps the
+      // pg error, so its code is on `.cause` (SEC-16).
+      const pgError = (error as { cause?: { code?: string } }).cause ?? error;
+      if ((pgError as { code?: string }).code === "23P01") {
+        throw new RentalDatesUnavailableError();
+      }
       this.handleError(error, "approveRentalRequest");
     }
   }
@@ -2722,7 +2819,7 @@ export class RentalDAL extends BaseDAL {
     }>
   > {
     try {
-      // Get booked rentals (approved/active)
+      // Get booked rentals (approved/active/overdue)
       const bookedRentals = await this.db
         .select({
           startDate: rentalRequests.startDate,
@@ -2732,7 +2829,7 @@ export class RentalDAL extends BaseDAL {
         .where(
           and(
             eq(rentalRequests.listingId, listingId),
-            inArray(rentalRequests.status, ["approved", "active"]),
+            inArray(rentalRequests.status, [...DATE_HOLDING_STATUSES]),
           ),
         )
         .orderBy(rentalRequests.startDate);

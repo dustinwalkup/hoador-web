@@ -271,15 +271,19 @@ describe("POST /api/rentals/preview — failures", () => {
     expect(res.status).toBe(404);
   });
 
-  // A price is still useful when availability is unreadable, and the clash
-  // re-checks at submit where it is authoritative.
-  it("still prices the rental when the availability read fails", async () => {
+  // A price is still useful when availability is unreadable, but the dates
+  // cannot be booked until it is known: fail closed (CONC-01).
+  it("still prices the rental but blocks booking when the availability read fails", async () => {
     mockGetBookedDatesForListing.mockRejectedValue(new Error("db down"));
 
     const { res, body } = await preview();
 
     expect(res.status).toBe(200);
-    expect(body.canBook).toBe(true);
+    expect(body.canBook).toBe(false);
+    expect(body.blockers).toEqual([
+      expect.objectContaining({ code: "DATES_UNAVAILABLE" }),
+    ]);
+    expect(body.totalAmount).toMatch(/^\d+\.\d{2}$/);
     expect(body.bookedRanges).toEqual([]);
   });
 

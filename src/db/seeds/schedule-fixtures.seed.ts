@@ -282,8 +282,10 @@ async function main(): Promise<void> {
       listing: mine,
       ownerId: target.id,
       renterId: other.id,
-      startOffset: 5,
-      endOffset: 5,
+      // Clear of fixture 3 on the same listing, whatever the month end:
+      // `rental_requests_no_overlap` refuses two approved requests sharing a day.
+      startOffset: toMonthEnd + 5,
+      endOffset: toMonthEnd + 5,
       status: "approved",
       expiresInHours: 0,
     },

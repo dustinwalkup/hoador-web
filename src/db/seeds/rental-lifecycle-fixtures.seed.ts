@@ -119,11 +119,13 @@ async function resolveListings(targetId: string) {
     dailyRate: listings.dailyRate,
     securityDeposit: listings.securityDeposit,
   };
-  const [mine] = await db
+  // Two if the account has them: L1 (approved, starts today) and L3 (active
+  // through today) cannot share a listing under `rental_requests_no_overlap`.
+  const [mine, mineSpare] = await db
     .select(columns)
     .from(listings)
     .where(eq(listings.ownerId, targetId))
-    .limit(1);
+    .limit(2);
   const [theirs] = await db
     .select(columns)
     .from(listings)
@@ -135,7 +137,7 @@ async function resolveListings(targetId: string) {
       `Need a listing owned by ${targetId} (owner-side fixtures) and one owned by someone else (renter-side fixtures and the checkout picker). Found owned=${mine ? 1 : 0}, other=${theirs ? 1 : 0}.`,
     );
   }
-  return { mine, theirs };
+  return { mine, mineSpare, theirs };
 }
 
 /** Remove this script's previous rows, and only those. */
@@ -218,7 +220,7 @@ async function main(): Promise<void> {
 
   const target = await resolveTargetUser(email);
   const other = await resolveCounterparty(target.id);
-  const { mine, theirs } = await resolveListings(target.id);
+  const { mine, mineSpare, theirs } = await resolveListings(target.id);
 
   await clearPreviousFixtures();
 
@@ -253,7 +255,7 @@ async function main(): Promise<void> {
     {
       label: "L3 active (owner)",
       verifies: "8A.5 Confirm return, damage report + photo upload",
-      listing: mine,
+      listing: mineSpare ?? mine,
       ownerId: target.id,
       renterId: other.id,
       startOffset: -2,
@@ -329,8 +331,9 @@ async function main(): Promise<void> {
       listing: theirs,
       ownerId: other.id,
       renterId: target.id,
+      // Between L6 and L7, which share this listing.
       startOffset: 3,
-      endOffset: 6,
+      endOffset: 4,
       status: "approved",
       deposit: "failed",
     },
@@ -347,7 +350,15 @@ async function main(): Promise<void> {
     },
   ];
 
-  for (const f of fixtures) {
+  if (!mineSpare) {
+    console.warn(
+      "   ⚠ The account owns one listing: skipping L3, which would double-book it with L1. Add a second listing to get L3.\n",
+    );
+  }
+
+  for (const f of fixtures.filter(
+    (f) => mineSpare || !f.label.startsWith("L3 "),
+  )) {
     const days = Math.max(1, f.endOffset - f.startOffset + 1);
     // `startsInHours` overrides the day offset so a pickup can be placed inside
     // the 24-hour refund boundary, which a whole-day offset cannot express.

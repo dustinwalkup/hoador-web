@@ -505,6 +505,13 @@
       "when": 1790280995869,
       "tag": "0071_apple_token_revocation",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1790283719972,
+      "tag": "0072_rental_requests_no_overlap",
+      "breakpoints": true
     }
   ]
 }

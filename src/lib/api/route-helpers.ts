@@ -19,6 +19,7 @@ import {
   ConversationArchivedError,
   CannotMessageSelfError,
   RentalRequestNotPendingError,
+  RentalDatesUnavailableError,
   CounterpartyUnavailableError,
   ServiceNotYetDueError,
 } from "@/dal/errors";
@@ -69,6 +70,7 @@ export function handleApiError(
     !(error instanceof ConversationArchivedError) &&
     !(error instanceof ServiceNotYetDueError) &&
     !(error instanceof RentalRequestNotPendingError) &&
+    !(error instanceof RentalDatesUnavailableError) &&
     !(error instanceof CounterpartyUnavailableError) &&
     !(error instanceof CannotMessageSelfError) &&
     !(error instanceof PaymentSetupRequiredError) &&
@@ -136,6 +138,13 @@ export function handleApiError(
   }
 
   if (error instanceof RentalRequestNotPendingError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+
+  if (error instanceof RentalDatesUnavailableError) {
     return NextResponse.json(
       { error: error.message, code: error.code },
       { status: error.statusCode },

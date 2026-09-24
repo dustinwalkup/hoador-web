@@ -15,6 +15,7 @@ import {
   DALError,
   ServiceBookingPaymentFailedError,
   RentalRequestNotPendingError,
+  RentalDatesUnavailableError,
   CounterpartyUnavailableError,
   ServiceNotYetDueError,
 } from "@/dal/errors";
@@ -73,6 +74,17 @@ describe("route-helpers", () => {
       });
     });
 
+    // CONC-01: the quote blocker code clients already branch on, so it must
+    // survive the same way.
+    it("should give RentalDatesUnavailableError a 409 with its code", async () => {
+      const response = handleApiError(new RentalDatesUnavailableError());
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "DATES_UNAVAILABLE",
+      });
+    });
+
     // Refused approvals and not-yet-due completions are expected user
     // outcomes, not incidents — in production they must not reach Sentry.
     describe("Sentry capture in production", () => {
@@ -85,6 +97,7 @@ describe("route-helpers", () => {
 
       it.each([
         ["RentalRequestNotPendingError", new RentalRequestNotPendingError()],
+        ["RentalDatesUnavailableError", new RentalDatesUnavailableError()],
         ["ServiceNotYetDueError", new ServiceNotYetDueError()],
       ])("does not capture %s", (_name, error) => {
         handleApiError(error);

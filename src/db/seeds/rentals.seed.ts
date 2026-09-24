@@ -162,6 +162,13 @@ async function main(): Promise<void> {
 
   console.log("📝 Generating rental requests...");
 
+  // `rental_requests_no_overlap` (migration 0072) refuses two approved,
+  // active or overdue requests on one listing sharing a day, so a generated
+  // hold that clashes with an earlier one is skipped (CONC-01).
+  const heldDays = new Map<string, { from: string; to: string }[]>();
+  const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+  let skippedClashes = 0;
+
   const totalRequests = 50;
   for (let i = 0; i < totalRequests; i++) {
     const listing = faker.helpers.arrayElement(allListings);
@@ -172,6 +179,17 @@ async function main(): Promise<void> {
 
     const status = getRandomStatus();
     const dates = generateDatesForStatus(status);
+
+    if (["approved", "active", "overdue"].includes(status)) {
+      const from = dayKey(dates.startDate);
+      const to = dayKey(dates.endDate);
+      const held = heldDays.get(listing.id) ?? [];
+      if (held.some((h) => h.from <= to && h.to >= from)) {
+        skippedClashes++;
+        continue;
+      }
+      heldDays.set(listing.id, [...held, { from, to }]);
+    }
 
     const totalDays = Math.ceil(
       (dates.endDate.getTime() - dates.startDate.getTime()) /
@@ -283,6 +301,11 @@ async function main(): Promise<void> {
   // Insert all data
   await db.insert(rentalRequests).values(seedRequests);
   console.log(`📝 Created ${seedRequests.length} rental requests`);
+  if (skippedClashes > 0) {
+    console.log(
+      `   (skipped ${skippedClashes} that would double-book a listing)`,
+    );
+  }
 
   if (seedRentals.length > 0) {
     await db.insert(rentals).values(seedRentals);

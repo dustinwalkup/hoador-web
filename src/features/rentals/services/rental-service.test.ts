@@ -390,19 +390,15 @@ describe("RentalService.createRentalRequest — availability (P-E8A-2b)", () => 
     expect(result.id).toBe("request-456");
   });
 
-  // Availability is advisory at read time and authoritative at write time; a
-  // failed read must not become a silent "all clear" that blocks nothing, nor
-  // an outage that blocks everything.
-  it("still creates the request when the availability read fails", async () => {
+  // A failed availability read must not become a silent "all clear": the
+  // request would be created over dates nobody checked (CONC-01).
+  it("refuses the request when the availability read fails", async () => {
     mockGetBookedDatesForListing.mockRejectedValue(new Error("db down"));
 
-    const result = await RentalService.createRentalRequest(
-      validFormData,
-      "renter-789",
-      context,
-    );
-
-    expect(result.id).toBe("request-456");
+    await expect(
+      RentalService.createRentalRequest(validFormData, "renter-789", context),
+    ).rejects.toThrow("couldn't verify availability");
+    expect(mockInsertRentalRequest).not.toHaveBeenCalled();
   });
 });
 

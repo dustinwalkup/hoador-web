@@ -91,6 +91,27 @@ export class RentalRequestNotPendingError extends DALError {
 }
 
 /**
+ * Thrown when an owner approves a rental request whose dates another request
+ * for the same listing already holds: approved, active or overdue, or pending
+ * with its charge in flight. Raised BEFORE the charge. Availability used to be
+ * checked only when a request was created, and pending requests never block
+ * each other, so an owner could approve two overlapping requests and charge
+ * two renters for one item (CONC-01).
+ *
+ * `code: "DATES_UNAVAILABLE"` is the quote blocker code the create/preview
+ * flow already returns, so a client needs no new branch. Not a
+ * `ConflictError` subclass, for the same reason as `RentalRequestNotPendingError`.
+ */
+export class RentalDatesUnavailableError extends DALError {
+  constructor(
+    message = "Those dates are no longer available for this listing.",
+  ) {
+    super(message, "DATES_UNAVAILABLE", 409);
+    this.name = "RentalDatesUnavailableError";
+  }
+}
+
+/**
  * Thrown when a provider marks a service booking complete before its scheduled
  * instant. Completing early paid the provider for work not yet done and could
  * leave the requester an empty dispute window (BIZ-02).

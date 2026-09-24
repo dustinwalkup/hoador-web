@@ -56,6 +56,7 @@ vi.mock("@/dal", () => ({
     updateRentalRequestPaymentStatus: vi.fn().mockResolvedValue(undefined),
     updateRentalRequestPaymentMethod: vi.fn().mockResolvedValue(undefined),
     claimRentalRequestPaymentProcessing: vi.fn().mockResolvedValue(true),
+    reserveDatesForApproval: vi.fn().mockResolvedValue({ ok: true }),
     approveRentalRequest: vi.fn().mockResolvedValue(undefined),
     getRentalByRequestId: vi.fn().mockResolvedValue({ id: "rental-456" }),
     getApprovedRentalCountForRenter: vi.fn().mockResolvedValue(1),
@@ -161,6 +162,7 @@ vi.mock("@/features/rentals/notifications/rental-approved", () => ({
 
 import { rentalDAL, userDAL } from "@/dal";
 import { getAccountStatus } from "@/services/stripe/connect";
+import { chargeRentalPayment } from "@/services/stripe/rental-payments";
 
 describe("POST /api/rentals/[id]/approve", () => {
   const originalFetch = globalThis.fetch;
@@ -216,6 +218,33 @@ describe("POST /api/rentals/[id]/approve", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.rentalRequestId).toBe("req-123");
+  });
+
+  // CONC-01: another request was approved over these dates first. The client
+  // gets the quote flow's DATES_UNAVAILABLE code, and nothing is charged.
+  it("returns 409 DATES_UNAVAILABLE when the dates are taken, and charges nothing", async () => {
+    vi.mocked(rentalDAL.reserveDatesForApproval).mockResolvedValueOnce({
+      ok: false,
+    });
+    const { POST } = await import("./route");
+    const request = new NextRequest(
+      "http://localhost:3000/api/rentals/req-123/approve",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+
+    const response = await POST(request, {
+      params: Promise.resolve({ id: "req-123" }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "DATES_UNAVAILABLE",
+    });
+    expect(chargeRentalPayment).not.toHaveBeenCalled();
   });
 
   describe("Stripe Connect gating", () => {

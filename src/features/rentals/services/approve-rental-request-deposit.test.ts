@@ -97,6 +97,7 @@ vi.mock("@/dal", () => ({
     updateRentalRequestPaymentMethod: (...args: unknown[]) =>
       mockUpdateRentalRequestPaymentMethod(...args),
     claimRentalRequestPaymentProcessing: vi.fn().mockResolvedValue(true),
+    reserveDatesForApproval: vi.fn().mockResolvedValue({ ok: true }),
     getApprovedRentalCountForRenter: (...args: unknown[]) =>
       mockGetApprovedRentalCountForRenter(...args),
     getAttributionContext: vi.fn().mockResolvedValue(null),

@@ -489,6 +489,18 @@ export class RentalService {
       };
     }
 
+    // Before the charge: another request on this listing may have been
+    // approved over these dates since this one was made (CONC-01). On a clash
+    // the DAL has already released the claim.
+    const reserved = await rentalDAL.reserveDatesForApproval(
+      rentalId,
+      isRetryAfterFailure ? "failed" : "pending",
+    );
+    if (!reserved.ok) {
+      const { RentalDatesUnavailableError } = await import("@/dal/errors");
+      throw new RentalDatesUnavailableError();
+    }
+
     const chargePayload = {
       rentalRequestId: rentalRequest.id,
       listingId: rentalRequest.listingId,
