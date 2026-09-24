@@ -507,6 +507,85 @@ describe("PaymentLifecycleService.processPayouts", () => {
       }),
     );
   });
+
+  /**
+   * BIZ-05: a dispute "resolved" through the state route left the transfer
+   * `frozen`; the cron skipped the transfer and still marked the payout
+   * `completed`, so the owner's money silently never moved.
+   */
+  describe("a transfer that is not due (BIZ-05)", () => {
+    const rentalWithTransfer = (ownerTransferStatus: string) =>
+      createMockPayoutRental({
+        lifecycle: {
+          ...createMockPayoutRental().lifecycle,
+          ownerTransferStatus,
+        },
+      });
+
+    it.each(["frozen", "processing", "failed"])(
+      "fails a %s transfer's payout with an ops alert, never 'completed'",
+      async (status) => {
+        mockFindEligibleForPayout.mockResolvedValue([
+          rentalWithTransfer(status),
+        ]);
+
+        const result = await PaymentLifecycleService.processPayouts(20);
+
+        expect(mockUpdatePayoutStatus).toHaveBeenCalledWith(
+          "rental-1",
+          "failed",
+        );
+        expect(mockUpdatePayoutStatus).not.toHaveBeenCalledWith(
+          "rental-1",
+          "completed",
+        );
+        expect(mockSendOpsAlert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            event: "payout_skipped_transfer_not_pending",
+            rentalId: "rental-1",
+          }),
+        );
+        expect(result).toEqual({
+          processedCount: 1,
+          successCount: 0,
+          failureCount: 1,
+        });
+      },
+    );
+
+    // The dispute still owns the deposit decision: letting the hold go before
+    // bailing out would hand the renter back money the dispute may capture.
+    it("does not release a frozen dispute's deposit or send a transfer", async () => {
+      mockFindEligibleForPayout.mockResolvedValue([
+        rentalWithTransfer("frozen"),
+      ]);
+
+      await PaymentLifecycleService.processPayouts(20);
+
+      expect(mockReleaseDepositHold).not.toHaveBeenCalled();
+      expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalled();
+      expect(mockCreateOwnerTransfer).not.toHaveBeenCalled();
+    });
+
+    // A transfer that already went out (payout status write lost) still
+    // completes: releasing the deposit and marking the payout is all that is
+    // left, and no second transfer is sent.
+    it("completes a payout whose transfer already completed, without a second transfer", async () => {
+      mockFindEligibleForPayout.mockResolvedValue([
+        rentalWithTransfer("completed"),
+      ]);
+      mockReleaseDepositHold.mockResolvedValue(undefined);
+
+      const result = await PaymentLifecycleService.processPayouts(20);
+
+      expect(mockCreateOwnerTransfer).not.toHaveBeenCalled();
+      expect(mockUpdatePayoutStatus).toHaveBeenCalledWith(
+        "rental-1",
+        "completed",
+      );
+      expect(result.successCount).toBe(1);
+    });
+  });
 });
 
 // =====================

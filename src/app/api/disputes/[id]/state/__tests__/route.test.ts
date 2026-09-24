@@ -120,8 +120,9 @@ describe("PATCH /api/disputes/[id]/state", () => {
     expect(res.status).toBe(404);
   });
 
-  // The authorization pin (see file header).
-  it.each(["evidence_requested", "under_review", "resolved"])(
+  // The authorization pin (see file header). `resolved` is no longer a target
+  // at all (BIZ-05), so it cannot be opened to non-admins by accident here.
+  it.each(["evidence_requested", "under_review"])(
     "refuses a non-admin moving an open dispute to %s",
     async (newState) => {
       mockGetAuthenticatedUser.mockResolvedValue(PARTY);
@@ -151,7 +152,7 @@ describe("PATCH /api/disputes/[id]/state", () => {
     mockDisputeGetById.mockResolvedValue(dispute("closed"));
 
     const { PATCH } = await import("../route");
-    const res = await PATCH(patchState({ newState: "resolved" }), ctx);
+    const res = await PATCH(patchState({ newState: "open" }), ctx);
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/final state/);
@@ -223,4 +224,23 @@ describe("PATCH /api/disputes/[id]/state", () => {
       "evidence_requested",
     );
   });
+
+  // BIZ-05: "resolving" here set the status without capturing or releasing the
+  // deposit or unfreezing the owner's transfer, and the payout cron then marked
+  // the stranded payout completed. Resolution goes through /resolve only.
+  it.each(["open", "evidence_requested", "under_review"])(
+    "refuses to resolve a %s dispute, even for an admin",
+    async (status) => {
+      mockDisputeGetById.mockResolvedValue(dispute(status));
+
+      const { PATCH } = await import("../route");
+      const res = await PATCH(patchState({ newState: "resolved" }), ctx);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toHaveProperty("details");
+      expect(mockUpdateState).not.toHaveBeenCalled();
+      expect(mockCreateDisputeAuditLog).not.toHaveBeenCalled();
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    },
+  );
 });

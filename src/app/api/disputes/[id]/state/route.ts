@@ -15,15 +15,13 @@ import { sendDisputeNotifications } from "@/features/disputes/notifications/disp
 /**
  * PATCH /api/disputes/[id]/state
  * Update dispute state (admin only for most transitions)
+ *
+ * Never `resolved`: that goes through POST /api/disputes/[id]/resolve, which
+ * captures or releases the deposit and unfreezes the owner's transfer. Setting
+ * the status here did neither, and stranded the owner's payout (BIZ-05).
  */
 const updateStateSchema = z.object({
-  newState: z.enum([
-    "open",
-    "evidence_requested",
-    "under_review",
-    "resolved",
-    "closed",
-  ]),
+  newState: z.enum(["open", "evidence_requested", "under_review", "closed"]),
   reason: z.string().optional(),
 });
 
@@ -114,17 +112,6 @@ async function patchHandler(
         action: "dispute.escalated",
         userId,
         metadata: { previousStatus: previousState, newStatus: newState },
-      });
-    } else if (newState === "resolved") {
-      await auditLogDAL.create({
-        entityType: "dispute",
-        entityId: id,
-        action: "dispute.resolved",
-        userId,
-        metadata: {
-          previousStatus: previousState,
-          newStatus: "resolved",
-        },
       });
     }
 

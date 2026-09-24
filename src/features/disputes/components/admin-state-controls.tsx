@@ -52,7 +52,11 @@ export function AdminStateControls({ disputeId }: AdminStateControlsProps) {
   }
 
   const currentStatus = dispute.status;
-  const validNextStates = DisputeStateMachine.getValidNextStates(currentStatus);
+  // `resolved` is reachable only through the resolution flow, which settles the
+  // deposit and the owner's transfer; the state route refuses it (BIZ-05).
+  const validNextStates = DisputeStateMachine.getValidNextStates(
+    currentStatus,
+  ).filter((state) => state !== "resolved");
   const isFinalState = DisputeStateMachine.isFinalState(currentStatus);
 
   const handleTransitionClick = (targetState: DisputeStatus) => {
@@ -162,13 +166,6 @@ export function AdminStateControls({ disputeId }: AdminStateControlsProps) {
                 disabled={updateState.isPending}
               >
                 Move to Review
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleTransitionClick("resolved")}
-                disabled={updateState.isPending}
-              >
-                Resolve
               </Button>
             </div>
           </div>

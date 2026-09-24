@@ -58,6 +58,27 @@ export class PaymentLifecycleService {
       }
 
       try {
+        // Only a transfer that is due (`pending`) or already done (`completed`)
+        // can end in a completed payout. `frozen` means a dispute still owns
+        // this money (a state-route "resolve" used to leave it that way), and
+        // `processing`/`failed` need a human. Checked BEFORE the deposit
+        // release so a frozen dispute's deposit is not let go either (BIZ-05).
+        const transferStatus = rental.lifecycle.ownerTransferStatus;
+        if (transferStatus !== "pending" && transferStatus !== "completed") {
+          await paymentLifecycleDAL.updatePayoutStatus(
+            rental.rentalId,
+            "failed",
+          );
+          await sendOpsAlert({
+            event: "payout_skipped_transfer_not_pending",
+            rentalId: rental.rentalId,
+            message: `ownerTransferStatus is '${transferStatus}', not 'pending' — refusing to mark payout completed`,
+            sendEmailAlert: true,
+          });
+          failureCount++;
+          continue;
+        }
+
         // Step 1: Release deposit hold if held
         if (rental.lifecycle.depositHoldStatus === "held") {
           const depositAuthId = rental.securityDepositAuthId;
@@ -172,7 +193,8 @@ export class PaymentLifecycleService {
           );
         }
 
-        // Both operations succeeded
+        // Both operations succeeded: the transfer was sent just now, or had
+        // already completed before this run.
         await paymentLifecycleDAL.updatePayoutStatus(
           rental.rentalId,
           "completed",

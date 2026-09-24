@@ -392,6 +392,9 @@ export class PaymentLifecycleDAL extends BaseDAL {
             eq(rentalRequests.status, "completed"),
             lte(rentals.returnConfirmedAt, twentyFourHoursAgo),
             eq(rentalPaymentLifecycle.payoutStatus, "pending"),
+            // A frozen transfer belongs to a dispute until /resolve unfreezes
+            // it, even once the dispute row itself reads `resolved` (BIZ-05).
+            ne(rentalPaymentLifecycle.ownerTransferStatus, "frozen"),
             isNull(disputes.id),
           ),
         )

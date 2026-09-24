@@ -18,7 +18,7 @@ const renderWhere = (where: unknown) =>
 function stubSelect(rows: unknown[] = []) {
   const mockWhere = vi.fn();
   const chain: Record<string, unknown> = {};
-  for (const step of ["from", "innerJoin", "orderBy"]) {
+  for (const step of ["from", "innerJoin", "leftJoin", "orderBy"]) {
     chain[step] = vi.fn().mockReturnValue(chain);
   }
   chain.where = mockWhere.mockReturnValue(chain);
@@ -47,6 +47,24 @@ describe("PaymentLifecycleDAL", () => {
       );
       expect(params).toContain("scheduled");
       expect(params).not.toContain("failed");
+    });
+  });
+
+  describe("findEligibleForPayout", () => {
+    // BIZ-05: a transfer frozen by a dispute stays out of the payout cron until
+    // /resolve unfreezes it, even after the dispute row reads `resolved` (which
+    // the open-dispute join no longer counts as blocking).
+    it("excludes rows whose owner transfer is frozen", async () => {
+      const { mockWhere } = stubSelect();
+
+      await paymentLifecycleDAL.findEligibleForPayout(20);
+
+      const { sql, params } = renderWhere(mockWhere.mock.calls[0][0]);
+      const match = sql.match(
+        /"rental_payment_lifecycle"\."owner_transfer_status" <> \$(\d+)/,
+      );
+      expect(match).not.toBeNull();
+      expect(params[Number(match![1]) - 1]).toBe("frozen");
     });
   });
 });
