@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/dal/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "@/dal/errors";
 
 const mockGetRentalRequestById = vi.fn();
 const mockCancelRentalRequest = vi.fn();
@@ -352,7 +357,9 @@ describe("CancellationService", () => {
       expect(refundCall!.data).toMatchObject({ refundAmount: "100" });
     });
 
-    it("when refund fails, returns error and does not mark rental cancelled", async () => {
+    // CONC-02: the claim now precedes the refund, so a failed refund leaves
+    // the rental cancelled (it cannot be un-claimed) and pages ops instead.
+    it("when refund fails, stays cancelled, alerts ops and returns an error", async () => {
       mockGetRentalCancellationContext.mockResolvedValue({
         rentalRequestId: "req-1",
         rentalId: "rental-1",
@@ -383,10 +390,24 @@ describe("CancellationService", () => {
 
       expect(result).toEqual({
         success: false,
-        error: "Charge already refunded",
+        error: expect.stringContaining("refund could not be processed"),
       });
-      expect(mockCancelApprovedRental).not.toHaveBeenCalled();
+      expect(mockCancelApprovedRental).toHaveBeenCalled();
       expect(mockRecordRefund).not.toHaveBeenCalled();
+      expect(mockMarkCancelled).toHaveBeenCalledWith("rental-1", {
+        depositHoldStatus: "released",
+      });
+      expect(mockSendOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "refund_failed_on_cancel",
+          rentalId: "rental-1",
+        }),
+      );
+      expect(
+        mockSendNotification.mock.calls.some(
+          ([arg]) => (arg as { type: string }).type === "payment_refunded",
+        ),
+      ).toBe(false);
     });
   });
 
@@ -463,7 +484,7 @@ describe("CancellationService", () => {
         rentalId: "rental-1",
         renterId: "renter-1",
         ownerId: "owner-1",
-        status: "active",
+        status: "approved",
         startDate: new Date(),
         rentalPrice: "100",
         serviceFee: "12",
@@ -516,7 +537,7 @@ describe("CancellationService", () => {
         rentalId: "rental-1",
         renterId: "renter-1",
         ownerId: "owner-1",
-        status: "active",
+        status: "approved",
         startDate: new Date(),
         rentalPrice: "100",
         serviceFee: "12",
@@ -681,7 +702,7 @@ describe("CancellationService", () => {
         rentalId: "rental-1",
         renterId: "renter-1",
         ownerId: "owner-1",
-        status: "active",
+        status: "approved",
         startDate: new Date(),
         rentalPrice: "100",
         serviceFee: "12",
@@ -719,6 +740,208 @@ describe("CancellationService", () => {
       expect(markCancelledExtra).toMatchObject({
         ownerTransferStatus: "completed",
       });
+    });
+  });
+
+  // CONC-02: the status claim (the DAL's `approved`-guarded UPDATE) must win
+  // before any Stripe call, so an owner's concurrent `start` can never leave a
+  // refunded renter AND a later full payout.
+  describe("claim before money moves (CONC-02)", () => {
+    const approvedCtx = (overrides: Record<string, unknown> = {}) => ({
+      rentalRequestId: "req-1",
+      rentalId: "rental-1",
+      renterId: "renter-1",
+      ownerId: "owner-1",
+      status: "approved",
+      // <24h out: the renter tier keeps a share for the owner, so a transfer
+      // is on the table and its absence is meaningful.
+      startDate: addHours(new Date(), 2),
+      listingName: "Ladder",
+      rentalPrice: "100",
+      serviceFee: "12",
+      totalChargeAmount: "112",
+      depositHoldStatus: "held",
+      securityDepositAuthId: "pi_dep_1",
+      rentalChargeId: "ch_1",
+      paymentId: "pay-1",
+      paymentStatus: "succeeded",
+      ownerConnectedAccountId: "acct_1",
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
+      mockRecordRefund.mockResolvedValue(undefined);
+      mockReleaseDepositHold.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockCreateOwnerTransfer.mockResolvedValue({
+        success: true,
+        transferId: "tr_1",
+      });
+      mockUpdateOwnerTransferStatus.mockResolvedValue(undefined);
+      mockCancelApprovedRental.mockResolvedValue(undefined);
+      mockMarkCancelled.mockResolvedValue(undefined);
+      mockSendNotification.mockResolvedValue(undefined);
+      mockSendOpsAlert.mockResolvedValue(undefined);
+      mockSendRentalCancelledNotification.mockResolvedValue(undefined);
+    });
+
+    it("cancel: claims before refunding", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(approvedCtx());
+
+      const result = await cancelApprovedRental(
+        "req-1",
+        "renter-1",
+        "renter",
+        {},
+      );
+
+      expect(result.success).toBe(true);
+      const claimOrder = mockCancelApprovedRental.mock.invocationCallOrder[0];
+      expect(claimOrder).toBeLessThan(
+        mockProcessRefund.mock.invocationCallOrder[0],
+      );
+      expect(claimOrder).toBeLessThan(
+        mockReleaseDepositHold.mock.invocationCallOrder[0],
+      );
+      expect(claimOrder).toBeLessThan(
+        mockCreateOwnerTransfer.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("cancel: a lost claim throws ConflictError and moves no money", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(approvedCtx());
+      mockCancelApprovedRental.mockRejectedValue(
+        new ConflictError("This rental changed state — refresh and try again."),
+      );
+
+      await expect(
+        cancelApprovedRental("req-1", "renter-1", "renter", {}),
+      ).rejects.toThrow(ConflictError);
+
+      expect(mockProcessRefund).not.toHaveBeenCalled();
+      expect(mockRecordRefund).not.toHaveBeenCalled();
+      expect(mockReleaseDepositHold).not.toHaveBeenCalled();
+      expect(mockCreateOwnerTransfer).not.toHaveBeenCalled();
+      expect(mockMarkCancelled).not.toHaveBeenCalled();
+    });
+
+    it("cancel: a non-conflict claim error propagates as-is", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(
+        approvedCtx({ paymentStatus: "refunded" }),
+      );
+      const dbError = new Error("connection reset");
+      mockCancelApprovedRental.mockRejectedValue(dbError);
+
+      await expect(
+        cancelApprovedRental("req-1", "renter-1", "renter", {}),
+      ).rejects.toBe(dbError);
+      expect(mockProcessRefund).not.toHaveBeenCalled();
+    });
+
+    it("cancel: already refunded — finishes the transition without refunding or paying the owner", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(
+        approvedCtx({ paymentStatus: "refunded" }),
+      );
+
+      const result = await cancelApprovedRental(
+        "req-1",
+        "renter-1",
+        "renter",
+        {},
+      );
+
+      expect(result).toEqual({ success: true, refundAmount: 50 });
+      expect(mockCancelApprovedRental).toHaveBeenCalled();
+      expect(mockProcessRefund).not.toHaveBeenCalled();
+      expect(mockRecordRefund).not.toHaveBeenCalled();
+      expect(mockReleaseDepositHold).toHaveBeenCalledWith("pi_dep_1");
+      expect(mockCreateOwnerTransfer).not.toHaveBeenCalled();
+      expect(mockSendOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "owner_transfer_skipped_prior_refund",
+        }),
+      );
+      expect(mockMarkCancelled).toHaveBeenCalledWith("rental-1", {
+        depositHoldStatus: "released",
+      });
+    });
+
+    it("cancel: already refunded and the claim loses — no-op success", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(
+        approvedCtx({ paymentStatus: "refunded" }),
+      );
+      mockCancelApprovedRental.mockRejectedValue(
+        new ConflictError("This rental changed state — refresh and try again."),
+      );
+
+      const result = await cancelApprovedRental(
+        "req-1",
+        "renter-1",
+        "renter",
+        {},
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockReleaseDepositHold).not.toHaveBeenCalled();
+      expect(mockCreateOwnerTransfer).not.toHaveBeenCalled();
+      expect(mockMarkCancelled).not.toHaveBeenCalled();
+    });
+
+    it("no-show: rejects a rental that is not approved, before any money moves", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(
+        approvedCtx({ status: "active" }),
+      );
+
+      await expect(
+        applyNoShow("req-1", "renter_no_show", "admin-1"),
+      ).rejects.toThrow(ValidationError);
+
+      expect(mockCancelApprovedRental).not.toHaveBeenCalled();
+      expect(mockProcessRefund).not.toHaveBeenCalled();
+      expect(mockCreateOwnerTransfer).not.toHaveBeenCalled();
+    });
+
+    it("no-show: claims before refunding", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(approvedCtx());
+
+      await applyNoShow("req-1", "renter_no_show", "admin-1");
+
+      expect(mockCancelApprovedRental.mock.invocationCallOrder[0]).toBeLessThan(
+        mockProcessRefund.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("no-show: a lost claim throws ConflictError and moves no money", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(approvedCtx());
+      mockCancelApprovedRental.mockRejectedValue(
+        new ConflictError("This rental changed state — refresh and try again."),
+      );
+
+      await expect(
+        applyNoShow("req-1", "renter_no_show", "admin-1"),
+      ).rejects.toThrow(ConflictError);
+
+      expect(mockProcessRefund).not.toHaveBeenCalled();
+      expect(mockReleaseDepositHold).not.toHaveBeenCalled();
+      expect(mockCreateOwnerTransfer).not.toHaveBeenCalled();
+    });
+
+    it("no-show: refund failure after the claim alerts ops and reports failure", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue(approvedCtx());
+      mockProcessRefund.mockResolvedValue({
+        success: false,
+        error: "card_declined",
+      });
+
+      const result = await applyNoShow("req-1", "owner_no_show", "admin-1");
+
+      expect(result.success).toBe(false);
+      expect(mockRecordRefund).not.toHaveBeenCalled();
+      expect(mockMarkCancelled).toHaveBeenCalled();
+      expect(mockSendOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({ event: "refund_failed_no_show" }),
+      );
     });
   });
 });

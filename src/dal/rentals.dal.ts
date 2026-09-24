@@ -43,6 +43,10 @@ import { REVIEW_WINDOW_DAYS } from "@/features/reviews/constants";
 const serviceBookingRequesterForAlerts = alias(user, "sb_req_alerts");
 const serviceBookingProviderForAlerts = alias(user, "sb_prov_alerts");
 
+/** 409 message when a rental's status CAS loses to a concurrent transition. */
+export const RENTAL_STATE_CHANGED_MESSAGE =
+  "This rental changed state — refresh and try again.";
+
 /** Dashboard actionable alert (rentals + service bookings). */
 export interface ActionableAlert {
   id: string;
@@ -2833,14 +2837,25 @@ export class RentalDAL extends BaseDAL {
         );
       }
 
-      // Update the rental_requests status to active
-      await this.db
+      // Update the rental_requests status to active. The status predicate is
+      // the claim: a concurrent cancel/no-show that already moved the row off
+      // `approved` (and refunded the renter) must not be overwritten (CONC-02).
+      const [started] = await this.db
         .update(rentalRequests)
         .set({
           status: "active",
           updatedAt: new Date(),
         })
-        .where(eq(rentalRequests.id, rentalId));
+        .where(
+          and(
+            eq(rentalRequests.id, rentalId),
+            eq(rentalRequests.status, "approved"),
+          ),
+        )
+        .returning({ id: rentalRequests.id });
+      if (!started) {
+        throw new ConflictError(RENTAL_STATE_CHANGED_MESSAGE);
+      }
 
       // Update the rentals table with actual start date
       await this.db
@@ -2962,14 +2977,25 @@ export class RentalDAL extends BaseDAL {
         throw new Error("Only active rentals can be ended");
       }
 
-      // Update the rental_requests status to completed
-      await this.db
+      // Update the rental_requests status to completed — claimed on `active`
+      // so two concurrent returns (or a return racing any other transition)
+      // produce exactly one completion (CONC-02).
+      const [ended] = await this.db
         .update(rentalRequests)
         .set({
           status: "completed",
           updatedAt: new Date(),
         })
-        .where(eq(rentalRequests.id, rentalId));
+        .where(
+          and(
+            eq(rentalRequests.id, rentalId),
+            eq(rentalRequests.status, "active"),
+          ),
+        )
+        .returning({ id: rentalRequests.id });
+      if (!ended) {
+        throw new ConflictError(RENTAL_STATE_CHANGED_MESSAGE);
+      }
 
       // Update the rentals table with actual end date and confirm return
       await this.db
@@ -3475,7 +3501,8 @@ export class RentalDAL extends BaseDAL {
    * @param requestId - The rental request ID
    * @param cancelledBy - User ID of who cancelled
    * @param cancellationReason - Enum value for the reason
-   * @throws Error if no rows affected (status guard failed — already cancelled or wrong status)
+   * @throws ConflictError if no rows affected (status guard failed — already
+   *   cancelled or wrong status). Callers claim with this BEFORE moving money.
    */
   async cancelApprovedRental(
     requestId: string,
@@ -3503,9 +3530,7 @@ export class RentalDAL extends BaseDAL {
         .returning();
 
       if (result.length === 0) {
-        throw new Error(
-          "Cannot cancel rental: request not found or status is not approved",
-        );
+        throw new ConflictError(RENTAL_STATE_CHANGED_MESSAGE);
       }
     } catch (error) {
       this.handleError(error, "cancelApprovedRental");

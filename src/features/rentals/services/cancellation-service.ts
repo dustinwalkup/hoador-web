@@ -5,7 +5,12 @@ import {
   userDAL,
   auditLogDAL,
 } from "@/dal";
-import { NotFoundError, ForbiddenError, ValidationError } from "@/dal/errors";
+import {
+  ConflictError,
+  NotFoundError,
+  ForbiddenError,
+  ValidationError,
+} from "@/dal/errors";
 import type { CancellationReason } from "@/dal/types";
 import { processRefund } from "@/services/stripe/refund";
 import { createOwnerTransfer } from "@/services/stripe/payout";
@@ -147,34 +152,68 @@ export async function cancelApprovedRental(
   if (!ctx.rentalChargeId || !ctx.paymentId) {
     return { success: false, error: "Missing payment or charge data" };
   }
-  if (ctx.paymentStatus === "refunded") {
-    return {
-      success: true,
-      refundAmount: calc.refundAmountCents / 100,
-      ownerTransferAmount:
-        calc.ownerTransferAmountCents > 0
-          ? calc.ownerTransferAmountCents / 100
-          : undefined,
-    };
+  // Refunded by another path (a Stripe-side refund, or a pre-CONC-02 cancel
+  // that refunded and then died before its status write) while the row still
+  // reads `approved`. Finish the transition below without refunding again.
+  const alreadyRefunded = ctx.paymentStatus === "refunded";
+
+  // Point of no return. Claim the cancellation atomically BEFORE any money
+  // moves: if the owner's `start` (or a second cancel) won the race, nothing
+  // has been refunded or transferred yet (CONC-02). A failure after this
+  // point leaves the rental cancelled for ops to reconcile — never an
+  // `approved` rental whose charge is already refunded.
+  const cancellationReason: CancellationReason =
+    cancelledBy === "renter" ? "renter_cancellation" : "owner_cancellation";
+  try {
+    await rentalDAL.cancelApprovedRental(
+      rentalRequestId,
+      userId,
+      cancellationReason,
+      context.reason ?? null,
+    );
+  } catch (error) {
+    // A lost claim on an already-refunded rental is a double-submit whose
+    // other half finished the job — same answer as before this fix.
+    if (error instanceof ConflictError && alreadyRefunded) {
+      return {
+        success: true,
+        refundAmount: calc.refundAmountCents / 100,
+      };
+    }
+    throw error;
   }
 
-  const refundResult = await processRefund({
-    rentalId: ctx.rentalId,
-    chargeId: ctx.rentalChargeId,
-    refundAmountCents: calc.refundAmountCents,
-    reason: calc.refundReason,
-  });
+  let refundFailedError: string | null = null;
+  if (!alreadyRefunded) {
+    const refundResult = await processRefund({
+      rentalId: ctx.rentalId,
+      chargeId: ctx.rentalChargeId,
+      refundAmountCents: calc.refundAmountCents,
+      reason: calc.refundReason,
+    });
 
-  if (!refundResult.success) {
-    return { success: false, error: refundResult.error };
+    if (refundResult.success) {
+      await paymentDAL.recordRefund(ctx.paymentId, {
+        refundedAt: new Date(),
+        refundAmount: (calc.refundAmountCents / 100).toFixed(2),
+        refundReason: calc.refundReason,
+      });
+    } else {
+      // The rental is already cancelled and cannot be cancelled again, so a
+      // retry from the client is impossible — ops has to refund by hand.
+      refundFailedError = refundResult.error;
+      await sendOpsAlert({
+        event: "refund_failed_on_cancel",
+        rentalId: ctx.rentalId,
+        message: `Rental cancelled but refund failed: ${refundResult.error}`,
+        metadata: {
+          rentalRequestId,
+          refundAmount: calc.refundAmountCents / 100,
+        },
+        sendEmailAlert: true,
+      });
+    }
   }
-
-  const refundedAt = new Date();
-  await paymentDAL.recordRefund(ctx.paymentId, {
-    refundedAt,
-    refundAmount: (calc.refundAmountCents / 100).toFixed(2),
-    refundReason: calc.refundReason,
-  });
 
   const depositStatus = ctx.depositHoldStatus;
   let depositReleaseFailed = false;
@@ -206,7 +245,26 @@ export async function cancelApprovedRental(
   }
 
   let ownerTransferAmountDollars: number | undefined;
-  if (calc.ownerTransferAmountCents > 0 && ctx.ownerConnectedAccountId) {
+  if (
+    alreadyRefunded &&
+    calc.ownerTransferAmountCents > 0 &&
+    ctx.ownerConnectedAccountId
+  ) {
+    // We don't know how much the out-of-band refund returned. A
+    // `source_transaction` transfer is not reduced by a refund, so paying the
+    // owner's share here could be platform-funded — leave it to ops.
+    await sendOpsAlert({
+      event: "owner_transfer_skipped_prior_refund",
+      rentalId: ctx.rentalId,
+      message:
+        "Cancelled an approved rental whose charge was already refunded — owner share not transferred; review manually",
+      metadata: {
+        rentalRequestId,
+        ownerTransferAmount: calc.ownerTransferAmountCents / 100,
+      },
+      sendEmailAlert: true,
+    });
+  } else if (calc.ownerTransferAmountCents > 0 && ctx.ownerConnectedAccountId) {
     const transferResult = await createOwnerTransfer({
       rentalId: ctx.rentalId,
       rentalRequestId: ctx.rentalRequestId,
@@ -238,15 +296,6 @@ export async function cancelApprovedRental(
       });
     }
   }
-
-  const cancellationReason: CancellationReason =
-    cancelledBy === "renter" ? "renter_cancellation" : "owner_cancellation";
-  await rentalDAL.cancelApprovedRental(
-    rentalRequestId,
-    userId,
-    cancellationReason,
-    context.reason ?? null,
-  );
 
   await paymentLifecycleDAL.markCancelled(ctx.rentalId, {
     ...(depositReleaseFailed ? {} : { depositHoldStatus: "released" as const }),
@@ -314,7 +363,7 @@ export async function cancelApprovedRental(
     });
   }
 
-  if (renterUser) {
+  if (renterUser && !refundFailedError) {
     await sendNotification({
       userId: renterUser.id,
       type: "payment_refunded",
@@ -333,6 +382,14 @@ export async function cancelApprovedRental(
       },
       linkUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app"}/dashboard/rental/${rentalRequestId}`,
     });
+  }
+
+  if (refundFailedError) {
+    return {
+      success: false,
+      error:
+        "Your rental was cancelled, but the refund could not be processed. Our team has been notified and will complete it.",
+    };
   }
 
   return {
@@ -359,6 +416,12 @@ export async function applyNoShow(
   if (ctx.status === "cancelled") {
     throw new ValidationError("Rental is already cancelled", "status");
   }
+  if (ctx.status !== "approved") {
+    throw new ValidationError(
+      "Only approved rentals can have a no-show applied",
+      "status",
+    );
+  }
   if (ctx.paymentStatus === "refunded") {
     throw new ValidationError("Payment is already refunded", "paymentStatus");
   }
@@ -375,6 +438,15 @@ export async function applyNoShow(
     return { success: false, error: "Missing payment or charge data" };
   }
 
+  // Claim before any money moves — same reasoning as cancelApprovedRental
+  // (CONC-02). A lost claim throws ConflictError (409) with nothing refunded.
+  const cancellationReason: CancellationReason = noShowType;
+  await rentalDAL.cancelApprovedRental(
+    rentalRequestId,
+    opsUserId,
+    cancellationReason,
+  );
+
   const refundResult = await processRefund({
     rentalId: ctx.rentalId,
     chargeId: ctx.rentalChargeId,
@@ -382,15 +454,26 @@ export async function applyNoShow(
     reason: calc.refundReason,
   });
 
-  if (!refundResult.success) {
-    return { success: false, error: refundResult.error };
+  let refundFailedError: string | null = null;
+  if (refundResult.success) {
+    await paymentDAL.recordRefund(ctx.paymentId, {
+      refundedAt: new Date(),
+      refundAmount: (calc.refundAmountCents / 100).toFixed(2),
+      refundReason: calc.refundReason,
+    });
+  } else {
+    refundFailedError = refundResult.error;
+    await sendOpsAlert({
+      event: "refund_failed_no_show",
+      rentalId: ctx.rentalId,
+      message: `No-show applied but refund failed: ${refundResult.error}`,
+      metadata: {
+        rentalRequestId,
+        refundAmount: calc.refundAmountCents / 100,
+      },
+      sendEmailAlert: true,
+    });
   }
-
-  await paymentDAL.recordRefund(ctx.paymentId, {
-    refundedAt: new Date(),
-    refundAmount: (calc.refundAmountCents / 100).toFixed(2),
-    refundReason: calc.refundReason,
-  });
 
   const depositStatus = ctx.depositHoldStatus;
   let depositReleaseFailed = false;
@@ -459,13 +542,6 @@ export async function applyNoShow(
     }
   }
 
-  const cancellationReason: CancellationReason = noShowType;
-  await rentalDAL.cancelApprovedRental(
-    rentalRequestId,
-    opsUserId,
-    cancellationReason,
-  );
-
   await paymentLifecycleDAL.markCancelled(ctx.rentalId, {
     ...(depositReleaseFailed ? {} : { depositHoldStatus: "released" as const }),
     ...(ownerTransferAmountDollars != null
@@ -488,6 +564,13 @@ export async function applyNoShow(
     metadata: { rentalRequestId, refundAmount: calc.refundAmountCents / 100 },
     sendEmailAlert: true,
   });
+
+  if (refundFailedError) {
+    return {
+      success: false,
+      error: `No-show applied and the rental is cancelled, but the refund failed: ${refundFailedError}`,
+    };
+  }
 
   return {
     success: true,

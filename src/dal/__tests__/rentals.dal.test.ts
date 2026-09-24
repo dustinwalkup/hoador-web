@@ -1217,6 +1217,54 @@ describe("RentalDAL", () => {
         rentalDAL.startRental("rental-123", "user-123"),
       ).rejects.toThrow(/only approved rentals can be started/i);
     });
+
+    // CONC-02: the pre-check above reads `approved`, but a concurrent cancel
+    // can land between that read and this write. The UPDATE itself must
+    // require `approved`, or `start` overwrites a cancelled (and refunded)
+    // rental back to active and the owner is later paid out in full.
+    it("claims the status transition with an `approved` predicate", async () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      stubExisting([
+        {
+          ...mockRentalRequest,
+          ownerId: "user-123",
+          status: "approved",
+          startDate: yesterday,
+        },
+      ]);
+      const { mockWhere } = stubUpdate([{ id: "rental-123" }]);
+
+      await rentalDAL.startRental("rental-123", "user-123");
+
+      const claimWhere = mockWhere.mock.calls[0][0];
+      expect(boundTo(claimWhere, '"rental_requests"."status"', "=")).toBe(
+        "approved",
+      );
+      expect(boundTo(claimWhere, '"rental_requests"."id"', "=")).toBe(
+        "rental-123",
+      );
+    });
+
+    it("throws ConflictError and touches nothing else when the claim loses", async () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      stubExisting([
+        {
+          ...mockRentalRequest,
+          ownerId: "user-123",
+          status: "approved",
+          startDate: yesterday,
+        },
+      ]);
+      stubUpdate([]);
+
+      await expect(
+        rentalDAL.startRental("rental-123", "user-123"),
+      ).rejects.toThrow(ConflictError);
+      // Only the claim UPDATE ran — no rentals/listings writes after it.
+      expect(vi.mocked(db.update)).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("endRental", () => {
@@ -1308,6 +1356,62 @@ describe("RentalDAL", () => {
       ).rejects.toThrow(ConflictError);
 
       expect(vi.mocked(db.update)).not.toHaveBeenCalled();
+    });
+
+    // CONC-02: the pre-check is a read; the UPDATE is the claim.
+    it("claims the status transition with an `active` predicate", async () => {
+      stubExisting([
+        { ...mockRentalRequest, ownerId: "user-123", status: "active" },
+      ]);
+      const { mockWhere } = stubUpdate([{ id: "rental-123" }]);
+
+      await rentalDAL.endRental("rental-123", "user-123");
+
+      expect(
+        boundTo(mockWhere.mock.calls[0][0], '"rental_requests"."status"', "="),
+      ).toBe("active");
+    });
+
+    it("throws ConflictError and touches nothing else when the claim loses", async () => {
+      stubExisting([
+        { ...mockRentalRequest, ownerId: "user-123", status: "active" },
+      ]);
+      stubUpdate([]);
+
+      await expect(
+        rentalDAL.endRental("rental-123", "user-123"),
+      ).rejects.toThrow(ConflictError);
+      expect(vi.mocked(db.update)).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("cancelApprovedRental", () => {
+    it("claims on `approved`", async () => {
+      const { mockWhere } = stubUpdate([{ id: "req-1" }]);
+
+      await rentalDAL.cancelApprovedRental(
+        "req-1",
+        "user-1",
+        "renter_cancellation",
+      );
+
+      expect(
+        boundTo(mockWhere.mock.calls[0][0], '"rental_requests"."status"', "="),
+      ).toBe("approved");
+    });
+
+    // The service claims with this BEFORE refunding, and tells a lost race
+    // (409, nothing moved) from a real DB failure by this type.
+    it("throws ConflictError when the claim loses", async () => {
+      stubUpdate([]);
+
+      await expect(
+        rentalDAL.cancelApprovedRental(
+          "req-1",
+          "user-1",
+          "renter_cancellation",
+        ),
+      ).rejects.toThrow(ConflictError);
     });
   });
 

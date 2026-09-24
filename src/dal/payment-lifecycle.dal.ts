@@ -16,6 +16,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import { rentalPaymentLifecycle } from "@/db/schemas/rental-payment-lifecycle.schema";
 import { rentals, rentalRequests } from "@/db/schemas/rentals.schema";
 import { disputes } from "@/db/schemas/disputes.schema";
+import { payments } from "@/db/schemas/payments.schema";
 import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
 import { auditLogs } from "@/db/schemas/audit-logs.schema";
@@ -353,7 +354,8 @@ export class PaymentLifecycleDAL extends BaseDAL {
 
   /**
    * Find rentals eligible for payout processing.
-   * Criteria: completed, returnConfirmedAt > 24hrs ago, payoutStatus = pending, no open disputes.
+   * Criteria: completed, returnConfirmedAt > 24hrs ago, payoutStatus = pending,
+   * transfer not frozen, no open disputes, rental charge not refunded.
    */
   async findEligibleForPayout(
     limit: number = 20,
@@ -396,6 +398,11 @@ export class PaymentLifecycleDAL extends BaseDAL {
             // it, even once the dispute row itself reads `resolved` (BIZ-05).
             ne(rentalPaymentLifecycle.ownerTransferStatus, "frozen"),
             isNull(disputes.id),
+            // Never pay an owner out of a refunded charge: a Stripe
+            // `source_transaction` transfer is not reduced by the refund, so
+            // the platform would fund it (CONC-02). NOT EXISTS rather than a
+            // join so a rental with several payment rows is not duplicated.
+            sql`NOT EXISTS (SELECT 1 FROM ${payments} WHERE ${payments.rentalId} = ${rentals.id} AND ${payments.status} = ${"refunded"})`,
           ),
         )
         .orderBy(rentals.returnConfirmedAt)

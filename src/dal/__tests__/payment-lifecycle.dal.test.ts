@@ -66,5 +66,22 @@ describe("PaymentLifecycleDAL", () => {
       expect(match).not.toBeNull();
       expect(params[Number(match![1]) - 1]).toBe("frozen");
     });
+
+    // CONC-02: a refunded charge must never fund an owner payout — Stripe's
+    // `source_transaction` transfer is not reduced by the refund, so the
+    // platform would pay it. NOT EXISTS, not a join, so a rental with several
+    // payment rows is not returned (and paid) more than once.
+    it("excludes rentals whose charge was refunded", async () => {
+      const { mockWhere } = stubSelect();
+
+      await paymentLifecycleDAL.findEligibleForPayout(20);
+
+      const { sql, params } = renderWhere(mockWhere.mock.calls[0][0]);
+      const match = sql.match(
+        /NOT EXISTS \(SELECT 1 FROM "payments" WHERE "payments"\."rental_id" = "rentals"\."id" AND "payments"\."status" = \$(\d+)\)/,
+      );
+      expect(match).not.toBeNull();
+      expect(params[Number(match![1]) - 1]).toBe("refunded");
+    });
   });
 });

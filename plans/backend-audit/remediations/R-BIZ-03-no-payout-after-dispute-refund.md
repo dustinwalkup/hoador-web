@@ -216,3 +216,23 @@ via Stripe `transfers.createReversal` (manual, no code path exists today).
 - If a future change lets a booking re-enter `accepted` after
   `"cancelled"` (none exists today), re-verify this plan's CAS still holds —
   `updateIfStatus`'s `expectedStatus` parameter would need updating too.
+- **Earnings will still say "Paid out" for these bookings after this plan
+  lands** (added 2026-09-24; found by mobile Epic 13, R-13.2.2 in
+  `hoador-mobile/specs/mobile-app/tasks/epic-13-reviews-disputes-needs.md`).
+  `markRefundedAfterDispute` writes `ownerTransferStatus: "completed"` for a
+  booking whose provider was never paid, and `paymentDAL.getUserEarnings`
+  (`payment.dal.ts`, the `serviceTransferStatus` select) returns that value
+  as-is. The mobile earnings feed renders `completed` as "Paid out". So a
+  provider whose client was refunded in full is told they were paid.
+  Out of this plan's scope, and **do not fix it by changing what
+  `markRefundedAfterDispute` writes**: Step 3 makes `ownerTransferStatus =
+'pending'` the payout guard, and that value is what keeps a refunded
+  booking out of the payout cron. Two safe follow-ups, to land after this
+  plan:
+  (a) derive the display status in `getUserEarnings`: `completed` with no
+  `stripeTransferId` (the dispute is already joined there) means refunded,
+  not paid, which is the same test Step 4's ops query uses; or
+  (b) add a `refunded` value to `service_owner_transfer_status` (a
+  migration). Mobile parses that enum tolerantly, so an older app shows its
+  "unknown" pill until it maps the new value.
+  (a) needs no migration and no app release.
