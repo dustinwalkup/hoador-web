@@ -37,6 +37,8 @@ const {
   userPreferences,
   userAddresses,
   rentals,
+  rentalRequests,
+  payments,
   listings,
   communityMemberships,
   blindReviews,
@@ -271,6 +273,36 @@ export class UserDAL extends BaseDAL {
       return this.updateUser(userId, updates);
     } catch (error) {
       this.handleError(error, "updateCurrentUser");
+    }
+  }
+
+  /**
+   * Whether the user ever paid or was paid, or ever took part in a rental
+   * request as renter or owner. Hard-deleting such a user cascades into
+   * payment, payout and agreement records that must be retained (DB-01), so
+   * the admin delete refuses them.
+   */
+  async hasFinancialHistory(userId: string): Promise<boolean> {
+    try {
+      const [payment] = await this.db
+        .select({ id: payments.id })
+        .from(payments)
+        .where(or(eq(payments.payerId, userId), eq(payments.payeeId, userId)))
+        .limit(1);
+      if (payment) return true;
+      const [request] = await this.db
+        .select({ id: rentalRequests.id })
+        .from(rentalRequests)
+        .where(
+          or(
+            eq(rentalRequests.renterId, userId),
+            eq(rentalRequests.ownerId, userId),
+          ),
+        )
+        .limit(1);
+      return request !== undefined;
+    } catch (error) {
+      this.handleError(error, "hasFinancialHistory");
     }
   }
 

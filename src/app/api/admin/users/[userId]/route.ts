@@ -181,6 +181,28 @@ async function deleteHandler(_request: NextRequest, context: RouteContext) {
     }
 
     const { userId } = await context.params;
+
+    // Chargeback auto-disputes are created by this row (migration 0070);
+    // deleting it would cascade-delete every one of them (BIZ-06).
+    if (userId === "system") {
+      return NextResponse.json(
+        { error: "The system user cannot be deleted." },
+        { status: 409 },
+      );
+    }
+
+    // A hard delete cascades into payment, payout and agreement records that
+    // must be retained (DB-01).
+    if (await userDAL.hasFinancialHistory(userId)) {
+      return NextResponse.json(
+        {
+          error:
+            "This user has payment or rental history and cannot be hard-deleted. Suspend or deactivate the account instead.",
+        },
+        { status: 409 },
+      );
+    }
+
     const existing = await userDAL.getUserById(userId);
 
     await userDAL.deleteUser(userId);

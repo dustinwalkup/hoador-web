@@ -512,6 +512,13 @@
       "when": 1790283719972,
       "tag": "0072_rental_requests_no_overlap",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1790285546864,
+      "tag": "0073_restrict_financial_record_fks",
+      "breakpoints": true
     }
   ]
 }

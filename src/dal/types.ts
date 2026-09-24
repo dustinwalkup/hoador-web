@@ -674,7 +674,8 @@ export interface DisputeWithRelations {
     stripeTransferId: string | null;
     status: FinancialOperationStatus;
     errorMessage: string | null;
-    performedBy: string;
+    /** Null once the admin who performed it has been deleted (DB-01). */
+    performedBy: string | null;
     performedAt: Date;
   }>;
 }

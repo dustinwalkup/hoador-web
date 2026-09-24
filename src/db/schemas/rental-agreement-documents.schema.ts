@@ -14,8 +14,9 @@ export const rentalAgreementDocuments = pgTable(
   "rental_agreement_documents",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    // RESTRICT: a signed agreement is a legal record (DB-01).
     rentalRequestId: uuid("rental_request_id")
-      .references(() => rentalRequests.id, { onDelete: "cascade" })
+      .references(() => rentalRequests.id, { onDelete: "restrict" })
       .notNull()
       .unique(),
     pdfUrl: varchar("pdf_url", { length: 500 }).notNull(),

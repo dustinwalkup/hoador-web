@@ -53,6 +53,9 @@ import { eq, inArray, like, ne } from "drizzle-orm";
 import { db } from "../db-seed";
 import { listingAvailability, listings } from "../schemas/listings.schema";
 import { rentalPaymentLifecycle } from "../schemas/rental-payment-lifecycle.schema";
+import { rentalAgreementDocuments } from "../schemas/rental-agreement-documents.schema";
+import { userLegalAcceptances } from "../schemas/legal-documents.schema";
+import { payments } from "../schemas/payments.schema";
 import { rentals, rentalRequests } from "../schemas/rentals.schema";
 import { user } from "../schemas/user.schema";
 
@@ -153,16 +156,24 @@ async function clearPreviousFixtures(): Promise<void> {
       .select({ id: rentals.id })
       .from(rentals)
       .where(inArray(rentals.requestId, ids));
-    // `rental_payment_lifecycle` FKs `rentals`, which FKs `rental_requests`, so
-    // the chain is deleted innermost first.
+    // Children before parents: the lifecycle and payment rows FK `rentals`,
+    // which FKs `rental_requests`.
+    // `payments`, `rental_payment_lifecycle`, `rental_agreement_documents` and
+    // `user_legal_acceptances` are ON DELETE RESTRICT (DB-01): the app may
+    // have added some while the fixtures were in use, so they go first.
     if (owned.length > 0) {
-      await db.delete(rentalPaymentLifecycle).where(
-        inArray(
-          rentalPaymentLifecycle.rentalId,
-          owned.map((r) => r.id),
-        ),
-      );
+      const rentalIds = owned.map((r) => r.id);
+      await db.delete(payments).where(inArray(payments.rentalId, rentalIds));
+      await db
+        .delete(rentalPaymentLifecycle)
+        .where(inArray(rentalPaymentLifecycle.rentalId, rentalIds));
     }
+    await db
+      .delete(rentalAgreementDocuments)
+      .where(inArray(rentalAgreementDocuments.rentalRequestId, ids));
+    await db
+      .delete(userLegalAcceptances)
+      .where(inArray(userLegalAcceptances.rentalRequestId, ids));
     await db.delete(rentals).where(inArray(rentals.requestId, ids));
     await db.delete(rentalRequests).where(inArray(rentalRequests.id, ids));
   }

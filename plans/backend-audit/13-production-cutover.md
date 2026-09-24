@@ -23,6 +23,7 @@ Everything the backend-audit fixes need done **by hand, outside the code**, when
 | B3  | Resolve overlapping bookings (before 0072)                       | R-CONC-01     | DONE 2026-09-24: 4 requests cancelled | DONE 2026-09-24: 4 requests cancelled | TODO                   |
 | B4  | Mobile build that handles the new error codes is live            | R-SEC-01 etc. | n/a                                   | n/a                                   | TODO                   |
 | M1  | `bun run db:migrate`                                             | all           | DONE 2026-09-24 (0069–0072)           | DONE 2026-09-24 (0072)                | TODO                   |
+| M2  | `bun run db:migrate` for 0073 (RESTRICT money/legal FKs)         | R-DB-01       | TODO                                  | TODO                                  | TODO                   |
 | A1  | Verify `rental_requests_no_overlap` exists                       | R-CONC-01     | DONE                                  | DONE                                  | TODO                   |
 | A2  | Resend failed `charge.dispute.created` webhooks (within 30 days) | R-BIZ-06      | n/a                                   | n/a                                   | TODO                   |
 | A3  | Pay owners their captured deposits (backfill)                    | R-BIZ-04      | —                                     | —                                     | TODO (plan not landed) |
@@ -57,10 +58,11 @@ ORDER BY a.listing_id;
 
 **M1. Migrate.** `bun run db:migrate`, after checking the host. drizzle-kit runs **every pending migration in one transaction**, so one failure rolls back the whole batch, and the plain output hides the Postgres error. If it fails, rerun with `npx drizzle-kit migrate --verbose`. The migrations the audit fixes depend on:
 
-| Migration                         | Fix       | Notes                                                                         |
-| --------------------------------- | --------- | ----------------------------------------------------------------------------- |
-| `0070_seed_system_user`           | R-BIZ-06  | Idempotent (`ON CONFLICT DO NOTHING`). Nothing to prepare.                    |
-| `0072_rental_requests_no_overlap` | R-CONC-01 | Needs B3 first. Installs `btree_gist`. Not in the Drizzle schema (see below). |
+| Migration                            | Fix       | Notes                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0070_seed_system_user`              | R-BIZ-06  | Idempotent (`ON CONFLICT DO NOTHING`). Nothing to prepare.                                                                                                                                                                                                                                                       |
+| `0072_rental_requests_no_overlap`    | R-CONC-01 | Needs B3 first. Installs `btree_gist`. Not in the Drizzle schema (see below).                                                                                                                                                                                                                                    |
+| `0073_restrict_financial_record_fks` | R-DB-01   | No data prep: it only changes FK delete actions and drops NOT NULL on `dispute_financial_operations.performed_by`. Postgres truncates one constraint name to 63 chars (`rental_agreement_documents_rental_request_id_rental_requests_id`) and prints a NOTICE when the migration refers to it; that is expected. |
 
 ## After deploying
 
@@ -81,4 +83,5 @@ SELECT conname FROM pg_constraint WHERE conname = 'rental_requests_no_overlap';
 
 ## Known follow-ups (not blocking, but prod-relevant)
 
-- The admin user list and delete don't guard the `system` user (R-BIZ-06). Deleting it would cascade-delete every chargeback auto-dispute.
+- ~~The admin delete doesn't guard the `system` user~~ — fixed in R-DB-01 (409). It still shows in the admin user list.
+- **Behavior change to expect after R-DB-01:** deleting a listing that ever had a rental request archives it (`is_active = false`), and it shows in the owner's Archived tab. Superadmin hard-delete of a user with payments or rental requests returns 409, so those accounts can only be suspended or deactivated.

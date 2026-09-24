@@ -19,8 +19,9 @@ export const payments = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     /** Set for rental flows; null when {@link serviceBookingId} is set. */
+    // RESTRICT: a payment record must outlive nothing it pays for (DB-01).
     rentalId: uuid("rental_id").references(() => rentals.id, {
-      onDelete: "cascade",
+      onDelete: "restrict",
     }),
     /** Set for HOA service booking charges; null when {@link rentalId} is set. */
     serviceBookingId: uuid("service_booking_id").references(

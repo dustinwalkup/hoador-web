@@ -45,9 +45,10 @@ export const userLegalAcceptances = pgTable(
       .notNull(),
     documentId: text("document_id").notNull(), // References legal_documents.id
     version: varchar("version", { length: 50 }).notNull(), // Version accepted
+    // RESTRICT: an acceptance is a legal record (DB-01).
     rentalRequestId: uuid("rental_request_id").references(
       () => rentalRequests.id,
-      { onDelete: "cascade" },
+      { onDelete: "restrict" },
     ), // Optional: links to specific rental request
     listingId: uuid("listing_id").references(() => listings.id, {
       onDelete: "cascade",

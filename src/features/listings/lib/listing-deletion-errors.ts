@@ -19,8 +19,8 @@ export type ListingDeletionBlocker = {
  * flight against it. Routes translate this to HTTP 409 with body
  * `{ error: "LISTING_DELETION_BLOCKED", blockers: [...] }`.
  *
- * **Why this guard exists at all.** `listingDAL.deleteListing` is a plain
- * `DELETE FROM listings`, and the foreign keys cascade:
+ * **Why this guard exists at all.** `listingDAL.deleteListing` was a plain
+ * `DELETE FROM listings`, and the foreign keys cascaded:
  *
  *   listings → rental_requests → rentals → rental_payment_lifecycle
  *                                        → rental_agreement_documents
@@ -31,7 +31,9 @@ export type ListingDeletionBlocker = {
  * this database pointing at it. The service side has always had the equivalent
  * protection (`service_bookings.listing_id` is ON DELETE RESTRICT and
  * `DELETE /api/services/listings/[id]` refuses when bookings exist); rentals
- * were simply missed.
+ * were simply missed. Since DB-01 a listing with any rental history is
+ * archived, not deleted, and those FKs are RESTRICT; this guard still stops a
+ * listing disappearing from under a rental in flight.
  *
  * Structurally mirrors `AccountDeletionBlockedError`: a standalone `Error` (not
  * a `DALError`) carrying a typed `details` payload, with a dedicated

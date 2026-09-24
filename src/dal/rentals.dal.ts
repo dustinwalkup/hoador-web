@@ -2750,11 +2750,10 @@ export class RentalDAL extends BaseDAL {
    * How many rentals are still in flight against a listing, split into the two
    * groups a user can act on.
    *
-   * Backs the delete guard in `ListingService.deleteListing`: `listings` cascades
-   * into `rental_requests` → `rentals` → `rental_payment_lifecycle` and
-   * `rental_agreement_documents`, so a delete performed while any of these rows
-   * exist destroys the money trail and the signed agreement while the Stripe-side
-   * charge or deposit hold stays live.
+   * Backs the delete guard in `ListingService.deleteListing`. A listing with
+   * any rental history is now archived rather than deleted, and the money and
+   * agreement FKs are RESTRICT (DB-01); this guard still keeps an in-flight
+   * rental from losing its listing mid-rental.
    *
    * `active` reuses `BLOCKING_RENTAL_STATUSES` — the same vocabulary the
    * account-deletion blockers already use for "in flight", `overdue` included —

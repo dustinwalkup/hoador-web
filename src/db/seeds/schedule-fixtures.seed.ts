@@ -29,6 +29,10 @@ import { eq, inArray, like, ne, sql } from "drizzle-orm";
 
 import { db } from "../db-seed";
 import { rentals, rentalRequests } from "../schemas/rentals.schema";
+import { rentalPaymentLifecycle } from "../schemas/rental-payment-lifecycle.schema";
+import { rentalAgreementDocuments } from "../schemas/rental-agreement-documents.schema";
+import { userLegalAcceptances } from "../schemas/legal-documents.schema";
+import { payments } from "../schemas/payments.schema";
 import { listings } from "../schemas/listings.schema";
 import { serviceBookings, serviceListings } from "../schemas/services.schema";
 import { user } from "../schemas/user.schema";
@@ -165,6 +169,26 @@ async function clearPreviousFixtures(): Promise<void> {
   if (tagged.length > 0) {
     const ids = tagged.map((r) => r.id);
     // `rentals` FKs `rental_requests`, so the child goes first.
+    // `payments`, `rental_payment_lifecycle`, `rental_agreement_documents` and
+    // `user_legal_acceptances` are ON DELETE RESTRICT (DB-01): the app may
+    // have added some while the fixtures were in use, so they go first.
+    const owned = await db
+      .select({ id: rentals.id })
+      .from(rentals)
+      .where(inArray(rentals.requestId, ids));
+    if (owned.length > 0) {
+      const rentalIds = owned.map((r) => r.id);
+      await db.delete(payments).where(inArray(payments.rentalId, rentalIds));
+      await db
+        .delete(rentalPaymentLifecycle)
+        .where(inArray(rentalPaymentLifecycle.rentalId, rentalIds));
+    }
+    await db
+      .delete(rentalAgreementDocuments)
+      .where(inArray(rentalAgreementDocuments.rentalRequestId, ids));
+    await db
+      .delete(userLegalAcceptances)
+      .where(inArray(userLegalAcceptances.rentalRequestId, ids));
     await db.delete(rentals).where(inArray(rentals.requestId, ids));
     await db.delete(rentalRequests).where(inArray(rentalRequests.id, ids));
   }

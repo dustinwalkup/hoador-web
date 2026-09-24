@@ -20,8 +20,9 @@ export const rentalPaymentLifecycle = pgTable(
   "rental_payment_lifecycle",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    // RESTRICT: the payout record must survive its rental's deletion (DB-01).
     rentalId: uuid("rental_id")
-      .references(() => rentals.id, { onDelete: "cascade" })
+      .references(() => rentals.id, { onDelete: "restrict" })
       .notNull(),
     rentalChargeId: varchar("rental_charge_id", { length: 255 }), // Stripe Charge ID for source_transaction
     depositHoldStatus: depositHoldStatusEnum("deposit_hold_status")

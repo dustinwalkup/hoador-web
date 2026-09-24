@@ -175,9 +175,10 @@ export const disputeFinancialOperations = pgTable(
     stripeTransferId: varchar("stripe_transfer_id", { length: 255 }),
     status: financialOperationStatusEnum("status").default("pending").notNull(),
     errorMessage: text("error_message"),
-    performedBy: text("performed_by")
-      .references(() => user.id, { onDelete: "set null" })
-      .notNull(),
+    // Nullable: SET NULL on a NOT NULL column made deleting the user fail (DB-01).
+    performedBy: text("performed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     performedAt: timestamp("performed_at").defaultNow().notNull(),
   },
   (table) => [

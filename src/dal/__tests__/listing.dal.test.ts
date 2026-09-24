@@ -549,31 +549,77 @@ describe("ListingDAL", () => {
     // The DAL no longer performs ownership verification, so this test is no longer applicable
   });
 
+  /**
+   * DB-01: a listing with any rental request is archived, never deleted —
+   * the hard delete cascaded into payments, payout rows and agreements.
+   */
   describe("deleteListing", () => {
-    it("should soft delete listing when user is owner", async () => {
-      // Arrange
-      const listingId = "listing-123";
-
-      const mockReturning = vi
-        .fn()
-        .mockResolvedValue([{ ...mockListing, status: "archived" }]);
-      const mockWhere = vi.fn().mockReturnValue({
-        returning: mockReturning,
-      });
-
-      vi.mocked(db.delete).mockReturnValue({
-        where: mockWhere,
+    /**
+     * First select: the rental-history probe. Second, only on the hard-delete
+     * branch: the image pathnames. Queue only what the branch reads, or a
+     * leftover once-value leaks into later tests.
+     */
+    const stubSelects = (history: unknown[], images?: unknown[]) => {
+      const select = vi.mocked(db.select).mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(history),
+          }),
+        }),
       } as any);
+      if (images) {
+        select.mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(images),
+          }),
+        } as any);
+      }
+    };
 
-      // Act
-      await listingDAL.deleteListing(listingId);
+    it("archives a listing with rental history instead of deleting it", async () => {
+      stubSelects([{ id: "request-1" }]);
+      const mockSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: "listing-123" }]),
+        }),
+      });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as any);
 
-      // Assert
-      expect(db.delete).toHaveBeenCalled();
+      await listingDAL.deleteListing("listing-123");
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ isActive: false }),
+      );
+      expect(db.delete).not.toHaveBeenCalled();
     });
 
-    // Note: Ownership checks are now done at the caller level (API routes/server actions)
-    // The DAL no longer performs ownership verification, so this test is no longer applicable
+    it("throws NotFoundError when archiving a listing that does not exist", async () => {
+      stubSelects([{ id: "request-1" }]);
+      vi.mocked(db.update).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as any);
+
+      await expect(listingDAL.deleteListing("missing")).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("hard-deletes a listing that never had a rental request", async () => {
+      stubSelects([], []);
+      const mockWhere = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([mockListing]),
+      });
+      vi.mocked(db.delete).mockReturnValue({ where: mockWhere } as any);
+
+      await listingDAL.deleteListing("listing-123");
+
+      expect(db.delete).toHaveBeenCalledTimes(1);
+      expect(db.update).not.toHaveBeenCalled();
+    });
   });
 
   describe("searchListings", () => {

@@ -561,6 +561,53 @@ describe("UserDAL", () => {
     });
   });
 
+  /** DB-01: the admin hard delete refuses users this returns true for. */
+  describe("hasFinancialHistory", () => {
+    const stubSelect = (...results: unknown[][]) => {
+      const wheres: ReturnType<typeof vi.fn>[] = [];
+      for (const rows of results) {
+        const where = vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(rows),
+        });
+        wheres.push(where);
+        vi.mocked(db.select).mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({ where }),
+        } as any);
+      }
+      return wheres;
+    };
+
+    it("is true for a payer or payee, without checking rental requests", async () => {
+      const [where] = stubSelect([{ id: "payment-1" }]);
+
+      await expect(userDAL.hasFinancialHistory("user-1")).resolves.toBe(true);
+
+      const { sql, params } = new PgDialect().sqlToQuery(
+        where.mock.calls[0][0],
+      );
+      expect(sql).toContain('"payments"."payer_id" = $1');
+      expect(sql).toContain('"payments"."payee_id" = $2');
+      expect(params).toEqual(["user-1", "user-1"]);
+      expect(db.select).toHaveBeenCalledTimes(1);
+    });
+
+    it("is true for a renter or owner on any rental request", async () => {
+      const [, where] = stubSelect([], [{ id: "request-1" }]);
+
+      await expect(userDAL.hasFinancialHistory("user-1")).resolves.toBe(true);
+
+      const { sql } = new PgDialect().sqlToQuery(where.mock.calls[0][0]);
+      expect(sql).toContain('"rental_requests"."renter_id" = $1');
+      expect(sql).toContain('"rental_requests"."owner_id" = $2');
+    });
+
+    it("is false with neither", async () => {
+      stubSelect([], []);
+
+      await expect(userDAL.hasFinancialHistory("user-1")).resolves.toBe(false);
+    });
+  });
+
   describe("deleteUser", () => {
     it("should delete user", async () => {
       vi.mocked(db.delete).mockReturnValue({

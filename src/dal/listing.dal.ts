@@ -674,8 +674,45 @@ export class ListingDAL extends BaseDAL {
     }
   }
 
+  /**
+   * Whether any rental request, in any status, was ever made for the listing.
+   * Once one exists, the listing's row anchors records that must outlive it:
+   * payments, the payout lifecycle, the signed agreement (DB-01).
+   */
+  async hasRentalHistory(listingId: string): Promise<boolean> {
+    try {
+      const [row] = await this.db
+        .select({ id: rentalRequests.id })
+        .from(rentalRequests)
+        .where(eq(rentalRequests.listingId, listingId))
+        .limit(1);
+      return row !== undefined;
+    } catch (error) {
+      this.handleError(error, "hasRentalHistory");
+    }
+  }
+
+  /**
+   * Delete a listing, or archive it (`isActive = false`) if it has rental
+   * history. A hard delete cascaded through its rental requests and rentals
+   * and destroyed completed rentals' payment records, payout rows and signed
+   * agreements, while the Stripe charges stayed where they were (DB-01).
+   * Either way the listing leaves every active surface.
+   */
   async deleteListing(id: string): Promise<void> {
     try {
+      if (await this.hasRentalHistory(id)) {
+        const archived = await this.db
+          .update(listings)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(listings.id, id))
+          .returning({ id: listings.id });
+        if (archived.length === 0) {
+          throw new NotFoundError("Listing", id);
+        }
+        return;
+      }
+
       // Fetch blob pathnames before cascade delete removes the image records
       const images = await this.db
         .select({ blobPathname: listingImages.blobPathname })
