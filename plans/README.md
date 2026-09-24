@@ -22,7 +22,12 @@ row when done.
 
 ## Execution order & status
 
-No open plans: every plan from runs 1 and 2 is DONE (see below).
+| Plan                                       | Title                                                             | Priority | Effort | Status                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------ | ----------------------------------------------------------------- | -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [016](016-earnings-exact-payout-amount.md) | Earnings: show the exact amount paid out when a refund reduced it | P2       | M      | TODO. Written 2026-09-24 as the planned half of the Earnings "Paid out" fix, whose first half shipped the same day (a derived `refunded` status, `refundAmount`, and refunded rows that stay in the feed). Needs a `rental_payment_lifecycle.transfer_amount` column and a Stripe backfill |
+
+Every plan from runs 1 and 2 is DONE (see below). The backend audit's
+remediation plans are tracked in `backend-audit/10-remediation-roadmap.md`.
 
 Status values: TODO | IN PROGRESS | DONE | PARTIAL | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 

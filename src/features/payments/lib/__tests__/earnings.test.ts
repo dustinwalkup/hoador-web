@@ -36,6 +36,12 @@ const RENTAL_ROW: EarningsRow = {
   serviceTransferStatus: null,
   rentalTransferredAt: new Date("2026-08-12T09:00:00Z"),
   serviceTransferredAt: null,
+  // Every real `completed` payout records one; without it the feed reads the
+  // row as refunded.
+  rentalTransferId: "tr_rental_1",
+  serviceTransferId: null,
+  paymentStatus: "succeeded",
+  refundAmount: null,
   disputeId: null,
 };
 
@@ -55,6 +61,10 @@ const SERVICE_ROW: EarningsRow = {
   serviceTransferStatus: "pending",
   rentalTransferredAt: null,
   serviceTransferredAt: null,
+  rentalTransferId: null,
+  serviceTransferId: null,
+  paymentStatus: "succeeded",
+  refundAmount: null,
   disputeId: null,
 };
 
@@ -169,6 +179,65 @@ describe("toEarningsItem — dispute link (D-P5, Req 13.3.2)", () => {
     });
 
     expect(item.disputeId).toBeNull();
+  });
+});
+
+// 2026-09-24: a full dispute refund closes the payout as `completed` with no
+// transfer, and the app showed "Paid out" to a provider paid nothing.
+describe("toEarningsItem — refunded, not paid", () => {
+  const refundedService: EarningsRow = {
+    ...SERVICE_ROW,
+    serviceTransferStatus: "completed",
+    serviceTransferId: null,
+    disputeId: "dispute-9",
+  };
+
+  it("reads a completed payout with no transfer as refunded, and links the dispute", () => {
+    expect(toEarningsItem(refundedService)).toMatchObject({
+      transferStatus: "refunded",
+      disputeId: "dispute-9",
+      refundAmount: null,
+    });
+  });
+
+  it("keeps a completed payout WITH a transfer as completed, on both marketplaces", () => {
+    expect(
+      toEarningsItem({ ...refundedService, serviceTransferId: "tr_svc_1" })
+        .transferStatus,
+    ).toBe("completed");
+    expect(toEarningsItem(RENTAL_ROW).transferStatus).toBe("completed");
+    expect(
+      toEarningsItem({ ...RENTAL_ROW, rentalTransferId: null }).transferStatus,
+    ).toBe("refunded");
+  });
+
+  it("sends the refund amount once the charge is marked refunded, verbatim", () => {
+    const item = toEarningsItem({
+      ...refundedService,
+      paymentStatus: "refunded",
+      refundAmount: "60.00",
+    });
+    expect(item.refundAmount).toBe("60.00");
+  });
+
+  // A partial outcome or cancellation share: refunded charge, real payout.
+  it("keeps a partly refunded row that was paid as completed, with its refund", () => {
+    const item = toEarningsItem({
+      ...RENTAL_ROW,
+      paymentStatus: "refunded",
+      refundAmount: "50.00",
+    });
+    expect(item).toMatchObject({
+      transferStatus: "completed",
+      refundAmount: "50.00",
+      disputeId: null,
+    });
+  });
+
+  it("sends no refund amount for a charge that isn't refunded", () => {
+    expect(
+      toEarningsItem({ ...RENTAL_ROW, refundAmount: "5.00" }).refundAmount,
+    ).toBeNull();
   });
 });
 

@@ -65,6 +65,28 @@ export const TRANSFER_STATUSES = [
 
 export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
 
+/**
+ * What the earnings feed sends: the five pg states plus **`refunded`**, which
+ * no enum holds. It is derived, not stored (2026-09-24, mobile Epic 13
+ * follow-up to R-BIZ-03).
+ *
+ * A full `favor_renter` refund on a service booking closes the payout with
+ * `markRefundedAfterDispute`, which writes `completed`, the state that means
+ * "transfer succeeded", with no transfer ever made. The app rendered that as
+ * "Paid out" to a provider who was paid nothing. `completed` can't be changed
+ * there: R-BIZ-03's payout guard depends on it. So the feed reads it here:
+ * **`completed` with no `stripeTransferId` is `refunded`.** Every real
+ * `completed` write (payout cron, cancellation share, both marketplaces)
+ * records a transfer id, so this reading never fires on a genuine payout.
+ */
+export const EARNINGS_TRANSFER_STATUSES = [
+  ...TRANSFER_STATUSES,
+  "refunded",
+] as const;
+
+export type EarningsTransferStatus =
+  (typeof EARNINGS_TRANSFER_STATUSES)[number];
+
 export type EarningsItem = {
   kind: "rental" | "service";
   /** The payment row's id — the stable identity for a list, unique even if a booking somehow has two (R1). */
@@ -78,10 +100,22 @@ export type EarningsItem = {
   /** Decimal strings, verbatim from the database. Never parsed here. */
   gross: string;
   platformFee: string;
+  /**
+   * `gross − platformFee`, before any refund. For a row with a
+   * `refundAmount` it is NOT what was paid out, and the app must not present
+   * it as the payout. The exact partial amount is planned work (rental
+   * lifecycles don't record it yet).
+   */
   net: string;
-  transferStatus: TransferStatus | null;
+  transferStatus: EarningsTransferStatus | null;
   transferredAt: Date | null;
-  /** Populated only while the payout is frozen (D-P5). */
+  /**
+   * What went back to the payer, verbatim (`payments.refund_amount`), once the
+   * charge is marked refunded. Null otherwise, including in the moments
+   * before Stripe's `charge.refunded` webhook lands.
+   */
+  refundAmount: string | null;
+  /** Populated while the payout is frozen (D-P5), or when a dispute refunded it. */
   disputeId: string | null;
 };
 
@@ -102,6 +136,10 @@ export type EarningsRow = {
   serviceTransferStatus: string | null;
   rentalTransferredAt: Date | null;
   serviceTransferredAt: Date | null;
+  rentalTransferId: string | null;
+  serviceTransferId: string | null;
+  paymentStatus: string;
+  refundAmount: string | null;
   disputeId: string | null;
 };
 
@@ -124,9 +162,14 @@ function asTransferStatus(value: string | null): TransferStatus | null {
  */
 export function toEarningsItem(row: EarningsRow): EarningsItem {
   const isRental = row.rentalId !== null;
-  const transferStatus = asTransferStatus(
+  const stored = asTransferStatus(
     isRental ? row.rentalTransferStatus : row.serviceTransferStatus,
   );
+  const transferId = isRental ? row.rentalTransferId : row.serviceTransferId;
+  // `completed` with no transfer: closed by a refund, never paid (see
+  // EARNINGS_TRANSFER_STATUSES).
+  const transferStatus: EarningsTransferStatus | null =
+    stored === "completed" && !transferId ? "refunded" : stored;
 
   return {
     kind: isRental ? "rental" : "service",
@@ -142,9 +185,15 @@ export function toEarningsItem(row: EarningsRow): EarningsItem {
     transferredAt: isRental
       ? row.rentalTransferredAt
       : row.serviceTransferredAt,
+    refundAmount: row.paymentStatus === "refunded" ? row.refundAmount : null,
     // D-P5: the freeze is the signal, not the dispute's own status. A dispute
     // that is resolved but whose transfer has not yet unfrozen still gets a
     // link — that gap is exactly when an owner goes looking for an explanation.
-    disputeId: transferStatus === "frozen" ? row.disputeId : null,
+    // A refunded payout links too: the dispute is the only explanation of why
+    // nothing was paid.
+    disputeId:
+      transferStatus === "frozen" || transferStatus === "refunded"
+        ? row.disputeId
+        : null,
   };
 }

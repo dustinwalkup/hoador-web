@@ -196,6 +196,7 @@ Findings in this document: CRITICAL 1 · HIGH 2 · MEDIUM 6 · LOW 5.
 - **Mitigating layers checked:** Request IDs are UUIDs. The URL never expires.
 - **Real-world impact:** Home addresses stay public, including after account deletion.
 - **Recommended fix:** Use `access: "private"` (or at minimum `addRandomSuffix: true`) behind an authorized route that streams the file or issues signed URLs. Stop logging the URL.
+  - **Constraint from mobile Epic 14 (2026-09-24):** choose **signed URLs**, returned in `agreement.pdfUrl` on `GET /api/rentals/[id]` and `GET /api/services/bookings/[id]`. The app's `native/pdf.ts` opens that URL in an in-app browser with no session cookie, so a streaming route that authenticates by cookie would break agreement viewing on mobile.
 - **Tests needed:** Uploads are private; a non-party download returns 403.
 - **Related:** 01, 12.
 

@@ -5,6 +5,7 @@ import {
   disputeDAL,
   paymentDAL,
   paymentLifecycleDAL,
+  servicePaymentLifecycleDAL,
   auditLogDAL,
   legalDocumentDAL,
 } from "@/dal";
@@ -238,6 +239,79 @@ describe("ChargebackService", () => {
           serviceBookingId: "sb-123",
         }),
       );
+    });
+
+    describe("auto-dispute insert fails (BIZ-06)", () => {
+      const insertError = new Error("disputes_created_by_user_id_fk");
+
+      beforeEach(() => {
+        vi.mocked(disputeDAL.getActiveByRentalId).mockResolvedValue(null);
+        vi.mocked(disputeDAL.getActiveByServiceBookingId).mockResolvedValue(
+          null,
+        );
+        vi.mocked(legalDocumentDAL.getCurrentVersion).mockResolvedValue({
+          version: "v1.0",
+        } as any);
+        vi.mocked(disputeDAL.create).mockRejectedValue(insertError);
+      });
+
+      it("alerts ops and rethrows for a rental chargeback, without freezing", async () => {
+        vi.mocked(paymentDAL.getByChargeId).mockResolvedValue({
+          id: "payment-123",
+          rentalId: "rental-123",
+        } as any);
+
+        await expect(
+          ChargebackService.handleChargebackCreated(mockStripeDispute),
+        ).rejects.toBe(insertError);
+
+        expect(sendOpsAlert).toHaveBeenCalledTimes(1);
+        expect(sendOpsAlert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            event: "chargeback_auto_dispute_create_failed",
+            rentalId: "rental-123",
+            metadata: { stripeDisputeId: "dp_stripe_123", chargeId: "ch_123" },
+            sendEmailAlert: true,
+          }),
+        );
+        expect(paymentLifecycleDAL.freezeForDispute).not.toHaveBeenCalled();
+        expect(disputeDAL.updateStripeChargebackId).not.toHaveBeenCalled();
+      });
+
+      it("alerts ops and rethrows for a service booking chargeback, without freezing", async () => {
+        vi.mocked(paymentDAL.getByChargeId).mockResolvedValue({
+          id: "payment-svc",
+          rentalId: null,
+          serviceBookingId: "sb-123",
+        } as any);
+
+        await expect(
+          ChargebackService.handleChargebackCreated(mockStripeDispute),
+        ).rejects.toBe(insertError);
+
+        expect(sendOpsAlert).toHaveBeenCalledTimes(1);
+        expect(sendOpsAlert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            event: "chargeback_auto_dispute_create_failed",
+            serviceBookingId: "sb-123",
+          }),
+        );
+        expect(
+          servicePaymentLifecycleDAL.freezeForDispute,
+        ).not.toHaveBeenCalled();
+      });
+
+      it("still rethrows the insert error when the alert itself fails", async () => {
+        vi.mocked(paymentDAL.getByChargeId).mockResolvedValue({
+          id: "payment-123",
+          rentalId: "rental-123",
+        } as any);
+        vi.mocked(sendOpsAlert).mockRejectedValueOnce(new Error("smtp down"));
+
+        await expect(
+          ChargebackService.handleChargebackCreated(mockStripeDispute),
+        ).rejects.toBe(insertError);
+      });
     });
   });
 

@@ -241,3 +241,20 @@ No code. See Maintenance notes for the query and the manual replay step.
   indexes are full, not partial — a chargeback on a rental with a _closed_
   dispute will still hit a 23505 unique violation (a related but distinct
   defect the audit notes; not fixed by this plan).
+- **Admin user list exposure (Step 2, noted only)**: the plan's grep found
+  nothing, but `GET /api/admin/users` → `userDAL.getUsersForAdmin` has no
+  filter, so the `system` user will show up in the admin user list. Worse,
+  `disputes.created_by` is `ON DELETE CASCADE`, so a superadmin deleting that
+  user (`DELETE /api/admin/users/[userId]` → `userDAL.deleteUser`) would delete
+  every chargeback auto-dispute with it. A later fix should exclude or protect
+  `id = 'system'` there.
+- **Tests**: `src/services/stripe/__tests__/chargeback-system-user.integration.test.ts`
+  runs the migration's own SQL, since the integration setup truncates `user`
+  before each test and `db:push:e2e` doesn't run data migrations.
+- **Deploy timing (2026-09-24)**: prod deploy is deferred. Stripe keeps
+  events for 30 days, so any `charge.dispute.created` event older than that
+  at deploy time can't be resent. At deploy, cross-check Stripe → Disputes
+  and handle those by hand (create the dispute, freeze the payout). Until
+  deploy, prod chargebacks neither freeze payouts nor alert ops, so watch
+  Stripe's own dispute emails. The prod `system`-row check was waived (none on
+  staging/local, and `ON CONFLICT DO NOTHING` covers it).

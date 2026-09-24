@@ -1,4 +1,16 @@
-import { eq, desc, sql, count, and, gte, lte, inArray, or } from "drizzle-orm";
+import {
+  eq,
+  desc,
+  sql,
+  count,
+  and,
+  gte,
+  lte,
+  inArray,
+  or,
+  isNotNull,
+} from "drizzle-orm";
+import type { PgSelect } from "drizzle-orm/pg-core";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { payments } from "@/db/schemas/payments.schema";
@@ -129,11 +141,54 @@ export class PaymentDAL extends BaseDAL {
 
       const offset = (page - 1) * limit;
 
+      // A REFUNDED charge counts only when the payee was paid, or is owed,
+      // something on it, or a dispute refunded it (2026-09-24). Before this,
+      // any refund, partial included, dropped the row, so a partial dispute
+      // outcome or a rental cancellation share vanished from the feed of the
+      // person it was paid to. A full-refund cancellation paid nobody and was
+      // never earnings, so it stays out.
+      const refundedButRelevant = and(
+        eq(payments.status, "refunded"),
+        or(
+          isNotNull(rentalPaymentLifecycle.stripeTransferId),
+          isNotNull(servicePaymentLifecycle.stripeTransferId),
+          eq(rentalPaymentLifecycle.ownerTransferStatus, "failed"),
+          eq(servicePaymentLifecycle.ownerTransferStatus, "failed"),
+          isNotNull(disputes.id),
+        ),
+      );
+
       const where = and(
         eq(payments.payeeId, userId),
-        inArray(payments.status, [...EARNINGS_PAYMENT_STATUSES]),
         inArray(payments.paymentType, [...CHARGE_PAYMENT_TYPES]),
+        or(
+          inArray(payments.status, [...EARNINGS_PAYMENT_STATUSES]),
+          refundedButRelevant,
+        ),
       );
+
+      // The WHERE reads the lifecycles and the dispute, so the count joins
+      // them too. At most one of each per payment (one lifecycle per
+      // rental/booking, one dispute per rental/booking), so no row repeats.
+      const withJoins = <T extends PgSelect>(query: T) =>
+        query
+          .leftJoin(
+            rentalPaymentLifecycle,
+            eq(rentalPaymentLifecycle.rentalId, payments.rentalId),
+          )
+          .leftJoin(
+            servicePaymentLifecycle,
+            eq(servicePaymentLifecycle.bookingId, payments.serviceBookingId),
+          )
+          // A rental payment has a null serviceBookingId, so the service half
+          // of this OR cannot match it (NULL = NULL is not true) and vice versa.
+          .leftJoin(
+            disputes,
+            or(
+              eq(disputes.rentalId, payments.rentalId),
+              eq(disputes.serviceBookingId, payments.serviceBookingId),
+            ),
+          );
 
       // D-P1: a rental "completed" when the owner confirmed the item came back —
       // the moment that starts the review window and releases the payout. The
@@ -141,35 +196,41 @@ export class PaymentDAL extends BaseDAL {
       const rentalCompletedAt = sql<Date | null>`COALESCE(${rentals.returnConfirmedAt}, ${rentals.actualEndDate}, ${rentals.endDate})`;
       const completedAt = sql<Date | null>`COALESCE(${rentalCompletedAt}, ${serviceBookings.completedAt})`;
 
-      const [{ value: total }] = await this.db
-        .select({ value: count() })
-        .from(payments)
-        .where(where);
+      const [{ value: total }] = await withJoins(
+        this.db.select({ value: count() }).from(payments).$dynamic(),
+      ).where(where);
 
-      const rows = await this.db
-        .select({
-          paymentId: payments.id,
-          rentalId: payments.rentalId,
-          serviceBookingId: payments.serviceBookingId,
-          rentalTitle: listings.name,
-          serviceTitle: serviceListings.title,
-          // Name only — never the email. This endpoint family has leaked
-          // counterparty emails before; a narrow select is the fix.
-          counterpartyName: user.name,
-          rentalCompletedAt,
-          serviceCompletedAt: serviceBookings.completedAt,
-          gross: payments.amount,
-          platformFee: payments.platformFee,
-          // D-P7: computed in SQL on Postgres `numeric` (exact), never in JS
-          // (float). The app renders it and derives nothing.
-          net: sql<string>`(${payments.amount} - ${payments.platformFee})::text`,
-          rentalTransferStatus: rentalPaymentLifecycle.ownerTransferStatus,
-          serviceTransferStatus: servicePaymentLifecycle.ownerTransferStatus,
-          rentalTransferredAt: rentalPaymentLifecycle.ownerTransferredAt,
-          serviceTransferredAt: servicePaymentLifecycle.ownerTransferredAt,
-          disputeId: disputes.id,
-        })
-        .from(payments)
+      const rows = await withJoins(
+        this.db
+          .select({
+            paymentId: payments.id,
+            rentalId: payments.rentalId,
+            serviceBookingId: payments.serviceBookingId,
+            rentalTitle: listings.name,
+            serviceTitle: serviceListings.title,
+            // Name only — never the email. This endpoint family has leaked
+            // counterparty emails before; a narrow select is the fix.
+            counterpartyName: user.name,
+            rentalCompletedAt,
+            serviceCompletedAt: serviceBookings.completedAt,
+            gross: payments.amount,
+            platformFee: payments.platformFee,
+            // D-P7: computed in SQL on Postgres `numeric` (exact), never in JS
+            // (float). The app renders it and derives nothing.
+            net: sql<string>`(${payments.amount} - ${payments.platformFee})::text`,
+            rentalTransferStatus: rentalPaymentLifecycle.ownerTransferStatus,
+            serviceTransferStatus: servicePaymentLifecycle.ownerTransferStatus,
+            rentalTransferredAt: rentalPaymentLifecycle.ownerTransferredAt,
+            serviceTransferredAt: servicePaymentLifecycle.ownerTransferredAt,
+            rentalTransferId: rentalPaymentLifecycle.stripeTransferId,
+            serviceTransferId: servicePaymentLifecycle.stripeTransferId,
+            paymentStatus: payments.status,
+            refundAmount: payments.refundAmount,
+            disputeId: disputes.id,
+          })
+          .from(payments)
+          .$dynamic(),
+      )
         .leftJoin(rentals, eq(payments.rentalId, rentals.id))
         .leftJoin(listings, eq(rentals.listingId, listings.id))
         .leftJoin(
@@ -179,23 +240,6 @@ export class PaymentDAL extends BaseDAL {
         .leftJoin(
           serviceListings,
           eq(serviceBookings.listingId, serviceListings.id),
-        )
-        .leftJoin(
-          rentalPaymentLifecycle,
-          eq(rentalPaymentLifecycle.rentalId, payments.rentalId),
-        )
-        .leftJoin(
-          servicePaymentLifecycle,
-          eq(servicePaymentLifecycle.bookingId, payments.serviceBookingId),
-        )
-        // A rental payment has a null serviceBookingId, so the service half of
-        // this OR cannot match it (NULL = NULL is not true) and vice versa.
-        .leftJoin(
-          disputes,
-          or(
-            eq(disputes.rentalId, payments.rentalId),
-            eq(disputes.serviceBookingId, payments.serviceBookingId),
-          ),
         )
         .leftJoin(user, eq(user.id, payments.payerId))
         .where(where)

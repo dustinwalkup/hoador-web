@@ -216,6 +216,11 @@ via Stripe `transfers.createReversal` (manual, no code path exists today).
 - If a future change lets a booking re-enter `accepted` after
   `"cancelled"` (none exists today), re-verify this plan's CAS still holds —
   `updateIfStatus`'s `expectedStatus` parameter would need updating too.
+- **✅ Follow-up done 2026-09-24 (option (a))**: the earnings feed now derives
+  `transferStatus: "refunded"` for `completed` with no transfer id, sends
+  `refundAmount`, and keeps partly refunded rows it used to drop. The exact
+  partial amount is plan `plans/016-earnings-exact-payout-amount.md`.
+  Original note follows.
 - **Earnings will still say "Paid out" for these bookings after this plan
   lands** (added 2026-09-24; found by mobile Epic 13, R-13.2.2 in
   `hoador-mobile/specs/mobile-app/tasks/epic-13-reviews-disputes-needs.md`).

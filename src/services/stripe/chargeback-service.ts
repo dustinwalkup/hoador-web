@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { tryCatch } from "@walkup/walkup-utils";
 import { PAYMENT_SERVER_INSTANCE } from "./server";
 import { getLogger } from "@/lib/logger";
 import {
@@ -11,9 +12,34 @@ import {
 } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { ValidationError, NotFoundError } from "@/dal/errors";
+import type { CreateDisputeData } from "@/dal/types";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 
 const logger = getLogger();
+
+/**
+ * Insert the auto-dispute for a chargeback. The payout freeze and the
+ * `chargeback_created` alert both run after this insert, so a failure here
+ * must alert on its own before rethrowing (500 → Stripe retries the event).
+ */
+async function createChargebackAutoDispute(
+  data: CreateDisputeData,
+  ids: { stripeDisputeId: string; chargeId: string },
+) {
+  const { data: autoDispute, error } = await tryCatch(disputeDAL.create(data));
+  if (error) {
+    await sendOpsAlert({
+      event: "chargeback_auto_dispute_create_failed",
+      rentalId: data.rentalId ?? undefined,
+      serviceBookingId: data.serviceBookingId ?? undefined,
+      message: `Failed to auto-create dispute for chargeback ${ids.stripeDisputeId}: ${error.message}`,
+      metadata: ids,
+      sendEmailAlert: true,
+    }).catch(() => {});
+    throw error;
+  }
+  return autoDispute;
+}
 
 /**
  * Handles Stripe chargeback (bank-level dispute) events and evidence submission.
@@ -96,15 +122,18 @@ export class ChargebackService {
         );
         const policyVersion = disputePolicy?.version || "v1.0";
 
-        const autoDispute = await disputeDAL.create({
-          rentalId: null,
-          serviceBookingId,
-          createdBy: "system",
-          createdByRole: "requester",
-          reasonCode: "payment_issue",
-          description: `Auto-created from Stripe chargeback ${stripeDisputeId}`,
-          policyVersion,
-        });
+        const autoDispute = await createChargebackAutoDispute(
+          {
+            rentalId: null,
+            serviceBookingId,
+            createdBy: "system",
+            createdByRole: "requester",
+            reasonCode: "payment_issue",
+            description: `Auto-created from Stripe chargeback ${stripeDisputeId}`,
+            policyVersion,
+          },
+          { stripeDisputeId, chargeId },
+        );
 
         await disputeDAL.updateStripeChargebackId(
           autoDispute.id,
@@ -173,14 +202,17 @@ export class ChargebackService {
       );
       const policyVersion = disputePolicy?.version || "v1.0";
 
-      const autoDispute = await disputeDAL.create({
-        rentalId,
-        createdBy: "system",
-        createdByRole: "renter",
-        reasonCode: "payment_issue",
-        description: `Auto-created from Stripe chargeback ${stripeDisputeId}`,
-        policyVersion,
-      });
+      const autoDispute = await createChargebackAutoDispute(
+        {
+          rentalId,
+          createdBy: "system",
+          createdByRole: "renter",
+          reasonCode: "payment_issue",
+          description: `Auto-created from Stripe chargeback ${stripeDisputeId}`,
+          policyVersion,
+        },
+        { stripeDisputeId, chargeId },
+      );
 
       await disputeDAL.updateStripeChargebackId(
         autoDispute.id,
