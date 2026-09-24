@@ -18,6 +18,7 @@ import {
   RentalDatesUnavailableError,
   CounterpartyUnavailableError,
   ServiceNotYetDueError,
+  NeedLimitReachedError,
 } from "@/dal/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
 import { mockVerifiedUser, mockAdminUser } from "@/test/fixtures/auth";
@@ -99,6 +100,7 @@ describe("route-helpers", () => {
         ["RentalRequestNotPendingError", new RentalRequestNotPendingError()],
         ["RentalDatesUnavailableError", new RentalDatesUnavailableError()],
         ["ServiceNotYetDueError", new ServiceNotYetDueError()],
+        ["NeedLimitReachedError", new NeedLimitReachedError("limit")],
       ])("does not capture %s", (_name, error) => {
         handleApiError(error);
 
@@ -132,6 +134,19 @@ describe("route-helpers", () => {
       expect(response.status).toBe(409);
       await expect(response.json()).resolves.toMatchObject({
         code: "COUNTERPARTY_UNAVAILABLE",
+      });
+    });
+
+    // SEC-15: the posting throttle; mobile classifies any 429 as rate-limited.
+    it("should give NeedLimitReachedError a 429 with its code", async () => {
+      const response = handleApiError(
+        new NeedLimitReachedError("You can post up to 10 a day."),
+      );
+
+      expect(response.status).toBe(429);
+      await expect(response.json()).resolves.toEqual({
+        error: "You can post up to 10 a day.",
+        code: "NEED_LIMIT_REACHED",
       });
     });
 

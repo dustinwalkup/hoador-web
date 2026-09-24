@@ -8,7 +8,12 @@ import {
   notifyRequesterListingLive,
   closeNeedsFulfilledByBooking,
 } from "../neighborhood-needs-service";
-import { ValidationError, ForbiddenError, ConflictError } from "@/dal/errors";
+import {
+  ValidationError,
+  ForbiddenError,
+  ConflictError,
+  NeedLimitReachedError,
+} from "@/dal/errors";
 
 // ── mock DAL singletons ───────────────────────────────────────────────────────
 
@@ -28,6 +33,10 @@ const mockLinkListing = vi.fn();
 const mockGetListingCategories = vi.fn();
 const mockListCategories = vi.fn();
 const mockSendNotification = vi.fn();
+const mockGetPostingCounts = vi.fn();
+const mockBulkCreate = vi.fn();
+const mockGetPushTargets = vi.fn();
+const mockBroadcastPush = vi.fn();
 const mockCaptureError = vi.fn();
 const mockAfter = vi.fn((fn: () => Promise<void>) => fn());
 // Captures the fire-and-forget after() callback so tests can await the fan-out.
@@ -57,6 +66,14 @@ vi.mock("@/dal", () => ({
     findOpenNeedsLinkedToListing: (...a: unknown[]) =>
       mockFindOpenNeedsLinkedToListing(...a),
     linkListing: (...a: unknown[]) => mockLinkListing(...a),
+    getPostingCounts: (...a: unknown[]) => mockGetPostingCounts(...a),
+  },
+  notificationsDAL: {
+    bulkCreateForVisibleCommunity: (...a: unknown[]) => mockBulkCreate(...a),
+  },
+  pushSubscriptionDAL: {
+    getOptInPushTargetsInCommunity: (...a: unknown[]) =>
+      mockGetPushTargets(...a),
   },
   serviceListingDAL: {
     listCategories: (...a: unknown[]) => mockListCategories(...a),
@@ -69,6 +86,10 @@ vi.mock("next/server", () => ({
 
 vi.mock("@/features/notifications/utils/send-notification", () => ({
   sendNotification: (...a: unknown[]) => mockSendNotification(...a),
+}));
+
+vi.mock("@/features/notifications/lib/push-service", () => ({
+  broadcastPush: (...a: unknown[]) => mockBroadcastPush(...a),
 }));
 
 vi.mock("@/lib/api/route-helpers", () => ({
@@ -127,6 +148,10 @@ beforeEach(() => {
     "user-3",
   ]);
   mockIsVisibleInCommunity.mockResolvedValue(true);
+  mockGetPostingCounts.mockResolvedValue({ open: 0, recent: 0 });
+  mockBulkCreate.mockResolvedValue(2);
+  mockGetPushTargets.mockResolvedValue([]);
+  mockBroadcastPush.mockResolvedValue(undefined);
 });
 
 // =============================================================================
@@ -184,7 +209,9 @@ describe("createNeed", () => {
     expect(result).toEqual(OPEN_NEED);
   });
 
-  it("fan-out excludes the creator", async () => {
+  // PERF-02: one INSERT … SELECT and one push-target join, not a
+  // `sendNotification` per member.
+  it("fan-out writes every visible member's in-app row in one call, creator excluded", async () => {
     mockGetPrimary.mockResolvedValue(PRIMARY);
     mockGetListingCategories.mockResolvedValue([RENTAL_CAT]);
     mockCreateNeed.mockResolvedValue(OPEN_NEED);
@@ -192,11 +219,66 @@ describe("createNeed", () => {
     await createNeed("user-1", input);
     await afterPromise; // fan-out runs in after(); wait for it to settle
 
-    const calls = mockSendNotification.mock.calls;
-    const recipientIds = calls.map((c) => (c[0] as { userId: string }).userId);
-    expect(recipientIds).not.toContain("user-1");
-    expect(recipientIds).toContain("user-2");
-    expect(recipientIds).toContain("user-3");
+    expect(mockBulkCreate).toHaveBeenCalledTimes(1);
+    expect(mockBulkCreate).toHaveBeenCalledWith({
+      communityId: "comm-1",
+      excludeUserId: "user-1",
+      type: "neighborhood_need_created",
+      title: "New Neighborhood Need",
+      message: 'A neighbor posted a new rental request: "Need a drill"',
+      // `linkUrl` rides in `data`, exactly as `sendNotification` wrote it.
+      data: {
+        needId: "need-1",
+        needType: "rental",
+        linkUrl: expect.stringMatching(/\/dashboard\/needs\/need-1$/),
+      },
+    });
+    expect(mockSendNotification).not.toHaveBeenCalled();
+  });
+
+  it("pushes only to the opted-in targets, in one broadcast", async () => {
+    mockGetPrimary.mockResolvedValue(PRIMARY);
+    mockGetListingCategories.mockResolvedValue([RENTAL_CAT]);
+    mockCreateNeed.mockResolvedValue(OPEN_NEED);
+    const targets = [
+      { id: "sub-2", userId: "user-2", platform: "ios", token: "tok-2" },
+    ];
+    mockGetPushTargets.mockResolvedValue(targets);
+
+    await createNeed("user-1", input);
+    await afterPromise;
+
+    expect(mockGetPushTargets).toHaveBeenCalledWith({
+      communityId: "comm-1",
+      excludeUserId: "user-1",
+      category: "neighborhood_needs",
+    });
+    expect(mockBroadcastPush).toHaveBeenCalledTimes(1);
+    const [sentTo, payload] = mockBroadcastPush.mock.calls[0];
+    expect(sentTo).toBe(targets);
+    // Reference ids only: the allowlisted payload `sendNotification` built.
+    expect(payload).toEqual({
+      title: "New Neighborhood Need",
+      body: 'A neighbor posted a new rental request: "Need a drill"',
+      linkUrl: expect.stringMatching(/\/dashboard\/needs\/need-1$/),
+      data: { type: "neighborhood_need_created", needId: "need-1" },
+    });
+  });
+
+  it("a push failure is captured and leaves the in-app rows in place", async () => {
+    mockGetPrimary.mockResolvedValue(PRIMARY);
+    mockGetListingCategories.mockResolvedValue([RENTAL_CAT]);
+    mockCreateNeed.mockResolvedValue(OPEN_NEED);
+    mockGetPushTargets.mockRejectedValue(new Error("db down"));
+
+    await createNeed("user-1", input);
+    await afterPromise;
+
+    expect(mockBulkCreate).toHaveBeenCalledTimes(1);
+    expect(mockCaptureError).toHaveBeenCalledWith(expect.any(Error), {
+      route: "/api/needs",
+      action: "fanOutNewNeed.push",
+    });
   });
 
   it("fan-out is skipped entirely when the creator is not visible in the community", async () => {
@@ -210,8 +292,47 @@ describe("createNeed", () => {
     await createNeed("user-1", input);
     await afterPromise; // let the fan-out short-circuit settle
 
-    expect(mockGetUserIdsVisibleInCommunity).not.toHaveBeenCalled();
-    expect(mockSendNotification).not.toHaveBeenCalled();
+    expect(mockBulkCreate).not.toHaveBeenCalled();
+    expect(mockGetPushTargets).not.toHaveBeenCalled();
+    expect(mockBroadcastPush).not.toHaveBeenCalled();
+  });
+
+  // SEC-15: every post notifies the poster's whole network.
+  describe("posting limits", () => {
+    beforeEach(() => {
+      mockGetPrimary.mockResolvedValue(PRIMARY);
+      mockGetListingCategories.mockResolvedValue([RENTAL_CAT]);
+      mockCreateNeed.mockResolvedValue(OPEN_NEED);
+    });
+
+    it.each([
+      ["5 open needs", { open: 5, recent: 5 }],
+      ["10 posts in the last day", { open: 0, recent: 10 }],
+    ])("refuses a post at %s, before inserting", async (_label, counts) => {
+      mockGetPostingCounts.mockResolvedValue(counts);
+
+      const error = await createNeed("user-1", input).catch((e) => e);
+
+      expect(error).toBeInstanceOf(NeedLimitReachedError);
+      expect(error.code).toBe("NEED_LIMIT_REACHED");
+      expect(error.statusCode).toBe(429);
+      expect(mockCreateNeed).not.toHaveBeenCalled();
+      expect(mockAfter).not.toHaveBeenCalled();
+    });
+
+    it("allows a post just under both limits, counting the last 24 hours", async () => {
+      mockGetPostingCounts.mockResolvedValue({ open: 4, recent: 9 });
+      const before = Date.now();
+
+      await createNeed("user-1", input);
+
+      expect(mockCreateNeed).toHaveBeenCalledTimes(1);
+      const [userId, since] = mockGetPostingCounts.mock.calls[0];
+      expect(userId).toBe("user-1");
+      const windowMs = before - (since as Date).getTime();
+      expect(windowMs).toBeGreaterThanOrEqual(24 * 60 * 60 * 1000 - 1000);
+      expect(windowMs).toBeLessThanOrEqual(24 * 60 * 60 * 1000 + 1000);
+    });
   });
 
   it("validates service category against service_listing_categories", async () => {

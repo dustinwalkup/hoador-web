@@ -182,6 +182,162 @@ export async function sendExpoPush(
   }
 }
 
+type NativeRow = PushSubscriptionRow & { token: string };
+type AuditEntry = Parameters<
+  typeof pushSubscriptionDAL.createAuditLogs
+>[0][number];
+
+/**
+ * Deliver one payload to many users' native subscriptions: the multi-user
+ * counterpart of `sendExpoPush`, for community-wide fan-outs (PERF-02).
+ *
+ * Same per-ticket semantics as `handleTicket`: an accepted ticket is audited
+ * `pending` for the receipt cron, an errored one `error`, and a
+ * `DeviceNotRegistered` ticket deactivates its token. The difference is
+ * the DB cost: audit rows are collected in memory and written in bulk once
+ * every chunk is sent, and dead tokens are deactivated in one statement.
+ * Calling `sendExpoPush` per user would cost a write per recipient.
+ *
+ * Never throws for a send or audit failure; the caller still guards it.
+ *
+ * @param rows - Active native subscriptions, each carrying its own `userId`
+ * @param payload - PII-free payload from `buildPushPayload`
+ */
+export async function sendExpoPushBroadcast(
+  rows: NativeRow[],
+  payload: PushPayload,
+): Promise<void> {
+  if (!rows.length) return;
+
+  const expo = getExpoClient();
+  const eventType = payload.data?.type ?? EVENT_TYPE_PUSH_SEND;
+  const audits: AuditEntry[] = [];
+  const deadTokens = new Set<string>();
+
+  const messages = rows.map((r) => toExpoMessage(r.token, payload));
+
+  // Every message carries the same payload, so one oversized means all are.
+  if (
+    Buffer.byteLength(JSON.stringify(messages[0]), "utf8") >
+    EXPO_MAX_PAYLOAD_BYTES
+  ) {
+    getLogger().error(
+      {
+        event: "expo_push_payload_too_large",
+        eventType,
+        recipients: rows.length,
+        limitBytes: EXPO_MAX_PAYLOAD_BYTES,
+      },
+      "[expo-push] broadcast payload exceeds Expo's size limit; not sending",
+    );
+    await pushSubscriptionDAL.createAuditLogs(
+      rows.map((r) => ({
+        userId: r.userId,
+        subscriptionId: r.id,
+        eventType,
+        success: false,
+        errorMessage: `Payload exceeds Expo limit of ${EXPO_MAX_PAYLOAD_BYTES} bytes`,
+      })),
+    );
+    return;
+  }
+
+  // The SDK splits the list into contiguous, order-preserving chunks of at
+  // most 100, and tickets come back in message order, so a running offset maps
+  // each ticket to its row. (The token alone can't: one device's token can sit
+  // on two users' rows.)
+  const chunks = expo.chunkPushNotifications(messages);
+  let offset = 0;
+
+  if (LOG_PUSH_DEBUG) {
+    getLogger().info(
+      {
+        event: "expo_push_broadcast_dispatch",
+        eventType,
+        subscriptionCount: rows.length,
+        chunkCount: chunks.length,
+      },
+      "[expo-push] dispatching native broadcast",
+    );
+  }
+
+  for (const chunk of chunks) {
+    const chunkRows = rows.slice(offset, offset + chunk.length);
+    offset += chunk.length;
+
+    let tickets: ExpoPushTicket[];
+    try {
+      tickets = await expo.sendPushNotificationsAsync(chunk);
+    } catch (err) {
+      // Transport failure: audit the whole chunk so the send isn't silently
+      // lost, and carry on with the rest.
+      getLogger().error(
+        { err, event: "expo_push_chunk_failed", eventType },
+        "[expo-push] broadcast chunk send failed",
+      );
+      for (const row of chunkRows) {
+        audits.push({
+          userId: row.userId,
+          subscriptionId: row.id,
+          eventType,
+          success: false,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
+      }
+      continue;
+    }
+
+    tickets.forEach((ticket, i) => {
+      const row = chunkRows[i];
+      if (!row) return;
+      if (ticket.status === "ok") {
+        audits.push({
+          userId: row.userId,
+          subscriptionId: row.id,
+          eventType,
+          success: true,
+          receipt: { expoTicketId: ticket.id, receiptStatus: "pending" },
+        });
+        return;
+      }
+      audits.push({
+        userId: row.userId,
+        subscriptionId: row.id,
+        eventType,
+        success: false,
+        errorMessage: ticket.message,
+        receipt: { expoTicketId: null, receiptStatus: "error" },
+      });
+      if (ticket.details?.error === "DeviceNotRegistered") {
+        deadTokens.add(row.token);
+      }
+    });
+  }
+
+  await pushSubscriptionDAL.createAuditLogs(audits);
+
+  if (deadTokens.size) {
+    // Parity with `handleTicket`'s pruning; a failure here must not undo the
+    // sends, and the receipt cron catches these tokens again later.
+    try {
+      await pushSubscriptionDAL.deactivateByTokens([...deadTokens]);
+      getLogger().info(
+        {
+          event: "expo_push_device_not_registered",
+          count: deadTokens.size,
+          source: "ticket",
+        },
+        "[expo-push] deactivated subscriptions: DeviceNotRegistered",
+      );
+    } catch (err) {
+      getLogger().error(
+        { err, event: "expo_push_deactivate_failed" },
+        "[expo-push] failed to deactivate dead tokens after broadcast",
+      );
+    }
+  }
+}
+
 /**
  * Expo publishes receipts a few minutes after a send. Checking sooner burns a
  * request for nothing. Docs say ~15 min; the SDK's README says up to 30 under

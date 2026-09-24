@@ -7,7 +7,7 @@ import {
 } from "@/dal/notifications.dal";
 import { getLogger } from "@/lib/logger";
 import type { PushPayload } from "./push-payload";
-import { sendExpoPush } from "./expo-push-service";
+import { sendExpoPush, sendExpoPushBroadcast } from "./expo-push-service";
 
 const EVENT_TYPE_PUSH_SEND = "push_send";
 
@@ -235,7 +235,20 @@ export async function sendPush(
   }
 
   // Web (VAPID). Unchanged behavior, until the post-GA decommission (Req 2.2.7).
-  if (!webSubscriptions.length) return;
+  // Fire-and-forget, as before.
+  void sendWebPush(userId, webSubscriptions, payload);
+}
+
+/**
+ * Send to one user's web subscriptions, gated on VAPID. Resolves once every
+ * send has settled; never rejects.
+ */
+function sendWebPush(
+  userId: string,
+  webSubscriptions: (PushSubscriptionRow & { p256dh: string; auth: string })[],
+  payload: PushPayload,
+): Promise<void> {
+  if (!webSubscriptions.length) return Promise.resolve();
   if (!ensureVapidInitialized()) {
     if (LOG_PUSH_DEBUG) {
       getLogger({ userId }).info(
@@ -243,15 +256,56 @@ export async function sendPush(
         "Web push send skipped: VAPID not configured (native sends unaffected)",
       );
     }
-    return;
+    return Promise.resolve();
   }
 
-  for (const sub of webSubscriptions) {
-    sendToSubscription(sub, payload, userId).catch((err) => {
-      getLogger({ userId }).error(
-        { err, event: "sendToSubscription_failed", userId },
-        "[push-service] sendToSubscription failed",
-      );
-    });
+  return Promise.all(
+    webSubscriptions.map((sub) =>
+      sendToSubscription(sub, payload, userId).catch((err) => {
+        getLogger({ userId }).error(
+          { err, event: "sendToSubscription_failed", userId },
+          "[push-service] sendToSubscription failed",
+        );
+      }),
+    ),
+  ).then(() => undefined);
+}
+
+/**
+ * Send one payload to many users' subscriptions that the caller has already
+ * filtered for preferences: the multi-user counterpart of `sendPush`, for
+ * community-wide fan-outs (PERF-02).
+ *
+ * Native rows go out in one batched Expo send with bulk-written audit rows.
+ * Web rows keep the per-subscription web-push path, since web-push has no
+ * batch API and web subscribers are few. Resolves when every send has
+ * settled, so an `after()` callback can await it; never rejects for a send
+ * failure.
+ */
+export async function broadcastPush(
+  subscriptions: PushSubscriptionRow[],
+  payload: PushPayload,
+): Promise<void> {
+  const native = subscriptions.filter(isNativeSubscriptionRow);
+  const webByUser = new Map<
+    string,
+    (PushSubscriptionRow & { p256dh: string; auth: string })[]
+  >();
+  for (const sub of subscriptions.filter(isWebSubscriptionRow)) {
+    const list = webByUser.get(sub.userId) ?? [];
+    list.push(sub);
+    webByUser.set(sub.userId, list);
   }
+
+  await Promise.all([
+    sendExpoPushBroadcast(native, payload).catch((err) => {
+      getLogger().error(
+        { err, event: "sendExpoPushBroadcast_failed" },
+        "[push-service] sendExpoPushBroadcast failed",
+      );
+    }),
+    ...[...webByUser].map(([userId, rows]) =>
+      sendWebPush(userId, rows, payload),
+    ),
+  ]);
 }

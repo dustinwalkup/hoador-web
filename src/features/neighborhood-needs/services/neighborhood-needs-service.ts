@@ -3,15 +3,24 @@ import {
   communityDAL,
   listingDAL,
   neighborhoodNeedsDAL,
+  notificationsDAL,
+  pushSubscriptionDAL,
   serviceListingDAL,
 } from "@/dal";
-import { ConflictError, ForbiddenError, ValidationError } from "@/dal/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NeedLimitReachedError,
+  ValidationError,
+} from "@/dal/errors";
 import type { NeedCloseReason, NeedType } from "@/dal/neighborhood-needs.dal";
 import type {
   NewNeighborhoodNeed,
   NeighborhoodNeed,
 } from "@/db/schemas/neighborhood-needs.schema";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
+import { buildPushPayload } from "@/features/notifications/lib/push-payload";
+import { broadcastPush } from "@/features/notifications/lib/push-service";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 
 export interface CreateNeedInput {
@@ -35,6 +44,14 @@ export interface UpdateNeedInput {
 // 6.1 createNeed
 // ============================
 
+/**
+ * Posting limits (SEC-15). Each post notifies the poster's whole network, so
+ * these cap how much a single member can push into everyone's inbox. They are
+ * a starting point, not a product decision; adjust freely.
+ */
+export const MAX_OPEN_NEEDS_PER_USER = 5;
+export const MAX_NEEDS_PER_USER_PER_DAY = 10;
+
 export async function createNeed(
   userId: string,
   input: CreateNeedInput,
@@ -48,6 +65,7 @@ export async function createNeed(
 
   await validateCategoryForType(input.type, input.categoryId);
   validateDateOrder(input.neededStartDate, input.neededEndDate);
+  await assertUnderPostingLimits(userId);
 
   const data: NewNeighborhoodNeed = {
     createdByUserId: userId,
@@ -312,34 +330,78 @@ async function fanOutNewNeed(
   );
   if (!creatorVisible) return;
 
-  const recipientIds = await communityDAL.getUserIdsVisibleInCommunity(
-    need.communityId,
-  );
-
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://hoador.com";
   const linkUrl = `${baseUrl}/dashboard/needs/${need.id}`;
+  const title = "New Neighborhood Need";
+  const message = `A neighbor posted a new ${need.type} request: "${need.title}"`;
+  const data = { needId: need.id, needType: need.type };
 
-  await Promise.all(
-    recipientIds
-      .filter((uid) => uid !== creatorUserId)
-      .map((uid) =>
-        sendNotification({
-          userId: uid,
-          type: "neighborhood_need_created",
-          title: "New Neighborhood Need",
-          message: `A neighbor posted a new ${need.type} request: "${need.title}"`,
+  // Set-based, not one `sendNotification` per member (PERF-02). That cost ~4
+  // queries per recipient, all released into the 10-connection pool at once;
+  // a 3,000-member network saturated it for seconds, stalling every request
+  // on the instance. Now: one INSERT … SELECT for the in-app rows, one join
+  // for push targets, one batched Expo send with bulk-written audit rows.
+  // What recipients get is unchanged: an in-app row for every visible member
+  // (with `linkUrl` in `data`, as `sendNotification` wrote it), no email, and
+  // push only for members who opted in to the neighborhood_needs category
+  // (default off, R12.4 / task 7.2).
+  await notificationsDAL.bulkCreateForVisibleCommunity({
+    communityId: need.communityId,
+    excludeUserId: creatorUserId,
+    type: "neighborhood_need_created",
+    title,
+    message,
+    data: { ...data, linkUrl },
+  });
+
+  // Push failures never fail the fan-out, and never block the in-app rows
+  // above, which are already written.
+  await pushSubscriptionDAL
+    .getOptInPushTargetsInCommunity({
+      communityId: need.communityId,
+      excludeUserId: creatorUserId,
+      category: "neighborhood_needs",
+    })
+    .then((targets) =>
+      broadcastPush(
+        targets,
+        buildPushPayload(
+          title,
+          message,
           linkUrl,
-          data: { needId: need.id, needType: need.type },
-          // In-app always; email hard-off (no fan-out spam). Push is left to
-          // shouldSendPush(), which honors the user's opt-in for the
-          // neighborhood_needs category (default off) — see R12.4 / task 7.2.
-          sendEmail: false,
-        }).catch((err) =>
-          captureNonCriticalError(err, {
-            route: "/api/needs",
-            action: "fanOutNewNeed.sendNotification",
-          }),
+          "neighborhood_need_created",
+          data,
         ),
       ),
+    )
+    .catch((err) =>
+      captureNonCriticalError(err, {
+        route: "/api/needs",
+        action: "fanOutNewNeed.push",
+      }),
+    );
+}
+
+/**
+ * Throw `NeedLimitReachedError` when a user already has too many open needs,
+ * or has posted too many in the last 24 hours (SEC-15). A plain count query:
+ * there is no durable rate-limit store in this repo. Two posts racing past the
+ * check can each land, which is acceptable for a spam throttle.
+ */
+async function assertUnderPostingLimits(userId: string): Promise<void> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const { open, recent } = await neighborhoodNeedsDAL.getPostingCounts(
+    userId,
+    since,
   );
+  if (open >= MAX_OPEN_NEEDS_PER_USER) {
+    throw new NeedLimitReachedError(
+      `You can have up to ${MAX_OPEN_NEEDS_PER_USER} open Neighborhood Needs at a time. Close one to post another.`,
+    );
+  }
+  if (recent >= MAX_NEEDS_PER_USER_PER_DAY) {
+    throw new NeedLimitReachedError(
+      `You can post up to ${MAX_NEEDS_PER_USER_PER_DAY} Neighborhood Needs a day. Try again tomorrow.`,
+    );
+  }
 }

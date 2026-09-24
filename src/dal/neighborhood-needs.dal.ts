@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { BaseDAL } from "./base";
 import { ConflictError, NotFoundError } from "./errors";
 import { type PaginatedResult, type PaginationOptions } from "./types";
@@ -663,6 +663,32 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
       );
     } catch (error) {
       this.handleError(error, "listNeedsByUser");
+    }
+  }
+
+  /**
+   * How many needs a user has open now, and how many they created since
+   * `since` in any state, deleted ones included (a deleted post still fanned
+   * out). One query, for the posting throttle in `createNeed` (SEC-15).
+   */
+  async getPostingCounts(
+    userId: string,
+    since: Date,
+  ): Promise<{ open: number; recent: number }> {
+    try {
+      const [result] = await this.db
+        .select({
+          open: sql<number>`count(*) FILTER (WHERE ${neighborhoodNeeds.status} = 'open' AND ${neighborhoodNeeds.deletedAt} IS NULL)`,
+          recent: sql<number>`count(*) FILTER (WHERE ${gte(neighborhoodNeeds.createdAt, since)})`,
+        })
+        .from(neighborhoodNeeds)
+        .where(eq(neighborhoodNeeds.createdByUserId, userId));
+      return {
+        open: Number(result?.open ?? 0),
+        recent: Number(result?.recent ?? 0),
+      };
+    } catch (error) {
+      this.handleError(error, "getPostingCounts");
     }
   }
 

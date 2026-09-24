@@ -17,6 +17,7 @@ import {
   ConflictError,
   ServiceBookingPaymentFailedError,
   ConversationArchivedError,
+  NeedLimitReachedError,
   CannotMessageSelfError,
   RentalRequestNotPendingError,
   RentalDatesUnavailableError,
@@ -73,6 +74,7 @@ export function handleApiError(
     !(error instanceof RentalDatesUnavailableError) &&
     !(error instanceof CounterpartyUnavailableError) &&
     !(error instanceof CannotMessageSelfError) &&
+    !(error instanceof NeedLimitReachedError) &&
     !(error instanceof PaymentSetupRequiredError) &&
     !(error instanceof AccountDeletionBlockedError) &&
     !(error instanceof ListingDeletionBlockedError) &&
@@ -159,6 +161,13 @@ export function handleApiError(
   }
 
   if (error instanceof ServiceNotYetDueError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+
+  if (error instanceof NeedLimitReachedError) {
     return NextResponse.json(
       { error: error.message, code: error.code },
       { status: error.statusCode },

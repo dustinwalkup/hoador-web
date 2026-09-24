@@ -145,6 +145,23 @@ export class CounterpartyUnavailableError extends DALError {
 }
 
 /**
+ * Thrown when a user posts a Neighborhood Need past the posting limits: too
+ * many open at once, or too many in the last 24 hours. Every post notifies the
+ * poster's whole network, so an unthrottled poster could spam every member
+ * (SEC-15).
+ *
+ * 429 with `code: "NEED_LIMIT_REACHED"`: mobile classifies any 429 as
+ * rate-limited. Not a `ConflictError` subclass, for the same reason as
+ * `RentalRequestNotPendingError`.
+ */
+export class NeedLimitReachedError extends DALError {
+  constructor(message: string) {
+    super(message, "NEED_LIMIT_REACHED", 429);
+    this.name = "NeedLimitReachedError";
+  }
+}
+
+/**
  * Thrown when a user tries to open a conversation with themselves. Req 16.1.3
  * says 1:1 conversations are between two *different* people; until this class
  * existed only the UI enforced it, and a self-pair row would have made every

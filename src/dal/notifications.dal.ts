@@ -7,6 +7,7 @@ import {
   lt,
   lte,
   gte,
+  inArray,
   isNotNull,
   sql,
 } from "drizzle-orm";
@@ -16,7 +17,8 @@ import {
   pushSubscriptions,
   pushNotificationAudit,
 } from "@/db/schemas/notifications.schema";
-import { user } from "@/db/schemas/user.schema";
+import { user, userPreferences } from "@/db/schemas/user.schema";
+import { communityVisibility } from "@/db/schemas/communities.schema";
 import { notificationCategoryEnum } from "@/db/schemas/_enums";
 import { DALError, ValidationError } from "./errors";
 import { BaseDAL } from "./base";
@@ -89,6 +91,46 @@ export class NotificationDAL extends BaseDAL {
       return notification;
     } catch (error) {
       this.handleError(error, "create notification");
+    }
+  }
+
+  /**
+   * Insert one in-app notification for every user visible in a community,
+   * except `excludeUserId`, in a single `INSERT … SELECT`. Returns the number
+   * of rows written.
+   *
+   * The fan-out for a new Neighborhood Need used to call `create` once per
+   * member, each with its own user-existence check: two queries per recipient,
+   * all released into the pool at once, which saturated it for seconds on a
+   * large network (PERF-02). No existence check is needed here:
+   * `community_visibility.user_id` references `user.id`, so every recipient
+   * exists by construction. Rows match what `create` writes.
+   */
+  async bulkCreateForVisibleCommunity(params: {
+    communityId: string;
+    excludeUserId: string;
+    type: CreateNotificationData["type"];
+    title: string;
+    message: string;
+    data: NonNullable<CreateNotificationData["data"]>;
+  }): Promise<number> {
+    try {
+      const result = await this.db.execute(sql`
+        INSERT INTO notifications (user_id, type, title, message, data, is_read)
+        SELECT cv.user_id,
+               ${params.type}::notification_type,
+               ${params.title},
+               ${params.message},
+               ${JSON.stringify(params.data)}::jsonb,
+               false
+        FROM community_visibility cv
+        WHERE cv.community_id = ${params.communityId}
+          AND cv.is_visible = true
+          AND cv.user_id <> ${params.excludeUserId}
+      `);
+      return result.rowCount ?? 0;
+    } catch (error) {
+      this.handleError(error, "bulk create notifications for community");
     }
   }
 
@@ -773,6 +815,79 @@ export class PushSubscriptionDAL extends BaseDAL {
   }
 
   /**
+   * `deactivateByToken` for many tokens in one statement, for a broadcast send
+   * that collects every `DeviceNotRegistered` ticket first (PERF-02).
+   */
+  async deactivateByTokens(tokens: string[]): Promise<void> {
+    if (!tokens.length) return;
+    try {
+      await this.db
+        .update(pushSubscriptions)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(inArray(pushSubscriptions.token, tokens));
+    } catch (error) {
+      this.handleError(error, "deactivate push subscriptions by token");
+    }
+  }
+
+  /**
+   * Active push subscriptions of every user visible in a community (except
+   * `excludeUserId`) who would pass `shouldSendPush` for `category`, in one
+   * query instead of three per member (PERF-02). Returns one row per
+   * subscription, web and native alike.
+   *
+   * ⚠️ Only correct for an OPT-IN category (push default off, i.e.
+   * `neighborhood_needs`): it requires an explicit category row with
+   * `push = true`, where `shouldSendPush` falls back to the category default
+   * when no row exists. The master toggle defaults to on when the user has no
+   * `user_preferences` row, as `userDAL.getUserPreferences` does.
+   */
+  async getOptInPushTargetsInCommunity(params: {
+    communityId: string;
+    excludeUserId: string;
+    category: (typeof notificationCategoryEnum.enumValues)[number];
+  }): Promise<PushSubscriptionRow[]> {
+    try {
+      const rows = await this.db
+        .select({ subscription: pushSubscriptions })
+        .from(communityVisibility)
+        .innerJoin(
+          pushSubscriptions,
+          and(
+            eq(pushSubscriptions.userId, communityVisibility.userId),
+            eq(pushSubscriptions.isActive, true),
+          ),
+        )
+        .innerJoin(
+          notificationCategoryPreferences,
+          and(
+            eq(
+              notificationCategoryPreferences.userId,
+              communityVisibility.userId,
+            ),
+            eq(notificationCategoryPreferences.category, params.category),
+            eq(notificationCategoryPreferences.push, true),
+          ),
+        )
+        .leftJoin(
+          userPreferences,
+          eq(userPreferences.userId, communityVisibility.userId),
+        )
+        .where(
+          and(
+            eq(communityVisibility.communityId, params.communityId),
+            eq(communityVisibility.isVisible, true),
+            ne(communityVisibility.userId, params.excludeUserId),
+            sql`COALESCE(${userPreferences.pushNotifications}, true)`,
+          ),
+        );
+      return rows.map((r) => r.subscription);
+    } catch (error) {
+      this.handleError(error, "get opt-in push targets in community");
+    }
+  }
+
+  /**
    * Deactivate all of a user's subscriptions (account deletion, task 2.6.2).
    * Requirements: 2.5.1.
    */
@@ -938,4 +1053,52 @@ export class PushSubscriptionDAL extends BaseDAL {
       );
     }
   }
+
+  /**
+   * `createAuditLog` for many sends at once: one INSERT per
+   * `AUDIT_INSERT_BATCH` rows rather than one per ticket (PERF-02). Best-effort
+   * in the same way: a failure is logged, never thrown.
+   */
+  async createAuditLogs(
+    entries: Array<{
+      userId: string;
+      subscriptionId: string | null;
+      eventType: string;
+      success: boolean;
+      errorMessage?: string | null;
+      receipt?: {
+        expoTicketId: string | null;
+        receiptStatus: "pending" | "ok" | "error";
+      };
+    }>,
+  ): Promise<void> {
+    for (let i = 0; i < entries.length; i += AUDIT_INSERT_BATCH) {
+      const batch = entries.slice(i, i + AUDIT_INSERT_BATCH);
+      try {
+        await this.db.insert(pushNotificationAudit).values(
+          batch.map((e) => ({
+            userId: e.userId,
+            subscriptionId: e.subscriptionId,
+            eventType: e.eventType,
+            success: e.success,
+            errorMessage: e.errorMessage ?? null,
+            expoTicketId: e.receipt?.expoTicketId ?? null,
+            receiptStatus: e.receipt?.receiptStatus ?? null,
+          })),
+        );
+      } catch (error) {
+        console.warn(
+          "[DAL] createAuditLogs failed (non-fatal):",
+          (error as Error)?.message,
+          { rows: batch.length },
+        );
+      }
+    }
+  }
 }
+
+/**
+ * Rows per audit INSERT: 7 bound values each keeps a statement far under
+ * Postgres's 65,535-parameter ceiling.
+ */
+const AUDIT_INSERT_BATCH = 1000;
