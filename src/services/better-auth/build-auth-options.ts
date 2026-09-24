@@ -52,7 +52,7 @@ function hasPkcs8Shape(rawPrivateKey: string): boolean {
  *    500s EVERY auth request (login, signup, reset). Skipping the provider keeps
  *    the rest of auth alive and logs the reason loudly.
  */
-function isAppleConfigured(): boolean {
+export function isAppleConfigured(): boolean {
   const hasAllCredentials = Boolean(
     process.env.APPLE_CLIENT_ID &&
     process.env.APPLE_TEAM_ID &&

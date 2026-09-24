@@ -14,7 +14,7 @@ import {
 
 import { geocodeAddress } from "@/services/geocoding";
 import { schema } from "@/db/schemas";
-import { session } from "@/db/schemas/user.schema";
+import { account, session } from "@/db/schemas/user.schema";
 import { BaseDAL } from "./base";
 import {
   type CreateUserDTO,
@@ -1334,6 +1334,47 @@ export class UserDAL extends BaseDAL {
         .where(eq(user.id, userId));
     } catch (error) {
       this.handleError(error, "updateReviewAggregate");
+    }
+  }
+
+  /**
+   * The user's Sign in with Apple account row: its id and the Apple user id
+   * (`sub`) it is linked to. `null` if they have never signed in with Apple.
+   */
+  async getAppleAccount(
+    userId: string,
+  ): Promise<{ id: string; appleUserId: string } | null> {
+    try {
+      const [row] = await this.db
+        .select({ id: account.id, appleUserId: account.accountId })
+        .from(account)
+        .where(and(eq(account.userId, userId), eq(account.providerId, "apple")))
+        .limit(1);
+      return row ?? null;
+    } catch (error) {
+      this.handleError(error, "getAppleAccount");
+    }
+  }
+
+  /**
+   * Stores the refresh token from a native Apple sign-in, with the client it
+   * was issued to, replacing any earlier pair. Deletion revokes it.
+   */
+  async setAppleRefreshToken(
+    accountId: string,
+    { refreshToken, clientId }: { refreshToken: string; clientId: string },
+  ): Promise<void> {
+    try {
+      await this.db
+        .update(account)
+        .set({
+          appleRefreshToken: refreshToken,
+          appleClientId: clientId,
+          updatedAt: new Date(),
+        })
+        .where(eq(account.id, accountId));
+    } catch (error) {
+      this.handleError(error, "setAppleRefreshToken");
     }
   }
 }

@@ -40,6 +40,12 @@ vi.mock("@/features/notifications/lib/ops-alerts", () => ({
   sendOpsAlert: (...a: unknown[]) => mockOpsAlert(...a),
 }));
 
+const mockRevokeApple = vi.hoisted(() => vi.fn());
+vi.mock("@/services/better-auth/apple-tokens", () => ({
+  revokeAppleRefreshToken: (...a: unknown[]) => mockRevokeApple(...a),
+  appleWebClientId: () => "com.hoador.web",
+}));
+
 const mockRentalCancelled = vi.hoisted(() => vi.fn());
 vi.mock("@/features/rentals/notifications/rental-cancelled", () => ({
   sendRentalCancelledNotification: (...a: unknown[]) =>
@@ -138,6 +144,7 @@ describe("getDeletionBlockers", () => {
 const anonymized = (over: Record<string, unknown> = {}) => ({
   paymentMethodIds: [],
   stripeCustomerId: "cus_1",
+  appleTokens: [],
   cancelledRentalRequests: [],
   cancelledServiceBookings: [],
   ...over,
@@ -153,6 +160,7 @@ describe("deleteOwnAccount", () => {
     mockAnonymizeUser.mockResolvedValue(anonymized());
     mockAuditCreate.mockResolvedValue({ id: "audit-1" });
     mockDetachAll.mockResolvedValue({ detached: 0, failed: 0 });
+    mockRevokeApple.mockResolvedValue(undefined);
     mockOpsAlert.mockResolvedValue(undefined);
     mockRentalCancelled.mockResolvedValue(undefined);
     mockSendNotification.mockResolvedValue(undefined);
@@ -213,6 +221,75 @@ describe("deleteOwnAccount", () => {
     await deleteOwnAccount("user-1");
 
     expect(mockDetachAll).not.toHaveBeenCalled();
+  });
+
+  // Req 2.5.5 (P-E14-4): Apple's deletion guidance says to revoke the tokens.
+  describe("Sign in with Apple", () => {
+    it("revokes each token after the commit, the web one with the Services ID", async () => {
+      const order: string[] = [];
+      mockAnonymizeUser.mockImplementation(async () => {
+        order.push("anonymize");
+        return anonymized({
+          appleTokens: [
+            { refreshToken: "r-native", clientId: "com.hoador.app" },
+            { refreshToken: "r-web", clientId: null },
+          ],
+        });
+      });
+      mockRevokeApple.mockImplementation(async ({ refreshToken }) => {
+        order.push(`revoke:${refreshToken}`);
+      });
+
+      await deleteOwnAccount("user-1");
+
+      expect(order).toEqual(["anonymize", "revoke:r-native", "revoke:r-web"]);
+      expect(mockRevokeApple).toHaveBeenCalledWith({
+        refreshToken: "r-native",
+        clientId: "com.hoador.app",
+      });
+      expect(mockRevokeApple).toHaveBeenCalledWith({
+        refreshToken: "r-web",
+        clientId: "com.hoador.web",
+      });
+      expect(mockAuditCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ appleTokensRevoked: 2 }),
+        }),
+      );
+    });
+
+    it("makes no Apple call for a user with no stored token", async () => {
+      await deleteOwnAccount("user-1");
+
+      expect(mockRevokeApple).not.toHaveBeenCalled();
+    });
+
+    it("still deletes, and reports to Sentry, when Apple refuses a revocation", async () => {
+      mockAnonymizeUser.mockResolvedValue(
+        anonymized({
+          appleTokens: [
+            { refreshToken: "r-bad", clientId: "com.hoador.app" },
+            { refreshToken: "r-good", clientId: "com.hoador.app" },
+          ],
+        }),
+      );
+      mockRevokeApple.mockImplementation(async ({ refreshToken }) => {
+        if (refreshToken === "r-bad") throw new Error("apple down");
+      });
+
+      await expect(deleteOwnAccount("user-1")).resolves.toBeUndefined();
+
+      expect(mockRevokeApple).toHaveBeenCalledTimes(2);
+      expect(mockCapture).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({ action: "revoke-apple-token" }),
+      );
+      expect(mockAuditCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ appleTokensRevoked: 1 }),
+        }),
+      );
+    });
   });
 
   // A card left attached can still be charged: that needs a human, not a log.

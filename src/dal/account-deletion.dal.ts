@@ -23,6 +23,12 @@ export interface AnonymizeUserResult {
   paymentMethodIds: string[];
   /** The Stripe customer whose cards must all be detached (BIZ-07). */
   stripeCustomerId: string | null;
+  /**
+   * Sign in with Apple refresh tokens to revoke (Req 2.5.5), read before the
+   * account rows are deleted. `clientId: null` means better-auth's web flow
+   * issued it, so the client is the Services ID.
+   */
+  appleTokens: { refreshToken: string; clientId: string | null }[];
   /** Pending rental requests withdrawn, for telling each owner. */
   cancelledRentalRequests: {
     id: string;
@@ -339,6 +345,19 @@ export class AccountDeletionDAL extends BaseDAL {
 
         // Hard-delete rows that carry PII and have no retention value.
         await tx.delete(userAddresses).where(eq(userAddresses.userId, userId));
+        // Apple tokens are read here, and revoked with Apple after the commit:
+        // the rows that hold them are deleted next.
+        const appleRows = await tx
+          .select({
+            appleRefreshToken: account.appleRefreshToken,
+            appleClientId: account.appleClientId,
+            webRefreshToken: account.refreshToken,
+          })
+          .from(account)
+          .where(
+            and(eq(account.userId, userId), eq(account.providerId, "apple")),
+          );
+
         // Sessions + credentials: revoke by deletion (no admin plugin needed).
         await tx.delete(session).where(eq(session.userId, userId));
         await tx.delete(account).where(eq(account.userId, userId));
@@ -471,6 +490,19 @@ export class AccountDeletionDAL extends BaseDAL {
             .map((r) => r.stripeId)
             .filter((id): id is string => Boolean(id)),
           stripeCustomerId: existing[0].stripeCustomerId ?? null,
+          appleTokens: appleRows.flatMap((r) => [
+            ...(r.appleRefreshToken && r.appleClientId
+              ? [
+                  {
+                    refreshToken: r.appleRefreshToken,
+                    clientId: r.appleClientId,
+                  },
+                ]
+              : []),
+            ...(r.webRefreshToken
+              ? [{ refreshToken: r.webRefreshToken, clientId: null }]
+              : []),
+          ]),
           cancelledRentalRequests: withdrawnRequests.map((r) => ({
             id: r.id,
             ownerId: r.ownerId,

@@ -1,6 +1,10 @@
 import { accountDeletionDAL, auditLogDAL, userDAL } from "@/dal";
 import type { AnonymizeUserResult } from "@/dal/account-deletion.dal";
 import { detachAllPaymentMethodsForCustomer } from "@/services/stripe/payment-method";
+import {
+  appleWebClientId,
+  revokeAppleRefreshToken,
+} from "@/services/better-auth/apple-tokens";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { sendRentalCancelledNotification } from "@/features/rentals/notifications/rental-cancelled";
@@ -101,8 +105,10 @@ export async function getDeletionBlockers(
  *    best-effort — a non-transactional external call must not roll back the
  *    deletion, and a Stripe outage must not leave the user un-deletable. A
  *    failure alerts ops: an attached card is still chargeable (BIZ-07).
- * 4. Tell each owner/provider whose request was withdrawn, fire-and-forget.
- * 5. Audit row with **no PII in metadata** — audit logs are retained five years
+ * 4. Revoke the user's Sign in with Apple tokens with Apple, also after the
+ *    commit and best-effort (Req 2.5.5).
+ * 5. Tell each owner/provider whose request was withdrawn, fire-and-forget.
+ * 6. Audit row with **no PII in metadata** — audit logs are retained five years
  *    and append-only, and would otherwise re-introduce the email just scrubbed.
  *
  * Requirements: 2.5.1, 2.5.3
@@ -120,6 +126,7 @@ export async function deleteOwnAccount(userId: string): Promise<void> {
     userId,
     anonymized.stripeCustomerId,
   );
+  const appleTokensRevoked = await revokeAppleTokens(anonymized.appleTokens);
   notifyCounterparts(anonymized);
 
   await auditLogDAL.create({
@@ -130,6 +137,7 @@ export async function deleteOwnAccount(userId: string): Promise<void> {
     // No PII: the row outlives the scrub by five years and is append-only.
     metadata: {
       paymentMethodsDetached,
+      appleTokensRevoked,
       rentalRequestsWithdrawn: anonymized.cancelledRentalRequests.length,
       serviceBookingsWithdrawn: anonymized.cancelledServiceBookings.length,
     },
@@ -176,6 +184,32 @@ async function detachAllCards(
     );
     return 0;
   }
+}
+
+/**
+ * Best-effort, after the commit: Apple being down must not leave the user
+ * un-deletable, and the account is already gone either way. A token that
+ * survives only leaves the app listed under the user's Apple ID, which they
+ * can remove themselves, so a failure goes to Sentry rather than ops.
+ */
+async function revokeAppleTokens(
+  tokens: AnonymizeUserResult["appleTokens"],
+): Promise<number> {
+  let revoked = 0;
+  for (const { refreshToken, clientId } of tokens) {
+    try {
+      const client = clientId ?? appleWebClientId();
+      if (!client) throw new Error("No Apple client ID to revoke with");
+      await revokeAppleRefreshToken({ refreshToken, clientId: client });
+      revoked++;
+    } catch (error) {
+      captureNonCriticalError(error, {
+        route: "account-deletion",
+        action: "revoke-apple-token",
+      });
+    }
+  }
+  return revoked;
 }
 
 /** Fire-and-forget: a notification failure must not fail the deletion. */

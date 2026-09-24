@@ -134,6 +134,13 @@ export const account = pgTable("account", {
   refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
   scope: text("scope"),
   password: text("password"),
+  // Sign in with Apple from the native app: the refresh token from exchanging
+  // the sign-in's authorization code, and the client (the app's bundle ID)
+  // that issued it. Deletion revokes it with Apple (Req 2.5.5). Kept apart
+  // from better-auth's own `refreshToken`, which the web flow writes and a
+  // later sign-in may overwrite, so the pair can never go out of step.
+  appleRefreshToken: text("apple_refresh_token"),
+  appleClientId: text("apple_client_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .$onUpdate(() => new Date())

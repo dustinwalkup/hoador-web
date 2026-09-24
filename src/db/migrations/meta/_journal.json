@@ -498,6 +498,13 @@
       "when": 1790269886776,
       "tag": "0070_seed_system_user",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1790280995869,
+      "tag": "0071_apple_token_revocation",
+      "breakpoints": true
     }
   ]
 }
