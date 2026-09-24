@@ -4,6 +4,7 @@ import { listingDAL } from "../index";
 import { NotFoundError, ValidationError } from "../errors";
 import { mockListing } from "@/test/fixtures/listings";
 import { db } from "@/db/db";
+import { PRIVACY_GRID_DEGREES } from "@/lib/utils/geo-privacy";
 
 // Mock dependencies
 vi.mock("@/features/auth/utils/session");
@@ -959,6 +960,75 @@ describe("ListingDAL", () => {
         "listing-b": "https://img/b-0.jpg",
         "listing-c": null,
       });
+    });
+
+    // PRIV-02: an exact distance to the owner's home let any member
+    // trilaterate it by moving their own address. The SQL measures to the
+    // owner's snapped grid cell and the result is bucketed to 0.5 mi.
+    it("measures distance to the owner's snapped cell and buckets it", async () => {
+      // A viewer id no other test uses, so the DAL's address cache is cold.
+      vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue({
+        latitude: 37.7749,
+        longitude: -122.4194,
+      } as any);
+
+      const row = (id: string, calculatedDistance: number | null) => ({
+        listing: { ...mockListing, id },
+        category: { id: "category-1", name: "Tools", icon: null },
+        owner: { id: "owner-1", firstName: "Alice", lastName: "Doe" },
+        calculatedDistance,
+      });
+      const { mockFromCount } = buildCountChain(3);
+      const { mockFrom } = buildDataChain([
+        row("near", 0.03),
+        row("mid", 2.3001),
+        row("no-owner-address", null),
+      ]);
+      vi.mocked(db.select).mockImplementation(() => {
+        if ((db.select as any).mock.calls.length === 1) {
+          return { from: mockFromCount } as any;
+        }
+        return {
+          from: vi.fn().mockReturnValue({
+            where: () => ({ orderBy: vi.fn().mockResolvedValue([]) }),
+          }),
+        } as any;
+      });
+      vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as any);
+
+      const result = await listingDAL.searchListings(
+        { sortBy: "distance" },
+        { page: 1, limit: 12 },
+        "viewer-priv-02",
+        ["community-123"],
+        false,
+      );
+
+      expect(result.data.map((l) => [l.id, l.distanceMiles])).toEqual([
+        ["near", 0.5],
+        ["mid", 2.5],
+        ["no-owner-address", undefined],
+      ]);
+
+      const fields = vi.mocked(db.selectDistinct).mock.calls[0][0] as any;
+      const { sql: distanceSql, params } = new PgDialect().sqlToQuery(
+        fields.calculatedDistance.sql,
+      );
+      // The owner's raw point never reaches ST_Distance…
+      expect(distanceSql).not.toMatch(
+        /ST_Point\("user_addresses"\."longitude"::float, "user_addresses"\."latitude"::float\)/,
+      );
+      // …only its grid cell's center does.
+      expect(distanceSql).toContain(
+        'floor("user_addresses"."longitude"::float /',
+      );
+      expect(distanceSql).toContain(
+        'floor("user_addresses"."latitude"::float /',
+      );
+      expect(params).toContain(PRIVACY_GRID_DEGREES);
+      expect(params).toContain(PRIVACY_GRID_DEGREES / 2);
+      // The viewer's own point stays exact.
+      expect(params).toEqual(expect.arrayContaining([-122.4194, 37.7749]));
     });
 
     it("should validate pagination parameters", async () => {

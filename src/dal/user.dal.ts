@@ -1,4 +1,5 @@
 import {
+  type SQL,
   eq,
   count,
   sql,
@@ -43,6 +44,32 @@ const {
   communityMemberships,
   blindReviews,
 } = schema;
+
+/**
+ * `user.name` recomposed from first + last, for a write that sets either.
+ *
+ * `name` is what earnings rows, notification senders, message search, web's
+ * nav and the mobile avatar all read, but only sign-up ever wrote it. A rename
+ * through PATCH /api/profile or onboarding changed first/last and left every
+ * one of those showing the old name (mobile P-E14-2).
+ *
+ * One SQL expression rather than a read-then-write: a field the write doesn't
+ * set is read from the row being updated (UPDATE sees the pre-update values),
+ * so a first-name-only change keeps the stored last name. Blank or null parts
+ * are skipped, and if both are blank the old `name` stays: the column is NOT
+ * NULL, and an empty display name is worse than a stale one.
+ */
+function composedNameSql(
+  firstName: string | null | undefined,
+  lastName: string | null | undefined,
+): SQL | undefined {
+  if (firstName === undefined && lastName === undefined) return undefined;
+  const first =
+    firstName === undefined ? sql`${user.firstName}` : sql`${firstName}::text`;
+  const last =
+    lastName === undefined ? sql`${user.lastName}` : sql`${lastName}::text`;
+  return sql`coalesce(nullif(concat_ws(' ', nullif(btrim(${first}), ''), nullif(btrim(${last}), '')), ''), ${user.name})`;
+}
 
 type UpdateUserPreferencesDTO = Partial<
   Omit<
@@ -216,9 +243,17 @@ export class UserDAL extends BaseDAL {
         sanitizedUpdates.bio = sanitizeTextWithMaxLength(updates.bio, 500);
       }
 
+      const name = composedNameSql(
+        sanitizedUpdates.firstName,
+        sanitizedUpdates.lastName,
+      );
       const [updatedUser] = await this.db
         .update(user)
-        .set({ ...sanitizedUpdates, updatedAt: new Date() })
+        .set({
+          ...sanitizedUpdates,
+          ...(name ? { name } : {}),
+          updatedAt: new Date(),
+        })
         .where(eq(user.id, id))
         .returning();
 
@@ -248,9 +283,15 @@ export class UserDAL extends BaseDAL {
     >,
   ): Promise<UserProfile> {
     try {
+      const name = composedNameSql(profileData.firstName, profileData.lastName);
       const [updated] = await this.db
         .update(user)
-        .set({ ...profileData, status: "active", updatedAt: new Date() })
+        .set({
+          ...profileData,
+          ...(name ? { name } : {}),
+          status: "active",
+          updatedAt: new Date(),
+        })
         .where(and(eq(user.id, userId), eq(user.status, "incomplete_profile")))
         .returning();
       if (!updated) {

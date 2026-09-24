@@ -12,6 +12,10 @@ import {
 import { schema } from "@/db/schemas";
 import type { needCloseReasonEnum, needTypeEnum } from "@/db/schemas/_enums";
 import { haversineMiles, type LatLng } from "@/lib/utils/geo.utils";
+import {
+  bucketDistanceMiles,
+  snapCoordinatesForPrivacy,
+} from "@/lib/utils/geo-privacy";
 
 const {
   listings,
@@ -78,6 +82,24 @@ function displayName(
 ): string | null {
   const composed = [firstName, lastName].filter(Boolean).join(" ").trim();
   return composed.length > 0 ? composed : null;
+}
+
+/**
+ * Viewer→requester distance with the requester's point snapped to a grid cell
+ * first, then bucketed. An exact distance let any member trilaterate a
+ * need-poster's home by moving their own address (PRIV-02).
+ */
+function coarseDistanceMiles(
+  viewer: LatLng,
+  requester: LatLng,
+  requesterUserId: string,
+): number {
+  const snapped = snapCoordinatesForPrivacy(
+    requester.latitude,
+    requester.longitude,
+    requesterUserId,
+  );
+  return bucketDistanceMiles(haversineMiles(viewer, snapped));
 }
 
 export interface NeedFeedRow extends NeighborhoodNeed, NeedEnrichment {
@@ -394,10 +416,14 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
 
         const distanceMiles =
           viewerLocation && requesterLat != null && requesterLng != null
-            ? haversineMiles(viewerLocation, {
-                latitude: Number(requesterLat),
-                longitude: Number(requesterLng),
-              })
+            ? coarseDistanceMiles(
+                viewerLocation,
+                {
+                  latitude: Number(requesterLat),
+                  longitude: Number(requesterLng),
+                },
+                String(rest.createdByUserId),
+              )
             : null;
 
         return {
@@ -528,7 +554,11 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
 
     const distanceMiles =
       viewerLocation && requesterLocation
-        ? haversineMiles(viewerLocation, requesterLocation)
+        ? coarseDistanceMiles(
+            viewerLocation,
+            requesterLocation,
+            need.createdByUserId,
+          )
         : null;
 
     return {

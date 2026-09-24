@@ -28,6 +28,10 @@ import {
 import { schema } from "@/db/schemas";
 import { NotFoundError, ValidationError } from "./errors";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
+import {
+  bucketDistanceMiles,
+  PRIVACY_GRID_DEGREES,
+} from "@/lib/utils/geo-privacy";
 
 const {
   listings,
@@ -138,6 +142,21 @@ export interface GarageListingFilters {
   rentalStatus?: "available" | "rented"; // Only for active listings
 }
 
+/**
+ * The listing owner's point snapped to the center of its privacy grid cell,
+ * for use as the target of `ST_Distance`. Distance to the exact point let any
+ * member trilaterate an owner's home by moving their own address (PRIV-02).
+ * The grid matches `snapCoordinatesForPrivacy`, minus its per-user offset: a
+ * seeded hash per row is fragile in raw SQL, and the cell still bounds
+ * trilateration. The viewer's own point is left exact.
+ */
+function snappedOwnerPointSql() {
+  return sql`ST_Point(
+    floor(${userAddresses.longitude}::float / ${PRIVACY_GRID_DEGREES}::float) * ${PRIVACY_GRID_DEGREES}::float + ${PRIVACY_GRID_DEGREES / 2}::float,
+    floor(${userAddresses.latitude}::float / ${PRIVACY_GRID_DEGREES}::float) * ${PRIVACY_GRID_DEGREES}::float + ${PRIVACY_GRID_DEGREES / 2}::float
+  )::geography`;
+}
+
 export class ListingDAL extends BaseDAL {
   // Cache for user locations to avoid repeated queries
   private userLocationCache = new Map<
@@ -177,7 +196,7 @@ export class ListingDAL extends BaseDAL {
         calculatedDistance: sql<number>`
               ST_Distance(
                 ST_Point(${userLocation.longitude}::float, ${userLocation.latitude}::float)::geography,
-                ST_Point(${userAddresses.longitude}::float, ${userAddresses.latitude}::float)::geography
+                ${snappedOwnerPointSql()}
               ) / 1609.34
             `.as("distance_miles"),
       };
@@ -1021,11 +1040,16 @@ export class ListingDAL extends BaseDAL {
             : 0;
           const ownerRevCount = item.owner.reviewCount ?? 0;
 
-          // Use database-calculated distance if available, otherwise undefined
-          const distanceMiles =
+          // Database-calculated distance (to the owner's snapped cell) if
+          // available, bucketed to 0.5 mi; otherwise undefined
+          const calculatedDistance =
             "calculatedDistance" in item
-              ? (item as typeof item & { calculatedDistance: number })
+              ? (item as typeof item & { calculatedDistance: number | null })
                   .calculatedDistance
+              : undefined;
+          const distanceMiles =
+            calculatedDistance != null
+              ? bucketDistanceMiles(Number(calculatedDistance))
               : undefined;
 
           return {
@@ -2292,7 +2316,7 @@ export class ListingDAL extends BaseDAL {
               distanceMiles: sql<number>`
                 ST_Distance(
                   ST_Point(${userAddress.longitude}::float, ${userAddress.latitude}::float)::geography,
-                  ST_Point(${userAddresses.longitude}::float, ${userAddresses.latitude}::float)::geography
+                  ${snappedOwnerPointSql()}
                 ) / 1609.34
               `.as("distance_miles"),
             })

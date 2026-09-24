@@ -547,6 +547,29 @@ describe("UserDAL", () => {
       );
     });
 
+    // P-E14-2: `name` is recomposed only when first or last is written. The
+    // SQL itself is exercised against a real DB in
+    // user-display-name.integration.test.ts.
+    it("writes name only alongside a first or last name", async () => {
+      const mockSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ ...mockUser }]),
+        }),
+      });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as any);
+      vi.mocked(db.query.user.findFirst).mockResolvedValue({
+        ...mockUser,
+        addresses: [],
+        preferences: {},
+      } as any);
+
+      await userDAL.updateUser("user-123", { lastName: "Name" });
+      expect(mockSet.mock.calls[0][0]).toHaveProperty("name");
+
+      await userDAL.updateUser("user-123", { bio: "Hello" });
+      expect(mockSet.mock.calls[1][0]).not.toHaveProperty("name");
+    });
+
     it("should throw NotFoundError when user does not exist", async () => {
       const mockReturning = vi.fn().mockResolvedValue([]);
       const mockWhere = vi.fn().mockReturnValue({

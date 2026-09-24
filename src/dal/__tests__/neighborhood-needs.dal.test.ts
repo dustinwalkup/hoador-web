@@ -4,6 +4,12 @@ import type { SQL } from "drizzle-orm";
 import { neighborhoodNeedsDAL } from "../index";
 import { ConflictError, NotFoundError } from "../errors";
 import { db } from "@/db/db";
+import { haversineMiles } from "@/lib/utils/geo.utils";
+import {
+  bucketDistanceMiles,
+  PRIVACY_GRID_DEGREES,
+  snapCoordinatesForPrivacy,
+} from "@/lib/utils/geo-privacy";
 
 /**
  * Render the SQL `listFeed` handed to `db.execute` into the statement text and
@@ -489,6 +495,121 @@ describe("NeighborhoodNeedsDAL", () => {
       const { sql, params } = renderFeedQuery();
       expect(sql).toContain("n.type = $");
       expect(params).toContain("service");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Distance privacy (PRIV-02): an exact viewer→requester distance let any
+  // member trilaterate a need-poster's home by moving their own address.
+  // -------------------------------------------------------------------------
+  describe("distance privacy", () => {
+    const G = PRIVACY_GRID_DEGREES;
+    const cellCenter = (v: number) => (Math.floor(v / G) + 0.5) * G;
+    const TEN_METERS = 0.00009;
+    const requester = {
+      latitude: cellCenter(40.0),
+      longitude: cellCenter(-122.41),
+    };
+    const viewer = { latitude: 40.017, longitude: -122.4 };
+
+    /** Every call to a select chain resolves to `result`, whatever the shape. */
+    function selectChainOnce(result: unknown[]) {
+      const chain: Record<string, unknown> = {};
+      for (const m of ["from", "where", "orderBy", "limit", "offset"])
+        chain[m] = vi.fn(() => chain);
+      chain.then = (resolve: (v: unknown) => void) => resolve(result);
+      vi.mocked(db.select).mockReturnValueOnce(chain as any);
+    }
+
+    async function feedDistance(
+      viewerLocation: { latitude: number; longitude: number },
+      requesterLocation = requester,
+    ) {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ...mockNeed,
+              communityName: "Maple Street HOA",
+              // pg returns numeric columns as strings
+              requesterLat: String(requesterLocation.latitude),
+              requesterLng: String(requesterLocation.longitude),
+            },
+          ],
+        } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "1" }] } as any);
+      const result = await neighborhoodNeedsDAL.listFeed(
+        ["community-1"],
+        {},
+        { page: 1, limit: 10 },
+        viewerLocation,
+      );
+      return result.data[0].distanceMiles;
+    }
+
+    async function detailDistance(
+      viewerLocation: { latitude: number; longitude: number },
+      requesterLocation = requester,
+    ) {
+      selectChainOnce([mockNeed]); // getNeedById
+      selectChainOnce([]); // linked listings
+      selectChainOnce([{ name: "Maple Street HOA" }]); // community
+      selectChainOnce([{ firstName: "Dana", lastName: "Nguyen" }]); // requester
+      selectChainOnce([{ name: "Power Tools" }]); // category
+      selectChainOnce([
+        {
+          latitude: String(requesterLocation.latitude),
+          longitude: String(requesterLocation.longitude),
+        },
+      ]); // requester's primary location
+      const detail = await neighborhoodNeedsDAL.getNeedDetail(
+        "need-1",
+        viewerLocation,
+      );
+      return detail?.distanceMiles;
+    }
+
+    describe.each([
+      ["listFeed", feedDistance],
+      ["getNeedDetail", detailDistance],
+    ])("%s", (_label, distanceFor) => {
+      it("measures to the requester's snapped cell, bucketed to 0.5 mi", async () => {
+        const expected = bucketDistanceMiles(
+          haversineMiles(
+            viewer,
+            snapCoordinatesForPrivacy(
+              requester.latitude,
+              requester.longitude,
+              mockNeed.createdByUserId,
+            ),
+          ),
+        );
+
+        const distance = await distanceFor(viewer);
+
+        expect(distance).toBe(expected);
+        expect((distance! * 2) % 1).toBe(0);
+      });
+
+      it("gives two viewers 10m apart an identical distance", async () => {
+        const a = await distanceFor(viewer);
+        const b = await distanceFor({
+          latitude: viewer.latitude + TEN_METERS,
+          longitude: viewer.longitude,
+        });
+
+        expect(b).toBe(a);
+      });
+
+      it("hides a 10m move of the requester's home within its cell", async () => {
+        const a = await distanceFor(viewer);
+        const b = await distanceFor(viewer, {
+          latitude: requester.latitude + TEN_METERS,
+          longitude: requester.longitude - TEN_METERS,
+        });
+
+        expect(b).toBe(a);
+      });
     });
   });
 
