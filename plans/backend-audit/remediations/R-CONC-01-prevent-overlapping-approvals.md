@@ -225,7 +225,7 @@ test:run src/features/rentals` → that test passes against the new behavior.
 - [ ] `bun run type-check && bun run lint` → exit 0
 - [ ] `bun run test:run` → exit 0, including new cases above
 - [ ] Migration file exists, applies cleanly to a local DB, and `\d
-  rental_requests` shows `rental_requests_no_overlap`
+rental_requests` shows `rental_requests_no_overlap`
 - [ ] The fail-open test is inverted and passes
 - [ ] No files outside Scope modified (`git status`)
 

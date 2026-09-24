@@ -23,13 +23,16 @@ export type CreateListingData = Omit<
   "id" | "createdAt" | "updatedAt"
 >;
 
-/** Provider summary joined for listing queries. */
+/**
+ * Provider summary joined for listing detail. Deliberately no `email`: this
+ * projection reaches every community member who can view the listing (PRIV-03).
+ * The admin review queue has its own `ServiceListingReviewProviderInfo`.
+ */
 export type ServiceListingProviderInfo = {
   id: string;
   firstName: string | null;
   lastName: string | null;
   profileImageUrl: string | null;
-  email: string;
 };
 
 /** Category summary joined for listing detail. */
@@ -180,7 +183,6 @@ export class ServiceListingDAL extends BaseDAL {
             firstName: user.firstName,
             lastName: user.lastName,
             profileImageUrl: user.profileImageUrl,
-            email: user.email,
           },
         })
         .from(serviceListings)

@@ -58,11 +58,22 @@ const reqFor = (id = "list-1") =>
 const paramsFor = (id = "list-1") => ({ params: Promise.resolve({ id }) });
 
 describe("GET /api/services/listings/[id]", () => {
+  // Shaped like the DAL's `getById` row: the listing columns plus the joined
+  // category and provider.
   const activeListing = {
     id: "list-1",
     providerId: "provider-1",
     communityId: "comm-1",
     status: "active" as const,
+    adminNote: null as string | null,
+    rejectionReason: null as string | null,
+    category: { id: "cat-1", name: "Lawn care", description: null },
+    provider: {
+      id: "provider-1",
+      firstName: "Pat",
+      lastName: "Provider",
+      profileImageUrl: null,
+    },
   };
 
   beforeEach(async () => {
@@ -166,6 +177,78 @@ describe("GET /api/services/listings/[id]", () => {
     const res = await GET(reqFor(), paramsFor());
 
     expect(res.status).toBe(403);
+  });
+});
+
+/**
+ * PRIV-03: any community member could harvest every provider's email by
+ * fetching each listing detail, and read the moderation notes on it.
+ */
+describe("GET /api/services/listings/[id] — provider email and moderation notes (PRIV-03)", () => {
+  // As the DAL row looked before PRIV-03, and as it would look again if a
+  // contact field were added back to the join: the route must not pass it on.
+  const moderatedListing = {
+    id: "list-1",
+    providerId: "provider-1",
+    communityId: "comm-1",
+    status: "active" as const,
+    title: "Lawn mowing",
+    adminNote: "Flagged: provider asked for off-platform payment",
+    rejectionReason: "Photos did not match the service",
+    category: { id: "cat-1", name: "Lawn care", description: null },
+    provider: {
+      id: "provider-1",
+      firstName: "Pat",
+      lastName: "Provider",
+      profileImageUrl: null,
+      email: "pat@example.com",
+    },
+  };
+
+  const asViewer = async (userId: string) => {
+    const { getCurrentUserId } = await import("@/lib/api/route-helpers");
+    vi.mocked(getCurrentUserId).mockResolvedValue(userId);
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { requireAuthResponse } = await import("@/lib/api/route-helpers");
+    vi.mocked(requireAuthResponse).mockResolvedValue(null);
+    mockGetById.mockResolvedValue(moderatedListing);
+    mockIsVisibleInCommunity.mockResolvedValue(true);
+  });
+
+  it("gives a non-provider no email and no moderation notes", async () => {
+    await asViewer("viewer-1");
+
+    const res = await GET(reqFor(), paramsFor());
+
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).not.toContain("email");
+    expect(text).not.toContain("@");
+    const body = JSON.parse(text);
+    expect(body).not.toHaveProperty("adminNote");
+    expect(body).not.toHaveProperty("rejectionReason");
+    expect(body.provider).toEqual({
+      id: "provider-1",
+      firstName: "Pat",
+      lastName: "Provider",
+      profileImageUrl: null,
+    });
+    expect(body.title).toBe("Lawn mowing");
+  });
+
+  it("keeps rejectionReason for the provider's own denied listing", async () => {
+    await asViewer("provider-1");
+    mockGetById.mockResolvedValue({ ...moderatedListing, status: "denied" });
+
+    const res = await GET(reqFor(), paramsFor());
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.rejectionReason).toBe("Photos did not match the service");
+    expect(body.provider).not.toHaveProperty("email");
   });
 });
 

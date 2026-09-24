@@ -12,6 +12,7 @@ import {
 import { communityDAL, serviceListingDAL } from "@/dal";
 import { patchServiceListingSchema } from "@/features/services/lib/service-api-schemas";
 import { ServiceListingService } from "@/features/services/services/service-listing-service";
+import { toServiceListingDetailResponse } from "@/features/services/lib/service-listing-response";
 
 /**
  * GET /api/services/listings/[id]
@@ -73,7 +74,12 @@ async function getHandler(
     // P-E6-1, and the same reasoning as `viewerRole` on booking detail. It also
     // lets the booking CTA explain itself before someone walks into a
     // four-step flow the preview will then refuse (mobile P-E9-7, Req 11.1).
-    return NextResponse.json({ ...listing, isProvider });
+    //
+    // Never the raw DAL row: moderation notes are provider-only (PRIV-03).
+    return NextResponse.json({
+      ...toServiceListingDetailResponse(listing, isProvider),
+      isProvider,
+    });
   } catch (error) {
     return handleApiError(error);
   }
