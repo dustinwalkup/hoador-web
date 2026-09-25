@@ -26,6 +26,7 @@ Everything the backend-audit fixes need done **by hand, outside the code**, when
 | M2  | `bun run db:migrate` for 0073 (RESTRICT money/legal FKs)         | R-DB-01       | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
 | M3  | `bun run db:migrate` for 0074 (`transfer_deposit` enum value)    | R-BIZ-04      | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
 | M4  | `bun run db:migrate` for 0075 (`rate_limit_buckets` table)       | R-ARCH-07     | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
+| M5  | `bun run db:migrate` for 0076 (per-user conversation delete)     | R-BIZ-09      | TODO                                  | TODO                                  | TODO |
 | A1  | Verify `rental_requests_no_overlap` exists                       | R-CONC-01     | DONE                                  | DONE                                  | TODO |
 | A2  | Resend failed `charge.dispute.created` webhooks (within 30 days) | R-BIZ-06      | n/a                                   | n/a                                   | TODO |
 | A3  | Pay owners deposits captured before R-BIZ-04 (backfill)          | R-BIZ-04      | moot (no real captures)               | moot (no real captures)               | TODO |
@@ -67,6 +68,7 @@ ORDER BY a.listing_id;
 | `0072_rental_requests_no_overlap`        | R-CONC-01 | Needs B3 first. Installs `btree_gist`. Not in the Drizzle schema (see below).                                                                                                                                                                                                                                    |
 | `0073_restrict_financial_record_fks`     | R-DB-01   | No data prep: it only changes FK delete actions and drops NOT NULL on `dispute_financial_operations.performed_by`. Postgres truncates one constraint name to 63 chars (`rental_agreement_documents_rental_request_id_rental_requests_id`) and prints a NOTICE when the migration refers to it; that is expected. |
 | `0074_add_transfer_deposit_financial_op` | R-BIZ-04  | No data prep. A single `ALTER TYPE ... ADD VALUE`.                                                                                                                                                                                                                                                               |
+| `0076_conversation_per_user_delete`      | R-BIZ-09  | No data prep: two nullable `ADD COLUMN`s on `conversations`. Existing rows read as `NULL`, meaning "not deleted" for either party.                                                                                                                                                                               |
 
 ## After deploying
 

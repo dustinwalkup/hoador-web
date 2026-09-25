@@ -32,6 +32,10 @@ export const conversations = pgTable(
     user2LastReadAt: timestamp("user2_last_read_at"),
     user1Archived: boolean("user1_archived").default(false).notNull(),
     user2Archived: boolean("user2_archived").default(false).notNull(),
+    // Per-user delete (DB-03): hides the thread from that user's inbox only.
+    // The row is hard-deleted once both are set; a new message clears both.
+    user1DeletedAt: timestamp("user1_deleted_at"),
+    user2DeletedAt: timestamp("user2_deleted_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({

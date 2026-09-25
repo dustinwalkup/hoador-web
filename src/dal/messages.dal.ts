@@ -183,6 +183,24 @@ function likeContains(term: string): string {
 }
 
 /**
+ * The caller's side of the thread is not deleted (DB-03). Deleting hides a
+ * thread from your inbox and badge only. Opening it by id and sending into it
+ * still work, as with archive.
+ */
+function notDeletedFor(userId: string): SQL | undefined {
+  return or(
+    and(
+      eq(conversations.user1Id, userId),
+      isNull(conversations.user1DeletedAt),
+    ),
+    and(
+      eq(conversations.user2Id, userId),
+      isNull(conversations.user2DeletedAt),
+    ),
+  );
+}
+
+/**
  * Match a conversation on the **other** participant's name or on the content of
  * any message in the thread, case-insensitively.
  *
@@ -450,10 +468,16 @@ export class MessagesDAL extends BaseDAL {
           })
           .returning();
 
-        // Update conversation's lastMessageAt
+        // Update lastMessageAt, and bring the thread back for anyone who
+        // deleted it (DB-03 D2): nobody can be made permanently deaf to
+        // someone still writing to them.
         await this.db
           .update(conversations)
-          .set({ lastMessageAt: new Date() })
+          .set({
+            lastMessageAt: new Date(),
+            user1DeletedAt: null,
+            user2DeletedAt: null,
+          })
           .where(eq(conversations.id, conversation.id));
 
         return {
@@ -519,6 +543,7 @@ export class MessagesDAL extends BaseDAL {
               eq(conversations.user2Id, userId),
             ),
             conversationSearchPredicate(userId, search),
+            notDeletedFor(userId),
             // Filter by archived status if specified
             archived !== undefined
               ? or(
@@ -876,10 +901,15 @@ export class MessagesDAL extends BaseDAL {
           })
           .returning();
 
-        // Update conversation's lastMessageAt
+        // Update lastMessageAt, and bring the thread back for anyone who
+        // deleted it (DB-03 D2).
         await this.db
           .update(conversations)
-          .set({ lastMessageAt: new Date() })
+          .set({
+            lastMessageAt: new Date(),
+            user1DeletedAt: null,
+            user2DeletedAt: null,
+          })
           .where(eq(conversations.id, conversationId));
 
         const recipientId =
@@ -940,25 +970,60 @@ export class MessagesDAL extends BaseDAL {
     return this.archiveConversation(conversationId, userId, false);
   }
 
+  /**
+   * Deletes the thread for the caller only (DB-03). It used to be a hard
+   * delete that destroyed the other party's copy too. The row goes only once
+   * both participants have deleted it, and a new message from either side
+   * brings it back for both (see the send paths).
+   *
+   * The caller's read marker moves to now as well, so if the thread comes
+   * back its old messages don't resurface as unread.
+   */
   async deleteConversation(
     conversationId: string,
     userId: string,
-  ): Promise<void> {
-    const { error } = await tryCatch(
+  ): Promise<{ hardDeleted: boolean }> {
+    const { data, error } = await tryCatch(
       (async () => {
         // Verify user is part of conversation (404 vs 403, not one 500)
-        await this.requireParticipant(conversationId, userId);
+        const conversation = await this.requireParticipant(
+          conversationId,
+          userId,
+        );
+        const isUser1 = conversation.user1Id === userId;
+        const now = new Date();
 
-        // Delete the conversation (messages will be cascaded)
-        await this.db
-          .delete(conversations)
-          .where(eq(conversations.id, conversationId));
+        const [updated] = await this.db
+          .update(conversations)
+          .set(
+            isUser1
+              ? { user1DeletedAt: now, user1LastReadAt: now }
+              : { user2DeletedAt: now, user2LastReadAt: now },
+          )
+          .where(eq(conversations.id, conversationId))
+          .returning();
+
+        const otherAlreadyDeleted = isUser1
+          ? updated.user2DeletedAt != null
+          : updated.user1DeletedAt != null;
+
+        if (otherAlreadyDeleted) {
+          // Both sides are gone, so there is nothing left to keep for either.
+          // Messages cascade.
+          await this.db
+            .delete(conversations)
+            .where(eq(conversations.id, conversationId));
+          return { hardDeleted: true };
+        }
+        return { hardDeleted: false };
       })(),
     );
 
     if (error) {
       this.handleError(error, "deleteConversation");
     }
+
+    return data;
   }
 
   /**
@@ -1000,6 +1065,8 @@ export class MessagesDAL extends BaseDAL {
                   eq(conversations.user2Archived, false),
                 ),
               ),
+              // Exclude threads the current user deleted (DB-03)
+              notDeletedFor(userId),
               // Message was sent by the other user (not current user)
               ne(messages.senderId, userId),
               // Message is unread: either never read, or created after last read

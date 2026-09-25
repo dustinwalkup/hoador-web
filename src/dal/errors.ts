@@ -145,6 +145,23 @@ export class CounterpartyUnavailableError extends DALError {
 }
 
 /**
+ * Thrown when an owner/provider tries to approve or accept a booking whose
+ * start has already passed. Approving late charges the renter/requester full
+ * price for time they can no longer use, and a rental's deposit hold would be
+ * placed at once (BIZ-10).
+ *
+ * `code: "BOOKING_START_PASSED"`. Shared by rentals and services, like
+ * `CounterpartyUnavailableError`, and for the same reason not a
+ * `ConflictError` subclass.
+ */
+export class BookingStartPassedError extends DALError {
+  constructor(message: string) {
+    super(message, "BOOKING_START_PASSED", 409);
+    this.name = "BookingStartPassedError";
+  }
+}
+
+/**
  * Thrown when a user posts a Neighborhood Need past the posting limits: too
  * many open at once, or too many in the last 24 hours. Every post notifies the
  * poster's whole network, so an unthrottled poster could spam every member

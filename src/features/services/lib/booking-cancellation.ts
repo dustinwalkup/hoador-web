@@ -65,7 +65,13 @@ export function assessServiceCancellation(
     };
   }
 
-  if (booking.status !== "pending" && booking.status !== "accepted") {
+  // payment_failed is included so a requester whose card failed can walk
+  // away rather than wait on the provider to decline (BIZ-09).
+  if (
+    booking.status !== "pending" &&
+    booking.status !== "accepted" &&
+    booking.status !== "payment_failed"
+  ) {
     return {
       canCancel: false,
       code: "NOT_CANCELLABLE",
@@ -85,7 +91,8 @@ export function assessServiceCancellation(
   return {
     canCancel: true,
     cancelledBy: isRequester ? "requester" : "provider",
-    path: booking.status === "pending" ? "pending" : "accepted",
+    // payment_failed never moved money: the same nothing-to-refund path as pending.
+    path: booking.status === "accepted" ? "accepted" : "pending",
   };
 }
 

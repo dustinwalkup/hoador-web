@@ -69,6 +69,7 @@ const RENTAL_ROW = {
 
 const SERVICE_ROW = {
   id: "svc-1",
+  status: "pending",
   requesterId: "requester-1",
   providerId: "provider-1",
   listingId: "svc-listing-1",
@@ -242,6 +243,25 @@ describe("expirePendingBookings", () => {
     });
     expect(renterCall?.message).toContain("Lawn Mowing");
     expect(renterCall?.message).not.toMatch(/Stripe|payout|connect/i);
+  });
+
+  // BIZ-09: the provider did answer a payment_failed booking; the card is
+  // what failed, so neither side is told the provider went quiet.
+  it("tells both parties a card-failed booking expired on its payment", async () => {
+    findPendingExpiredServiceMock.mockResolvedValue([
+      { ...SERVICE_ROW, status: "payment_failed" },
+    ]);
+    getUserByIdMock.mockResolvedValue(VERIFIED_USER);
+
+    const result = await expirePendingBookings();
+
+    expect(result.expiredCount).toBe(1);
+    const calls = sendNotificationMock.mock.calls.map((c) => c[0]);
+    const requesterCall = calls.find((c) => c.userId === "requester-1");
+    const providerCall = calls.find((c) => c.userId === "provider-1");
+    expect(requesterCall?.message).toContain("payment didn't go through");
+    expect(requesterCall?.message).not.toContain("did not respond");
+    expect(providerCall?.message).toContain("payment never went through");
   });
 
   it("logs soft-prompt gating event for service bookings when provider is not payout-ready", async () => {

@@ -12,6 +12,7 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import type { CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { quoteRentalRequest } from "@/features/rentals/services/rental-quote";
+import { isPastDay } from "@/features/rentals/lib/availability";
 import {
   sendPaymentFailureNotificationToOwner,
   sendPaymentFailureNotificationToRenter,
@@ -23,6 +24,7 @@ import {
 import { sendRentalApprovedNotification } from "@/features/rentals/notifications/rental-approved";
 import { sendRentalRequestCreatedNotification } from "@/features/rentals/notifications/rental-request-created";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
+import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { closeNeedsFulfilledByBooking } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { STRIPE_MINIMUM_CHARGE_USD } from "@/constants/payments";
@@ -426,6 +428,16 @@ export class RentalService {
     if (rentalRequest.status !== "pending") {
       const { RentalRequestNotPendingError } = await import("@/dal/errors");
       throw new RentalRequestNotPendingError();
+    }
+    // Approving after the start day charges the renter for time they can
+    // never use, and the ≤48h-before-pickup branch below would place the
+    // deposit hold at once (BIZ-10). A day comparison, like startRental's: a
+    // rental starting today can still be approved.
+    if (isPastDay(rentalRequest.startDate)) {
+      const { BookingStartPassedError } = await import("@/dal/errors");
+      throw new BookingStartPassedError(
+        "This rental's start date has already passed, so it can no longer be approved.",
+      );
     }
     // BIZ-08: re-check the listing at approve time. The quote gated it at
     // request time, but the owner may have archived it, an admin unapproved
@@ -844,6 +856,19 @@ export class RentalService {
               : undefined,
           });
         });
+      } else {
+        // The renter is charged and the request approved, so throwing now
+        // would only hide the gap. Page ops to reconcile it (BIZ-12).
+        await sendOpsAlert({
+          event: "rental_approve_payment_record_failed",
+          rentalId: createdRental.id,
+          message: `Rental ${createdRental.id} (request ${rentalRequest.id}) was charged (PaymentIntent ${rentalPaymentIntent.id}) but writing its payment record failed: ${
+            paymentRecordError instanceof Error
+              ? paymentRecordError.message
+              : String(paymentRecordError)
+          }`,
+          sendEmailAlert: true,
+        });
       }
 
       // Create payment lifecycle record
@@ -860,6 +885,17 @@ export class RentalService {
         captureNonCriticalError(lifecycleError, {
           route: "RentalService.approveRentalRequest",
           action: "create_payment_lifecycle",
+        });
+        // Without this row the payout cron never pays the owner (BIZ-12).
+        await sendOpsAlert({
+          event: "rental_approve_lifecycle_record_failed",
+          rentalId: createdRental.id,
+          message: `Rental ${createdRental.id} (request ${rentalRequest.id}) was charged but creating its payout lifecycle row failed: ${
+            lifecycleError instanceof Error
+              ? lifecycleError.message
+              : String(lifecycleError)
+          }`,
+          sendEmailAlert: true,
         });
       }
 

@@ -13,8 +13,9 @@ const mockRentalRequest = {
   listingCommunityId: "community-1",
   renterId: "renter-1",
   ownerId: "owner-1",
-  startDate: new Date("2025-02-01"),
-  endDate: new Date("2025-02-05"),
+  // Relative, so approve's start-day check (BIZ-10) never rots the fixture.
+  startDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+  endDate: new Date(Date.now() + 9 * 24 * 60 * 60 * 1000),
   totalAmount: "60.00",
   securityDeposit: "0",
   deliveryRequested: false,

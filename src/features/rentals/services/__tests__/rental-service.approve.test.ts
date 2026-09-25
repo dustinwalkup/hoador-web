@@ -133,6 +133,11 @@ vi.mock("@/lib/api/route-helpers", () => ({
     mockCaptureNonCriticalError(...args),
 }));
 
+const mockSendOpsAlert = vi.fn();
+vi.mock("@/features/notifications/lib/ops-alerts", () => ({
+  sendOpsAlert: (...args: unknown[]) => mockSendOpsAlert(...args),
+}));
+
 vi.mock("next/server", () => ({
   after: vi.fn(),
 }));
@@ -151,6 +156,7 @@ vi.mock("@walkup/walkup-utils", () => ({
 import { RentalService } from "../rental-service";
 import {
   CommunityNotVisibleError,
+  BookingStartPassedError,
   CounterpartyUnavailableError,
   ListingArchivedError,
   ListingNotApprovedError,
@@ -160,6 +166,8 @@ import {
 } from "@/dal/errors";
 
 // --- Helpers ---
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 function createMockRentalRequest(overrides = {}) {
   return {
     id: "req-1",
@@ -177,8 +185,9 @@ function createMockRentalRequest(overrides = {}) {
     totalAmount: "100.00",
     applicationFeeAmount: "20.00",
     securityDeposit: "0",
-    startDate: new Date("2026-07-01"),
-    endDate: new Date("2026-07-05"),
+    // Relative, so approve's start-day check (BIZ-10) never rots the fixture.
+    startDate: new Date(Date.now() + 5 * DAY_MS),
+    endDate: new Date(Date.now() + 7 * DAY_MS),
     ...overrides,
   };
 }
@@ -324,6 +333,47 @@ describe("RentalService.approveRentalRequest", () => {
     expect(mockChargeRentalPayment).not.toHaveBeenCalled();
   });
 
+  // BIZ-10: approving late would charge for days the renter can't use.
+  it("refuses to approve after the start day, before any Stripe call", async () => {
+    mockGetRentalRequestById.mockResolvedValue(
+      createMockRentalRequest({
+        startDate: new Date(Date.now() - 3 * DAY_MS),
+        endDate: new Date(Date.now() - 1 * DAY_MS),
+      }),
+    );
+
+    await expect(
+      RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+    ).rejects.toThrow(BookingStartPassedError);
+    expect(mockGetOrCreateStripeCustomerId).not.toHaveBeenCalled();
+    expect(mockClaimRentalRequestPaymentProcessing).not.toHaveBeenCalled();
+    expect(mockChargeRentalPayment).not.toHaveBeenCalled();
+  });
+
+  it("still approves a rental that starts today", async () => {
+    mockGetRentalRequestById.mockResolvedValue(
+      createMockRentalRequest({
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 2 * DAY_MS),
+      }),
+    );
+    mockClaimRentalRequestPaymentProcessing.mockResolvedValue(true);
+    mockChargeRentalPayment.mockResolvedValue({
+      id: "pi_123",
+      status: "succeeded",
+      latest_charge: "ch_123",
+    });
+
+    const result = await RentalService.approveRentalRequest(
+      "req-1",
+      "owner-1",
+      {},
+      context,
+    );
+
+    expect(result.success).toBe(true);
+  });
+
   it("returns already-processing failure without charging when the claim is lost", async () => {
     mockClaimRentalRequestPaymentProcessing.mockResolvedValue(false);
 
@@ -434,6 +484,77 @@ describe("RentalService.approveRentalRequest", () => {
       expect.any(Error),
       expect.objectContaining({ action: "audit_payment_captured" }),
     );
+  });
+
+  it("pages ops but still approves when the payment record write fails", async () => {
+    mockClaimRentalRequestPaymentProcessing.mockResolvedValue(true);
+    mockChargeRentalPayment.mockResolvedValue({
+      id: "pi_123",
+      status: "succeeded",
+      latest_charge: "ch_123",
+    });
+    mockCreatePayment.mockRejectedValueOnce(new Error("db down"));
+
+    const result = await RentalService.approveRentalRequest(
+      "req-1",
+      "owner-1",
+      {},
+      context,
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockSendOpsAlert).toHaveBeenCalledTimes(1);
+    expect(mockSendOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "rental_approve_payment_record_failed",
+        rentalId: "rental-1",
+        message: expect.stringContaining("rental-1"),
+        sendEmailAlert: true,
+      }),
+    );
+  });
+
+  it("pages ops but still approves when the payout lifecycle write fails", async () => {
+    mockClaimRentalRequestPaymentProcessing.mockResolvedValue(true);
+    mockChargeRentalPayment.mockResolvedValue({
+      id: "pi_123",
+      status: "succeeded",
+      latest_charge: "ch_123",
+    });
+    mockLifecycleCreate.mockRejectedValueOnce(new Error("db down"));
+
+    const result = await RentalService.approveRentalRequest(
+      "req-1",
+      "owner-1",
+      {},
+      context,
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockCaptureNonCriticalError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ action: "create_payment_lifecycle" }),
+    );
+    expect(mockSendOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "rental_approve_lifecycle_record_failed",
+        rentalId: "rental-1",
+        sendEmailAlert: true,
+      }),
+    );
+  });
+
+  it("does not page ops when both post-charge writes succeed", async () => {
+    mockClaimRentalRequestPaymentProcessing.mockResolvedValue(true);
+    mockChargeRentalPayment.mockResolvedValue({
+      id: "pi_123",
+      status: "succeeded",
+      latest_charge: "ch_123",
+    });
+
+    await RentalService.approveRentalRequest("req-1", "owner-1", {}, context);
+
+    expect(mockSendOpsAlert).not.toHaveBeenCalled();
   });
 
   // There is deliberately no catch-all that resets paymentStatus to "failed"

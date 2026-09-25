@@ -199,6 +199,10 @@ describe("MessagesDAL", () => {
       // Assert
       expect(result).toHaveProperty("conversationId");
       expect(result).toHaveProperty("messageId");
+      // DB-03 D2: a new message brings a deleted thread back for both sides.
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ user1DeletedAt: null, user2DeletedAt: null }),
+      );
     });
   });
 
@@ -355,26 +359,95 @@ describe("MessagesDAL", () => {
     });
   });
 
+  // DB-03: delete is per-user; the row goes only once both sides deleted it.
   describe("deleteConversation", () => {
-    it("should delete conversation when user is participant", async () => {
-      // Arrange
-      const conversationId = "conversation-123";
-      const userId = "user-123";
+    const conversationId = "conversation-123";
 
-      vi.mocked(db.query.conversations.findFirst).mockResolvedValue({
+    function mockDeleteFlow(returned: Record<string, unknown>) {
+      const mockReturning = vi.fn().mockResolvedValue([returned]);
+      const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+      const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.update).mockReturnValue({ set: mockSet } as any);
+      const mockDeleteWhere = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(db.delete).mockReturnValue({ where: mockDeleteWhere } as any);
+      return { mockSet };
+    }
+
+    it("hides the thread for the caller only while the other side keeps it", async () => {
+      const conversation = {
         ...mockConversation,
-        user1Id: userId,
-      } as any);
+        user1Id: "user-123",
+        user2Id: "user-456",
+      };
+      vi.mocked(db.query.conversations.findFirst).mockResolvedValue(
+        conversation as any,
+      );
+      const { mockSet } = mockDeleteFlow({
+        ...conversation,
+        user1DeletedAt: new Date(),
+        user2DeletedAt: null,
+      });
 
-      const mockWhere = vi.fn().mockResolvedValue(undefined);
-      vi.mocked(db.delete).mockReturnValue({
-        where: mockWhere,
-      } as any);
+      const result = await messagesDAL.deleteConversation(
+        conversationId,
+        "user-123",
+      );
 
-      // Act
-      await messagesDAL.deleteConversation(conversationId, userId);
+      expect(result).toEqual({ hardDeleted: false });
+      const patch = mockSet.mock.calls[0][0];
+      expect(Object.keys(patch).sort()).toEqual([
+        "user1DeletedAt",
+        "user1LastReadAt",
+      ]);
+      expect(patch.user1DeletedAt).toBeInstanceOf(Date);
+      expect(db.delete).not.toHaveBeenCalled();
+    });
 
-      // Assert
+    it("marks user2's side when user2 deletes", async () => {
+      const conversation = {
+        ...mockConversation,
+        user1Id: "user-123",
+        user2Id: "user-456",
+      };
+      vi.mocked(db.query.conversations.findFirst).mockResolvedValue(
+        conversation as any,
+      );
+      const { mockSet } = mockDeleteFlow({
+        ...conversation,
+        user1DeletedAt: null,
+        user2DeletedAt: new Date(),
+      });
+
+      await messagesDAL.deleteConversation(conversationId, "user-456");
+
+      expect(Object.keys(mockSet.mock.calls[0][0]).sort()).toEqual([
+        "user2DeletedAt",
+        "user2LastReadAt",
+      ]);
+      expect(db.delete).not.toHaveBeenCalled();
+    });
+
+    it("hard-deletes once the other side had already deleted it", async () => {
+      const conversation = {
+        ...mockConversation,
+        user1Id: "user-123",
+        user2Id: "user-456",
+      };
+      vi.mocked(db.query.conversations.findFirst).mockResolvedValue(
+        conversation as any,
+      );
+      mockDeleteFlow({
+        ...conversation,
+        user1DeletedAt: new Date(),
+        user2DeletedAt: new Date("2026-01-01"),
+      });
+
+      const result = await messagesDAL.deleteConversation(
+        conversationId,
+        "user-123",
+      );
+
+      expect(result).toEqual({ hardDeleted: true });
       expect(db.delete).toHaveBeenCalled();
     });
 
@@ -418,6 +491,20 @@ describe("MessagesDAL", () => {
 
       // Assert
       expect(result).toBeGreaterThanOrEqual(0);
+    });
+
+    // DB-03: a deleted thread must not keep the inbox badge lit.
+    it("does not count messages in threads the caller deleted", async () => {
+      const mockWhere = vi.fn().mockResolvedValue([{ count: 0 }]);
+      const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      await messagesDAL.getUnreadMessageCount("user-123");
+
+      const { sql } = new PgDialect().sqlToQuery(mockWhere.mock.calls[0][0]);
+      expect(sql).toContain('"conversations"."user1_deleted_at" is null');
+      expect(sql).toContain('"conversations"."user2_deleted_at" is null');
     });
   });
 
@@ -980,7 +1067,10 @@ describe("MessagesDAL", () => {
           '("user"."id" = "conversations"."user1_id" and ' +
           `(concat_ws(' ', "user"."first_name", "user"."last_name") ilike $7 or "user"."name" ilike $8)))) or ` +
           'exists (select 1 from "messages" where ' +
-          '("messages"."conversation_id" = "conversations"."id" and "messages"."content" ilike $9))))',
+          '("messages"."conversation_id" = "conversations"."id" and "messages"."content" ilike $9))) and ' +
+          // DB-03: the caller's own deleted threads stay out.
+          '(("conversations"."user1_id" = $10 and "conversations"."user1_deleted_at" is null) or ' +
+          '("conversations"."user2_id" = $11 and "conversations"."user2_deleted_at" is null)))',
       );
       expect(params).toEqual([
         "user-123",
@@ -992,6 +1082,8 @@ describe("MessagesDAL", () => {
         "%jane%",
         "%jane%",
         "%jane%",
+        "user-123",
+        "user-123",
       ]);
     });
 
@@ -1009,6 +1101,15 @@ describe("MessagesDAL", () => {
       expect(sql).toContain('"conversations"."user2_archived"');
       expect(params).toContain(true);
       expect(params).toContain("%jane%");
+    });
+
+    // DB-03: a thread the caller deleted leaves their inbox only.
+    it("leaves out threads the caller deleted", async () => {
+      await messagesDAL.getUserConversationsPaginated("user-123", false, 0, 20);
+
+      const { sql } = renderWhere();
+      expect(sql).toContain('"conversations"."user1_deleted_at" is null');
+      expect(sql).toContain('"conversations"."user2_deleted_at" is null');
     });
 
     it("leaves the ordering alone", async () => {

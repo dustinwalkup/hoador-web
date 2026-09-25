@@ -24,6 +24,7 @@ import {
   RentalRequestNotPendingError,
   RentalDatesUnavailableError,
   CounterpartyUnavailableError,
+  BookingStartPassedError,
   ServiceNotYetDueError,
   VisibilityPrimaryLockedError,
   isListingEligibilityError,
@@ -77,6 +78,7 @@ export function handleApiError(
     !(error instanceof RentalRequestNotPendingError) &&
     !(error instanceof RentalDatesUnavailableError) &&
     !(error instanceof CounterpartyUnavailableError) &&
+    !(error instanceof BookingStartPassedError) &&
     !(error instanceof CannotMessageSelfError) &&
     !(error instanceof VisibilityPrimaryLockedError) &&
     !(error instanceof NeedLimitReachedError) &&
@@ -170,6 +172,13 @@ export function handleApiError(
   }
 
   if (error instanceof CounterpartyUnavailableError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+
+  if (error instanceof BookingStartPassedError) {
     return NextResponse.json(
       { error: error.message, code: error.code },
       { status: error.statusCode },

@@ -10,6 +10,7 @@ import {
 } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import {
+  BookingStartPassedError,
   CommunityNotVisibleError,
   ConflictError,
   CounterpartyUnavailableError,
@@ -279,6 +280,16 @@ export class ServiceBookingService {
     }
     if (detail.status !== "pending" && detail.status !== "payment_failed") {
       throw new ValidationError("Booking is not pending", "status");
+    }
+    // Accepting after the scheduled instant charges the requester for a job
+    // that has already passed (BIZ-10). An unreadable schedule (`null`) is
+    // unknown rather than late, so it is let through, the same choice
+    // completeBooking makes for the opposite boundary (BIZ-02).
+    const scheduledAt = serviceInstant(detail);
+    if (scheduledAt && new Date() > scheduledAt) {
+      throw new BookingStartPassedError(
+        "This booking's scheduled time has already passed, so it can no longer be accepted.",
+      );
     }
     // BIZ-08: re-check the listing at accept time — it may have been
     // deactivated, or either party left the community, since the request.
@@ -639,11 +650,24 @@ export class ServiceBookingService {
       throw new ValidationError("Booking is not pending", "status");
     }
 
-    const updated = await serviceBookingDAL.update(bookingId, {
-      status: "declined",
-      declinedAt: new Date(),
-      declineReason: trimmed,
-    });
+    // Compare-and-swap, like cancel: accept's claim sets paymentStatus to
+    // `processing` before charging, and a plain update here would write
+    // `declined` over a charge in flight (CONC-03).
+    const updated = await serviceBookingDAL.updateIfStatus(
+      bookingId,
+      detail.status,
+      {
+        status: "declined",
+        declinedAt: new Date(),
+        declineReason: trimmed,
+      },
+      { blockWhilePaymentProcessing: true },
+    );
+    if (!updated) {
+      throw new ConflictError(
+        "This booking changed state while declining — refresh and try again.",
+      );
+    }
 
     await auditLogDAL.create({
       entityType: "service_booking",

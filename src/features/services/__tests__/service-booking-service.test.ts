@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ServiceBookingService } from "../services/service-booking-service";
 import {
+  BookingStartPassedError,
   CommunityNotVisibleError,
   ConflictError,
   CounterpartyUnavailableError,
@@ -479,6 +480,14 @@ describe("ServiceBookingService", () => {
   });
 
   describe("acceptBooking", () => {
+    // `bookingPending` is dated 2025-06-15 (completeBooking's clock tests are
+    // keyed to it), so pin "now" before it; accept refuses a passed booking
+    // (BIZ-10). The suite's afterEach restores real timers.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2025-01-01T00:00:00Z"));
+    });
+
     it("rejects when caller is not the provider", async () => {
       mockBookingGetById.mockResolvedValue(bookingPending);
 
@@ -511,6 +520,47 @@ describe("ServiceBookingService", () => {
       ).rejects.toThrow(ValidationError);
 
       expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
+    // BIZ-10: a day after bookingPending's 2025-06-15 10:00.
+    it("refuses to accept once the scheduled instant has passed", async () => {
+      vi.setSystemTime(new Date("2025-06-16T10:00:00Z"));
+      mockBookingGetById.mockResolvedValue(bookingPending);
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(BookingStartPassedError);
+      expect(mockBookingClaim).not.toHaveBeenCalled();
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
+    it("still accepts when the schedule cannot be read", async () => {
+      vi.setSystemTime(new Date("2025-06-16T10:00:00Z"));
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        proposedTime: "whenever",
+      });
+      mockGetUserById.mockResolvedValue({
+        stripeConnectedAccountId: "acct",
+        connectChargesEnabled: true,
+        connectPayoutsEnabled: true,
+      });
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus",
+        paymentMethodId: "pm",
+      });
+      mockChargeServicePayment.mockResolvedValue({
+        paymentIntent: { id: "pi_1", status: "succeeded" },
+        chargeId: "ch_1",
+      });
+      mockBookingUpdate.mockResolvedValue({
+        ...bookingPending,
+        status: "accepted" as const,
+      });
+
+      await ServiceBookingService.acceptBooking("book-1", "prov-1", ctx);
+
+      expect(mockChargeServicePayment).toHaveBeenCalled();
     });
 
     it("charges and sets accepted on success", async () => {
@@ -1625,7 +1675,7 @@ describe("ServiceBookingService", () => {
     it("sets declined and notifies requester", async () => {
       mockBookingGetById.mockResolvedValue(bookingPending);
       const declined = { ...bookingPending, status: "declined" as const };
-      mockBookingUpdate.mockResolvedValue(declined);
+      mockBookingUpdateIfStatus.mockResolvedValueOnce(declined);
 
       const out = await ServiceBookingService.declineBooking(
         "book-1",
@@ -1640,10 +1690,6 @@ describe("ServiceBookingService", () => {
 
     it("dates the decline (P-E9-4)", async () => {
       mockBookingGetById.mockResolvedValue(bookingPending);
-      mockBookingUpdate.mockResolvedValue({
-        ...bookingPending,
-        status: "declined" as const,
-      });
 
       await ServiceBookingService.declineBooking(
         "book-1",
@@ -1652,7 +1698,7 @@ describe("ServiceBookingService", () => {
         ctx,
       );
 
-      const [, patch] = mockBookingUpdate.mock.calls[0];
+      const [, , patch] = mockBookingUpdateIfStatus.mock.calls[0];
       expect(patch.status).toBe("declined");
       expect(patch.declinedAt).toBeInstanceOf(Date);
       expect(patch.acceptedAt).toBeUndefined();
@@ -1664,7 +1710,7 @@ describe("ServiceBookingService", () => {
         status: "payment_failed" as const,
       });
       const declined = { ...bookingPending, status: "declined" as const };
-      mockBookingUpdate.mockResolvedValue(declined);
+      mockBookingUpdateIfStatus.mockResolvedValueOnce(declined);
 
       const out = await ServiceBookingService.declineBooking(
         "book-1",
@@ -1674,12 +1720,44 @@ describe("ServiceBookingService", () => {
       );
 
       expect(out.status).toBe("declined");
+      expect(mockBookingUpdateIfStatus).toHaveBeenCalledWith(
+        "book-1",
+        "payment_failed",
+        expect.objectContaining({ status: "declined" }),
+        { blockWhilePaymentProcessing: true },
+      );
       expect(mockSendDeclined).toHaveBeenCalledWith("req-1", declined, "busy");
+    });
+
+    // CONC-03: accept's claim holds paymentStatus = processing, so the CAS
+    // matches nothing and the decline must not pretend it happened.
+    it("refuses to decline while an accept charge claim is held", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockBookingUpdateIfStatus.mockResolvedValueOnce(null);
+
+      await expect(
+        ServiceBookingService.declineBooking(
+          "book-1",
+          "prov-1",
+          "Not available",
+          ctx,
+        ),
+      ).rejects.toThrow(ConflictError);
+      expect(mockBookingUpdateIfStatus).toHaveBeenCalledWith(
+        "book-1",
+        "pending",
+        expect.objectContaining({ status: "declined" }),
+        { blockWhilePaymentProcessing: true },
+      );
+      expect(mockSendDeclined).not.toHaveBeenCalled();
     });
   });
 
   describe("acceptBooking — closeNeedsFulfilledByBooking (Phase 11)", () => {
     beforeEach(() => {
+      // Before bookingPending's 2025-06-15 (see the acceptBooking block).
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2025-01-01T00:00:00Z"));
       mockBookingGetById.mockResolvedValue(bookingPending);
       mockGetUserById.mockResolvedValue({
         stripeConnectedAccountId: "acct",

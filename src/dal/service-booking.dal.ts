@@ -279,13 +279,14 @@ export class ServiceBookingDAL extends BaseDAL {
   }
 
   /**
-   * Returns pending service bookings whose expiresAt has passed.
-   * Drives the /api/cron/expire-pending-bookings job; uses the partial
-   * index `sb_pending_expires_at_idx`.
+   * Returns unanswered (`pending`) and card-failed (`payment_failed`) service
+   * bookings whose expiresAt has passed. Drives the
+   * /api/cron/expire-pending-bookings job.
    */
   async findPendingExpired(now: Date): Promise<
     Array<{
       id: string;
+      status: ServiceBooking["status"];
       requesterId: string;
       providerId: string;
       listingId: string;
@@ -296,6 +297,7 @@ export class ServiceBookingDAL extends BaseDAL {
       const rows = await this.db
         .select({
           id: serviceBookings.id,
+          status: serviceBookings.status,
           requesterId: serviceBookings.requesterId,
           providerId: serviceBookings.providerId,
           listingId: serviceBookings.listingId,
@@ -308,10 +310,14 @@ export class ServiceBookingDAL extends BaseDAL {
         )
         .where(
           and(
-            eq(serviceBookings.status, "pending"),
+            inArray(serviceBookings.status, ["pending", "payment_failed"]),
             lt(serviceBookings.expiresAt, now),
-            // See markExpired: a claimed booking is mid-charge or charged.
-            isNull(serviceBookings.paymentStatus),
+            // See markExpired: an allowlist, so a charge in flight or taken
+            // is never expired.
+            or(
+              isNull(serviceBookings.paymentStatus),
+              eq(serviceBookings.paymentStatus, "failed"),
+            ),
           ),
         );
       return rows;
@@ -323,13 +329,15 @@ export class ServiceBookingDAL extends BaseDAL {
   /**
    * Atomically transitions a service booking to `cancelled` with
    * cancellationReason='expired_no_acceptance'. The WHERE clause guards
-   * against double-expiry under concurrent cron ticks, and skips bookings
-   * an accept call has claimed (`paymentStatus` non-null — only
-   * `acceptBooking` writes it). A claimed `pending` booking is mid-charge,
-   * or was charged and then failed to persist; expiring it would cancel a
-   * paid booking with no refund.
+   * against double-expiry under concurrent cron ticks. It takes `pending`
+   * and `payment_failed` rows (BIZ-09: otherwise a failed card strands the
+   * booking forever), but only when `paymentStatus` is null or `failed`. A
+   * `processing` or `succeeded` booking is mid-charge, or was charged and
+   * then failed to persist; expiring it would cancel a paid booking with no
+   * refund. Keep this an allowlist: `ne(processing)` would let `succeeded`
+   * through.
    *
-   * @returns `true` if a row was updated, `false` if the row was no longer pending.
+   * @returns `true` if a row was updated, `false` if it no longer qualified.
    */
   async markExpired(bookingId: string): Promise<boolean> {
     try {
@@ -344,8 +352,11 @@ export class ServiceBookingDAL extends BaseDAL {
         .where(
           and(
             eq(serviceBookings.id, bookingId),
-            eq(serviceBookings.status, "pending"),
-            isNull(serviceBookings.paymentStatus),
+            inArray(serviceBookings.status, ["pending", "payment_failed"]),
+            or(
+              isNull(serviceBookings.paymentStatus),
+              eq(serviceBookings.paymentStatus, "failed"),
+            ),
           ),
         )
         .returning({ id: serviceBookings.id });

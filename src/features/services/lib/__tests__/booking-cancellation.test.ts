@@ -30,6 +30,23 @@ describe("assessServiceCancellation", () => {
     ).toEqual({ canCancel: true, cancelledBy: "provider", path: "pending" });
   });
 
+  // BIZ-09: a requester whose card failed can walk away. Nothing was charged,
+  // so it takes the pending (no-refund) path.
+  it("lets either party cancel a payment_failed booking, with nothing to refund", () => {
+    const failed = { ...BOOKING, status: "payment_failed" };
+
+    expect(assessServiceCancellation(failed, "requester-1")).toEqual({
+      canCancel: true,
+      cancelledBy: "requester",
+      path: "pending",
+    });
+    expect(assessServiceCancellation(failed, "provider-1")).toMatchObject({
+      canCancel: true,
+      cancelledBy: "provider",
+      path: "pending",
+    });
+  });
+
   it("refuses a stranger", () => {
     expect(assessServiceCancellation(BOOKING, "stranger-1")).toMatchObject({
       canCancel: false,
@@ -38,12 +55,7 @@ describe("assessServiceCancellation", () => {
   });
 
   it("refuses every status the action refuses", () => {
-    for (const status of [
-      "completed",
-      "cancelled",
-      "declined",
-      "payment_failed",
-    ]) {
+    for (const status of ["completed", "cancelled", "declined"]) {
       expect(
         assessServiceCancellation({ ...BOOKING, status }, "requester-1"),
       ).toMatchObject({ canCancel: false, code: "NOT_CANCELLABLE" });

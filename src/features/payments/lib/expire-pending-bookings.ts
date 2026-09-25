@@ -132,6 +132,7 @@ async function processExpiredRental(row: {
 
 async function processExpiredService(row: {
   id: string;
+  status: string;
   requesterId: string;
   providerId: string;
   listingId: string;
@@ -142,11 +143,17 @@ async function processExpiredService(row: {
     ? getPayoutReadiness(provider).onboardingStatus
     : "unknown";
 
+  // A payment_failed booking was answered; the charge is what never landed
+  // (BIZ-09), so "did not respond" would be wrong.
+  const paymentFailed = row.status === "payment_failed";
+
   await sendNotification({
     userId: row.requesterId,
     type: "service_booking_declined",
     title: "Booking request expired",
-    message: `Your booking request for "${row.listingTitle}" was cancelled because the provider did not respond in time.`,
+    message: paymentFailed
+      ? `Your booking request for "${row.listingTitle}" was cancelled because its payment didn't go through in time.`
+      : `Your booking request for "${row.listingTitle}" was cancelled because the provider did not respond in time.`,
     data: { bookingId: row.id, listingId: row.listingId },
     linkUrl: `/dashboard/services/bookings/${row.id}`,
   });
@@ -158,7 +165,9 @@ async function processExpiredService(row: {
     title: "Pending booking expired",
     message: providerNotPayoutReady
       ? `Your pending booking for "${row.listingTitle}" expired. Set up your payout account so you can accept future bookings the moment they come in.`
-      : `Your pending booking for "${row.listingTitle}" expired without acceptance.`,
+      : paymentFailed
+        ? `Your booking for "${row.listingTitle}" expired because the client's payment never went through.`
+        : `Your pending booking for "${row.listingTitle}" expired without acceptance.`,
     data: { bookingId: row.id, listingId: row.listingId },
     linkUrl: providerNotPayoutReady
       ? `/dashboard/payments/earnings-and-payouts`

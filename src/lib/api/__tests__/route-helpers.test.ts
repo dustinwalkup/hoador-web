@@ -17,6 +17,7 @@ import {
   RentalRequestNotPendingError,
   RentalDatesUnavailableError,
   CounterpartyUnavailableError,
+  BookingStartPassedError,
   ServiceNotYetDueError,
   NeedLimitReachedError,
   RateLimitedError,
@@ -130,6 +131,7 @@ describe("route-helpers", () => {
         ["ListingArchivedError", new ListingArchivedError()],
         ["ListingNotApprovedError", new ListingNotApprovedError()],
         ["CommunityNotVisibleError", new CommunityNotVisibleError()],
+        ["BookingStartPassedError", new BookingStartPassedError("late")],
       ])("does not capture %s", (_name, error) => {
         handleApiError(error);
 
@@ -163,6 +165,17 @@ describe("route-helpers", () => {
       expect(response.status).toBe(409);
       await expect(response.json()).resolves.toMatchObject({
         code: "COUNTERPARTY_UNAVAILABLE",
+      });
+    });
+
+    // BIZ-10: approve/accept after the booking's start.
+    it("should give BookingStartPassedError a 409 with its code", async () => {
+      const response = handleApiError(new BookingStartPassedError("late"));
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        error: "late",
+        code: "BOOKING_START_PASSED",
       });
     });
 

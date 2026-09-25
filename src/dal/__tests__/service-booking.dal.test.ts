@@ -16,6 +16,25 @@ vi.mock("@/db/db", () => ({
 /** Render a captured drizzle WHERE clause to SQL text for guard assertions. */
 const whereSql = (where: unknown) =>
   new PgDialect().sqlToQuery(where as SQL).sql;
+const whereQuery = (where: unknown) => new PgDialect().sqlToQuery(where as SQL);
+
+/**
+ * BIZ-09: both expiry queries take pending AND payment_failed rows, but only
+ * with no charge in flight or taken. An allowlist on payment_status: a `<>`
+ * would let `succeeded` through and expire a paid booking with no refund.
+ */
+function expectExpiryGuard(where: unknown) {
+  const { sql, params } = whereQuery(where);
+  expect(sql).toMatch(/"service_bookings"\."status" in \(\$\d+, \$\d+\)/);
+  expect(params).toEqual(
+    expect.arrayContaining(["pending", "payment_failed", "failed"]),
+  );
+  expect(sql).toContain('"service_bookings"."payment_status" is null');
+  expect(sql).toMatch(/"service_bookings"\."payment_status" = \$\d+/);
+  expect(sql).not.toMatch(/"payment_status" <>/);
+  expect(params).not.toContain("processing");
+  expect(params).not.toContain("succeeded");
+}
 
 const bookingRow = {
   id: "book-1",
@@ -288,19 +307,46 @@ describe("ServiceBookingDAL", () => {
   });
 
   describe("markExpired", () => {
-    it("never expires a booking an accept call has claimed", async () => {
-      const mockReturning = vi.fn().mockResolvedValue([]);
+    it("expires pending and card-failed bookings, never a claimed or charged one", async () => {
+      const mockReturning = vi.fn().mockResolvedValue([{ id: "book-1" }]);
       const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
       const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
       vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
 
-      await serviceBookingDAL.markExpired("book-1");
+      const result = await serviceBookingDAL.markExpired("book-1");
 
-      // A claimed pending booking may already be charged; expiring it would
-      // cancel a paid booking with no refund.
-      expect(whereSql(mockWhere.mock.calls[0][0])).toContain(
-        '"service_bookings"."payment_status" is null',
+      expect(result).toBe(true);
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "cancelled",
+          cancellationReason: "expired_no_acceptance",
+        }),
       );
+      expectExpiryGuard(mockWhere.mock.calls[0][0]);
+    });
+  });
+
+  describe("findPendingExpired", () => {
+    it("finds pending and card-failed bookings, never a claimed or charged one", async () => {
+      const rows = [
+        {
+          id: "book-1",
+          status: "payment_failed",
+          requesterId: "req-1",
+          providerId: "prov-1",
+          listingId: "list-1",
+          listingTitle: "Lawn mowing",
+        },
+      ];
+      const mockWhere = vi.fn().mockResolvedValue(rows);
+      const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as never);
+
+      const result = await serviceBookingDAL.findPendingExpired(new Date());
+
+      expect(result).toEqual(rows);
+      expectExpiryGuard(mockWhere.mock.calls[0][0]);
     });
   });
 
