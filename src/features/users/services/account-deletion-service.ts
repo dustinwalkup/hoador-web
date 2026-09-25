@@ -5,6 +5,7 @@ import {
   appleWebClientId,
   revokeAppleRefreshToken,
 } from "@/services/better-auth/apple-tokens";
+import { deleteFromBlob, listBlobsByPrefix } from "@/services/vercel-blob";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { sendRentalCancelledNotification } from "@/features/rentals/notifications/rental-cancelled";
@@ -107,8 +108,11 @@ export async function getDeletionBlockers(
  *    failure alerts ops: an attached card is still chargeable (BIZ-07).
  * 4. Revoke the user's Sign in with Apple tokens with Apple, also after the
  *    commit and best-effort (Req 2.5.5).
- * 5. Tell each owner/provider whose request was withdrawn, fire-and-forget.
- * 6. Audit row with **no PII in metadata** — audit logs are retained five years
+ * 5. Delete the uploaded blobs the transaction unlinked, plus everything under
+ *    the avatar prefix, after the commit and best-effort (PRIV-09). A failure
+ *    alerts ops: a surviving blob is still public at its URL.
+ * 6. Tell each owner/provider whose request was withdrawn, fire-and-forget.
+ * 7. Audit row with **no PII in metadata** — audit logs are retained five years
  *    and append-only, and would otherwise re-introduce the email just scrubbed.
  *
  * Requirements: 2.5.1, 2.5.3
@@ -127,6 +131,24 @@ export async function deleteOwnAccount(userId: string): Promise<void> {
     anonymized.stripeCustomerId,
   );
   const appleTokensRevoked = await revokeAppleTokens(anonymized.appleTokens);
+  const { deleted: blobsDeleted } = await deleteCollectedBlobs(
+    userId,
+    anonymized.blobPathnamesToDelete,
+  );
+  const avatarBlobsDeleted = await sweepAvatarBlobs(userId);
+  if (anonymized.skippedOpenDisputeEvidenceCount > 0) {
+    await sendOpsAlert({
+      event: "account_deletion_open_dispute_evidence_retained",
+      message: `Retained ${anonymized.skippedOpenDisputeEvidenceCount} dispute-evidence image(s) for a deleted user because their dispute isn't closed. This should be unreachable; check getDeletionBlockers.`,
+      metadata: { userId, count: anonymized.skippedOpenDisputeEvidenceCount },
+      sendEmailAlert: true,
+    }).catch((e) =>
+      captureNonCriticalError(e, {
+        route: "account-deletion",
+        action: "ops-alert-open-dispute-evidence",
+      }),
+    );
+  }
   notifyCounterparts(anonymized);
 
   await auditLogDAL.create({
@@ -140,6 +162,7 @@ export async function deleteOwnAccount(userId: string): Promise<void> {
       appleTokensRevoked,
       rentalRequestsWithdrawn: anonymized.cancelledRentalRequests.length,
       serviceBookingsWithdrawn: anonymized.cancelledServiceBookings.length,
+      blobsDeleted: blobsDeleted + avatarBlobsDeleted,
     },
   });
 }
@@ -182,6 +205,57 @@ async function detachAllCards(
         action: "ops-alert-card-detach",
       }),
     );
+    return 0;
+  }
+}
+
+/**
+ * Best-effort, after the commit: blob storage is external and must never fail
+ * or roll back the deletion. A blob that survives is still public at its URL,
+ * breaking the deletion promise, so a failure goes to ops, not just Sentry.
+ */
+async function deleteCollectedBlobs(
+  userId: string,
+  pathnames: string[],
+): Promise<{ deleted: number; failed: number }> {
+  if (pathnames.length === 0) return { deleted: 0, failed: 0 };
+  const results = await Promise.allSettled(
+    pathnames.map((pathname) => deleteFromBlob(pathname)),
+  );
+  const failed = results.filter((r) => r.status === "rejected").length;
+  if (failed > 0) {
+    await sendOpsAlert({
+      event: "account_deletion_blob_delete_failed",
+      message: `${failed} of ${pathnames.length} blob(s) could not be deleted after account deletion`,
+      metadata: { userId, failed, total: pathnames.length },
+      sendEmailAlert: true,
+    }).catch((e) =>
+      captureNonCriticalError(e, {
+        route: "account-deletion",
+        action: "ops-alert-blob-delete",
+      }),
+    );
+  }
+  return { deleted: pathnames.length - failed, failed };
+}
+
+/**
+ * Every blob under the user's avatar prefix, not just the one the column
+ * pointed at: a replace whose cleanup failed can leave older uploads behind.
+ */
+async function sweepAvatarBlobs(userId: string): Promise<number> {
+  try {
+    const blobs = await listBlobsByPrefix(`profiles/${userId}/`);
+    const { deleted } = await deleteCollectedBlobs(
+      userId,
+      blobs.map((b) => b.pathname),
+    );
+    return deleted;
+  } catch (error) {
+    captureNonCriticalError(error, {
+      route: "account-deletion",
+      action: "sweep-avatar-blobs",
+    });
     return 0;
   }
 }

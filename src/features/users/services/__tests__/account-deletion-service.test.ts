@@ -52,6 +52,15 @@ vi.mock("@/features/rentals/notifications/rental-cancelled", () => ({
     mockRentalCancelled(...a),
 }));
 
+const { mockDeleteFromBlob, mockListBlobs } = vi.hoisted(() => ({
+  mockDeleteFromBlob: vi.fn(),
+  mockListBlobs: vi.fn(),
+}));
+vi.mock("@/services/vercel-blob", () => ({
+  deleteFromBlob: (...a: unknown[]) => mockDeleteFromBlob(...a),
+  listBlobsByPrefix: (...a: unknown[]) => mockListBlobs(...a),
+}));
+
 const mockSendNotification = vi.hoisted(() => vi.fn());
 vi.mock("@/features/notifications/utils/send-notification", () => ({
   sendNotification: (...a: unknown[]) => mockSendNotification(...a),
@@ -147,6 +156,8 @@ const anonymized = (over: Record<string, unknown> = {}) => ({
   appleTokens: [],
   cancelledRentalRequests: [],
   cancelledServiceBookings: [],
+  blobPathnamesToDelete: [],
+  skippedOpenDisputeEvidenceCount: 0,
   ...over,
 });
 
@@ -164,6 +175,8 @@ describe("deleteOwnAccount", () => {
     mockOpsAlert.mockResolvedValue(undefined);
     mockRentalCancelled.mockResolvedValue(undefined);
     mockSendNotification.mockResolvedValue(undefined);
+    mockDeleteFromBlob.mockResolvedValue(undefined);
+    mockListBlobs.mockResolvedValue([]);
     mockGetUserById.mockResolvedValue({
       id: "owner-1",
       name: "Olive Owner",
@@ -390,5 +403,88 @@ describe("deleteOwnAccount", () => {
     const metadata = mockAuditCreate.mock.calls[0][0].metadata;
     const serialized = JSON.stringify(metadata);
     expect(serialized).not.toMatch(/@|email|name|phone/i);
+  });
+
+  // PRIV-09: uploads stay public at their URL unless deleted.
+  describe("blob cleanup", () => {
+    it("deletes every collected blob and sweeps the avatar prefix, after the commit", async () => {
+      mockAnonymizeUser.mockResolvedValue(
+        anonymized({
+          blobPathnamesToDelete: [
+            "listings/l-1/1.jpg",
+            "rentals/r-1/damage/2.jpg",
+          ],
+        }),
+      );
+      mockListBlobs.mockResolvedValue([
+        { pathname: "profiles/user-1/a.jpg" },
+        { pathname: "profiles/user-1/b.jpg" },
+      ]);
+
+      await deleteOwnAccount("user-1");
+
+      expect(mockListBlobs).toHaveBeenCalledWith("profiles/user-1/");
+      expect(mockDeleteFromBlob.mock.calls.map((c) => c[0]).sort()).toEqual([
+        "listings/l-1/1.jpg",
+        "profiles/user-1/a.jpg",
+        "profiles/user-1/b.jpg",
+        "rentals/r-1/damage/2.jpg",
+      ]);
+      expect(mockAnonymizeUser.mock.invocationCallOrder[0]).toBeLessThan(
+        mockDeleteFromBlob.mock.invocationCallOrder[0],
+      );
+      expect(mockAuditCreate.mock.calls[0][0].metadata).toMatchObject({
+        blobsDeleted: 4,
+      });
+      expect(mockOpsAlert).not.toHaveBeenCalled();
+    });
+
+    it("alerts ops, and still deletes the account, when a blob delete fails", async () => {
+      mockAnonymizeUser.mockResolvedValue(
+        anonymized({ blobPathnamesToDelete: ["a", "b"] }),
+      );
+      mockDeleteFromBlob
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error("blob down"));
+
+      await expect(deleteOwnAccount("user-1")).resolves.toBeUndefined();
+
+      expect(mockOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "account_deletion_blob_delete_failed",
+          metadata: expect.objectContaining({ failed: 1, total: 2 }),
+        }),
+      );
+      expect(mockAuditCreate.mock.calls[0][0].metadata).toMatchObject({
+        blobsDeleted: 1,
+      });
+    });
+
+    it("still deletes the account when the avatar prefix can't be listed", async () => {
+      mockListBlobs.mockRejectedValue(new Error("list down"));
+
+      await expect(deleteOwnAccount("user-1")).resolves.toBeUndefined();
+
+      expect(mockCapture).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({ action: "sweep-avatar-blobs" }),
+      );
+      expect(mockAuditCreate).toHaveBeenCalled();
+    });
+
+    it("alerts ops when open-dispute evidence had to be kept", async () => {
+      mockAnonymizeUser.mockResolvedValue(
+        anonymized({ skippedOpenDisputeEvidenceCount: 2 }),
+      );
+
+      await deleteOwnAccount("user-1");
+
+      expect(mockOpsAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "account_deletion_open_dispute_evidence_retained",
+          metadata: { userId: "user-1", count: 2 },
+        }),
+      );
+    });
   });
 });

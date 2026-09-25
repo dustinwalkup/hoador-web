@@ -1,8 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 
-vi.mock("@vercel/blob", () => ({ put: vi.fn(), del: vi.fn() }));
+const mockList = vi.hoisted(() => vi.fn());
+vi.mock("@vercel/blob", () => ({
+  put: vi.fn(),
+  del: vi.fn(),
+  list: (...a: unknown[]) => mockList(...a),
+}));
 
-import { isOwnBlobUrl, pathnameFromBlobUrl } from "../index";
+import { isOwnBlobUrl, listBlobsByPrefix, pathnameFromBlobUrl } from "../index";
 
 const STORE = "https://abc123.public.blob.vercel-storage.com";
 
@@ -40,5 +45,33 @@ describe("isOwnBlobUrl", () => {
     ["a malformed string", "not a url"],
   ])("rejects %s", (_label, url) => {
     expect(isOwnBlobUrl(url, "profiles/u-1/")).toBe(false);
+  });
+});
+
+describe("listBlobsByPrefix", () => {
+  it("follows the cursor across pages", async () => {
+    mockList
+      .mockResolvedValueOnce({
+        blobs: [{ pathname: "profiles/u-1/a.jpg" }],
+        hasMore: true,
+        cursor: "c-2",
+      })
+      .mockResolvedValueOnce({
+        blobs: [{ pathname: "profiles/u-1/b.jpg" }],
+        hasMore: false,
+      });
+
+    expect(await listBlobsByPrefix("profiles/u-1/")).toEqual([
+      { pathname: "profiles/u-1/a.jpg" },
+      { pathname: "profiles/u-1/b.jpg" },
+    ]);
+    expect(mockList).toHaveBeenNthCalledWith(1, {
+      prefix: "profiles/u-1/",
+      cursor: undefined,
+    });
+    expect(mockList).toHaveBeenNthCalledWith(2, {
+      prefix: "profiles/u-1/",
+      cursor: "c-2",
+    });
   });
 });

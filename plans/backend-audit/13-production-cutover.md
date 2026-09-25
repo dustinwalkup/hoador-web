@@ -29,6 +29,7 @@ Everything the backend-audit fixes need done **by hand, outside the code**, when
 | A1  | Verify `rental_requests_no_overlap` exists                       | R-CONC-01     | DONE                                  | DONE                                  | TODO |
 | A2  | Resend failed `charge.dispute.created` webhooks (within 30 days) | R-BIZ-06      | n/a                                   | n/a                                   | TODO |
 | A3  | Pay owners deposits captured before R-BIZ-04 (backfill)          | R-BIZ-04      | moot (no real captures)               | moot (no real captures)               | TODO |
+| A4  | Scrub accounts deleted before R-PRIV-09 (optional)               | R-PRIV-09     | TODO (optional)                       | TODO (optional)                       | N/A  |
 
 ## Before deploying
 
@@ -100,6 +101,14 @@ A full capture records no `amount`, so take the captured amount from the Payment
 
 The same query also finds **live failures** after deploy: each `deposit_transfer_failed` ops alert leaves a `failed` row. A retry must use a new idempotency key (`deposit-transfer-{disputeId}-retry-{n}`, via `createDepositTransfer`'s `retryCount`), because Stripe replays a cached failure for a reused key. A `deposit_transfer_unrecorded` alert means the owner **was** paid and only the row is missing. Add the row and don't pay again.
 
+**A4. Accounts deleted before R-PRIV-09 (dev/staging only).** Self-deletion now deletes the user's uploaded blobs and clears leftover PII: delivery details, messages and ad attribution on their rental requests, activity-log IPs, and push rows. Accounts deleted before the fix still have all of that. Prod has none (it launches with the fix), so this is N/A there. On dev/staging these are test accounts, so marking the step N/A is reasonable. Count them first (name the host: dev = `ep-lucky-block`, staging = `ep-polished-tree`):
+
+```sql
+SELECT count(*) FROM "user" WHERE anonymized_at IS NOT NULL;
+```
+
+If the leftovers matter, **don't just call `anonymizeUser` again**: nobody has checked that it's safe to re-run on an already-anonymized row, and the blob deletes live in the service, not the DAL. Write a one-off script that runs the PRIV-09 statements from `anonymizeUser` and the service's blob helpers for `WHERE anonymized_at IS NOT NULL`.
+
 ## Standing rules
 
 - **Never run `drizzle-kit push` against staging or prod.** `rental_requests_no_overlap` exists only in migration 0072's SQL, not in the Drizzle schema. Push leaves an existing constraint alone (verified 2026-09-24) but never creates it. A database built with push (the local e2e DB, a fresh Neon branch) is missing it until you run the 0072 SQL by hand.
@@ -108,4 +117,5 @@ The same query also finds **live failures** after deploy: each `deposit_transfer
 ## Known follow-ups (not blocking, but prod-relevant)
 
 - ~~The admin delete doesn't guard the `system` user~~ — fixed in R-DB-01 (409). It still shows in the admin user list.
+- **Behavior change to expect after R-PRIV-09:** a deleted account's push rows are gone, not `is_active = false`. Its listings are archived (`is_active = false`) with no images, and its closed-dispute evidence photos become the text `[Photo removed — account deleted]`. Watch for the ops alerts `account_deletion_blob_delete_failed` (a blob is still public; delete it by hand) and `account_deletion_open_dispute_evidence_retained` (should never fire; it means `getDeletionBlockers` let a user with an open dispute through).
 - **Behavior change to expect after R-DB-01:** deleting a listing that ever had a rental request archives it (`is_active = false`), and it shows in the owner's Archived tab. Superadmin hard-delete of a user with payments or rental requests returns 409, so those accounts can only be suspended or deactivated.

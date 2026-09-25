@@ -1,4 +1,14 @@
-import { and, or, eq, ne, inArray, isNull, sql, count } from "drizzle-orm";
+import {
+  and,
+  or,
+  eq,
+  ne,
+  inArray,
+  notInArray,
+  isNull,
+  sql,
+  count,
+} from "drizzle-orm";
 import { BaseDAL } from "./base";
 import { NotFoundError } from "./errors";
 import {
@@ -10,12 +20,14 @@ import {
 } from "@/db/schemas/user.schema";
 import { rentalRequests, rentals } from "@/db/schemas/rentals.schema";
 import { serviceBookings, serviceListings } from "@/db/schemas/services.schema";
-import { listings } from "@/db/schemas/listings.schema";
+import { listingImages, listings } from "@/db/schemas/listings.schema";
 import { neighborhoodNeeds } from "@/db/schemas/neighborhood-needs.schema";
 import { pushSubscriptions } from "@/db/schemas/notifications.schema";
 import { rentalPaymentLifecycle } from "@/db/schemas/rental-payment-lifecycle.schema";
 import { servicePaymentLifecycle } from "@/db/schemas/service-payment-lifecycle.schema";
-import { disputes } from "@/db/schemas/disputes.schema";
+import { disputeEvidence, disputes } from "@/db/schemas/disputes.schema";
+import { userActivityLog } from "@/db/schemas/user-activity.schema";
+import { isOwnBlobUrl, pathnameFromBlobUrl } from "@/services/vercel-blob";
 
 /** What `anonymizeUser` leaves the service to finish after the commit. */
 export interface AnonymizeUserResult {
@@ -41,6 +53,33 @@ export interface AnonymizeUserResult {
     providerId: string;
     serviceTitle: string;
   }[];
+  /**
+   * Blob pathnames to delete after commit (PRIV-09): listing and
+   * service-listing photos, owner-uploaded damage photos, and this user's own
+   * closed-dispute evidence images. Only paths under each resource's own
+   * prefix are listed (see `ownBlobPathnames`). The avatar is swept by prefix
+   * in the service instead.
+   */
+  blobPathnamesToDelete: string[];
+  /**
+   * Evidence images this user uploaded that were kept because their dispute
+   * is still open. `getDeletionBlockers` refuses deletion while any such
+   * dispute exists, so this should always be 0; the service alerts ops if not.
+   */
+  skippedOpenDisputeEvidenceCount: number;
+}
+
+/**
+ * The pathnames of `urls` that are blobs on our store under `prefix`. Anything
+ * else is dropped rather than deleted: a URL outside the resource's own prefix
+ * (damage photos accepted any URL before SEC-22; seeds use `mock/` paths) may
+ * be another user's blob, and a malformed one must not throw inside the
+ * anonymize transaction.
+ */
+function ownBlobPathnames(urls: readonly string[], prefix: string): string[] {
+  return urls
+    .filter((url) => isOwnBlobUrl(url, prefix))
+    .map(pathnameFromBlobUrl);
 }
 
 /**
@@ -362,29 +401,135 @@ export class AccountDeletionDAL extends BaseDAL {
         await tx.delete(session).where(eq(session.userId, userId));
         await tx.delete(account).where(eq(account.userId, userId));
 
-        // Deactivate device + card records (retain rows; drop reachability).
-        await tx
-          .update(pushSubscriptions)
-          .set({ isActive: false, updatedAt: new Date() })
-          .where(
-            and(
-              eq(pushSubscriptions.userId, userId),
-              eq(pushSubscriptions.isActive, true),
+        // Blob-bearing content (PRIV-09). Pathnames are collected here and
+        // deleted after the commit: blob storage is an external call and must
+        // never roll back or gate this transaction. The DB references are
+        // scrubbed regardless of whether a blob is queued.
+        const blobPathnamesToDelete: string[] = [];
+
+        const listingImageRows = await tx
+          .select({
+            id: listingImages.id,
+            listingId: listingImages.listingId,
+            pathname: listingImages.blobPathname,
+          })
+          .from(listingImages)
+          .innerJoin(listings, eq(listingImages.listingId, listings.id))
+          .where(eq(listings.ownerId, userId));
+        blobPathnamesToDelete.push(
+          ...listingImageRows
+            .filter((r) => r.pathname.startsWith(`listings/${r.listingId}/`))
+            .map((r) => r.pathname),
+        );
+        if (listingImageRows.length > 0) {
+          await tx.delete(listingImages).where(
+            inArray(
+              listingImages.id,
+              listingImageRows.map((r) => r.id),
             ),
           );
+        }
+
+        const serviceListingRows = await tx
+          .select({ id: serviceListings.id, photos: serviceListings.photos })
+          .from(serviceListings)
+          .where(eq(serviceListings.providerId, userId));
+        blobPathnamesToDelete.push(
+          ...serviceListingRows.flatMap((r) =>
+            ownBlobPathnames(r.photos ?? [], `service-listings/${r.id}/`),
+          ),
+        );
+
+        // Owner-uploaded only: the damage-photos route is owner-only, so a
+        // renter deleting their account never erases the owner's evidence.
+        const damagePhotoRows = await tx
+          .select({ id: rentals.id, damagePhotos: rentals.damagePhotos })
+          .from(rentals)
+          .where(eq(rentals.ownerId, userId));
+        blobPathnamesToDelete.push(
+          ...damagePhotoRows.flatMap((r) =>
+            ownBlobPathnames(r.damagePhotos ?? [], `rentals/${r.id}/damage/`),
+          ),
+        );
+        if (damagePhotoRows.some((r) => (r.damagePhotos ?? []).length > 0)) {
+          await tx
+            .update(rentals)
+            .set({ damagePhotos: [] })
+            .where(eq(rentals.ownerId, userId));
+        }
+
+        // This user's own evidence images on closed disputes. Evidence upload
+        // requires being a party, and a party can't delete while a dispute is
+        // open (countOpenDisputes), so the open-dispute filter is a defensive
+        // backstop, counted below so a broken invariant pages ops.
+        const evidenceRows = await tx
+          .select({
+            id: disputeEvidence.id,
+            disputeId: disputeEvidence.disputeId,
+            content: disputeEvidence.content,
+          })
+          .from(disputeEvidence)
+          .innerJoin(disputes, eq(disputeEvidence.disputeId, disputes.id))
+          .where(
+            and(
+              eq(disputeEvidence.uploadedBy, userId),
+              eq(disputeEvidence.evidenceType, "image"),
+              notInArray(disputes.status, [...BLOCKING_DISPUTE_STATUSES]),
+            ),
+          );
+        blobPathnamesToDelete.push(
+          ...evidenceRows.flatMap((r) =>
+            ownBlobPathnames([r.content], `disputes/${r.disputeId}/evidence/`),
+          ),
+        );
+        if (evidenceRows.length > 0) {
+          await tx
+            .update(disputeEvidence)
+            .set({
+              content: "[Photo removed — account deleted]",
+              evidenceType: "text",
+            })
+            .where(
+              inArray(
+                disputeEvidence.id,
+                evidenceRows.map((r) => r.id),
+              ),
+            );
+        }
+
+        const [skipped] = await tx
+          .select({ n: count() })
+          .from(disputeEvidence)
+          .innerJoin(disputes, eq(disputeEvidence.disputeId, disputes.id))
+          .where(
+            and(
+              eq(disputeEvidence.uploadedBy, userId),
+              eq(disputeEvidence.evidenceType, "image"),
+              inArray(disputes.status, [...BLOCKING_DISPUTE_STATUSES]),
+            ),
+          );
+
+        // A deactivated push row still carries a live device token/endpoint,
+        // so delete it (PRIV-09). Card rows are only deactivated: their local
+        // metadata follows the Stripe customer's retention window.
+        await tx
+          .delete(pushSubscriptions)
+          .where(eq(pushSubscriptions.userId, userId));
         await tx
           .update(userPaymentMethods)
           .set({ isActive: false, updatedAt: new Date() })
           .where(eq(userPaymentMethods.userId, userId));
 
-        // Delist content from discovery.
+        // Delist content from discovery. Listings are archived (isActive, the
+        // R-DB-01 flag) and service listings lose their photos, whose blobs
+        // were queued above.
         await tx
           .update(listings)
-          .set({ status: "inactive", updatedAt: new Date() })
+          .set({ status: "inactive", isActive: false, updatedAt: new Date() })
           .where(eq(listings.ownerId, userId));
         await tx
           .update(serviceListings)
-          .set({ status: "inactive", updatedAt: new Date() })
+          .set({ status: "inactive", photos: [], updatedAt: new Date() })
           .where(eq(serviceListings.providerId, userId));
         await tx
           .update(neighborhoodNeeds)
@@ -395,6 +540,23 @@ export class AccountDeletionDAL extends BaseDAL {
               sql`${neighborhoodNeeds.deletedAt} IS NULL`,
             ),
           );
+
+        // Leftover PII on retained rows, at every status (PRIV-09): the
+        // renter's delivery details, free-text message and ad-attribution
+        // context (fbp/fbc/IP/user agent), and activity-log IPs.
+        await tx
+          .update(rentalRequests)
+          .set({
+            deliveryAddress: null,
+            deliveryInstructions: null,
+            message: null,
+            attributionContext: null,
+          })
+          .where(eq(rentalRequests.renterId, userId));
+        await tx
+          .update(userActivityLog)
+          .set({ ipAddress: null, userAgent: null })
+          .where(eq(userActivityLog.userId, userId));
 
         // Withdraw the user's own pending requests (see method doc). Same
         // predicates as the claims they race, so a claim mid-charge wins.
@@ -513,6 +675,8 @@ export class AccountDeletionDAL extends BaseDAL {
             providerId: b.providerId,
             serviceTitle: serviceTitles.get(b.listingId) ?? "your service",
           })),
+          blobPathnamesToDelete,
+          skippedOpenDisputeEvidenceCount: skipped?.n ?? 0,
         };
       });
     } catch (error) {

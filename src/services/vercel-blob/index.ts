@@ -1,4 +1,4 @@
-import { put, del } from "@vercel/blob";
+import { put, del, list } from "@vercel/blob";
 
 export interface BlobUploadResult {
   url: string;
@@ -27,6 +27,24 @@ export async function uploadToBlob(
  */
 export async function deleteFromBlob(pathname: string): Promise<void> {
   await del(pathname);
+}
+
+/**
+ * Every blob under a prefix, e.g. `profiles/<userId>/` — a superset of
+ * whatever a single DB column currently points at, since a failed "replace"
+ * can orphan an earlier upload. Follows the cursor, as `list()` pages.
+ */
+export async function listBlobsByPrefix(
+  prefix: string,
+): Promise<{ pathname: string }[]> {
+  const found: { pathname: string }[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix, cursor });
+    found.push(...page.blobs.map((b) => ({ pathname: b.pathname })));
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  return found;
 }
 
 /**

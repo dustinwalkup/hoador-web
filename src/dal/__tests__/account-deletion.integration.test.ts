@@ -19,7 +19,19 @@ import {
 } from "@/test/integration/factories";
 import { raceTwo } from "@/test/integration/run-concurrently";
 
-const { rentalRequests, serviceBookings, user } = schema;
+const {
+  rentalRequests,
+  serviceBookings,
+  user,
+  rentals,
+  disputes,
+  disputeEvidence,
+  listingImages,
+  listings,
+  serviceListings,
+  pushSubscriptions,
+  userActivityLog,
+} = schema;
 
 const requestById = async (id: string) =>
   (await db.select().from(rentalRequests).where(eq(rentalRequests.id, id)))[0];
@@ -177,5 +189,243 @@ describe("claims refuse a deleted counterparty (BIZ-07, real DB)", () => {
     const stored = await requestById(request.id);
     const outcome = `${stored.status}/${stored.paymentStatus}`;
     expect(["cancelled/pending", "pending/processing"]).toContain(outcome);
+  });
+});
+
+const STORE = "https://store.public.blob.vercel-storage.com";
+
+/** A rental between two users, optionally with the owner's damage photos. */
+async function createRental(
+  owner: { id: string },
+  renter: { id: string },
+  damagePhotos: (rentalId: string) => string[] = () => [],
+) {
+  const listing = await createListing(owner.id);
+  const request = await createRentalRequest(listing.id, renter.id, owner.id, {
+    status: "completed",
+  });
+  const [rental] = await db
+    .insert(rentals)
+    .values({
+      requestId: request.id,
+      listingId: listing.id,
+      renterId: renter.id,
+      ownerId: owner.id,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      totalAmount: request.totalAmount,
+    })
+    .returning();
+  const photos = damagePhotos(rental.id);
+  if (photos.length > 0) {
+    await db
+      .update(rentals)
+      .set({ damagePhotos: photos })
+      .where(eq(rentals.id, rental.id));
+  }
+  return rental;
+}
+
+/** A dispute on `rentalId` with one image uploaded by `uploaderId`. */
+async function createEvidence(
+  rentalId: string,
+  uploaderId: string,
+  status: "open" | "resolved",
+) {
+  const [dispute] = await db
+    .insert(disputes)
+    .values({
+      rentalId,
+      createdBy: uploaderId,
+      createdByRole: "owner",
+      reasonCode: "damage",
+      description: "Returned with a cracked housing",
+      policyVersion: "1",
+      status,
+    })
+    .returning();
+  const [evidence] = await db
+    .insert(disputeEvidence)
+    .values({
+      disputeId: dispute.id,
+      uploadedBy: uploaderId,
+      uploadedByRole: "owner",
+      evidenceType: "image",
+      content: `${STORE}/disputes/${dispute.id}/evidence/1.jpg`,
+    })
+    .returning();
+  return { dispute, evidence };
+}
+
+describe("account deletion scrubs uploads and leftover PII (PRIV-09, real DB)", () => {
+  it("unlinks every upload, returns their blob paths, and clears leftover PII", async () => {
+    const me = await createUser();
+    const other = await createUser();
+
+    const listing = await createListing(me.id);
+    await db.insert(listingImages).values([
+      {
+        listingId: listing.id,
+        imageUrl: `${STORE}/listings/${listing.id}/1.jpg`,
+        blobPathname: `listings/${listing.id}/1.jpg`,
+      },
+      // Seed rows use fake paths: unlinked, but never sent to blob delete.
+      {
+        listingId: listing.id,
+        imageUrl: "https://picsum.photos/1",
+        blobPathname: "mock/1.jpg",
+      },
+    ]);
+
+    const service = await createServiceListing(me.id);
+    await db
+      .update(serviceListings)
+      .set({
+        photos: [
+          `${STORE}/service-listings/${service.id}/a.jpg`,
+          `${STORE}/service-listings/${service.id}/b.jpg`,
+        ],
+      })
+      .where(eq(serviceListings.id, service.id));
+
+    // Pre-SEC-22 damage photos could be any URL; only our own prefix is deleted.
+    const owned = await createRental(me, other, (id) => [
+      `${STORE}/rentals/${id}/damage/1.jpg`,
+      `${STORE}/listings/someone-elses/1.jpg`,
+    ]);
+    const { evidence } = await createEvidence(owned.id, me.id, "resolved");
+
+    const theirListing = await createListing(other.id);
+    const myRequest = await createRentalRequest(
+      theirListing.id,
+      me.id,
+      other.id,
+      {
+        status: "completed",
+        deliveryAddress: "1 Main St",
+        deliveryInstructions: "Side gate",
+        message: "Hi, it's Jane",
+        attributionContext: { fbp: "fb.1", ip: "203.0.113.9", userAgent: "UA" },
+      },
+    );
+
+    await db.insert(userActivityLog).values({
+      userId: me.id,
+      activityType: "login",
+      ipAddress: "203.0.113.9",
+      userAgent: "UA",
+    });
+    await db.insert(pushSubscriptions).values([
+      {
+        userId: me.id,
+        endpoint: `ep-${me.id}-1`,
+        platform: "ios",
+        token: "t1",
+      },
+      { userId: me.id, endpoint: `ep-${me.id}-2`, isActive: false },
+    ]);
+
+    const result = await accountDeletionDAL.anonymizeUser(me.id);
+
+    expect(result.blobPathnamesToDelete.sort()).toEqual(
+      [
+        `listings/${listing.id}/1.jpg`,
+        `service-listings/${service.id}/a.jpg`,
+        `service-listings/${service.id}/b.jpg`,
+        `rentals/${owned.id}/damage/1.jpg`,
+        `disputes/${evidence.disputeId}/evidence/1.jpg`,
+      ].sort(),
+    );
+    expect(result.skippedOpenDisputeEvidenceCount).toBe(0);
+
+    expect(
+      await db
+        .select()
+        .from(listingImages)
+        .where(eq(listingImages.listingId, listing.id)),
+    ).toHaveLength(0);
+    const [storedListing] = await db
+      .select()
+      .from(listings)
+      .where(eq(listings.id, listing.id));
+    expect(storedListing.isActive).toBe(false);
+    const [storedService] = await db
+      .select()
+      .from(serviceListings)
+      .where(eq(serviceListings.id, service.id));
+    expect(storedService.photos).toEqual([]);
+    const [storedRental] = await db
+      .select()
+      .from(rentals)
+      .where(eq(rentals.id, owned.id));
+    expect(storedRental.damagePhotos).toEqual([]);
+    const [storedEvidence] = await db
+      .select()
+      .from(disputeEvidence)
+      .where(eq(disputeEvidence.id, evidence.id));
+    expect(storedEvidence).toMatchObject({
+      evidenceType: "text",
+      content: "[Photo removed — account deleted]",
+    });
+
+    const storedRequest = await requestById(myRequest.id);
+    expect(storedRequest).toMatchObject({
+      deliveryAddress: null,
+      deliveryInstructions: null,
+      message: null,
+      attributionContext: null,
+    });
+    const [activity] = await db
+      .select()
+      .from(userActivityLog)
+      .where(eq(userActivityLog.userId, me.id));
+    expect(activity).toMatchObject({ ipAddress: null, userAgent: null });
+    expect(
+      await db
+        .select()
+        .from(pushSubscriptions)
+        .where(eq(pushSubscriptions.userId, me.id)),
+    ).toHaveLength(0);
+  });
+
+  // Unreachable through getDeletionBlockers; inserted directly to prove the
+  // defensive filter the service alerts on.
+  it("keeps and counts evidence on a dispute that is still open", async () => {
+    const me = await createUser();
+    const other = await createUser();
+    const rental = await createRental(me, other);
+    const { evidence } = await createEvidence(rental.id, me.id, "open");
+
+    const result = await accountDeletionDAL.anonymizeUser(me.id);
+
+    expect(result.skippedOpenDisputeEvidenceCount).toBe(1);
+    expect(result.blobPathnamesToDelete).toEqual([]);
+    const [stored] = await db
+      .select()
+      .from(disputeEvidence)
+      .where(eq(disputeEvidence.id, evidence.id));
+    expect(stored).toMatchObject({
+      evidenceType: "image",
+      content: evidence.content,
+    });
+  });
+
+  it("leaves the owner's damage photos alone when the renter deletes", async () => {
+    const owner = await createUser();
+    const me = await createUser();
+    const rental = await createRental(owner, me, (id) => [
+      `${STORE}/rentals/${id}/damage/1.jpg`,
+    ]);
+
+    const result = await accountDeletionDAL.anonymizeUser(me.id);
+
+    expect(result.blobPathnamesToDelete).toEqual([]);
+    const [stored] = await db
+      .select()
+      .from(rentals)
+      .where(eq(rentals.id, rental.id));
+    expect(stored.damagePhotos).toEqual([
+      `${STORE}/rentals/${rental.id}/damage/1.jpg`,
+    ]);
   });
 });
