@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { ConflictError } from "@/dal/errors";
 
 /**
  * SEC-12: the owner's decline reason is stored and emailed to the renter. It
@@ -95,5 +96,93 @@ describe("POST /api/rentals/[id]/decline — reason sanitizing (SEC-12)", () => 
 
     expect(res.status).toBe(200);
     expect((mockDecline.mock.calls[0][1] as string).length).toBe(1000);
+  });
+});
+
+describe("POST /api/rentals/[id]/decline — party and state (R-TEST-09)", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { getAuthenticatedUser, getCurrentUserId } =
+      await import("@/features/auth/utils/session");
+    vi.mocked(getAuthenticatedUser).mockResolvedValue({
+      user: { id: "owner-1", status: "active" },
+      userId: "owner-1",
+      isAdmin: false,
+    } as Awaited<ReturnType<typeof getAuthenticatedUser>>);
+    vi.mocked(getCurrentUserId).mockResolvedValue("owner-1");
+    const { rentalDAL } = await import("@/dal");
+    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValue({
+      id: "r-1",
+      ownerId: "owner-1",
+      renterId: "renter-1",
+      listingName: "Drill",
+    } as Awaited<ReturnType<typeof rentalDAL.getRentalRequestById>>);
+    mockDecline.mockResolvedValue(undefined);
+    mockDenied.mockResolvedValue(undefined);
+  });
+
+  it("401s an unauthenticated caller and never declines", async () => {
+    const { getAuthenticatedUser } =
+      await import("@/features/auth/utils/session");
+    vi.mocked(getAuthenticatedUser).mockResolvedValueOnce(null);
+
+    const res = await decline("Booked elsewhere");
+
+    expect(res.status).toBe(401);
+    expect(mockDecline).not.toHaveBeenCalled();
+  });
+
+  it("404s when the rental request doesn't exist", async () => {
+    const { rentalDAL } = await import("@/dal");
+    vi.mocked(rentalDAL.getRentalRequestById).mockResolvedValueOnce(
+      null as unknown as Awaited<
+        ReturnType<typeof rentalDAL.getRentalRequestById>
+      >,
+    );
+
+    const res = await decline("Booked elsewhere");
+
+    expect(res.status).toBe(404);
+    expect(mockDecline).not.toHaveBeenCalled();
+  });
+
+  it("403s a caller who isn't the listing owner", async () => {
+    const { getAuthenticatedUser, getCurrentUserId } =
+      await import("@/features/auth/utils/session");
+    vi.mocked(getAuthenticatedUser).mockResolvedValueOnce({
+      user: { id: "renter-1", status: "active" },
+      userId: "renter-1",
+      isAdmin: false,
+    } as Awaited<ReturnType<typeof getAuthenticatedUser>>);
+    vi.mocked(getCurrentUserId).mockResolvedValueOnce("renter-1");
+
+    const res = await decline("Booked elsewhere");
+
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(
+      /only the listing owner can decline rental requests/i,
+    );
+    expect(mockDecline).not.toHaveBeenCalled();
+  });
+
+  it("409s when the DAL rejects with ConflictError", async () => {
+    mockDecline.mockRejectedValue(
+      new ConflictError("Rental request is no longer pending."),
+    );
+
+    const res = await decline("Booked elsewhere");
+
+    expect(res.status).toBe(409);
+  });
+
+  it("200s for the owner", async () => {
+    const res = await decline("Booked elsewhere");
+
+    expect(res.status).toBe(200);
+    expect(mockDecline).toHaveBeenCalledWith(
+      "r-1",
+      "Booked elsewhere",
+      "owner-1",
+    );
   });
 });

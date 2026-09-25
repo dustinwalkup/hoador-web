@@ -49,6 +49,8 @@ import {
   legalDocumentDAL,
   auditLogDAL,
   paymentLifecycleDAL,
+  serviceBookingDAL,
+  servicePaymentLifecycleDAL,
 } from "@/dal";
 import { sendDisputeNotifications } from "@/features/disputes/notifications/dispute-notifications";
 import { DisputeCreationService } from "../dispute-creation-service";
@@ -466,5 +468,74 @@ describe("DisputeCreationService.createDispute", () => {
     ).rejects.toThrow(ValidationError);
 
     expect(disputeDAL.create).not.toHaveBeenCalled();
+  });
+
+  describe("service booking disputes", () => {
+    const bookingDetail = {
+      id: "booking-1",
+      requesterId: "requester-1",
+      providerId: "provider-1",
+      status: "accepted" as const,
+      proposedDate: "2024-01-01",
+      proposedTime: "10:00",
+      completedAt: null,
+    };
+
+    it("34.2s Authorization - user is neither requester nor provider → throws ForbiddenError", async () => {
+      vi.mocked(serviceBookingDAL.getById).mockResolvedValue(
+        bookingDetail as never,
+      );
+
+      await expect(
+        DisputeCreationService.createDispute({
+          serviceBookingId: "booking-1",
+          reasonCode: "damage",
+          description: "Test",
+          userId: "stranger-1",
+        }),
+      ).rejects.toThrow(ForbiddenError);
+
+      expect(
+        servicePaymentLifecycleDAL.freezeForDispute,
+      ).not.toHaveBeenCalled();
+      expect(disputeDAL.create).not.toHaveBeenCalled();
+    });
+
+    it("lets the requester past the party check", async () => {
+      vi.mocked(serviceBookingDAL.getById).mockResolvedValue(
+        bookingDetail as never,
+      );
+      vi.mocked(disputeDAL.checkRateLimits).mockResolvedValue({
+        withinLimits: true,
+        monthlyCount: 0,
+        yearlyCount: 0,
+      });
+      vi.mocked(disputeDAL.create).mockResolvedValue({
+        ...mockDispute,
+        id: "dispute-service-1",
+        serviceBookingId: "booking-1",
+        rentalId: null,
+        createdBy: "requester-1",
+        createdByRole: "requester" as const,
+      } as never);
+
+      await DisputeCreationService.createDispute({
+        serviceBookingId: "booking-1",
+        reasonCode: "damage",
+        description: "Test",
+        userId: "requester-1",
+      });
+
+      expect(servicePaymentLifecycleDAL.freezeForDispute).toHaveBeenCalledWith(
+        "booking-1",
+      );
+      expect(disputeDAL.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceBookingId: "booking-1",
+          createdBy: "requester-1",
+          createdByRole: "requester",
+        }),
+      );
+    });
   });
 });

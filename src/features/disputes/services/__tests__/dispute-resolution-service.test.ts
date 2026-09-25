@@ -313,6 +313,10 @@ describe("DisputeResolutionService.resolveDispute", () => {
           cancelledAt: expect.any(Date),
         }),
       );
+      expect(PAYMENT_SERVER_INSTANCE.refunds.create).toHaveBeenCalledWith(
+        { charge: "ch_svc_1" },
+        { idempotencyKey: "service-refund-dispute-123" },
+      );
     });
 
     it("leaves an already-completed booking completed", async () => {
@@ -344,6 +348,66 @@ describe("DisputeResolutionService.resolveDispute", () => {
         }),
       ).resolves.toBeDefined();
       expect(disputeDAL.resolve).toHaveBeenCalled();
+    });
+
+    it("rejects a partial amount exceeding the provider payout without refunding", async () => {
+      arrange("accepted");
+
+      await expect(
+        DisputeResolutionService.resolveDispute({
+          disputeId: "dispute-123",
+          outcome: "partial_provider",
+          reason,
+          adminId,
+          partialAmount: 90,
+        }),
+      ).rejects.toThrow(ValidationError);
+
+      expect(PAYMENT_SERVER_INSTANCE.refunds.create).not.toHaveBeenCalled();
+    });
+
+    it("refunds a partial amount, reduces the provider payout, and unfreezes", async () => {
+      arrange("accepted");
+
+      await DisputeResolutionService.resolveDispute({
+        disputeId: "dispute-123",
+        outcome: "partial_provider",
+        reason,
+        adminId,
+        partialAmount: 30,
+      });
+
+      expect(PAYMENT_SERVER_INSTANCE.refunds.create).toHaveBeenCalledWith(
+        { charge: "ch_svc_1", amount: 3000 },
+        { idempotencyKey: "service-refund-dispute-123-partial" },
+      );
+      expect(
+        servicePaymentLifecycleDAL.updateProviderPayout,
+      ).toHaveBeenCalledWith("booking-123", 50);
+      expect(
+        servicePaymentLifecycleDAL.unfreezeAfterResolution,
+      ).toHaveBeenCalledWith("booking-123");
+    });
+
+    it("does not resolve the dispute when the refund fails", async () => {
+      arrange("accepted");
+      vi.mocked(PAYMENT_SERVER_INSTANCE.refunds.create).mockRejectedValue(
+        new Error("Stripe down"),
+      );
+
+      await expect(
+        DisputeResolutionService.resolveDispute({
+          disputeId: "dispute-123",
+          outcome: "favor_renter",
+          reason,
+          adminId,
+        }),
+      ).rejects.toThrow(ValidationError);
+
+      expect(disputeDAL.resolve).not.toHaveBeenCalled();
+      expect(
+        servicePaymentLifecycleDAL.markRefundedAfterDispute,
+      ).not.toHaveBeenCalled();
     });
   });
 

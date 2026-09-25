@@ -94,4 +94,35 @@ describe("GET /api/services/bookings/[id]/payment-lifecycle (PRIV-04)", () => {
 
     expect(res.status).toBe(403);
   });
+
+  it("401s an unauthenticated caller and never reads the booking", async () => {
+    mockGetCurrentUserId.mockResolvedValue(null);
+
+    const { GET } = await import("../route");
+    const res = await GET(get(), params());
+
+    expect(res.status).toBe(401);
+    expect(mockGetById).not.toHaveBeenCalled();
+  });
+
+  it("404s when the booking doesn't exist and never reads the lifecycle", async () => {
+    mockGetCurrentUserId.mockResolvedValue("prov-1");
+    mockGetById.mockResolvedValue(null);
+
+    const { GET } = await import("../route");
+    const res = await GET(get(), params());
+
+    expect(res.status).toBe(404);
+    expect(mockGetLifecycle).not.toHaveBeenCalled();
+  });
+
+  it("404s when the provider's booking has no lifecycle row", async () => {
+    mockGetCurrentUserId.mockResolvedValue("prov-1");
+    mockGetLifecycle.mockResolvedValue(null);
+
+    const { GET } = await import("../route");
+    const res = await GET(get(), params());
+
+    expect(res.status).toBe(404);
+  });
 });
