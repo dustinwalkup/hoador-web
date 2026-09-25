@@ -13,6 +13,7 @@ export const SENSITIVE_KEYS = [
   "authorization",
   "cookie",
   "cookieHeader",
+  "email",
   "card",
   "cardNumber",
   "card_number",

@@ -16,11 +16,8 @@ export function SentryUserSync() {
     if (!isSentryEnabled) return;
 
     if (session?.user) {
-      Sentry.setUser({
-        id: session.user.id,
-        email: session.user.email ?? undefined,
-        username: session.user.name ?? undefined,
-      });
+      // id only: email/name are PII that Sentry must not hold (PRIV-07)
+      Sentry.setUser({ id: session.user.id });
     } else {
       Sentry.setUser(null);
     }

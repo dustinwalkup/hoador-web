@@ -11,11 +11,8 @@ export function setSentryUser(user: UserProfile | null): void {
     return;
   }
 
-  Sentry.setUser({
-    id: user.id,
-    email: user.email || undefined,
-    username: user.name || undefined,
-  });
+  // id only: email/name are PII that Sentry must not hold (PRIV-07)
+  Sentry.setUser({ id: user.id });
 }
 
 /**

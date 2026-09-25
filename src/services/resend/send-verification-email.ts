@@ -17,9 +17,6 @@ export async function sendVerificationEmail({
   verificationUrl: string;
   firstName?: string;
 }) {
-  console.log("Sending verification email to:", to);
-  console.log("Verification URL:", verificationUrl);
-  console.log("First name:", firstName);
   try {
     const logoAttachment = getEmailLogoAttachment();
     const attachments = logoAttachment

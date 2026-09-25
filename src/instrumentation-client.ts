@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent } from "@/lib/sentry/scrub-event";
 
 // Only initialize Sentry in production
 const isProduction =
@@ -26,33 +27,15 @@ if (isProduction) {
     // Enable logs to be sent to Sentry
     enableLogs: true,
 
-    // Enable sending user PII (Personally Identifiable Information)
+    // No user PII: a session cookie or email in Sentry is a leak (PRIV-07)
     // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-    sendDefaultPii: true,
+    sendDefaultPii: false,
 
     // Release tracking from package.json
     release: `hoador-web@${process.env.npm_package_version || "0.1"}`,
 
-    // Filter out expected errors
-    beforeSend(event, hint) {
-      // Don't send errors in development
-      if (process.env.NODE_ENV !== "production") {
-        return null;
-      }
-
-      const error = hint.originalException;
-
-      // Filter out expected HTTP errors
-      if (error && typeof error === "object" && "status" in error) {
-        const status = (error as { status?: number }).status;
-        // Don't send 404, 400, 401 errors - these are expected
-        if (status === 404 || status === 400 || status === 401) {
-          return null;
-        }
-      }
-
-      return event;
-    },
+    // Filter expected errors and strip cookies/headers/user PII
+    beforeSend: scrubSentryEvent,
   });
 
   // Track unhandled promise rejections (client-side)

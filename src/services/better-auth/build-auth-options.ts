@@ -140,7 +140,7 @@ export function buildAuthOptions({ database }: AuthDependencies) {
       revokeSessionsOnPasswordReset: true,
       onPasswordReset: async ({ user }) => {
         // logic here
-        console.log(`Password for user ${user.email} has been reset.`);
+        console.log(`Password reset for user ${user.id}.`);
       },
     },
 
@@ -194,7 +194,7 @@ export function buildAuthOptions({ database }: AuthDependencies) {
             verificationUrl: emailVerificationUrl,
             firstName: user.name,
           });
-          console.log("Verification email sent to:", user.email);
+          console.log("Verification email sent to user:", user.id);
         } catch (error) {
           console.error("Failed to send verification email:", error);
           // Don't throw - let user retry verification
