@@ -123,7 +123,7 @@ export async function quoteServiceBooking(
   if (!providerVisible || !requesterVisible) {
     blockers.push({
       code: "COMMUNITY_NOT_VISIBLE",
-      message: "This listing isn't visible to you right now.",
+      message: "This service isn't visible to you right now.",
     });
   }
 
@@ -133,7 +133,7 @@ export async function quoteServiceBooking(
   if (hourly && (hours == null || hours <= 0)) {
     blockers.push({
       code: "HOURS_REQUIRED",
-      message: "Hours are required for hourly listings",
+      message: "Hours are required for hourly services",
     });
   }
 

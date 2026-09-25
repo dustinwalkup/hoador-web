@@ -191,7 +191,7 @@ describe("POST /api/services/bookings/preview — blockers are data, not errors"
 
     expect(body.blockers).toContainEqual({
       code: "HOURS_REQUIRED",
-      message: "Hours are required for hourly listings",
+      message: "Hours are required for hourly services",
     });
   });
 
