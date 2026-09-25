@@ -678,4 +678,63 @@ describe("route-helpers", () => {
       expect(await requireAuthResponse()).toBeNull();
     });
   });
+
+  /**
+   * The proxy no longer resolves the session for /api/* (PERF-03), so it no
+   * longer bounces an email signup that hasn't verified yet. The helpers do.
+   */
+  describe("email verification gate", () => {
+    const as = (user: Partial<typeof mockVerifiedUser>) =>
+      vi.mocked(getAuthenticatedUser).mockResolvedValue({
+        user: { ...mockVerifiedUser, ...user } as typeof mockVerifiedUser,
+        userId: "verified-user-123",
+        isAdmin: false,
+      });
+
+    it("403s an unverified email from both helpers with EMAIL_NOT_VERIFIED", async () => {
+      as({ emailVerified: false, status: "pending_verification" });
+
+      const result = await getAuthenticatedUserResponse();
+      expect(result).toBeInstanceOf(NextResponse);
+      expect((result as NextResponse).status).toBe(403);
+      await expect((result as NextResponse).json()).resolves.toMatchObject({
+        code: "EMAIL_NOT_VERIFIED",
+      });
+
+      const required = await requireAuthResponse();
+      expect(required?.status).toBe(403);
+      await expect(required!.json()).resolves.toMatchObject({
+        code: "EMAIL_NOT_VERIFIED",
+      });
+    });
+
+    it("passes both helpers when the route allows unverified email", async () => {
+      as({ emailVerified: false, status: "pending_verification" });
+
+      expect(
+        await getAuthenticatedUserResponse({ allowUnverifiedEmail: true }),
+      ).not.toBeInstanceOf(Response);
+      expect(
+        await requireAuthResponse({ allowUnverifiedEmail: true }),
+      ).toBeNull();
+    });
+
+    // A social sign-in starts at pending_verification with a provider-verified
+    // email; it is mid-funnel, not unverified.
+    it("lets a verified pending_verification account through", async () => {
+      as({ emailVerified: true, status: "pending_verification" });
+
+      expect(await getAuthenticatedUserResponse()).not.toBeInstanceOf(Response);
+      expect(await requireAuthResponse()).toBeNull();
+    });
+
+    it("keeps the account-status code first when both apply", async () => {
+      as({ emailVerified: false, status: "suspended" });
+
+      const result = await requireAuthResponse({ allowUnverifiedEmail: true });
+      await expect(result!.json()).resolves.toMatchObject({
+        code: "ACCOUNT_SUSPENDED",
+      });
+    });
+  });
 });

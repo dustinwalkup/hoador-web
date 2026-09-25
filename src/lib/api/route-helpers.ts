@@ -373,6 +373,14 @@ export interface AuthGateOptions {
    * against the actual caller.
    */
   allowRestricted?: boolean;
+  /**
+   * Let a session whose email isn't verified yet through. Only for the routes
+   * an email signup calls from the verify-email step: reading its own status
+   * (`GET /api/profile`, which the mobile funnel routes on), unsubscribing the
+   * device on sign-out, and storing Apple tokens straight after a social
+   * sign-in. Verify any new use against the actual caller.
+   */
+  allowUnverifiedEmail?: boolean;
 }
 
 export type RestrictedAccountCode = "ACCOUNT_SUSPENDED" | "ACCOUNT_INACTIVE";
@@ -398,9 +406,38 @@ function restrictedAccountResponse(code: RestrictedAccountCode) {
 }
 
 /**
+ * A session exists from sign-up (`autoSignIn`), before the email is proven.
+ * The proxy used to bounce such sessions off `/api/*` as a side effect of its
+ * own session check; that check is gone (PERF-03), so the gate lives here.
+ * Only `emailVerified === false` counts: a social sign-in at
+ * `pending_verification` has a provider-verified email and is mid-funnel.
+ */
+function unverifiedEmailResponse(user: {
+  emailVerified?: boolean | null;
+}): NextResponse<{ error: string }> | null {
+  if (user.emailVerified !== false) return null;
+  return NextResponse.json(
+    { error: "Verify your email to continue.", code: "EMAIL_NOT_VERIFIED" },
+    { status: 403 },
+  );
+}
+
+/** The 403 an authenticated session is refused with, or null to proceed. */
+function authGateResponse(
+  user: { status?: string | null; emailVerified?: boolean | null },
+  options: AuthGateOptions,
+): NextResponse<{ error: string }> | null {
+  const code = !options.allowRestricted && restrictedStatusCode(user);
+  if (code) return restrictedAccountResponse(code);
+  if (!options.allowUnverifiedEmail) return unverifiedEmailResponse(user);
+  return null;
+}
+
+/**
  * Require authentication in API routes
  * Returns NextResponse with 401 if not authenticated, 403 if the account is
- * suspended or inactive (unless `allowRestricted`), otherwise returns null
+ * suspended or inactive (unless `allowRestricted`) or its email is unverified
+ * (unless `allowUnverifiedEmail`), otherwise returns null
  */
 export async function requireAuthResponse(
   options: AuthGateOptions = {},
@@ -414,9 +451,7 @@ export async function requireAuthResponse(
       { status: 401 },
     );
   }
-  const code = !options.allowRestricted && restrictedStatusCode(result.user);
-  if (code) return restrictedAccountResponse(code);
-  return null;
+  return authGateResponse(result.user, options);
 }
 
 /**
@@ -533,7 +568,8 @@ export { requireAdmin };
 /**
  * Get authenticated user with admin check for API routes
  * Returns NextResponse with 401 if not authenticated, 403 if the account is
- * suspended or inactive (unless `allowRestricted`), otherwise returns user data
+ * suspended or inactive (unless `allowRestricted`) or its email is unverified
+ * (unless `allowUnverifiedEmail`), otherwise returns user data
  */
 export async function getAuthenticatedUserResponse(
   options: AuthGateOptions = {},
@@ -552,7 +588,5 @@ export async function getAuthenticatedUserResponse(
       { status: 401 },
     );
   }
-  const code = !options.allowRestricted && restrictedStatusCode(result.user);
-  if (code) return restrictedAccountResponse(code);
-  return result;
+  return authGateResponse(result.user, options) ?? result;
 }

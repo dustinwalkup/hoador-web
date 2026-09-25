@@ -21,7 +21,9 @@ import {
  */
 async function getHandler(): Promise<NextResponse> {
   try {
-    const authError = await requireAuthResponse();
+    // Cold start reconciles push for any signed-in session, including one
+    // still on verify-email; a device registration needs no proven email.
+    const authError = await requireAuthResponse({ allowUnverifiedEmail: true });
     if (authError) return authError;
 
     const userId = await getCurrentUserId();
@@ -49,7 +51,7 @@ export const GET = withRequestLogging(getHandler, "GET /api/push/subscribe");
  */
 async function postHandler(request: NextRequest): Promise<NextResponse> {
   try {
-    const authError = await requireAuthResponse();
+    const authError = await requireAuthResponse({ allowUnverifiedEmail: true });
     if (authError) return authError;
 
     const userId = await getCurrentUserId();
@@ -136,8 +138,12 @@ export const POST = withRequestLogging(postHandler, "POST /api/push/subscribe");
 async function deleteHandler(request: NextRequest): Promise<NextResponse> {
   try {
     // Runs during the forced sign-out of a just-restricted account, before
-    // the session is gone, so the device can still be unsubscribed (SEC-01).
-    const authError = await requireAuthResponse({ allowRestricted: true });
+    // the session is gone, so the device can still be unsubscribed (SEC-01),
+    // and on sign-out from the verify-email step.
+    const authError = await requireAuthResponse({
+      allowRestricted: true,
+      allowUnverifiedEmail: true,
+    });
     if (authError) return authError;
 
     const userId = await getCurrentUserId();

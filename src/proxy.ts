@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { getAdminUser } from "@/features/auth/utils/admin-session";
-import { SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 
 // Define protected route patterns
 const PROTECTED_ROUTES = [
@@ -9,10 +8,6 @@ const PROTECTED_ROUTES = [
   "/onboarding",
   "/community-select",
   "/join-code",
-  "/api/garage",
-  "/api/listings",
-  "/api/rentals",
-  "/api/messages",
 ];
 
 // Define admin routes that require admin privileges
@@ -35,9 +30,6 @@ const VERIFICATION_CALLBACK_ROUTES = [
   "/signup/google/legal-acceptance",
 ];
 
-// Define public API routes that should not be protected
-const PUBLIC_API_ROUTES = ["/api/auth", "/api/profile"];
-
 // Define static file extensions and Next.js internal paths to skip
 const SKIP_MIDDLEWARE_PATHS = [
   "/_next",
@@ -55,26 +47,12 @@ const SKIP_MIDDLEWARE_PATHS = [
 const PUBLIC_PAGE_ROUTES = ["/support", "/help", "/how-it-works"];
 
 /**
- * How to refuse an unauthenticated request to a protected path.
- *
- * **Pages redirect to /login. API routes get a 401.** Redirecting an `/api/*`
- * request to the login PAGE is actively harmful: the caller follows the 307 and
- * receives HTML with status **200**, so `res.ok` is true and `res.json()`
- * throws. Neither the web query layer nor the mobile client can recognise an
- * expired session from that — the app surfaces a parse error instead of bouncing
- * to sign-in (found from the mobile app, 2026-08-19).
- *
- * Only the four protected API prefixes (`/api/garage`, `/api/listings`,
- * `/api/rentals`, `/api/messages`) ever reached this path; every other `/api/*`
- * route already 401s at the route level, so this makes them consistent.
+ * Refuse an unauthenticated request to a protected PAGE by redirecting to
+ * /login. API routes never reach here (see the /api/* skip in proxyAuth) —
+ * they self-authenticate via requireAuthResponse /
+ * getAuthenticatedUserResponse (route-helpers.ts) and return their own 401.
  */
-function refuseUnauthenticated(request: NextRequest, pathname: string) {
-  if (pathname.startsWith("/api/")) {
-    return NextResponse.json(
-      { error: SESSION_EXPIRED_MESSAGE },
-      { status: 401 },
-    );
-  }
+function refuseUnauthenticated(request: NextRequest) {
   return NextResponse.redirect(createRedirectUrl(request));
 }
 
@@ -90,13 +68,6 @@ function isProtectedRoute(pathname: string): boolean {
  */
 function isAdminRoute(pathname: string): boolean {
   return ADMIN_ROUTES.some((route) => pathname.startsWith(route));
-}
-
-/**
- * Check if a path is a public API route that should not be protected
- */
-function isPublicApiRoute(pathname: string): boolean {
-  return PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route));
 }
 
 /**
@@ -186,8 +157,11 @@ async function proxyAuth(request: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  // Skip middleware for public API routes
-  if (isPublicApiRoute(pathname)) {
+  // PERF-03: every /api/* route self-authenticates (route-helpers.ts) and
+  // returns its own 401/403 — resolving the session again here duplicated
+  // that on every API call. The one route with no handler-level check,
+  // GET /api/listings/categories, returns only public category metadata.
+  if (pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
 
@@ -259,9 +233,6 @@ async function proxyAuth(request: NextRequest): Promise<NextResponse> {
       // layout is source of truth when proxy may run in Edge with different DB/session.
       if (user.status === "email_verified") {
         if (pathname.startsWith("/dashboard")) return NextResponse.next();
-        // API routes self-authenticate — never redirect a fetch() to an HTML
-        // page (e.g. the /community-select dropdown fetching /api/communities).
-        if (pathname.startsWith("/api/")) return NextResponse.next();
         // Allow both /community-select (canonical) and /join-code (legacy)
         // for email_verified users — R1.5 keeps the legacy invite-code flow live.
         if (pathname === "/community-select" || pathname === "/join-code") {
@@ -274,8 +245,6 @@ async function proxyAuth(request: NextRequest): Promise<NextResponse> {
       // Handle incomplete_profile users (same: allow /dashboard for layout redirect).
       if (user.status === "incomplete_profile") {
         if (pathname.startsWith("/dashboard")) return NextResponse.next();
-        // API routes self-authenticate; don't redirect fetch() calls to HTML.
-        if (pathname.startsWith("/api/")) return NextResponse.next();
         if (pathname !== "/onboarding") {
           const onboardingUrl = new URL("/onboarding", request.url);
           return NextResponse.redirect(onboardingUrl);
@@ -305,14 +274,11 @@ async function proxyAuth(request: NextRequest): Promise<NextResponse> {
       return NextResponse.next();
     }
 
-    // Refuse protected routes: pages redirect to login, APIs 401.
-    return refuseUnauthenticated(request, pathname);
+    return refuseUnauthenticated(request);
   } catch (error) {
     console.error("❌ MIDDLEWARE AUTHENTICATION ERROR:", error);
-    // Same split on the error path — an auth check that THREW must not hand an
-    // API caller an HTML login page either.
     if (isProtectedRoute(pathname)) {
-      return refuseUnauthenticated(request, pathname);
+      return refuseUnauthenticated(request);
     }
     return NextResponse.next();
   }

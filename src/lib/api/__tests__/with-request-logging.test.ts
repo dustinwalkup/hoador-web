@@ -3,9 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 
 const mockLog = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 const mockGetLogger = vi.fn(() => mockLog);
-const mockRunWithRequestContext = vi.fn((_ctx: unknown, fn: () => unknown) =>
-  fn(),
+let capturedCtx: Record<string, unknown> | undefined;
+// The wrapper mutates the live context after entering it, so keep a copy of
+// what it looked like on entry.
+let ctxAtEntry: Record<string, unknown> | undefined;
+const mockRunWithRequestContext = vi.fn(
+  (ctx: Record<string, unknown>, fn: () => unknown) => {
+    capturedCtx = ctx;
+    ctxAtEntry = { ...ctx };
+    return fn();
+  },
 );
+const mockGetRequestContext = vi.fn(() => capturedCtx);
 const mockGenerateRequestId = vi.fn(() => "test-request-id");
 const mockGetCurrentUserId = vi.fn().mockResolvedValue("user-123");
 const mockGetClientIP = vi.fn().mockReturnValue("192.168.1.1");
@@ -14,7 +23,8 @@ const mockCaptureException = vi.fn();
 
 vi.mock("@/lib/logger", () => ({
   getLogger: () => mockGetLogger(),
-  runWithRequestContext: (ctx: unknown, fn: () => unknown) =>
+  getRequestContext: () => mockGetRequestContext(),
+  runWithRequestContext: (ctx: Record<string, unknown>, fn: () => unknown) =>
     mockRunWithRequestContext(ctx, fn),
   generateRequestId: () => mockGenerateRequestId(),
 }));
@@ -41,6 +51,8 @@ describe("withRequestLogging", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    capturedCtx = undefined;
+    ctxAtEntry = undefined;
     mockGetCurrentUserId.mockResolvedValue("user-123");
   });
 
@@ -54,14 +66,15 @@ describe("withRequestLogging", () => {
 
     const res = await wrapped(request);
 
-    expect(mockRunWithRequestContext).toHaveBeenCalledWith(
+    expect(ctxAtEntry).toEqual(
       expect.objectContaining({
         requestId: "test-request-id",
-        userId: "user-123",
+        // Resolved inside the context, not before it (PERF-03).
+        userId: null,
         route,
       }),
-      expect.any(Function),
     );
+    expect(mockGetCurrentUserId).toHaveBeenCalledTimes(1);
     expect(mockLog.info).toHaveBeenCalledWith(
       expect.objectContaining({ method: "GET", route }),
       "request received",
@@ -75,6 +88,37 @@ describe("withRequestLogging", () => {
       "response sent",
     );
     expect(res.status).toBe(200);
+  });
+
+  it("resolves the user inside the request context and records it there (PERF-03)", async () => {
+    let userIdSeenByHandler: unknown;
+    const handler = vi.fn().mockImplementation(async () => {
+      userIdSeenByHandler = capturedCtx?.userId;
+      return NextResponse.json({ ok: true });
+    });
+    mockGetCurrentUserId.mockImplementation(async () => {
+      // The context must already exist, so getCurrentUser can seed ctx.user
+      // for the handler's own auth check to reuse.
+      expect(capturedCtx).toBeDefined();
+      return "user-123";
+    });
+    const wrapped = withRequestLogging(handler, route);
+
+    await wrapped(request);
+
+    expect(capturedCtx?.userId).toBe("user-123");
+    expect(userIdSeenByHandler).toBe("user-123");
+  });
+
+  it("leaves userId null when session resolution throws", async () => {
+    mockGetCurrentUserId.mockRejectedValue(new Error("session store down"));
+    const handler = vi.fn().mockResolvedValue(NextResponse.json({ ok: true }));
+    const wrapped = withRequestLogging(handler, route);
+
+    const res = await wrapped(request);
+
+    expect(res.status).toBe(200);
+    expect(capturedCtx?.userId).toBeNull();
   });
 
   it("on handler throw, logs error and calls Sentry with requestId, userId, route, environment", async () => {

@@ -21,9 +21,12 @@ async function getHandler() {
   try {
     // A suspended/inactive account must still read its own status: the mobile
     // app routes on it to its "account isn't active" screen, and a 403 here
-    // would strand it on a retry loop instead (SEC-01). PATCH stays gated.
+    // would strand it on a retry loop instead (SEC-01). Same for an email
+    // signup that hasn't verified yet: `emailVerified` is what sends it to
+    // verify-email. PATCH stays gated.
     const authResult = await getAuthenticatedUserResponse({
       allowRestricted: true,
+      allowUnverifiedEmail: true,
     });
     if (authResult instanceof NextResponse) return authResult;
     const { userId } = authResult;

@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/nextjs";
 
 import {
   getLogger,
+  getRequestContext,
   runWithRequestContext,
   generateRequestId,
 } from "@/lib/logger";
@@ -44,23 +45,29 @@ export function withRequestLogging<A extends unknown[]>(
     const ipAddress = getClientIP(request);
     const userAgent = getUserAgent(request);
 
-    let userId: string | null = null;
-    try {
-      userId = await getCurrentUserId();
-    } catch {
-      // Leave userId null if auth fails (e.g. no session)
-    }
-
     return runWithRequestContext(
       {
         requestId,
-        userId,
+        userId: null,
         ipAddress,
         userAgent,
         route,
       },
-      async () =>
-        runWithQueryCounter(route, async () => {
+      async () => {
+        const ctx = getRequestContext();
+        let userId: string | null = null;
+        try {
+          // Resolves via getCurrentUser() (session.ts), which seeds ctx.user
+          // as a side effect now that ctx exists — every later call in this
+          // request (route-helpers, services) hits the ALS fast path instead
+          // of re-querying (PERF-03).
+          userId = await getCurrentUserId();
+        } catch {
+          // Leave userId null if auth fails (e.g. no session)
+        }
+        if (ctx) ctx.userId = userId;
+
+        return runWithQueryCounter(route, async () => {
           const log = getLogger();
           log.info({ method: request.method, route }, "request received");
 
@@ -97,7 +104,8 @@ export function withRequestLogging<A extends unknown[]>(
 
             throw error;
           }
-        }),
+        });
+      },
     );
   };
 }

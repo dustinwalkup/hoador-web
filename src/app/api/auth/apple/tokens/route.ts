@@ -48,7 +48,11 @@ const refuse = (status: number, code: string, error: string) =>
  */
 async function postHandler(request: NextRequest) {
   try {
-    const authResult = await getAuthenticatedUserResponse();
+    // Fired straight after sign-in, before the funnel, with a single-use code:
+    // a 403 here would lose the token for good. Apple always asserts the email.
+    const authResult = await getAuthenticatedUserResponse({
+      allowUnverifiedEmail: true,
+    });
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401
     }

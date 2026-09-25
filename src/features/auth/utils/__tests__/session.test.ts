@@ -38,6 +38,13 @@ vi.mock("react", () => ({
   cache: (fn: any) => fn,
 }));
 
+const { mockGetRequestContext } = vi.hoisted(() => ({
+  mockGetRequestContext: vi.fn(),
+}));
+vi.mock("@/lib/logger", () => ({
+  getRequestContext: () => mockGetRequestContext(),
+}));
+
 import { auth } from "@/services/better-auth";
 import { userDAL } from "@/dal";
 import { headers } from "next/headers";
@@ -45,6 +52,7 @@ import { headers } from "next/headers";
 describe("session.ts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetRequestContext.mockReturnValue(undefined);
   });
 
   describe("getCurrentUser", () => {
@@ -452,6 +460,48 @@ describe("session.ts", () => {
       await expect(requireAuthenticatedUser()).rejects.toThrow(
         "Authentication required",
       );
+    });
+  });
+
+  describe("getCurrentUser — ALS fast path (PERF-03)", () => {
+    beforeEach(() => {
+      vi.mocked(headers).mockResolvedValue(new Headers());
+      vi.mocked(auth.api.getSession).mockResolvedValue({
+        user: { id: "user-123", email: "test@example.com" },
+      } as any);
+      vi.mocked(userDAL.getUserForAuth).mockResolvedValue(mockVerifiedUser);
+    });
+
+    it("resolves once per request context — later calls skip the session and user queries", async () => {
+      // A fresh, mutable object, like the real RequestContext.
+      mockGetRequestContext.mockReturnValue({ requestId: "req-1" });
+
+      const first = await getCurrentUser();
+      const second = await getCurrentUser();
+
+      expect(first).toEqual(mockVerifiedUser);
+      expect(second).toBe(first);
+      expect(auth.api.getSession).toHaveBeenCalledTimes(1);
+      expect(userDAL.getUserForAuth).toHaveBeenCalledTimes(1);
+    });
+
+    it("caches a missing session too — null is a resolved answer", async () => {
+      mockGetRequestContext.mockReturnValue({ requestId: "req-1" });
+      vi.mocked(auth.api.getSession).mockResolvedValue(null);
+
+      expect(await getCurrentUser()).toBeNull();
+      expect(await getCurrentUser()).toBeNull();
+      expect(auth.api.getSession).toHaveBeenCalledTimes(1);
+    });
+
+    it("re-resolves on every call when there is no request context", async () => {
+      mockGetRequestContext.mockReturnValue(undefined);
+
+      await getCurrentUser();
+      await getCurrentUser();
+
+      expect(auth.api.getSession).toHaveBeenCalledTimes(2);
+      expect(userDAL.getUserForAuth).toHaveBeenCalledTimes(2);
     });
   });
 });

@@ -95,6 +95,20 @@ describe("POST /api/auth/apple/tokens", () => {
     expect(await res.text()).not.toContain("refresh-1");
   });
 
+  // Fired right after sign-in with a single-use code, before the funnel runs.
+  it("stores the tokens for a session whose email isn't verified yet", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: "user-1", emailVerified: false },
+      userId: "user-1",
+      isAdmin: false,
+    });
+
+    const res = await POST(post(BODY));
+
+    expect(res.status).toBe(200);
+    expect(mockSetAppleRefreshToken).toHaveBeenCalled();
+  });
+
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthenticatedUser.mockResolvedValue(null);
 

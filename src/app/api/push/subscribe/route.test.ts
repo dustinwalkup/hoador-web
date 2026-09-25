@@ -99,13 +99,17 @@ describe("POST /api/push/subscribe", () => {
     expect(pushSubscriptionDAL.create).not.toHaveBeenCalled();
   });
 
-  it("keeps a restricted account out (default gate)", async () => {
+  // Restricted accounts stay out; an unverified email signup may register its
+  // device (cold-start reconcile runs for any signed-in session).
+  it("keeps a restricted account out but lets an unverified email in", async () => {
     const req = new NextRequest("http://localhost/api/push/subscribe", {
       method: "POST",
       body: JSON.stringify(validBody),
     });
     await POST(req);
-    expect(mockRequireAuthResponse).toHaveBeenCalledWith();
+    expect(mockRequireAuthResponse).toHaveBeenCalledWith({
+      allowUnverifiedEmail: true,
+    });
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -285,6 +289,7 @@ describe("DELETE /api/push/subscribe", () => {
 
     expect(mockRequireAuthResponse).toHaveBeenCalledWith({
       allowRestricted: true,
+      allowUnverifiedEmail: true,
     });
   });
 

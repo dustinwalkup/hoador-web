@@ -242,3 +242,49 @@ describe("/api/profile for a suspended account (SEC-01)", () => {
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * An email signup has a session before it verifies. The mobile funnel reads
+ * `emailVerified` from GET to route to verify-email, so GET opts out of the
+ * email gate. PATCH does not.
+ */
+describe("/api/profile for an unverified email", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      status: "pending_verification",
+      emailVerified: false,
+    });
+    mockGetUserById.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      status: "pending_verification",
+      emailVerified: false,
+    });
+    mockGetPrimaryMembership.mockResolvedValue(null);
+  });
+
+  it("still answers GET", async () => {
+    const res = await GET({} as never);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ emailVerified: false });
+  });
+
+  it("refuses PATCH with EMAIL_NOT_VERIFIED and writes nothing", async () => {
+    const res = await PATCH(
+      new NextRequest("http://localhost/api/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ firstName: "New" }),
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "EMAIL_NOT_VERIFIED",
+    });
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+});
