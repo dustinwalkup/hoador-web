@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
-import type { ServiceBookingDashboardRow } from "@/dal/service-booking.dal";
+import type { ServiceBookingListItem } from "@/features/services/lib/service-booking-projections";
 import type { ServiceBookingDetailResponse } from "@/app/api/services/bookings/[id]/route";
 import type { CreateBookingInput } from "@/features/services/types";
 
@@ -22,7 +22,7 @@ export function useServiceBookings(role: "requester" | "provider" | null) {
       role === "requester" || role === "provider"
         ? serviceBookingsKeys.list(role)
         : [...serviceBookingsKeys.all, "list", "idle"],
-    queryFn: async (): Promise<ServiceBookingDashboardRow[]> => {
+    queryFn: async (): Promise<ServiceBookingListItem[]> => {
       const res = await fetch(
         `/api/services/bookings?role=${encodeURIComponent(role!)}`,
       );
@@ -31,7 +31,7 @@ export function useServiceBookings(role: "requester" | "provider" | null) {
         throw new Error(err.error ?? "Failed to load bookings");
       }
       const data = (await res.json()) as {
-        bookings: ServiceBookingDashboardRow[];
+        bookings: ServiceBookingListItem[];
       };
       return data.bookings ?? [];
     },

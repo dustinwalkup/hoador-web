@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useServiceBookings } from "@/features/services/hooks/use-service-bookings";
 import { ServiceBookingCard } from "@/features/services/components/service-booking-card";
-import type { ServiceBookingDashboardRow } from "@/dal/service-booking.dal";
+import type { ServiceBookingListItem } from "@/features/services/lib/service-booking-projections";
 import { EmptyStateCoach } from "@/components/empty-state-coach";
 
 interface ServicesFlowClientProps {
@@ -220,9 +220,9 @@ const ITEMS_PER_PAGE = 5;
 // };
 
 function sortBookings(
-  data: ServiceBookingDashboardRow[],
+  data: ServiceBookingListItem[],
   sortBy: string,
-): ServiceBookingDashboardRow[] {
+): ServiceBookingListItem[] {
   const sorted = [...data];
   switch (sortBy) {
     case "newest":
@@ -251,7 +251,7 @@ function sortBookings(
 }
 
 interface ServiceBookingsListProps {
-  data: ServiceBookingDashboardRow[];
+  data: ServiceBookingListItem[];
   activeStatus: string;
   activeRole: "provider" | "requester";
   isLoading: boolean;

@@ -5,14 +5,14 @@ import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { ServiceBookingDashboardRow } from "@/dal/service-booking.dal";
+import type { ServiceBookingListItem } from "@/features/services/lib/service-booking-projections";
 import {
   formatServiceUsd,
   serviceBookingStatusBadgeProps,
   serviceBookingStatusLabel,
 } from "@/features/services/lib/service-labels";
 
-function parseBookingProposedAt(row: ServiceBookingDashboardRow): Date | null {
+function parseBookingProposedAt(row: ServiceBookingListItem): Date | null {
   const raw = row.proposedDate as unknown;
   let datePart: string;
   if (raw instanceof Date) {
@@ -40,7 +40,7 @@ function parseBookingProposedAt(row: ServiceBookingDashboardRow): Date | null {
 /**
  * Long-form scheduled date/time for booking list cards (e.g. "April 1, 2026, 9:00 AM").
  */
-export function proposedDateLabel(row: ServiceBookingDashboardRow): string {
+export function proposedDateLabel(row: ServiceBookingListItem): string {
   const d = parseBookingProposedAt(row);
   if (!d) {
     const raw = row.proposedDate as unknown;
@@ -55,11 +55,7 @@ export function proposedDateLabel(row: ServiceBookingDashboardRow): string {
   }).format(d);
 }
 
-export function ServiceBookingCard({
-  row,
-}: {
-  row: ServiceBookingDashboardRow;
-}) {
+export function ServiceBookingCard({ row }: { row: ServiceBookingListItem }) {
   const cp = row.counterparty;
   const name = [cp.firstName, cp.lastName].filter(Boolean).join(" ") || "User";
   const initials = `${cp.firstName?.[0] ?? ""}${cp.lastName?.[0] ?? ""}` || "?";

@@ -7,10 +7,13 @@ import {
   getCurrentUserId,
 } from "@/lib/api/route-helpers";
 import { serviceBookingDAL, servicePaymentLifecycleDAL } from "@/dal";
+import { toServiceBookingLifecycleResponse } from "@/features/services/lib/service-booking-projections";
 
 /**
  * GET /api/services/bookings/[id]/payment-lifecycle
- * Payment lifecycle for a booking (requester or provider only).
+ * Payment lifecycle for a booking — provider only, without Stripe ids
+ * (PRIV-04). It's the provider's payout; the requester has no use for it, and
+ * no client reads this route as the requester.
  */
 async function getHandler(
   _request: NextRequest,
@@ -42,7 +45,7 @@ async function getHandler(
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    if (booking.requesterId !== userId && booking.providerId !== userId) {
+    if (booking.providerId !== userId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -61,7 +64,7 @@ async function getHandler(
       );
     }
 
-    return NextResponse.json(lifecycle);
+    return NextResponse.json(toServiceBookingLifecycleResponse(lifecycle));
   } catch (error) {
     return handleApiError(error);
   }

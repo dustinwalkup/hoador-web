@@ -173,7 +173,6 @@ describe("getUpcomingSchedule", () => {
           firstName: "Jane",
           lastName: "Provider",
           profileImageUrl: null,
-          email: "j@example.com",
         },
       },
     ]);
@@ -214,7 +213,6 @@ describe("getUpcomingSchedule", () => {
           firstName: "Sam",
           lastName: "Client",
           profileImageUrl: null,
-          email: "s@example.com",
         },
       },
     ]);

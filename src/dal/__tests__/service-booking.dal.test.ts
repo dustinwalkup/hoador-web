@@ -64,7 +64,6 @@ describe("ServiceBookingDAL", () => {
         firstName: "Ada",
         lastName: "Lovelace",
         profileImageUrl: null,
-        email: "ada@example.com",
       },
     });
 
@@ -96,6 +95,23 @@ describe("ServiceBookingDAL", () => {
         id: "book-0",
         listingTitle: "Lawn mowing",
       });
+    });
+
+    // PRIV-04: the counterparty's email never leaves the database here.
+    it("doesn't select the counterparty's email", async () => {
+      mockChain(1);
+
+      await serviceBookingDAL[method](userId);
+
+      const projection = vi.mocked(db.select).mock.calls[0][0] as {
+        counterparty: Record<string, unknown>;
+      };
+      expect(Object.keys(projection.counterparty).sort()).toEqual([
+        "firstName",
+        "id",
+        "lastName",
+        "profileImageUrl",
+      ]);
     });
 
     it("stays unbounded without a limit", async () => {

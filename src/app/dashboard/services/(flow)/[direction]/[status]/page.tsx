@@ -8,6 +8,7 @@ import { serviceBookingDAL } from "@/dal";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { getServerQueryClient, HydrateClient } from "@/lib/react-query/server";
 import { serviceBookingsKeys } from "@/features/services/hooks/use-service-bookings";
+import { toServiceBookingListItem } from "@/features/services/lib/service-booking-projections";
 
 const VALID_DIRECTIONS = ["incoming", "outgoing"] as const;
 const VALID_STATUSES = [
@@ -70,7 +71,13 @@ export default async function ServicesFlowPage({
       initialRole === "requester"
         ? await serviceBookingDAL.findByRequesterForDashboard(userId)
         : await serviceBookingDAL.findByProviderForDashboard(userId);
-    qc.setQueryData(serviceBookingsKeys.list(initialRole), bookings);
+    // Same projection as the API route: the hydrated cache is serialized
+    // into the page, so full DAL rows would ship Stripe and `pm_` ids to the
+    // browser (SEC-07 / PRIV-04).
+    qc.setQueryData(
+      serviceBookingsKeys.list(initialRole),
+      bookings.map(toServiceBookingListItem),
+    );
   }
 
   return (

@@ -12,6 +12,7 @@ import {
 import { serviceBookingDAL } from "@/dal";
 import { createServiceBookingSchema } from "@/features/services/lib/service-api-schemas";
 import { ServiceBookingService } from "@/features/services/services/service-booking-service";
+import { toServiceBookingListItem } from "@/features/services/lib/service-booking-projections";
 
 /**
  * GET /api/services/bookings?role=requester|provider
@@ -48,7 +49,11 @@ async function getListHandler(request: NextRequest) {
       return handleApiError(error);
     }
 
-    return NextResponse.json({ bookings: data ?? [] });
+    // Allowlisted: the DAL row carries Stripe ids and the requester's `pm_`
+    // id, which let a provider detach their card (SEC-07 / PRIV-04).
+    return NextResponse.json({
+      bookings: (data ?? []).map(toServiceBookingListItem),
+    });
   } catch (error) {
     return handleApiError(error);
   }

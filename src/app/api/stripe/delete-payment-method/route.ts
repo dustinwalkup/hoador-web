@@ -6,10 +6,17 @@ import {
   handleApiError,
 } from "@/lib/api/route-helpers";
 import { detachPaymentMethod } from "@/services/stripe/payment-method";
+import { PAYMENT_SERVER_INSTANCE } from "@/services/stripe/server";
 
 /**
  * DELETE /api/stripe/delete-payment-method
- * Detach a payment method from the customer
+ * Detach one of the caller's own cards.
+ *
+ * The id must belong to the caller's Stripe customer (SEC-07). Detaching uses
+ * the platform key, so without the check any `pm_` id would do, and a
+ * detached card can never be reused. Someone else's card, an unknown id, and
+ * a caller with no customer all get the same 404, so the route can't be used
+ * to probe which ids exist.
  */
 async function deleteHandler(request: NextRequest) {
   try {
@@ -18,6 +25,7 @@ async function deleteHandler(request: NextRequest) {
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401
     }
+    const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
     const paymentMethodId = searchParams.get("id");
@@ -29,11 +37,26 @@ async function deleteHandler(request: NextRequest) {
       );
     }
 
+    const { data: pm } = await tryCatch(
+      PAYMENT_SERVER_INSTANCE.paymentMethods.retrieve(paymentMethodId),
+    );
+    const ownerCustomerId =
+      typeof pm?.customer === "string"
+        ? pm.customer
+        : (pm?.customer?.id ?? null);
+    if (!user.stripeCustomerId || ownerCustomerId !== user.stripeCustomerId) {
+      return NextResponse.json(
+        { error: "Payment method not found" },
+        { status: 404 },
+      );
+    }
+
     const { error } = await tryCatch(detachPaymentMethod(paymentMethodId));
 
     if (error) {
+      // Generic: Stripe's message isn't for clients (SEC-16).
       return NextResponse.json(
-        { error: error.message || "Failed to delete payment method" },
+        { error: "Failed to delete payment method" },
         { status: 500 },
       );
     }

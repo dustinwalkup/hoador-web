@@ -70,10 +70,14 @@ export type ServiceBookingWithDetails = ServiceBooking & {
   conversationId: string | null;
 };
 
-/** Booking row for dashboard lists with listing title and counterparty summary. */
+/**
+ * Booking row for dashboard lists with listing title and counterparty summary.
+ * The counterparty has no `email` (PRIV-04): a list of everyone you've booked
+ * with is not a reason to hand out their addresses.
+ */
 export type ServiceBookingDashboardRow = ServiceBooking & {
   listingTitle: string;
-  counterparty: ServiceBookingUserInfo;
+  counterparty: Omit<ServiceBookingUserInfo, "email">;
 };
 
 export interface DashboardBookingsOptions {
@@ -786,7 +790,6 @@ export class ServiceBookingDAL extends BaseDAL {
             firstName: bookingProvider.firstName,
             lastName: bookingProvider.lastName,
             profileImageUrl: bookingProvider.profileImageUrl,
-            email: bookingProvider.email,
           },
         })
         .from(serviceBookings)
@@ -833,7 +836,6 @@ export class ServiceBookingDAL extends BaseDAL {
             firstName: bookingRequester.firstName,
             lastName: bookingRequester.lastName,
             profileImageUrl: bookingRequester.profileImageUrl,
-            email: bookingRequester.email,
           },
         })
         .from(serviceBookings)
