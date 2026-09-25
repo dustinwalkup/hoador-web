@@ -7,6 +7,10 @@ const mockRentalRequest = {
   id: "req-123",
   listingId: "listing-1",
   listingName: "Test Listing",
+  listingStatus: "available",
+  listingIsActive: true,
+  listingApprovalStatus: "approved",
+  listingCommunityId: "community-1",
   renterId: "renter-1",
   ownerId: "owner-1",
   startDate: new Date("2025-02-01"),
@@ -51,6 +55,9 @@ vi.mock("@/features/auth/utils/session", () => {
 });
 
 vi.mock("@/dal", () => ({
+  communityDAL: {
+    isVisibleInCommunity: vi.fn().mockResolvedValue(true),
+  },
   rentalDAL: {
     getRentalRequestById: vi.fn(),
     updateRentalRequestPaymentStatus: vi.fn().mockResolvedValue(undefined),

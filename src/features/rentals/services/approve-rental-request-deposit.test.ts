@@ -85,6 +85,9 @@ const mockGetUserById = vi.fn();
 const mockIsActiveAccount = vi.fn().mockResolvedValue(true);
 
 vi.mock("@/dal", () => ({
+  communityDAL: {
+    isVisibleInCommunity: vi.fn().mockResolvedValue(true),
+  },
   rentalDAL: {
     getRentalRequestById: (...args: unknown[]) =>
       mockGetRentalRequestById(...args),
@@ -142,6 +145,11 @@ function buildRentalRequest() {
     listingId: "listing-1",
     listingName: "Power Drill",
     listingImageUrl: null,
+    listingStatus: "available",
+    listingIsActive: true,
+    listingApprovalStatus: "approved",
+    listingCommunityId: "community-1",
+
     renterId,
     ownerId,
     ownerName: "Owner Name",

@@ -186,6 +186,8 @@ export const communityVisibilityRelations = relations(
 
 // Types
 export type Community = typeof communities.$inferSelect;
+/** `Community` minus `joinCode` — the shape every non-admin response uses (SEC-09). */
+export type PublicCommunity = Omit<Community, "joinCode">;
 export type NewCommunity = typeof communities.$inferInsert;
 export type UpdateCommunity = Partial<NewCommunity>;
 
@@ -249,6 +251,6 @@ export type MembershipWithUserAndAddress = {
 // `isPrimary` flags the user's home community (locked-visible in the UI).
 export type CommunityVisibilityWithCommunity = {
   visibility: CommunityVisibility;
-  community: Community;
+  community: PublicCommunity;
   isPrimary: boolean;
 };

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ServiceBookingService } from "../services/service-booking-service";
 import {
+  CommunityNotVisibleError,
   ConflictError,
   CounterpartyUnavailableError,
   ForbiddenError,
+  ListingNotBookableError,
   NotFoundError,
   ServiceNotYetDueError,
   ValidationError,
@@ -24,6 +26,7 @@ vi.mock(
 );
 
 const mockListingGetById = vi.fn();
+const mockIsVisibleInCommunity = vi.fn();
 const mockBookingCreate = vi.fn();
 const mockBookingGetById = vi.fn();
 const mockBookingUpdate = vi.fn();
@@ -60,6 +63,9 @@ const { mockLegalGetAllVersions, mockLegalRecordAcceptance } = vi.hoisted(
 
 vi.mock("@/dal", () => ({
   auditLogDAL: { create: (...a: unknown[]) => mockAuditCreate(...a) },
+  communityDAL: {
+    isVisibleInCommunity: (...a: unknown[]) => mockIsVisibleInCommunity(...a),
+  },
   disputeDAL: {
     getActiveByServiceBookingId: vi.fn().mockResolvedValue(null),
   },
@@ -179,7 +185,7 @@ const bookingPending = {
   selectedPaymentMethodId: null as string | null,
   createdAt: new Date(),
   updatedAt: new Date(),
-  listing: {} as never,
+  listing: { status: "active", communityId: "comm-1" } as never,
   requester: {} as never,
   provider: {} as never,
 };
@@ -203,6 +209,7 @@ describe("ServiceBookingService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsActiveAccount.mockResolvedValue(true);
+    mockIsVisibleInCommunity.mockResolvedValue(true);
     mockGetPaymentErrorMessage.mockReturnValue("card declined");
     mockLegalGetAllVersions.mockResolvedValue({});
     mockLifecycleCreate.mockResolvedValue({});
@@ -288,6 +295,20 @@ describe("ServiceBookingService", () => {
       await expect(
         ServiceBookingService.createBooking(form, "prov-1", ctx),
       ).rejects.toThrow(ForbiddenError);
+    });
+
+    // BIZ-08: both parties must be visible in the listing's community.
+    it("throws CommunityNotVisibleError when the requester is not visible in the listing's community", async () => {
+      mockListingGetById.mockResolvedValue(listingActive);
+      mockIsVisibleInCommunity.mockImplementation(
+        async (userId: string) => userId !== "req-1",
+      );
+
+      await expect(
+        ServiceBookingService.createBooking(form, "req-1", ctx),
+      ).rejects.toThrow(CommunityNotVisibleError);
+      expect(mockIsVisibleInCommunity).toHaveBeenCalledWith("req-1", "comm-1");
+      expect(mockBookingCreate).not.toHaveBeenCalled();
     });
 
     it("refuses a booking for a day that has already gone (P-E9-1b)", async () => {
@@ -854,6 +875,35 @@ describe("ServiceBookingService", () => {
       await expect(
         ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
       ).rejects.toThrow(CounterpartyUnavailableError);
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
+    // BIZ-08: the listing is re-checked at accept time, before the claim and
+    // before anything reaches Stripe.
+    it("refuses a listing that is no longer active, before claiming", async () => {
+      mockBookingGetById.mockResolvedValue({
+        ...bookingPending,
+        listing: { status: "inactive", communityId: "comm-1" } as never,
+      });
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(ListingNotBookableError);
+      expect(mockBookingClaim).not.toHaveBeenCalled();
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
+    it("refuses when either party is no longer visible in the listing's community, before claiming", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockIsVisibleInCommunity.mockImplementation(
+        async (userId: string) => userId !== "prov-1",
+      );
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(CommunityNotVisibleError);
+      expect(mockIsVisibleInCommunity).toHaveBeenCalledWith("req-1", "comm-1");
+      expect(mockBookingClaim).not.toHaveBeenCalled();
       expect(mockChargeServicePayment).not.toHaveBeenCalled();
     });
 

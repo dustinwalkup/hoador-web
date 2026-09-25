@@ -52,6 +52,7 @@ import {
   createUser,
   createListing,
   createRentalRequest,
+  createVisibility,
   daysFromToday,
 } from "@/test/integration/factories";
 import {
@@ -85,6 +86,8 @@ async function twoRequests(
   const owner = await createUser();
   const listing = await createListing(owner.id);
   const [renterA, renterB] = [await createUser(), await createUser()];
+  // Approve re-checks that both parties are visible in the listing's community.
+  await createVisibility(listing.communityId, owner.id, renterA.id, renterB.id);
   const a = await createRentalRequest(listing.id, renterA.id, owner.id, {
     ...first,
     paymentMethodId: "pm_a",

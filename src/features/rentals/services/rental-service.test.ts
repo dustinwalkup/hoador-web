@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RentalService } from "./rental-service";
 import type { CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
-import { NotFoundError } from "@/dal/errors";
+import {
+  CommunityNotVisibleError,
+  ListingArchivedError,
+  ListingNotApprovedError,
+  ListingNotBookableError,
+  NotFoundError,
+} from "@/dal/errors";
 import { quoteRentalRequest } from "./rental-quote";
 
 const mockInsertRentalRequest = vi.fn();
 const mockGetListingById = vi.fn();
+const mockIsVisibleInCommunity = vi.fn();
 const mockGetRentalRequestById = vi.fn();
 const mockGetUserById = vi.fn();
 const mockAuditLogCreate = vi.fn();
@@ -15,6 +22,10 @@ const mockTrackActivity = vi.fn();
 
 const mockGetBookedDatesForListing = vi.fn();
 vi.mock("@/dal", () => ({
+  communityDAL: {
+    isVisibleInCommunity: (...args: unknown[]) =>
+      mockIsVisibleInCommunity(...args),
+  },
   listingDAL: {
     getListingById: (...args: unknown[]) => mockGetListingById(...args),
   },
@@ -86,11 +97,21 @@ const validFormData: CreateRentalRequestFormData = {
 
 const context = { ipAddress: "127.0.0.1", userAgent: "test" };
 
+// Both parties visible in the listing's community unless a test says otherwise
+// (BIZ-08). File-level so every sibling describe gets it.
+beforeEach(() => {
+  mockIsVisibleInCommunity.mockResolvedValue(true);
+});
+
 describe("RentalService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetListingById.mockResolvedValue({
       id: "listing-123",
+      status: "available",
+      isActive: true,
+      approvalStatus: "approved",
+      communityId: "community-1",
       owner: { id: "owner-123" },
       dailyRate: 15,
       weeklyRate: 90,
@@ -163,6 +184,10 @@ describe("RentalService", () => {
     it("throws when user tries to rent own listing", async () => {
       mockGetListingById.mockResolvedValue({
         id: "listing-123",
+        status: "available",
+        isActive: true,
+        approvalStatus: "approved",
+        communityId: "community-1",
         owner: { id: "renter-789" },
         dailyRate: 15,
         weeklyRate: 90,
@@ -181,9 +206,59 @@ describe("RentalService", () => {
       expect(mockInsertRentalRequest).not.toHaveBeenCalled();
     });
 
+    // BIZ-08: the quote's eligibility blockers surface as typed 409s, not the
+    // bare `Error` every other blocker still throws.
+    it.each([
+      [
+        "a listing in maintenance",
+        { status: "maintenance" },
+        ListingNotBookableError,
+      ],
+      ["an archived listing", { isActive: false }, ListingArchivedError],
+      [
+        "an unapproved listing",
+        { approvalStatus: "pending_review" },
+        ListingNotApprovedError,
+      ],
+    ] as const)(
+      "refuses %s with its typed error",
+      async (_label, override, ErrorClass) => {
+        mockGetListingById.mockResolvedValue({
+          ...(await mockGetListingById()),
+          ...override,
+        });
+        await expect(
+          RentalService.createRentalRequest(
+            validFormData,
+            "renter-789",
+            context,
+          ),
+        ).rejects.toThrow(ErrorClass);
+        expect(mockInsertRentalRequest).not.toHaveBeenCalled();
+      },
+    );
+
+    it("refuses when the owner is not visible in the listing's community", async () => {
+      mockIsVisibleInCommunity.mockImplementation(
+        async (userId: string) => userId !== "owner-123",
+      );
+      await expect(
+        RentalService.createRentalRequest(validFormData, "renter-789", context),
+      ).rejects.toThrow(CommunityNotVisibleError);
+      expect(mockIsVisibleInCommunity).toHaveBeenCalledWith(
+        "renter-789",
+        "community-1",
+      );
+      expect(mockInsertRentalRequest).not.toHaveBeenCalled();
+    });
+
     it("throws when totalDays less than minimumRentalPeriod", async () => {
       mockGetListingById.mockResolvedValue({
         id: "listing-123",
+        status: "available",
+        isActive: true,
+        approvalStatus: "approved",
+        communityId: "community-1",
         owner: { id: "owner-123" },
         dailyRate: 15,
         weeklyRate: null,
@@ -210,6 +285,10 @@ describe("RentalService", () => {
     it("throws when totalDays exceeds maximumRentalPeriod", async () => {
       mockGetListingById.mockResolvedValue({
         id: "listing-123",
+        status: "available",
+        isActive: true,
+        approvalStatus: "approved",
+        communityId: "community-1",
         owner: { id: "owner-123" },
         dailyRate: 15,
         weeklyRate: null,
@@ -289,6 +368,10 @@ describe("RentalService.createRentalRequest — availability (P-E8A-2b)", () => 
     vi.clearAllMocks();
     mockGetListingById.mockResolvedValue({
       id: "listing-123",
+      status: "available",
+      isActive: true,
+      approvalStatus: "approved",
+      communityId: "community-1",
       name: "Test Tool",
       owner: { id: "owner-123" },
       dailyRate: 15,
@@ -411,6 +494,10 @@ describe("RentalService.createRentalRequest — server-priced setup (SEC-03)", (
     vi.clearAllMocks();
     mockGetListingById.mockResolvedValue({
       id: "listing-123",
+      status: "available",
+      isActive: true,
+      approvalStatus: "approved",
+      communityId: "community-1",
       name: "Test Tool",
       owner: { id: "owner-123" },
       dailyRate: 15,

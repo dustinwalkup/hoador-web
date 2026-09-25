@@ -258,6 +258,8 @@ export interface ListingDetails {
   monthlyRate?: number;
   securityDeposit: number;
   status: string;
+  /** false once the owner archives it. Owner-only in the detail response. */
+  isActive: boolean;
   specifications: Record<string, any>;
   instructions?: string;
   safetyNotes?: string;

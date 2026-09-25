@@ -21,7 +21,11 @@ vi.mock("@/features/auth/utils/session", () => ({
 
 const mockGetListingById = vi.fn();
 const mockGetBookedDatesForListing = vi.fn();
+const mockIsVisibleInCommunity = vi.fn();
 vi.mock("@/dal", () => ({
+  communityDAL: {
+    isVisibleInCommunity: (...a: unknown[]) => mockIsVisibleInCommunity(...a),
+  },
   listingDAL: { getListingById: (...a: unknown[]) => mockGetListingById(...a) },
   rentalDAL: {
     getBookedDatesForListing: (...a: unknown[]) =>
@@ -59,6 +63,10 @@ const listing = (over: Record<string, unknown> = {}) => ({
   securityDeposit: 100,
   minimumRentalPeriod: 1,
   maximumRentalPeriod: 30,
+  status: "available",
+  isActive: true,
+  approvalStatus: "approved",
+  communityId: "community-1",
   ...over,
 });
 
@@ -96,6 +104,7 @@ beforeEach(() => {
   });
   mockGetListingById.mockResolvedValue(listing());
   mockGetBookedDatesForListing.mockResolvedValue([]);
+  mockIsVisibleInCommunity.mockResolvedValue(true);
 });
 
 describe("POST /api/rentals/preview — itemization (Req 9.1.3)", () => {
@@ -175,6 +184,59 @@ describe("POST /api/rentals/preview — blockers are data (Req 9.1.6)", () => {
     // …and it still prices it, so the screen can show what it would have cost.
     expect(body.totalAmount).toMatch(/^\d+\.\d{2}$/);
   });
+
+  // BIZ-08: listing eligibility and two-party community visibility.
+  it.each([
+    [
+      "a listing in maintenance",
+      { status: "maintenance" },
+      "LISTING_NOT_BOOKABLE",
+    ],
+    ["an inactive listing", { status: "inactive" }, "LISTING_NOT_BOOKABLE"],
+    ["an archived listing", { isActive: false }, "LISTING_ARCHIVED"],
+    [
+      "an unapproved listing",
+      { approvalStatus: "pending_review" },
+      "LISTING_NOT_APPROVED",
+    ],
+  ])("reports %s", async (_label, over, code) => {
+    mockGetListingById.mockResolvedValue(listing(over));
+
+    const { res, body } = await preview();
+
+    expect(res.status).toBe(200);
+    expect(body.canBook).toBe(false);
+    expect(codes(body)).toContain(code);
+  });
+
+  it("allows a listing that is currently rented out (other dates)", async () => {
+    mockGetListingById.mockResolvedValue(listing({ status: "rented" }));
+
+    const { body } = await preview();
+
+    expect(body.canBook).toBe(true);
+  });
+
+  it.each([
+    ["the viewer", "renter-1"],
+    ["the owner", "owner-1"],
+  ])(
+    "reports COMMUNITY_NOT_VISIBLE when %s is not visible in the listing's community",
+    async (_label, hiddenUserId) => {
+      mockIsVisibleInCommunity.mockImplementation(
+        async (userId: string) => userId !== hiddenUserId,
+      );
+
+      const { body } = await preview();
+
+      expect(mockIsVisibleInCommunity).toHaveBeenCalledWith(
+        hiddenUserId,
+        "community-1",
+      );
+      expect(body.canBook).toBe(false);
+      expect(codes(body)).toContain("COMMUNITY_NOT_VISIBLE");
+    },
+  );
 
   it("reports a period below the listing's minimum", async () => {
     mockGetListingById.mockResolvedValue(listing({ minimumRentalPeriod: 5 }));

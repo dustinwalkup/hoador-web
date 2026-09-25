@@ -26,6 +26,7 @@ export const mockListing: ListingDetails = {
   securityDeposit: 50.0,
   condition: "excellent",
   status: "available",
+  isActive: true,
   specifications: {},
   minimumRentalPeriod: 1,
   maximumRentalPeriod: 30,
@@ -126,6 +127,7 @@ export const mockListingArchived: ListingDetails = {
   ...mockListing,
   id: "listing-archived",
   status: "available",
+  isActive: false,
 };
 
 export const mockCategories = [

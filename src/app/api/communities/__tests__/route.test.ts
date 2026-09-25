@@ -75,7 +75,7 @@ describe("GET /api/communities", () => {
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json).toEqual([{ id: "c1", name: "Foxcroft" }]);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=60");
+    expect(res.headers.get("Cache-Control")).toBe("private, max-age=60");
     expect(mockListCommunitiesByNetwork).toHaveBeenCalledWith("net-1", {
       activeOnly: true,
     });

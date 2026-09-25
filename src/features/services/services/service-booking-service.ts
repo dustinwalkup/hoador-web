@@ -1,5 +1,6 @@
 import {
   auditLogDAL,
+  communityDAL,
   disputeDAL,
   legalDocumentDAL,
   paymentDAL,
@@ -9,9 +10,11 @@ import {
 } from "@/dal";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import {
+  CommunityNotVisibleError,
   ConflictError,
   CounterpartyUnavailableError,
   ForbiddenError,
+  ListingNotBookableError,
   NotFoundError,
   ServiceBookingPaymentFailedError,
   ServiceNotYetDueError,
@@ -97,6 +100,9 @@ export class ServiceBookingService {
     if (blocker) {
       if (blocker.code === "OWN_LISTING") {
         throw new ForbiddenError(blocker.message);
+      }
+      if (blocker.code === "COMMUNITY_NOT_VISIBLE") {
+        throw new CommunityNotVisibleError(blocker.message);
       }
       throw new ValidationError(
         blocker.message,
@@ -273,6 +279,24 @@ export class ServiceBookingService {
     }
     if (detail.status !== "pending" && detail.status !== "payment_failed") {
       throw new ValidationError("Booking is not pending", "status");
+    }
+    // BIZ-08: re-check the listing at accept time — it may have been
+    // deactivated, or either party left the community, since the request.
+    if (detail.listing.status !== "active") {
+      throw new ListingNotBookableError();
+    }
+    const [providerVisible, requesterVisible] = await Promise.all([
+      communityDAL.isVisibleInCommunity(
+        detail.providerId,
+        detail.listing.communityId,
+      ),
+      communityDAL.isVisibleInCommunity(
+        detail.requesterId,
+        detail.listing.communityId,
+      ),
+    ]);
+    if (!providerVisible || !requesterVisible) {
+      throw new CommunityNotVisibleError();
     }
     // Never charge a requester who can no longer see or dispute it: a deleted
     // (anonymized) or otherwise inactive account (BIZ-07). The claim below

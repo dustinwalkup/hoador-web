@@ -104,9 +104,11 @@ async function getHandler(
         return handleApiError(new NotFoundError("listing", listingId));
       }
 
-      const { approvalStatus, rejectionReason, ...visibleToRenter } = listing;
+      const { approvalStatus, rejectionReason, isActive, ...visibleToRenter } =
+        listing;
       void approvalStatus;
       void rejectionReason;
+      void isActive;
       return NextResponse.json({ ...visibleToRenter, isOwner, bookedRanges });
     }
 

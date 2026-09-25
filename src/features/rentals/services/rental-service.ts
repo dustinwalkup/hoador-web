@@ -1,5 +1,6 @@
 import {
   auditLogDAL,
+  communityDAL,
   legalDocumentDAL,
   paymentDAL,
   paymentLifecycleDAL,
@@ -185,6 +186,23 @@ export class RentalService {
     // rental, which is what a second client was about to be able to do.
     const [blocker] = quote.blockers;
     if (blocker) {
+      // BIZ-08's eligibility blockers get their typed 409; every other blocker
+      // keeps its pre-existing bare `Error`.
+      if (
+        blocker.code === "LISTING_NOT_BOOKABLE" ||
+        blocker.code === "LISTING_ARCHIVED" ||
+        blocker.code === "LISTING_NOT_APPROVED" ||
+        blocker.code === "COMMUNITY_NOT_VISIBLE"
+      ) {
+        const errors = await import("@/dal/errors");
+        const ErrorByCode = {
+          LISTING_NOT_BOOKABLE: errors.ListingNotBookableError,
+          LISTING_ARCHIVED: errors.ListingArchivedError,
+          LISTING_NOT_APPROVED: errors.ListingNotApprovedError,
+          COMMUNITY_NOT_VISIBLE: errors.CommunityNotVisibleError,
+        } as const;
+        throw new ErrorByCode[blocker.code](blocker.message);
+      }
       throw new Error(blocker.message);
     }
 
@@ -408,6 +426,38 @@ export class RentalService {
     if (rentalRequest.status !== "pending") {
       const { RentalRequestNotPendingError } = await import("@/dal/errors");
       throw new RentalRequestNotPendingError();
+    }
+    // BIZ-08: re-check the listing at approve time. The quote gated it at
+    // request time, but the owner may have archived it, an admin unapproved
+    // it, or either party left the community since.
+    if (
+      rentalRequest.listingStatus !== "available" &&
+      rentalRequest.listingStatus !== "rented"
+    ) {
+      const { ListingNotBookableError } = await import("@/dal/errors");
+      throw new ListingNotBookableError();
+    }
+    if (!rentalRequest.listingIsActive) {
+      const { ListingArchivedError } = await import("@/dal/errors");
+      throw new ListingArchivedError();
+    }
+    if (rentalRequest.listingApprovalStatus !== "approved") {
+      const { ListingNotApprovedError } = await import("@/dal/errors");
+      throw new ListingNotApprovedError();
+    }
+    const [ownerVisible, renterVisible] = await Promise.all([
+      communityDAL.isVisibleInCommunity(
+        rentalRequest.ownerId,
+        rentalRequest.listingCommunityId,
+      ),
+      communityDAL.isVisibleInCommunity(
+        rentalRequest.renterId,
+        rentalRequest.listingCommunityId,
+      ),
+    ]);
+    if (!ownerVisible || !renterVisible) {
+      const { CommunityNotVisibleError } = await import("@/dal/errors");
+      throw new CommunityNotVisibleError();
     }
     // Never charge a renter who can no longer see or dispute it: a deleted
     // (anonymized) or otherwise inactive account (BIZ-07). Checked here so the

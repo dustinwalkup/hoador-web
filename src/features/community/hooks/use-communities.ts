@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { Community } from "@/db/schemas/communities.schema";
+import type { PublicCommunity } from "@/db/schemas/communities.schema";
 import { DEFAULT_NETWORK_SLUG } from "../constants";
 
 /**
@@ -15,7 +15,7 @@ export function useCommunitiesByNetwork(
   const params = new URLSearchParams({ networkSlug });
   if (!activeOnly) params.set("active", "false");
 
-  return useQuery<Community[]>({
+  return useQuery<PublicCommunity[]>({
     queryKey: ["communities", "by-network", networkSlug, activeOnly],
     queryFn: async () => {
       const response = await fetch(`/api/communities?${params.toString()}`);

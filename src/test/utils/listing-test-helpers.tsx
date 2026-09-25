@@ -200,6 +200,7 @@ export function createMockListing(
     securityDeposit: 50.0,
     condition: "good",
     status: "available",
+    isActive: true,
     specifications: {
       power: "20V MAX",
       weight: "3.4 lbs",

@@ -19,6 +19,11 @@ import {
   CounterpartyUnavailableError,
   ServiceNotYetDueError,
   NeedLimitReachedError,
+  VisibilityPrimaryLockedError,
+  ListingNotBookableError,
+  ListingArchivedError,
+  ListingNotApprovedError,
+  CommunityNotVisibleError,
 } from "@/dal/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
 import { mockVerifiedUser, mockAdminUser } from "@/test/fixtures/auth";
@@ -113,6 +118,11 @@ describe("route-helpers", () => {
         ["RentalDatesUnavailableError", new RentalDatesUnavailableError()],
         ["ServiceNotYetDueError", new ServiceNotYetDueError()],
         ["NeedLimitReachedError", new NeedLimitReachedError("limit")],
+        ["VisibilityPrimaryLockedError", new VisibilityPrimaryLockedError()],
+        ["ListingNotBookableError", new ListingNotBookableError()],
+        ["ListingArchivedError", new ListingArchivedError()],
+        ["ListingNotApprovedError", new ListingNotApprovedError()],
+        ["CommunityNotVisibleError", new CommunityNotVisibleError()],
       ])("does not capture %s", (_name, error) => {
         handleApiError(error);
 
@@ -159,6 +169,34 @@ describe("route-helpers", () => {
       await expect(response.json()).resolves.toEqual({
         error: "You can post up to 10 a day.",
         code: "NEED_LIMIT_REACHED",
+      });
+    });
+
+    // Mobile P-E14-6: the visibility screen branches on this code.
+    it("should give VisibilityPrimaryLockedError a 400 with its code", async () => {
+      const response = handleApiError(new VisibilityPrimaryLockedError());
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        error: "You can't hide your home community.",
+        code: "VISIBILITY_PRIMARY_LOCKED",
+      });
+    });
+
+    // BIZ-08: the same codes the quote endpoints return as blockers, re-raised
+    // at create/approve/accept.
+    it.each([
+      [new ListingNotBookableError(), "LISTING_NOT_BOOKABLE"],
+      [new ListingArchivedError(), "LISTING_ARCHIVED"],
+      [new ListingNotApprovedError(), "LISTING_NOT_APPROVED"],
+      [new CommunityNotVisibleError(), "COMMUNITY_NOT_VISIBLE"],
+    ])("should give %s a 409 with code %s", async (error, code) => {
+      const response = handleApiError(error);
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        error: error.message,
+        code,
       });
     });
 

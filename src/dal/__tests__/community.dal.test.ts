@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CommunityDAL } from "../community.dal";
 import { communityDAL } from "../index";
-import { ConflictError, NotFoundError, ValidationError } from "../errors";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+  VisibilityPrimaryLockedError,
+} from "../errors";
 import type { AuditLogDAL } from "../audit-log.dal";
 import {
   mockCommunity,
@@ -177,6 +184,26 @@ describe("CommunityDAL", () => {
   });
 
   describe("validateJoinCodeForSignup", () => {
+    // SEC-09: an inactive community's code must not self-verify anyone. The
+    // filtering is SQL-level, so pin it on the rendered WHERE.
+    it("only matches an active community's code", async () => {
+      const mockLimit = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      const result = await communityDAL.validateJoinCodeForSignup(
+        mockInactiveCommunity.joinCode ?? mockJoinCode,
+      );
+
+      expect(result).toBeNull();
+      const whereSql = new PgDialect().sqlToQuery(
+        mockWhere.mock.calls[0][0] as SQL,
+      ).sql;
+      expect(whereSql).toContain('"join_code"');
+      expect(whereSql).toContain('"is_active"');
+    });
+
     it("should return community for valid join code (no auth required)", async () => {
       // Arrange
       const mockLimit = vi.fn().mockResolvedValue([mockCommunity]);
@@ -1733,6 +1760,21 @@ describe("CommunityDAL", () => {
       expect(mockWhere).toHaveBeenCalled();
     });
 
+    // SEC-09: this feeds GET /api/communities, open to any signed-in user.
+    it("never selects joinCode", async () => {
+      const mockOrderBy = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      await communityDAL.listCommunitiesByNetwork(mockCommunityNetwork.id);
+
+      const projection = vi.mocked(db.select).mock.calls[0][0];
+      expect(projection).toHaveProperty("id");
+      expect(projection).toHaveProperty("name");
+      expect(projection).not.toHaveProperty("joinCode");
+    });
+
     it("filters by isActive when activeOnly=true", async () => {
       const mockOrderBy = vi.fn().mockResolvedValue([mockCommunity]);
       const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
@@ -1975,6 +2017,13 @@ describe("CommunityDAL", () => {
 
       const result = await communityDAL.getVisibilityForUser("user-123");
       expect(result).toEqual(rows);
+
+      // SEC-09: the joined community must not carry its join code.
+      const projection = vi.mocked(db.select).mock.calls[0][0] as {
+        community: Record<string, unknown>;
+      };
+      expect(projection.community).toHaveProperty("id");
+      expect(projection.community).not.toHaveProperty("joinCode");
     });
   });
 
@@ -1985,39 +2034,107 @@ describe("CommunityDAL", () => {
       expect(db.select).not.toHaveBeenCalled();
     });
 
-    it("rejects toggling primary community to false (R4.5)", async () => {
-      // primary lookup returns the membership for "primary-c"
-      const limit = vi
+    /**
+     * Two selects: the primary membership joined to its community (for the
+     * network), then `listCommunitiesByNetwork` for that network's ids.
+     */
+    function mockPrimaryAndNetwork(
+      primary: { communityId?: string; networkId?: string | null } | null,
+      networkCommunityIds: string[] = [],
+    ) {
+      const limit = vi.fn().mockResolvedValueOnce(primary ? [primary] : []);
+      const primaryWhere = vi.fn().mockReturnValue({ limit });
+      const innerJoin = vi.fn().mockReturnValue({ where: primaryWhere });
+      const primaryFrom = vi.fn().mockReturnValue({ innerJoin });
+
+      const orderBy = vi
         .fn()
-        .mockResolvedValueOnce([{ communityId: "primary-c" }]);
-      const where = vi.fn().mockReturnValue({ limit });
-      const from = vi.fn().mockReturnValue({ where });
-      vi.mocked(db.select).mockReturnValue({ from } as any);
+        .mockResolvedValueOnce(networkCommunityIds.map((id) => ({ id })));
+      const networkWhere = vi.fn().mockReturnValue({ orderBy });
+      const networkFrom = vi.fn().mockReturnValue({ where: networkWhere });
 
-      await expect(
-        communityDAL.bulkSetVisibility("user-123", [
-          { communityId: "primary-c", isVisible: false },
-        ]),
-      ).rejects.toThrow(ValidationError);
-    });
+      vi.mocked(db.select).mockReturnValueOnce({ from: primaryFrom } as any);
+      // Only queued when it will be consumed: an unconsumed `Once` survives
+      // `clearAllMocks` and would leak into the next test's select.
+      if (primary?.networkId) {
+        vi.mocked(db.select).mockReturnValueOnce({ from: networkFrom } as any);
+      }
+    }
 
-    it("upserts each update and returns results", async () => {
-      // primary lookup returns no primary (e.g., user with only visibility rows)
-      const limit = vi.fn().mockResolvedValueOnce([]);
-      const where = vi.fn().mockReturnValue({ limit });
-      const from = vi.fn().mockReturnValue({ where });
-      vi.mocked(db.select).mockReturnValue({ from } as any);
-
-      // insert().values().onConflictDoUpdate().returning()
-      const returning = vi
-        .fn()
-        .mockResolvedValueOnce([mockCommunityVisibility])
-        .mockResolvedValueOnce([
-          { ...mockCommunityVisibility, communityId: "c2", isVisible: false },
-        ]);
+    function mockUpsert(rows: unknown[][]) {
+      const returning = vi.fn();
+      for (const r of rows) returning.mockResolvedValueOnce(r);
       const onConflictDoUpdate = vi.fn().mockReturnValue({ returning });
       const values = vi.fn().mockReturnValue({ onConflictDoUpdate });
       vi.mocked(db.insert).mockReturnValue({ values } as any);
+      return { values };
+    }
+
+    it("rejects toggling primary community to false with VISIBILITY_PRIMARY_LOCKED (R4.5)", async () => {
+      mockPrimaryAndNetwork(
+        { communityId: "primary-c", networkId: mockCommunityNetwork.id },
+        ["primary-c", "c2"],
+      );
+
+      const error = await communityDAL
+        .bulkSetVisibility("user-123", [
+          { communityId: "primary-c", isVisible: false },
+        ])
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(VisibilityPrimaryLockedError);
+      expect((error as VisibilityPrimaryLockedError).code).toBe(
+        "VISIBILITY_PRIMARY_LOCKED",
+      );
+      expect(db.insert).not.toHaveBeenCalled();
+    });
+
+    // SEC-08: an injected row for a community outside the caller's network
+    // would widen both the search gate and the listing-detail/quote gate.
+    it("rejects a community outside the caller's network and writes nothing", async () => {
+      mockPrimaryAndNetwork(
+        { communityId: "primary-c", networkId: mockCommunityNetwork.id },
+        ["primary-c", "c2"],
+      );
+
+      await expect(
+        communityDAL.bulkSetVisibility("user-123", [
+          { communityId: "c2", isVisible: true },
+          { communityId: "outside-network", isVisible: true },
+        ]),
+      ).rejects.toThrow(ValidationError);
+      expect(db.insert).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["has no primary community", null],
+      [
+        "has a standalone primary (no network)",
+        { communityId: "primary-c", networkId: null },
+      ],
+    ])(
+      "rejects when the caller %s, and writes nothing",
+      async (_label, primary) => {
+        mockPrimaryAndNetwork(primary);
+
+        await expect(
+          communityDAL.bulkSetVisibility("user-123", [
+            { communityId: "c2", isVisible: true },
+          ]),
+        ).rejects.toThrow(ValidationError);
+        expect(db.insert).not.toHaveBeenCalled();
+      },
+    );
+
+    it("upserts each in-network update and returns results", async () => {
+      mockPrimaryAndNetwork(
+        { communityId: "primary-c", networkId: mockCommunityNetwork.id },
+        ["primary-c", mockCommunityVisibility.communityId, "c2"],
+      );
+      const { values } = mockUpsert([
+        [mockCommunityVisibility],
+        [{ ...mockCommunityVisibility, communityId: "c2", isVisible: false }],
+      ]);
 
       const result = await communityDAL.bulkSetVisibility("user-123", [
         { communityId: mockCommunityVisibility.communityId, isVisible: true },

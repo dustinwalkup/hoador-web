@@ -6,6 +6,7 @@ import {
   communityNetworks,
   communityVisibility,
   Community,
+  PublicCommunity,
   NewCommunity,
   UpdateCommunity,
   CommunityMembership,
@@ -20,8 +21,30 @@ import {
 import { user, userAddresses } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
 import { AuditLogDAL } from "./audit-log.dal";
-import { ConflictError, NotFoundError, ValidationError } from "./errors";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+  VisibilityPrimaryLockedError,
+} from "./errors";
 import type { MembershipByCommunityRow, PaginatedResult } from "./types";
+
+/** Every `communities` column except `joinCode` (SEC-09). */
+const PUBLIC_COMMUNITY_COLUMNS = {
+  id: communities.id,
+  name: communities.name,
+  imageUrl: communities.imageUrl,
+  address: communities.address,
+  city: communities.city,
+  state: communities.state,
+  zip: communities.zip,
+  networkId: communities.networkId,
+  latitude: communities.latitude,
+  longitude: communities.longitude,
+  isActive: communities.isActive,
+  createdAt: communities.createdAt,
+  updatedAt: communities.updatedAt,
+};
 
 export class CommunityDAL extends BaseDAL {
   private readonly auditLogDAL: AuditLogDAL;
@@ -108,7 +131,13 @@ export class CommunityDAL extends BaseDAL {
       const [community] = await this.db
         .select()
         .from(communities)
-        .where(eq(communities.joinCode, joinCode.trim()))
+        .where(
+          and(
+            eq(communities.joinCode, joinCode.trim()),
+            // An inactive community's code must not self-verify anyone (SEC-09).
+            eq(communities.isActive, true),
+          ),
+        )
         .limit(1);
 
       return community || null;
@@ -848,7 +877,7 @@ export class CommunityDAL extends BaseDAL {
   async listCommunitiesByNetwork(
     networkId: string,
     opts: { activeOnly?: boolean } = {},
-  ): Promise<Community[]> {
+  ): Promise<PublicCommunity[]> {
     try {
       const { activeOnly = false } = opts;
       const conditions = [eq(communities.networkId, networkId)];
@@ -856,7 +885,7 @@ export class CommunityDAL extends BaseDAL {
         conditions.push(eq(communities.isActive, true));
       }
       return await this.db
-        .select()
+        .select(PUBLIC_COMMUNITY_COLUMNS)
         .from(communities)
         .where(and(...conditions))
         .orderBy(asc(communities.name));
@@ -1041,7 +1070,7 @@ export class CommunityDAL extends BaseDAL {
       return await this.db
         .select({
           visibility: communityVisibility,
-          community: communities,
+          community: PUBLIC_COMMUNITY_COLUMNS,
           isPrimary: sql<boolean>`COALESCE(${communityMemberships.isPrimary}, false)`,
         })
         .from(communityVisibility)
@@ -1079,8 +1108,15 @@ export class CommunityDAL extends BaseDAL {
       if (updates.length === 0) return [];
 
       const [primary] = await this.db
-        .select({ communityId: communityMemberships.communityId })
+        .select({
+          communityId: communityMemberships.communityId,
+          networkId: communities.networkId,
+        })
         .from(communityMemberships)
+        .innerJoin(
+          communities,
+          eq(communityMemberships.communityId, communities.id),
+        )
         .where(
           and(
             eq(communityMemberships.userId, userId),
@@ -1089,13 +1125,34 @@ export class CommunityDAL extends BaseDAL {
         )
         .limit(1);
 
-      if (primary) {
-        const hidingPrimary = updates.find(
-          (u) => u.communityId === primary.communityId && u.isVisible === false,
+      // SEC-08: a visibility row may only be toggled for a community in the
+      // caller's own network — otherwise getVisibleCommunityIds (the search
+      // gate) and isVisibleInCommunity (the listing-detail/quote gate) can be
+      // made to include a community the caller was never initialized into.
+      if (!primary?.networkId) {
+        throw new ValidationError(
+          "You must belong to a network to set community visibility",
         );
-        if (hidingPrimary) {
-          throw new ValidationError("Cannot hide your home community");
-        }
+      }
+      const networkCommunityIds = new Set(
+        (await this.listCommunitiesByNetwork(primary.networkId)).map(
+          (c) => c.id,
+        ),
+      );
+      const outsideNetwork = updates.find(
+        (u) => !networkCommunityIds.has(u.communityId),
+      );
+      if (outsideNetwork) {
+        throw new ValidationError(
+          `Community ${outsideNetwork.communityId} is not in your network`,
+        );
+      }
+
+      const hidingPrimary = updates.find(
+        (u) => u.communityId === primary.communityId && u.isVisible === false,
+      );
+      if (hidingPrimary) {
+        throw new VisibilityPrimaryLockedError();
       }
 
       const results: CommunityVisibility[] = [];

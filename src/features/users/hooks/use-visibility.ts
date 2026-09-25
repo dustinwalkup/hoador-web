@@ -2,11 +2,11 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCreateMutation } from "@/lib/react-query/mutation-helpers";
-import type { Community } from "@/db/schemas/communities.schema";
+import type { PublicCommunity } from "@/db/schemas/communities.schema";
 
 /** One row of the current user's community-visibility list. */
 export type VisibilityRow = {
-  community: Community;
+  community: PublicCommunity;
   isVisible: boolean;
   /** True for the home community — locked visible in the settings UI. */
   isPrimary: boolean;

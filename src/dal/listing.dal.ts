@@ -433,6 +433,7 @@ export class ListingDAL extends BaseDAL {
           : undefined,
         securityDeposit: Number(listing.securityDeposit),
         status: listing.status,
+        isActive: listing.isActive,
         specifications: listing.specifications,
         instructions: listing.instructions || undefined,
         safetyNotes: listing.safetyNotes || undefined,

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Mocks ---
 const mockGetRentalRequestById = vi.fn();
+const mockIsVisibleInCommunity = vi.fn();
 const mockClaimRentalRequestPaymentProcessing = vi.fn();
 const mockReserveDatesForApproval = vi.fn();
 const mockUpdateRentalRequestPaymentStatus = vi.fn();
@@ -18,6 +19,10 @@ const mockUpdateDepositHoldStatus = vi.fn();
 const mockGetApprovedRentalCountForRenter = vi.fn();
 
 vi.mock("@/dal", () => ({
+  communityDAL: {
+    isVisibleInCommunity: (...args: unknown[]) =>
+      mockIsVisibleInCommunity(...args),
+  },
   auditLogDAL: {
     create: (...args: unknown[]) => mockAuditLogCreate(...args),
   },
@@ -145,7 +150,11 @@ vi.mock("@walkup/walkup-utils", () => ({
 
 import { RentalService } from "../rental-service";
 import {
+  CommunityNotVisibleError,
   CounterpartyUnavailableError,
+  ListingArchivedError,
+  ListingNotApprovedError,
+  ListingNotBookableError,
   RentalDatesUnavailableError,
   RentalRequestNotPendingError,
 } from "@/dal/errors";
@@ -156,6 +165,10 @@ function createMockRentalRequest(overrides = {}) {
     id: "req-1",
     listingId: "listing-1",
     listingName: "Pressure Washer",
+    listingStatus: "available",
+    listingIsActive: true,
+    listingApprovalStatus: "approved",
+    listingCommunityId: "community-1",
     ownerId: "owner-1",
     renterId: "renter-1",
     status: "pending",
@@ -176,6 +189,7 @@ describe("RentalService.approveRentalRequest", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsActiveAccount.mockResolvedValue(true);
+    mockIsVisibleInCommunity.mockResolvedValue(true);
     mockGetRentalRequestById.mockResolvedValue(createMockRentalRequest());
     mockGetOrCreateStripeCustomerId.mockResolvedValue("cus_123");
     mockAssertConnectReady.mockResolvedValue(undefined);
@@ -210,6 +224,61 @@ describe("RentalService.approveRentalRequest", () => {
       expect(mockApproveRentalRequest).not.toHaveBeenCalled();
     },
   );
+
+  // BIZ-08: the listing is re-checked at approve time — the quote only gated
+  // it when the request was made. Refused before anything reaches Stripe.
+  it.each([
+    [
+      "maintenance status",
+      { listingStatus: "maintenance" },
+      ListingNotBookableError,
+    ],
+    ["archived", { listingIsActive: false }, ListingArchivedError],
+    [
+      "unapproved",
+      { listingApprovalStatus: "pending_review" },
+      ListingNotApprovedError,
+    ],
+  ] as const)(
+    "refuses a %s listing before any Stripe call",
+    async (_label, override, ErrorClass) => {
+      mockGetRentalRequestById.mockResolvedValue(
+        createMockRentalRequest(override),
+      );
+
+      await expect(
+        RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+      ).rejects.toThrow(ErrorClass);
+
+      expect(mockAssertConnectReady).not.toHaveBeenCalled();
+      expect(mockGetOrCreateStripeCustomerId).not.toHaveBeenCalled();
+      expect(mockClaimRentalRequestPaymentProcessing).not.toHaveBeenCalled();
+      expect(mockChargeRentalPayment).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses when either party is no longer visible in the listing's community", async () => {
+    mockIsVisibleInCommunity.mockImplementation(
+      async (userId: string) => userId !== "renter-1",
+    );
+
+    await expect(
+      RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+    ).rejects.toThrow(CommunityNotVisibleError);
+
+    expect(mockIsVisibleInCommunity).toHaveBeenCalledWith(
+      "renter-1",
+      "community-1",
+    );
+    expect(mockIsVisibleInCommunity).toHaveBeenCalledWith(
+      "owner-1",
+      "community-1",
+    );
+    expect(mockAssertConnectReady).not.toHaveBeenCalled();
+    expect(mockGetOrCreateStripeCustomerId).not.toHaveBeenCalled();
+    expect(mockClaimRentalRequestPaymentProcessing).not.toHaveBeenCalled();
+    expect(mockChargeRentalPayment).not.toHaveBeenCalled();
+  });
 
   // BIZ-07: a renter who deleted their account (or is otherwise inactive) can
   // no longer see or dispute a charge. Refused before any Stripe work.

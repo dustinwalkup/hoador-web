@@ -1,4 +1,4 @@
-import { listingDAL, rentalDAL } from "@/dal";
+import { communityDAL, listingDAL, rentalDAL } from "@/dal";
 import { NotFoundError } from "@/dal/errors";
 import {
   findConflict,
@@ -45,7 +45,11 @@ export type QuoteBlockerCode =
   | "ABOVE_MAXIMUM_PERIOD"
   | "DATES_UNAVAILABLE"
   | "SETUP_NOT_OFFERED"
-  | "DELIVERY_NOT_OFFERED";
+  | "DELIVERY_NOT_OFFERED"
+  | "LISTING_NOT_BOOKABLE"
+  | "LISTING_ARCHIVED"
+  | "LISTING_NOT_APPROVED"
+  | "COMMUNITY_NOT_VISIBLE";
 
 export interface QuoteBlocker {
   /** Stable, for the client to branch on — never the message (mobile rule #8). */
@@ -113,6 +117,38 @@ export async function quoteRentalRequest(
     blockers.push({
       code: "OWN_LISTING",
       message: "Cannot rent your own listing",
+    });
+  }
+
+  // BIZ-08: the listing itself must be bookable, and both parties visible in
+  // its community — the same symmetric rule the detail route and search apply.
+  // `createRentalRequest` and `approveRentalRequest` enforce these as 409s.
+  if (listing.status !== "available" && listing.status !== "rented") {
+    blockers.push({
+      code: "LISTING_NOT_BOOKABLE",
+      message: "This listing isn't available for booking right now.",
+    });
+  }
+  if (!listing.isActive) {
+    blockers.push({
+      code: "LISTING_ARCHIVED",
+      message: "This listing has been removed by its owner.",
+    });
+  }
+  if (listing.approvalStatus !== "approved") {
+    blockers.push({
+      code: "LISTING_NOT_APPROVED",
+      message: "This listing hasn't been approved yet.",
+    });
+  }
+  const [viewerVisible, ownerVisible] = await Promise.all([
+    communityDAL.isVisibleInCommunity(userId, listing.communityId),
+    communityDAL.isVisibleInCommunity(listing.owner.id, listing.communityId),
+  ]);
+  if (!viewerVisible || !ownerVisible) {
+    blockers.push({
+      code: "COMMUNITY_NOT_VISIBLE",
+      message: "This listing isn't visible to you right now.",
     });
   }
 

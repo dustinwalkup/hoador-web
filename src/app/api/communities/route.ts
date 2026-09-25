@@ -43,8 +43,9 @@ async function getHandler(request: NextRequest) {
 
     return NextResponse.json(communities, {
       headers: {
-        // Community membership data changes rarely; allow brief caching.
-        "Cache-Control": "public, max-age=60",
+        // Community data changes rarely; allow brief caching, but only in the
+        // caller's own cache — this is an authenticated response (SEC-09).
+        "Cache-Control": "private, max-age=60",
       },
     });
   } catch (error) {

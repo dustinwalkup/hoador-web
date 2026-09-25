@@ -21,7 +21,11 @@ vi.mock("@/features/auth/utils/session", () => ({
 }));
 
 const mockListingGetById = vi.fn();
+const mockIsVisibleInCommunity = vi.fn();
 vi.mock("@/dal", () => ({
+  communityDAL: {
+    isVisibleInCommunity: (...a: unknown[]) => mockIsVisibleInCommunity(...a),
+  },
   serviceListingDAL: { getById: (...a: unknown[]) => mockListingGetById(...a) },
 }));
 
@@ -69,6 +73,7 @@ beforeEach(() => {
     isAdmin: false,
   });
   mockListingGetById.mockResolvedValue(LISTING);
+  mockIsVisibleInCommunity.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -144,6 +149,32 @@ describe("POST /api/services/bookings/preview — blockers are data, not errors"
       { code: "OWN_LISTING", message: "cannot_book_own_listing" },
     ]);
   });
+
+  // BIZ-08: both parties must be visible in the listing's community.
+  it.each([
+    ["the requester", "requester-1"],
+    ["the provider", "provider-1"],
+  ])(
+    "reports COMMUNITY_NOT_VISIBLE when %s is not visible in the listing's community",
+    async (_label, hiddenUserId) => {
+      mockIsVisibleInCommunity.mockImplementation(
+        async (userId: string) => userId !== hiddenUserId,
+      );
+
+      const res = await POST(req(base()));
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(mockIsVisibleInCommunity).toHaveBeenCalledWith(
+        hiddenUserId,
+        "community-1",
+      );
+      expect(body.canBook).toBe(false);
+      expect(body.blockers.map((b: { code: string }) => b.code)).toContain(
+        "COMMUNITY_NOT_VISIBLE",
+      );
+    },
+  );
 
   it("still prices an unbookable input, so the screen can show what it would cost", async () => {
     mockGetAuthenticatedUser.mockResolvedValue({

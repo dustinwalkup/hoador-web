@@ -677,6 +677,10 @@ export class RentalDAL extends BaseDAL {
     listingId: string;
     listingName: string;
     listingImageUrl: string | null;
+    listingStatus: string;
+    listingIsActive: boolean;
+    listingApprovalStatus: string;
+    listingCommunityId: string;
     renterId: string;
     ownerId: string;
     ownerName: string;
@@ -709,6 +713,10 @@ export class RentalDAL extends BaseDAL {
           id: rentalRequests.id,
           listingId: rentalRequests.listingId,
           listingName: listings.name,
+          listingStatus: listings.status,
+          listingIsActive: listings.isActive,
+          listingApprovalStatus: listings.approvalStatus,
+          listingCommunityId: listings.communityId,
           renterId: rentalRequests.renterId,
           ownerId: rentalRequests.ownerId,
           ownerName: sql<string>`CONCAT(${user.firstName}, ' ', ${user.lastName})`,

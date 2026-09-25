@@ -175,3 +175,67 @@ export class CannotMessageSelfError extends DALError {
     this.name = "CannotMessageSelfError";
   }
 }
+
+/**
+ * Hiding the primary (home) community is refused (R4.5). Mobile P-E14-6 asked
+ * for a stable code so the visibility screen can branch on it, not the prose.
+ */
+export class VisibilityPrimaryLockedError extends DALError {
+  constructor(message = "You can't hide your home community.") {
+    super(message, "VISIBILITY_PRIMARY_LOCKED", 400);
+    this.name = "VisibilityPrimaryLockedError";
+  }
+}
+
+/**
+ * A listing failed an eligibility check at quote, or its re-check at
+ * approve/accept time (BIZ-08). One base class so `handleApiError` needs one
+ * branch for the family — same pattern as `DisputeError`. 409 with a stable
+ * `code`, the same codes the quote endpoints return as blockers.
+ */
+export abstract class ListingEligibilityError extends Error {
+  abstract readonly code: string;
+  readonly statusCode = 409;
+  constructor(message: string) {
+    super(message);
+    this.name = new.target.name;
+  }
+}
+
+export function isListingEligibilityError(
+  error: unknown,
+): error is ListingEligibilityError {
+  return error instanceof ListingEligibilityError;
+}
+
+/** Listing `status` is not one of the bookable states. */
+export class ListingNotBookableError extends ListingEligibilityError {
+  readonly code = "LISTING_NOT_BOOKABLE";
+  constructor(message = "This listing isn't available for booking right now.") {
+    super(message);
+  }
+}
+
+/** Rental listing `isActive = false` (archived by its owner). */
+export class ListingArchivedError extends ListingEligibilityError {
+  readonly code = "LISTING_ARCHIVED";
+  constructor(message = "This listing has been removed by its owner.") {
+    super(message);
+  }
+}
+
+/** Rental listing `approvalStatus !== "approved"`. */
+export class ListingNotApprovedError extends ListingEligibilityError {
+  readonly code = "LISTING_NOT_APPROVED";
+  constructor(message = "This listing hasn't been approved yet.") {
+    super(message);
+  }
+}
+
+/** Either party is not visible in the listing's community (the symmetric R5 rule). */
+export class CommunityNotVisibleError extends ListingEligibilityError {
+  readonly code = "COMMUNITY_NOT_VISIBLE";
+  constructor(message = "This listing isn't visible to you right now.") {
+    super(message);
+  }
+}

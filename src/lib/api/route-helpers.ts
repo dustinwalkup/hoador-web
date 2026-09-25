@@ -23,6 +23,8 @@ import {
   RentalDatesUnavailableError,
   CounterpartyUnavailableError,
   ServiceNotYetDueError,
+  VisibilityPrimaryLockedError,
+  isListingEligibilityError,
 } from "@/dal/errors";
 import { PaymentSetupRequiredError } from "@/features/payments/lib/errors";
 import { AccountDeletionBlockedError } from "@/features/users/lib/account-deletion-errors";
@@ -74,13 +76,16 @@ export function handleApiError(
     !(error instanceof RentalDatesUnavailableError) &&
     !(error instanceof CounterpartyUnavailableError) &&
     !(error instanceof CannotMessageSelfError) &&
+    !(error instanceof VisibilityPrimaryLockedError) &&
     !(error instanceof NeedLimitReachedError) &&
     !(error instanceof PaymentSetupRequiredError) &&
     !(error instanceof AccountDeletionBlockedError) &&
     !(error instanceof ListingDeletionBlockedError) &&
     // A refused filing — window closed, rate limit hit, dispute already open —
     // is an expected user outcome, not an incident (P-E13-3).
-    !isDisputeError(error);
+    !isDisputeError(error) &&
+    // A listing that failed an eligibility (re-)check is an expected refusal (BIZ-08).
+    !isListingEligibilityError(error);
 
   if (shouldCaptureError) {
     const ctx = getRequestContext();
@@ -133,6 +138,13 @@ export function handleApiError(
   }
 
   if (error instanceof CannotMessageSelfError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+
+  if (error instanceof VisibilityPrimaryLockedError) {
     return NextResponse.json(
       { error: error.message, code: error.code },
       { status: error.statusCode },
@@ -229,6 +241,15 @@ export function handleApiError(
   if (isDisputeError(error)) {
     return NextResponse.json(
       { error: error.message, code: error.code, ...error.details },
+      { status: error.statusCode },
+    );
+  }
+
+  // Standalone `Error`s like the dispute family above: the same `code` a quote
+  // endpoint returns as a blocker, re-raised at create/approve/accept (BIZ-08).
+  if (isListingEligibilityError(error)) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
       { status: error.statusCode },
     );
   }

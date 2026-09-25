@@ -1,4 +1,4 @@
-import { serviceListingDAL } from "@/dal";
+import { communityDAL, serviceListingDAL } from "@/dal";
 import { NotFoundError } from "@/dal/errors";
 import { calculateServiceFee } from "@/constants/payments";
 import { MARKET_TIME_ZONE } from "@/lib/wall-clock-zone";
@@ -39,7 +39,8 @@ import { MARKET_TIME_ZONE } from "@/lib/wall-clock-zone";
 export type ServiceQuoteBlockerCode =
   | "OWN_LISTING"
   | "HOURS_REQUIRED"
-  | "PROPOSED_DATE_IN_PAST";
+  | "PROPOSED_DATE_IN_PAST"
+  | "COMMUNITY_NOT_VISIBLE";
 
 export interface ServiceQuoteBlocker {
   /** Stable, for the client to branch on — never the message (mobile rule #8). */
@@ -109,6 +110,20 @@ export async function quoteServiceBooking(
     blockers.push({
       code: "OWN_LISTING",
       message: "cannot_book_own_listing",
+    });
+  }
+
+  // BIZ-08: both parties must be visible in the listing's community — the same
+  // symmetric rule search and listing detail apply. (Status is already gated
+  // above: services fold approval and archive into `status`.)
+  const [providerVisible, requesterVisible] = await Promise.all([
+    communityDAL.isVisibleInCommunity(listing.providerId, listing.communityId),
+    communityDAL.isVisibleInCommunity(requesterId, listing.communityId),
+  ]);
+  if (!providerVisible || !requesterVisible) {
+    blockers.push({
+      code: "COMMUNITY_NOT_VISIBLE",
+      message: "This listing isn't visible to you right now.",
     });
   }
 

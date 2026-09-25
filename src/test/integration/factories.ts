@@ -5,6 +5,7 @@ import { schema } from "@/db/schemas";
 const {
   user,
   communities,
+  communityVisibility,
   listingCategories,
   listings,
   rentalRequests,
@@ -60,6 +61,21 @@ export async function createCommunity(
     .values({ name: `Community ${unique()}`, ...overrides })
     .returning();
   return row;
+}
+
+/**
+ * Make each user visible in `communityId` — what signup's visibility
+ * initialization does. Quote, approve and accept require both parties to be
+ * visible in the listing's community (BIZ-08).
+ */
+export async function createVisibility(
+  communityId: string,
+  ...userIds: string[]
+) {
+  return db
+    .insert(communityVisibility)
+    .values(userIds.map((userId) => ({ userId, communityId, isVisible: true })))
+    .returning();
 }
 
 export async function createListing(

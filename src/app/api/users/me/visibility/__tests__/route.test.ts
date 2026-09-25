@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
-import { ValidationError } from "@/dal/errors";
+import { ValidationError, VisibilityPrimaryLockedError } from "@/dal/errors";
 
 const mockGetAuthenticatedUserResponse = vi.fn();
 const mockParseFormData = vi.fn();
@@ -144,16 +144,32 @@ describe("PATCH /api/users/me/visibility", () => {
     ]);
   });
 
-  it("maps a ValidationError (hiding primary) to a 400", async () => {
+  // Mobile P-E14-6: a stable code to branch on, not the prose.
+  it("maps hiding the primary community (VisibilityPrimaryLockedError) to a 400", async () => {
     mockParseFormData.mockResolvedValue({
       updates: [{ communityId: "primary", isVisible: false }],
     });
-    mockBulkSetVisibility.mockRejectedValue(
-      new ValidationError("Cannot hide your home community"),
-    );
+    mockBulkSetVisibility.mockRejectedValue(new VisibilityPrimaryLockedError());
     const { PATCH } = await import("../route");
     const res = await PATCH(
       patchReq({ updates: [{ communityId: "primary", isVisible: false }] }),
+    );
+    // `handleApiError` is stubbed in this file; the `{error, code}` body is
+    // pinned in route-helpers.test.ts.
+    expect(res.status).toBe(400);
+  });
+
+  // SEC-08: the DAL refuses a community outside the caller's network.
+  it("maps a community outside the caller's network to a 400", async () => {
+    mockParseFormData.mockResolvedValue({
+      updates: [{ communityId: "foreign", isVisible: true }],
+    });
+    mockBulkSetVisibility.mockRejectedValue(
+      new ValidationError("Community foreign is not in your network"),
+    );
+    const { PATCH } = await import("../route");
+    const res = await PATCH(
+      patchReq({ updates: [{ communityId: "foreign", isVisible: true }] }),
     );
     expect(res.status).toBe(400);
   });

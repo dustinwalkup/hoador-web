@@ -47,6 +47,7 @@ describe("ListingDetailView", () => {
     monthlyRate: 500,
     securityDeposit: 100,
     status: "available",
+    isActive: true,
     specifications: {
       Power: "20V",
       Speed: "0-450/0-1500 RPM",
