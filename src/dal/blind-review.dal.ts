@@ -63,12 +63,15 @@ export class BlindReviewDAL extends BaseDAL {
 
       return review;
     } catch (error) {
-      // Provide a more specific message for the unique constraint violation
+      // Provide a more specific message for the unique constraint violation.
+      // drizzle wraps the pg error; its code is on `.cause` (SEC-16).
+      const pgError =
+        (error as { cause?: { code?: string } } | null)?.cause ?? error;
       if (
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "23505"
+        pgError &&
+        typeof pgError === "object" &&
+        "code" in pgError &&
+        (pgError as { code?: string }).code === "23505"
       ) {
         throw new ConflictError(
           "You have already submitted a review for this booking",

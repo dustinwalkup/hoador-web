@@ -49,16 +49,10 @@ describe("real constraint errors (TEST-07)", () => {
     expect(cause?.constraint).toBe("user_email_unique");
   });
 
-  // SEC-16, open until remediation-roadmap item 1.7 maps
-  // `(error.cause ?? error).code`. `it.fails` passes while the bug is present
-  // and fails once it is fixed: flip it to `it` in that change.
-  it.fails(
-    "is mapped to ConflictError by BaseDAL.handleError (SEC-16, roadmap 1.7)",
-    async () => {
-      const error = await duplicateEmailError();
-      const probe = new ProbeDAL();
+  it("is mapped to ConflictError by BaseDAL.handleError (SEC-16, roadmap 1.7)", async () => {
+    const error = await duplicateEmailError();
+    const probe = new ProbeDAL();
 
-      expect(() => probe.map(error)).toThrow(ConflictError);
-    },
-  );
+    expect(() => probe.map(error)).toThrow(ConflictError);
+  });
 });

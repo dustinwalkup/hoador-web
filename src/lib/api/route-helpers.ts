@@ -263,8 +263,16 @@ export function handleApiError(
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
+    // Unclassified 500: could be a raw driver error from a route that
+    // queries `db` directly (availability route's `db.insert`) or an
+    // unwrapped Stripe error — both can carry SQL, params or account detail
+    // in `.message` (SEC-16). Already logged above; never in the body.
+    const ctx = getRequestContext();
     return NextResponse.json(
-      { error: error.message || "An unexpected error occurred" },
+      {
+        error: "An unexpected error occurred",
+        ...(ctx?.requestId && { requestId: ctx.requestId }),
+      },
       { status: 500 },
     );
   }

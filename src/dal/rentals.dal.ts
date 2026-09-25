@@ -2263,7 +2263,7 @@ export class RentalDAL extends BaseDAL {
         rentalRequest.status !== "approved" &&
         rentalRequest.status !== "active"
       ) {
-        throw new Error(
+        throw new ConflictError(
           "Instructions can only be updated for approved or active rentals",
         );
       }
@@ -2917,7 +2917,7 @@ export class RentalDAL extends BaseDAL {
 
       // Verify that the rental is in approved status
       if (request.status !== "approved") {
-        throw new Error("Only approved rentals can be started");
+        throw new ConflictError("Only approved rentals can be started");
       }
 
       // Mobile Req 10.2.1 — starting before the start date is blocked, and this
@@ -3078,7 +3078,7 @@ export class RentalDAL extends BaseDAL {
             "Return has already been confirmed for this rental.",
           );
         }
-        throw new Error("Only active rentals can be ended");
+        throw new ConflictError("Only active rentals can be ended");
       }
 
       // Update the rental_requests status to completed — claimed on `active`

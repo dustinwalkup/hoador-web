@@ -734,8 +734,10 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
         .returning();
       return row;
     } catch (error) {
-      // Rethrow unique-constraint as ConflictError so callers can swallow it cleanly
-      if ((error as { code?: string }).code === "23505") {
+      // Rethrow unique-constraint as ConflictError so callers can swallow it
+      // cleanly. drizzle wraps the pg error; its code is on `.cause` (SEC-16).
+      const pgError = (error as { cause?: { code?: string } }).cause ?? error;
+      if ((pgError as { code?: string }).code === "23505") {
         throw new ConflictError(
           "This listing is already linked to a neighborhood need",
         );

@@ -56,6 +56,18 @@ describe("route-helpers", () => {
   });
 
   describe("handleApiError", () => {
+    it("should not leak a raw DB/Stripe error message on an unclassified 500 (SEC-16)", async () => {
+      const leaked =
+        'Failed query: select * from "user" where email = $1\nparams: ["x@example.com"]';
+      const response = handleApiError(new Error(leaked));
+
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.error).toBe("An unexpected error occurred");
+      expect(JSON.stringify(body)).not.toContain("Failed query");
+      expect(JSON.stringify(body)).not.toContain("params:");
+    });
+
     it("should handle UnauthorizedError with 401 status", () => {
       const error = new UnauthorizedError("Not authorized");
       const response = handleApiError(error);

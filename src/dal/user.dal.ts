@@ -30,7 +30,12 @@ import {
   type AdminUserDetail,
   UserProfile,
 } from "./types";
-import { ConflictError, NotFoundError } from "./errors";
+import {
+  ConflictError,
+  DALError,
+  NotFoundError,
+  ValidationError,
+} from "./errors";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
 const {
@@ -108,10 +113,12 @@ export class UserDAL extends BaseDAL {
     const { street, city, state, zipCode, unit } = addressData;
 
     // Basic validation
-    if (!street?.trim()) throw new Error("Street address is required");
-    if (!city?.trim()) throw new Error("City is required");
-    if (!state?.trim()) throw new Error("State is required");
-    if (!zipCode?.trim()) throw new Error("ZIP code is required");
+    if (!street?.trim())
+      throw new ValidationError("Street address is required", "street");
+    if (!city?.trim()) throw new ValidationError("City is required", "city");
+    if (!state?.trim()) throw new ValidationError("State is required", "state");
+    if (!zipCode?.trim())
+      throw new ValidationError("ZIP code is required", "zipCode");
 
     // Format ZIP code (remove spaces, ensure 5 or 9 digit format)
     const cleanedZip = zipCode.replace(/\D/g, "");
@@ -119,7 +126,7 @@ export class UserDAL extends BaseDAL {
     if (cleanedZip.length === 9) {
       formattedZip = `${cleanedZip.slice(0, 5)}-${cleanedZip.slice(5)}`;
     } else if (cleanedZip.length !== 5) {
-      throw new Error("ZIP code must be 5 or 9 digits");
+      throw new ValidationError("ZIP code must be 5 or 9 digits", "zipCode");
     }
 
     return {
@@ -775,7 +782,7 @@ export class UserDAL extends BaseDAL {
       const geo = await geocodeAddress(input);
 
       if (!geo) {
-        throw new Error("Failed to geocode address");
+        throw new DALError("Failed to geocode address", "GEOCODE_FAILED", 500);
       }
 
       const { latitude, longitude } = geo;

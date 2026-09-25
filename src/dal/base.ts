@@ -15,26 +15,23 @@ export abstract class BaseDAL<TTable = undefined> {
   protected handleError(error: any, operation: string): never {
     console.error(`DAL Error in ${operation}:`, error);
 
-    // Only capture unexpected database errors in production
+    // drizzle-orm 0.45 wraps every driver error in `DrizzleQueryError`; the
+    // real pg error (with `.code`) lives on `.cause`, not on the error
+    // itself (SEC-16). Falling back to `error` keeps this working for a
+    // driver error that isn't wrapped, and for mocked `{code}` fixtures.
+    const pgError = error?.cause ?? error;
+    const pgCode = pgError?.code;
+
     const isUnexpectedError =
       process.env.NODE_ENV === "production" &&
-      error.code !== "23505" && // Unique constraint - expected
-      error.code !== "23503" && // Foreign key - expected
-      error.code !== "23514"; // Check constraint - expected
+      pgCode !== "23505" &&
+      pgCode !== "23503" &&
+      pgCode !== "23514";
 
     if (isUnexpectedError) {
       Sentry.captureException(error, {
-        tags: {
-          error_type: "dal_error",
-          operation,
-          error_code: error.code,
-        },
-        contexts: {
-          database: {
-            operation,
-            error_code: error.code,
-          },
-        },
+        tags: { error_type: "dal_error", operation, error_code: pgCode },
+        contexts: { database: { operation, error_code: pgCode } },
       });
     }
 
@@ -42,25 +39,21 @@ export abstract class BaseDAL<TTable = undefined> {
       throw error;
     }
 
-    // Handle database constraint errors
-    if (error.code === "23505") {
-      // Unique constraint violation
+    if (pgCode === "23505") {
       throw new ConflictError("A record with this value already exists");
     }
-
-    if (error.code === "23503") {
-      // Foreign key constraint violation
+    if (pgCode === "23503") {
       throw new ValidationError("Referenced record does not exist");
     }
-
-    if (error.code === "23514") {
-      // Check constraint violation
+    if (pgCode === "23514") {
       throw new ValidationError("Invalid data provided");
     }
 
-    // Generic database error
+    // Generic database error. Never put the driver message in the client
+    // response (SEC-16) — it's already logged above (console.error, and to
+    // Sentry when unexpected) with the operation name for correlation.
     throw new DALError(
-      `Database operation failed: ${error.message}`,
+      "A database error occurred. Please try again.",
       "DATABASE_ERROR",
       500,
     );
