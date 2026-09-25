@@ -105,6 +105,47 @@ jobs:
       - name: Run integration tests
         run: bun run test:integration
 
+  # Job 2c: DB-02 tripwire. `db:migrate` can't yet rebuild the schema from an
+  # empty Postgres (0000 is a no-op, the base tables are never created, and
+  # 0015_sturdy/0017 have journal bugs; fix is Phase 2). continue-on-error so
+  # this reports the gap without blocking deploys. Remove the flag, and add it
+  # to `build`'s needs, once DB-02 lands.
+  migrate-empty-db:
+    name: Migrate Empty DB (non-blocking, DB-02)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Migrate an empty database
+        run: bun run db:migrate
+
+      - name: Check migration/schema consistency
+        run: bunx drizzle-kit check
+
   # Job 3: Build Application
   build:
     name: Build Application

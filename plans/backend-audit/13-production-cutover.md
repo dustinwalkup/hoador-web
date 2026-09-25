@@ -33,6 +33,8 @@ Everything the backend-audit fixes need done **by hand, outside the code**, when
 | A3  | Pay owners deposits captured before R-BIZ-04 (backfill)                       | R-BIZ-04      | moot (no real captures)               | moot (no real captures)               | TODO |
 | A4  | Scrub accounts deleted before R-PRIV-09 (optional)                            | R-PRIV-09     | TODO (optional)                       | TODO (optional)                       | N/A  |
 | A5  | Confirm the cron moves: a clean deploy, then an hourly run that calls payouts | R-PERF-05     | n/a                                   | TODO                                  | TODO |
+| A6  | Confirm Vercel's Git auto-deploy is off for `main`/`develop`                  | R-ARCH-06     | n/a                                   | TODO                                  | TODO |
+| A7  | Confirm exactly one deploy per push, pinned to the pushed commit              | R-ARCH-06     | n/a                                   | TODO                                  | TODO |
 
 ## Before deploying
 
@@ -115,6 +117,10 @@ SELECT count(*) FROM "user" WHERE anonymized_at IS NOT NULL;
 If the leftovers matter, **don't just call `anonymizeUser` again**: nobody has checked that it's safe to re-run on an already-anonymized row, and the blob deletes live in the service, not the DAL. Write a one-off script that runs the PRIV-09 statements from `anonymizeUser` and the service's blob helpers for `WHERE anonymized_at IS NOT NULL`.
 
 **A5. Cron cadence and budgets (R-PERF-05).** Two checks. (1) The deploy itself: the three Stripe-loop cron routes (`process-payouts`, `process-service-payouts`, `schedule-deposit-holds`) now export `maxDuration = 120`. Vercel only allows over 60s on Pro, or on Hobby with Fluid Compute on. If the staging deploy rejects the value, lower those three to 60 and their `--max-time` in `cron-jobs.yml` to 90. (2) The schedule: the next `hourly` run of **Cron Jobs** in GitHub Actions should show _Process payouts_, _Process service payouts_ and both stale-processing detectors, which used to run in `daily`. Every step now continues on error, and a final _Check job status_ step turns the job red if any of them failed.
+
+**A6. Vercel Git integration (R-ARCH-06).** `vercel.json` now sets `git.deploymentEnabled` to `false` for `main` and `develop`, so only the gated workflows deploy those branches. The repo can't show whether the Vercel project's Git integration was ever connected. Open Vercel → Project → Settings → Git and confirm that automatic deploys for those branches are off, whether because the integration was never connected or because it honors the new setting. If the deploy errors on the `git` key, stop and check the dashboard.
+
+**A7. One pinned deploy per push (R-ARCH-06).** `deploy.yml` and `deploy-staging.yml` now fire on both **CI/CD Pipeline** and **E2E Tests**, and deploy only when both passed on the same commit. **`workflow_run` workflows run from the default branch's copy**, so neither change takes effect until it's on `main`. After that, push to `develop` and then to `main`. Each push should produce two **Deploy** runs: the first (whichever upstream finishes first) logs "Not deploying on this trigger", and the second deploys. The Vercel deployment's `githubCommitSha` metadata must match the pushed commit. If `check-ci` fails on reading workflow runs, the `GITHUB_TOKEN` lacks `actions: read` under the org policy. Report that; don't widen the token.
 
 ## Standing rules
 

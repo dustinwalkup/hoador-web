@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { getAdminUser } from "@/features/auth/utils/admin-session";
+import { isAppVersionBelowMinimum } from "@/lib/api/min-app-version";
 
 // Define protected route patterns
 const PROTECTED_ROUTES = [
@@ -54,6 +55,25 @@ const PUBLIC_PAGE_ROUTES = ["/support", "/help", "/how-it-works"];
  */
 function refuseUnauthenticated(request: NextRequest) {
   return NextResponse.redirect(createRedirectUrl(request));
+}
+
+const APP_UPDATE_REQUIRED_BODY = {
+  error: "Please update the app to continue.",
+  code: "APP_UPDATE_REQUIRED",
+} as const;
+
+/**
+ * ARCH-06 kill switch. Gates every /api/* request, including auth, so a
+ * too-old binary can't even sign in. Fails open when MIN_APP_VERSION is unset
+ * or the caller sends no x-app-version header (web never does).
+ */
+function checkMinAppVersion(request: NextRequest): NextResponse | null {
+  const minVersion = process.env.MIN_APP_VERSION;
+  if (!minVersion) return null;
+  const appVersion = request.headers.get("x-app-version");
+  if (!appVersion) return null;
+  if (!isAppVersionBelowMinimum(appVersion, minVersion)) return null;
+  return NextResponse.json(APP_UPDATE_REQUIRED_BODY, { status: 426 });
 }
 
 /**
@@ -157,11 +177,14 @@ async function proxyAuth(request: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  // PERF-03: every /api/* route self-authenticates (route-helpers.ts) and
-  // returns its own 401/403 — resolving the session again here duplicated
-  // that on every API call. The one route with no handler-level check,
+  // /api/* gets only the version gate here (ARCH-06). Auth is the route's job
+  // (PERF-03): every route self-authenticates (route-helpers.ts) and returns
+  // its own 401/403, so resolving the session here too duplicated it on every
+  // API call. The one route with no handler-level check,
   // GET /api/listings/categories, returns only public category metadata.
   if (pathname.startsWith("/api/")) {
+    const versionGateResponse = checkMinAppVersion(request);
+    if (versionGateResponse) return versionGateResponse;
     return NextResponse.next();
   }
 

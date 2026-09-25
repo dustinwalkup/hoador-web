@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import { mockVerifiedUser } from "@/test/fixtures/auth";
 import type { UserProfile } from "@/dal/types";
@@ -143,5 +143,77 @@ describe("proxy.ts — API passthrough and page refusals", () => {
 
     expect(redirectLocation(res)).toBe("/login");
     consoleError.mockRestore();
+  });
+});
+
+/**
+ * ARCH-06 kill switch: MIN_APP_VERSION refuses a too-old mobile binary on any
+ * /api/* call, auth included. Fails open with the env var unset or no header.
+ */
+describe("proxy.ts — minimum app version gate", () => {
+  const apiRequest = (pathname: string, appVersion?: string) =>
+    new NextRequest(new URL(pathname, "https://app.hoador.com"), {
+      headers: appVersion ? { "x-app-version": appVersion } : undefined,
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("is off while MIN_APP_VERSION is unset", async () => {
+    vi.stubEnv("MIN_APP_VERSION", "");
+
+    const res = await proxy(apiRequest("/api/rentals", "0.0.1"));
+
+    expect(isNextResponse(res)).toBe(true);
+  });
+
+  it("lets a request with no x-app-version through (web, pre-header binaries)", async () => {
+    vi.stubEnv("MIN_APP_VERSION", "2.0.0");
+
+    const res = await proxy(apiRequest("/api/listings"));
+
+    expect(isNextResponse(res)).toBe(true);
+  });
+
+  it("426s a binary below the minimum with APP_UPDATE_REQUIRED", async () => {
+    vi.stubEnv("MIN_APP_VERSION", "2.0.0");
+
+    const res = await proxy(apiRequest("/api/rentals", "1.0.0"));
+
+    expect(res.status).toBe(426);
+    await expect(res.json()).resolves.toEqual({
+      error: expect.any(String),
+      code: "APP_UPDATE_REQUIRED",
+    });
+  });
+
+  it("lets a binary at the minimum through", async () => {
+    vi.stubEnv("MIN_APP_VERSION", "2.0.0");
+
+    const res = await proxy(apiRequest("/api/rentals", "2.0.0"));
+
+    expect(isNextResponse(res)).toBe(true);
+  });
+
+  it("gates auth routes too, so a too-old binary can't sign in", async () => {
+    vi.stubEnv("MIN_APP_VERSION", "2.0.0");
+
+    const res = await proxy(apiRequest("/api/auth/sign-in/email", "1.0.0"));
+
+    expect(res.status).toBe(426);
+  });
+
+  it("never gates pages", async () => {
+    vi.stubEnv("MIN_APP_VERSION", "2.0.0");
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
+
+    const res = await proxy(apiRequest("/login", "1.0.0"));
+
+    expect(res.status).not.toBe(426);
   });
 });

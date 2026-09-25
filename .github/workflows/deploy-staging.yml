@@ -1,49 +1,80 @@
 # .github/workflows/deploy-staging.yml
 name: Deploy to Staging
 
-# Only run on pushes to develop branch after CI passes.
+# Only run on pushes to develop branch after CI and E2E both pass.
 # Note: workflow_run triggers use the workflow file from the default branch (main).
 # Merge this workflow into main once so "Deploy to Staging" runs when CI completes on develop.
 on:
   workflow_run:
-    workflows: ["CI/CD Pipeline"]
+    workflows: ["CI/CD Pipeline", "E2E Tests"]
     types:
       - completed
     branches: [develop]
   workflow_dispatch: # Allow manual triggering
 
-# Prevent concurrent deployments
+# Prevent concurrent deployments. Queue rather than cancel: this fires twice
+# per commit (once per upstream workflow), and cancelling would let one
+# commit's no-op run kill another commit's in-flight deploy. A newer pending
+# run still replaces an older pending one.
 concurrency:
   group: deploy-staging-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  # Check if CI passed before deploying
+  # Deploy only a commit on which BOTH CI and E2E passed. Either workflow
+  # finishing fires this; the first to finish no-ops here and the second
+  # deploys, so both are looked up by SHA rather than trusting the trigger.
   check-ci:
     name: Check CI Status
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     outputs:
       should-deploy: ${{ steps.check.outputs.should-deploy }}
+      head-sha: ${{ steps.check.outputs.head-sha }}
     steps:
-      - name: Check CI conclusion
+      - name: Resolve commit and confirm CI + E2E passed on it
         id: check
-        run: |
-          echo "CI workflow conclusion: ${{ github.event.workflow_run.conclusion }}"
-          echo "Event name: ${{ github.event_name }}"
-          # Only deploy on direct pushes to develop, not PR runs
-          if [[ "${{ github.event.workflow_run.event }}" == "pull_request" ]]; then
-            echo "should-deploy=false" >> $GITHUB_OUTPUT
-            echo "⏭️ Skipping deploy - triggered by a PR, not a direct push"
-            exit 0
-          fi
-
-          if [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]] || \
-            [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "should-deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "should-deploy=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const isDispatch = context.eventName === "workflow_dispatch";
+            const headSha = isDispatch ? context.sha : context.payload.workflow_run.head_sha;
+            core.setOutput("head-sha", headSha);
+            if (isDispatch) {
+              // Manual override: skips both checks.
+              core.setOutput("should-deploy", "true");
+              return;
+            }
+            // Only direct pushes deploy, never a PR's run.
+            if (context.payload.workflow_run.event === "pull_request") {
+              core.info("Triggered by a PR run, not a direct push: skipping.");
+              core.setOutput("should-deploy", "false");
+              return;
+            }
+            const trigger = context.payload.workflow_run;
+            if (trigger.conclusion !== "success") {
+              core.setOutput("should-deploy", "false");
+              core.setFailed(`"${trigger.name}" concluded ${trigger.conclusion} for ${headSha}: not deploying.`);
+              return;
+            }
+            const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head_sha: headSha,
+              event: "push",
+              per_page: 100,
+            });
+            for (const workflowName of ["CI/CD Pipeline", "E2E Tests"]) {
+              // Newest first, so a re-run's latest attempt wins.
+              const run = data.workflow_runs.find((r) => r.name === workflowName);
+              if (!run || run.status !== "completed" || run.conclusion !== "success") {
+                core.info(`"${workflowName}" for ${headSha}: ${run ? `${run.status}/${run.conclusion}` : "no run"}. Not deploying on this trigger.`);
+                core.setOutput("should-deploy", "false");
+                return;
+              }
+            }
+            core.setOutput("should-deploy", "true");
 
   # Deploy to Vercel Staging
   deploy-vercel:
@@ -56,8 +87,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          # Deploy the branch that passed CI (develop), not the default branch (main)
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # The commit CI and E2E passed on, not the default branch (main)
+          ref: ${{ needs.check-ci.outputs.head-sha }}
           fetch-depth: 0
 
       - name: Setup Bun
@@ -90,7 +121,7 @@ jobs:
       - name: Deploy to Vercel
         run: |
           vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} \
-            -m githubCommitSha=${{ github.event.workflow_run.head_sha || github.sha }} \
+            -m githubCommitSha=${{ needs.check-ci.outputs.head-sha }} \
             -m githubCommitRef=${{ github.event.workflow_run.head_branch || 'develop' }} \
             -m githubCommitAuthorLogin=${{ github.actor }} \
             -m githubOrg=${{ github.repository_owner }} \

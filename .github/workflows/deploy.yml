@@ -1,41 +1,72 @@
 # .github/workflows/deploy.yml
 name: Deploy to Production
 
-# Only run on pushes to main branch after CI passes
+# Only run on pushes to main branch after CI and E2E both pass
 on:
   workflow_run:
-    workflows: ["CI/CD Pipeline"]
+    workflows: ["CI/CD Pipeline", "E2E Tests"]
     types:
       - completed
     branches: [main]
   workflow_dispatch: # Allow manual triggering
 
-# Prevent concurrent deployments
+# Prevent concurrent deployments. Queue rather than cancel: this fires twice
+# per commit (once per upstream workflow), and cancelling would let one
+# commit's no-op run kill another commit's in-flight deploy. A newer pending
+# run still replaces an older pending one.
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  # Check if CI passed before deploying
+  # Deploy only a commit on which BOTH CI and E2E passed. Either workflow
+  # finishing fires this; the first to finish no-ops here and the second
+  # deploys, so both are looked up by SHA rather than trusting the trigger.
   check-ci:
     name: Check CI Status
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     outputs:
       should-deploy: ${{ steps.check.outputs.should-deploy }}
+      head-sha: ${{ steps.check.outputs.head-sha }}
     steps:
-      - name: Check CI conclusion
+      - name: Resolve commit and confirm CI + E2E passed on it
         id: check
-        run: |
-          echo "CI workflow conclusion: ${{ github.event.workflow_run.conclusion }}"
-          echo "Event name: ${{ github.event_name }}"
-          if [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "should-deploy=true" >> $GITHUB_OUTPUT
-            echo "✅ CI passed - proceeding with deployment"
-          else
-            echo "should-deploy=false" >> $GITHUB_OUTPUT
-            echo "❌ CI failed - skipping deployment"
-            exit 1
-          fi
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const isDispatch = context.eventName === "workflow_dispatch";
+            const headSha = isDispatch ? context.sha : context.payload.workflow_run.head_sha;
+            core.setOutput("head-sha", headSha);
+            if (isDispatch) {
+              // Manual override: skips both checks.
+              core.setOutput("should-deploy", "true");
+              return;
+            }
+            const trigger = context.payload.workflow_run;
+            if (trigger.conclusion !== "success") {
+              core.setOutput("should-deploy", "false");
+              core.setFailed(`"${trigger.name}" concluded ${trigger.conclusion} for ${headSha}: not deploying.`);
+              return;
+            }
+            const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head_sha: headSha,
+              event: "push",
+              per_page: 100,
+            });
+            for (const workflowName of ["CI/CD Pipeline", "E2E Tests"]) {
+              // Newest first, so a re-run's latest attempt wins.
+              const run = data.workflow_runs.find((r) => r.name === workflowName);
+              if (!run || run.status !== "completed" || run.conclusion !== "success") {
+                core.info(`"${workflowName}" for ${headSha}: ${run ? `${run.status}/${run.conclusion}` : "no run"}. Not deploying on this trigger.`);
+                core.setOutput("should-deploy", "false");
+                return;
+              }
+            }
+            core.setOutput("should-deploy", "true");
 
   # Deploy to Vercel (if using Vercel)
   deploy-vercel:
@@ -47,6 +78,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # The commit CI and E2E passed on, not main's tip at trigger time.
+          ref: ${{ needs.check-ci.outputs.head-sha }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -77,7 +111,7 @@ jobs:
       - name: Deploy to Vercel
         run: |
           vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} \
-            -m githubCommitSha=${{ github.sha }} \
+            -m githubCommitSha=${{ needs.check-ci.outputs.head-sha }} \
             -m githubCommitRef=main \
             -m githubCommitAuthorLogin=${{ github.actor }} \
             -m githubOrg=${{ github.repository_owner }} \
