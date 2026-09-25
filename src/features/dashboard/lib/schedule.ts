@@ -69,18 +69,22 @@ function buildRentalLabel(
 }
 
 /**
- * Full name from service booking counterparty; role word if both missing.
+ * Full name from service booking counterparty; the counterparty's role word if
+ * both are missing. Takes the VIEWER's role and names the other side — the
+ * client's counterparty is the provider and vice versa — so a nameless
+ * counterparty reads "Service with provider" / "Service for client", matching
+ * the rental fallback below (TERMINOLOGY-GUIDELINES §3.2).
  */
 function formatServiceCounterpartyName(
   firstName: string | null,
   lastName: string | null,
-  roleFallback: "client" | "provider",
+  viewerRole: "client" | "provider",
 ): string {
   const parts = [firstName, lastName].filter(Boolean);
   if (parts.length > 0) {
     return parts.join(" ");
   }
-  return roleFallback;
+  return viewerRole === "client" ? "provider" : "client";
 }
 
 function normalizeRentalCounterpartyName(

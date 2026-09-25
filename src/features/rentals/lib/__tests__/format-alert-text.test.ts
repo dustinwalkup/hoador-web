@@ -46,13 +46,13 @@ describe("formatAlertText", () => {
   describe("end_today", () => {
     it("owner pickup", () => {
       expect(formatAlertText("end_today", "owner", false, 0)).toBe(
-        "Rental ends today — click End Rental when the item is returned",
+        "Rental ends today — tap Confirm return when the item is returned",
       );
     });
 
     it("owner delivery", () => {
       expect(formatAlertText("end_today", "owner", true, 0)).toBe(
-        "Rental ends today — click End Rental when you pick up the item",
+        "Rental ends today — tap Confirm return when you pick up the item",
       );
     });
 

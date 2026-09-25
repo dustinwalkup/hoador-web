@@ -256,7 +256,10 @@ async function sendServiceBookingDisputeNotifications(
   }
 
   if (eventType === "resolved") {
-    const outcomeText = formatResolutionOutcome(dispute.resolutionOutcome);
+    const outcomeText = formatResolutionOutcome(
+      dispute.resolutionOutcome,
+      "booking",
+    );
     const title =
       dispute.resolutionOutcome === "dismissed"
         ? "Dispute Dismissed"
@@ -689,7 +692,10 @@ The Hoador Team
 
       case "resolved": {
         // Notify both parties of resolution
-        const outcomeText = formatResolutionOutcome(dispute.resolutionOutcome);
+        const outcomeText = formatResolutionOutcome(
+          dispute.resolutionOutcome,
+          "rental",
+        );
         const resolvedByName = dispute.resolvedByUser
           ? `${dispute.resolvedByUser.firstName} ${dispute.resolvedByUser.lastName}`
           : "Hoador Support";
@@ -889,16 +895,28 @@ The Hoador Team
 }
 
 /**
- * Format resolution outcome for display
+ * Format resolution outcome for display (in-app, push and email).
+ *
+ * The outcome enum is shared by both dispute kinds: `*_renter` is the paying
+ * side (a rental's renter, a booking's client) and `*_provider` the paid side
+ * (a rental's owner, a booking's provider). The label names the party by the
+ * underlying transaction (TERMINOLOGY-GUIDELINES §3.1, §3.2) — the enum values
+ * themselves are unchanged.
  */
-function formatResolutionOutcome(outcome: string | null | undefined): string {
+export function formatResolutionOutcome(
+  outcome: string | null | undefined,
+  transaction: "rental" | "booking",
+): string {
   if (!outcome) return "Resolved";
 
+  const [payer, payee] =
+    transaction === "rental" ? ["Renter", "Owner"] : ["Client", "Provider"];
+
   const outcomeMap: Record<string, string> = {
-    favor_renter: "In Favor of Renter / Requester",
-    favor_provider: "In Favor of Provider / Owner",
-    partial_renter: "Partial Resolution — Favor Renter",
-    partial_provider: "Partial Resolution — Favor Provider",
+    favor_renter: `In Favor of ${payer}`,
+    favor_provider: `In Favor of ${payee}`,
+    partial_renter: `Partial Resolution — Favor ${payer}`,
+    partial_provider: `Partial Resolution — Favor ${payee}`,
     dismissed: "Dismissed — no funds captured",
   };
 

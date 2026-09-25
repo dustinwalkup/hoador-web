@@ -230,6 +230,45 @@ describe("getUpcomingSchedule", () => {
     expect(providerEntry?.subtitle).toBe("Gutter clean");
   });
 
+  // Terminology inventory S-02: a nameless counterparty is named by THEIR role,
+  // not the viewer's — the client books a provider, the provider serves a client.
+  it("falls back to the counterparty's role word when the name is missing", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(TODAY_NOON);
+
+    const nameless = (id: string, proposedDate: string) =>
+      ({
+        id,
+        status: "accepted",
+        proposedDate,
+        listingTitle: "Lawn care",
+        counterparty: {
+          id: "cp-1",
+          firstName: null,
+          lastName: null,
+          profileImageUrl: null,
+        },
+      }) as unknown as Awaited<
+        ReturnType<typeof serviceBookingDAL.findByRequesterForDashboard>
+      >[number];
+
+    vi.mocked(serviceBookingDAL.findByRequesterForDashboard).mockResolvedValue([
+      nameless("sb-client", "2026-03-16"),
+    ]);
+    vi.mocked(serviceBookingDAL.findByProviderForDashboard).mockResolvedValue([
+      nameless("sb-prov", "2026-03-17"),
+    ]);
+
+    const result = await getUpcomingSchedule(userId);
+
+    expect(result.find((e) => e.id === "service-sb-client")?.description).toBe(
+      "Service with provider",
+    );
+    expect(result.find((e) => e.id === "service-sb-prov")?.description).toBe(
+      "Service for client",
+    );
+  });
+
   it("should return empty array when no borrowed or lending activity", async () => {
     const result = await getUpcomingSchedule(userId);
     expect(result).toEqual([]);

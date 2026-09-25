@@ -65,10 +65,13 @@ export function formatAlertText(
     }
 
     case "end_today": {
+      // Names the mobile app's control, "Confirm return" (mobile shows this
+      // text verbatim; TERMINOLOGY-GUIDELINES §4.1). The route and the web
+      // dialog keep their "end rental" names — this is copy only.
       if (userRole === "owner") {
         return deliveryRequested
-          ? "Rental ends today — click End Rental when you pick up the item"
-          : "Rental ends today — click End Rental when the item is returned";
+          ? "Rental ends today — tap Confirm return when you pick up the item"
+          : "Rental ends today — tap Confirm return when the item is returned";
       }
       if (userRole === "renter") {
         return deliveryRequested
