@@ -13,9 +13,24 @@ import {
 } from "@/lib/api/route-helpers";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { sendRentalDeniedNotification } from "@/features/rentals/notifications/rental-denied";
+import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
+const DENIAL_REASON_MAX_LENGTH = 1000;
+
+/**
+ * The reason is stored and emailed to the renter, so it's sanitized like every
+ * other free-text field (SEC-12), and the length rule runs on the sanitized
+ * value, which markup-only input can empty. Over-long reasons are truncated,
+ * not refused: neither client caps the input, and a 400 would lose the
+ * owner's text.
+ */
 const declineRequestSchema = z.object({
-  denialReason: z.string().min(1, "Denial reason is required"),
+  denialReason: z
+    .string()
+    .transform((reason) =>
+      sanitizeTextWithMaxLength(reason.trim(), DENIAL_REASON_MAX_LENGTH),
+    )
+    .pipe(z.string().min(1, "Denial reason is required")),
 });
 
 /**

@@ -25,8 +25,16 @@ export function e2eGoogleCallbackPlugin(): BetterAuthPlugin {
         "/e2e-callback",
         { method: "GET" },
         async (ctx) => {
-          if (process.env.E2E_TEST !== "1") {
-            return ctx.json({ error: "Not in E2E mode" }, { status: 404 });
+          // Signs in as any email, so never in production, whatever E2E_TEST
+          // says (SEC-17). `next dev`, which runs the e2e suite, is never
+          // production. build-auth-options doesn't register it there either.
+          if (
+            process.env.NODE_ENV === "production" ||
+            process.env.E2E_TEST !== "1"
+          ) {
+            // A thrown APIError, not `ctx.json(…, { status: 404 })`: better-call
+            // ignores that status, so the refusal used to go out as a 200.
+            throw new APIError("NOT_FOUND", { message: "Not in E2E mode" });
           }
 
           const requestUrl = ctx.request?.url ?? "";
@@ -131,7 +139,9 @@ export function e2eGoogleCallbackPlugin(): BetterAuthPlugin {
             const res = NextResponse.redirect(redirectUrl, 302);
             res.cookies.set("better-auth.session_token", session.token, {
               httpOnly: true,
-              secure: process.env.NODE_ENV === "production",
+              // Never production here (see the gate above), so the e2e app's
+              // plain-http origin needs a non-secure cookie.
+              secure: false,
               sameSite: "lax",
               path: "/",
               maxAge: 60 * 60 * 24 * 7,

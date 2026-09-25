@@ -106,6 +106,11 @@ export function buildAuthOptions({ database }: AuthDependencies) {
       process.env.NEXT_PUBLIC_APP_URL ||
       "http://localhost:3000",
 
+    // Pinned so better-auth's info-level logs (which include raw emails, e.g.
+    // "Sign-up attempt for existing email") stay off even if its default
+    // level changes (PRIV-06).
+    logger: { level: "warn" },
+
     // Email and password authentication
     emailAndPassword: {
       enabled: true,
@@ -249,8 +254,15 @@ export function buildAuthOptions({ database }: AuthDependencies) {
     },
 
     // `expo()` enables native clients (Req 2.1.1). `nextCookies()` must stay
-    // last — it reads the cookies other plugins have queued.
-    plugins: [e2eGoogleCallbackPlugin(), expo(), nextCookies()],
+    // last — it reads the cookies other plugins have queued. The e2e sign-in
+    // stub isn't registered at all in production (SEC-17).
+    plugins: [
+      ...(process.env.NODE_ENV !== "production"
+        ? [e2eGoogleCallbackPlugin()]
+        : []),
+      expo(),
+      nextCookies(),
+    ],
 
     databaseHooks: {
       user: {

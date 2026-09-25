@@ -11,12 +11,14 @@ import sanitizeHtmlLib from "sanitize-html";
  * @returns Text with HTML entities decoded
  */
 function decodeHtmlEntities(text: string): string {
-  // Use a simple approach: replace common HTML entities
-  // For a more complete solution, we could use a library like he or html-entities
+  // `&lt;`/`&gt;` are deliberately NOT decoded (SEC-12). sanitize-html can't
+  // tell a typed "<" from an attacker's encoded `&lt;a href=…&gt;`: both come
+  // out as `&lt;`. Decoding them would rebuild a live tag in stored text,
+  // which becomes a real link wherever it's interpolated into HTML. The rest
+  // stay decoded so plain text (a typed "&") stores as itself; mobile renders
+  // stored text verbatim.
   return text
     .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#x27;/g, "'")
     .replace(/&#x2F;/g, "/")

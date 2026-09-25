@@ -1,3 +1,4 @@
+import { escapeHtml } from "@/lib/utils/escape-html";
 import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 
@@ -62,21 +63,21 @@ export async function sendRentalRequestCreatedNotification({
             </div>
             
             <h1 style="color: #333; margin-bottom: 20px;">
-              Hi ${ownerName},
+              Hi ${escapeHtml(ownerName)},
             </h1>
             
             <p style="font-size: 16px; margin-bottom: 20px;">
-              Great news! ${renterName} wants to rent your <strong>${listingName}</strong>.
+              Great news! ${escapeHtml(renterName)} wants to rent your <strong>${escapeHtml(listingName)}</strong>.
             </p>
             
             <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
               <h3 style="color: #2563eb; margin-top: 0;">Request Details</h3>
               <ul style="margin: 0; padding-left: 20px;">
-                <li><strong>Listing:</strong> ${listingName}</li>
-                <li><strong>Renter:</strong> ${renterName}</li>
-                <li><strong>Start Date:</strong> ${startDate}</li>
-                <li><strong>End Date:</strong> ${endDate}</li>
-                <li><strong>Total Amount:</strong> $${totalAmount}</li>
+                <li><strong>Listing:</strong> ${escapeHtml(listingName)}</li>
+                <li><strong>Renter:</strong> ${escapeHtml(renterName)}</li>
+                <li><strong>Start Date:</strong> ${escapeHtml(startDate)}</li>
+                <li><strong>End Date:</strong> ${escapeHtml(endDate)}</li>
+                <li><strong>Total Amount:</strong> $${escapeHtml(totalAmount)}</li>
               </ul>
             </div>
             
@@ -84,7 +85,7 @@ export async function sendRentalRequestCreatedNotification({
               <h3 style="color: #065f46; margin-top: 0;">Next Steps</h3>
               <ol style="margin: 10px 0; padding-left: 20px; color: #047857;">
                 <li>Review the rental request details</li>
-                <li>Check ${renterName}'s profile and ratings</li>
+                <li>Check ${escapeHtml(renterName)}'s profile and ratings</li>
                 <li>Approve or decline the request</li>
               </ol>
             </div>
@@ -97,7 +98,7 @@ export async function sendRentalRequestCreatedNotification({
             </div>
             
             <p style="font-size: 14px; color: #666; margin-top: 30px;">
-              Please respond to this request as soon as possible to help ${renterName} plan their rental.
+              Please respond to this request as soon as possible to help ${escapeHtml(renterName)} plan their rental.
             </p>
             
             <div style="border-top: 1px solid #eee; margin-top: 40px; padding-top: 20px; font-size: 12px; color: #999; text-align: center;">

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import {
   requireAdminResponse,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/api/route-helpers";
 import { userDAL, disputeDAL, auditLogDAL, communityDAL } from "@/dal";
 import { isSuperAdmin } from "@/features/auth/utils/guards";
+import { userStatusEnum, userTypeEnum } from "@/db/schemas/_enums";
 import type {
   UserStatus,
   UserType,
@@ -14,6 +16,18 @@ import type {
 } from "@/dal/types";
 
 type RouteContext = { params: Promise<{ userId: string }> };
+
+/** Validated, not cast (SEC-06): unknown values never reach the DAL. */
+const adminUserPatchSchema = z
+  .object({
+    status: z.enum(userStatusEnum.enumValues).optional(),
+    userType: z.enum(userTypeEnum.enumValues).optional(),
+  })
+  .refine((d) => d.status !== undefined || d.userType !== undefined, {
+    message: "At least one of status or userType is required",
+  });
+
+const PRIVILEGED_USER_TYPES: readonly UserType[] = ["admin", "superadmin"];
 
 /**
  * GET /api/admin/users/[userId]
@@ -72,7 +86,9 @@ export const GET = withRequestLogging(
 
 /**
  * PATCH /api/admin/users/[userId]
- * Update user status and/or userType. Only superadmin can set userType to admin/superadmin.
+ * Update user status and/or userType. Only a superadmin can grant admin or
+ * superadmin, or change anything about an account that already has either
+ * (SEC-06: an admin could previously demote or suspend a superadmin).
  * Body: { status?: UserStatus, userType?: UserType } (at least one required)
  * Requires admin authentication
  */
@@ -87,19 +103,33 @@ async function patchHandler(request: NextRequest, context: RouteContext) {
 
     const { userId } = await context.params;
 
-    let body: { status?: UserStatus; userType?: UserType };
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-    }
-
-    const { status, userType } = body;
-    if (status === undefined && userType === undefined) {
+    const parsed = adminUserPatchSchema.safeParse(
+      await request.json().catch(() => null),
+    );
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "At least one of status or userType is required" },
+        {
+          error:
+            parsed.error.issues[0]?.message ?? "Invalid user update request",
+        },
         { status: 400 },
       );
+    }
+    const { status, userType } = parsed.data;
+
+    // Gate on the target's CURRENT role as well as the requested one, so a
+    // demotion or suspension of an admin is as protected as a promotion.
+    const existing = await userDAL.getUserById(userId);
+    if (PRIVILEGED_USER_TYPES.includes(existing.userType as UserType)) {
+      const superAdmin = await isSuperAdmin();
+      if (!superAdmin) {
+        return NextResponse.json(
+          {
+            error: "Only superadmin can modify an admin or superadmin account",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     if (
@@ -119,7 +149,6 @@ async function patchHandler(request: NextRequest, context: RouteContext) {
     if (status !== undefined) updates.status = status;
     if (userType !== undefined) updates.userType = userType;
 
-    const existing = await userDAL.getUserById(userId);
     const updated = await userDAL.adminUpdateUser(userId, updates);
 
     if (userType !== undefined && existing.userType !== userType) {

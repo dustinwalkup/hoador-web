@@ -1,3 +1,4 @@
+import { escapeHtml } from "@/lib/utils/escape-html";
 import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 
@@ -56,7 +57,7 @@ export async function sendMessageReceivedNotification({
             </h1>
 
             <p style="font-size: 16px; margin-bottom: 20px;">
-              ${senderName} sent you a message. View the conversation to reply.
+              ${escapeHtml(senderName)} sent you a message. View the conversation to reply.
             </p>
 
             <div style="text-align: center; margin: 30px 0;">

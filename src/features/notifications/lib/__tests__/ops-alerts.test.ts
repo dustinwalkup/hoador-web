@@ -184,4 +184,24 @@ describe("sendOpsAlert", () => {
 
     delete process.env.OPS_ALERT_EMAIL;
   });
+
+  // SEC-12: alert text can carry user content (e.g. metadata copied from a
+  // dispute), so the HTML body escapes it.
+  it("escapes the event, message and metadata in the email HTML", async () => {
+    process.env.OPS_ALERT_EMAIL = "ops@test.com";
+    const { sendOpsAlert } = await import("../ops-alerts");
+    const poison = '<a href="https://evil.example">x</a>';
+
+    await sendOpsAlert({
+      event: poison,
+      message: poison,
+      metadata: { note: poison },
+      sendEmailAlert: true,
+    });
+
+    const html = mockSendEmail.mock.calls[0][0].html as string;
+    expect(html).not.toContain('<a href="https://evil.example"');
+    expect(html).toContain("&lt;a href=");
+    delete process.env.OPS_ALERT_EMAIL;
+  });
 });

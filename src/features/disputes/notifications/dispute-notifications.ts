@@ -1,3 +1,4 @@
+import { escapeHtml } from "@/lib/utils/escape-html";
 import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { rentalDAL, serviceBookingDAL, userDAL } from "@/dal";
@@ -48,10 +49,10 @@ ${EMAIL_LOGO_HTML}
 <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 14px; margin-bottom: 22px; border-radius: 4px;">
   <h2 style="color: #92400e; margin-top: 0;">New Dispute Filed</h2>
 </div>
-<h1 style="color: #333; margin-bottom: 12px; font-size: 22px;">Hi ${admin.firstName ?? "there"},</h1>
-<p style="font-size: 16px; margin-bottom: 14px;">A new dispute was filed for <strong>${listingName}</strong>.</p>
-<p style="font-size: 16px; margin-bottom: 14px;"><strong>Reason:</strong> ${reasonLabel}</p>
-<p style="font-size: 16px; margin-bottom: 14px;"><strong>Description:</strong> ${dispute.description}</p>
+<h1 style="color: #333; margin-bottom: 12px; font-size: 22px;">Hi ${escapeHtml(admin.firstName ?? "there")},</h1>
+<p style="font-size: 16px; margin-bottom: 14px;">A new dispute was filed for <strong>${escapeHtml(listingName)}</strong>.</p>
+<p style="font-size: 16px; margin-bottom: 14px;"><strong>Reason:</strong> ${escapeHtml(reasonLabel)}</p>
+<p style="font-size: 16px; margin-bottom: 14px;"><strong>Description:</strong> ${escapeHtml(dispute.description)}</p>
 <div style="text-align: center; margin: 28px 0;"><a href="${linkUrl}" style="background-color: #2563eb; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Review dispute</a></div>
 <p style="font-size: 12px; color: #94a3b8; margin-top: 28px; border-top: 1px solid #e2e8f0; padding-top: 16px;">The Hoador Team</p>
 </body>
@@ -189,10 +190,10 @@ async function sendServiceBookingDisputeNotifications(
                 </head>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
                   ${EMAIL_LOGO_HTML}
-                  <h1 style="color: #333;">Hi ${notifyName},</h1>
-                  <p>${createdByName} has filed a dispute regarding the service <strong>${detail.listingTitle}</strong>.</p>
-                  <p><strong>Reason:</strong> ${formatReasonCode(dispute.reasonCode)}</p>
-                  <p><strong>Description:</strong> ${dispute.description}</p>
+                  <h1 style="color: #333;">Hi ${escapeHtml(notifyName)},</h1>
+                  <p>${escapeHtml(createdByName)} has filed a dispute regarding the service <strong>${escapeHtml(detail.listingTitle)}</strong>.</p>
+                  <p><strong>Reason:</strong> ${escapeHtml(formatReasonCode(dispute.reasonCode))}</p>
+                  <p><strong>Description:</strong> ${escapeHtml(dispute.description)}</p>
                   <p><a href="${linkUrl}">View Dispute</a></p>
                   <p style="font-size: 12px; color: #999;">The Hoador Team</p>
                 </body>
@@ -244,7 +245,7 @@ async function sendServiceBookingDisputeNotifications(
         email: {
           to: u.user.email,
           subject: `Evidence Requested: ${detail.listingTitle}`,
-          html: `<p>Evidence requested for dispute. Deadline: ${deadlineDate}. <a href="${linkUrl}">View</a></p>`,
+          html: `<p>Evidence requested for dispute. Deadline: ${escapeHtml(deadlineDate)}. <a href="${linkUrl}">View</a></p>`,
           text: `Evidence requested. Deadline ${deadlineDate}. ${linkUrl}`,
         },
       }).catch(() => {
@@ -279,7 +280,7 @@ async function sendServiceBookingDisputeNotifications(
         email: {
           to: u.user.email,
           subject: `${title}: ${detail.listingTitle}`,
-          html: `<p>Your dispute has been resolved: <strong>${outcomeText}</strong>. <a href="${linkUrl}">View details</a></p>`,
+          html: `<p>Your dispute has been resolved: <strong>${escapeHtml(outcomeText)}</strong>. <a href="${linkUrl}">View details</a></p>`,
           text: `Dispute resolved: ${outcomeText}. ${linkUrl}`,
         },
       }).catch(() => {
@@ -385,20 +386,20 @@ export async function sendDisputeNotifications(
                   </div>
                   
                   <h1 style="color: #333; margin-bottom: 20px;">
-                    Hi ${notifyUserName},
+                    Hi ${escapeHtml(notifyUserName)},
                   </h1>
                   
                   <p style="font-size: 16px; margin-bottom: 20px;">
-                    ${createdByName} has filed a dispute regarding the rental of <strong>${rental.listingName}</strong>.
+                    ${escapeHtml(createdByName)} has filed a dispute regarding the rental of <strong>${escapeHtml(rental.listingName)}</strong>.
                   </p>
                   
                   <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
                     <h3 style="color: #2563eb; margin-top: 0;">Dispute Details</h3>
                     <ul style="margin: 0; padding-left: 20px;">
-                      <li><strong>Listing:</strong> ${rental.listingName}</li>
-                      <li><strong>Reason:</strong> ${formatReasonCode(dispute.reasonCode)}</li>
-                      <li><strong>Filed by:</strong> ${createdByName}</li>
-                      <li><strong>Description:</strong> ${dispute.description}</li>
+                      <li><strong>Listing:</strong> ${escapeHtml(rental.listingName)}</li>
+                      <li><strong>Reason:</strong> ${escapeHtml(formatReasonCode(dispute.reasonCode))}</li>
+                      <li><strong>Filed by:</strong> ${escapeHtml(createdByName)}</li>
+                      <li><strong>Description:</strong> ${escapeHtml(dispute.description)}</li>
                     </ul>
                   </div>
                   
@@ -511,17 +512,17 @@ The Hoador Team
                   </div>
                   
                   <h1 style="color: #333; margin-bottom: 20px;">
-                    Hi ${rental.renterName},
+                    Hi ${escapeHtml(rental.renterName)},
                   </h1>
                   
                   <p style="font-size: 16px; margin-bottom: 20px;">
-                    We need additional evidence from you regarding the dispute for <strong>${rental.listingName}</strong>.
+                    We need additional evidence from you regarding the dispute for <strong>${escapeHtml(rental.listingName)}</strong>.
                   </p>
                   
                   <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
                     <h3 style="color: #2563eb; margin-top: 0;">Evidence Deadline</h3>
                     <p style="font-size: 18px; font-weight: 600; color: #dc2626; margin: 10px 0;">
-                      ${deadlineDate} at ${deadlineTime}
+                      ${escapeHtml(deadlineDate)} at ${escapeHtml(deadlineTime)}
                     </p>
                     <p style="color: #666; margin-top: 10px;">
                       Please submit your evidence before this deadline. Late submissions may not be considered.
@@ -613,17 +614,17 @@ The Hoador Team
                   </div>
                   
                   <h1 style="color: #333; margin-bottom: 20px;">
-                    Hi ${rental.ownerName},
+                    Hi ${escapeHtml(rental.ownerName)},
                   </h1>
                   
                   <p style="font-size: 16px; margin-bottom: 20px;">
-                    We need additional evidence from you regarding the dispute for <strong>${rental.listingName}</strong>.
+                    We need additional evidence from you regarding the dispute for <strong>${escapeHtml(rental.listingName)}</strong>.
                   </p>
                   
                   <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
                     <h3 style="color: #2563eb; margin-top: 0;">Evidence Deadline</h3>
                     <p style="font-size: 18px; font-weight: 600; color: #dc2626; margin: 10px 0;">
-                      ${deadlineDate} at ${deadlineTime}
+                      ${escapeHtml(deadlineDate)} at ${escapeHtml(deadlineTime)}
                     </p>
                     <p style="color: #666; margin-top: 10px;">
                       Please submit your evidence before this deadline. Late submissions may not be considered.
@@ -729,19 +730,19 @@ The Hoador Team
                   </div>
                   
                   <h1 style="color: #333; margin-bottom: 20px;">
-                    Hi ${rental.renterName},
+                    Hi ${escapeHtml(rental.renterName)},
                   </h1>
                   
                   <p style="font-size: 16px; margin-bottom: 20px;">
-                    The dispute regarding <strong>${rental.listingName}</strong> has been resolved.
+                    The dispute regarding <strong>${escapeHtml(rental.listingName)}</strong> has been resolved.
                   </p>
                   
                   <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
                     <h3 style="color: #2563eb; margin-top: 0;">Resolution Details</h3>
                     <ul style="margin: 0; padding-left: 20px;">
-                      <li><strong>Outcome:</strong> ${outcomeText}</li>
-                      <li><strong>Resolved by:</strong> ${resolvedByName}</li>
-                      <li><strong>Reason:</strong> ${dispute.resolutionReason || "N/A"}</li>
+                      <li><strong>Outcome:</strong> ${escapeHtml(outcomeText)}</li>
+                      <li><strong>Resolved by:</strong> ${escapeHtml(resolvedByName)}</li>
+                      <li><strong>Reason:</strong> ${escapeHtml(dispute.resolutionReason || "N/A")}</li>
                     </ul>
                   </div>
                   
@@ -818,19 +819,19 @@ The Hoador Team
                   </div>
                   
                   <h1 style="color: #333; margin-bottom: 20px;">
-                    Hi ${rental.ownerName},
+                    Hi ${escapeHtml(rental.ownerName)},
                   </h1>
                   
                   <p style="font-size: 16px; margin-bottom: 20px;">
-                    The dispute regarding <strong>${rental.listingName}</strong> has been resolved.
+                    The dispute regarding <strong>${escapeHtml(rental.listingName)}</strong> has been resolved.
                   </p>
                   
                   <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
                     <h3 style="color: #2563eb; margin-top: 0;">Resolution Details</h3>
                     <ul style="margin: 0; padding-left: 20px;">
-                      <li><strong>Outcome:</strong> ${outcomeText}</li>
-                      <li><strong>Resolved by:</strong> ${resolvedByName}</li>
-                      <li><strong>Reason:</strong> ${dispute.resolutionReason || "N/A"}</li>
+                      <li><strong>Outcome:</strong> ${escapeHtml(outcomeText)}</li>
+                      <li><strong>Resolved by:</strong> ${escapeHtml(resolvedByName)}</li>
+                      <li><strong>Reason:</strong> ${escapeHtml(dispute.resolutionReason || "N/A")}</li>
                     </ul>
                   </div>
                   

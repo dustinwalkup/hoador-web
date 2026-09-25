@@ -1,3 +1,4 @@
+import { escapeHtml } from "@/lib/utils/escape-html";
 import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 
@@ -56,11 +57,11 @@ export async function sendRentalDeniedNotification({
             </div>
             
             <h1 style="color: #333; margin-bottom: 20px;">
-              Hi ${renterName},
+              Hi ${escapeHtml(renterName)},
             </h1>
             
             <p style="font-size: 16px; margin-bottom: 20px;">
-              Unfortunately, ${ownerName} has declined your rental request for <strong>${listingName}</strong>.
+              Unfortunately, ${escapeHtml(ownerName)} has declined your rental request for <strong>${escapeHtml(listingName)}</strong>.
             </p>
             
             ${
@@ -68,7 +69,7 @@ export async function sendRentalDeniedNotification({
                 ? `
             <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
               <h3 style="color: #2563eb; margin-top: 0;">Reason for Decline</h3>
-              <p style="margin: 0; color: #64748b;">${denialReason}</p>
+              <p style="margin: 0; color: #64748b;">${escapeHtml(denialReason)}</p>
             </div>
             `
                 : ""

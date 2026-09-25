@@ -234,6 +234,55 @@ describe("POST /api/disputes", () => {
   });
 });
 
+// SEC-12: the description is emailed to the other party and to staff.
+describe("POST /api/disputes — description sanitizing (SEC-12)", () => {
+  const post = async (description: string) => {
+    mockParseFormData.mockResolvedValue({
+      rentalId: "550e8400-e29b-41d4-a716-446655440000",
+      reasonCode: "damage",
+      description,
+    });
+    const { POST } = await import("../route");
+    return POST(
+      new NextRequest("http://localhost:3000/api/disputes", { method: "POST" }),
+    );
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAuthenticatedUserResponse.mockResolvedValue({
+      userId: "user-123",
+      isAdmin: false,
+    });
+    mockCreateDispute.mockResolvedValue({ dispute: { id: "dsp_1" } });
+  });
+
+  it("strips markup before the service sees it", async () => {
+    const res = await post(
+      'Cracked housing <a href="https://evil.example">see photos</a>',
+    );
+
+    expect(res.status).toBe(201);
+    const { description } = mockCreateDispute.mock.calls[0][0];
+    expect(description).not.toMatch(/<a/);
+    expect(description).toContain("Cracked housing");
+  });
+
+  it("400s a description that is only markup once sanitized", async () => {
+    const res = await post("<b></b><i></i><u></u>");
+
+    expect(res.status).toBe(400);
+    expect(mockCreateDispute).not.toHaveBeenCalled();
+  });
+
+  it("400s a description over 2000 characters", async () => {
+    const res = await post("x".repeat(2001));
+
+    expect(res.status).toBe(400);
+    expect(mockCreateDispute).not.toHaveBeenCalled();
+  });
+});
+
 describe("GET /api/disputes", () => {
   const listRow = {
     id: "dispute-1",

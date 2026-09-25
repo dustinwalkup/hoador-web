@@ -7,6 +7,8 @@ import {
   handleApiError,
 } from "@/lib/api/route-helpers";
 import { userDAL, auditLogDAL } from "@/dal";
+import { isSuperAdmin } from "@/features/auth/utils/guards";
+import { userStatusEnum } from "@/db/schemas/_enums";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import {
   generateReEngagementEmailHtml,
@@ -76,11 +78,37 @@ async function postHandler(request: NextRequest) {
           { status: 400 },
         );
       }
+      if (!(userStatusEnum.enumValues as readonly string[]).includes(status)) {
+        return NextResponse.json(
+          { error: "payload.status is not a valid user status" },
+          { status: 400 },
+        );
+      }
+      // Same rule as PATCH /api/admin/users/[userId] (SEC-06): only a
+      // superadmin may change an admin or superadmin account.
+      const callerIsSuperAdmin = await isSuperAdmin();
       const results: { userId: string; success: boolean; error?: string }[] =
         [];
       for (const userId of userIds) {
         const existingResult = await tryCatch(userDAL.getUserById(userId));
-        const previousStatus = existingResult.data?.status;
+        const target = existingResult.data;
+        // Fail closed: a target whose role we can't read might be privileged.
+        if (!target) {
+          results.push({ userId, success: false, error: "User not found" });
+          continue;
+        }
+        if (
+          !callerIsSuperAdmin &&
+          (target.userType === "admin" || target.userType === "superadmin")
+        ) {
+          results.push({
+            userId,
+            success: false,
+            error: "Only superadmin can modify an admin or superadmin account",
+          });
+          continue;
+        }
+        const previousStatus = target.status;
         const result = await tryCatch(
           userDAL.adminUpdateUser(userId, { status }),
         );

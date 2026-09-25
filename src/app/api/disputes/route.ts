@@ -15,6 +15,7 @@ import type {
   DisputeRole,
 } from "@/dal/types";
 import { DisputeCreationService } from "@/features/disputes/services/dispute-creation-service";
+import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { toParticipantDisputeListItem } from "@/features/disputes/lib/participant-view";
 
 /**
@@ -98,9 +99,13 @@ const createDisputeSchema = z
     rentalId: z.string().uuid("Invalid rental ID").optional(),
     serviceBookingId: z.string().uuid("Invalid service booking ID").optional(),
     reasonCode: z.enum(disputeReasonCodes),
+    // Sanitized like other free text (SEC-12); it's emailed to the other party
+    // and to admins. Mobile caps the field at 2000 too.
     description: z
       .string()
-      .min(10, "Description must be at least 10 characters"),
+      .max(2000, "Description must be 2000 characters or less")
+      .transform((text) => sanitizeTextWithMaxLength(text.trim(), 2000))
+      .pipe(z.string().min(10, "Description must be at least 10 characters")),
   })
   .refine((data) => Boolean(data.rentalId) !== Boolean(data.serviceBookingId), {
     message: "Provide exactly one of rentalId or serviceBookingId",

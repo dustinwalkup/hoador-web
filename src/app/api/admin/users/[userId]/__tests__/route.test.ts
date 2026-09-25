@@ -29,19 +29,21 @@ vi.mock("@/lib/api/with-request-logging", () => ({
 const mockHasFinancialHistory = vi.fn();
 const mockGetUserById = vi.fn();
 const mockDeleteUser = vi.fn();
+const mockAdminUpdateUser = vi.fn();
 const mockAuditLogCreate = vi.fn();
 vi.mock("@/dal", () => ({
   userDAL: {
     hasFinancialHistory: (...a: unknown[]) => mockHasFinancialHistory(...a),
     getUserById: (...a: unknown[]) => mockGetUserById(...a),
     deleteUser: (...a: unknown[]) => mockDeleteUser(...a),
+    adminUpdateUser: (...a: unknown[]) => mockAdminUpdateUser(...a),
   },
   auditLogDAL: { create: (...a: unknown[]) => mockAuditLogCreate(...a) },
   disputeDAL: {},
   communityDAL: {},
 }));
 
-import { DELETE } from "../route";
+import { DELETE, PATCH } from "../route";
 
 const callDelete = (userId: string) =>
   DELETE(
@@ -109,5 +111,101 @@ describe("DELETE /api/admin/users/[userId]", () => {
     expect(res.status).toBe(403);
     expect(mockHasFinancialHistory).not.toHaveBeenCalled();
     expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * SEC-06: the superadmin gate used to check only the role being GRANTED, so any
+ * admin could demote or suspend a superadmin. It now also checks the target's
+ * current role, and the body is validated instead of cast.
+ */
+describe("PATCH /api/admin/users/[userId]", () => {
+  const callPatch = (userId: string, body: unknown) =>
+    PATCH(
+      new NextRequest(`http://localhost:3000/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: typeof body === "string" ? body : JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ userId }) },
+    );
+
+  const target = (userType: string) =>
+    mockGetUserById.mockResolvedValue({
+      id: "target-1",
+      userType,
+      status: "active",
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: "admin-1", status: "active" },
+      userId: "admin-1",
+      isAdmin: true,
+    });
+    mockIsSuperAdmin.mockResolvedValue(false);
+    mockAdminUpdateUser.mockResolvedValue({ id: "target-1" });
+    mockAuditLogCreate.mockResolvedValue(undefined);
+    target("standard");
+  });
+
+  it.each([
+    ["an unknown status", { status: "god_mode" }],
+    ["an unknown role", { userType: "owner" }],
+    ["an empty body", {}],
+    ["malformed JSON", "{not json"],
+  ])("400s %s and writes nothing", async (_label, body) => {
+    const res = await callPatch("target-1", body);
+
+    expect(res.status).toBe(400);
+    expect(mockAdminUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["demote a superadmin", "superadmin", { userType: "standard" }],
+    ["suspend a superadmin", "superadmin", { status: "suspended" }],
+    ["suspend another admin", "admin", { status: "suspended" }],
+  ])(
+    "403s an admin trying to %s, and writes nothing",
+    async (_label, role, body) => {
+      target(role);
+
+      const res = await callPatch("target-1", body);
+
+      expect(res.status).toBe(403);
+      expect(mockAdminUpdateUser).not.toHaveBeenCalled();
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("still 403s an admin granting the admin role", async () => {
+    const res = await callPatch("target-1", { userType: "admin" });
+
+    expect(res.status).toBe(403);
+    expect(mockAdminUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin suspend a standard user", async () => {
+    const res = await callPatch("target-1", { status: "suspended" });
+
+    expect(res.status).toBe(200);
+    expect(mockAdminUpdateUser).toHaveBeenCalledWith("target-1", {
+      status: "suspended",
+    });
+  });
+
+  it.each([
+    ["demote", { userType: "standard" }],
+    ["suspend", { status: "suspended" }],
+  ])("lets a superadmin %s a superadmin", async (_label, body) => {
+    mockIsSuperAdmin.mockResolvedValue(true);
+    target("superadmin");
+
+    const res = await callPatch("target-1", body);
+
+    expect(res.status).toBe(200);
+    expect(mockAdminUpdateUser).toHaveBeenCalledWith("target-1", body);
+    expect(mockGetUserById).toHaveBeenCalledTimes(1);
   });
 });

@@ -88,8 +88,20 @@ describe("sanitize", () => {
 
     it("should handle special characters", () => {
       expect(sanitizeText("Hello & World")).toBe("Hello & World");
-      // Plain text characters should remain unchanged after sanitization
-      expect(sanitizeText("Test < > &")).toBe("Test < > &");
+      // "<" and ">" stay encoded (SEC-12); "&" is stored as itself.
+      expect(sanitizeText("Test < > &")).toBe("Test &lt; &gt; &");
+    });
+
+    // SEC-12: an entity-encoded tag used to be decoded back into a live <a>.
+    it("never rebuilds a tag from entity-encoded input", () => {
+      const out = sanitizeText('&lt;a href="evil.example"&gt;Click&lt;/a&gt;');
+
+      expect(out).not.toMatch(/<a/i);
+      expect(out).toBe('&lt;a href="evil.example"&gt;Click&lt;/a&gt;');
+    });
+
+    it("doesn't double-decode &amp;lt; into a tag either", () => {
+      expect(sanitizeText("&amp;lt;script&amp;gt;")).not.toMatch(/</);
     });
 
     it("should handle unicode characters", () => {

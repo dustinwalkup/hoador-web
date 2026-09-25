@@ -1,3 +1,4 @@
+import { escapeHtml } from "@/lib/utils/escape-html";
 import { getLogger } from "@/lib/logger";
 import { sendEmail } from "@/features/notifications/utils/send-email";
 
@@ -61,11 +62,11 @@ export async function sendOpsAlert(params: OpsAlertParams): Promise<void> {
       subject: `[Hoador Ops] ${event} — ${idLabel}`,
       html: `
         <h2>Operations Alert</h2>
-        <p><strong>Event:</strong> ${event}</p>
-        ${rentalId ? `<p><strong>Rental ID:</strong> ${rentalId}</p>` : ""}
-        ${serviceBookingId ? `<p><strong>Service booking ID:</strong> ${serviceBookingId}</p>` : ""}
-        <p><strong>Message:</strong> ${message}</p>
-        ${metadataLines ? `<pre>${metadataLines}</pre>` : ""}
+        <p><strong>Event:</strong> ${escapeHtml(event)}</p>
+        ${rentalId ? `<p><strong>Rental ID:</strong> ${escapeHtml(rentalId)}</p>` : ""}
+        ${serviceBookingId ? `<p><strong>Service booking ID:</strong> ${escapeHtml(serviceBookingId)}</p>` : ""}
+        <p><strong>Message:</strong> ${escapeHtml(message)}</p>
+        ${metadataLines ? `<pre>${escapeHtml(metadataLines)}</pre>` : ""}
         <p><em>Timestamp: ${new Date().toISOString()}</em></p>
       `,
       text: `[Hoador Ops] ${event}\n${idLabel}\n${message}\n${metadataLines}\nTimestamp: ${new Date().toISOString()}`,
