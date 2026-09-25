@@ -1163,7 +1163,7 @@ run test:run`.
 - [ ] `docker compose up -d && bun run db:push:e2e && bun run test:integration`
       → exit 0
 - [ ] Part A: `grep -n "selectDistinct" src/dal/listing.dal.ts
-  src/dal/service-listing.dal.ts` shows neither call site anymore; the
+src/dal/service-listing.dal.ts` shows neither call site anymore; the
       four trigram indexes, the partial index and `user_addresses_primary_unique`
       exist in one generated migration; the address race test passes; `Verify`
       lines A1-A7 all pass

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { ConflictError } from "@/dal/errors";
+import { ConflictError, NotFoundError } from "@/dal/errors";
 
 const mockGetRentalRequestById = vi.fn();
 const mockUpdateRentalInstructions = vi.fn();
@@ -88,7 +88,10 @@ describe("PATCH /api/rentals/[id]/instructions", () => {
   });
 
   it("404s when the rental request doesn't exist", async () => {
-    mockGetRentalRequestById.mockResolvedValue(null);
+    // The DAL's real contract: throws NotFoundError, never resolves null.
+    mockGetRentalRequestById.mockRejectedValue(
+      new NotFoundError("Rental request", "req-1"),
+    );
 
     const { PATCH } = await import("../route");
     const res = await PATCH(patch(), params());
@@ -110,12 +113,11 @@ describe("PATCH /api/rentals/[id]/instructions", () => {
     expect(mockUpdateRentalInstructions).not.toHaveBeenCalled();
   });
 
-  // Unlike start/decline, this route does not pass the mutation's error
-  // through handleApiError — it returns a flat 400 for any updateError,
-  // so a ConflictError from the DAL surfaces as 400 here, not 409. Pinning
-  // today's live behaviour per R-TEST-09 executor instructions (route
-  // drifted from the plan's assumption of uniform handleApiError use).
-  it("400s when the DAL mutation rejects with ConflictError", async () => {
+  // Instructions now goes through handleApiError like every other rental
+  // route, so a ConflictError from the DAL surfaces as 409 (ARCH-05 fix —
+  // previously pinned at 400 per R-TEST-09 executor instructions, since the
+  // route bypassed handleApiError; see roadmap row 32).
+  it("409s when the DAL mutation rejects with ConflictError", async () => {
     mockUpdateRentalInstructions.mockRejectedValue(
       new ConflictError("Instructions cannot be updated for this rental."),
     );
@@ -123,7 +125,7 @@ describe("PATCH /api/rentals/[id]/instructions", () => {
     const { PATCH } = await import("../route");
     const res = await PATCH(patch(), params());
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(409);
     expect((await res.json()).error).toMatch(/instructions cannot be updated/i);
   });
 

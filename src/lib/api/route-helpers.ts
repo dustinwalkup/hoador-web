@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import Stripe from "stripe";
 import { SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 import {
   getCurrentUserId,
@@ -10,6 +11,7 @@ import {
 import { requireAdmin } from "@/features/auth/utils/guards";
 import { getClientIP, getUserAgent } from "@/lib/utils/request-context";
 import { getRequestContext } from "@/lib/logger";
+import { stripeErrorResponseMessage } from "@/services/stripe/payment-error-message";
 import {
   DALError,
   NotFoundError,
@@ -87,6 +89,9 @@ export function handleApiError(
     !(error instanceof PaymentSetupRequiredError) &&
     !(error instanceof AccountDeletionBlockedError) &&
     !(error instanceof ListingDeletionBlockedError) &&
+    // A declined card is an expected user outcome, not an incident — the
+    // curated message below is what the user needs; Sentry doesn't (ARCH-05).
+    !(error instanceof Stripe.errors.StripeCardError) &&
     // A refused filing — window closed, rate limit hit, dispute already open —
     // is an expected user outcome, not an incident (P-E13-3).
     !isDisputeError(error) &&
@@ -299,6 +304,22 @@ export function handleApiError(
     return NextResponse.json(
       { error: error.message || "An error occurred" },
       { status: error.statusCode || 500 },
+    );
+  }
+
+  // ARCH-05: raw Stripe SDK errors (attach/set-default payment method, and
+  // any future direct-to-Stripe route that funnels its error here) can
+  // otherwise carry request/account detail in `.message`. Curated mapping
+  // already exists and is used elsewhere (rental-payments.ts) — reuse it.
+  if (error instanceof Stripe.errors.StripeError) {
+    const ctx = getRequestContext();
+    return NextResponse.json(
+      {
+        error: stripeErrorResponseMessage(error),
+        // Same as the generic 500 below: support can find the logged error.
+        ...(ctx?.requestId && { requestId: ctx.requestId }),
+      },
+      { status: 500 },
     );
   }
 

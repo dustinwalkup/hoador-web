@@ -30,11 +30,7 @@ async function getHandler() {
     );
 
     if (error) {
-      console.error("Failed to fetch unread message count:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to fetch unread message count" },
-        { status: 500 },
-      );
+      return handleApiError(error);
     }
 
     return NextResponse.json({ count });

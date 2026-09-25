@@ -43,9 +43,8 @@ async function postHandler(request: NextRequest) {
     );
 
     if (error || !data) {
-      return NextResponse.json(
-        { error: error?.message || "Failed to attach payment method" },
-        { status: 500 },
+      return handleApiError(
+        error ?? new Error("Failed to attach payment method"),
       );
     }
 

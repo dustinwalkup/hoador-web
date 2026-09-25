@@ -936,7 +936,7 @@ deposit-hold metadata test belongs to R-BIZ-14. Full regression:
 - [ ] A no-deposit resolution writes `status = 'skipped'`, never `'failed'`
       (test)
 - [ ] A `resolved` dispute can transition to `closed` via `PATCH
-  /api/disputes/[id]/state`, the admin UI offers that action with a
+/api/disputes/[id]/state`, the admin UI offers that action with a
       working confirmation dialog, and the web resolution card still shows
       on the `closed` dispute (tests)
 - [ ] Cancelling a rental whose deposit was `not_applicable`/`captured`
@@ -946,7 +946,7 @@ deposit-hold metadata test belongs to R-BIZ-14. Full regression:
       `deniedAt`/`denialReason` (test)
 - [ ] `12-booking-state-machine.md` updated: `resolved → closed` row
       (reachable, admin, `PATCH …/state`), the BIZ-18 `not_applicable|failed
-  → released` row (now: `failed` closed by CAS; `not_applicable`
+→ released` row (now: `failed` closed by CAS; `not_applicable`
       untouched), and the "cancellation is blocked forever after any
       dispute" note
 - [ ] No files outside Scope modified (`git status`)

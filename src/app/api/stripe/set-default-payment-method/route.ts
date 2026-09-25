@@ -42,11 +42,7 @@ async function postHandler(request: NextRequest) {
     );
 
     if (error) {
-      console.error("Error setting default payment method:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to set default payment method" },
-        { status: 500 },
-      );
+      return handleApiError(error);
     }
 
     return NextResponse.json({ success: true });

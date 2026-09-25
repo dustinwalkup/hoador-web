@@ -794,8 +794,8 @@ checked by hand on staging (Done criteria). Full regression:
 - [ ] A newly generated agreement PDF is uploaded `access: "private"` with
       the private store's token (test)
 - [ ] **Staging, by hand**: approve a rental; `curl -sI "<agreement.pdfUrl from
-  GET /api/rentals/[id]>"` with no auth → `200`, `content-type:
-  application/pdf`; `curl -sI` on the stored `rental_agreement_documents.pdf_url`
+GET /api/rentals/[id]>"` with no auth → `200`, `content-type:
+application/pdf`; `curl -sI` on the stored `rental_agreement_documents.pdf_url`
       → `403`/`404`; the same `pdfUrl` after 11 minutes → rejected; the web
       detail page's agreement button opens the PDF via the redirect route
 - [ ] A template-tier agreement URL (public store) is returned unchanged by

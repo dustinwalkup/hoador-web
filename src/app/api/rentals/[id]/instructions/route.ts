@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { z } from "zod";
-import { tryCatch } from "@walkup/walkup-utils";
 import { rentalDAL } from "@/dal";
 import {
   handleApiError,
@@ -55,17 +54,15 @@ async function patchHandler(
       );
     }
 
-    // Fetch rental request to verify ownership
-    const { data: rentalRequest, error: fetchError } = await tryCatch(
-      rentalDAL.getRentalRequestById(rentalId, currentUserId),
+    // Fetch rental request to verify ownership. getRentalRequestById throws
+    // NotFoundError (never resolves null) and handleApiError below maps it to
+    // 404 with its own safe message (ARCH-05 — previously this call was
+    // tryCatch-wrapped and returned a flat 404 with the raw error message for
+    // any failure).
+    const rentalRequest = await rentalDAL.getRentalRequestById(
+      rentalId,
+      currentUserId,
     );
-
-    if (fetchError || !rentalRequest) {
-      return NextResponse.json(
-        { error: fetchError?.message || "Rental request not found" },
-        { status: 404 },
-      );
-    }
 
     // Authorization check: only owner can update instructions
     if (rentalRequest.ownerId !== currentUserId) {
@@ -78,24 +75,16 @@ async function patchHandler(
       );
     }
 
-    // Update instructions via DAL
-    const { data: rentalData, error: updateError } = await tryCatch(
-      rentalDAL.updateRentalInstructions(
-        rentalId,
-        currentUserId,
-        validatedData.pickupInstructions,
-        validatedData.returnInstructions,
-      ),
+    // Update instructions via DAL. updateRentalInstructions throws
+    // NotFoundError or ConflictError (wrong rental status) — handleApiError
+    // below maps ConflictError to 409, not the flat 400 this route returned
+    // before (ARCH-05).
+    const rentalData = await rentalDAL.updateRentalInstructions(
+      rentalId,
+      currentUserId,
+      validatedData.pickupInstructions,
+      validatedData.returnInstructions,
     );
-
-    if (updateError || !rentalData) {
-      return NextResponse.json(
-        {
-          error: updateError?.message || "Failed to update instructions",
-        },
-        { status: updateError ? 400 : 500 },
-      );
-    }
 
     // Send notification to renter
     try {

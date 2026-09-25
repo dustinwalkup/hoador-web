@@ -54,6 +54,9 @@ import {
 } from "@/features/auth/utils/session";
 import { requireAdmin } from "@/features/auth/utils/guards";
 import * as Sentry from "@sentry/nextjs";
+import Stripe from "stripe";
+
+type StripeRaw = ConstructorParameters<typeof Stripe.errors.StripeError>[0];
 
 describe("route-helpers", () => {
   beforeEach(() => {
@@ -74,6 +77,48 @@ describe("route-helpers", () => {
       expect(body.error).toBe("An unexpected error occurred");
       expect(JSON.stringify(body)).not.toContain("Failed query");
       expect(JSON.stringify(body)).not.toContain("params:");
+    });
+
+    // ARCH-05: raw Stripe SDK errors get the curated payment message, never
+    // the SDK's own text (which can name request params, keys or accounts).
+    it("maps a StripeCardError to its curated message at 500, not the raw SDK message", async () => {
+      const error = new Stripe.errors.StripeCardError({
+        type: "card_error",
+        code: "insufficient_funds",
+        message: "Your card has insufficient funds.", // Stripe's own raw text
+      } as StripeRaw);
+
+      const response = handleApiError(error);
+
+      expect(response.status).toBe(500);
+      expect((await response.json()).error).toBe(
+        "Insufficient funds on the payment method.",
+      );
+    });
+
+    it("maps a StripeInvalidRequestError to a safe message, never the raw SDK text", async () => {
+      const error = new Stripe.errors.StripeInvalidRequestError({
+        type: "invalid_request_error",
+        message: 'No such PaymentMethod: "pm_leaked_internal_detail"',
+      } as StripeRaw);
+
+      const response = handleApiError(error);
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body.error).not.toContain("pm_leaked_internal_detail");
+    });
+
+    it("never returns the raw text of a Stripe subclass getPaymentErrorMessage doesn't map", async () => {
+      const error = new Stripe.errors.StripePermissionError({
+        type: "invalid_request_error",
+        message:
+          "The provided key 'rk_live_leak' does not have access to account 'acct_leak'",
+      } as StripeRaw);
+
+      const body = await handleApiError(error).json();
+
+      expect(body.error).toBe("Payment service error. Please try again.");
     });
 
     it("should handle UnauthorizedError with 401 status", () => {
@@ -132,6 +177,14 @@ describe("route-helpers", () => {
         ["ListingNotApprovedError", new ListingNotApprovedError()],
         ["CommunityNotVisibleError", new CommunityNotVisibleError()],
         ["BookingStartPassedError", new BookingStartPassedError("late")],
+        [
+          "StripeCardError",
+          new Stripe.errors.StripeCardError({
+            type: "card_error",
+            code: "card_declined",
+            message: "Your card was declined.",
+          } as StripeRaw),
+        ],
       ])("does not capture %s", (_name, error) => {
         handleApiError(error);
 

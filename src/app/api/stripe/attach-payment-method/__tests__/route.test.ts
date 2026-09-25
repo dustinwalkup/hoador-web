@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import Stripe from "stripe";
 
 /**
  * The route calls `attachPaymentMethod` (not the Stripe SDK directly), scoped
@@ -100,5 +101,24 @@ describe("POST /api/stripe/attach-payment-method", () => {
       "pm_1",
       "user-1",
     );
+  });
+
+  // ARCH-05: the Stripe SDK error goes through handleApiError's curated
+  // mapping, never back to the client verbatim.
+  it("500s a Stripe error with the curated message, not Stripe's raw text", async () => {
+    mockAttachPaymentMethod.mockRejectedValue(
+      new Stripe.errors.StripeCardError({
+        type: "card_error",
+        code: "card_declined",
+        message: "Raw Stripe decline text for req_leak",
+      } as ConstructorParameters<typeof Stripe.errors.StripeCardError>[0]),
+    );
+
+    const res = await POST(req());
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toBe("The payment method was declined.");
+    expect(JSON.stringify(body)).not.toContain("req_leak");
   });
 });
