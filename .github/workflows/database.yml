@@ -13,7 +13,6 @@ on:
         options:
           - migrate
           - generate
-          - push
           - seed
       environment:
         description: "Target environment"
@@ -61,29 +60,13 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-  # Push schema changes (for development)
-  push-schema:
-    name: Push Schema
-    runs-on: ubuntu-latest
-    if: github.event.inputs.operation == 'push'
-    environment: ${{ github.event.inputs.environment }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install
-      - name: Push schema changes
-        run: bun run db:push
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-  # Seed database
+  # Seed database. `bun run seed` truncates every table, so never production.
+  # There is no `push` operation: push never creates rental_requests_no_overlap
+  # and silently drifts from the migration history (R-DB-02).
   seed:
     name: Seed Database
     runs-on: ubuntu-latest
-    if: github.event.inputs.operation == 'seed'
+    if: github.event.inputs.operation == 'seed' && github.event.inputs.environment != 'production'
     environment: ${{ github.event.inputs.environment }}
     steps:
       - name: Checkout code
@@ -96,3 +79,12 @@ jobs:
         run: bun run seed
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  reject-prod-seed:
+    name: Block destructive seed on production
+    runs-on: ubuntu-latest
+    if: github.event.inputs.operation == 'seed' && github.event.inputs.environment == 'production'
+    steps:
+      - run: |
+          echo "::error::'seed' truncates every table. Never on production; run the seed:* reference-data scripts in src/db/migrations/README.md by hand."
+          exit 1

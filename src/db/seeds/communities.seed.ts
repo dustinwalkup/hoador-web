@@ -24,6 +24,9 @@ const KC_METRO_COMMUNITIES: ReadonlyArray<{
   { name: "Verona Gardens", city: "Leawood", state: "KS" },
   { name: "Redbridge Estates", city: "Kansas City", state: "MO" },
   { name: "Leawood Estates", city: "Leawood", state: "KS" },
+  // Pre-existing; moved into KC Metro by migration 0061. Current real users
+  // belong to it.
+  { name: "Verona Hills", city: "Kansas City", state: "MO" },
   // Added by migration 0064.
   { name: "Sommerset Valley", city: "Kansas City", state: "MO", zip: "64145" },
   {
