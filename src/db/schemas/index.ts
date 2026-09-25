@@ -22,6 +22,7 @@ import * as servicePaymentLifecycle from "./service-payment-lifecycle.schema";
 import * as reviewEvents from "./review-events.schema";
 import * as blindReviews from "./blind-reviews.schema";
 import * as neighborhoodNeeds from "./neighborhood-needs.schema";
+import * as rateLimit from "./rate-limit.schema";
 
 export const schema = {
   ...user,
@@ -45,4 +46,5 @@ export const schema = {
   ...reviewEvents,
   ...blindReviews,
   ...neighborhoodNeeds,
+  ...rateLimit,
 };

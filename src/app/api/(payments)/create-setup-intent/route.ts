@@ -6,6 +6,8 @@ import {
   handleApiError,
 } from "@/lib/api/route-helpers";
 import { userDAL } from "@/dal";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
+import { RATE_LIMITS } from "@/constants/rate-limits";
 
 async function postHandler() {
   try {
@@ -15,6 +17,14 @@ async function postHandler() {
       return authResult; // Returns 401
     }
     const { user } = authResult;
+
+    // SEC-21: shares one bucket with payment-sheet-params, so alternating web
+    // and mobile can't double the effective limit.
+    await enforceRateLimit(
+      `setup-intent:user:${user.id}`,
+      RATE_LIMITS.SETUP_INTENT_PER_USER.limit,
+      RATE_LIMITS.SETUP_INTENT_PER_USER.windowSeconds,
+    );
 
     let stripeCustomerId = user.stripeCustomerId || null;
 

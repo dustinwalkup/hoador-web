@@ -68,12 +68,20 @@ vi.mock("@/dal", () => ({
   },
 }));
 
+const mockEnforceRateLimit = vi.fn();
+vi.mock("@/lib/api/rate-limit", () => ({
+  enforceRateLimit: (...a: unknown[]) => mockEnforceRateLimit(...a),
+  // The real better-auth config loads through route-helpers' imports.
+  betterAuthRateLimitStorage: {},
+}));
+
 vi.mock("@/lib/api/with-request-logging", () => ({
   withRequestLogging: (h: (...a: unknown[]) => unknown) => h,
 }));
 
 import { POST } from "../route";
 import { STRIPE_MOBILE_EPHEMERAL_KEY_API_VERSION } from "@/services/stripe/server";
+import { RateLimitedError } from "@/dal/errors";
 
 describe("POST /api/stripe/payment-sheet-params", () => {
   beforeEach(() => {
@@ -85,6 +93,7 @@ describe("POST /api/stripe/payment-sheet-params", () => {
       userId: "user-1",
       isAdmin: false,
     });
+    mockEnforceRateLimit.mockResolvedValue(undefined);
     mockGetOrCreateStripeCustomerId.mockResolvedValue("cus_123");
     mockEphemeralKeysCreate.mockResolvedValue({ secret: "ek_secret_123" });
     mockSetupIntentsCreate.mockResolvedValue({
@@ -104,6 +113,24 @@ describe("POST /api/stripe/payment-sheet-params", () => {
       customerId: "cus_123",
       publishableKey: "pk_test_dummy",
     });
+  });
+
+  // SEC-21: shares one per-user bucket with create-setup-intent.
+  it("rate-limits per user and mints nothing once limited", async () => {
+    mockEnforceRateLimit.mockRejectedValue(new RateLimitedError(300));
+
+    const res = await POST(REQ);
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("300");
+    expect(mockEnforceRateLimit).toHaveBeenCalledWith(
+      "setup-intent:user:user-1",
+      10,
+      3600,
+    );
+    expect(mockGetOrCreateStripeCustomerId).not.toHaveBeenCalled();
+    expect(mockEphemeralKeysCreate).not.toHaveBeenCalled();
+    expect(mockSetupIntentsCreate).not.toHaveBeenCalled();
   });
 
   it("requires authentication", async () => {

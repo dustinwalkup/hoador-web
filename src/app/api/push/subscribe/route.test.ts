@@ -12,6 +12,13 @@ vi.mock("@/lib/api/route-helpers", () => ({
   getCurrentUserId: (...args: unknown[]) => mockGetCurrentUserId(...args),
 }));
 
+const mockEnforceRateLimit = vi.fn();
+vi.mock("@/lib/api/rate-limit", () => ({
+  enforceRateLimit: (...a: unknown[]) => mockEnforceRateLimit(...a),
+  // The real better-auth config loads through the session module.
+  betterAuthRateLimitStorage: {},
+}));
+
 vi.mock("@/dal", () => ({
   pushSubscriptionDAL: {
     create: vi.fn(),
@@ -26,6 +33,7 @@ vi.mock("@/dal", () => ({
 
 import { POST, DELETE } from "./route";
 import { pushSubscriptionDAL } from "@/dal";
+import { RateLimitedError } from "@/dal/errors";
 
 /** A well-formed Expo token — `Expo.isExpoPushToken` is the real validator. */
 const EXPO_TOKEN = "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]";
@@ -40,6 +48,7 @@ describe("POST /api/push/subscribe", () => {
     vi.clearAllMocks();
     mockRequireAuthResponse.mockResolvedValue(null);
     mockGetCurrentUserId.mockResolvedValue("user-1");
+    mockEnforceRateLimit.mockResolvedValue(undefined);
     vi.mocked(pushSubscriptionDAL.create).mockResolvedValue({
       id: "sub-1",
       userId: "user-1",
@@ -53,6 +62,41 @@ describe("POST /api/push/subscribe", () => {
       updatedAt: new Date(),
       isActive: true,
     } as Awaited<ReturnType<typeof pushSubscriptionDAL.create>>);
+  });
+
+  // SEC-13: registration churn is bounded per user, before anything is stored.
+  // `handleApiError` is stubbed to rethrow here; the 429 + Retry-After mapping
+  // is pinned in route-helpers.test.ts.
+  it("rate-limits per user and stores nothing once limited", async () => {
+    mockEnforceRateLimit.mockRejectedValue(new RateLimitedError(60));
+    const req = new NextRequest("http://localhost/api/push/subscribe", {
+      method: "POST",
+      body: JSON.stringify(validBody),
+    });
+
+    await expect(POST(req)).rejects.toBeInstanceOf(RateLimitedError);
+    expect(mockEnforceRateLimit).toHaveBeenCalledWith(
+      "push:subscribe:user:user-1",
+      20,
+      3600,
+    );
+    expect(pushSubscriptionDAL.create).not.toHaveBeenCalled();
+  });
+
+  // SEC-13: an endpoint off the push-service allow-list is refused outright.
+  it("returns 400 for an endpoint that is not on a known push service", async () => {
+    const req = new NextRequest("http://localhost/api/push/subscribe", {
+      method: "POST",
+      body: JSON.stringify({
+        ...validBody,
+        endpoint: "https://victim.example.com/anything",
+      }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    expect(pushSubscriptionDAL.create).not.toHaveBeenCalled();
   });
 
   it("keeps a restricted account out (default gate)", async () => {

@@ -88,6 +88,36 @@ describe("subscribeBodySchema", () => {
   });
 });
 
+// SEC-13: `/api/push/test` POSTs to every stored endpoint, so an arbitrary URL
+// would make it an HTTPS reflector. Only the real push services are accepted.
+describe("webSubscribeBodySchema — endpoint host allow-list", () => {
+  const keys = { p256dh: "BNcRdreALRF...", auth: "tBHItq..." };
+
+  it.each([
+    "https://fcm.googleapis.com/fcm/send/abc123",
+    "https://android.googleapis.com/gcm/send/abc123",
+    "https://updates.push.services.mozilla.com/wpush/v2/abc123",
+    "https://web.push.apple.com/QGx0abc123",
+    "https://wns2-par02p.notify.windows.com/w/?token=abc123",
+  ])("accepts %s", (endpoint) => {
+    expect(webSubscribeBodySchema.safeParse({ endpoint, keys }).success).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ["plain http", "http://fcm.googleapis.com/fcm/send/abc123"],
+    ["an unlisted host", "https://victim.example.com/anything"],
+    ["a lookalike suffix", "https://fcm.googleapis.com.evil.example/x"],
+    ["a lookalike prefix", "https://evilfcm.googleapis.com/x"],
+    ["not a URL", "fcm.googleapis.com/fcm/send/abc123"],
+  ])("rejects %s", (_label, endpoint) => {
+    expect(webSubscribeBodySchema.safeParse({ endpoint, keys }).success).toBe(
+      false,
+    );
+  });
+});
+
 describe("unsubscribeBodySchema", () => {
   it("accepts a valid endpoint", () => {
     const result = unsubscribeBodySchema.safeParse({

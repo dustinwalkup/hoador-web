@@ -18,6 +18,8 @@ import {
   ServiceBookingPaymentFailedError,
   ConversationArchivedError,
   NeedLimitReachedError,
+  RateLimitedError,
+  SubscriptionLimitReachedError,
   CannotMessageSelfError,
   RentalRequestNotPendingError,
   RentalDatesUnavailableError,
@@ -78,6 +80,8 @@ export function handleApiError(
     !(error instanceof CannotMessageSelfError) &&
     !(error instanceof VisibilityPrimaryLockedError) &&
     !(error instanceof NeedLimitReachedError) &&
+    !(error instanceof RateLimitedError) &&
+    !(error instanceof SubscriptionLimitReachedError) &&
     !(error instanceof PaymentSetupRequiredError) &&
     !(error instanceof AccountDeletionBlockedError) &&
     !(error instanceof ListingDeletionBlockedError) &&
@@ -180,6 +184,25 @@ export function handleApiError(
   }
 
   if (error instanceof NeedLimitReachedError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+
+  // ARCH-07: durable per-key limits. `Retry-After` so a client can back off
+  // for the actual remaining window rather than guess.
+  if (error instanceof RateLimitedError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      {
+        status: error.statusCode,
+        headers: { "Retry-After": String(error.retryAfterSeconds) },
+      },
+    );
+  }
+
+  if (error instanceof SubscriptionLimitReachedError) {
     return NextResponse.json(
       { error: error.message, code: error.code },
       { status: error.statusCode },

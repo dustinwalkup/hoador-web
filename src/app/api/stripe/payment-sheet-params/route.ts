@@ -6,6 +6,8 @@ import {
   handleApiError,
 } from "@/lib/api/route-helpers";
 import { userDAL } from "@/dal";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
+import { RATE_LIMITS } from "@/constants/rate-limits";
 import {
   PAYMENT_SERVER_INSTANCE,
   STRIPE_MOBILE_EPHEMERAL_KEY_API_VERSION,
@@ -36,6 +38,13 @@ async function postHandler() {
       return authResult; // Returns 401
     }
     const { userId } = authResult;
+
+    // SEC-21: shares one bucket with create-setup-intent (see there).
+    await enforceRateLimit(
+      `setup-intent:user:${userId}`,
+      RATE_LIMITS.SETUP_INTENT_PER_USER.limit,
+      RATE_LIMITS.SETUP_INTENT_PER_USER.windowSeconds,
+    );
 
     // Reuses `user.stripeCustomerId` when present, so repeat calls (a retried
     // add-card, a backgrounded app) cannot strand duplicate Stripe customers.

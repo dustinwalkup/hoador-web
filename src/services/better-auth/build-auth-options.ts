@@ -4,6 +4,7 @@ import { expo } from "@better-auth/expo";
 import type { BetterAuthOptions } from "better-auth";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { MOBILE_APP_SCHEME } from "@/constants/mobile";
+import { betterAuthRateLimitStorage } from "@/lib/api/rate-limit";
 import { generateAppleClientSecret } from "./apple-client-secret";
 import { e2eGoogleCallbackPlugin } from "./e2e-google-plugin";
 
@@ -236,6 +237,15 @@ export function buildAuthOptions({ database }: AuthDependencies) {
             }),
           }
         : {}),
+    },
+
+    // ARCH-07: durable, cross-instance limiting for every built-in better-auth
+    // route. `enabled` stays at better-auth's own default (production only) —
+    // only the storage backend changes. `customStorage`, not `secondaryStorage`
+    // (which would also move sessions and verification tokens) or
+    // `storage: "database"` (which wants a second, better-auth-shaped table).
+    rateLimit: {
+      customStorage: betterAuthRateLimitStorage,
     },
 
     // `expo()` enables native clients (Req 2.1.1). `nextCookies()` must stay

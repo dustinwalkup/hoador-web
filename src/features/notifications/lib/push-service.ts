@@ -116,7 +116,10 @@ export async function sendToSubscription(
 
   const trySend = async (): Promise<boolean> => {
     try {
-      await webpush.sendNotification(subscription, payloadStr);
+      // A slow or hostile push host must not hold the send open (SEC-13).
+      await webpush.sendNotification(subscription, payloadStr, {
+        timeout: 5000,
+      });
       await pushSubscriptionDAL.createAuditLog(
         userId,
         subscriptionRow.id,

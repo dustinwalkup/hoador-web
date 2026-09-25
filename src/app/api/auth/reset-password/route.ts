@@ -3,7 +3,13 @@ import { tryCatch } from "@walkup/walkup-utils";
 import { auth } from "@/services/better-auth";
 import { resetPasswordSchema } from "@/features/auth/schemas/password";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
+import {
+  getClientIP,
+  handleApiError,
+  parseFormData,
+} from "@/lib/api/route-helpers";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
+import { RATE_LIMITS } from "@/constants/rate-limits";
 
 async function postHandler(request: NextRequest) {
   try {
@@ -20,6 +26,16 @@ async function postHandler(request: NextRequest) {
           error: validation.error.issues[0]?.message || "Invalid input",
         },
         { status: 400 },
+      );
+    }
+
+    // SEC-04: IP only — the token, not an email, is the identity here.
+    const ip = getClientIP(request);
+    if (ip) {
+      await enforceRateLimit(
+        `auth:reset-password:ip:${ip}`,
+        RATE_LIMITS.RESET_PASSWORD_PER_IP.limit,
+        RATE_LIMITS.RESET_PASSWORD_PER_IP.windowSeconds,
       );
     }
 

@@ -23,6 +23,7 @@ import { ServicePaymentLifecycleDAL } from "./service-payment-lifecycle.dal";
 import { ReviewEventsDAL } from "./review-events.dal";
 import { BlindReviewDAL } from "./blind-review.dal";
 import { NeighborhoodNeedsDAL } from "./neighborhood-needs.dal";
+import { RateLimitDAL } from "./rate-limit.dal";
 import { AccountDeletionDAL } from "./account-deletion.dal";
 
 // Create singleton instances
@@ -51,3 +52,4 @@ export const servicePaymentLifecycleDAL = new ServicePaymentLifecycleDAL();
 export const reviewEventsDAL = new ReviewEventsDAL();
 export const blindReviewDAL = new BlindReviewDAL();
 export const neighborhoodNeedsDAL = new NeighborhoodNeedsDAL();
+export const rateLimitDAL = new RateLimitDAL();

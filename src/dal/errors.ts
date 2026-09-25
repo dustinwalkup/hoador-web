@@ -162,6 +162,32 @@ export class NeedLimitReachedError extends DALError {
 }
 
 /**
+ * Thrown by `enforceRateLimit` (src/lib/api/rate-limit.ts) once a key exceeds
+ * its window (ARCH-07). `handleApiError` adds a `Retry-After` header alongside
+ * the usual `{error, code}` body; mobile classifies any 429 as rate-limited.
+ */
+export class RateLimitedError extends DALError {
+  constructor(
+    public readonly retryAfterSeconds: number,
+    message = "Too many requests. Please try again later.",
+  ) {
+    super(message, "RATE_LIMITED", 429);
+    this.name = "RateLimitedError";
+  }
+}
+
+/**
+ * A standing cap on active push subscriptions per user (SEC-13): unlimited
+ * endpoints is what made `/api/push/test` usable as an HTTPS reflector.
+ */
+export class SubscriptionLimitReachedError extends DALError {
+  constructor(message: string) {
+    super(message, "SUBSCRIPTION_LIMIT_REACHED", 429);
+    this.name = "SubscriptionLimitReachedError";
+  }
+}
+
+/**
  * Thrown when a user tries to open a conversation with themselves. Req 16.1.3
  * says 1:1 conversations are between two *different* people; until this class
  * existed only the UI enforced it, and a self-pair row would have made every

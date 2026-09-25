@@ -10,6 +10,8 @@ import {
   getUserAgent,
 } from "@/lib/api/route-helpers";
 import { sendMetaCompleteRegistration } from "@/lib/integrations/meta/meta-capi";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
+import { RATE_LIMITS } from "@/constants/rate-limits";
 
 async function postHandler(request: NextRequest) {
   try {
@@ -49,6 +51,16 @@ async function postHandler(request: NextRequest) {
 
     const ipAddress = getClientIP(request);
     const userAgent = getUserAgent(request);
+
+    // SEC-04: signups mint accounts and send a verification email. Skipped
+    // when the IP is unknown — never a shared "unknown" bucket.
+    if (ipAddress) {
+      await enforceRateLimit(
+        `auth:signup:ip:${ipAddress}`,
+        RATE_LIMITS.SIGNUP_PER_IP.limit,
+        RATE_LIMITS.SIGNUP_PER_IP.windowSeconds,
+      );
+    }
 
     const { data: result, error } = await tryCatch(
       AuthService.signUpWithEmail(

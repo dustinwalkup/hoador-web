@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { tryCatch } from "@walkup/walkup-utils";
 import { auth } from "@/services/better-auth";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
+import {
+  getClientIP,
+  handleApiError,
+  parseFormData,
+} from "@/lib/api/route-helpers";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
+import { RATE_LIMITS } from "@/constants/rate-limits";
 
 async function postHandler(request: NextRequest) {
   try {
@@ -15,6 +21,21 @@ async function postHandler(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // SEC-04: see forgot-password — same shape, same reasons.
+    const ip = getClientIP(request);
+    if (ip) {
+      await enforceRateLimit(
+        `auth:resend-verification:ip:${ip}`,
+        RATE_LIMITS.RESEND_VERIFICATION_PER_IP.limit,
+        RATE_LIMITS.RESEND_VERIFICATION_PER_IP.windowSeconds,
+      );
+    }
+    await enforceRateLimit(
+      `auth:resend-verification:email:${email.toLowerCase()}`,
+      RATE_LIMITS.RESEND_VERIFICATION_PER_EMAIL.limit,
+      RATE_LIMITS.RESEND_VERIFICATION_PER_EMAIL.windowSeconds,
+    );
 
     // Use Better Auth to resend verification email
     const { error } = await tryCatch(

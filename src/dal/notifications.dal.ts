@@ -20,7 +20,12 @@ import {
 import { user, userPreferences } from "@/db/schemas/user.schema";
 import { communityVisibility } from "@/db/schemas/communities.schema";
 import { notificationCategoryEnum } from "@/db/schemas/_enums";
-import { DALError, ValidationError } from "./errors";
+import {
+  DALError,
+  SubscriptionLimitReachedError,
+  ValidationError,
+} from "./errors";
+import { MAX_PUSH_SUBSCRIPTIONS_PER_USER } from "@/constants/rate-limits";
 import { BaseDAL } from "./base";
 import type { PaginatedResult } from "./types";
 
@@ -645,6 +650,15 @@ export class PushSubscriptionDAL extends BaseDAL {
         return updated;
       }
 
+      // SEC-13: a standing cap, checked only for a NEW row — a device
+      // refreshing its own row (above) is never blocked by its own cap.
+      const activeCount = (await this.getActiveByUserId(userId)).length;
+      if (activeCount >= MAX_PUSH_SUBSCRIPTIONS_PER_USER) {
+        throw new SubscriptionLimitReachedError(
+          `You can have up to ${MAX_PUSH_SUBSCRIPTIONS_PER_USER} active push subscriptions. Remove one from another device first.`,
+        );
+      }
+
       const [row] = await this.db
         .insert(pushSubscriptions)
         .values({
@@ -762,6 +776,15 @@ export class PushSubscriptionDAL extends BaseDAL {
             ),
           );
         return updated;
+      }
+
+      // SEC-13: a standing cap, checked only for a NEW row — a device
+      // refreshing its own row (above) is never blocked by its own cap.
+      const activeCount = (await this.getActiveByUserId(userId)).length;
+      if (activeCount >= MAX_PUSH_SUBSCRIPTIONS_PER_USER) {
+        throw new SubscriptionLimitReachedError(
+          `You can have up to ${MAX_PUSH_SUBSCRIPTIONS_PER_USER} active push subscriptions. Remove one from another device first.`,
+        );
       }
 
       const [row] = await this.db

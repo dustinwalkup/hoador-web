@@ -526,6 +526,13 @@
       "when": 1790286549683,
       "tag": "0074_add_transfer_deposit_financial_op",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1790296859521,
+      "tag": "0075_add_rate_limit_buckets",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,13 @@ import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { tryCatch } from "@walkup/walkup-utils";
 import { auth } from "@/services/better-auth";
 import { forgotPasswordSchema } from "@/features/auth/schemas/password";
-import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
+import {
+  getClientIP,
+  handleApiError,
+  parseFormData,
+} from "@/lib/api/route-helpers";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
+import { RATE_LIMITS } from "@/constants/rate-limits";
 
 async function postHandler(request: NextRequest) {
   try {
@@ -21,6 +27,24 @@ async function postHandler(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // SEC-04: `auth.api.*` never passes through better-auth's HTTP router, so
+    // its built-in limiter can't reach this path. Per email caps mail to one
+    // victim; per IP caps one caller spraying many emails. The IP limit is
+    // skipped when the IP is unknown — never a shared "unknown" bucket.
+    const ip = getClientIP(request);
+    if (ip) {
+      await enforceRateLimit(
+        `auth:forgot-password:ip:${ip}`,
+        RATE_LIMITS.FORGOT_PASSWORD_PER_IP.limit,
+        RATE_LIMITS.FORGOT_PASSWORD_PER_IP.windowSeconds,
+      );
+    }
+    await enforceRateLimit(
+      `auth:forgot-password:email:${validation.data.email.toLowerCase()}`,
+      RATE_LIMITS.FORGOT_PASSWORD_PER_EMAIL.limit,
+      RATE_LIMITS.FORGOT_PASSWORD_PER_EMAIL.windowSeconds,
+    );
 
     const { error } = await tryCatch(
       auth.api.requestPasswordReset({

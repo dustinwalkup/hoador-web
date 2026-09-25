@@ -11,12 +11,39 @@ import { notificationCategoryEnum } from "@/db/schemas/_enums";
 // ---- Push subscription schemas ----
 
 /**
- * Browser Web Push subscription — the original shape. Unchanged: the PWA posts
- * this exact body today and must keep working until the post-GA web-push
- * decommission (Requirement 2.2.7).
+ * The push services browsers actually hand out endpoints on (SEC-13). Anything
+ * else is refused: `/api/push/test` POSTs to every stored endpoint, so an
+ * arbitrary URL would turn it into an HTTPS reflector.
+ */
+const ALLOWED_PUSH_HOSTS = [
+  "fcm.googleapis.com",
+  "android.googleapis.com",
+  "updates.push.services.mozilla.com",
+  "web.push.apple.com",
+  "notify.windows.com",
+] as const;
+
+export function isAllowedPushEndpoint(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return false;
+    return ALLOWED_PUSH_HOSTS.some(
+      (h) => url.hostname === h || url.hostname.endsWith(`.${h}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Browser Web Push subscription — the original shape. The PWA posts this exact
+ * body today and must keep working until the post-GA web-push decommission
+ * (Requirement 2.2.7); only the endpoint's host is now checked.
  */
 export const webSubscribeBodySchema = z.object({
-  endpoint: z.string().min(1),
+  endpoint: z.string().min(1).refine(isAllowedPushEndpoint, {
+    message: "endpoint must be an https URL on a known push service",
+  }),
   keys: z.object({
     p256dh: z.string().min(1),
     auth: z.string().min(1),

@@ -19,6 +19,8 @@ import {
   CounterpartyUnavailableError,
   ServiceNotYetDueError,
   NeedLimitReachedError,
+  RateLimitedError,
+  SubscriptionLimitReachedError,
   VisibilityPrimaryLockedError,
   ListingNotBookableError,
   ListingArchivedError,
@@ -118,6 +120,11 @@ describe("route-helpers", () => {
         ["RentalDatesUnavailableError", new RentalDatesUnavailableError()],
         ["ServiceNotYetDueError", new ServiceNotYetDueError()],
         ["NeedLimitReachedError", new NeedLimitReachedError("limit")],
+        ["RateLimitedError", new RateLimitedError(30)],
+        [
+          "SubscriptionLimitReachedError",
+          new SubscriptionLimitReachedError("cap"),
+        ],
         ["VisibilityPrimaryLockedError", new VisibilityPrimaryLockedError()],
         ["ListingNotBookableError", new ListingNotBookableError()],
         ["ListingArchivedError", new ListingArchivedError()],
@@ -197,6 +204,31 @@ describe("route-helpers", () => {
       await expect(response.json()).resolves.toEqual({
         error: error.message,
         code,
+      });
+    });
+
+    // ARCH-07: a durable per-key limit; Retry-After is the remaining window.
+    it("should give RateLimitedError a 429 with its code and Retry-After", async () => {
+      const response = handleApiError(new RateLimitedError(42));
+
+      expect(response.status).toBe(429);
+      expect(response.headers.get("Retry-After")).toBe("42");
+      await expect(response.json()).resolves.toEqual({
+        error: "Too many requests. Please try again later.",
+        code: "RATE_LIMITED",
+      });
+    });
+
+    // SEC-13: the standing cap on active push subscriptions.
+    it("should give SubscriptionLimitReachedError a 429 with its code", async () => {
+      const response = handleApiError(
+        new SubscriptionLimitReachedError("Up to 10."),
+      );
+
+      expect(response.status).toBe(429);
+      await expect(response.json()).resolves.toEqual({
+        error: "Up to 10.",
+        code: "SUBSCRIPTION_LIMIT_REACHED",
       });
     });
 

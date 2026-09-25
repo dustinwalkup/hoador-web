@@ -25,6 +25,7 @@ Everything the backend-audit fixes need done **by hand, outside the code**, when
 | M1  | `bun run db:migrate`                                             | all           | DONE 2026-09-24 (0069–0072)           | DONE 2026-09-24 (0072)                | TODO |
 | M2  | `bun run db:migrate` for 0073 (RESTRICT money/legal FKs)         | R-DB-01       | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
 | M3  | `bun run db:migrate` for 0074 (`transfer_deposit` enum value)    | R-BIZ-04      | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
+| M4  | `bun run db:migrate` for 0075 (`rate_limit_buckets` table)       | R-ARCH-07     | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
 | A1  | Verify `rental_requests_no_overlap` exists                       | R-CONC-01     | DONE                                  | DONE                                  | TODO |
 | A2  | Resend failed `charge.dispute.created` webhooks (within 30 days) | R-BIZ-06      | n/a                                   | n/a                                   | TODO |
 | A3  | Pay owners deposits captured before R-BIZ-04 (backfill)          | R-BIZ-04      | moot (no real captures)               | moot (no real captures)               | TODO |

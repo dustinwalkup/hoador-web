@@ -7,6 +7,8 @@ import {
   getCurrentUserId,
 } from "@/lib/api/route-helpers";
 import type { WebPushSubscription } from "@/dal/notifications.dal";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
+import { RATE_LIMITS } from "@/constants/rate-limits";
 import {
   subscribeBodySchema,
   unsubscribeBodySchema,
@@ -57,6 +59,14 @@ async function postHandler(request: NextRequest): Promise<NextResponse> {
         { status: 401 },
       );
     }
+
+    // SEC-13: registration churn is bounded per user; the standing cap on
+    // active subscriptions lives in the DAL.
+    await enforceRateLimit(
+      `push:subscribe:user:${userId}`,
+      RATE_LIMITS.PUSH_SUBSCRIBE_PER_USER.limit,
+      RATE_LIMITS.PUSH_SUBSCRIBE_PER_USER.windowSeconds,
+    );
 
     let body: unknown;
     try {

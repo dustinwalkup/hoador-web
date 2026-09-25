@@ -11,6 +11,8 @@ import {
   sendPush,
 } from "@/features/notifications/lib/push-service";
 import { pushSubscriptionDAL } from "@/dal";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
+import { RATE_LIMITS } from "@/constants/rate-limits";
 
 /**
  * POST /api/push/test
@@ -28,6 +30,13 @@ async function postHandler(): Promise<NextResponse> {
         { status: 401 },
       );
     }
+
+    // SEC-13: every call fans out to all of the user's endpoints.
+    await enforceRateLimit(
+      `push:test:user:${userId}`,
+      RATE_LIMITS.PUSH_TEST_PER_USER.limit,
+      RATE_LIMITS.PUSH_TEST_PER_USER.windowSeconds,
+    );
 
     const subscriptions = await pushSubscriptionDAL.getActiveByUserId(userId);
     const subscriptionCount = subscriptions?.length ?? 0;
