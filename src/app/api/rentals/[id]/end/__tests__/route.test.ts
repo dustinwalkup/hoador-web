@@ -171,6 +171,9 @@ describe("POST /api/rentals/[id]/end — condition and damage (P-E8A-6)", () => 
     });
   });
 
+  const OWN_PHOTO =
+    "https://store.public.blob.vercel-storage.com/rentals/rental-1/damage/1.jpg";
+
   const withBody = (body: Record<string, unknown>) =>
     new NextRequest("http://localhost/api/rentals/rental-1/end", {
       method: "POST",
@@ -185,7 +188,7 @@ describe("POST /api/rentals/[id]/end — condition and damage (P-E8A-6)", () => 
         conditionAtReturn: "Returned clean.",
         damageReported: true,
         damageDescription: "Cracked housing on the left side.",
-        damagePhotos: ["https://blob.test/damage/1.jpg"],
+        damagePhotos: [OWN_PHOTO],
       }),
       { params: Promise.resolve({ id: "rental-1" }) },
     );
@@ -198,8 +201,35 @@ describe("POST /api/rentals/[id]/end — condition and damage (P-E8A-6)", () => 
         conditionAtReturn: "Returned clean.",
         damageReported: true,
         damageDescription: "Cracked housing on the left side.",
-        damagePhotos: ["https://blob.test/damage/1.jpg"],
+        damagePhotos: [OWN_PHOTO],
       }),
+    );
+  });
+
+  // SEC-22: evidence must be this rental's own uploads — not a tracking pixel,
+  // not another rental's photos, not our path on someone else's host.
+  it("keeps only damage photos under this rental's own blob prefix", async () => {
+    const { POST } = await import("../route");
+    const res = await POST(
+      withBody({
+        damageReported: true,
+        damageDescription: "Cracked housing.",
+        damagePhotos: [
+          "https://tracker.example/pixel.gif",
+          "https://evil.example/rentals/rental-1/damage/x.png",
+          "https://store.public.blob.vercel-storage.com/rentals/rental-2/damage/2.jpg",
+          "http://store.public.blob.vercel-storage.com/rentals/rental-1/damage/3.jpg",
+          OWN_PHOTO,
+        ],
+      }),
+      { params: Promise.resolve({ id: "rental-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockEndRental).toHaveBeenCalledWith(
+      "rental-1",
+      expect.any(String),
+      expect.objectContaining({ damagePhotos: [OWN_PHOTO] }),
     );
   });
 

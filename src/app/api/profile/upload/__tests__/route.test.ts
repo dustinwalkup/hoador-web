@@ -25,9 +25,16 @@ vi.mock("@/features/auth/utils/session", () => ({
   requireAuth: vi.fn(),
 }));
 
-vi.mock("@/services/vercel-blob", () => ({
+const mockUpdateUser = vi.fn();
+
+vi.mock("@/services/vercel-blob", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vercel-blob")>()),
   uploadToBlob: (...args: unknown[]) => mockUploadToBlob(...args),
   deleteFromBlob: (...args: unknown[]) => mockDeleteFromBlob(...args),
+}));
+
+vi.mock("@/dal", () => ({
+  userDAL: { updateUser: (...args: unknown[]) => mockUpdateUser(...args) },
 }));
 
 vi.mock("@/lib/image/server", () => ({
@@ -82,6 +89,7 @@ describe("DELETE /api/profile/upload (ownership)", () => {
     vi.clearAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue(authedAs("user-1"));
     mockDeleteFromBlob.mockResolvedValue(undefined);
+    mockUpdateUser.mockResolvedValue({});
   });
 
   it("returns 401 when unauthenticated, without deleting", async () => {
@@ -154,6 +162,45 @@ describe("DELETE /api/profile/upload (ownership)", () => {
     expect(res.status).toBe(400);
     expect(mockDeleteFromBlob).not.toHaveBeenCalled();
   });
+
+  // Mobile P-E14-2: "Remove photo" must not leave the column pointing at a 404.
+  it("clears profileImageUrl BEFORE deleting the current image's blob", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue(
+      authedAs(
+        "user-1",
+        "https://store.public.blob.vercel-storage.com/profiles/user-1/5-me.jpg",
+      ),
+    );
+
+    const { DELETE } = await import("../route");
+    const res = await DELETE(deleteRequest("profiles/user-1/5-me.jpg"));
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateUser).toHaveBeenCalledWith("user-1", {
+      profileImageUrl: null,
+    });
+    expect(mockUpdateUser.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteFromBlob.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("leaves the blob alone when clearing the column fails", async () => {
+    mockUpdateUser.mockRejectedValue(new Error("db down"));
+
+    const { DELETE } = await import("../route");
+    const res = await DELETE(deleteRequest("profiles/111-old.jpg"));
+
+    expect(res.status).toBe(500);
+    expect(mockDeleteFromBlob).not.toHaveBeenCalled();
+  });
+
+  it("doesn't touch the column when deleting an older, non-current upload", async () => {
+    const { DELETE } = await import("../route");
+    const res = await DELETE(deleteRequest("profiles/user-1/123-me.jpg"));
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/profile/upload", () => {
@@ -164,6 +211,8 @@ describe("POST /api/profile/upload", () => {
       url: `https://blob.example.com/${pathname}`,
       pathname,
     }));
+    mockDeleteFromBlob.mockResolvedValue(undefined);
+    mockUpdateUser.mockResolvedValue({});
   });
 
   it("returns 401 when unauthenticated, without uploading", async () => {
@@ -187,5 +236,55 @@ describe("POST /api/profile/upload", () => {
     );
     const body = await res.json();
     expect(body.url).toMatch(/\/profiles\/user-1\//);
+  });
+
+  // SEC-11: the server records the avatar; the client's PATCH is now optional.
+  it("writes the new blob url to the caller's profileImageUrl", async () => {
+    const { POST } = await import("../route");
+    const res = await POST(postRequest());
+    const body = await res.json();
+
+    expect(mockUpdateUser).toHaveBeenCalledWith("user-1", {
+      profileImageUrl: body.url,
+    });
+  });
+
+  it("drops the new blob when the column write fails", async () => {
+    mockUpdateUser.mockRejectedValue(new Error("db down"));
+
+    const { POST } = await import("../route");
+    const res = await POST(postRequest());
+
+    expect(res.status).toBe(500);
+    expect(mockDeleteFromBlob).toHaveBeenCalledWith(
+      expect.stringMatching(/^profiles\/user-1\//),
+    );
+  });
+
+  it("cleans up the previous avatar under the caller's own prefix", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue(
+      authedAs("user-1", "https://blob.example.com/profiles/user-1/1-old.jpg"),
+    );
+
+    const { POST } = await import("../route");
+    await POST(postRequest());
+
+    expect(mockDeleteFromBlob).toHaveBeenCalledWith(
+      "profiles/user-1/1-old.jpg",
+    );
+  });
+
+  it("never cleans up a previous avatar outside the caller's prefix", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue(
+      authedAs(
+        "user-1",
+        "https://blob.example.com/profiles/user-2/1-theirs.jpg",
+      ),
+    );
+
+    const { POST } = await import("../route");
+    await POST(postRequest());
+
+    expect(mockDeleteFromBlob).not.toHaveBeenCalled();
   });
 });

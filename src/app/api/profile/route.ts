@@ -4,6 +4,7 @@ import { tryCatch } from "@walkup/walkup-utils";
 import { userDAL, communityDAL } from "@/dal";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import { updateProfileApiSchema } from "@/features/users/lib/profile.schema";
+import { isOwnProfileImagePath } from "@/features/users/lib/profile-image";
 import {
   handleApiError,
   parseFormData,
@@ -104,6 +105,18 @@ async function patchHandler(request: NextRequest) {
     }
 
     const { address, ...userFields } = validationResult.data;
+
+    // Only the caller's own avatar blob may be saved here (SEC-11). Anything
+    // else is dropped, not rejected: the upload route already set the column,
+    // so the app's follow-up PATCH is redundant, and a foreign URL is the only
+    // way the DELETE route's "current image" ownership fallback could be aimed
+    // at another user's blob.
+    if (
+      typeof userFields.profileImageUrl === "string" &&
+      !isOwnProfileImagePath(userFields.profileImageUrl, userId)
+    ) {
+      delete userFields.profileImageUrl;
+    }
 
     // Update user profile
     const userResult = await tryCatch(userDAL.updateUser(userId, userFields));

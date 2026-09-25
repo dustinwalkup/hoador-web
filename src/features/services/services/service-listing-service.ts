@@ -359,6 +359,15 @@ export class ServiceListingService {
     if (!existing || existing.providerId !== providerId) {
       throw new ForbiddenError("You do not own this listing");
     }
+    // `status` doubles as the approval state, so deactivating a
+    // `pending_approval`/`denied` listing and then reactivating it would reach
+    // `active` with no review (SEC-10). Only a live listing can be paused.
+    if (existing.status !== "active") {
+      throw new ValidationError(
+        "Only active listings can be deactivated",
+        "status",
+      );
+    }
 
     await serviceListingDAL.update(listingId, { status: "inactive" });
 

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { uploadToBlob, deleteFromBlob } from "@/services/vercel-blob";
+import {
+  uploadToBlob,
+  deleteFromBlob,
+  pathnameFromBlobUrl,
+} from "@/services/vercel-blob";
+import { userDAL } from "@/dal";
 import {
   handleApiError,
   getAuthenticatedUserResponse,
@@ -76,13 +81,23 @@ async function postHandler(request: NextRequest) {
     // Upload processed image to Vercel Blob
     const blob = await uploadToBlob(filename, processedBuffer);
 
-    // Background cleanup: delete old profile image if it exists
+    // The server, not the client, records the avatar (SEC-11): PATCH
+    // /api/profile only accepts this user's own blob URLs now. If the write
+    // fails, drop the new blob rather than leave it orphaned.
+    try {
+      await userDAL.updateUser(userId, { profileImageUrl: blob.url });
+    } catch (error) {
+      deleteFromBlob(blob.pathname).catch(() => {});
+      throw error;
+    }
+
+    // Background cleanup: delete old profile image if it exists. Only blobs
+    // under this user's own prefix — never whatever the column pointed at.
     if (currentProfileImageUrl) {
       try {
-        const oldImageUrl = new URL(currentProfileImageUrl);
-        const oldPathname = oldImageUrl.pathname.substring(1); // Remove leading slash
+        const oldPathname = pathnameFromBlobUrl(currentProfileImageUrl);
 
-        if (oldPathname.startsWith("profiles/")) {
+        if (oldPathname.startsWith(`profiles/${userId}/`)) {
           // Don't await this - run in background
           deleteFromBlob(oldPathname).catch((error) => {
             console.warn(
@@ -154,10 +169,7 @@ async function deleteHandler(request: NextRequest) {
     let currentImagePathname: string | null = null;
     if (user.profileImageUrl) {
       try {
-        currentImagePathname = new URL(user.profileImageUrl).pathname.replace(
-          /^\//,
-          "",
-        );
+        currentImagePathname = pathnameFromBlobUrl(user.profileImageUrl);
       } catch {
         currentImagePathname = null;
       }
@@ -170,6 +182,12 @@ async function deleteHandler(request: NextRequest) {
         { error: "You can only delete your own profile image" },
         { status: 403 },
       );
+    }
+
+    // Clear the column BEFORE deleting the blob (mobile P-E14-2): if the write
+    // fails the blob is untouched, instead of the profile pointing at a 404.
+    if (pathname === currentImagePathname) {
+      await userDAL.updateUser(userId, { profileImageUrl: null });
     }
 
     await deleteFromBlob(pathname);

@@ -44,7 +44,8 @@ export interface UpdateUserDTO {
   lastName?: string;
   phone?: string;
   bio?: string;
-  profileImageUrl?: string;
+  /** `null` clears the avatar (DELETE /api/profile/upload). */
+  profileImageUrl?: string | null;
   stripeCustomerId?: string;
   status?:
     | "pending_verification"

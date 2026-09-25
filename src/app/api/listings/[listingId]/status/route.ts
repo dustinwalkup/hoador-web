@@ -70,6 +70,18 @@ async function patchHandler(
       );
     }
 
+    // Only an approved listing may go live. `pending_review`/`rejected` owners
+    // could otherwise self-approve by setting `available` (SEC-10).
+    if (
+      status === "available" &&
+      existingListing.approvalStatus !== "approved"
+    ) {
+      return NextResponse.json(
+        { error: "This listing hasn't been approved yet." },
+        { status: 400 },
+      );
+    }
+
     // Update the listing status
     const { data: listing, error } = await tryCatch(
       listingDAL.updateListingStatus(listingId, status),

@@ -164,6 +164,39 @@ describe("PATCH /api/profile", () => {
     expect(res.status).toBe(200);
     expect(mockUpdateUser).toHaveBeenCalledWith("user-1", { firstName: "New" });
   });
+
+  // SEC-11: a foreign avatar URL would let DELETE /api/profile/upload's
+  // "current image" ownership fallback delete another user's blob.
+  it.each([
+    [
+      "another user's prefix",
+      "https://store.public.blob.vercel-storage.com/profiles/user-2/1.jpg",
+    ],
+    [
+      "a foreign host with the caller's path",
+      "https://evil.example/profiles/user-1/1.jpg",
+    ],
+    [
+      "a legacy flat path",
+      "https://store.public.blob.vercel-storage.com/profiles/1.jpg",
+    ],
+  ])("silently drops a profileImageUrl on %s", async (_label, url) => {
+    const res = await patch({ firstName: "New", profileImageUrl: url });
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateUser).toHaveBeenCalledWith("user-1", { firstName: "New" });
+  });
+
+  it("keeps a profileImageUrl under the caller's own prefix", async () => {
+    const url =
+      "https://store.public.blob.vercel-storage.com/profiles/user-1/1.jpg";
+    const res = await patch({ profileImageUrl: url });
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateUser).toHaveBeenCalledWith("user-1", {
+      profileImageUrl: url,
+    });
+  });
 });
 
 /**

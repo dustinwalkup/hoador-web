@@ -33,7 +33,8 @@ const BROWSEABLE_STATUSES = new Set(["available", "rented"]);
  * deliberate mirror of that page — same three gates, same NOT-FOUND outcome:
  *
  *  1. the owner may always view their own listing;
- *  2. otherwise the status must be browseable (`available`/`rented`);
+ *  2. otherwise the status must be browseable (`available`/`rented`) and the
+ *     listing approved (SEC-10: a status alone doesn't prove moderation);
  *  3. and BOTH parties must be visible in the listing's community (the
  *     symmetric R5 rule the search query also applies).
  *
@@ -89,7 +90,10 @@ async function getHandler(
     const bookedRanges = toBookedRanges(blocked ?? []);
 
     if (!isOwner) {
-      if (!BROWSEABLE_STATUSES.has(listing.status)) {
+      if (
+        !BROWSEABLE_STATUSES.has(listing.status) ||
+        listing.approvalStatus !== "approved"
+      ) {
         return handleApiError(new NotFoundError("listing", listingId));
       }
 

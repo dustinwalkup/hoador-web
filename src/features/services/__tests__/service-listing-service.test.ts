@@ -366,7 +366,7 @@ describe("ServiceListingService", () => {
     });
 
     it("sets inactive for owner", async () => {
-      mockListingGetById.mockResolvedValue(listing);
+      mockListingGetById.mockResolvedValue({ ...listing, status: "active" });
       mockListingUpdate.mockResolvedValue({ ...listing, status: "inactive" });
 
       await ServiceListingService.deactivateListing("list-1", "prov-1", ctx);
@@ -374,6 +374,39 @@ describe("ServiceListingService", () => {
       expect(mockListingUpdate).toHaveBeenCalledWith("list-1", {
         status: "inactive",
       });
+    });
+
+    // SEC-10: `status` doubles as the approval state, so deactivate→reactivate
+    // used to take an unreviewed or denied listing straight to `active`.
+    it.each(["pending_approval", "denied", "inactive"] as const)(
+      "refuses a %s listing and never writes",
+      async (status) => {
+        mockListingGetById.mockResolvedValue({ ...listing, status });
+
+        await expect(
+          ServiceListingService.deactivateListing("list-1", "prov-1", ctx),
+        ).rejects.toThrow(ValidationError);
+        expect(mockListingUpdate).not.toHaveBeenCalled();
+      },
+    );
+
+    it("still round-trips active → inactive → active", async () => {
+      mockListingGetById.mockResolvedValueOnce({
+        ...listing,
+        status: "active",
+      });
+      await ServiceListingService.deactivateListing("list-1", "prov-1", ctx);
+
+      mockListingGetById.mockResolvedValueOnce({
+        ...listing,
+        status: "inactive",
+      });
+      await ServiceListingService.reactivateListing("list-1", "prov-1", ctx);
+
+      expect(mockListingUpdate.mock.calls).toEqual([
+        ["list-1", { status: "inactive" }],
+        ["list-1", { status: "active" }],
+      ]);
     });
   });
 

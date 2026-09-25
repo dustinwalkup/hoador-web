@@ -104,3 +104,48 @@ describe("POST /api/onboarding (SEC-01)", () => {
     expect(mockCompleteOnboarding).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * SEC-11: same rule as PATCH /api/profile — only the caller's own avatar blob
+ * is written. An empty or foreign value is dropped, so the column keeps
+ * whatever POST /api/profile/upload already set.
+ */
+describe("POST /api/onboarding — profileImageUrl (SEC-11)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCurrentUserId.mockResolvedValue("user-1");
+    mockUpdateUserPrimaryAddress.mockResolvedValue(undefined);
+    mockCompleteOnboarding.mockResolvedValue({
+      id: "user-1",
+      email: "jane@example.com",
+      firstName: "Jane",
+      lastName: "Doe",
+    });
+  });
+
+  const written = () => mockCompleteOnboarding.mock.calls[0][1];
+
+  it("keeps an avatar under the caller's own prefix", async () => {
+    const url =
+      "https://store.public.blob.vercel-storage.com/profiles/user-1/1.jpg";
+    await post({ ...BODY, profileImageUrl: url });
+
+    expect(written().profileImageUrl).toBe(url);
+  });
+
+  it.each([
+    "https://store.public.blob.vercel-storage.com/profiles/user-2/1.jpg",
+    "https://evil.example/profiles/user-1/1.jpg",
+  ])("drops a foreign avatar %s", async (url) => {
+    const res = await post({ ...BODY, profileImageUrl: url });
+
+    expect(res.status).toBe(200);
+    expect(written()).not.toHaveProperty("profileImageUrl");
+  });
+
+  it("doesn't overwrite the uploaded avatar when none is sent", async () => {
+    await post(BODY);
+
+    expect(written()).not.toHaveProperty("profileImageUrl");
+  });
+});

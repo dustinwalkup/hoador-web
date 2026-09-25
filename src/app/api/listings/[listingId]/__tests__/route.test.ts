@@ -87,9 +87,10 @@ describe("GET /api/listings/[listingId]", () => {
 
   // Mobile Req 6.1.3: the app must never display another owner's approval state.
   it("strips approvalStatus/rejectionReason for a non-owner", async () => {
+    // Approved after an earlier rejection: the stale reason must still not leak.
     mockGetListingById.mockResolvedValue(
       listing({
-        approvalStatus: "pending_review",
+        approvalStatus: "approved",
         rejectionReason: "Blurry photos",
       }),
     );
@@ -138,6 +139,33 @@ describe("GET /api/listings/[listingId]", () => {
     const res = await GET(req(), params());
 
     expect(res.status).toBe(404);
+  });
+
+  // SEC-10: `available` alone doesn't prove moderation — an owner used to be
+  // able to set it on a pending or rejected listing.
+  it.each(["pending_review", "rejected"])(
+    "404s an available-but-%s listing for a non-owner",
+    async (approvalStatus) => {
+      mockGetListingById.mockResolvedValue(listing({ approvalStatus }));
+
+      const { GET } = await import("../route");
+      const res = await GET(req(), params());
+
+      expect(res.status).toBe(404);
+      expect(mockIsVisibleInCommunity).not.toHaveBeenCalled();
+    },
+  );
+
+  it("still shows the owner their own unapproved listing", async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: "owner-1", userType: "user" });
+    mockGetListingById.mockResolvedValue(
+      listing({ approvalStatus: "pending_review" }),
+    );
+
+    const { GET } = await import("../route");
+    const res = await GET(req(), params());
+
+    expect(res.status).toBe(200);
   });
 
   // 404 rather than 403 throughout: a 403 would confirm a listing exists at an

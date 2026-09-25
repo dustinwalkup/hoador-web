@@ -5,6 +5,7 @@ import { SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { userDAL } from "@/dal";
 import { onboardingSchema } from "@/features/onboarding/schemas/validation";
+import { isOwnProfileImagePath } from "@/features/users/lib/profile-image";
 import { handleApiError, parseFormData } from "@/lib/api/route-helpers";
 
 /**
@@ -52,6 +53,16 @@ async function postHandler(request: NextRequest) {
 
     // Separate address from user profile data
     const { address, ...profileData } = validatedData;
+
+    // Same rule as PATCH /api/profile (SEC-11): keep only the caller's own
+    // avatar blob. An empty value is dropped too — the upload route now writes
+    // the column itself, and "" would overwrite the avatar it just set.
+    if (
+      !profileData.profileImageUrl ||
+      !isOwnProfileImagePath(profileData.profileImageUrl, userId)
+    ) {
+      delete profileData.profileImageUrl;
+    }
 
     // Step 1: Update user profile (critical - must succeed). Only from
     // `incomplete_profile`: anything else is a 409, so a suspended account

@@ -15,6 +15,7 @@ import { sendRentalEndedNotification } from "@/features/rentals/notifications/re
 import { z } from "zod";
 import { parseFormData } from "@/lib/api/route-helpers";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
+import { isOwnBlobUrl } from "@/services/vercel-blob";
 
 const CONDITION_MAX_LENGTH = 2000;
 const MAX_DAMAGE_PHOTOS = 10;
@@ -72,11 +73,16 @@ async function postHandler(
       value?.trim()
         ? sanitizeTextWithMaxLength(value.trim(), CONDITION_MAX_LENGTH)
         : undefined;
+    // Evidence must be this rental's own uploads, not any URL (SEC-22): drop
+    // anything outside the prefix the damage-photos route writes to.
+    const ownedDamagePhotos = parsed.data.damagePhotos?.filter((url) =>
+      isOwnBlobUrl(url, `rentals/${rentalId}/damage/`),
+    );
     const endInput = {
       conditionAtReturn: clean(parsed.data.conditionAtReturn),
       damageReported: parsed.data.damageReported,
       damageDescription: clean(parsed.data.damageDescription),
-      damagePhotos: parsed.data.damagePhotos,
+      damagePhotos: ownedDamagePhotos,
     };
 
     // Get current user ID for authorization
