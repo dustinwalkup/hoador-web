@@ -4,6 +4,9 @@ import { verifyCronSecret } from "@/lib/api/verify-cron-secret";
 import { expirePendingBookings } from "@/features/payments/lib/expire-pending-bookings";
 import { CronRunHistoryService } from "@/features/admin/services/cron-run-history-service";
 
+// Explicit budget rather than the platform default (PERF-06).
+export const maxDuration = 60;
+
 const JOB_NAME = "expire-pending-bookings";
 
 /**

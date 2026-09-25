@@ -6,6 +6,9 @@ import { sendNotification } from "@/features/notifications/utils/send-notificati
 import { formatAlertText } from "@/features/rentals/lib/format-alert-text";
 import { differenceInDays } from "@/lib/utils/date.utils";
 
+// Explicit budget rather than the platform default (PERF-06).
+export const maxDuration = 60;
+
 /**
  * Daily cron: push reminders for approved rentals that start today or have a missed start.
  * Secured with CRON_SECRET (Authorization: Bearer).

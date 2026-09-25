@@ -4,6 +4,9 @@ import { verifyCronSecret } from "@/lib/api/verify-cron-secret";
 import { StaleProcessingDetectionService } from "@/features/admin/services/stale-processing-detection-service";
 import { CronRunHistoryService } from "@/features/admin/services/cron-run-history-service";
 
+// Explicit budget rather than the platform default (PERF-06).
+export const maxDuration = 60;
+
 const JOB_NAME = "detect-stale-processing";
 
 /**

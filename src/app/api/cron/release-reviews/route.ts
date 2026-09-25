@@ -5,6 +5,9 @@ import { BlindReviewService } from "@/features/reviews/services/blind-review-ser
 import { CronRunHistoryService } from "@/features/admin/services/cron-run-history-service";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 
+// Explicit budget rather than the platform default (PERF-06).
+export const maxDuration = 60;
+
 const JOB_NAME = "release-reviews";
 
 /**

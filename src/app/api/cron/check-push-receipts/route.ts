@@ -4,6 +4,9 @@ import { verifyCronSecret } from "@/lib/api/verify-cron-secret";
 import { checkExpoPushReceipts } from "@/features/notifications/lib/expo-push-service";
 import { tryCatch } from "@walkup/walkup-utils";
 
+// Explicit budget rather than the platform default (PERF-06).
+export const maxDuration = 60;
+
 /**
  * Resolve outstanding Expo push receipts and deactivate dead device tokens.
  *

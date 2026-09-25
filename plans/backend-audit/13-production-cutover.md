@@ -16,21 +16,23 @@ Everything the backend-audit fixes need done **by hand, outside the code**, when
 
 ## Step status
 
-| #   | Step                                                             | From          | dev                                   | staging                               | prod |
-| --- | ---------------------------------------------------------------- | ------------- | ------------------------------------- | ------------------------------------- | ---- |
-| B1  | Snapshot the database (Neon branch) before migrating             | —             | —                                     | —                                     | TODO |
-| B2  | Run and triage the roadmap's ops checks 1–10                     | Phase 0       | moot                                  | moot                                  | TODO |
-| B3  | Resolve overlapping bookings (before 0072)                       | R-CONC-01     | DONE 2026-09-24: 4 requests cancelled | DONE 2026-09-24: 4 requests cancelled | TODO |
-| B4  | Mobile build that handles the new error codes is live            | R-SEC-01 etc. | n/a                                   | n/a                                   | TODO |
-| M1  | `bun run db:migrate`                                             | all           | DONE 2026-09-24 (0069–0072)           | DONE 2026-09-24 (0072)                | TODO |
-| M2  | `bun run db:migrate` for 0073 (RESTRICT money/legal FKs)         | R-DB-01       | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
-| M3  | `bun run db:migrate` for 0074 (`transfer_deposit` enum value)    | R-BIZ-04      | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
-| M4  | `bun run db:migrate` for 0075 (`rate_limit_buckets` table)       | R-ARCH-07     | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
-| M5  | `bun run db:migrate` for 0076 (per-user conversation delete)     | R-BIZ-09      | TODO                                  | TODO                                  | TODO |
-| A1  | Verify `rental_requests_no_overlap` exists                       | R-CONC-01     | DONE                                  | DONE                                  | TODO |
-| A2  | Resend failed `charge.dispute.created` webhooks (within 30 days) | R-BIZ-06      | n/a                                   | n/a                                   | TODO |
-| A3  | Pay owners deposits captured before R-BIZ-04 (backfill)          | R-BIZ-04      | moot (no real captures)               | moot (no real captures)               | TODO |
-| A4  | Scrub accounts deleted before R-PRIV-09 (optional)               | R-PRIV-09     | TODO (optional)                       | TODO (optional)                       | N/A  |
+| #   | Step                                                                          | From          | dev                                   | staging                               | prod |
+| --- | ----------------------------------------------------------------------------- | ------------- | ------------------------------------- | ------------------------------------- | ---- |
+| B1  | Snapshot the database (Neon branch) before migrating                          | —             | —                                     | —                                     | TODO |
+| B2  | Run and triage the roadmap's ops checks 1–10                                  | Phase 0       | moot                                  | moot                                  | TODO |
+| B3  | Resolve overlapping bookings (before 0072)                                    | R-CONC-01     | DONE 2026-09-24: 4 requests cancelled | DONE 2026-09-24: 4 requests cancelled | TODO |
+| B4  | Mobile build that handles the new error codes is live                         | R-SEC-01 etc. | n/a                                   | n/a                                   | TODO |
+| M1  | `bun run db:migrate`                                                          | all           | DONE 2026-09-24 (0069–0072)           | DONE 2026-09-24 (0072)                | TODO |
+| M2  | `bun run db:migrate` for 0073 (RESTRICT money/legal FKs)                      | R-DB-01       | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
+| M3  | `bun run db:migrate` for 0074 (`transfer_deposit` enum value)                 | R-BIZ-04      | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
+| M4  | `bun run db:migrate` for 0075 (`rate_limit_buckets` table)                    | R-ARCH-07     | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
+| M5  | `bun run db:migrate` for 0076 (per-user conversation delete)                  | R-BIZ-09      | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
+| M6  | `bun run db:migrate` for 0077 (`deposit_hold_status` `placing`)               | R-PERF-05     | DONE 2026-09-24                       | DONE 2026-09-24                       | TODO |
+| A1  | Verify `rental_requests_no_overlap` exists                                    | R-CONC-01     | DONE                                  | DONE                                  | TODO |
+| A2  | Resend failed `charge.dispute.created` webhooks (within 30 days)              | R-BIZ-06      | n/a                                   | n/a                                   | TODO |
+| A3  | Pay owners deposits captured before R-BIZ-04 (backfill)                       | R-BIZ-04      | moot (no real captures)               | moot (no real captures)               | TODO |
+| A4  | Scrub accounts deleted before R-PRIV-09 (optional)                            | R-PRIV-09     | TODO (optional)                       | TODO (optional)                       | N/A  |
+| A5  | Confirm the cron moves: a clean deploy, then an hourly run that calls payouts | R-PERF-05     | n/a                                   | TODO                                  | TODO |
 
 ## Before deploying
 
@@ -69,6 +71,7 @@ ORDER BY a.listing_id;
 | `0073_restrict_financial_record_fks`     | R-DB-01   | No data prep: it only changes FK delete actions and drops NOT NULL on `dispute_financial_operations.performed_by`. Postgres truncates one constraint name to 63 chars (`rental_agreement_documents_rental_request_id_rental_requests_id`) and prints a NOTICE when the migration refers to it; that is expected. |
 | `0074_add_transfer_deposit_financial_op` | R-BIZ-04  | No data prep. A single `ALTER TYPE ... ADD VALUE`.                                                                                                                                                                                                                                                               |
 | `0076_conversation_per_user_delete`      | R-BIZ-09  | No data prep: two nullable `ADD COLUMN`s on `conversations`. Existing rows read as `NULL`, meaning "not deleted" for either party.                                                                                                                                                                               |
+| `0077_deposit_hold_placing`              | R-PERF-05 | No data prep. A single `ALTER TYPE ... ADD VALUE`; no existing row uses it.                                                                                                                                                                                                                                      |
 
 ## After deploying
 
@@ -110,6 +113,8 @@ SELECT count(*) FROM "user" WHERE anonymized_at IS NOT NULL;
 ```
 
 If the leftovers matter, **don't just call `anonymizeUser` again**: nobody has checked that it's safe to re-run on an already-anonymized row, and the blob deletes live in the service, not the DAL. Write a one-off script that runs the PRIV-09 statements from `anonymizeUser` and the service's blob helpers for `WHERE anonymized_at IS NOT NULL`.
+
+**A5. Cron cadence and budgets (R-PERF-05).** Two checks. (1) The deploy itself: the three Stripe-loop cron routes (`process-payouts`, `process-service-payouts`, `schedule-deposit-holds`) now export `maxDuration = 120`. Vercel only allows over 60s on Pro, or on Hobby with Fluid Compute on. If the staging deploy rejects the value, lower those three to 60 and their `--max-time` in `cron-jobs.yml` to 90. (2) The schedule: the next `hourly` run of **Cron Jobs** in GitHub Actions should show _Process payouts_, _Process service payouts_ and both stale-processing detectors, which used to run in `daily`. Every step now continues on error, and a final _Check job status_ step turns the job red if any of them failed.
 
 ## Standing rules
 

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."deposit_hold_status" ADD VALUE 'placing' BEFORE 'held';

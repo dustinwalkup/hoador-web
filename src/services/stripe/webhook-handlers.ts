@@ -215,7 +215,14 @@ async function handlePaymentIntentCanceled(
   }
 
   const lifecycle = await paymentLifecycleDAL.getByRentalId(rentalId);
-  if (lifecycle && lifecycle.depositHoldStatus !== "released") {
+  // `placing`: a new hold is being placed right now, so this cancellation is
+  // an older PaymentIntent's. Marking the row expired would make the placer
+  // lose its finalize write and release the new hold (CONC-10).
+  if (
+    lifecycle &&
+    lifecycle.depositHoldStatus !== "released" &&
+    lifecycle.depositHoldStatus !== "placing"
+  ) {
     await paymentLifecycleDAL.updateDepositHoldStatus(rentalId, "expired");
     await sendOpsAlert({
       event: "deposit_hold_expired_webhook",

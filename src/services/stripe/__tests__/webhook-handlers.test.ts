@@ -370,6 +370,28 @@ describe("handleWebhookEvent", () => {
       );
     });
 
+    // CONC-10: a new hold is mid-placement, so the cancelled PaymentIntent
+    // is an older one. Marking the row expired would make the placer release
+    // the new hold.
+    it("no-op while a new hold is being placed (status: placing)", async () => {
+      mockPaymentLifecycleGetByRentalId.mockResolvedValue({
+        depositHoldStatus: "placing",
+      });
+
+      await handleWebhookEvent(
+        createEvent("payment_intent.canceled", {
+          id: "pi_dep_old",
+          metadata: {
+            paymentType: "security_deposit_hold",
+            rentalId: "rental-1",
+          },
+        }),
+      );
+
+      expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalled();
+      expect(mockSendOpsAlert).not.toHaveBeenCalled();
+    });
+
     it("no-op for intentional release (status: released)", async () => {
       mockPaymentLifecycleGetByRentalId.mockResolvedValue({
         depositHoldStatus: "released",

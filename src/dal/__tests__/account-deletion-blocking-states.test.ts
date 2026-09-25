@@ -53,6 +53,11 @@ describe("account-deletion blocking states", () => {
     ).toBe(true);
   });
 
+  // CONC-10: a hold is being placed on the user's card right now.
+  it("blocks while a deposit hold is being placed", () => {
+    expect(BLOCKING_DEPOSIT_STATUSES).toContain("placing");
+  });
+
   it("does not block on terminal failure states (D-E2-8)", () => {
     // The whole point: a permanently-failed deposit/payout/transfer must never
     // trap an account. If any of these start blocking, deletion can become

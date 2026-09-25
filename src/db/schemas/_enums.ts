@@ -223,6 +223,7 @@ export const pushReceiptStatusEnum = pgEnum("push_receipt_status", [
 /** Deposit hold lifecycle status for rental_payment_lifecycle. */
 export const depositHoldStatusEnum = pgEnum("deposit_hold_status", [
   "scheduled", // Hold scheduled, waiting for 48hrs-before-pickup cron
+  "placing", // Claimed by the cron or a retry; Stripe call in flight (CONC-10)
   "held", // Auth hold placed successfully
   "released", // Hold cancelled on clean return
   "expired", // Hold expired (>7 days) — detected by monitoring cron

@@ -4,6 +4,10 @@ import { verifyCronSecret } from "@/lib/api/verify-cron-secret";
 import { PaymentLifecycleService } from "@/features/rentals/services/payment-lifecycle-service";
 import { CronRunHistoryService } from "@/features/admin/services/cron-run-history-service";
 
+// A loop of up to 20 Stripe calls; matches the workflow's --max-time (PERF-06).
+// Over 60s needs Pro, or Fluid Compute on Hobby.
+export const maxDuration = 120;
+
 const JOB_NAME = "process-payouts";
 
 /**

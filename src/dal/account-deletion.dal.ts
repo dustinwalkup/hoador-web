@@ -102,7 +102,12 @@ export const BLOCKING_BOOKING_STATUSES = [
   "accepted",
   "payment_failed", // provider is awaiting the requester's card update — not terminal
 ] as const;
-export const BLOCKING_DEPOSIT_STATUSES = ["scheduled", "held"] as const;
+// `placing`: a hold is being placed on the user's card right now (CONC-10).
+export const BLOCKING_DEPOSIT_STATUSES = [
+  "scheduled",
+  "placing",
+  "held",
+] as const;
 export const BLOCKING_PAYOUT_STATUSES = ["pending", "processing"] as const;
 export const BLOCKING_TRANSFER_STATUSES = [
   "pending",
@@ -203,7 +208,7 @@ export class AccountDeletionDAL extends BaseDAL {
   }
 
   /**
-   * Security-deposit holds that are live. `scheduled`/`held` only — a `failed`
+   * Security-deposit holds that are live. `scheduled`/`placing`/`held` only — a `failed`
    * or `release_failed` hold does not block (D-E2-8).
    */
   async countActiveDepositHolds(userId: string): Promise<number> {

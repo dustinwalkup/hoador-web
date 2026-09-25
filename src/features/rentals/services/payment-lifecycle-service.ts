@@ -252,10 +252,30 @@ export class PaymentLifecycleService {
     let failureCount = 0;
 
     for (const rental of eligible) {
+      // Claim before any write (CONC-10). The eligible list is a snapshot:
+      // the renter may have cancelled since, or an overlapping run taken the
+      // row. Every write below is conditional on the claim still being ours.
+      const claimed = await paymentLifecycleDAL.claimForDepositHold(
+        rental.rentalId,
+      );
+      if (!claimed) {
+        getLogger().info(
+          { rentalId: rental.rentalId },
+          "Deposit hold no longer scheduled — skipping (CONC-10)",
+        );
+        continue;
+      }
+
       if (!rental.renterStripeCustomerId) {
         getLogger().error(
           { rentalId: rental.rentalId },
           "Renter has no Stripe customer ID — skipping deposit hold",
+        );
+        // Hand the row back so the next run sees it, as before the claim.
+        await paymentLifecycleDAL.updateDepositHoldStatus(
+          rental.rentalId,
+          "scheduled",
+          { fromStatus: "placing" },
         );
         failureCount++;
         continue;
@@ -300,6 +320,7 @@ export class PaymentLifecycleService {
         await paymentLifecycleDAL.updateDepositHoldStatus(
           rental.rentalId,
           "failed",
+          { fromStatus: "placing" },
         );
         failureCount++;
         continue;
@@ -319,28 +340,24 @@ export class PaymentLifecycleService {
       });
 
       if (holdResult.success) {
-        // Update lifecycle and rental with the auth ID
-        await paymentLifecycleDAL.updateDepositHoldStatus(
+        const kept = await PaymentLifecycleService.finalizePlacedHold(
           rental.rentalId,
-          "held",
-          { depositHoldPlacedAt: new Date() },
+          holdResult.paymentIntentId,
         );
-
-        // Update the rentals table with the security deposit auth ID
-        const { db } = await import("@/db/db");
-        const { rentals } = await import("@/db/schemas/rentals.schema");
-        const { eq } = await import("drizzle-orm");
-        await db
-          .update(rentals)
-          .set({ securityDepositAuthId: holdResult.paymentIntentId })
-          .where(eq(rentals.id, rental.rentalId));
-
-        successCount++;
+        if (kept) successCount++;
+        else failureCount++;
       } else {
-        await paymentLifecycleDAL.updateDepositHoldStatus(
+        const stillOurs = await paymentLifecycleDAL.updateDepositHoldStatus(
           rental.rentalId,
           "failed",
+          { fromStatus: "placing" },
         );
+        // A cancel took the row mid-flight: there is no hold, and nobody to
+        // tell about one.
+        if (!stillOurs) {
+          failureCount++;
+          continue;
+        }
 
         // The cron only sees `scheduled` rows, so this is always the first
         // failure: tell both parties once. Re-attempts are the renter's retry.
@@ -501,6 +518,56 @@ export class PaymentLifecycleService {
   }
 
   /**
+   * Record a hold that was just placed from a `placing` claim (CONC-10).
+   *
+   * The auth id goes on the rental first, so any reader that sees `held` can
+   * always find the hold to release. Then `placing → held` as a
+   * compare-and-swap. If that loses, a cancel took the row while Stripe was
+   * placing the hold. Nothing else will ever release it, so release it here
+   * and tell ops.
+   *
+   * @returns true when the hold stands, false when it was released.
+   */
+  private static async finalizePlacedHold(
+    rentalId: string,
+    paymentIntentId: string,
+  ): Promise<boolean> {
+    const { db } = await import("@/db/db");
+    const { rentals } = await import("@/db/schemas/rentals.schema");
+    const { eq } = await import("drizzle-orm");
+    await db
+      .update(rentals)
+      .set({ securityDepositAuthId: paymentIntentId })
+      .where(eq(rentals.id, rentalId));
+
+    const held = await paymentLifecycleDAL.updateDepositHoldStatus(
+      rentalId,
+      "held",
+      { depositHoldPlacedAt: new Date(), fromStatus: "placing" },
+    );
+    if (held) return true;
+
+    const { error: releaseError } = await tryCatch(
+      releaseDepositHold(paymentIntentId),
+    );
+    await sendOpsAlert({
+      event: releaseError
+        ? "deposit_hold_race_release_failed"
+        : "deposit_hold_released_after_race",
+      rentalId,
+      message: releaseError
+        ? `A deposit hold (PaymentIntent ${paymentIntentId}) was placed on a rental that changed state mid-placement (likely cancelled), and releasing it failed — release it manually: ${
+            releaseError instanceof Error
+              ? releaseError.message
+              : String(releaseError)
+          }`
+        : `A deposit hold (PaymentIntent ${paymentIntentId}) was placed on a rental that changed state mid-placement (likely cancelled); it was released.`,
+      sendEmailAlert: Boolean(releaseError),
+    });
+    return false;
+  }
+
+  /**
    * Retry a failed deposit hold for a rental.
    * Called by the renter after updating their payment method.
    */
@@ -579,6 +646,15 @@ export class PaymentLifecycleService {
       };
     }
 
+    // The read above answers the ordinary "not failed" case with a clear
+    // message; the claim is what stops a second concurrent retry (e.g. on a
+    // different card, so a different idempotency key) or a racing cancel
+    // (CONC-10). Taken last, so no early return above strands a `placing` row.
+    const claimed = await paymentLifecycleDAL.claimForDepositHold(rental.id);
+    if (!claimed) {
+      return { success: false, error: "Deposit hold is not in a failed state" };
+    }
+
     const holdResult = await placeDepositHold({
       rentalId: rental.id,
       customerId: renterRecord.stripeCustomerId,
@@ -596,15 +672,16 @@ export class PaymentLifecycleService {
     });
 
     if (holdResult.success) {
-      await paymentLifecycleDAL.updateDepositHoldStatus(rental.id, "held", {
-        depositHoldPlacedAt: new Date(),
-      });
-
-      const { rentals } = await import("@/db/schemas/rentals.schema");
-      await db
-        .update(rentals)
-        .set({ securityDepositAuthId: holdResult.paymentIntentId })
-        .where(eq(rentals.id, rental.id));
+      const kept = await PaymentLifecycleService.finalizePlacedHold(
+        rental.id,
+        holdResult.paymentIntentId,
+      );
+      if (!kept) {
+        return {
+          success: false,
+          error: "This rental changed while the deposit was being placed.",
+        };
+      }
 
       // Record the card now holding the deposit. The hold is already placed,
       // so a failure here must not fail the retry.
@@ -626,6 +703,10 @@ export class PaymentLifecycleService {
       return { success: true };
     }
 
+    // Hand the claim back so the renter can retry again.
+    await paymentLifecycleDAL.updateDepositHoldStatus(rental.id, "failed", {
+      fromStatus: "placing",
+    });
     return {
       success: false,
       error: holdResult.error || "Failed to place deposit hold",

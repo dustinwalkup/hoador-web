@@ -5,6 +5,9 @@ import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { CronRunHistoryService } from "@/features/admin/services/cron-run-history-service";
 import { ServicePaymentLifecycleService } from "@/features/services/services/service-payment-lifecycle-service";
 
+// Explicit budget rather than the platform default (PERF-06).
+export const maxDuration = 60;
+
 const JOB_NAME = "detect-stale-service-processing";
 
 /**

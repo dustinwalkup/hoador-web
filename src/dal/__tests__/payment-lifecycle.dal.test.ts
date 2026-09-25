@@ -7,6 +7,7 @@ import { db } from "@/db/db";
 vi.mock("@/db/db", () => ({
   db: {
     select: vi.fn(),
+    update: vi.fn(),
   },
 }));
 
@@ -25,6 +26,15 @@ function stubSelect(rows: unknown[] = []) {
   chain.limit = vi.fn().mockResolvedValue(rows);
   vi.mocked(db.select).mockReturnValue(chain as never);
   return { mockWhere };
+}
+
+/** Stub a `db.update().set().where().returning()` chain. */
+function stubUpdate(returned: unknown[]) {
+  const mockReturning = vi.fn().mockResolvedValue(returned);
+  const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+  const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+  vi.mocked(db.update).mockReturnValue({ set: mockSet } as never);
+  return { mockSet, mockWhere };
 }
 
 describe("PaymentLifecycleDAL", () => {
@@ -82,6 +92,84 @@ describe("PaymentLifecycleDAL", () => {
       );
       expect(match).not.toBeNull();
       expect(params[Number(match![1]) - 1]).toBe("refunded");
+    });
+  });
+
+  // CONC-10: placement claims the row first, so the cron, a retry and a
+  // cancel can't all act on one `scheduled` snapshot.
+  describe("claimForDepositHold", () => {
+    it("claims only a scheduled or failed hold, into placing", async () => {
+      const { mockSet, mockWhere } = stubUpdate([{ rentalId: "rental-1" }]);
+
+      const claimed = await paymentLifecycleDAL.claimForDepositHold("rental-1");
+
+      expect(claimed).toBe(true);
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ depositHoldStatus: "placing" }),
+      );
+      const { sql, params } = renderWhere(mockWhere.mock.calls[0][0]);
+      expect(sql).toContain(
+        '"rental_payment_lifecycle"."deposit_hold_status" in ($2, $3)',
+      );
+      expect(params).toEqual(["rental-1", "scheduled", "failed"]);
+    });
+
+    it("returns false when the row is no longer claimable", async () => {
+      stubUpdate([]);
+
+      expect(await paymentLifecycleDAL.claimForDepositHold("rental-1")).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("updateDepositHoldStatus", () => {
+    it("writes unconditionally without fromStatus", async () => {
+      const { mockWhere } = stubUpdate([{ rentalId: "rental-1" }]);
+
+      const updated = await paymentLifecycleDAL.updateDepositHoldStatus(
+        "rental-1",
+        "released",
+      );
+
+      expect(updated).toBe(true);
+      const { sql } = renderWhere(mockWhere.mock.calls[0][0]);
+      expect(sql).not.toContain("deposit_hold_status");
+    });
+
+    it("is a compare-and-swap with fromStatus, and reports a lost swap", async () => {
+      const { mockWhere } = stubUpdate([]);
+
+      const updated = await paymentLifecycleDAL.updateDepositHoldStatus(
+        "rental-1",
+        "held",
+        { fromStatus: "placing" },
+      );
+
+      expect(updated).toBe(false);
+      const { sql, params } = renderWhere(mockWhere.mock.calls[0][0]);
+      expect(sql).toContain(
+        '"rental_payment_lifecycle"."deposit_hold_status" in ($2)',
+      );
+      expect(params).toEqual(["rental-1", "placing"]);
+    });
+
+    it("accepts several fromStatus values", async () => {
+      const { mockWhere } = stubUpdate([{ rentalId: "rental-1" }]);
+
+      await paymentLifecycleDAL.updateDepositHoldStatus(
+        "rental-1",
+        "released",
+        {
+          fromStatus: ["scheduled", "placing"],
+        },
+      );
+
+      expect(renderWhere(mockWhere.mock.calls[0][0]).params).toEqual([
+        "rental-1",
+        "scheduled",
+        "placing",
+      ]);
     });
   });
 });

@@ -5,6 +5,9 @@ import { runEvidenceDeadlineSweep } from "@/features/disputes/services/evidence-
 import { CronRunHistoryService } from "@/features/admin/services/cron-run-history-service";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 
+// Explicit budget rather than the platform default (PERF-06).
+export const maxDuration = 60;
+
 const JOB_NAME = "evidence-deadlines";
 
 /**

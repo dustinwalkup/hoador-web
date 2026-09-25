@@ -215,34 +215,10 @@ export async function cancelApprovedRental(
     }
   }
 
-  const depositStatus = ctx.depositHoldStatus;
-  let depositReleaseFailed = false;
-  if (depositStatus === "held" && ctx.securityDepositAuthId) {
-    try {
-      await releaseDepositHold(ctx.securityDepositAuthId);
-      await paymentLifecycleDAL.updateDepositHoldStatus(
-        ctx.rentalId,
-        "released",
-        {
-          depositReleasedAt: new Date(),
-        },
-      );
-    } catch {
-      depositReleaseFailed = true;
-      await paymentLifecycleDAL.updateDepositHoldStatus(
-        ctx.rentalId,
-        "release_failed",
-      );
-      await sendOpsAlert({
-        event: "deposit_release_failed_on_cancel",
-        rentalId: ctx.rentalId,
-        message: "Deposit hold release failed during cancellation",
-        sendEmailAlert: true,
-      });
-    }
-  } else if (depositStatus === "scheduled") {
-    await paymentLifecycleDAL.updateDepositHoldStatus(ctx.rentalId, "released");
-  }
+  const depositReleaseFailed = await settleDepositOnCancel(ctx, {
+    event: "deposit_release_failed_on_cancel",
+    message: "Deposit hold release failed during cancellation",
+  });
 
   let ownerTransferAmountDollars: number | undefined;
   if (
@@ -475,34 +451,10 @@ export async function applyNoShow(
     });
   }
 
-  const depositStatus = ctx.depositHoldStatus;
-  let depositReleaseFailed = false;
-  if (depositStatus === "held" && ctx.securityDepositAuthId) {
-    try {
-      await releaseDepositHold(ctx.securityDepositAuthId);
-      await paymentLifecycleDAL.updateDepositHoldStatus(
-        ctx.rentalId,
-        "released",
-        {
-          depositReleasedAt: new Date(),
-        },
-      );
-    } catch {
-      depositReleaseFailed = true;
-      await paymentLifecycleDAL.updateDepositHoldStatus(
-        ctx.rentalId,
-        "release_failed",
-      );
-      await sendOpsAlert({
-        event: "deposit_release_failed_no_show",
-        rentalId: ctx.rentalId,
-        message: "Deposit release failed during no-show processing",
-        sendEmailAlert: true,
-      });
-    }
-  } else if (depositStatus === "scheduled") {
-    await paymentLifecycleDAL.updateDepositHoldStatus(ctx.rentalId, "released");
-  }
+  const depositReleaseFailed = await settleDepositOnCancel(ctx, {
+    event: "deposit_release_failed_no_show",
+    message: "Deposit release failed during no-show processing",
+  });
 
   let ownerTransferAmountDollars: number | undefined;
   if (
@@ -625,4 +577,68 @@ export async function cancelRental(
     eligibility.cancelledBy,
     context,
   );
+}
+
+/**
+ * Release or cancel the rental's security deposit as part of a cancellation.
+ *
+ * `ctx` was read before the refund, so its deposit status can be stale. The
+ * cron or a renter's retry may have claimed a `scheduled` hold (`placing`) or
+ * even placed it since (CONC-10). So a not-yet-held deposit is moved to
+ * `released` by compare-and-swap. A placer still in flight then loses its own
+ * finalize write and releases the hold it placed. If the swap loses, the hold
+ * landed after `ctx` was read, and it is released here like any held deposit.
+ *
+ * @returns true when a live hold could not be released (ops are alerted and
+ *   the row is left `release_failed`).
+ */
+async function settleDepositOnCancel(
+  ctx: {
+    rentalId: string;
+    depositHoldStatus: string | null;
+    securityDepositAuthId: string | null;
+  },
+  failureAlert: { event: string; message: string },
+): Promise<boolean> {
+  let status = ctx.depositHoldStatus;
+  let authId = ctx.securityDepositAuthId;
+
+  if (status === "scheduled" || status === "placing") {
+    const released = await paymentLifecycleDAL.updateDepositHoldStatus(
+      ctx.rentalId,
+      "released",
+      { fromStatus: ["scheduled", "placing"] },
+    );
+    if (released) return false;
+
+    const fresh = await paymentLifecycleDAL.getDepositHoldState(ctx.rentalId);
+    status = fresh?.depositHoldStatus ?? null;
+    authId = fresh?.securityDepositAuthId ?? null;
+  }
+
+  if (status !== "held" || !authId) return false;
+
+  try {
+    await releaseDepositHold(authId);
+    await paymentLifecycleDAL.updateDepositHoldStatus(
+      ctx.rentalId,
+      "released",
+      {
+        depositReleasedAt: new Date(),
+      },
+    );
+    return false;
+  } catch {
+    await paymentLifecycleDAL.updateDepositHoldStatus(
+      ctx.rentalId,
+      "release_failed",
+    );
+    await sendOpsAlert({
+      event: failureAlert.event,
+      rentalId: ctx.rentalId,
+      message: failureAlert.message,
+      sendEmailAlert: true,
+    });
+    return true;
+  }
 }

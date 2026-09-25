@@ -3,6 +3,9 @@ import { withRequestLogging } from "@/lib/api/with-request-logging";
 import { verifyCronSecret } from "@/lib/api/verify-cron-secret";
 import { CronRunHistoryService } from "@/features/admin/services/cron-run-history-service";
 
+// Explicit budget rather than the platform default (PERF-06).
+export const maxDuration = 60;
+
 const JOB_NAME = "cleanup-cron-history";
 const RETENTION_DAYS = 90;
 

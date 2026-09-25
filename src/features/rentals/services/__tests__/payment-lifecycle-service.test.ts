@@ -6,6 +6,7 @@ const mockClaimForProcessing = vi.fn();
 const mockFindScheduledDepositsNearPickup = vi.fn();
 const mockFindExpiringDeposits = vi.fn();
 const mockUpdateDepositHoldStatus = vi.fn();
+const mockClaimForDepositHold = vi.fn();
 const mockUpdateOwnerTransferStatus = vi.fn();
 const mockUpdatePayoutStatus = vi.fn();
 const mockGetByRentalId = vi.fn();
@@ -18,6 +19,8 @@ vi.mock("@/dal", () => ({
     findEligibleForPayout: (...args: unknown[]) =>
       mockFindEligibleForPayout(...args),
     claimForProcessing: (...args: unknown[]) => mockClaimForProcessing(...args),
+    claimForDepositHold: (...args: unknown[]) =>
+      mockClaimForDepositHold(...args),
     findScheduledDepositsNearPickup: (...args: unknown[]) =>
       mockFindScheduledDepositsNearPickup(...args),
     findExpiringDeposits: (...args: unknown[]) =>
@@ -595,7 +598,9 @@ describe("PaymentLifecycleService.scheduleDepositHolds", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFindScheduledDepositsNearPickup.mockResolvedValue([]);
-    mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+    // The claim wins and every compare-and-swap lands by default (CONC-10).
+    mockClaimForDepositHold.mockResolvedValue(true);
+    mockUpdateDepositHoldStatus.mockResolvedValue(true);
   });
 
   it("returns processedCount: 0 when no eligible rentals", async () => {
@@ -668,6 +673,7 @@ describe("PaymentLifecycleService.scheduleDepositHolds", () => {
     expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
       "rental-1",
       "failed",
+      { fromStatus: "placing" },
     );
   });
 
@@ -705,6 +711,123 @@ describe("PaymentLifecycleService.scheduleDepositHolds", () => {
 
     expect(mockPlaceDepositHold).not.toHaveBeenCalled();
     expect(result.failureCount).toBe(1);
+    // Handed back to `scheduled`, so the next run sees it, as before.
+    expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+      "rental-1",
+      "scheduled",
+      { fromStatus: "placing" },
+    );
+  });
+
+  // CONC-10: the eligible list is a snapshot. A renter's cancel or an
+  // overlapping run can take the row before this run reaches it.
+  it("skips a rental whose claim is lost, without calling Stripe", async () => {
+    mockFindScheduledDepositsNearPickup.mockResolvedValue([
+      createMockDepositRental({ rentalId: "rental-1" }),
+      createMockDepositRental({ rentalId: "rental-2" }),
+    ]);
+    mockClaimForDepositHold.mockImplementation(
+      async (id: string) => id === "rental-2",
+    );
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_2",
+    });
+
+    const result = await PaymentLifecycleService.scheduleDepositHolds(20);
+
+    expect(mockPlaceDepositHold).toHaveBeenCalledTimes(1);
+    expect(mockPlaceDepositHold).toHaveBeenCalledWith(
+      expect.objectContaining({ rentalId: "rental-2" }),
+    );
+    expect(result.successCount).toBe(1);
+    expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalledWith(
+      "rental-1",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("finalizes the hold only while the claim is still ours", async () => {
+    mockFindScheduledDepositsNearPickup.mockResolvedValue([
+      createMockDepositRental(),
+    ]);
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_123",
+    });
+
+    await PaymentLifecycleService.scheduleDepositHolds(20);
+
+    expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+      "rental-1",
+      "held",
+      expect.objectContaining({ fromStatus: "placing" }),
+    );
+    // The auth id lands before `held`, so a reader of `held` can release it.
+    expect(mockDbUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpdateDepositHoldStatus.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("releases a hold placed on a rental cancelled mid-placement, and alerts", async () => {
+    mockFindScheduledDepositsNearPickup.mockResolvedValue([
+      createMockDepositRental(),
+    ]);
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_123",
+    });
+    mockUpdateDepositHoldStatus.mockResolvedValue(false);
+    mockReleaseDepositHold.mockResolvedValue(undefined);
+
+    const result = await PaymentLifecycleService.scheduleDepositHolds(20);
+
+    expect(mockReleaseDepositHold).toHaveBeenCalledWith("pi_dep_123");
+    expect(mockSendOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "deposit_hold_released_after_race",
+        rentalId: "rental-1",
+      }),
+    );
+    expect(result).toMatchObject({ successCount: 0, failureCount: 1 });
+  });
+
+  it("pages ops by email when releasing a raced hold fails", async () => {
+    mockFindScheduledDepositsNearPickup.mockResolvedValue([
+      createMockDepositRental(),
+    ]);
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_123",
+    });
+    mockUpdateDepositHoldStatus.mockResolvedValue(false);
+    mockReleaseDepositHold.mockRejectedValue(new Error("stripe down"));
+
+    await PaymentLifecycleService.scheduleDepositHolds(20);
+
+    expect(mockSendOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "deposit_hold_race_release_failed",
+        sendEmailAlert: true,
+      }),
+    );
+  });
+
+  it("stays silent when a failed hold's row was already taken by a cancel", async () => {
+    mockFindScheduledDepositsNearPickup.mockResolvedValue([
+      createMockDepositRental(),
+    ]);
+    mockPlaceDepositHold.mockResolvedValue({
+      success: false,
+      error: "Card declined",
+    });
+    mockUpdateDepositHoldStatus.mockResolvedValue(false);
+
+    await PaymentLifecycleService.scheduleDepositHolds(20);
+
+    expect(mockSendNotification).not.toHaveBeenCalled();
+    expect(mockSendOpsAlert).not.toHaveBeenCalled();
   });
 
   it("resolves payment method from Stripe when not stored on rental", async () => {
@@ -905,7 +1028,8 @@ describe("PaymentLifecycleService.retryDepositHold", () => {
     mockGetRentalRequestById.mockResolvedValue(mockRentalRequest);
     mockGetRentalByRequestId.mockResolvedValue({ id: "rental-1" });
     mockGetByRentalId.mockResolvedValue({ depositHoldStatus: "failed" });
-    mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+    mockClaimForDepositHold.mockResolvedValue(true);
+    mockUpdateDepositHoldStatus.mockResolvedValue(true);
     mockUpdateRentalRequestPaymentMethod.mockResolvedValue(undefined);
     mockCustomersRetrieve.mockResolvedValue({
       invoice_settings: { default_payment_method: "pm_new" },
@@ -1189,8 +1313,85 @@ describe("PaymentLifecycleService.retryDepositHold", () => {
       success: false,
       error: "Card was declined",
     });
-    expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalled();
+    // The claim is handed back so the renter can try again (CONC-10).
+    expect(mockUpdateDepositHoldStatus).toHaveBeenCalledTimes(1);
+    expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+      "rental-1",
+      "failed",
+      { fromStatus: "placing" },
+    );
     expect(mockUpdateRentalRequestPaymentMethod).not.toHaveBeenCalled();
     expect(mockSendNotification).not.toHaveBeenCalled();
+  });
+
+  // CONC-10: a second concurrent retry (e.g. on another card, so another
+  // idempotency key) or a racing cancel took the row first.
+  it("refuses without calling Stripe when the claim is lost", async () => {
+    mockClaimForDepositHold.mockResolvedValue(false);
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Deposit hold is not in a failed state",
+    });
+    expect(mockClaimForDepositHold).toHaveBeenCalledWith("rental-1");
+    expect(mockPlaceDepositHold).not.toHaveBeenCalled();
+    expect(mockUpdateDepositHoldStatus).not.toHaveBeenCalled();
+  });
+
+  it("claims only after its pre-checks, so none of them strands a claim", async () => {
+    mockCustomersRetrieve.mockResolvedValue({ invoice_settings: {} });
+    mockPaymentMethodsList.mockResolvedValue({ data: [] });
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result.success).toBe(false);
+    expect(mockClaimForDepositHold).not.toHaveBeenCalled();
+  });
+
+  it("finalizes the hold only while the claim is still ours", async () => {
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_new",
+    });
+
+    await PaymentLifecycleService.retryDepositHold("req-1", "renter-1");
+
+    expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+      "rental-1",
+      "held",
+      expect.objectContaining({ fromStatus: "placing" }),
+    );
+  });
+
+  it("releases a hold whose rental was cancelled mid-placement", async () => {
+    mockPlaceDepositHold.mockResolvedValue({
+      success: true,
+      paymentIntentId: "pi_dep_new",
+    });
+    mockUpdateDepositHoldStatus.mockResolvedValue(false);
+    mockReleaseDepositHold.mockResolvedValue(undefined);
+
+    const result = await PaymentLifecycleService.retryDepositHold(
+      "req-1",
+      "renter-1",
+    );
+
+    expect(result.success).toBe(false);
+    expect(mockReleaseDepositHold).toHaveBeenCalledWith("pi_dep_new");
+    expect(mockSendOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "deposit_hold_released_after_race",
+        rentalId: "rental-1",
+      }),
+    );
+    expect(mockUpdateRentalRequestPaymentMethod).not.toHaveBeenCalled();
   });
 });

@@ -12,24 +12,36 @@ jobs:
     if: github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
+    # Queue, never overlap: a dispatched run landing on a scheduled one would
+    # otherwise run the same Stripe loops twice at once. Never cancel a run
+    # mid-Stripe-call (CONC-10).
+    concurrency:
+      group: cron-${{ github.job }}
+      cancel-in-progress: false
     steps:
       - name: Schedule deposit holds
+        id: schedule-deposit-holds
+        continue-on-error: true
         run: |
-          curl --fail -s -X GET \
+          curl --fail --max-time 120 -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/schedule-deposit-holds
 
       - name: Expire pending bookings
+        id: expire-pending-bookings
+        continue-on-error: true
         run: |
-          curl --fail -s -X GET \
+          curl --fail --max-time 90 -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/expire-pending-bookings
 
-      # Hourly, unlike the daily payout detectors: a stuck charge claim can mean
-      # a charged renter/requester whose booking never moved on.
+      # Hourly: a stuck charge claim can mean a charged renter/requester whose
+      # booking never moved on.
       - name: Detect stale charge claims
+        id: detect-stale-charge-claims
+        continue-on-error: true
         run: |
-          curl --fail -s -X GET \
+          curl --fail --max-time 90 -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-charge-claims
 
@@ -38,8 +50,10 @@ jobs:
       # skipped run costs nothing: reminders are marked once per deadline in
       # audit_logs, not picked by a one-hour window (P-E13-9).
       - name: Evidence deadlines
+        id: evidence-deadlines
+        continue-on-error: true
         run: |
-          curl --fail -s -X GET \
+          curl --fail --max-time 90 -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/evidence-deadlines
 
@@ -47,57 +61,125 @@ jobs:
       # minutes after a send and drops them after ~24h, so a daily run could
       # miss the window entirely. Requirements: 2.2.4.
       - name: Check push receipts
+        id: check-push-receipts
+        continue-on-error: true
         run: |
-          curl --fail -s -X GET \
+          curl --fail --max-time 90 -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/check-push-receipts
+
+      # Payouts are hourly per spec (payments 0-overview; PERF-05). Each run
+      # handles up to 20 per type, so the old daily run capped payouts at
+      # 20/day. The payout claim and Stripe idempotency keys make the extra
+      # runs safe.
+      - name: Process payouts
+        id: process-payouts
+        continue-on-error: true
+        run: |
+          curl --fail --max-time 120 -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/process-payouts
+
+      - name: Process service payouts
+        id: process-service-payouts
+        continue-on-error: true
+        run: |
+          curl --fail --max-time 120 -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/process-service-payouts
+
+      # With the payouts, so a claim a payout run left stuck is caught
+      # within the hour.
+      - name: Detect stale processing
+        id: detect-stale-processing
+        continue-on-error: true
+        run: |
+          curl --fail --max-time 90 -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-processing
+
+      - name: Detect stale service processing
+        id: detect-stale-service-processing
+        continue-on-error: true
+        run: |
+          curl --fail --max-time 90 -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-service-processing
+
+      # Steps continue on error so one failure can't skip the rest (PERF-06);
+      # this keeps the job red when any of them failed.
+      - name: Check job status
+        if: always()
+        run: |
+          FAILED=0
+          for outcome in \
+            "${{ steps.schedule-deposit-holds.outcome }}" \
+            "${{ steps.expire-pending-bookings.outcome }}" \
+            "${{ steps.detect-stale-charge-claims.outcome }}" \
+            "${{ steps.evidence-deadlines.outcome }}" \
+            "${{ steps.check-push-receipts.outcome }}" \
+            "${{ steps.process-payouts.outcome }}" \
+            "${{ steps.process-service-payouts.outcome }}" \
+            "${{ steps.detect-stale-processing.outcome }}" \
+            "${{ steps.detect-stale-service-processing.outcome }}"; do
+            [ "$outcome" = "failure" ] && FAILED=1
+          done
+          if [ "$FAILED" = "1" ]; then
+            echo "One or more steps failed — see above."
+            exit 1
+          fi
 
   daily:
     if: github.event.schedule == '0 10 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
+    # Queue, never overlap: a dispatched run landing on a scheduled one would
+    # otherwise run the same Stripe loops twice at once. Never cancel a run
+    # mid-Stripe-call (CONC-10).
+    concurrency:
+      group: cron-${{ github.job }}
+      cancel-in-progress: false
     steps:
-      - name: Process payouts
-        run: |
-          curl --fail -s -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/process-payouts
-
-      - name: Process service payouts
-        run: |
-          curl --fail -s -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/process-service-payouts
-
       - name: Monitor deposit expiry
+        id: monitor-deposit-expiry
+        continue-on-error: true
         run: |
-          curl --fail -s -X GET \
+          curl --fail --max-time 90 -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/monitor-deposit-expiry
 
-      - name: Detect stale processing
-        run: |
-          curl --fail -s -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-processing
-
-      - name: Detect stale service processing
-        run: |
-          curl --fail -s -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/detect-stale-service-processing
-
       - name: Release expired reviews
+        id: release-reviews
+        continue-on-error: true
         run: |
-          curl --fail -s -X GET \
+          curl --fail --max-time 90 -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/release-reviews
 
       - name: Send rental reminders
+        id: rental-reminders
+        continue-on-error: true
         run: |
-          curl --fail -s -X GET \
+          curl --fail --max-time 90 -s -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             ${{ vars.NEXT_PUBLIC_APP_URL }}/api/cron/rental-reminders
+
+      # Steps continue on error so one failure can't skip the rest (PERF-06);
+      # this keeps the job red when any of them failed.
+      - name: Check job status
+        if: always()
+        run: |
+          FAILED=0
+          for outcome in \
+            "${{ steps.monitor-deposit-expiry.outcome }}" \
+            "${{ steps.release-reviews.outcome }}" \
+            "${{ steps.rental-reminders.outcome }}"; do
+            [ "$outcome" = "failure" ] && FAILED=1
+          done
+          if [ "$FAILED" = "1" ]; then
+            echo "One or more steps failed — see above."
+            exit 1
+          fi
 
   cleanup:
     if: github.event.schedule == '0 13 * * *' || github.event_name == 'workflow_dispatch'
@@ -106,6 +188,9 @@ jobs:
       matrix:
         environment: [production, staging]
     environment: ${{ matrix.environment }}
+    concurrency:
+      group: cron-${{ github.job }}-${{ matrix.environment }}
+      cancel-in-progress: false
     steps:
       - name: Cleanup notifications
         run: |

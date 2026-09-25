@@ -14,6 +14,7 @@ const mockRecordRefund = vi.fn();
 const mockUpdateDepositHoldStatus = vi.fn();
 const mockUpdateOwnerTransferStatus = vi.fn();
 const mockMarkCancelled = vi.fn();
+const mockGetDepositHoldState = vi.fn();
 const mockGetUserById = vi.fn();
 const mockAuditCreate = vi.fn();
 const mockProcessRefund = vi.fn();
@@ -44,6 +45,8 @@ vi.mock("@/dal", () => ({
     updateOwnerTransferStatus: (...args: unknown[]) =>
       mockUpdateOwnerTransferStatus(...args),
     markCancelled: (...args: unknown[]) => mockMarkCancelled(...args),
+    getDepositHoldState: (...args: unknown[]) =>
+      mockGetDepositHoldState(...args),
   },
   userDAL: {
     getUserById: (...args: unknown[]) => mockGetUserById(...args),
@@ -258,7 +261,7 @@ describe("CancellationService", () => {
       mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
       mockRecordRefund.mockResolvedValue(undefined);
       mockReleaseDepositHold.mockResolvedValue(undefined);
-      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(true);
       mockCancelApprovedRental.mockResolvedValue(undefined);
       mockMarkCancelled.mockResolvedValue(undefined);
       mockSendNotification.mockResolvedValue(undefined);
@@ -326,7 +329,7 @@ describe("CancellationService", () => {
       mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
       mockRecordRefund.mockResolvedValue(undefined);
       mockReleaseDepositHold.mockResolvedValue(undefined);
-      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(true);
       mockCancelApprovedRental.mockResolvedValue(undefined);
       mockMarkCancelled.mockResolvedValue(undefined);
       mockSendNotification.mockResolvedValue(undefined);
@@ -434,7 +437,7 @@ describe("CancellationService", () => {
       mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
       mockRecordRefund.mockResolvedValue(undefined);
       mockReleaseDepositHold.mockResolvedValue(undefined);
-      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(true);
       mockCreateOwnerTransfer.mockResolvedValue({
         success: true,
         transferId: "tr_1",
@@ -499,7 +502,7 @@ describe("CancellationService", () => {
       mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
       mockRecordRefund.mockResolvedValue(undefined);
       mockReleaseDepositHold.mockResolvedValue(undefined);
-      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(true);
       mockCreateOwnerTransfer.mockResolvedValue({
         success: true,
         transferId: "tr_1",
@@ -550,7 +553,7 @@ describe("CancellationService", () => {
       });
       mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
       mockRecordRefund.mockResolvedValue(undefined);
-      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(true);
       mockCancelApprovedRental.mockResolvedValue(undefined);
       mockMarkCancelled.mockResolvedValue(undefined);
       mockSendOpsAlert.mockResolvedValue(undefined);
@@ -611,7 +614,7 @@ describe("CancellationService", () => {
     beforeEach(() => {
       mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
       mockRecordRefund.mockResolvedValue(undefined);
-      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(true);
       mockCancelApprovedRental.mockResolvedValue(undefined);
       mockMarkCancelled.mockResolvedValue(undefined);
       mockSendNotification.mockResolvedValue(undefined);
@@ -684,14 +687,98 @@ describe("CancellationService", () => {
 
       expect(result.success).toBe(true);
       expect(mockReleaseDepositHold).not.toHaveBeenCalled();
+      // A compare-and-swap now: the cron may have claimed it since (CONC-10).
       expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
         "rental-1",
         "released",
+        { fromStatus: ["scheduled", "placing"] },
       );
+      expect(mockGetDepositHoldState).not.toHaveBeenCalled();
       expect(mockMarkCancelled).toHaveBeenCalledWith(
         "rental-1",
         expect.objectContaining({ depositHoldStatus: "released" }),
       );
+    });
+
+    // CONC-10: the cron or a retry is placing the hold right now. Taking the
+    // row makes the placer lose its finalize write and release its own hold.
+    it("deposit 'placing': taken to released, the placer releases its own hold", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue({
+        ...heldContext(),
+        depositHoldStatus: "placing",
+        securityDepositAuthId: null,
+      });
+
+      const result = await cancelApprovedRental(
+        "req-1",
+        "renter-1",
+        "renter",
+        {},
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockUpdateDepositHoldStatus).toHaveBeenCalledWith(
+        "rental-1",
+        "released",
+        { fromStatus: ["scheduled", "placing"] },
+      );
+      expect(mockReleaseDepositHold).not.toHaveBeenCalled();
+    });
+
+    // CONC-10: the context said `scheduled`, but the cron placed the hold
+    // while the refund ran. Writing `released` blindly would strand a live
+    // hold; the swap loses, and the fresh read finds it to release.
+    it("hold placed after the context was read: released, not stranded", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue({
+        ...heldContext(),
+        depositHoldStatus: "scheduled",
+        securityDepositAuthId: null,
+      });
+      mockUpdateDepositHoldStatus.mockResolvedValueOnce(false);
+      mockGetDepositHoldState.mockResolvedValue({
+        depositHoldStatus: "held",
+        securityDepositAuthId: "pi_dep_late",
+      });
+      mockReleaseDepositHold.mockResolvedValue(undefined);
+
+      const result = await cancelApprovedRental(
+        "req-1",
+        "renter-1",
+        "renter",
+        {},
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockGetDepositHoldState).toHaveBeenCalledWith("rental-1");
+      expect(mockReleaseDepositHold).toHaveBeenCalledWith("pi_dep_late");
+      expect(mockUpdateDepositHoldStatus).toHaveBeenLastCalledWith(
+        "rental-1",
+        "released",
+        expect.objectContaining({ depositReleasedAt: expect.any(Date) }),
+      );
+    });
+
+    it("swap lost to a failed placement: nothing to release", async () => {
+      mockGetRentalCancellationContext.mockResolvedValue({
+        ...heldContext(),
+        depositHoldStatus: "scheduled",
+        securityDepositAuthId: null,
+      });
+      mockUpdateDepositHoldStatus.mockResolvedValueOnce(false);
+      mockGetDepositHoldState.mockResolvedValue({
+        depositHoldStatus: "failed",
+        securityDepositAuthId: null,
+      });
+
+      const result = await cancelApprovedRental(
+        "req-1",
+        "renter-1",
+        "renter",
+        {},
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockReleaseDepositHold).not.toHaveBeenCalled();
     });
   });
 
@@ -717,7 +804,7 @@ describe("CancellationService", () => {
       mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
       mockRecordRefund.mockResolvedValue(undefined);
       mockReleaseDepositHold.mockRejectedValue(new Error("stripe unavailable"));
-      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(true);
       mockCreateOwnerTransfer.mockResolvedValue({
         success: true,
         transferId: "tr_1",
@@ -773,7 +860,7 @@ describe("CancellationService", () => {
       mockProcessRefund.mockResolvedValue({ success: true, refundId: "re_1" });
       mockRecordRefund.mockResolvedValue(undefined);
       mockReleaseDepositHold.mockResolvedValue(undefined);
-      mockUpdateDepositHoldStatus.mockResolvedValue(undefined);
+      mockUpdateDepositHoldStatus.mockResolvedValue(true);
       mockCreateOwnerTransfer.mockResolvedValue({
         success: true,
         transferId: "tr_1",

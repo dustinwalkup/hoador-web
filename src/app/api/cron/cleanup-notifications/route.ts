@@ -4,6 +4,9 @@ import { verifyCronSecret } from "@/lib/api/verify-cron-secret";
 import { notificationsDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 
+// Explicit budget rather than the platform default (PERF-06).
+export const maxDuration = 60;
+
 /**
  * Cron job to clean up old notifications.
  * Deletes notifications older than 90 days.

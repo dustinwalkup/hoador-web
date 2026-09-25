@@ -266,14 +266,50 @@ export class PaymentLifecycleDAL extends BaseDAL {
     }
   }
 
-  /** Update deposit hold status. */
+  /**
+   * Atomically claim a rental for deposit-hold placement (CONC-10). Only
+   * `scheduled` and `failed` rows are claimable, the states the cron and the
+   * renter's retry place from. Overlapping cron runs, two concurrent retries
+   * and a cancel all contend for one row, and exactly one wins.
+   */
+  async claimForDepositHold(rentalId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .update(rentalPaymentLifecycle)
+        .set({ depositHoldStatus: "placing", updatedAt: new Date() })
+        .where(
+          and(
+            eq(rentalPaymentLifecycle.rentalId, rentalId),
+            inArray(rentalPaymentLifecycle.depositHoldStatus, [
+              "scheduled",
+              "failed",
+            ]),
+          ),
+        )
+        .returning({ rentalId: rentalPaymentLifecycle.rentalId });
+      return result.length > 0;
+    } catch (error) {
+      this.handleError(error, "PaymentLifecycleDAL.claimForDepositHold");
+    }
+  }
+
+  /**
+   * Update deposit hold status. With `fromStatus`, the write only lands while
+   * the row is still in one of those states (a compare-and-swap); the result
+   * says whether it did. Without it the write is unconditional.
+   */
   async updateDepositHoldStatus(
     rentalId: string,
     status: DepositHoldStatus,
-    extra?: { depositHoldPlacedAt?: Date; depositReleasedAt?: Date },
-  ): Promise<void> {
+    extra?: {
+      depositHoldPlacedAt?: Date;
+      depositReleasedAt?: Date;
+      fromStatus?: DepositHoldStatus | DepositHoldStatus[];
+    },
+  ): Promise<boolean> {
     try {
-      await this.db
+      const from = extra?.fromStatus;
+      const result = await this.db
         .update(rentalPaymentLifecycle)
         .set({
           depositHoldStatus: status,
@@ -285,9 +321,45 @@ export class PaymentLifecycleDAL extends BaseDAL {
           }),
           updatedAt: new Date(),
         })
-        .where(eq(rentalPaymentLifecycle.rentalId, rentalId));
+        .where(
+          from
+            ? and(
+                eq(rentalPaymentLifecycle.rentalId, rentalId),
+                inArray(
+                  rentalPaymentLifecycle.depositHoldStatus,
+                  Array.isArray(from) ? from : [from],
+                ),
+              )
+            : eq(rentalPaymentLifecycle.rentalId, rentalId),
+        )
+        .returning({ rentalId: rentalPaymentLifecycle.rentalId });
+      return result.length > 0;
     } catch (error) {
       this.handleError(error, "PaymentLifecycleDAL.updateDepositHoldStatus");
+    }
+  }
+
+  /**
+   * The deposit's live state, read fresh: lifecycle status plus the auth id on
+   * the rental. For a cancel whose earlier read went stale (CONC-10).
+   */
+  async getDepositHoldState(rentalId: string): Promise<{
+    depositHoldStatus: DepositHoldStatus;
+    securityDepositAuthId: string | null;
+  } | null> {
+    try {
+      const [row] = await this.db
+        .select({
+          depositHoldStatus: rentalPaymentLifecycle.depositHoldStatus,
+          securityDepositAuthId: rentals.securityDepositAuthId,
+        })
+        .from(rentalPaymentLifecycle)
+        .innerJoin(rentals, eq(rentals.id, rentalPaymentLifecycle.rentalId))
+        .where(eq(rentalPaymentLifecycle.rentalId, rentalId))
+        .limit(1);
+      return row ?? null;
+    } catch (error) {
+      this.handleError(error, "PaymentLifecycleDAL.getDepositHoldState");
     }
   }
 
