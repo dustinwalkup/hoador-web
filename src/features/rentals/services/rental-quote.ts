@@ -126,7 +126,7 @@ export async function quoteRentalRequest(
   if (listing.status !== "available" && listing.status !== "rented") {
     blockers.push({
       code: "LISTING_NOT_BOOKABLE",
-      message: "This listing isn't available for booking right now.",
+      message: "This listing isn't available to rent right now.",
     });
   }
   if (!listing.isActive) {
@@ -195,7 +195,7 @@ export async function quoteRentalRequest(
       code: "DATES_UNAVAILABLE",
       message: conflict.reason
         ? `Those dates are unavailable (${conflict.reason})`
-        : "Those dates are already booked",
+        : "Those dates are no longer available",
       conflict,
     });
   }

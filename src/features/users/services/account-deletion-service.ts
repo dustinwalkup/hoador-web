@@ -301,6 +301,7 @@ function notifyCounterparts(anonymized: AnonymizeUserResult): void {
         rentalId: request.id,
         cancelledBy: "renter",
         cancellationReason: "Renter's account was deleted",
+        stage: "request",
       });
     })().catch((e) =>
       captureNonCriticalError(e, {
@@ -313,8 +314,8 @@ function notifyCounterparts(anonymized: AnonymizeUserResult): void {
     sendNotification({
       userId: booking.providerId,
       type: "system",
-      title: "Booking cancelled",
-      message: `The requester's account was deleted; their booking for ${booking.serviceTitle} was withdrawn.`,
+      title: "Booking request cancelled",
+      message: `The client's account was deleted, so their booking request for ${booking.serviceTitle} was withdrawn.`,
       data: { bookingId: booking.id },
     }).catch((e) =>
       captureNonCriticalError(e, {

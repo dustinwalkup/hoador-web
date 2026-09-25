@@ -148,16 +148,16 @@ describe("rentals become all-day spans with lifecycle moments (D17)", () => {
 
   it("names the role from the user's side", () => {
     expect(rentalToEvent(rental({ role: "owner" })).roleLabel).toBe(
-      "Lending to Sarah Chen",
+      "Renting to Sarah Chen",
     );
     expect(rentalToEvent(rental({ role: "renter" })).roleLabel).toBe(
-      "Borrowing from Sarah Chen",
+      "Renting from Sarah Chen",
     );
   });
 
   it("falls back to a role word when the counterparty has no name", () => {
     expect(rentalToEvent(rental({ counterpartyName: " " })).roleLabel).toBe(
-      "Lending to the renter",
+      "Renting to the renter",
     );
   });
 });
@@ -195,51 +195,114 @@ describe("service bookings keep their real time (Req 2.8.4)", () => {
   });
 });
 
-describe("status vocabulary (D-E8-1) — must match the mobile UI kit", () => {
+describe("status vocabulary (guideline §4) — must match the mobile UI kit", () => {
   // The client takes the LABEL from here and the icon/tone from its own map, so
   // this table is duplicated in hoador-mobile's `status-vocabulary.test.tsx`.
-  // Both ends pin it so the two cannot drift into disagreeing.
+  // Both ends pin it so the two cannot drift into disagreeing. Asserted from the
+  // SENDER's side (renter / client): the recipient's pending label is not a
+  // status, and has its own block below.
   it.each([
-    ["pending", "Request"],
+    ["pending", "Request sent"],
     ["approved", "Confirmed"],
     ["active", "Active"],
     ["overdue", "Overdue"],
     ["completed", "Completed"],
     ["cancelled", "Cancelled"],
-    ["denied", "Denied"],
+    ["denied", "Declined"],
   ])("rental %s reads %s", (status, label) => {
-    expect(rentalToEvent(rental({ status })).statusLabel).toBe(label);
+    expect(rentalToEvent(rental({ status, role: "renter" })).statusLabel).toBe(
+      label,
+    );
   });
 
   it.each([
-    ["pending", "Request"],
+    ["pending", "Request sent"],
     ["accepted", "Confirmed"],
     ["declined", "Declined"],
     ["payment_failed", "Payment failed"],
     ["completed", "Completed"],
     ["cancelled", "Cancelled"],
   ])("service booking %s reads %s", (status, label) => {
-    expect(serviceBookingToEvent(booking({ status })).statusLabel).toBe(label);
+    expect(
+      serviceBookingToEvent(booking({ status, role: "client" })).statusLabel,
+    ).toBe(label);
   });
 
-  it("never says Pending or Approved", () => {
+  it("never uses the enum words or the old single Request", () => {
     const labels = [
-      ...["pending", "approved"].map(
-        (s) => rentalToEvent(rental({ status: s })).statusLabel,
+      ...["pending", "approved", "denied"].flatMap((s) =>
+        (["renter", "owner"] as const).map(
+          (role) => rentalToEvent(rental({ status: s, role })).statusLabel,
+        ),
       ),
-      ...["pending", "accepted"].map(
-        (s) => serviceBookingToEvent(booking({ status: s })).statusLabel,
+      ...["pending", "accepted", "declined"].flatMap((s) =>
+        (["client", "provider"] as const).map(
+          (role) =>
+            serviceBookingToEvent(booking({ status: s, role })).statusLabel,
+        ),
       ),
     ];
-    expect(labels).not.toContain("Pending");
-    expect(labels).not.toContain("Approved");
-    expect(labels).not.toContain("Accepted");
+    for (const rejected of [
+      "Pending",
+      "Request",
+      "Requested",
+      "Approved",
+      "Accepted",
+      "Denied",
+    ]) {
+      expect(labels).not.toContain(rejected);
+    }
   });
 
   it("degrades an unrecognized status rather than throwing", () => {
     expect(rentalToEvent(rental({ status: "teleported" })).statusLabel).toBe(
       "Unknown",
     );
+  });
+});
+
+describe("an unanswered request reads by viewer (Req 5.7.2)", () => {
+  it("tells the owner and the provider it is awaiting THEIR response", () => {
+    expect(
+      rentalToEvent(rental({ status: "pending", role: "owner" })).statusLabel,
+    ).toBe("Awaiting your response");
+    expect(
+      serviceBookingToEvent(booking({ status: "pending", role: "provider" }))
+        .statusLabel,
+    ).toBe("Awaiting your response");
+  });
+
+  it("tells the renter and the client their request was sent", () => {
+    expect(
+      rentalToEvent(rental({ status: "pending", role: "renter" })).statusLabel,
+    ).toBe("Request sent");
+    expect(
+      serviceBookingToEvent(booking({ status: "pending", role: "client" }))
+        .statusLabel,
+    ).toBe("Request sent");
+  });
+
+  it("is a label, not a status: the wire status stays pending", () => {
+    expect(
+      rentalToEvent(rental({ status: "pending", role: "owner" })).status,
+    ).toBe("pending");
+  });
+
+  it("stops once the request is answered — both sides see the result", () => {
+    for (const role of ["owner", "renter"] as const) {
+      expect(
+        rentalToEvent(rental({ status: "approved", role })).statusLabel,
+      ).toBe("Confirmed");
+      expect(
+        rentalToEvent(rental({ status: "denied", role })).statusLabel,
+      ).toBe("Declined");
+    }
+    for (const role of ["provider", "client"] as const) {
+      expect(
+        serviceBookingToEvent(booking({ status: "declined", role }))
+          .statusLabel,
+      ).toBe("Declined");
+    }
   });
 });
 

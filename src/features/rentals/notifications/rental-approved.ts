@@ -2,7 +2,7 @@ import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 
 /**
- * Send notification to renter when owner approves their rental request
+ * Send notification to renter when owner accepts their rental request
  */
 export async function sendRentalApprovedNotification({
   userId,
@@ -36,8 +36,8 @@ export async function sendRentalApprovedNotification({
   return await sendNotification({
     userId,
     type: "rental_approved",
-    title: "Rental Request Approved!",
-    message: `${ownerName} approved your rental request for ${listingName}`,
+    title: "Rental Request Accepted!",
+    message: `${ownerName} accepted your rental request for ${listingName}`,
     data: {
       rentalId,
       listingName,
@@ -49,20 +49,20 @@ export async function sendRentalApprovedNotification({
     linkUrl,
     email: {
       to,
-      subject: `Your Rental Request Was Approved: ${listingName}`,
+      subject: `Your Rental Request Was Accepted: ${listingName}`,
       html: `
         <!DOCTYPE html>
         <html>
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Rental Approved</title>
+            <title>Rental Request Accepted</title>
           </head>
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
             ${EMAIL_LOGO_HTML}
             
             <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 30px; border-radius: 4px;">
-              <h2 style="color: #065f46; margin-top: 0;">✅ Rental Request Approved!</h2>
+              <h2 style="color: #065f46; margin-top: 0;">✅ Rental Request Accepted!</h2>
             </div>
             
             <h1 style="color: #333; margin-bottom: 20px;">
@@ -70,7 +70,7 @@ export async function sendRentalApprovedNotification({
             </h1>
             
             <p style="font-size: 16px; margin-bottom: 20px;">
-              Great news! ${ownerName} has approved your rental request for <strong>${listingName}</strong>. Your payment has been processed successfully.
+              Great news! ${ownerName} has accepted your rental request for <strong>${listingName}</strong>. Your payment has been processed successfully.
             </p>
             
             <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
@@ -81,7 +81,7 @@ export async function sendRentalApprovedNotification({
                 <li><strong>Start Date:</strong> ${startDate}</li>
                 <li><strong>End Date:</strong> ${endDate}</li>
                 <li><strong>Total Amount:</strong> $${totalAmount}</li>
-                <li><strong>Status:</strong> Approved - Awaiting Start</li>
+                <li><strong>Status:</strong> Confirmed - Awaiting Start</li>
               </ul>
             </div>
             
@@ -114,7 +114,7 @@ export async function sendRentalApprovedNotification({
       text: `
 Hi ${renterName},
 
-Great news! ${ownerName} has approved your rental request for ${listingName}. Your payment has been processed successfully.
+Great news! ${ownerName} has accepted your rental request for ${listingName}. Your payment has been processed successfully.
 
 Rental Details:
 - Listing: ${listingName}
@@ -122,7 +122,7 @@ Rental Details:
 - Start Date: ${startDate}
 - End Date: ${endDate}
 - Total Amount: $${totalAmount}
-- Status: Approved - Awaiting Start
+- Status: Confirmed - Awaiting Start
 
 Next Steps:
 1. Wait for ${ownerName} to start the rental on ${startDate}

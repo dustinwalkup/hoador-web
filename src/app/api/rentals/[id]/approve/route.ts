@@ -96,7 +96,7 @@ async function postHandler(
     const data = result.data;
     if (!data) {
       return NextResponse.json(
-        { error: "Failed to approve rental request" },
+        { error: "Failed to accept rental request" },
         { status: 500 },
       );
     }

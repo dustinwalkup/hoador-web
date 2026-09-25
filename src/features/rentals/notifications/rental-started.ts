@@ -23,8 +23,8 @@ export async function sendRentalStartedNotification({
   return await sendNotification({
     userId,
     type: "rental_started",
-    title: "Your Rental Has Started",
-    message: `${ownerName} has started your rental for ${listingName}. The rental is now active!`,
+    title: "Rental Started",
+    message: `${ownerName} started your rental of ${listingName}.`,
     data: {
       rentalId,
       listingName,

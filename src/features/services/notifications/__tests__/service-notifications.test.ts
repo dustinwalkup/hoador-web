@@ -29,6 +29,8 @@ import {
   sendListingRejectedNotification,
   sendNewBookingRequestNotification,
   sendNoShowReportAdminNotification,
+  sendPaymentMethodUpdatedProviderNotification,
+  sendPaymentMethodUpdatedRequesterConfirmationNotification,
   sendServicePayoutNotification,
 } from "../service-notifications";
 
@@ -244,5 +246,125 @@ describe("service-notifications (sendNotification delegation)", () => {
     expect(payload.message).toContain("April 15, 2026");
     expect(payload.email.html).toContain("April 15, 2026");
     expect(payload.email.text).toContain("April 15, 2026");
+  });
+});
+
+/**
+ * TERMINOLOGY-GUIDELINES §3.2 and §6.2: a booking is only a booking once it is
+ * accepted, the person on the other side is the client (never "requester"),
+ * notifications lead with that person, and payouts go to the payout account.
+ */
+describe("service-notifications (canonical terminology)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSendNotification.mockResolvedValue({ success: true });
+    mockListingGetById.mockResolvedValue({ ...baseListing, title: "Drain" });
+    mockGetUserById.mockImplementation(async (id: string) => ({
+      id,
+      email: `${id}@example.com`,
+      firstName: id === "req-1" ? "Casey" : "Pat",
+      lastName: id === "req-1" ? "Client" : "Provider",
+      name: id,
+    }));
+  });
+
+  function lastPayload() {
+    return mockSendNotification.mock.calls.at(-1)?.[0] as {
+      title: string;
+      message: string;
+      email: { subject: string; html: string; text: string };
+    };
+  }
+
+  it("a new booking request leads with the client's name", async () => {
+    await sendNewBookingRequestNotification("prov-1", baseBooking as never);
+    const payload = lastPayload();
+    expect(payload.title).toBe("New booking request");
+    expect(payload.message).toBe(
+      'Casey Client requested "Drain" for April 15, 2026.',
+    );
+  });
+
+  it("a new booking request still sends when the client can't be named", async () => {
+    mockGetUserById.mockImplementation(async (id: string) => {
+      if (id === "req-1") throw new Error("User not found");
+      return { id, email: "p@example.com", firstName: "Pat", name: id };
+    });
+    await sendNewBookingRequestNotification("prov-1", baseBooking as never);
+    expect(lastPayload().message).toBe(
+      'A neighbor requested "Drain" for April 15, 2026.',
+    );
+  });
+
+  it("accepting and declining name the booking request", async () => {
+    await sendBookingAcceptedNotification("req-1", baseBooking as never);
+    expect(lastPayload().title).toBe("Booking request accepted");
+    expect(lastPayload().message).toMatch(/^Your booking request for "Drain"/);
+    expect(lastPayload().email.subject).toBe("Booking request accepted: Drain");
+
+    await sendBookingDeclinedNotification(
+      "req-1",
+      baseBooking as never,
+      "Busy",
+    );
+    expect(lastPayload().title).toBe("Booking request declined");
+    expect(lastPayload().email.text).toContain(
+      "Your booking request for Drain was declined.",
+    );
+  });
+
+  it("a payout goes to the payout account, not a 'connected account'", async () => {
+    await sendServicePayoutNotification("prov-1", baseBooking as never);
+    const payload = lastPayload();
+    expect(payload.message).toBe(
+      'Payout for "Drain" was sent to your payout account.',
+    );
+    expect(payload.email.html).not.toMatch(/connected account/i);
+  });
+
+  it("a payment-method update names the client, never 'the requester'", async () => {
+    await sendPaymentMethodUpdatedProviderNotification(
+      "prov-1",
+      { id: "book-1", listingId: "list-1" },
+      "req-1",
+    );
+    const payload = lastPayload();
+    expect(payload.title).toBe("Casey Client updated their payment method");
+    expect(payload.message).toBe(
+      'Casey Client updated their payment method for "Drain". You can now retry accepting the booking request.',
+    );
+    expect(payload.email.subject).toBe(
+      "Action needed: retry booking request for Drain",
+    );
+    expect(JSON.stringify(payload)).not.toMatch(/requester/i);
+
+    await sendPaymentMethodUpdatedRequesterConfirmationNotification("req-1", {
+      id: "book-1",
+      listingId: "list-1",
+    });
+    expect(lastPayload().message).toBe(
+      'Your provider has been notified and can now retry accepting your booking request for "Drain".',
+    );
+  });
+
+  it("moderation says 'needs changes', never 'not approved'", async () => {
+    await sendListingRejectedNotification(
+      "prov-1",
+      baseListing as never,
+      "Blurry photos",
+    );
+    const payload = lastPayload();
+    expect(payload.title).toBe("Listing needs changes");
+    expect(payload.message).toBe(
+      '"Drain" needs changes before it can be approved. Reason: Blurry photos',
+    );
+  });
+
+  it("staff see 'pending approval' for a new service listing", async () => {
+    mockGetStaff.mockResolvedValue([
+      { id: "admin-1", email: "admin@hoa.com", firstName: "Admin" },
+    ]);
+    await sendListingPendingAdminNotification(baseListing as never);
+    expect(lastPayload().title).toBe("Service listing pending approval");
   });
 });

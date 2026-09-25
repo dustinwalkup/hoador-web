@@ -183,7 +183,7 @@ describe("GET /api/dashboard/summary", () => {
       id: "sb-1",
       listingName: "Lawn mowing",
       requesterName: "Ada Lovelace",
-      statusText: "Awaiting your confirmation",
+      statusText: "Awaiting your response",
       detailUrl: "/dashboard/services/bookings/sb-1",
     });
   });

@@ -738,9 +738,7 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
       // cleanly. drizzle wraps the pg error; its code is on `.cause` (SEC-16).
       const pgError = (error as { cause?: { code?: string } }).cause ?? error;
       if ((pgError as { code?: string }).code === "23505") {
-        throw new ConflictError(
-          "This listing is already linked to a neighborhood need",
-        );
+        throw new ConflictError("This listing is already linked to a need");
       }
       this.handleError(error, "linkListing");
     }

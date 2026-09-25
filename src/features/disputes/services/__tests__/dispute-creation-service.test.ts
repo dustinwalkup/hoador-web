@@ -537,5 +537,43 @@ describe("DisputeCreationService.createDispute", () => {
         }),
       );
     });
+
+    // Mobile renders this refusal word for word. The reason is labeled
+    // "Client no-show" there, so the error must not say "Requester"; and a
+    // booking is a booking, not a "service booking" (TERMINOLOGY-GUIDELINES §3.2).
+    it("names the no-show reason by its client label, never the enum or 'requester'", async () => {
+      vi.mocked(serviceBookingDAL.getById).mockResolvedValue(
+        bookingDetail as never,
+      );
+
+      await expect(
+        DisputeCreationService.createDispute({
+          serviceBookingId: "booking-1",
+          reasonCode: "requester_no_show",
+          description: "Test",
+          userId: "requester-1",
+        }),
+      ).rejects.toThrow(
+        'Reason "Client no-show" can only be selected when filing as the provider',
+      );
+    });
+
+    it("refuses a booking request with 'bookings' prose, not 'service bookings'", async () => {
+      vi.mocked(serviceBookingDAL.getById).mockResolvedValue({
+        ...bookingDetail,
+        status: "pending",
+      } as never);
+
+      await expect(
+        DisputeCreationService.createDispute({
+          serviceBookingId: "booking-1",
+          reasonCode: "damage",
+          description: "Test",
+          userId: "requester-1",
+        }),
+      ).rejects.toThrow(
+        "Disputes can only be filed for confirmed or completed bookings",
+      );
+    });
   });
 });

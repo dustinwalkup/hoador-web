@@ -109,10 +109,10 @@ async function processExpiredRental(row: {
   await sendNotification({
     userId: row.ownerId,
     type: "rental_cancelled",
-    title: "Pending request expired",
+    title: "Rental request expired",
     message: ownerNotPayoutReady
-      ? `Your pending request for ${row.listingName} expired. Set up your payout account so you can accept future bookings the moment they come in.`
-      : `Your pending request for ${row.listingName} expired without acceptance.`,
+      ? `The rental request for ${row.listingName} expired. Set up payouts so you can accept future rental requests the moment they come in.`
+      : `The rental request for ${row.listingName} expired without a response.`,
     data: { rentalRequestId: row.id, listingId: row.listingId },
     linkUrl: ownerNotPayoutReady
       ? `/dashboard/payments/earnings-and-payouts`
@@ -162,12 +162,12 @@ async function processExpiredService(row: {
   await sendNotification({
     userId: row.providerId,
     type: "service_booking_declined",
-    title: "Pending booking expired",
+    title: "Booking request expired",
     message: providerNotPayoutReady
-      ? `Your pending booking for "${row.listingTitle}" expired. Set up your payout account so you can accept future bookings the moment they come in.`
+      ? `The booking request for "${row.listingTitle}" expired. Set up payouts so you can accept future booking requests the moment they come in.`
       : paymentFailed
-        ? `Your booking for "${row.listingTitle}" expired because the client's payment never went through.`
-        : `Your pending booking for "${row.listingTitle}" expired without acceptance.`,
+        ? `The booking request for "${row.listingTitle}" expired because the client's payment never went through.`
+        : `The booking request for "${row.listingTitle}" expired without a response.`,
     data: { bookingId: row.id, listingId: row.listingId },
     linkUrl: providerNotPayoutReady
       ? `/dashboard/payments/earnings-and-payouts`

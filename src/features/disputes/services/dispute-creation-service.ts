@@ -148,7 +148,7 @@ export class DisputeCreationService {
       const actualRental = await rentalDAL.getRentalByRequestId(rental.id);
       if (!actualRental) {
         throw new ValidationError(
-          "Cannot create dispute for a rental request that has not been approved",
+          "Cannot create dispute for a rental request that has not been accepted",
         );
       }
       actualRentalId = actualRental.id;
@@ -276,7 +276,7 @@ export class DisputeCreationService {
   ): void {
     if (reasonCode === "requester_no_show" && createdByRole !== "provider") {
       throw new ValidationError(
-        'Reason "Requester no-show" can only be selected when filing as the provider',
+        'Reason "Client no-show" can only be selected when filing as the provider',
         "reasonCode",
       );
     }
@@ -307,7 +307,7 @@ export class DisputeCreationService {
 
     if (detail.status !== "accepted" && detail.status !== "completed") {
       throw new ValidationError(
-        "Disputes can only be filed for accepted or completed service bookings",
+        "Disputes can only be filed for confirmed or completed bookings",
         "status",
       );
     }
@@ -316,7 +316,7 @@ export class DisputeCreationService {
     const isProvider = detail.providerId === userId;
     if (!isRequester && !isProvider) {
       throw new ForbiddenError(
-        "You can only create disputes for your own service bookings",
+        "You can only create disputes for your own bookings",
       );
     }
 
@@ -331,7 +331,7 @@ export class DisputeCreationService {
       (reasonCode === "provider_no_show" || reasonCode === "requester_no_show")
     ) {
       throw new ValidationError(
-        `Cannot file "${reasonCode}" on a completed service booking`,
+        `Cannot file "${reasonCode === "provider_no_show" ? "Provider no-show" : "Client no-show"}" on a completed booking`,
         "reasonCode",
       );
     }
@@ -340,7 +340,7 @@ export class DisputeCreationService {
       await disputeDAL.getActiveByServiceBookingId(serviceBookingId);
     if (existing) {
       throw new DisputeAlreadyExistsError(
-        "An active dispute already exists for this service booking",
+        "An active dispute already exists for this booking",
         { disputeId: existing.id, resolved: false },
       );
     }
@@ -353,7 +353,7 @@ export class DisputeCreationService {
         priorServiceDispute.status === "closed")
     ) {
       throw new DisputeAlreadyExistsError(
-        "A dispute for this service booking has already been resolved",
+        "A dispute for this booking has already been resolved",
         { disputeId: priorServiceDispute.id, resolved: true },
       );
     }
@@ -440,9 +440,7 @@ export class DisputeCreationService {
       });
     } catch (err) {
       if (err instanceof ConflictError) {
-        throw new ConflictError(
-          "A dispute for this service booking already exists",
-        );
+        throw new ConflictError("A dispute for this booking already exists");
       }
       throw err;
     }

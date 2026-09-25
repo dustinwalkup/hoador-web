@@ -24,7 +24,7 @@ export async function sendRentalEndedNotification({
     userId,
     type: "rental_ended",
     title: "Rental Completed",
-    message: `Your rental for ${listingName} has been completed by ${ownerName}. Please leave a review!`,
+    message: `${ownerName} confirmed the return of ${listingName}. Please leave a review!`,
     data: {
       rentalId,
       listingName,

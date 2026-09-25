@@ -50,6 +50,16 @@ async function recipientForUserId(userId: string): Promise<{
   return { email: u.email, displayName };
 }
 
+/**
+ * The name to lead a notification with (TERMINOLOGY-GUIDELINES §6.2), or
+ * `fallback`. A missing or unreadable user must not stop the notification,
+ * so a failed lookup degrades to the fallback rather than throwing.
+ */
+async function personNameOr(userId: string, fallback: string): Promise<string> {
+  const person = await recipientForUserId(userId).catch(() => null);
+  return person?.displayName || fallback;
+}
+
 function compactEmailHtml(opts: {
   heading: string;
   greeting: string;
@@ -96,12 +106,13 @@ export async function sendNewBookingRequestNotification(
   }
 
   const when = formatBookingDate(booking);
+  const clientName = await personNameOr(booking.requesterId, "A neighbor");
 
   return await sendNotification({
     userId: providerId,
     type: "service_booking_requested",
-    title: "New service booking request",
-    message: `Someone requested "${listingName}" for ${when}.`,
+    title: "New booking request",
+    message: `${clientName} requested "${listingName}" for ${when}.`,
     data: {
       bookingId: booking.id,
       listingId: booking.listingId,
@@ -156,8 +167,8 @@ export async function sendBookingAcceptedNotification(
   return await sendNotification({
     userId: requesterId,
     type: "service_booking_accepted",
-    title: "Booking accepted",
-    message: `Your booking for "${listingName}" on ${when} was accepted and payment was processed.`,
+    title: "Booking request accepted",
+    message: `Your booking request for "${listingName}" on ${when} was accepted and payment was processed.`,
     data: {
       bookingId: booking.id,
       listingId: booking.listingId,
@@ -167,12 +178,12 @@ export async function sendBookingAcceptedNotification(
     linkUrl,
     email: {
       to: recipient.email,
-      subject: `Booking accepted: ${listingName}`,
+      subject: `Booking request accepted: ${listingName}`,
       html: compactEmailHtml({
-        heading: "Booking accepted",
+        heading: "Booking request accepted",
         greeting: `Hi ${escapeHtml(recipient.displayName)},`,
         bodyLines: [
-          `Your booking for <strong>${escapeHtml(listingName)}</strong> was <strong>accepted</strong>.`,
+          `Your booking request for <strong>${escapeHtml(listingName)}</strong> was <strong>accepted</strong>.`,
           `We successfully processed your payment for <strong>$${escapeHtml(String(booking.totalAmount))}</strong>.`,
           `Scheduled for: <strong>${escapeHtml(when)}</strong> at <strong>${escapeHtml(booking.proposedTime)}</strong>.`,
         ],
@@ -181,7 +192,7 @@ export async function sendBookingAcceptedNotification(
       text: [
         `Hi ${recipient.displayName},`,
         "",
-        `Your booking for ${listingName} was accepted.`,
+        `Your booking request for ${listingName} was accepted.`,
         `Payment processed: $${booking.totalAmount}.`,
         `Scheduled for: ${when} at ${booking.proposedTime}.`,
         "",
@@ -212,7 +223,7 @@ export async function sendBookingDeclinedNotification(
   return await sendNotification({
     userId: requesterId,
     type: "service_booking_declined",
-    title: "Booking declined",
+    title: "Booking request declined",
     message: `Your booking request for "${listingName}" was declined.`,
     data: {
       bookingId: booking.id,
@@ -222,9 +233,9 @@ export async function sendBookingDeclinedNotification(
     linkUrl,
     email: {
       to: recipient.email,
-      subject: `Booking declined: ${listingName}`,
+      subject: `Booking request declined: ${listingName}`,
       html: compactEmailHtml({
-        heading: "Booking declined",
+        heading: "Booking request declined",
         greeting: `Hi ${escapeHtml(recipient.displayName)},`,
         bodyLines: [
           `The provider declined your request for <strong>${escapeHtml(listingName)}</strong>.`,
@@ -235,7 +246,7 @@ export async function sendBookingDeclinedNotification(
       text: [
         `Hi ${recipient.displayName},`,
         "",
-        `Your booking for ${listingName} was declined.`,
+        `Your booking request for ${listingName} was declined.`,
         `Reason: ${reason}`,
         "",
         linkUrl,
@@ -311,7 +322,7 @@ export async function sendServicePayoutNotification(
     userId: providerId,
     type: "service_payout_sent",
     title: "Payout sent",
-    message: `Payout for "${listingName}" was sent to your connected account.`,
+    message: `Payout for "${listingName}" was sent to your payout account.`,
     data: {
       bookingId: booking.id,
       listingId: booking.listingId,
@@ -325,7 +336,7 @@ export async function sendServicePayoutNotification(
         heading: "Payout sent",
         greeting: `Hi ${escapeHtml(recipient.displayName)},`,
         bodyLines: [
-          `We sent your payout for <strong>${escapeHtml(listingName)}</strong> to your Stripe connected account.`,
+          `We sent your payout for <strong>${escapeHtml(listingName)}</strong> to your payout account.`,
           `Booking: <strong>${escapeHtml(booking.id)}</strong>.`,
         ],
         cta: { label: "View booking", href: linkUrl },
@@ -342,11 +353,13 @@ export async function sendServicePayoutNotification(
 }
 
 /**
- * Notify the provider that the requester updated their payment method and the booking can be retried.
+ * Notify the provider that the client updated their payment method and the
+ * booking request can be retried.
  */
 export async function sendPaymentMethodUpdatedProviderNotification(
   providerId: string,
   booking: { id: string; listingId: string },
+  clientId: string,
 ): Promise<ReturnType<typeof sendNotification>> {
   const baseUrl = appBaseUrl();
   const linkUrl = `${baseUrl}/dashboard/services/bookings/${booking.id}`;
@@ -356,11 +369,13 @@ export async function sendPaymentMethodUpdatedProviderNotification(
     return { success: false, error: "Provider not found" };
   }
 
+  const clientName = await personNameOr(clientId, "Your client");
+
   return await sendNotification({
     userId: providerId,
     type: "payment_failed",
-    title: "Requester updated their payment method",
-    message: `The requester has updated their payment method for "${listingName}". You can now retry accepting the booking.`,
+    title: `${clientName} updated their payment method`,
+    message: `${clientName} updated their payment method for "${listingName}". You can now retry accepting the booking request.`,
     data: {
       bookingId: booking.id,
       listingId: booking.listingId,
@@ -368,21 +383,21 @@ export async function sendPaymentMethodUpdatedProviderNotification(
     linkUrl,
     email: {
       to: recipient.email,
-      subject: `Action needed: retry service booking for ${listingName}`,
+      subject: `Action needed: retry booking request for ${listingName}`,
       html: compactEmailHtml({
         heading: "Payment method updated",
         greeting: `Hi ${escapeHtml(recipient.displayName)},`,
         bodyLines: [
-          `The requester has updated their payment method for <strong>${escapeHtml(listingName)}</strong>.`,
-          `You can now retry accepting the booking.`,
+          `${escapeHtml(clientName)} updated their payment method for <strong>${escapeHtml(listingName)}</strong>.`,
+          `You can now retry accepting the booking request.`,
         ],
         cta: { label: "View booking", href: linkUrl },
       }),
       text: [
         `Hi ${recipient.displayName},`,
         "",
-        `The requester updated their payment method for ${listingName}.`,
-        `You can now retry accepting the booking.`,
+        `${clientName} updated their payment method for ${listingName}.`,
+        `You can now retry accepting the booking request.`,
         "",
         linkUrl,
       ].join("\n"),
@@ -409,7 +424,7 @@ export async function sendPaymentMethodUpdatedRequesterConfirmationNotification(
     userId: requesterId,
     type: "payment_failed",
     title: "Provider notified",
-    message: `Your provider has been notified and can now retry accepting your booking for "${listingName}".`,
+    message: `Your provider has been notified and can now retry accepting your booking request for "${listingName}".`,
     data: {
       bookingId: booking.id,
       listingId: booking.listingId,
@@ -423,7 +438,7 @@ export async function sendPaymentMethodUpdatedRequesterConfirmationNotification(
         greeting: `Hi ${escapeHtml(recipient.displayName)},`,
         bodyLines: [
           `Your provider has been notified that you updated your payment method for <strong>${escapeHtml(listingName)}</strong>.`,
-          `They can now retry accepting your booking.`,
+          `They can now retry accepting your booking request.`,
         ],
         cta: { label: "View booking", href: linkUrl },
       }),
@@ -431,7 +446,7 @@ export async function sendPaymentMethodUpdatedRequesterConfirmationNotification(
         `Hi ${recipient.displayName},`,
         "",
         `Your provider has been notified that you updated your payment method for ${listingName}.`,
-        `They can now retry accepting your booking.`,
+        `They can now retry accepting your booking request.`,
         "",
         linkUrl,
       ].join("\n"),
@@ -505,8 +520,8 @@ export async function sendListingRejectedNotification(
   return await sendNotification({
     userId: providerId,
     type: "service_listing_rejected",
-    title: "Listing not approved",
-    message: `"${listing.title}" was not approved. Reason: ${reason}`,
+    title: "Listing needs changes",
+    message: `"${listing.title}" needs changes before it can be approved. Reason: ${reason}`,
     data: {
       listingId: listing.id,
       title: listing.title,
@@ -517,10 +532,10 @@ export async function sendListingRejectedNotification(
       to: recipient.email,
       subject: `Listing update: ${listing.title}`,
       html: compactEmailHtml({
-        heading: "Listing not approved",
+        heading: "Listing needs changes",
         greeting: `Hi ${escapeHtml(recipient.displayName)},`,
         bodyLines: [
-          `Your listing <strong>${escapeHtml(listing.title)}</strong> was not approved.`,
+          `Your listing <strong>${escapeHtml(listing.title)}</strong> needs changes before it can be approved.`,
           `<strong>Reason:</strong> ${safeReason}`,
         ],
         cta: { label: "View listing", href: linkUrl },
@@ -528,7 +543,7 @@ export async function sendListingRejectedNotification(
       text: [
         `Hi ${recipient.displayName},`,
         "",
-        `Your listing "${listing.title}" was not approved.`,
+        `Your listing "${listing.title}" needs changes before it can be approved.`,
         `Reason: ${reason}`,
         "",
         linkUrl,
@@ -554,7 +569,7 @@ export async function sendListingPendingAdminNotification(
       sendNotification({
         userId: admin.id,
         type: "service_listing_pending",
-        title: "Service listing pending review",
+        title: "Service listing pending approval",
         message: `${providerLabel} submitted "${listing.title}" for approval.`,
         data: {
           listingId: listing.id,
@@ -566,7 +581,7 @@ export async function sendListingPendingAdminNotification(
           to: admin.email,
           subject: `Review service listing: ${listing.title}`,
           html: compactEmailHtml({
-            heading: "Listing pending review",
+            heading: "Listing pending approval",
             greeting: `Hi ${escapeHtml([admin.firstName, admin.lastName].filter(Boolean).join(" ").trim() || "there")},`,
             bodyLines: [
               `<strong>${escapeHtml(providerLabel)}</strong> submitted <strong>${escapeHtml(listing.title)}</strong> for approval.`,
@@ -574,7 +589,7 @@ export async function sendListingPendingAdminNotification(
             cta: { label: "Open review queue", href: linkUrl },
           }),
           text: [
-            `A new service listing is pending review: ${listing.title}`,
+            `A new service listing is pending approval: ${listing.title}`,
             "",
             linkUrl,
           ].join("\n"),

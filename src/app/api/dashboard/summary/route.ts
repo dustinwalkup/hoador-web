@@ -23,9 +23,12 @@ import { toWallClock } from "@/features/schedule/lib/build-schedule";
 const ACTIVITY_LIMIT = 10;
 const PENDING_PREVIEW_LIMIT = 5;
 
-/** Mirrors the widget copy in `src/features/dashboard/_widgets/pending-requests.widget.tsx`. */
+/**
+ * The recipient's attention label on a pending request, rental or booking alike
+ * (TERMINOLOGY-GUIDELINES §4 — an attention label, not a lifecycle status).
+ */
 const RENTAL_PENDING_STATUS_TEXT = "Awaiting your response";
-const SERVICE_PENDING_STATUS_TEXT = "Awaiting your confirmation";
+const SERVICE_PENDING_STATUS_TEXT = "Awaiting your response";
 
 const PULSE_FALLBACK: DashboardPulseData = {
   action: {

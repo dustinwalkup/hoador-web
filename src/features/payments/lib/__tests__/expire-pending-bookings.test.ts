@@ -138,7 +138,14 @@ describe("expirePendingBookings", () => {
     expect(renterCall?.message).not.toMatch(/Stripe|payout|connect/i);
 
     const ownerCall = calls.find((c) => c.userId === "owner-1");
-    expect(ownerCall?.message).not.toMatch(/Set up your payout account/);
+    // The owner never made the request: it is named as the rental request it
+    // was, not "your pending request" (TERMINOLOGY-GUIDELINES §3.1).
+    expect(ownerCall).toMatchObject({
+      title: "Rental request expired",
+      message:
+        "The rental request for Power Washer expired without a response.",
+    });
+    expect(ownerCall?.message).not.toMatch(/Set up payouts/);
     expect(ownerCall?.linkUrl).toBe("/dashboard/rental/rental-1");
 
     expect(logGatingEventMock).not.toHaveBeenCalled();
@@ -153,7 +160,9 @@ describe("expirePendingBookings", () => {
     const ownerCall = sendNotificationMock.mock.calls
       .map((c) => c[0])
       .find((c) => c.userId === "owner-1");
-    expect(ownerCall?.message).toContain("Set up your payout account");
+    expect(ownerCall?.message).toContain(
+      "Set up payouts so you can accept future rental requests",
+    );
     expect(ownerCall?.linkUrl).toBe("/dashboard/payments/earnings-and-payouts");
 
     expect(logGatingEventMock).toHaveBeenCalledWith(
@@ -283,7 +292,10 @@ describe("expirePendingBookings", () => {
     const providerCall = sendNotificationMock.mock.calls
       .map((c) => c[0])
       .find((c) => c.userId === "provider-1");
-    expect(providerCall?.message).toContain("Set up your payout account");
+    expect(providerCall?.title).toBe("Booking request expired");
+    expect(providerCall?.message).toContain(
+      "Set up payouts so you can accept future booking requests",
+    );
     expect(providerCall?.linkUrl).toBe(
       "/dashboard/payments/earnings-and-payouts",
     );

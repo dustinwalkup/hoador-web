@@ -38,6 +38,7 @@ const mockBulkCreate = vi.fn();
 const mockGetPushTargets = vi.fn();
 const mockBroadcastPush = vi.fn();
 const mockCaptureError = vi.fn();
+const mockGetUserById = vi.fn();
 const mockAfter = vi.fn((fn: () => Promise<void>) => fn());
 // Captures the fire-and-forget after() callback so tests can await the fan-out.
 let afterPromise: Promise<void> | undefined;
@@ -77,6 +78,9 @@ vi.mock("@/dal", () => ({
   },
   serviceListingDAL: {
     listCategories: (...a: unknown[]) => mockListCategories(...a),
+  },
+  userDAL: {
+    getUserById: (...a: unknown[]) => mockGetUserById(...a),
   },
 }));
 
@@ -138,6 +142,7 @@ const CLOSED_NEED = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockSendNotification.mockResolvedValue({ inApp: true });
+  mockGetUserById.mockResolvedValue({ firstName: "Sarah", lastName: "Lee" });
   mockAfter.mockImplementation((fn: () => Promise<void>) => {
     afterPromise = fn();
     return afterPromise;
@@ -224,8 +229,8 @@ describe("createNeed", () => {
       communityId: "comm-1",
       excludeUserId: "user-1",
       type: "neighborhood_need_created",
-      title: "New Neighborhood Need",
-      message: 'A neighbor posted a new rental request: "Need a drill"',
+      title: "New need",
+      message: 'Sarah Lee is looking for an item: "Need a drill"',
       // `linkUrl` rides in `data`, exactly as `sendNotification` wrote it.
       data: {
         needId: "need-1",
@@ -234,6 +239,26 @@ describe("createNeed", () => {
       },
     });
     expect(mockSendNotification).not.toHaveBeenCalled();
+  });
+
+  // TERMINOLOGY-GUIDELINES §3.3: a need is a post, not a request; its types
+  // read Item / Service; and a poster with no name is "A neighbor", which is
+  // also what a failed lookup degrades to rather than failing the fan-out.
+  it("names a service need's type, and falls back to 'A neighbor' when the poster can't be named", async () => {
+    mockGetPrimary.mockResolvedValue(PRIMARY);
+    mockListCategories.mockResolvedValue([{ id: "cat-1", name: "Cleaning" }]);
+    mockCreateNeed.mockResolvedValue({ ...OPEN_NEED, type: "service" });
+    mockGetUserById.mockRejectedValue(new Error("User not found"));
+
+    await createNeed("user-1", { ...input, type: "service" });
+    await afterPromise;
+
+    expect(mockBulkCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "New need",
+        message: 'A neighbor is looking for a service: "Need a drill"',
+      }),
+    );
   });
 
   it("pushes only to the opted-in targets, in one broadcast", async () => {
@@ -258,8 +283,8 @@ describe("createNeed", () => {
     expect(sentTo).toBe(targets);
     // Reference ids only: the allowlisted payload `sendNotification` built.
     expect(payload).toEqual({
-      title: "New Neighborhood Need",
-      body: 'A neighbor posted a new rental request: "Need a drill"',
+      title: "New need",
+      body: 'Sarah Lee is looking for an item: "Need a drill"',
       linkUrl: expect.stringMatching(/\/dashboard\/needs\/need-1$/),
       data: { type: "neighborhood_need_created", needId: "need-1" },
     });
@@ -641,6 +666,8 @@ describe("notifyRequesterListingLive", () => {
       expect.objectContaining({
         userId: "user-1",
         type: "neighborhood_need_listing_created",
+        title: "A listing was created for your need",
+        message: "A new listing has been created for your need.",
         linkUrl: expect.stringContaining("listings/listing-1"),
       }),
     );
@@ -657,6 +684,7 @@ describe("notifyRequesterListingLive", () => {
 
     expect(mockSendNotification).toHaveBeenCalledWith(
       expect.objectContaining({
+        message: "A new service listing has been created for your need.",
         linkUrl: expect.stringContaining("services/listings/svc-1"),
       }),
     );

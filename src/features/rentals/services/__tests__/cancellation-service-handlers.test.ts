@@ -145,7 +145,13 @@ describe("CancellationService", () => {
           userId: "renter-1",
         }),
       );
-      expect(mockSendRentalCancelledNotification).toHaveBeenCalled();
+      // Still a request, so the owner is told a rental REQUEST was cancelled.
+      expect(mockSendRentalCancelledNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipientUserId: "owner-1",
+          stage: "request",
+        }),
+      );
       expect(mockProcessRefund).not.toHaveBeenCalled();
       expect(mockReleaseDepositHold).not.toHaveBeenCalled();
       expect(mockCreateOwnerTransfer).not.toHaveBeenCalled();
@@ -292,6 +298,13 @@ describe("CancellationService", () => {
       );
       expect(mockSendOpsAlert).toHaveBeenCalledWith(
         expect.objectContaining({ sendEmailAlert: true }),
+      );
+      // Accepted, so it is a rental now, not a request.
+      expect(mockSendRentalCancelledNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipientUserId: "owner-1",
+          stage: "rental",
+        }),
       );
     });
 

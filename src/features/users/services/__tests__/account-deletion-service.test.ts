@@ -357,13 +357,16 @@ describe("deleteOwnAccount", () => {
         listingName: "Pressure Washer",
         rentalId: "req-1",
         cancelledBy: "renter",
+        stage: "request",
       }),
     );
     expect(mockSendNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "prov-1",
         type: "system",
-        title: "Booking cancelled",
+        title: "Booking request cancelled",
+        message:
+          "The client's account was deleted, so their booking request for Lawn mowing was withdrawn.",
         data: { bookingId: "sb-1" },
       }),
     );

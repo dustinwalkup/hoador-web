@@ -65,7 +65,7 @@ export async function sendRentalListingPendingAdminNotification(listing: {
       sendNotification({
         userId: admin.id,
         type: "listing_pending_review",
-        title: "Rental listing pending review",
+        title: "Listing pending approval",
         message: `${ownerLabel} submitted "${listing.name}" for approval.`,
         data: {
           listingId: listing.id,
@@ -77,7 +77,7 @@ export async function sendRentalListingPendingAdminNotification(listing: {
           to: admin.email,
           subject: `Review listing: ${listing.name}`,
           html: compactEmailHtml({
-            heading: "Listing pending review",
+            heading: "Listing pending approval",
             greeting: `Hi ${escapeHtml([admin.firstName, admin.lastName].filter(Boolean).join(" ").trim() || "there")},`,
             bodyLines: [
               `<strong>${escapeHtml(ownerLabel)}</strong> submitted <strong>${escapeHtml(listing.name)}</strong> for approval.`,
@@ -85,7 +85,7 @@ export async function sendRentalListingPendingAdminNotification(listing: {
             cta: { label: "Open review queue", href: linkUrl },
           }),
           text: [
-            `A new rental listing is pending review: ${listing.name}`,
+            `A new listing is pending approval: ${listing.name}`,
             "",
             linkUrl,
           ].join("\n"),

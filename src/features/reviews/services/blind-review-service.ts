@@ -23,6 +23,14 @@ interface ResolvedBooking {
 }
 
 /**
+ * The user-facing noun for a reviewed transaction: an item transaction is a
+ * rental, a service one a booking (TERMINOLOGY-GUIDELINES §3.1, §3.2).
+ */
+function transactionNoun(type: ResolvedBooking["type"]): "rental" | "booking" {
+  return type === "rental" ? "rental" : "booking";
+}
+
+/**
  * Application service for the blind review system.
  * All methods are static — no instance state.
  */
@@ -48,7 +56,9 @@ export class BlindReviewService {
       params.userId === booking.participantA ||
       params.userId === booking.participantB;
     if (!isParticipant) {
-      throw new ForbiddenError("You are not a participant in this booking");
+      throw new ForbiddenError(
+        `You are not a participant in this ${transactionNoun(booking.type)}`,
+      );
     }
 
     // Derive reviewee (the other party)
@@ -65,7 +75,7 @@ export class BlindReviewService {
     // Validate window not expired
     if (new Date() > booking.reviewWindowEndAt) {
       throw new ValidationError(
-        "The review window has expired for this booking",
+        `The review window has expired for this ${transactionNoun(booking.type)}`,
       );
     }
 
@@ -312,7 +322,7 @@ export class BlindReviewService {
 
     if (row.requestStatus !== "completed") {
       throw new ValidationError(
-        "Reviews can only be submitted for completed bookings",
+        "Reviews can only be submitted for completed rentals",
       );
     }
 
@@ -320,7 +330,7 @@ export class BlindReviewService {
     const completedAt = row.returnConfirmedAt;
     if (!completedAt) {
       throw new ValidationError(
-        "Reviews can only be submitted for completed bookings",
+        "Reviews can only be submitted for completed rentals",
       );
     }
 

@@ -1523,6 +1523,8 @@ export class RentalDAL extends BaseDAL {
       listingName: string;
       role: "renter" | "owner";
       status: string;
+      /** Set once the owner accepted — tells a cancelled rental from a cancelled request. */
+      approvedAt: Date | null;
       updatedAt: Date;
       linkTo: string;
     }>
@@ -1535,6 +1537,7 @@ export class RentalDAL extends BaseDAL {
           renterId: rentalRequests.renterId,
           ownerId: rentalRequests.ownerId,
           status: rentalRequests.status,
+          approvedAt: rentalRequests.approvedAt,
           updatedAt: rentalRequests.updatedAt,
         })
         .from(rentalRequests)
@@ -1553,6 +1556,7 @@ export class RentalDAL extends BaseDAL {
         listingName: row.listingName,
         role: row.renterId === userId ? "renter" : "owner",
         status: row.status,
+        approvedAt: row.approvedAt ?? null,
         updatedAt: row.updatedAt,
         linkTo:
           row.renterId === userId
@@ -1871,7 +1875,7 @@ export class RentalDAL extends BaseDAL {
         .returning({ id: rentalRequests.id });
       if (updated.length === 0) {
         throw new ConflictError(
-          "Only pending requests that are not being approved can be cancelled",
+          "Only pending requests that are not being accepted can be cancelled",
         );
       }
     } catch (error) {
@@ -2272,7 +2276,7 @@ export class RentalDAL extends BaseDAL {
         rentalRequest.status !== "active"
       ) {
         throw new ConflictError(
-          "Instructions can only be updated for approved or active rentals",
+          "Instructions can only be updated for confirmed or active rentals",
         );
       }
 
@@ -2925,7 +2929,7 @@ export class RentalDAL extends BaseDAL {
 
       // Verify that the rental is in approved status
       if (request.status !== "approved") {
-        throw new ConflictError("Only approved rentals can be started");
+        throw new ConflictError("Only confirmed rentals can be started");
       }
 
       // Mobile Req 10.2.1 — starting before the start date is blocked, and this
@@ -3086,7 +3090,9 @@ export class RentalDAL extends BaseDAL {
             "Return has already been confirmed for this rental.",
           );
         }
-        throw new ConflictError("Only active rentals can be ended");
+        throw new ConflictError(
+          "Only active rentals can have their return confirmed",
+        );
       }
 
       // Update the rental_requests status to completed — claimed on `active`

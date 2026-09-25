@@ -447,7 +447,9 @@ export class RentalService {
       rentalRequest.listingStatus !== "rented"
     ) {
       const { ListingNotBookableError } = await import("@/dal/errors");
-      throw new ListingNotBookableError();
+      throw new ListingNotBookableError(
+        "This listing isn't available to rent right now.",
+      );
     }
     if (!rentalRequest.listingIsActive) {
       const { ListingArchivedError } = await import("@/dal/errors");
@@ -500,7 +502,7 @@ export class RentalService {
     }
     if (!paymentMethodIdToUse) {
       throw new Error(
-        "No payment method on file for renter. The renter needs to add a payment method in their account before you can approve.",
+        "No payment method on file for renter. The renter needs to add a payment method in their account before you can accept.",
       );
     }
 
@@ -532,7 +534,7 @@ export class RentalService {
     if (totalAmount < STRIPE_MINIMUM_CHARGE_USD) {
       return {
         success: false,
-        error: `This booking total ($${totalAmount.toFixed(2)}) is below the $${STRIPE_MINIMUM_CHARGE_USD.toFixed(2)} minimum required to process a payment. Please contact support.`,
+        error: `This rental total ($${totalAmount.toFixed(2)}) is below the $${STRIPE_MINIMUM_CHARGE_USD.toFixed(2)} minimum required to process a payment. Please contact support.`,
       };
     }
 

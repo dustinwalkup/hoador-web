@@ -705,7 +705,7 @@ describe("ServiceBookingService", () => {
 
       await expect(
         ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
-      ).rejects.toThrow(/could not process the requester's payment/i);
+      ).rejects.toThrow(/could not process the client's payment/i);
 
       expect(mockBookingUpdate).toHaveBeenCalledWith(
         "book-1",
@@ -1374,6 +1374,16 @@ describe("ServiceBookingService", () => {
 
       expect(mockProcessRefund).not.toHaveBeenCalled();
       expect(mockLifecycleMarkCancelled).not.toHaveBeenCalled();
+      // Never accepted, so both parties hear about a booking REQUEST.
+      expect(mockSendNotification).toHaveBeenCalledTimes(2);
+      for (const [payload] of mockSendNotification.mock.calls) {
+        expect(payload).toMatchObject({
+          title: "Booking request cancelled",
+          message: expect.stringMatching(
+            /^This booking request was cancelled\./,
+          ),
+        });
+      }
     });
 
     const accepted = {
@@ -1410,6 +1420,13 @@ describe("ServiceBookingService", () => {
       // Full refund uses totalAmount (service fee refunded)
       expect(mockProcessRefund).toHaveBeenCalledWith(
         expect.objectContaining({ refundAmountCents: 10330 }),
+      );
+      // Accepted, so it is a booking now.
+      expect(mockSendNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Booking cancelled",
+          message: expect.stringMatching(/^This booking was cancelled\./),
+        }),
       );
     });
 

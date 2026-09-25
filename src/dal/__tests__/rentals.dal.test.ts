@@ -1384,7 +1384,7 @@ describe("RentalDAL", () => {
 
       await expect(
         rentalDAL.startRental("rental-123", "user-123"),
-      ).rejects.toThrow(/only approved rentals can be started/i);
+      ).rejects.toThrow(/only confirmed rentals can be started/i);
     });
 
     // CONC-02: the pre-check above reads `approved`, but a concurrent cancel
@@ -1504,7 +1504,7 @@ describe("RentalDAL", () => {
 
       await expect(
         rentalDAL.endRental("rental-123", "user-123"),
-      ).rejects.toThrow(/only active rentals can be ended/i);
+      ).rejects.toThrow(/only active rentals can have their return confirmed/i);
     });
 
     /** UAT-P1-26: duplicate return confirmation — 409 Conflict; no DB updates. */
@@ -1974,6 +1974,7 @@ describe("RentalDAL", () => {
           renterId: "renter-1",
           ownerId: "owner-1",
           status: "approved",
+          approvedAt: new Date("2026-09-01T10:00:00Z"),
           updatedAt: new Date(),
         },
       ];
@@ -1991,6 +1992,9 @@ describe("RentalDAL", () => {
       expect(result).toHaveLength(1);
       expect(result[0].role).toBe("renter");
       expect(result[0].linkTo).toContain("view=renting");
+      // The activity feed needs it to tell a cancelled rental from a
+      // cancelled request.
+      expect(result[0].approvedAt).toEqual(new Date("2026-09-01T10:00:00Z"));
     });
   });
 
@@ -2239,7 +2243,7 @@ describe("RentalDAL", () => {
 
       await expect(
         rentalDAL.updateRentalInstructions("req-1", "owner-1"),
-      ).rejects.toThrow(/only.*approved or active/i);
+      ).rejects.toThrow(/only.*confirmed or active/i);
     });
   });
 

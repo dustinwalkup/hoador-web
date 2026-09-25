@@ -116,7 +116,7 @@ describe("getDashboardActivityFeed", () => {
     expect(result.some((i) => i.id === "service-booking-sb-1")).toBe(true);
     const row = result.find((i) => i.id === "service-booking-sb-1");
     expect(row).toMatchObject({
-      title: "Service booking requested",
+      title: "Booking request sent",
       description: "Lawn mowing",
       linkTo: "/dashboard/services/bookings/sb-1",
     });
@@ -158,12 +158,131 @@ describe("getDashboardActivityFeed", () => {
     });
 
     expect(result.map((i) => [i.id, i.title])).toEqual([
-      ["service-booking-sb-2", "New service booking request"],
+      ["service-booking-sb-2", "New booking request"],
     ]);
     expect(
       serviceBookingDAL.findByRequesterForDashboard,
     ).not.toHaveBeenCalled();
     expect(serviceBookingDAL.findByProviderForDashboard).not.toHaveBeenCalled();
     expect(serviceListingDAL.findByProvider).not.toHaveBeenCalled();
+  });
+
+  // TERMINOLOGY-GUIDELINES §4: neighbors accept and decline; "approved" and
+  // "denied" are enum names, and a request is not a rental until accepted.
+  describe("titles use the canonical lifecycle words", () => {
+    const rentalRow = (over: Record<string, unknown>) =>
+      ({
+        id: "r1",
+        listingName: "Drill",
+        role: "renter",
+        status: "pending",
+        approvedAt: null,
+        updatedAt: new Date("2025-01-15T12:00:00Z"),
+        linkTo: "/dashboard/rental/r1",
+        ...over,
+      }) as any;
+
+    const rentalTitle = async (over: Record<string, unknown>) => {
+      vi.mocked(rentalDAL.getRecentRentalActivity).mockResolvedValue([
+        rentalRow(over),
+      ]);
+      const [item] = await getDashboardActivityFeed(userId, 10);
+      return item.title;
+    };
+
+    it.each([
+      ["renter", "pending", "Rental request sent"],
+      ["renter", "approved", "Rental request accepted"],
+      ["renter", "denied", "Rental request declined"],
+      ["renter", "overdue", "Rental overdue"],
+      ["owner", "pending", "New rental request"],
+      ["owner", "approved", "Request accepted"],
+      ["owner", "denied", "Request declined"],
+      ["owner", "overdue", "Rental overdue"],
+    ])("rental, %s, %s → %s", async (role, status, title) => {
+      expect(await rentalTitle({ role, status })).toBe(title);
+    });
+
+    it("calls a cancelled request a request, and a cancelled rental a rental", async () => {
+      expect(await rentalTitle({ status: "cancelled" })).toBe(
+        "Rental request cancelled",
+      );
+      expect(await rentalTitle({ status: "cancelled", role: "owner" })).toBe(
+        "Request cancelled",
+      );
+      expect(
+        await rentalTitle({ status: "cancelled", approvedAt: new Date() }),
+      ).toBe("Rental cancelled");
+    });
+
+    const bookingTitle = async (
+      side: "requester" | "provider",
+      over: Record<string, unknown>,
+    ) => {
+      const row = {
+        id: "sb-9",
+        status: "pending",
+        acceptedAt: null,
+        completedAt: null,
+        paymentStatus: null,
+        updatedAt: new Date("2025-01-15T12:00:00Z"),
+        listingTitle: "Lawn mowing",
+        ...over,
+      } as any;
+      const [item] = await getDashboardActivityFeed(userId, 10, {
+        serviceBookingsAsRequester: side === "requester" ? [row] : [],
+        serviceBookingsAsProvider: side === "provider" ? [row] : [],
+        serviceListingsOwned: [],
+      });
+      return item.title;
+    };
+
+    it.each([
+      ["requester", "pending", "Booking request sent"],
+      ["requester", "accepted", "Booking request accepted"],
+      ["requester", "declined", "Booking request declined"],
+      ["requester", "payment_failed", "Booking payment failed"],
+      ["provider", "pending", "New booking request"],
+      ["provider", "accepted", "Request accepted"],
+      ["provider", "declined", "Request declined"],
+    ] as const)("booking, %s, %s → %s", async (side, status, title) => {
+      expect(await bookingTitle(side, { status })).toBe(title);
+    });
+
+    it("never says service booking", async () => {
+      for (const status of [
+        "pending",
+        "accepted",
+        "declined",
+        "cancelled",
+        "payment_failed",
+        "teleported",
+      ]) {
+        for (const side of ["requester", "provider"] as const) {
+          expect(await bookingTitle(side, { status })).not.toMatch(
+            /service booking/i,
+          );
+        }
+      }
+    });
+
+    it("tells a cancelled booking request from a cancelled booking", async () => {
+      expect(await bookingTitle("requester", { status: "cancelled" })).toBe(
+        "Booking request cancelled",
+      );
+      expect(
+        await bookingTitle("provider", {
+          status: "cancelled",
+          acceptedAt: new Date(),
+        }),
+      ).toBe("Booking cancelled");
+      // accepted_at's backfill was partial: a successful charge also counts.
+      expect(
+        await bookingTitle("requester", {
+          status: "cancelled",
+          paymentStatus: "succeeded",
+        }),
+      ).toBe("Booking cancelled");
+    });
   });
 });

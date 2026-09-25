@@ -83,7 +83,11 @@ export async function getDashboardActivityFeed(
   const raw: RawFeedItem[] = [];
 
   for (const r of rentalActivity) {
-    const title = formatRentalActivityTitle(r.status, r.role);
+    const title = formatRentalActivityTitle(
+      r.status,
+      r.role,
+      r.approvedAt !== null,
+    );
     const description = `${r.listingName}`;
     raw.push({
       id: `rental-${r.id}`,
@@ -106,7 +110,11 @@ export async function getDashboardActivityFeed(
 
   const requesterSlice = serviceBookingsAsRequester.slice(0, fetchLimit);
   for (const row of requesterSlice) {
-    const title = formatServiceBookingTitle(row.status, "requester");
+    const title = formatServiceBookingTitle(
+      row.status,
+      "requester",
+      bookingWasAccepted(row),
+    );
     raw.push({
       id: `service-booking-${row.id}`,
       timestamp: row.updatedAt,
@@ -118,7 +126,11 @@ export async function getDashboardActivityFeed(
 
   const providerSlice = serviceBookingsAsProvider.slice(0, fetchLimit);
   for (const row of providerSlice) {
-    const title = formatServiceBookingTitle(row.status, "provider");
+    const title = formatServiceBookingTitle(
+      row.status,
+      "provider",
+      bookingWasAccepted(row),
+    );
     raw.push({
       id: `service-booking-${row.id}`,
       timestamp: row.updatedAt,
@@ -154,56 +166,91 @@ export async function getDashboardActivityFeed(
   }));
 }
 
+/**
+ * Human-readable title for a rental row, from the viewer's side.
+ *
+ * Neighbor decisions use the guideline's words (TERMINOLOGY-GUIDELINES §4):
+ * owners **accept** and **decline** — "approved"/"denied" are the enum names,
+ * and "Approved" is reserved for Hoador moderation. A request is not yet a
+ * rental, so `cancelled` reads "Rental cancelled" only once the owner had
+ * accepted it (`approvedAt` set) — the enum alone can't tell the two apart.
+ */
 function formatRentalActivityTitle(
   status: string,
   role: "renter" | "owner",
+  wasAccepted: boolean,
 ): string {
+  if (status === "cancelled") {
+    if (wasAccepted) return "Rental cancelled";
+    return role === "renter" ? "Rental request cancelled" : "Request cancelled";
+  }
   const asRenter: Record<string, string> = {
     pending: "Rental request sent",
-    approved: "Rental request approved",
+    approved: "Rental request accepted",
     active: "Rental started",
+    overdue: "Rental overdue",
     completed: "Rental completed",
-    denied: "Rental request denied",
-    cancelled: "Rental request cancelled",
+    denied: "Rental request declined",
   };
   const asOwner: Record<string, string> = {
     pending: "New rental request",
-    approved: "Request approved",
+    approved: "Request accepted",
     active: "Rental started",
+    overdue: "Rental overdue",
     completed: "Rental completed",
     denied: "Request declined",
-    cancelled: "Request cancelled",
   };
   const map = role === "renter" ? asRenter : asOwner;
   return map[status] ?? "Rental activity";
 }
 
 /**
+ * Whether a booking was ever accepted. `accepted_at` arrived later and its
+ * backfill was partial, so a completed booking or a successful charge (written
+ * only by the accept path) also counts — the rule mobile's booking Timeline
+ * uses.
+ */
+function bookingWasAccepted(row: {
+  acceptedAt: Date | null;
+  completedAt?: Date | null;
+  paymentStatus: string | null;
+}): boolean {
+  if (row.acceptedAt || row.completedAt) return true;
+  return Boolean(row.paymentStatus) && row.paymentStatus !== "failed";
+}
+
+/**
  * Human-readable title for a service booking row based on status and perspective.
  *
+ * "Booking" is already a service word, so these never say "service booking"
+ * (TERMINOLOGY-GUIDELINES §3.2); an unanswered one is a **booking request**.
+ *
  * @param status - Booking status from `service_booking_status`
- * @param role - Whether the current user is the requester or the provider
+ * @param role - Whether the current user is the client (`requester`) or the provider
+ * @param wasAccepted - Whether the provider had accepted it (see `bookingWasAccepted`)
  */
 function formatServiceBookingTitle(
   status: string,
   role: "requester" | "provider",
+  wasAccepted: boolean,
 ): string {
+  if (status === "cancelled") {
+    return wasAccepted ? "Booking cancelled" : "Booking request cancelled";
+  }
   const asRequester: Record<string, string> = {
-    pending: "Service booking requested",
-    accepted: "Service booking accepted",
-    declined: "Service booking declined",
+    pending: "Booking request sent",
+    accepted: "Booking request accepted",
+    declined: "Booking request declined",
     completed: "Service completed",
-    cancelled: "Service booking cancelled",
-    payment_failed: "Service booking payment failed",
+    payment_failed: "Booking payment failed",
   };
   const asProvider: Record<string, string> = {
-    pending: "New service booking request",
-    accepted: "Booking accepted",
-    declined: "Booking declined",
+    pending: "New booking request",
+    accepted: "Request accepted",
+    declined: "Request declined",
     completed: "Service completed",
-    cancelled: "Service booking cancelled",
-    payment_failed: "Service booking payment failed",
+    payment_failed: "Booking payment failed",
   };
   const map = role === "requester" ? asRequester : asProvider;
-  return map[status] ?? "Service booking activity";
+  return map[status] ?? "Booking activity";
 }

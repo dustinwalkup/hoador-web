@@ -5,13 +5,13 @@ describe("formatAlertText", () => {
   describe("not_started", () => {
     it("owner pickup — starts today", () => {
       expect(formatAlertText("not_started", "owner", false, 0)).toBe(
-        "Rental starts today — mark it as started when the renter picks up the item",
+        "Rental starts today — tap Start rental when the renter picks up the item",
       );
     });
 
     it("owner delivery — starts today", () => {
       expect(formatAlertText("not_started", "owner", true, 0)).toBe(
-        "Rental starts today — mark it as started when you deliver the item",
+        "Rental starts today — tap Start rental when you deliver the item",
       );
     });
 
@@ -72,13 +72,13 @@ describe("formatAlertText", () => {
   describe("overdue_return", () => {
     it("owner pickup", () => {
       expect(formatAlertText("overdue_return", "owner", false, 4)).toBe(
-        "Return is 4 days overdue — end the rental once the item is back",
+        "Return is 4 days overdue — tap Confirm return once the item is back",
       );
     });
 
     it("owner delivery", () => {
       expect(formatAlertText("overdue_return", "owner", true, 1)).toBe(
-        "Return is 1 day overdue — end the rental once you collect the item",
+        "Return is 1 day overdue — tap Confirm return once you collect the item",
       );
     });
 

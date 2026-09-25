@@ -400,7 +400,7 @@ describe("RentalService.createRentalRequest — availability (P-E8A-2b)", () => 
         "renter-789",
         context,
       ),
-    ).rejects.toThrow(/already booked/i);
+    ).rejects.toThrow(/no longer available/i);
     expect(mockInsertRentalRequest).not.toHaveBeenCalled();
   });
 
@@ -417,7 +417,7 @@ describe("RentalService.createRentalRequest — availability (P-E8A-2b)", () => 
         "renter-789",
         context,
       ),
-    ).rejects.toThrow(/already booked/i);
+    ).rejects.toThrow(/no longer available/i);
   });
 
   it("names the reason when a manual block is what clashes", async () => {

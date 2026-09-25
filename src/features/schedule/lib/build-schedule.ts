@@ -48,32 +48,58 @@ export interface ScheduleEvent {
 }
 
 /**
- * The user-facing status vocabulary, fixed by **D-E8-1** (2026-08-21).
+ * The user-facing status vocabulary: `hoador-mobile/docs/design/
+ * TERMINOLOGY-GUIDELINES.md` §4 and mobile Req 5.7.2 as amended 2026-09-25
+ * (superseding **D-E8-1**'s single "Request" and the rental "Denied").
  *
  * These strings are duplicated in the mobile app's `src/ui/status-pill.tsx`,
  * because the client takes the *label* from here and the *icon and tone* from
  * there — so both must say the same word or a pill ships a checkmark next to
  * text that disagrees with it. `status-vocabulary.test.tsx` on the client and
  * `build-schedule.test.ts` here pin the same table from both ends.
+ *
+ * `pending` here is the **sender's** word. The recipient's is not a status at
+ * all — see `statusLabelFor`.
  */
 const RENTAL_STATUS_LABEL: Record<string, string> = {
-  pending: "Request",
+  pending: "Request sent",
   approved: "Confirmed",
   active: "Active",
   overdue: "Overdue",
   completed: "Completed",
   cancelled: "Cancelled",
-  denied: "Denied",
+  // The enum says `denied`; the owner's action is Decline.
+  denied: "Declined",
 };
 
 const SERVICE_STATUS_LABEL: Record<string, string> = {
-  pending: "Request",
+  pending: "Request sent",
   accepted: "Confirmed",
   declined: "Declined",
   payment_failed: "Payment failed",
   completed: "Completed",
   cancelled: "Cancelled",
 };
+
+/**
+ * What the owner or provider sees on a request still waiting for *them*.
+ *
+ * An **attention label**, not a lifecycle status (guideline §4): it describes
+ * the viewer's relationship to the request, which is why it is chosen here from
+ * the viewer's role rather than added to the maps above. `status` on the wire
+ * stays `pending` either way; only the words differ.
+ */
+export const AWAITING_RESPONSE_LABEL = "Awaiting your response";
+
+function statusLabelFor(
+  labels: Record<string, string>,
+  status: string,
+  role: ScheduleRole,
+): string {
+  const isRecipient = role === "owner" || role === "provider";
+  if (status === "pending" && isRecipient) return AWAITING_RESPONSE_LABEL;
+  return labels[status] ?? "Unknown";
+}
 
 /**
  * Statuses that can put an event in "Needs your attention".
@@ -140,14 +166,14 @@ export function toWallClock(date: Date, opts?: { dateOnly?: boolean }): string {
   return `${day}T${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}`;
 }
 
-/** Rental role line for an event card: "Lending to Sarah" / "Borrowing from Mike". */
+/** Rental role line for an event card: "Renting to Sarah" / "Renting from Mike". */
 function rentalRoleLabel(
   role: "renter" | "owner",
   counterparty: string,
 ): string {
   const name =
     counterparty.trim() || (role === "renter" ? "the owner" : "the renter");
-  return role === "owner" ? `Lending to ${name}` : `Borrowing from ${name}`;
+  return role === "owner" ? `Renting to ${name}` : `Renting from ${name}`;
 }
 
 /** Service role line: "Providing to Emily" / "Receiving from James". */
@@ -290,7 +316,7 @@ export function rentalToEvent(row: ScheduleRentalRow): ScheduleEvent {
     end: endDay,
     allDay: true,
     status: row.status,
-    statusLabel: RENTAL_STATUS_LABEL[row.status] ?? "Unknown",
+    statusLabel: statusLabelFor(RENTAL_STATUS_LABEL, row.status, row.role),
     needsAction,
     actionLabel,
     expiresAt: expiryFor(row.status, row.expiresAt),
@@ -327,7 +353,7 @@ export function serviceBookingToEvent(
     end: addHours(row.proposedDate, row.proposedTime, row.hours),
     allDay: false,
     status: row.status,
-    statusLabel: SERVICE_STATUS_LABEL[row.status] ?? "Unknown",
+    statusLabel: statusLabelFor(SERVICE_STATUS_LABEL, row.status, row.role),
     needsAction,
     actionLabel,
     expiresAt: expiryFor(row.status, row.expiresAt),

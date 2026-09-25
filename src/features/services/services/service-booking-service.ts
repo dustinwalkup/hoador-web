@@ -447,7 +447,7 @@ export class ServiceBookingService {
         userId: detail.requesterId,
         type: "payment_failed",
         title: "Service payment failed",
-        message: `We could not charge your card for this booking. ${message}`,
+        message: `We could not charge your card for this booking request. ${message}`,
         data: { bookingId: detail.id, listingId: detail.listingId },
         linkUrl: `${appBaseUrl()}/dashboard/services/bookings/${detail.id}`,
       });
@@ -457,7 +457,7 @@ export class ServiceBookingService {
         type: "system",
         title: "Payment failed for booking",
         message:
-          "The requester's payment could not be processed. They may need to update their payment method.",
+          "The client's payment could not be processed. They may need to update their payment method.",
         data: { bookingId: detail.id },
         linkUrl: `${appBaseUrl()}/dashboard/services/bookings/${detail.id}`,
       });
@@ -478,7 +478,7 @@ export class ServiceBookingService {
       });
 
       throw new ServiceBookingPaymentFailedError(
-        "We could not process the requester's payment for this booking.",
+        "We could not process the client's payment for this booking request.",
       );
     }
 
@@ -701,7 +701,7 @@ export class ServiceBookingService {
     }
     if (detail.status !== "accepted") {
       throw new ValidationError(
-        "Booking must be accepted to complete",
+        "Only confirmed bookings can be completed",
         "status",
       );
     }
@@ -731,7 +731,7 @@ export class ServiceBookingService {
     );
     if (!updated) {
       throw new ConflictError(
-        "This booking is no longer in an accepted state — it may have been cancelled or already completed.",
+        "This booking is no longer confirmed — it may have been cancelled or already completed.",
       );
     }
 
@@ -936,12 +936,20 @@ export class ServiceBookingService {
         ? "Refund pending — see support if this does not settle"
         : "$0.00";
 
-    const msg = `This booking was cancelled. Refund: ${refundLabel}.`;
+    // A pending (or payment-failed) booking was never accepted, so it is still a
+    // booking REQUEST (TERMINOLOGY-GUIDELINES §3.2). `detail` is the pre-claim
+    // read the cancellation was assessed against.
+    const wasRequest =
+      detail.status === "pending" || detail.status === "payment_failed";
+    const title = wasRequest
+      ? "Booking request cancelled"
+      : "Booking cancelled";
+    const msg = `This ${wasRequest ? "booking request" : "booking"} was cancelled. Refund: ${refundLabel}.`;
 
     await sendNotification({
       userId: detail.requesterId,
       type: "system",
-      title: "Booking cancelled",
+      title,
       message: msg,
       data: { bookingId: detail.id, refundAmount: refundLabel },
       linkUrl: `${appBaseUrl()}/dashboard/services/bookings/${detail.id}`,
@@ -950,7 +958,7 @@ export class ServiceBookingService {
     await sendNotification({
       userId: detail.providerId,
       type: "system",
-      title: "Booking cancelled",
+      title,
       message: msg,
       data: { bookingId: detail.id, refundAmount: refundLabel },
       linkUrl: `${appBaseUrl()}/dashboard/services/bookings/${detail.id}`,

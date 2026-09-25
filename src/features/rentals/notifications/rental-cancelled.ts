@@ -1,7 +1,10 @@
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 
 /**
- * Send notification when a rental is cancelled (in-app only)
+ * Send notification when a rental, or a rental request, is cancelled (in-app only).
+ *
+ * `stage` says which one it was: a pending request is not yet a rental
+ * (TERMINOLOGY-GUIDELINES §3.1), so its cancellation names the request.
  */
 export async function sendRentalCancelledNotification({
   recipientUserId,
@@ -11,6 +14,7 @@ export async function sendRentalCancelledNotification({
   rentalId,
   cancelledBy,
   cancellationReason,
+  stage,
 }: {
   recipientUserId: string;
   recipientName: string;
@@ -19,6 +23,8 @@ export async function sendRentalCancelledNotification({
   rentalId: string;
   cancelledBy: "owner" | "renter";
   cancellationReason?: string;
+  /** `"request"` while it was still pending; `"rental"` once accepted. */
+  stage: "request" | "rental";
 }) {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
@@ -27,8 +33,12 @@ export async function sendRentalCancelledNotification({
   return await sendNotification({
     userId: recipientUserId,
     type: "rental_cancelled",
-    title: "Rental Cancelled",
-    message: `${otherPartyName} cancelled the rental for ${listingName}`,
+    title:
+      stage === "request" ? "Rental Request Cancelled" : "Rental Cancelled",
+    message:
+      stage === "request"
+        ? `${otherPartyName} cancelled their rental request for ${listingName}`
+        : `${otherPartyName} cancelled the rental for ${listingName}`,
     data: {
       rentalId,
       listingName,

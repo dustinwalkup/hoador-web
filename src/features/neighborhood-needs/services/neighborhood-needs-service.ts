@@ -6,6 +6,7 @@ import {
   notificationsDAL,
   pushSubscriptionDAL,
   serviceListingDAL,
+  userDAL,
 } from "@/dal";
 import {
   ConflictError,
@@ -58,9 +59,7 @@ export async function createNeed(
 ): Promise<NeighborhoodNeed> {
   const primary = await communityDAL.getPrimaryMembershipForUser(userId);
   if (!primary) {
-    throw new ValidationError(
-      "You must belong to a community to post a Neighborhood Need.",
-    );
+    throw new ValidationError("You must belong to a community to post a need.");
   }
 
   await validateCategoryForType(input.type, input.categoryId);
@@ -102,14 +101,16 @@ export async function updateNeed(
   actor: { userId: string; isAdmin: boolean },
 ): Promise<NeighborhoodNeed> {
   const need = await neighborhoodNeedsDAL.getNeedById(id);
-  if (!need) throw new ValidationError("Neighborhood Need not found.");
+  if (!need) throw new ValidationError("Need not found.");
 
   if (need.status === "closed" || need.deletedAt) {
-    throw new ValidationError("Cannot edit a closed or deleted Need.");
+    throw new ValidationError("Cannot edit a closed or deleted need.");
   }
 
   if (!actor.isAdmin && need.createdByUserId !== actor.userId) {
-    throw new ForbiddenError("Only the owner or an admin may edit this Need.");
+    throw new ForbiddenError(
+      "Only the neighbor who posted this need or an admin may edit it.",
+    );
   }
 
   if (input.categoryId && input.categoryId !== need.categoryId) {
@@ -133,10 +134,12 @@ export async function closeNeed(
   actor: { userId: string; isAdmin: boolean },
 ): Promise<NeighborhoodNeed> {
   const need = await neighborhoodNeedsDAL.getNeedById(id);
-  if (!need) throw new ValidationError("Neighborhood Need not found.");
+  if (!need) throw new ValidationError("Need not found.");
 
   if (!actor.isAdmin && need.createdByUserId !== actor.userId) {
-    throw new ForbiddenError("Only the owner or an admin may close this Need.");
+    throw new ForbiddenError(
+      "Only the neighbor who posted this need or an admin may close it.",
+    );
   }
 
   // Idempotent: already closed is a no-op success
@@ -167,11 +170,11 @@ export async function deleteNeed(
   actor: { userId?: string; isAdmin: boolean },
 ): Promise<void> {
   const need = await neighborhoodNeedsDAL.getNeedByIdIncludingDeleted(id);
-  if (!need) throw new ValidationError("Neighborhood Need not found.");
+  if (!need) throw new ValidationError("Need not found.");
 
   if (!actor.isAdmin && need.createdByUserId !== actor.userId) {
     throw new ForbiddenError(
-      "Only the owner or an admin may delete this Need.",
+      "Only the neighbor who posted this need or an admin may delete it.",
     );
   }
 
@@ -243,8 +246,11 @@ export async function notifyRequesterListingLive(
   await sendNotification({
     userId: need.createdByUserId,
     type: "neighborhood_need_listing_created",
-    title: "A listing was created for your request",
-    message: "A new listing has been created for your Neighborhood Need.",
+    title: "A listing was created for your need",
+    message:
+      listingType === "service"
+        ? "A new service listing has been created for your need."
+        : "A new listing has been created for your need.",
     linkUrl: href,
     data: { listingId, listingType, needId: need.id },
   });
@@ -287,7 +293,7 @@ async function validateCategoryForType(
     const valid = categories.some((c) => c.id === categoryId);
     if (!valid) {
       throw new ValidationError(
-        "Invalid category for a rental need.",
+        "Invalid category for an item need.",
         "categoryId",
       );
     }
@@ -332,8 +338,13 @@ async function fanOutNewNeed(
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://hoador.com";
   const linkUrl = `${baseUrl}/dashboard/needs/${need.id}`;
-  const title = "New Neighborhood Need";
-  const message = `A neighbor posted a new ${need.type} request: "${need.title}"`;
+  // A need is a post, not a request, and its types read Item / Service — never
+  // the `rental` enum value (TERMINOLOGY-GUIDELINES §3.3). Lead with the
+  // neighbor who posted it, as the needs feed does ("Sarah is looking for…").
+  const title = "New need";
+  const message = `${await needPosterName(creatorUserId)} is looking for ${
+    need.type === "service" ? "a service" : "an item"
+  }: "${need.title}"`;
   const data = { needId: need.id, needType: need.type };
 
   // Set-based, not one `sendNotification` per member (PERF-02). That cost ~4
@@ -383,6 +394,24 @@ async function fanOutNewNeed(
 }
 
 /**
+ * The need poster's name as the needs feed shows it (first and last name), or
+ * "A neighbor" — the same fallback mobile renders for a poster with no name. A
+ * failed lookup must not stop the fan-out, so it degrades to the fallback.
+ */
+async function needPosterName(userId: string): Promise<string> {
+  try {
+    const poster = await userDAL.getUserById(userId);
+    const name = [poster.firstName, poster.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    return name || "A neighbor";
+  } catch {
+    return "A neighbor";
+  }
+}
+
+/**
  * Throw `NeedLimitReachedError` when a user already has too many open needs,
  * or has posted too many in the last 24 hours (SEC-15). A plain count query:
  * there is no durable rate-limit store in this repo. Two posts racing past the
@@ -396,12 +425,12 @@ async function assertUnderPostingLimits(userId: string): Promise<void> {
   );
   if (open >= MAX_OPEN_NEEDS_PER_USER) {
     throw new NeedLimitReachedError(
-      `You can have up to ${MAX_OPEN_NEEDS_PER_USER} open Neighborhood Needs at a time. Close one to post another.`,
+      `You can have up to ${MAX_OPEN_NEEDS_PER_USER} open needs at a time. Close one to post another.`,
     );
   }
   if (recent >= MAX_NEEDS_PER_USER_PER_DAY) {
     throw new NeedLimitReachedError(
-      `You can post up to ${MAX_NEEDS_PER_USER_PER_DAY} Neighborhood Needs a day. Try again tomorrow.`,
+      `You can post up to ${MAX_NEEDS_PER_USER_PER_DAY} needs a day. Try again tomorrow.`,
     );
   }
 }

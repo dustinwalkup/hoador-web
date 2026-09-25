@@ -40,9 +40,10 @@ export function formatAlertText(
           ? `Your return is ${label} overdue — contact the owner to arrange collection`
           : `Your return is ${label} overdue — return the item to the owner`;
       }
+      // Names the mobile control, "Confirm return" (see `end_today` below).
       return deliveryRequested
-        ? `Return is ${label} overdue — end the rental once you collect the item`
-        : `Return is ${label} overdue — end the rental once the item is back`;
+        ? `Return is ${label} overdue — tap Confirm return once you collect the item`
+        : `Return is ${label} overdue — tap Confirm return once the item is back`;
     }
 
     case "not_started": {
@@ -51,10 +52,12 @@ export function formatAlertText(
           ? `This rental should have started ${d} ago`
           : `Your rental was due to start ${d} ago`;
       }
+      // Names the mobile control, "Start rental". Also the owner's push body
+      // (cron/rental-reminders), which reuses this function.
       if (userRole === "owner") {
         return deliveryRequested
-          ? "Rental starts today — mark it as started when you deliver the item"
-          : "Rental starts today — mark it as started when the renter picks up the item";
+          ? "Rental starts today — tap Start rental when you deliver the item"
+          : "Rental starts today — tap Start rental when the renter picks up the item";
       }
       if (userRole === "renter") {
         return deliveryRequested

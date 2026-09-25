@@ -364,8 +364,8 @@ export class ListingService {
         count: inFlight.pending,
         message:
           inFlight.pending === 1
-            ? "This listing has 1 request awaiting your decision. Decline or approve it first."
-            : `This listing has ${inFlight.pending} requests awaiting your decision. Decline or approve them first.`,
+            ? "This listing has 1 request awaiting your decision. Accept or decline it first."
+            : `This listing has ${inFlight.pending} requests awaiting your decision. Accept or decline them first.`,
       });
     }
     if (blockers.length > 0) {

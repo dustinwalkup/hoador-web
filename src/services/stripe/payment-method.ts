@@ -26,7 +26,7 @@ export async function recoverFailedServiceBookings(
             b.selectedPaymentMethodId !== newPaymentMethodId,
         )
         .flatMap((b) => [
-          sendPaymentMethodUpdatedProviderNotification(b.providerId, b),
+          sendPaymentMethodUpdatedProviderNotification(b.providerId, b, userId),
           sendPaymentMethodUpdatedRequesterConfirmationNotification(userId, b),
         ]),
     );

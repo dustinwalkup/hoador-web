@@ -143,13 +143,16 @@ describe("BlindReviewService", () => {
     it("rejects a non-participant without creating a review", async () => {
       nextSelect([rentalRow]);
 
-      await expect(
-        BlindReviewService.submitReview({
-          userId: "stranger",
-          rentalId: "rental-1",
-          rating: 5,
-        }),
-      ).rejects.toThrow(ForbiddenError);
+      const attempt = BlindReviewService.submitReview({
+        userId: "stranger",
+        rentalId: "rental-1",
+        rating: 5,
+      });
+      await expect(attempt).rejects.toThrow(ForbiddenError);
+      // A rental is a rental in the prose, never "this booking".
+      await expect(attempt).rejects.toThrow(
+        "You are not a participant in this rental",
+      );
 
       expect(mockCreate).not.toHaveBeenCalled();
     });
@@ -158,13 +161,15 @@ describe("BlindReviewService", () => {
       vi.setSystemTime(new Date(WINDOW_END.getTime() + 1));
       nextSelect([rentalRow]);
 
-      await expect(
-        BlindReviewService.submitReview({
-          userId: "renter-1",
-          rentalId: "rental-1",
-          rating: 5,
-        }),
-      ).rejects.toThrow(ValidationError);
+      const attempt = BlindReviewService.submitReview({
+        userId: "renter-1",
+        rentalId: "rental-1",
+        rating: 5,
+      });
+      await expect(attempt).rejects.toThrow(ValidationError);
+      await expect(attempt).rejects.toThrow(
+        "The review window has expired for this rental",
+      );
 
       expect(mockCreate).not.toHaveBeenCalled();
     });
@@ -325,7 +330,7 @@ describe("BlindReviewService", () => {
           rentalId: "rental-1",
           rating: 5,
         }),
-      ).rejects.toThrow(ValidationError);
+      ).rejects.toThrow("Reviews can only be submitted for completed rentals");
     });
 
     it("refuses a service booking that is not completed", async () => {
@@ -337,7 +342,7 @@ describe("BlindReviewService", () => {
           serviceBookingId: "sb-1",
           rating: 5,
         }),
-      ).rejects.toThrow(ValidationError);
+      ).rejects.toThrow("Reviews can only be submitted for completed bookings");
     });
 
     it("throws NotFoundError for an unknown booking", async () => {

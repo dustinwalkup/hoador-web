@@ -270,7 +270,7 @@ describe("PaymentMethodService", () => {
       ).toHaveBeenCalledTimes(1);
       expect(
         mockSendPaymentMethodUpdatedProviderNotification,
-      ).toHaveBeenCalledWith("prov-2", failedBookings[1]);
+      ).toHaveBeenCalledWith("prov-2", failedBookings[1], "user-1");
     });
 
     it("does nothing when there are no failed bookings", async () => {

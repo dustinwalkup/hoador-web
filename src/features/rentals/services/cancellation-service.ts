@@ -100,6 +100,7 @@ export async function cancelPendingRequest(
       rentalId: rentalRequestId,
       cancelledBy: "renter",
       cancellationReason: "Cancelled by renter",
+      stage: "request",
     });
   }
 }
@@ -124,7 +125,7 @@ export async function cancelApprovedRental(
     );
   }
   if (ctx.status !== "approved") {
-    throw new ValidationError("Rental is not in approved status", "status");
+    throw new ValidationError("This rental isn't confirmed", "status");
   }
   const now = new Date();
 
@@ -325,6 +326,7 @@ export async function cancelApprovedRental(
       rentalId: rentalRequestId,
       cancelledBy: "renter",
       cancellationReason: "Renter cancelled",
+      stage: "rental",
     });
   }
   if (cancelledBy === "owner" && renterUser) {
@@ -336,6 +338,7 @@ export async function cancelApprovedRental(
       rentalId: rentalRequestId,
       cancelledBy: "owner",
       cancellationReason: "Owner cancelled",
+      stage: "rental",
     });
   }
 
@@ -394,7 +397,7 @@ export async function applyNoShow(
   }
   if (ctx.status !== "approved") {
     throw new ValidationError(
-      "Only approved rentals can have a no-show applied",
+      "Only confirmed rentals can have a no-show applied",
       "status",
     );
   }
