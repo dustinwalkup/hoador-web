@@ -219,6 +219,21 @@ describe("GET /api/rentals/[id] — mobile detail payload (8A.2)", () => {
     expect(body.createdAt).toBe("2026-08-17T14:30:00.000Z");
   });
 
+  // Mobile Req 9.2.4: an expired request is `cancelled` in the enum, and only
+  // the reason tells it apart from a renter's own cancellation.
+  it("passes the cancellation reason through so an expiry reads as one", async () => {
+    mockGetRentalDetailsById.mockResolvedValue({
+      ...RENTAL,
+      status: "cancelled",
+      cancelledAt: new Date("2026-08-20T15:00:00.000Z"),
+      cancellationReason: "expired_no_acceptance",
+    });
+
+    const body = await (await GET(req(), params("rental-1"))).json();
+
+    expect(body.cancellationReason).toBe("expired_no_acceptance");
+  });
+
   it("decides viewerRole server-side for the renter, the owner and an admin", async () => {
     expect(
       (await (await GET(req(), params("rental-1"))).json()).viewerRole,

@@ -332,6 +332,13 @@ export interface RentalDetails {
   expiresAt?: Date;
   cancelledAt?: Date;
   /**
+   * Why a `cancelled` request ended (`rental_requests.cancellation_reason`).
+   * The mobile detail screen reads `expired_no_acceptance` to say "Request
+   * expired" rather than "Cancelled" (mobile Req 9.2.4); the other values are
+   * passed through untouched.
+   */
+  cancellationReason?: string;
+  /**
    * The owner's take, computed by `calculateRentalPricing` at request creation
    * and **stored** — never re-derived on read. `ownerPayout` is the rental price
    * (subtotal + delivery + setup) minus the 20% platform fee;
@@ -2385,6 +2392,7 @@ export class RentalDAL extends BaseDAL {
           denialReason: rentalRequests.denialReason,
           expiresAt: rentalRequests.expiresAt,
           cancelledAt: rentalRequests.cancelledAt,
+          cancellationReason: rentalRequests.cancellationReason,
           ownerPayout: rentalRequests.ownerPayout,
           applicationFeeAmount: rentalRequests.applicationFeeAmount,
           paymentStatus: rentalRequests.paymentStatus,
@@ -2536,6 +2544,7 @@ export class RentalDAL extends BaseDAL {
           denialReason: request.denialReason || undefined,
           expiresAt: request.expiresAt || undefined,
           cancelledAt: request.cancelledAt || undefined,
+          cancellationReason: request.cancellationReason || undefined,
           ownerPayout: request.ownerPayout || undefined,
           applicationFeeAmount: request.applicationFeeAmount || undefined,
           paymentStatus: request.paymentStatus || undefined,
@@ -2611,6 +2620,7 @@ export class RentalDAL extends BaseDAL {
           approvedAt: rentalRequests.approvedAt,
           expiresAt: rentalRequests.expiresAt,
           cancelledAt: rentalRequests.cancelledAt,
+          cancellationReason: rentalRequests.cancellationReason,
           ownerPayout: rentalRequests.ownerPayout,
           applicationFeeAmount: rentalRequests.applicationFeeAmount,
         })
@@ -2746,6 +2756,7 @@ export class RentalDAL extends BaseDAL {
         approvedAt: request[0]?.approvedAt || undefined,
         expiresAt: request[0]?.expiresAt || undefined,
         cancelledAt: request[0]?.cancelledAt || undefined,
+        cancellationReason: request[0]?.cancellationReason || undefined,
         ownerPayout: request[0]?.ownerPayout || undefined,
         applicationFeeAmount: request[0]?.applicationFeeAmount || undefined,
         depositHoldStatus: rentalData.depositHoldStatus || undefined,
