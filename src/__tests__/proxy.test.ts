@@ -99,6 +99,42 @@ describe("proxy.ts — community-select routing", () => {
 });
 
 /**
+ * /legal/* redirects to the current legal documents. Someone mid-signup must be
+ * able to read them before accepting, so no funnel redirect may catch it.
+ */
+describe("proxy.ts — public legal links", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("lets a signed-out visitor through", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
+
+    const res = await proxy(makeRequest("/legal/tos"));
+
+    expect(isNextResponse(res)).toBe(true);
+  });
+
+  it.each([
+    ["pending_verification", { status: "pending_verification" }],
+    ["email_verified", { status: "email_verified" }],
+    ["unverified email", { emailVerified: false }],
+  ] as const)(
+    "lets a %s user through instead of redirecting into the funnel",
+    async (_label, overrides) => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        ...mockVerifiedUser,
+        ...overrides,
+      } as UserProfile);
+
+      const res = await proxy(makeRequest("/legal/privacy"));
+
+      expect(isNextResponse(res)).toBe(true);
+    },
+  );
+});
+
+/**
  * PERF-03: the proxy no longer resolves the session for `/api/*`. Every API
  * route self-authenticates (route-helpers.ts) and returns its own 401/403, so
  * a second resolution here was pure query overhead. Protected PAGES still

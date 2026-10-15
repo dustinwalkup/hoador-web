@@ -44,8 +44,10 @@ const SKIP_MIDDLEWARE_PATHS = [
   "/.well-known",
 ];
 
-// Pages that are always accessible (no auth required; funnel users are not redirected away)
-const PUBLIC_PAGE_ROUTES = ["/support", "/help", "/how-it-works"];
+// Pages that are always accessible (no auth required; funnel users are not redirected away).
+// /legal/* redirects to the current legal documents, which a user mid-signup
+// must be able to read before accepting them.
+const PUBLIC_PAGE_ROUTES = ["/support", "/help", "/how-it-works", "/legal"];
 
 /**
  * Refuse an unauthenticated request to a protected PAGE by redirecting to
@@ -91,7 +93,7 @@ function isAdminRoute(pathname: string): boolean {
 }
 
 /**
- * Check if path is a public page (support, help, how-it-works) that anyone can access
+ * Check if path is a public page (support, help, how-it-works, legal) that anyone can access
  */
 function isPublicPageRoute(pathname: string): boolean {
   return PUBLIC_PAGE_ROUTES.some(
