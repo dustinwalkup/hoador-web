@@ -29,6 +29,11 @@ export default defineConfig({
       // `@/db/db` only uses the node-postgres pool (`db-e2e`) under this flag;
       // without it every DAL would talk to the Neon driver instead.
       E2E_TEST: "1",
+      // `@/services/resend` throws on import without a key, and any suite that
+      // reaches the notification senders imports it. CI has no `.env.test`, so
+      // set the same dummy as vitest.config.mjs; it also keeps a real key from
+      // ever sending mail from a test.
+      RESEND_API_KEY: "test-dummy-resend-api-key",
     },
     // One shared database: files must not interleave their truncates.
     fileParallelism: false,
