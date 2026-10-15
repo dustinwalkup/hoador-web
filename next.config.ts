@@ -84,7 +84,9 @@ const nextConfig: NextConfig = {
         // no extension, so pin the content type rather than relying on Vercel's
         // default. Universal links (P3) associate www.hoador.com (prod) and
         // staging.hoador.com (staging) with the app; the apex hoador.com cannot
-        // serve this (it 307-redirects to www).
+        // serve this (it 307-redirects to www). Its Android twin,
+        // `assetlinks.json`, needs no entry here: the `.json` extension already
+        // gets `application/json`. Neither may redirect; Android won't follow one.
         source: "/.well-known/apple-app-site-association",
         headers: [
           {

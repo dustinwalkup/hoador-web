@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.hoador.app.staging",
+      "sha256_cert_fingerprints": [
+        "68:65:B6:8D:9A:A4:1C:14:9D:CD:3D:2F:3D:10:60:9D:B7:57:0C:B1:5A:1F:87:DD:20:B5:0D:6C:2C:37:49:9C"
+      ]
+    }
+  }
+]
