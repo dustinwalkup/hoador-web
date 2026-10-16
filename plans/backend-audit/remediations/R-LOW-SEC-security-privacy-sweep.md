@@ -741,6 +741,8 @@ all pass.
 
 ### Part E — PRIV-14 (mobile): encrypt the persisted query cache
 
+> **Status 2026-10-16:** encryption landed in hoador-mobile (task 15.7, Linear HOA-119); see `epic-15-hardening-release.md` § 15.7 for where it departs from this sketch. `allowBackup: false` is still open, tracked with the native config (RP-2, HOA-113).
+
 **E1. Install `expo-crypto`** (not currently a dependency —
 `grep -n '"expo-crypto"' package.json` confirms absent):
 `npx expo install expo-crypto` from `hoador-mobile`.

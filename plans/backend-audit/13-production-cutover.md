@@ -1,6 +1,6 @@
 # Production cutover checklist
 
-Everything the backend-audit fixes need done **by hand, outside the code**, when they first reach production: data cleanup before a migration, a migration that `drizzle-kit push` can't create, Stripe events to resend. Code review and CI can't catch any of these. hoador is not in production yet (2026-09-24), so each step below records how it went on dev and staging, so prod can repeat it.
+Everything the backend-audit fixes need done **by hand, outside the code**, when they first reach production: data cleanup before a migration, a migration that `drizzle-kit push` can't create, Stripe events to resend. Code review and CI can't catch any of these. The audit fixes are not in production yet (2026-09-24), so each step below records how it went on dev and staging, so prod can repeat it. Production itself is live (the web app, with a small number of real users and live Stripe), so prod steps run against real data.
 
 **Executors: when your fix needs a manual step in any environment, add a row here in the same change,** as the roadmap's _Mobile client follow-ups_ table does for contract changes.
 
