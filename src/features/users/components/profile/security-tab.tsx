@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import {
   Shield,
   Download,
@@ -22,16 +23,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 export function SecurityTab() {
   const [showPassword, setShowPassword] = useState(false);
@@ -204,53 +195,23 @@ export function SecurityTab() {
               </div>
             </Button>
 
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="h-auto flex-col gap-2 border-red-200 p-4 text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="h-6 w-6" />
-                  <div className="text-center">
-                    <div className="font-medium">Delete Account</div>
-                    <div className="text-muted-foreground text-xs">
-                      Permanently delete your account
-                    </div>
-                  </div>
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Delete Account</DialogTitle>
-                  <DialogDescription>
-                    This action cannot be undone. This will permanently delete
-                    your account and remove all your data from our servers.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="rounded-lg bg-red-50 p-4">
-                    <h4 className="font-medium text-red-800">
-                      Before you delete your account:
-                    </h4>
-                    <ul className="mt-2 text-sm text-red-700">
-                      <li>• Complete any active rentals</li>
-                      <li>• Withdraw any remaining balance</li>
-                      <li>• Download your data if needed</li>
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="delete-confirmation">
-                      Type &quot;DELETE&quot; to confirm
-                    </Label>
-                    <Input id="delete-confirmation" placeholder="DELETE" />
+            {/* The full flow lives on its own page, which Google Play also
+                links to (HOA-115): blockers, typed confirm, delete. */}
+            <Button
+              asChild
+              variant="outline"
+              className="h-auto flex-col gap-2 border-red-200 p-4 text-red-600 hover:bg-red-50"
+            >
+              <Link href="/account/delete">
+                <Trash2 className="h-6 w-6" />
+                <div className="text-center">
+                  <div className="font-medium">Delete Account</div>
+                  <div className="text-muted-foreground text-xs">
+                    Permanently delete your account
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline">Cancel</Button>
-                  <Button variant="destructive">Delete Account</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
