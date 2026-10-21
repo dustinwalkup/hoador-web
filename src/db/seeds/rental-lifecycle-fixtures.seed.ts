@@ -45,10 +45,12 @@
  * Usage:
  *   DATABASE_URL=... bun run seed:rental-lifecycle -- you@example.com
  *   DATABASE_URL=... LIFECYCLE_FIXTURE_EMAIL=you@example.com bun run seed:rental-lifecycle
+ *   LIFECYCLE_FIXTURE_COUNTERPARTY_EMAIL=owner@example.com pins the other party
+ *   (see `resolveCounterparty`).
  */
 
 import "dotenv/config";
-import { eq, inArray, like, ne } from "drizzle-orm";
+import { and, eq, inArray, like, ne } from "drizzle-orm";
 
 import { db } from "../db-seed";
 import { listingAvailability, listings } from "../schemas/listings.schema";
@@ -96,15 +98,36 @@ async function resolveTargetUser(email: string) {
   return target;
 }
 
+/**
+ * The other party on every fixture. The renter-side fixtures borrow one of
+ * this user's listings, so a rental's owner and its listing's owner agree.
+ * Unpinned, it is whoever owns some listing the target doesn't — on a shared
+ * environment that can be a real tester's account (or B's), so pin it there
+ * with `LIFECYCLE_FIXTURE_COUNTERPARTY_EMAIL`.
+ */
 async function resolveCounterparty(targetId: string) {
+  const pinned = process.env.LIFECYCLE_FIXTURE_COUNTERPARTY_EMAIL;
   const [other] = await db
-    .select({ id: user.id, firstName: user.firstName, lastName: user.lastName })
+    .select({
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    })
     .from(user)
-    .where(ne(user.id, targetId))
+    .innerJoin(listings, eq(listings.ownerId, user.id))
+    .where(pinned ? eq(user.email, pinned) : ne(user.id, targetId))
     .limit(1);
   if (!other) {
     throw new Error(
-      "Need at least one other user to act as counterparty. Run `bun run seed` against a LOCAL database first.",
+      pinned
+        ? `No user "${pinned}" who owns a listing (LIFECYCLE_FIXTURE_COUNTERPARTY_EMAIL).`
+        : "Need another user who owns a listing to act as counterparty. Run `bun run seed` against a LOCAL database first.",
+    );
+  }
+  if (other.id === targetId) {
+    throw new Error(
+      "The counterparty must be a different user from the target.",
     );
   }
   return other;
@@ -116,7 +139,7 @@ type SeedListing = {
   securityDeposit: string | null;
 };
 
-async function resolveListings(targetId: string) {
+async function resolveListings(targetId: string, counterpartyId: string) {
   const columns = {
     id: listings.id,
     dailyRate: listings.dailyRate,
@@ -129,15 +152,22 @@ async function resolveListings(targetId: string) {
     .from(listings)
     .where(eq(listings.ownerId, targetId))
     .limit(2);
+  // Approved and active, so the checkout picker (8A.1) can actually open it.
   const [theirs] = await db
     .select(columns)
     .from(listings)
-    .where(ne(listings.ownerId, targetId))
+    .where(
+      and(
+        eq(listings.ownerId, counterpartyId),
+        eq(listings.approvalStatus, "approved"),
+        eq(listings.isActive, true),
+      ),
+    )
     .limit(1);
 
   if (!mine || !theirs) {
     throw new Error(
-      `Need a listing owned by ${targetId} (owner-side fixtures) and one owned by someone else (renter-side fixtures and the checkout picker). Found owned=${mine ? 1 : 0}, other=${theirs ? 1 : 0}.`,
+      `Need a listing owned by ${targetId} (owner-side fixtures) and one owned by the counterparty (renter-side fixtures and the checkout picker). Found owned=${mine ? 1 : 0}, counterparty=${theirs ? 1 : 0}.`,
     );
   }
   return { mine, mineSpare, theirs };
@@ -231,7 +261,11 @@ async function main(): Promise<void> {
 
   const target = await resolveTargetUser(email);
   const other = await resolveCounterparty(target.id);
-  const { mine, mineSpare, theirs } = await resolveListings(target.id);
+  const { mine, mineSpare, theirs } = await resolveListings(
+    target.id,
+    other.id,
+  );
+  console.log(`   counterparty : ${other.email}\n`);
 
   await clearPreviousFixtures();
 
