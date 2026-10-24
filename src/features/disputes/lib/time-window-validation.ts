@@ -1,4 +1,5 @@
 import type { DisputeReasonCode } from "@/dal/types";
+import { wallClockToInstant } from "@/lib/wall-clock-zone";
 
 export interface TimeWindowValidationResult {
   valid: boolean;
@@ -143,7 +144,9 @@ export class TimeWindowValidation {
    * - If `returnConfirmedAt` is not set (pre-return / no-show), the window opens
    *   once `now >= startDate` and has no deadline (caller restricts to approved/active).
    *
-   * @param startDate - Rental start date
+   * @param startDate - When the rental starts, as an instant: the server's
+   *   `pickupInstant` (midnight Central of the booked day). Not the raw stored
+   *   day, which a browser reads in its own zone (HOA-124).
    * @param returnConfirmedAt - When the owner confirmed the return (null if not yet returned)
    * @param now - Current date (injectable for testing)
    * @returns True if the filing window is currently open
@@ -165,22 +168,32 @@ export class TimeWindowValidation {
   private static readonly MS_PER_DAY = 24 * 60 * 60 * 1000;
 
   /**
-   * Parses scheduled service start from booking date + time (local ISO string).
+   * The scheduled service start, from the booking's date + time read as a
+   * **Central wall clock** (`wallClockToInstant`), the same reading as
+   * `serviceInstant` behind accept, complete, refund tiers and payouts.
+   *
+   * It used to be `new Date("YYYY-MM-DDTHH:MM")`, which parses in whatever zone
+   * the code runs in: UTC on the server, so a 10am job "started" at 5am
+   * Central and a never-completed booking's dispute window closed five hours
+   * early (HOA-124). Also run in the browser by the web detail page, where it
+   * now gives the same answer as the server.
+   *
+   * An unreadable value gives an Invalid Date, as before.
    */
   static parseServiceScheduledAt(
     proposedDate: string,
     proposedTime: string,
   ): Date {
-    const timePart =
-      proposedTime.length === 5 ? `${proposedTime}:00` : proposedTime;
-    return new Date(`${proposedDate}T${timePart}`);
+    return wallClockToInstant(proposedDate, proposedTime) ?? new Date(NaN);
   }
 
   /**
-   * Start of the scheduled calendar day (local) for "day of" eligibility.
+   * Start of the scheduled calendar day for "day of" eligibility: Central
+   * midnight, not the server's (UTC) midnight, which is 7pm Central the
+   * evening before (HOA-124).
    */
   static parseServiceDayStart(proposedDate: string): Date {
-    return new Date(`${proposedDate}T00:00:00`);
+    return wallClockToInstant(proposedDate, "00:00") ?? new Date(NaN);
   }
 
   /**

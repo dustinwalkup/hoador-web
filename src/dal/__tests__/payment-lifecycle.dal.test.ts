@@ -58,6 +58,34 @@ describe("PaymentLifecycleDAL", () => {
       expect(params).toContain("scheduled");
       expect(params).not.toContain("failed");
     });
+
+    // The window is 48 hours before the pickup day STARTS in Central
+    // (`pickupInstant`), the instant approval uses too. At 10pm Central on
+    // Oct 25 that is the pickup days Oct 26 and Oct 27: Oct 28 starts 50 hours
+    // out. Compared on the stored days, so a mobile-stored day (00:00, 7pm
+    // Central the evening before) is no longer picked up five hours early.
+    it("selects pickup days whose start is within 48 hours, in Central", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-26T03:00:00Z"));
+      try {
+        const { mockWhere } = stubSelect();
+
+        await paymentLifecycleDAL.findScheduledDepositsNearPickup(20);
+
+        const { sql, params } = renderWhere(mockWhere.mock.calls[0][0]);
+        const bound = (op: string) => {
+          const match = sql.match(
+            new RegExp(`"rentals"\\."start_date" ${op} \\$(\\d+)`),
+          );
+          return match ? params[Number(match[1]) - 1] : undefined;
+        };
+        // Stored days, in the shape the column holds them.
+        expect(bound(">=")).toBe(new Date(2026, 9, 26).toISOString());
+        expect(bound("<")).toBe(new Date(2026, 9, 28).toISOString());
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe("findEligibleForPayout", () => {

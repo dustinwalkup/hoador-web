@@ -13,6 +13,7 @@ import { trackActivity } from "@/features/activity/lib/track-activity";
 import type { CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { quoteRentalRequest } from "@/features/rentals/services/rental-quote";
 import { isPastDay } from "@/features/rentals/lib/availability";
+import { hoursUntilPickup } from "@/features/rentals/lib/cancellation-eligibility";
 import {
   sendPaymentFailureNotificationToOwner,
   sendPaymentFailureNotificationToRenter,
@@ -27,7 +28,10 @@ import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { closeNeedsFulfilledByBooking } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
-import { STRIPE_MINIMUM_CHARGE_USD } from "@/constants/payments";
+import {
+  DEPOSIT_HOLD_LEAD_HOURS,
+  STRIPE_MINIMUM_CHARGE_USD,
+} from "@/constants/payments";
 import {
   chargeRentalPayment,
   getPaymentErrorMessage,
@@ -735,11 +739,14 @@ export class RentalService {
     if (securityDepositAmount < STRIPE_MINIMUM_CHARGE_USD) {
       depositHoldStatus = "not_applicable";
     } else {
-      const hoursUntilPickup =
-        (new Date(rentalRequest.startDate).getTime() - Date.now()) /
-        (1000 * 60 * 60);
-
-      if (hoursUntilPickup <= 48) {
+      // Measured to the start of the pickup day in Central, the instant the
+      // cron's window and the refund tier use. From the raw stored value a
+      // mobile-stored day (00:00, 7pm Central the evening before) was held
+      // five hours early (HOA-124).
+      if (
+        hoursUntilPickup(new Date(rentalRequest.startDate)) <=
+        DEPOSIT_HOLD_LEAD_HOURS
+      ) {
         // Place deposit hold immediately
         const holdResult = await placeDepositHold({
           rentalId: rentalRequest.id,
@@ -768,7 +775,7 @@ export class RentalService {
           );
         }
       } else {
-        // Schedule for cron to place 48hrs before pickup
+        // Schedule for the cron to place 48h before the pickup day starts
         depositHoldStatus = "scheduled";
       }
     }

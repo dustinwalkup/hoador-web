@@ -9,6 +9,7 @@ import {
   NotFoundError,
 } from "@/dal/errors";
 import { quoteRentalRequest } from "./rental-quote";
+import { startOfMarketToday } from "@/features/rentals/lib/availability";
 
 const mockInsertRentalRequest = vi.fn();
 const mockGetListingById = vi.fn();
@@ -76,11 +77,12 @@ vi.mock("@/services/stripe/server", () => ({
  * These fixtures used to be pinned to Feb 2024 — harmless while creation had no
  * opinion about the past, and a landmine once it grew one (P-E8A-2b's no-past
  * rule). Relative dates make the suite time-independent rather than correct
- * until the next rule lands.
+ * until the next rule lands. "Today" is the market's day, as the no-past rule
+ * reads it (HOA-124); a server-local one is tomorrow in Central for part of
+ * every day on a UTC runner.
  */
 const daysFromToday = (offset: number) => {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
+  const date = startOfMarketToday();
   date.setDate(date.getDate() + offset);
   return date;
 };
@@ -471,6 +473,36 @@ describe("RentalService.createRentalRequest — availability (P-E8A-2b)", () => 
     );
 
     expect(result.id).toBe("request-456");
+  });
+
+  // HOA-124: the quote's "in the past" is the Central calendar day. On the UTC
+  // server a renter booking for today was told it was in the past from 7pm.
+  it("quotes a rental starting today at 8pm Central (01:00 UTC the next day)", async () => {
+    const quote = await quoteRentalRequest(
+      {
+        ...validFormData,
+        startDate: new Date(2026, 9, 26),
+        endDate: new Date(2026, 9, 28),
+      },
+      "renter-789",
+      { now: new Date("2026-10-27T01:00:00Z") },
+    );
+
+    expect(quote.blockers.map((b) => b.code)).not.toContain("START_IN_PAST");
+  });
+
+  it("calls the same start past once Central midnight has passed", async () => {
+    const quote = await quoteRentalRequest(
+      {
+        ...validFormData,
+        startDate: new Date(2026, 9, 26),
+        endDate: new Date(2026, 9, 28),
+      },
+      "renter-789",
+      { now: new Date("2026-10-27T05:00:00Z") },
+    );
+
+    expect(quote.blockers.map((b) => b.code)).toContain("START_IN_PAST");
   });
 
   // A failed availability read must not become a silent "all clear": the

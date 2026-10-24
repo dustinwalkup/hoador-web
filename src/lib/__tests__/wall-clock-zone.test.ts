@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 
-import { MARKET_TIME_ZONE, wallClockToInstant } from "../wall-clock-zone";
+import {
+  MARKET_TIME_ZONE,
+  marketDayKey,
+  storedDayKey,
+  wallClockToInstant,
+} from "../wall-clock-zone";
 
 /**
  * Mobile P-E9-2 / finding F4. These assertions are written in UTC on purpose:
@@ -88,5 +93,50 @@ describe("wallClockToInstant", () => {
         "America/New_York",
       )?.toISOString(),
     ).toBe("2026-09-02T22:00:00.000Z");
+  });
+});
+
+/**
+ * HOA-124. The day a person in the market is living in, whatever the server's
+ * clock says. Vercel runs in UTC, so from 7pm Central (6pm in winter) the
+ * server's own "today" was already tomorrow.
+ */
+describe("marketDayKey", () => {
+  it("is still the evening's day in Central after UTC has rolled over", () => {
+    // 01:00 UTC on Oct 27 is 8pm on Oct 26 in Chicago (CDT).
+    expect(marketDayKey(new Date("2026-10-27T01:00:00Z"))).toBe("2026-10-26");
+  });
+
+  it("rolls over at Central midnight, not UTC midnight", () => {
+    expect(marketDayKey(new Date("2026-10-27T04:59:59Z"))).toBe("2026-10-26");
+    expect(marketDayKey(new Date("2026-10-27T05:00:00Z"))).toBe("2026-10-27");
+  });
+
+  it("uses the winter offset after DST ends", () => {
+    // CST is UTC-6: 05:30 UTC on Nov 10 is still 11:30pm on Nov 9.
+    expect(marketDayKey(new Date("2026-11-10T05:30:00Z"))).toBe("2026-11-09");
+    expect(marketDayKey(new Date("2026-11-10T06:00:00Z"))).toBe("2026-11-10");
+  });
+
+  it("honours an explicit zone", () => {
+    expect(marketDayKey(new Date("2026-10-27T01:00:00Z"), "UTC")).toBe(
+      "2026-10-27",
+    );
+  });
+});
+
+/**
+ * HOA-124. A stored booked day reaches a client as the instant the driver
+ * parsed the zoneless column to; its UTC date is the day, in any zone.
+ */
+describe("storedDayKey", () => {
+  it("reads a mobile-stored day (00:00) and a web-stored one (Central midnight) alike", () => {
+    expect(storedDayKey(new Date("2026-10-27T00:00:00Z"))).toBe("2026-10-27");
+    expect(storedDayKey(new Date("2026-10-27T05:00:00Z"))).toBe("2026-10-27");
+    expect(storedDayKey("2026-11-10T06:00:00.000Z")).toBe("2026-11-10");
+  });
+
+  it("is empty for an unreadable value", () => {
+    expect(storedDayKey("not a date")).toBe("");
   });
 });

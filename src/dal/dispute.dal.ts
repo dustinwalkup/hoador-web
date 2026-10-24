@@ -11,6 +11,7 @@ import {
   inArray,
   isNotNull,
 } from "drizzle-orm";
+import { pickupInstant } from "@/features/rentals/lib/cancellation-eligibility";
 import { BaseDAL } from "./base";
 import { NotFoundError, ValidationError } from "./errors";
 import {
@@ -1067,7 +1068,8 @@ export class DisputeDAL extends BaseDAL {
    * Validate unified filing window for Phase 3 dispute creation.
    * Rules:
    *  - If `returnConfirmedAt` is set: `now <= returnConfirmedAt + 24h`
-   *  - If `returnConfirmedAt` is NOT set: `now >= startDate`
+   *  - If `returnConfirmedAt` is NOT set: `now >= pickupInstant(startDate)`,
+   *    the start of the pickup day in Central
    * Applies the same 24-hour rule for ALL dispute reason codes.
    *
    * @param rentalId - Rental UUID to validate filing window for
@@ -1108,7 +1110,11 @@ export class DisputeDAL extends BaseDAL {
         };
       }
 
-      const valid = now >= rental.startDate;
+      // Opens when the pickup day starts in Central (`pickupInstant`), the
+      // same instant as every other "has the rental day begun" rule. The raw
+      // stored value opened a mobile-stored day (00:00) at 7pm Central the
+      // evening before (HOA-124).
+      const valid = now >= pickupInstant(rental.startDate);
       return {
         valid,
         message: valid

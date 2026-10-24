@@ -29,7 +29,11 @@ import { conversations } from "@/db/schemas/messages.schema";
 import { serviceBookings, serviceListings } from "@/db/schemas/services.schema";
 import type { AlertType } from "@/features/rentals/lib/format-alert-text";
 import { differenceInDays } from "@/lib/utils/date.utils";
-import { isPastDay } from "@/features/rentals/lib/availability";
+import {
+  isFutureDay,
+  isPastDay,
+  startOfMarketToday,
+} from "@/features/rentals/lib/availability";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import { BLOCKING_RENTAL_STATUSES } from "./account-deletion.dal";
 import { BaseDAL } from "./base";
@@ -608,17 +612,16 @@ export class RentalDAL extends BaseDAL {
           listingImageUrl: listingImagesMap.get(rental.listingId) || null,
         };
 
-        // Current rentals: started and not yet ended.
-        // Normalize endDate to end-of-day so same-day rentals (endDate at midnight)
-        // are not dropped after midnight.
-        const endOfDay = new Date(rental.endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (rental.startDate <= now && endOfDay >= now) {
-          currentRentals.push(listingWithImage);
-        }
-        // Upcoming rentals: haven't started yet
-        else if (rental.startDate > now) {
+        // Compared as Central DAYS (HOA-124): the stored values are booked
+        // days, and read as instants on the UTC server tomorrow's rental was
+        // "current" from 7pm Central and one ending today dropped off the list.
+        // Upcoming rentals: the start day is still ahead.
+        if (isFutureDay(rental.startDate, now)) {
           upcomingRentals.push(listingWithImage);
+        }
+        // Current rentals: started, and the return day not yet behind us.
+        else if (!isPastDay(rental.endDate, now)) {
+          currentRentals.push(listingWithImage);
         }
       }
 
@@ -1037,8 +1040,9 @@ export class RentalDAL extends BaseDAL {
     }>
   > {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // The market's day, not the server's: from 7pm Central the UTC day had
+      // already turned, and a rental ending today read as a day late (HOA-124).
+      const today = startOfMarketToday();
 
       const rows = await this.db
         .select({
@@ -1115,8 +1119,8 @@ export class RentalDAL extends BaseDAL {
    */
   async getActionableAlerts(userId: string): Promise<ActionableAlert[]> {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // The market's day, not the server's (see `getOverdueItemsForUser`).
+      const today = startOfMarketToday();
       const endOfToday = new Date(today);
       endOfToday.setHours(23, 59, 59, 999);
       const startOfTomorrow = new Date(today);
@@ -2950,14 +2954,13 @@ export class RentalDAL extends BaseDAL {
       // rental active weeks early, which starts the renter's period and flips
       // the listing to `rented` before anyone has the item.
       //
-      // Compared as DAYS via `isPastDay`, so a rental starting *today* is
-      // startable: its midnight `startDate` is already behind `now` by the time
-      // anyone taps anything, and an instant comparison would be correct at
-      // 00:00 and wrong for the rest of the day.
-      const startsInFuture =
-        !isPastDay(request.startDate) &&
-        request.startDate.toDateString() !== new Date().toDateString();
-      if (startsInFuture) {
+      // Compared as DAYS, so a rental starting *today* is startable: its
+      // midnight `startDate` is already behind `now` by the time anyone taps
+      // anything, and an instant comparison would be correct at 00:00 and wrong
+      // for the rest of the day. Today is the market's (`isFutureDay`), not the
+      // server's: `toDateString()` here answered in UTC on Vercel, which let an
+      // owner start tomorrow's rental from 7pm Central (HOA-124).
+      if (isFutureDay(request.startDate)) {
         throw new ValidationError(
           "This rental can't be started before its start date.",
           "startDate",

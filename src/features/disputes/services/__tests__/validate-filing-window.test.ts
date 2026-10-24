@@ -66,4 +66,18 @@ describe("validateFilingWindow", () => {
       "before the rental start date",
     );
   });
+
+  // HOA-124: before the return, the window opens when the pickup day starts in
+  // Central, the same instant as the DAL's unified check. A stored booked day
+  // is local midnight, as the driver hands it back.
+  it("opens at the start of the pickup day in Central, not at the stored instant", () => {
+    const oct27 = new Date(2026, 9, 27);
+
+    expect(
+      validateFilingWindow(oct27, null, new Date("2026-10-27T01:00:00Z")).valid,
+    ).toBe(false);
+    expect(
+      validateFilingWindow(oct27, null, new Date("2026-10-27T05:00:00Z")).valid,
+    ).toBe(true);
+  });
 });

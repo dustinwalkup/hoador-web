@@ -69,6 +69,42 @@ function zoneOffsetMs(at: Date, timeZone: string): number {
 }
 
 /**
+ * The calendar day `now` falls on in a named zone, as `YYYY-MM-DD`.
+ *
+ * The other direction from `wallClockToInstant`, and the right answer to
+ * "what is today?" on the server. Asking the server's own clock instead (local
+ * components, `toDateString()`) answers in UTC on Vercel, so from 7pm Central
+ * (6pm in winter) every "today" check was already living in tomorrow: a rental
+ * starting that day could no longer be approved, and one starting the next day
+ * could already be started (HOA-124).
+ */
+export function marketDayKey(
+  now: Date = new Date(),
+  timeZone: string = MARKET_TIME_ZONE,
+): string {
+  const parts = partsFormatter(timeZone).formatToParts(now);
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${read("year")}-${read("month")}-${read("day")}`;
+}
+
+/**
+ * The booked day a stored `start_date`/`end_date` holds, as `YYYY-MM-DD`, read
+ * from its UTC components.
+ *
+ * For code that receives the stored day as a `Date` it did not build, above all
+ * a client component: the value arrives as the instant the server's driver
+ * parsed the zoneless column to, and its UTC date is the stored day whatever
+ * zone the browser is in. Its local date is not: a Central browser reads a
+ * mobile-stored Oct 27 (`2026-10-27T00:00Z`) as Oct 26 (HOA-124). Empty for an
+ * unreadable value.
+ */
+export function storedDayKey(date: Date | string): string {
+  const value = new Date(date);
+  return Number.isNaN(value.getTime()) ? "" : value.toISOString().slice(0, 10);
+}
+
+/**
  * `YYYY-MM-DD` + `HH:MM[:SS]` in a named zone → the instant it refers to.
  *
  * Two passes, and the second one is not paranoia: the offset has to be sampled

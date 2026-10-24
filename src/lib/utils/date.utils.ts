@@ -3,6 +3,8 @@
  * @fileoverview Utility functions for date manipulation and formatting without external dependencies
  */
 
+import { storedDayKey } from "@/lib/wall-clock-zone";
+
 /**
  * Options for formatDistanceToNow function
  */
@@ -155,6 +157,27 @@ export const formatDate = (
     default:
       return new Date(date).toLocaleDateString();
   }
+};
+
+/**
+ * Format a stored booked day (`start_date` / `end_date`) as the day it was
+ * booked, in any zone. Arguments after the first are `toLocaleDateString`'s.
+ *
+ * The value arrives as the instant the server's driver parsed the zoneless
+ * column to, so `new Date(x).toLocaleDateString()` reads it in the runtime's
+ * zone: a mobile-stored Oct 27 (`2026-10-27T00:00Z`) was Oct 26 in a Central
+ * browser (HOA-124). The day is read with `storedDayKey` and formatted from
+ * its components instead. Empty for an unreadable value.
+ */
+export const formatStoredDay = (
+  date: DateInput,
+  locales?: Intl.LocalesArgument,
+  options?: Intl.DateTimeFormatOptions,
+): string => {
+  const key = storedDayKey(new Date(date));
+  if (!key) return "";
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(locales, options);
 };
 
 /**

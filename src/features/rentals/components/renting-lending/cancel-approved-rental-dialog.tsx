@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { XCircle, Loader2, AlertTriangle } from "lucide-react";
 
 import {
@@ -16,35 +16,51 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { useCancelRentalRequest } from "@/features/rentals/hooks/use-rental-mutations";
+import {
+  useRentalCancellationPreview,
+  type RentalCancellationPreview,
+} from "@/features/rentals/hooks/use-rentals";
+import { formatDateTimeLocal } from "@/lib/utils/date.utils";
 
 const CANCEL_REASON_MAX_LENGTH = 1000;
+
+/**
+ * How long after `tierExpiresAt` the quote is asked for again. At the boundary
+ * itself the server still quotes the old tier (it is "at least 24 hours"), so
+ * asking a moment later is what gets the new one.
+ */
+const TIER_EXPIRY_GRACE_MS = 1000;
+/** `setTimeout` fires at once past this, so a later expiry arms no timer. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
 
 interface CancelApprovedRentalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requestId: string;
   listingName: string;
-  startDate: Date | string;
-  role: "renter" | "owner";
   onSuccess?: () => void;
 }
 
-function getPolicyDescription(
-  role: "renter" | "owner",
-  startDate: Date | string,
-): string {
-  if (role === "owner") {
-    return "The renter will receive a full refund including the service fee. No payout will be issued to you.";
+/**
+ * The refund the SERVER will apply, in words (Req 9.3.1).
+ *
+ * This used to be worked out here from `startDate` and the browser's clock, 24
+ * hours before the instant the stored day parsed to. The server measures from
+ * the start of the pickup day in Central, so for hours every evening the dialog
+ * promised one tier and the cancellation applied the other (HOA-124). The tier
+ * now comes from the same preview the mobile app shows.
+ */
+function getPolicyDescription(preview: RentalCancellationPreview): string {
+  switch (preview.tier) {
+    case "owner_cancellation":
+      return "The renter will receive a full refund including the service fee. No payout will be issued to you.";
+    case "full_refund_24h":
+      return "You will receive a full refund of the rental price. The service fee is non-refundable.";
+    case "half_refund_under_24h":
+      return "You will receive a 50% refund of the rental price. The remaining 50% will be paid to the owner. The service fee is non-refundable.";
+    default:
+      return preview.reason ?? "This rental can't be cancelled right now.";
   }
-
-  const start = typeof startDate === "string" ? new Date(startDate) : startDate;
-  const hoursUntilPickup = (start.getTime() - Date.now()) / (1000 * 60 * 60);
-
-  if (hoursUntilPickup >= 24) {
-    return "You will receive a full refund of the rental price. The service fee is non-refundable.";
-  }
-
-  return "You will receive a 50% refund of the rental price. The remaining 50% will be paid to the owner. The service fee is non-refundable.";
 }
 
 export function CancelApprovedRentalDialog({
@@ -52,20 +68,33 @@ export function CancelApprovedRentalDialog({
   onOpenChange,
   requestId,
   listingName,
-  startDate,
-  role,
   onSuccess,
 }: CancelApprovedRentalDialogProps) {
   const [reason, setReason] = useState("");
   const cancelMutation = useCancelRentalRequest();
+  const preview = useRentalCancellationPreview(requestId, open);
+  // The quote is a snapshot of a tier that changes at a cutoff. While a fresh
+  // one is on its way (every open, and when the tier expires) the last one is
+  // not shown and cannot be confirmed against: reopening across the cutoff
+  // used to show the old "full refund" with Confirm already live.
+  const quote = preview.isFetching ? undefined : preview.data;
 
-  const policyDescription = useMemo(
-    () => getPolicyDescription(role, startDate),
-    [role, startDate],
-  );
+  // Ask again when the quoted tier stops being true while the dialog is open.
+  const expiresAt = open ? (quote?.tierExpiresAt ?? null) : null;
+  const { refetch } = preview;
+  useEffect(() => {
+    if (!expiresAt) return;
+    const delay = Date.parse(expiresAt) - Date.now() + TIER_EXPIRY_GRACE_MS;
+    if (!(delay < MAX_TIMER_MS)) return;
+    const timer = setTimeout(() => void refetch(), Math.max(delay, 0));
+    return () => clearTimeout(timer);
+  }, [expiresAt, refetch]);
 
   const isReasonValid = reason.trim().length > 0;
-  const canSubmit = isReasonValid && !cancelMutation.isPending;
+  // No tier on screen, no confirm: cancelling without showing the refund first
+  // is what Req 9.3.1 exists to prevent.
+  const canSubmit =
+    isReasonValid && !cancelMutation.isPending && quote?.canCancel === true;
 
   const handleCancel = async () => {
     if (!canSubmit) return;
@@ -97,10 +126,41 @@ export function CancelApprovedRentalDialog({
                 Are you sure you want to cancel your approved rental for{" "}
                 {listingName}? This action cannot be undone.
               </p>
-              <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                <AlertTriangle className="mb-1 inline h-4 w-4" />{" "}
-                {policyDescription}
-              </p>
+              <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                {quote ? (
+                  <>
+                    <p>
+                      <AlertTriangle className="mb-1 inline h-4 w-4" />{" "}
+                      {getPolicyDescription(quote)}
+                    </p>
+                    {quote.tierExpiresAt ? (
+                      <p className="text-xs">
+                        {`This refund applies until ${formatDateTimeLocal(quote.tierExpiresAt)}.`}
+                      </p>
+                    ) : null}
+                  </>
+                ) : preview.isError && !preview.isFetching ? (
+                  <div className="space-y-2">
+                    <p>
+                      We couldn&apos;t check your refund just now, so nothing
+                      has been cancelled.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void preview.refetch()}
+                    >
+                      Try again
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking your refund…
+                  </p>
+                )}
+              </div>
             </div>
           </DialogDescription>
         </DialogHeader>

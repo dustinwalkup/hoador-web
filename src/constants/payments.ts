@@ -25,6 +25,14 @@ export const MINIMUM_LISTING_PRICE_USD = 5;
 export const PENDING_BOOKING_EXPIRY_WINDOW_HOURS = 72;
 
 /**
+ * How long before the pickup day starts (`pickupInstant`: midnight Central of
+ * the booked day) a rental's security deposit hold is placed. Approval places
+ * it at once inside this window; the `schedule-deposit-holds` cron places it
+ * when a scheduled rental enters it. Both read this, so they cannot disagree.
+ */
+export const DEPOSIT_HOLD_LEAD_HOURS = 48;
+
+/**
  * Stripe's processing rate (2.9% + $0.30). Used for both the renter-facing service fee
  * and for platform net revenue calculation.
  */

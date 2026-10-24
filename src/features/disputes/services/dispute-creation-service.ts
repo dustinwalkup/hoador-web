@@ -22,6 +22,7 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { sendDisputeNotifications } from "@/features/disputes/notifications/dispute-notifications";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
+import { pickupInstant } from "@/features/rentals/lib/cancellation-eligibility";
 import {
   DisputeAlreadyExistsError,
   DisputeRateLimitedError,
@@ -56,7 +57,8 @@ export interface CreateDisputeResult {
  *
  * Rules (Phase 3 unified window):
  *  - If `returnConfirmedAt` is set: `now <= returnConfirmedAt + 24h`
- *  - If `returnConfirmedAt` is NOT set: `now >= startDate`
+ *  - If `returnConfirmedAt` is NOT set: `now >= pickupInstant(startDate)`, the
+ *    start of the pickup day in Central, as `validateFilingWindowUnified` reads it
  *
  * @returns `{ valid: true }` or `{ valid: false, message: string }`
  */
@@ -79,7 +81,7 @@ export function validateFilingWindow(
     return { valid: true };
   }
 
-  if (now < startDate) {
+  if (now < pickupInstant(startDate)) {
     return {
       valid: false,
       message: "Disputes cannot be filed before the rental start date",

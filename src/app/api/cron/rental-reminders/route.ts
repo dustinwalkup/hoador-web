@@ -5,6 +5,7 @@ import { rentalDAL } from "@/dal";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { formatAlertText } from "@/features/rentals/lib/format-alert-text";
 import { differenceInDays } from "@/lib/utils/date.utils";
+import { startOfMarketToday } from "@/features/rentals/lib/availability";
 
 // Explicit budget rather than the platform default (PERF-06).
 export const maxDuration = 60;
@@ -17,8 +18,9 @@ async function getHandler(request: NextRequest) {
   const auth = verifyCronSecret(request);
   if (!auth.authorized) return auth.response;
 
-  const referenceDay = new Date();
-  referenceDay.setHours(0, 0, 0, 0);
+  // The Central day, not the server's: the 10:00 UTC schedule happens to fall
+  // on the same day in both, any other run would not (HOA-124).
+  const referenceDay = startOfMarketToday();
 
   const rows =
     await rentalDAL.getApprovedRentalsForDailyReminders(referenceDay);

@@ -18,6 +18,11 @@ import {
   serviceBookingDisputeEligibility,
   type DisputeFilingEligibility,
 } from "@/features/disputes/lib/filing-eligibility";
+import {
+  refundStatusFor,
+  type RefundStatus,
+} from "@/features/payments/lib/refund-status";
+import { serviceInstant } from "@/features/services/lib/booking-cancellation";
 
 /** Which side of the booking the viewer is on — decided here, never by the client. */
 export type ServiceBookingViewerRole = "requester" | "provider";
@@ -56,6 +61,14 @@ export interface ServiceBookingDetailResponse {
   proposedDate: string;
   /** `HH:MM`, wall clock. */
   proposedTime: string;
+  /**
+   * When the work starts, as an instant: `proposedDate` + `proposedTime` read
+   * as a Central wall clock (`serviceInstant`), the reading accept, complete,
+   * the refund tiers and payouts use. Clients gate Accept and Mark complete on
+   * it rather than reading the wall clock in their own zone (HOA-124). `null`
+   * when the stored time cannot be read, which the server treats as unknown.
+   */
+  scheduledAt: string | null;
   /** `numeric(4,2)` as a decimal string; `null` for fixed-price listings. */
   hours: string | null;
   notes: string | null;
@@ -63,6 +76,12 @@ export interface ServiceBookingDetailResponse {
   serviceFee: string;
   totalAmount: string;
   refundAmount: string | null;
+  /**
+   * How much of `totalAmount` `refundAmount` gave back. `paymentStatus` stays
+   * `succeeded` after a refunded cancellation, so this is what tells a client
+   * the booking was refunded (see `refundStatusFor`).
+   */
+  refundStatus: RefundStatus | null;
   status: string;
   paymentStatus: string | null;
   declineReason: string | null;
@@ -312,6 +331,7 @@ async function getHandler(
       // instants, and must never round-trip through `Date` on the client.
       proposedDate: serializeProposedDate(booking.proposedDate),
       proposedTime: booking.proposedTime,
+      scheduledAt: toIso(serviceInstant(booking)),
       /** `numeric(4,2)` — a decimal STRING, and null for fixed-price listings. */
       hours: booking.hours,
       notes: booking.notes,
@@ -320,6 +340,7 @@ async function getHandler(
       serviceFee: booking.serviceFee,
       totalAmount: booking.totalAmount,
       refundAmount: booking.refundAmount,
+      refundStatus: refundStatusFor(booking.totalAmount, booking.refundAmount),
 
       status: booking.status,
       paymentStatus: booking.paymentStatus,

@@ -5,6 +5,7 @@ import type {
   RentalDetails,
   BorrowedListing,
 } from "@/dal/rentals.dal";
+import type { RefundTier } from "@/features/rentals/lib/cancellation-eligibility";
 
 // Query keys for consistent caching
 export const rentalKeys = {
@@ -152,6 +153,44 @@ export function useRentalDetails(rentalId: string | null) {
     },
     enabled: !!rentalId,
     staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: false,
+  });
+}
+
+/** The fields of `GET /api/rentals/[id]/cancellation-preview` the web dialog reads. */
+export interface RentalCancellationPreview {
+  canCancel: boolean;
+  tier: RefundTier;
+  /** Why it cannot be cancelled, when `canCancel` is false. */
+  reason?: string | null;
+  /** When the quoted tier stops being true; `null` once it is the last one. */
+  tierExpiresAt?: string | null;
+}
+
+/**
+ * What cancelling would refund, as the server will apply it (mobile Req 9.3.1).
+ *
+ * Fetched when the dialog opens and never cached as fresh: it is a snapshot of
+ * a tier that changes 24 hours before the pickup day starts.
+ */
+export function useRentalCancellationPreview(
+  rentalId: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [...rentalKeys.detail(rentalId), "cancellation-preview"] as const,
+    queryFn: async (): Promise<RentalCancellationPreview> => {
+      const response = await fetch(
+        `/api/rentals/${rentalId}/cancellation-preview`,
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to check the refund");
+      }
+      return await response.json();
+    },
+    enabled,
+    staleTime: 0,
     refetchOnWindowFocus: false,
   });
 }

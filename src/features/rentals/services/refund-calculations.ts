@@ -1,4 +1,8 @@
 import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
+import {
+  hoursUntilPickup,
+  REFUND_TIER_HOURS,
+} from "@/features/rentals/lib/cancellation-eligibility";
 
 export interface RefundCalculation {
   refundAmountCents: number;
@@ -10,21 +14,22 @@ export interface RefundCalculation {
  * Refund calculation for renter-initiated cancellation.
  * >=24h before pickup: full rental price refund, 0 owner transfer.
  * <24h: 50% rental price refund, owner receives (50% − platform fee).
+ *
+ * `startDate` is the stored booked day. Pickup is the start of that day in the
+ * market zone, measured by `hoursUntilPickup`: the same function the
+ * cancellation preview quotes its tier and `tierExpiresAt` from (HOA-124).
  */
 export function calculateRenterCancellationRefund(
   rentalPriceDollars: number,
   startDate: Date,
   now: Date = new Date(),
 ): RefundCalculation {
-  const hoursUntilPickup =
-    (startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-
   const rentalPriceCents = Math.round(rentalPriceDollars * 100);
   const platformFeeCents = Math.round(
     rentalPriceDollars * PLATFORM_FEE_PERCENTAGE * 100,
   );
 
-  if (hoursUntilPickup >= 24) {
+  if (hoursUntilPickup(startDate, now) >= REFUND_TIER_HOURS) {
     return {
       refundAmountCents: rentalPriceCents,
       ownerTransferAmountCents: 0,

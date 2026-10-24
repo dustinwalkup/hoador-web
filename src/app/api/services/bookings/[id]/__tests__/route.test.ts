@@ -432,3 +432,68 @@ describe("GET /api/services/bookings/[id] — provider earnings (P-E9-5)", () =>
     });
   });
 });
+
+/**
+ * The service twin of UAT E2E-007. A booking cancelled after acceptance keeps
+ * `payment_status = succeeded` with the refund in `refund_amount` (five such
+ * rows on staging, 2026-10-24), so the detail pill said "Paid" beside a
+ * "Refunded" line. `refundStatus` says how much came back; `paymentStatus` is
+ * left as stored for an app that predates the field.
+ */
+describe("GET /api/services/bookings/[id] — refund status", () => {
+  const ACCEPTED_THEN_CANCELLED = {
+    status: "cancelled",
+    paymentStatus: "succeeded",
+  };
+
+  const fetchBody = async () => (await GET(req(), params("booking-1"))).json();
+
+  it("is partial when half the service price came back", async () => {
+    setup({ ...ACCEPTED_THEN_CANCELLED, refundAmount: "60.00" });
+
+    const body = await fetchBody();
+
+    expect(body.refundStatus).toBe("partial");
+    expect(body.paymentStatus).toBe("succeeded");
+  });
+
+  it("is full when the whole charge came back", async () => {
+    setup({ ...ACCEPTED_THEN_CANCELLED, refundAmount: "124.02" });
+
+    expect((await fetchBody()).refundStatus).toBe("full");
+  });
+
+  it("is null when nothing was refunded", async () => {
+    setup({ status: "completed", paymentStatus: "succeeded" });
+
+    expect((await fetchBody()).refundStatus).toBeNull();
+  });
+});
+
+/**
+ * When the work starts, as an instant the server decided: the booking's date
+ * and time read as a Central wall clock (`serviceInstant`, the reading accept,
+ * complete, refund tiers and payouts use). The app gates Accept and Mark
+ * complete on it; reading the wall clock in the device's zone instead moved
+ * those buttons for anyone outside Central (HOA-124).
+ */
+describe("GET /api/services/bookings/[id] — scheduledAt", () => {
+  it("is the Central start time as an ISO instant", async () => {
+    setup({ proposedDate: "2026-09-02", proposedTime: "14:30" });
+
+    const body = await (await GET(req(), params("booking-1"))).json();
+
+    // 2:30pm CDT is 19:30 UTC.
+    expect(body.scheduledAt).toBe("2026-09-02T19:30:00.000Z");
+    // The wall clock itself is still sent as-is.
+    expect(body.proposedTime).toBe("14:30");
+  });
+
+  it("is null when the stored time cannot be read", async () => {
+    setup({ proposedDate: "2026-09-02", proposedTime: "afternoon" });
+
+    const body = await (await GET(req(), params("booking-1"))).json();
+
+    expect(body.scheduledAt).toBeNull();
+  });
+});

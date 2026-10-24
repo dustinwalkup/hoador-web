@@ -42,6 +42,13 @@ interface RentalActionsProps {
   activeDispute?: DisputeWithRelations | null;
   canReview?: boolean;
   ownerOnboardingStatus?: OnboardingStatus;
+  /**
+   * When the pickup day starts in Central (`pickupInstant`), ISO, computed on
+   * the server. The browser cannot derive it from `startDate`: a stored day
+   * arrives as the instant it parses to, which for a mobile-stored day is 7pm
+   * Central the evening before (HOA-124). Falls back to `startDate` if absent.
+   */
+  disputeOpensAt?: string;
 }
 
 export function RentalActions({
@@ -53,14 +60,12 @@ export function RentalActions({
   activeDispute,
   canReview: canReviewProp,
   ownerOnboardingStatus,
+  disputeOpensAt,
 }: RentalActionsProps) {
   const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showCancelApprovedDialog, setShowCancelApprovedDialog] =
     useState(false);
-  const [cancelApprovedRole, setCancelApprovedRole] = useState<
-    "renter" | "owner"
-  >("renter");
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showPayoutSetupDialog, setShowPayoutSetupDialog] = useState(false);
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
@@ -72,7 +77,9 @@ export function RentalActions({
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [canReview, setCanReview] = useState(canReviewProp ?? false);
 
-  const startDate = new Date(rentalDetails.startDate);
+  // The rental's start as an instant: the server's start of the pickup day,
+  // which is when a dispute (and the no-show reasons) open.
+  const startDate = new Date(disputeOpensAt ?? rentalDetails.startDate);
   const returnConfirmedAt = rentalDetails.returnConfirmedAt
     ? new Date(rentalDetails.returnConfirmedAt)
     : null;
@@ -137,10 +144,7 @@ export function RentalActions({
               <Button
                 variant="destructive"
                 className="w-full"
-                onClick={() => {
-                  setCancelApprovedRole("renter");
-                  setShowCancelApprovedDialog(true);
-                }}
+                onClick={() => setShowCancelApprovedDialog(true)}
               >
                 <XCircle className="mr-2 h-4 w-4" />
                 Cancel Rental
@@ -208,10 +212,7 @@ export function RentalActions({
               <Button
                 variant="destructive"
                 className="w-full"
-                onClick={() => {
-                  setCancelApprovedRole("owner");
-                  setShowCancelApprovedDialog(true);
-                }}
+                onClick={() => setShowCancelApprovedDialog(true)}
               >
                 <XCircle className="mr-2 h-4 w-4" />
                 Cancel Rental
@@ -289,8 +290,6 @@ export function RentalActions({
         onOpenChange={setShowCancelApprovedDialog}
         requestId={rentalDetails.id}
         listingName={rentalDetails.listingName}
-        startDate={rentalDetails.startDate}
-        role={cancelApprovedRole}
         onSuccess={handleRentalStatusChanged}
       />
 
@@ -331,6 +330,7 @@ export function RentalActions({
         listingName={rentalDetails.listingName}
         currentPickupInstructions={rentalDetails.pickupInstructions}
         currentReturnInstructions={rentalDetails.returnInstructions}
+        deliveryRequested={rentalDetails.deliveryRequested}
         onSuccess={handleInstructionsUpdated}
       />
 

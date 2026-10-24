@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { formatStoredDay } from "@/lib/utils/date.utils";
 import { usePaymentLifecycleDetail } from "@/features/admin/hooks/use-payment-lifecycle";
 import {
   useResetPayoutStatus,
@@ -32,6 +33,11 @@ function statusVariant(
     return "secondary";
   if (["completed", "released", "captured"].includes(s)) return "default";
   return "outline";
+}
+
+/** A booked day (`start_date` / `end_date`): the day, never a time of it (HOA-124). */
+function formatDay(d: Date | string) {
+  return formatStoredDay(d, undefined, { dateStyle: "short" });
 }
 
 function formatDate(d: Date | string) {
@@ -87,7 +93,7 @@ function buildPaymentTimeline(data: {
     key: "rental-start",
     label: "Rental period start",
     timestamp: rental.startDate,
-    description: `Rental through ${formatDate(rental.endDate)}`,
+    description: `Rental through ${formatDay(rental.endDate)}`,
   });
 
   if (lifecycle.rentalChargeId) {
@@ -283,7 +289,7 @@ export function PaymentLifecycleDetailClient({
           </p>
           <p>
             <span className="text-muted-foreground">Dates:</span>{" "}
-            {formatDate(rental.startDate)} – {formatDate(rental.endDate)}
+            {formatDay(rental.startDate)} – {formatDay(rental.endDate)}
           </p>
           <p>
             <span className="text-muted-foreground">Total:</span> $

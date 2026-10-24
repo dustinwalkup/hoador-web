@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 
 import {
   findConflict,
+  isFutureDay,
   isPastDay,
+  startOfMarketToday,
   toBookedRanges,
   type BlockedRange,
 } from "../availability";
@@ -114,7 +116,8 @@ describe("findConflict", () => {
 });
 
 describe("isPastDay", () => {
-  const now = new Date(2026, 8, 15, 14, 30); // Sep 15, 2:30pm
+  // Sep 15, 2:30pm in Chicago. An instant, because "today" is the market's.
+  const now = new Date("2026-09-15T19:30:00Z");
 
   // The bug this exists to prevent: a booking for TODAY carries a midnight
   // start, which is behind `now` by the time anyone taps anything. Comparing
@@ -129,5 +132,47 @@ describe("isPastDay", () => {
 
   it("does not treat tomorrow as past", () => {
     expect(isPastDay(day("2026-09-16"), now)).toBe(false);
+  });
+});
+
+/**
+ * HOA-124: "today" is the market's calendar day, not the server's. Vercel runs
+ * in UTC, so from 7pm Central the server's today was already tomorrow: approve
+ * and quote refused a same-day rental that evening, and start let an owner
+ * begin tomorrow's rental the night before.
+ *
+ * `now` is pinned as a UTC instant on purpose, so these hold whatever zone the
+ * test process runs in.
+ */
+describe("the market's today (HOA-124)", () => {
+  // 8pm on Oct 26 in Chicago, and already Oct 27 in UTC.
+  const evening = new Date("2026-10-27T01:00:00Z");
+  // Midnight starting Oct 27 in Chicago.
+  const midnight = new Date("2026-10-27T05:00:00Z");
+
+  it("does not treat a rental starting today as past at 8pm Central", () => {
+    expect(isPastDay(day("2026-10-26"), evening)).toBe(false);
+  });
+
+  it("treats it as past once Central midnight has passed", () => {
+    expect(isPastDay(day("2026-10-26"), midnight)).toBe(true);
+  });
+
+  it("still treats tomorrow's rental as in the future at 8pm Central", () => {
+    expect(isFutureDay(day("2026-10-27"), evening)).toBe(true);
+  });
+
+  it("makes tomorrow's rental today at Central midnight", () => {
+    expect(isFutureDay(day("2026-10-27"), midnight)).toBe(false);
+    expect(isPastDay(day("2026-10-27"), midnight)).toBe(false);
+  });
+
+  it("gives the market's today in the shape a stored booked day has", () => {
+    expect(startOfMarketToday(evening).getTime()).toBe(
+      day("2026-10-26").getTime(),
+    );
+    expect(startOfMarketToday(midnight).getTime()).toBe(
+      day("2026-10-27").getTime(),
+    );
   });
 });

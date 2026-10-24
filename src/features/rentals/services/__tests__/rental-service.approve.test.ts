@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Mocks ---
 const mockGetRentalRequestById = vi.fn();
@@ -372,6 +372,107 @@ describe("RentalService.approveRentalRequest", () => {
     );
 
     expect(result.success).toBe(true);
+  });
+
+  // HOA-124: "today" is the Central calendar day. The server clock is UTC on
+  // Vercel, so from 7pm Central the start day had already "passed" and an
+  // owner could not accept a same-day rental that evening.
+  describe("the start day in Central (HOA-124)", () => {
+    // A stored booked day: local midnight, as the driver hands it back.
+    const oct26 = new Date(2026, 9, 26);
+    const arrange = (now: string) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(now));
+      mockGetRentalRequestById.mockResolvedValue(
+        createMockRentalRequest({
+          startDate: oct26,
+          endDate: new Date(2026, 9, 28),
+        }),
+      );
+      mockClaimRentalRequestPaymentProcessing.mockResolvedValue(true);
+      mockChargeRentalPayment.mockResolvedValue({
+        id: "pi_123",
+        status: "succeeded",
+        latest_charge: "ch_123",
+      });
+    };
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("approves an Oct 26 rental at 8pm Central on Oct 26 (01:00 UTC Oct 27)", async () => {
+      arrange("2026-10-27T01:00:00Z");
+
+      const result = await RentalService.approveRentalRequest(
+        "req-1",
+        "owner-1",
+        {},
+        context,
+      );
+
+      expect(result.success).toBe(true);
+    });
+
+    it("refuses it once Central midnight has passed (05:00 UTC Oct 27)", async () => {
+      arrange("2026-10-27T05:00:00Z");
+
+      await expect(
+        RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+      ).rejects.toThrow(BookingStartPassedError);
+      expect(mockChargeRentalPayment).not.toHaveBeenCalled();
+    });
+  });
+
+  // The deposit hold goes on 48 hours before the pickup day STARTS in Central
+  // (`pickupInstant`), the same instant the refund tier and the cron use. A
+  // mobile-stored day (00:00 in the column, 7pm Central the evening before)
+  // used to be held five hours early.
+  describe("deposit hold timing, from the start of the pickup day", () => {
+    // Pickup Oct 28 starts at 2026-10-28T05:00Z (CDT); 48h before is Oct 26 05:00Z.
+    const oct28 = new Date(2026, 9, 28);
+    const arrange = (now: string) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(now));
+      mockGetRentalRequestById.mockResolvedValue(
+        createMockRentalRequest({
+          startDate: oct28,
+          endDate: new Date(2026, 9, 30),
+          securityDeposit: "100.00",
+        }),
+      );
+      mockClaimRentalRequestPaymentProcessing.mockResolvedValue(true);
+      mockChargeRentalPayment.mockResolvedValue({
+        id: "pi_123",
+        status: "succeeded",
+        latest_charge: "ch_123",
+      });
+      mockPlaceDepositHold.mockResolvedValue({
+        success: true,
+        paymentIntentId: "pi_hold_1",
+      });
+    };
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("schedules the hold 50 hours out (10pm Central, two evenings before)", async () => {
+      arrange("2026-10-26T03:00:00Z");
+
+      await RentalService.approveRentalRequest("req-1", "owner-1", {}, context);
+
+      expect(mockPlaceDepositHold).not.toHaveBeenCalled();
+      expect(mockLifecycleCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ depositHoldStatus: "scheduled" }),
+      );
+    });
+
+    it("places it at once from 48 hours before the pickup day starts", async () => {
+      arrange("2026-10-26T05:00:00Z");
+
+      await RentalService.approveRentalRequest("req-1", "owner-1", {}, context);
+
+      expect(mockPlaceDepositHold).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("returns already-processing failure without charging when the claim is lost", async () => {

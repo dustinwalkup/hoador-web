@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Mocks ---
 const mockFindEligibleForPayout = vi.fn();
@@ -1243,6 +1243,53 @@ describe("PaymentLifecycleService.retryDepositHold", () => {
     expect(result).toEqual({
       success: false,
       error: "Rental has already started",
+    });
+  });
+
+  // "Started" means the pickup day has begun in Central (`pickupInstant`), not
+  // that the instant a mobile-stored day parses to (7pm Central the evening
+  // before) has passed.
+  describe("from the start of the pickup day in Central", () => {
+    const oct27 = new Date(2026, 9, 27);
+    const at = (now: string) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(now));
+      mockGetRentalRequestById.mockResolvedValue({
+        ...mockRentalRequest,
+        startDate: oct27,
+      });
+      mockPlaceDepositHold.mockResolvedValue({
+        success: true,
+        paymentIntentId: "pi_dep_new",
+      });
+    };
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("still retries an Oct 27 hold at 8pm Central on Oct 26", async () => {
+      at("2026-10-27T01:00:00Z");
+
+      const result = await PaymentLifecycleService.retryDepositHold(
+        "req-1",
+        "renter-1",
+      );
+
+      expect(result).toEqual({ success: true });
+    });
+
+    it("refuses once the pickup day has started", async () => {
+      at("2026-10-27T05:00:00Z");
+
+      const result = await PaymentLifecycleService.retryDepositHold(
+        "req-1",
+        "renter-1",
+      );
+
+      expect(result).toEqual({
+        success: false,
+        error: "Rental has already started",
+      });
     });
   });
 

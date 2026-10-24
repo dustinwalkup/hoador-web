@@ -13,6 +13,7 @@ import {
   findServiceBookingsByRequesterCached,
   findServiceBookingsByProviderCached,
 } from "./cached-fetchers";
+import { startOfMarketToday } from "@/features/rentals/lib/availability";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -127,9 +128,10 @@ export async function getUpcomingSchedule(
           ],
     );
 
-  // Use calendar-day bounds so dates at midnight (e.g. same-day returns) are included.
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Use calendar-day bounds so dates at midnight (e.g. same-day returns) are
+  // included. Today is the Central day, not the server's: from 7pm Central the
+  // UTC day had already turned and a return due today left the list (HOA-124).
+  const today = startOfMarketToday();
   const endWindow = new Date(today);
   endWindow.setDate(endWindow.getDate() + 7);
   endWindow.setHours(23, 59, 59, 999); // Inclusive of full last day

@@ -6,11 +6,22 @@ import {
 } from "../refund-calculations";
 import { PLATFORM_FEE_PERCENTAGE } from "@/constants/payments";
 
+/**
+ * A stored booked day: local midnight, as the driver hands back a `timestamp
+ * without time zone`. Pickup is the START of that day in Central (HOA-124), so
+ * June 2 is picked up at 2025-06-02T05:00Z (CDT) and every `now` below is a UTC
+ * instant measured against that.
+ */
+const day = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
 describe("refund calculation helpers", () => {
   describe("calculateRenterCancellationRefund", () => {
     it(">=24h before pickup: full rental price refund, 0 owner transfer", () => {
       const now = new Date("2025-06-01T10:00:00Z");
-      const startDate = new Date("2025-06-02T14:00:00Z"); // 28h later
+      const startDate = day("2025-06-03"); // pickup 43h later
       const result = calculateRenterCancellationRefund(100, startDate, now);
       expect(result.refundAmountCents).toBe(10000);
       expect(result.ownerTransferAmountCents).toBe(0);
@@ -19,7 +30,7 @@ describe("refund calculation helpers", () => {
 
     it("<24h before pickup: 50% rental price refund, owner transfer = 50% minus platform fee", () => {
       const now = new Date("2025-06-01T10:00:00Z");
-      const startDate = new Date("2025-06-02T08:00:00Z"); // 22h later
+      const startDate = day("2025-06-02"); // pickup 19h later
       const result = calculateRenterCancellationRefund(100, startDate, now);
       const halfRentalCents = 5000;
       const platformFeeCents = Math.round(100 * PLATFORM_FEE_PERCENTAGE * 100);
@@ -31,8 +42,8 @@ describe("refund calculation helpers", () => {
     });
 
     it("exactly 24h boundary: full refund (>=24h)", () => {
-      const now = new Date("2025-06-01T12:00:00Z");
-      const startDate = new Date("2025-06-02T12:00:00Z"); // exactly 24h
+      const now = new Date("2025-06-01T05:00:00Z");
+      const startDate = day("2025-06-02"); // pickup exactly 24h later
       const result = calculateRenterCancellationRefund(50, startDate, now);
       expect(result.refundAmountCents).toBe(5000);
       expect(result.ownerTransferAmountCents).toBe(0);
@@ -41,7 +52,7 @@ describe("refund calculation helpers", () => {
 
     it("very small amounts: rounding edge cases", () => {
       const now = new Date("2025-06-01T10:00:00Z");
-      const startDate = new Date("2025-06-02T08:00:00Z"); // <24h
+      const startDate = day("2025-06-02"); // <24h
       const result = calculateRenterCancellationRefund(0.01, startDate, now);
       expect(result.refundAmountCents).toBeGreaterThanOrEqual(0);
       expect(result.ownerTransferAmountCents).toBeGreaterThanOrEqual(0);
@@ -50,23 +61,23 @@ describe("refund calculation helpers", () => {
 
     it("rounding: small rental under 24h produces non-negative owner transfer", () => {
       const now = new Date("2025-06-01T10:00:00Z");
-      const startDate = new Date("2025-06-02T09:00:00Z"); // 23h
+      const startDate = day("2025-06-02"); // 19h
       const result = calculateRenterCancellationRefund(1.11, startDate, now);
       expect(result.ownerTransferAmountCents).toBeGreaterThanOrEqual(0);
       expect(result.refundReason).toBe("renter_cancellation_under_24h");
     });
 
     it("23h59m59s before pickup: 50% refund (<24h applies)", () => {
-      const now = new Date("2025-06-01T12:00:00Z");
-      const startDate = new Date("2025-06-02T11:59:59Z"); // just under 24h
+      const now = new Date("2025-06-01T05:00:01Z");
+      const startDate = day("2025-06-02"); // just under 24h
       const result = calculateRenterCancellationRefund(100, startDate, now);
       expect(result.refundAmountCents).toBe(5000);
       expect(result.refundReason).toBe("renter_cancellation_under_24h");
     });
 
     it("after startDate (negative hoursUntilPickup): 50% refund and owner transfer (<24h tier)", () => {
-      const startDate = new Date("2025-06-01T10:00:00Z");
-      const now = new Date("2025-06-01T14:00:00Z"); // 4h after start
+      const startDate = day("2025-06-01");
+      const now = new Date("2025-06-01T14:00:00Z"); // 9h into the pickup day
       const result = calculateRenterCancellationRefund(100, startDate, now);
       const halfRentalCents = 5000;
       const platformFeeCents = Math.round(100 * PLATFORM_FEE_PERCENTAGE * 100);
@@ -79,7 +90,7 @@ describe("refund calculation helpers", () => {
 
     it("odd cents ($99.99): Math.round produces integer cents", () => {
       const now = new Date("2025-06-01T10:00:00Z");
-      const startDate = new Date("2025-06-02T08:00:00Z");
+      const startDate = day("2025-06-02");
       const result = calculateRenterCancellationRefund(99.99, startDate, now);
       expect(Number.isInteger(result.refundAmountCents)).toBe(true);
       expect(Number.isInteger(result.ownerTransferAmountCents)).toBe(true);
@@ -89,7 +100,7 @@ describe("refund calculation helpers", () => {
 
     it("large amount ($1000): correct 50% and owner transfer under 24h", () => {
       const now = new Date("2025-06-01T10:00:00Z");
-      const startDate = new Date("2025-06-02T08:00:00Z");
+      const startDate = day("2025-06-02");
       const result = calculateRenterCancellationRefund(1000, startDate, now);
       expect(result.refundAmountCents).toBe(50000);
       const platformFeeCents = Math.round(1000 * PLATFORM_FEE_PERCENTAGE * 100);

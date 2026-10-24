@@ -15,7 +15,7 @@ const { calculateRenterCancellationRefund } =
 describe("calculateRenterCancellationRefund (platform fee exceeds retained)", () => {
   it("ownerTransferAmountCents is 0 when platform fee exceeds retained amount", () => {
     const now = new Date("2025-06-01T10:00:00Z");
-    const startDate = new Date("2025-06-02T08:00:00Z"); // 22h later
+    const startDate = new Date("2025-06-02T08:00:00Z"); // June 2: pickup 19h later
     const result = calculateRenterCancellationRefund(10, startDate, now);
     expect(result.refundAmountCents).toBe(500); // 50% of $10
     expect(result.ownerTransferAmountCents).toBe(0);

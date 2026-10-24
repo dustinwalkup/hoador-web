@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DisputeDAL } from "../dispute.dal";
 import { NotFoundError, ValidationError } from "../errors";
 import { db } from "@/db/db";
@@ -599,6 +599,42 @@ describe("DisputeDAL", () => {
 
       // Assert
       expect(result.withinLimits).toBe(false);
+    });
+  });
+
+  // HOA-124: a rental dispute (pre-return) can be filed once the pickup day has
+  // STARTED in Central (`pickupInstant`), the instant every other "has the
+  // rental day begun" rule uses. A mobile-stored day (00:00 in the column) used
+  // to open at 7pm Central the evening before.
+  describe("validateFilingWindowUnified — opens at the start of the pickup day", () => {
+    const at = (now: string) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(now));
+      vi.mocked(db.query.rentals.findFirst).mockResolvedValue({
+        id: "rental-1",
+        startDate: new Date(2026, 9, 27),
+        returnConfirmedAt: null,
+      } as never);
+    };
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("is closed at 8pm Central the evening before (01:00 UTC Oct 27)", async () => {
+      at("2026-10-27T01:00:00Z");
+
+      const result = await disputeDAL.validateFilingWindowUnified("rental-1");
+
+      expect(result.valid).toBe(false);
+      expect(result.message).toMatch(/before the rental start date/i);
+    });
+
+    it("opens at Central midnight (05:00 UTC Oct 27)", async () => {
+      at("2026-10-27T05:00:00Z");
+
+      expect(
+        (await disputeDAL.validateFilingWindowUnified("rental-1")).valid,
+      ).toBe(true);
     });
   });
 

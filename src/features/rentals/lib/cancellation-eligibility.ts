@@ -11,6 +11,9 @@
  * how that requirement quietly becomes a write.
  */
 
+import { toWallClock } from "@/features/schedule/lib/build-schedule";
+import { wallClockToInstant } from "@/lib/wall-clock-zone";
+
 export type CancellationBlockCode =
   | "NOT_A_PARTY"
   | "OWNER_MUST_DECLINE"
@@ -102,8 +105,31 @@ export type RefundTier =
 export const REFUND_TIER_HOURS = 24;
 
 /**
- * Hours from `now` until pickup, on the same arithmetic
- * `calculateRenterCancellationRefund` uses.
+ * When pickup is, as a real instant: **the start of the booked day in the market
+ * zone**.
+ *
+ * `start_date` is a day, not a moment, and what reaches us depends on who wrote
+ * it. Mobile sends `YYYY-MM-DD`, stored as 00:00, which as an instant is 7pm
+ * Central the evening before. The web picker sends Central midnight, stored as
+ * 05:00 (06:00 in winter). Measuring 24 hours back from the raw value therefore
+ * put a mobile renter's boundary five hours early: an Oct 27 pickup quoted "this
+ * refund applies until Oct 25 at 7:00 PM" (HOA-124). Reading the day first and
+ * then taking its midnight in the market zone gives both the same answer.
+ *
+ * The day is read with `toWallClock`, the same reading every other server path
+ * uses for these columns, so the boundary sits on the day the API shows.
+ */
+export function pickupInstant(startDate: Date): Date {
+  return (
+    wallClockToInstant(toWallClock(startDate, { dateOnly: true }), "00:00") ??
+    startDate
+  );
+}
+
+/**
+ * Hours from `now` until pickup (`pickupInstant`). The one definition: the
+ * preview's tier and expiry and `calculateRenterCancellationRefund`'s charge all
+ * go through it.
  *
  * Deliberately identical rather than merely equivalent: if the preview rounded
  * or floored differently, a renter shown "100% refund" could be charged the 50%
@@ -114,7 +140,9 @@ export function hoursUntilPickup(
   startDate: Date,
   now: Date = new Date(),
 ): number {
-  return (startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  return (
+    (pickupInstant(startDate).getTime() - now.getTime()) / (1000 * 60 * 60)
+  );
 }
 
 /**
@@ -129,7 +157,7 @@ export function refundTierExpiresAt(
   now: Date = new Date(),
 ): string | null {
   const boundary = new Date(
-    startDate.getTime() - REFUND_TIER_HOURS * 60 * 60 * 1000,
+    pickupInstant(startDate).getTime() - REFUND_TIER_HOURS * 60 * 60 * 1000,
   );
   return boundary.getTime() > now.getTime() ? boundary.toISOString() : null;
 }

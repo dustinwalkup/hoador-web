@@ -23,6 +23,11 @@ interface UpdateInstructionsDialogProps {
   listingName: string;
   currentPickupInstructions?: string | null;
   currentReturnInstructions?: string | null;
+  /**
+   * A delivery has no pickup to describe (the owner brings the item over), so
+   * the pickup field is left out, as the approve dialog leaves it out.
+   */
+  deliveryRequested?: boolean;
   onSuccess?: () => void;
 }
 
@@ -33,6 +38,7 @@ export function UpdateInstructionsDialog({
   listingName,
   currentPickupInstructions,
   currentReturnInstructions,
+  deliveryRequested = false,
   onSuccess,
 }: UpdateInstructionsDialogProps) {
   const [pickupInstructions, setPickupInstructions] = useState(
@@ -55,6 +61,8 @@ export function UpdateInstructionsDialog({
 
   const handleUpdate = async () => {
     try {
+      // Both fields go every time, the hidden pickup one included: the update
+      // writes both columns, so leaving one out would blank it.
       await updateMutation.mutateAsync({
         rentalId,
         pickupInstructions: pickupInstructions || undefined,
@@ -78,23 +86,26 @@ export function UpdateInstructionsDialog({
             Update Instructions
           </DialogTitle>
           <DialogDescription>
-            Update the pickup and return instructions for {listingName}. The
-            renter will be notified of any changes.
+            Update the {deliveryRequested ? "return" : "pickup and return"}{" "}
+            instructions for {listingName}. The renter will be notified of any
+            changes.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="pickup-instructions">
-              Pickup Instructions (Optional)
-            </Label>
-            <Textarea
-              id="pickup-instructions"
-              placeholder="Provide details about when and where the renter can pick up the listing..."
-              value={pickupInstructions}
-              onChange={(e) => setPickupInstructions(e.target.value)}
-              className="min-h-[100px]"
-            />
-          </div>
+          {!deliveryRequested && (
+            <div className="grid gap-2">
+              <Label htmlFor="pickup-instructions">
+                Pickup Instructions (Optional)
+              </Label>
+              <Textarea
+                id="pickup-instructions"
+                placeholder="Provide details about when and where the renter can pick up the listing..."
+                value={pickupInstructions}
+                onChange={(e) => setPickupInstructions(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="return-instructions">
               Return Instructions (Optional)

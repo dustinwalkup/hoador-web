@@ -1,7 +1,7 @@
 import { communityDAL, serviceListingDAL } from "@/dal";
 import { NotFoundError } from "@/dal/errors";
 import { calculateServiceFee } from "@/constants/payments";
-import { MARKET_TIME_ZONE } from "@/lib/wall-clock-zone";
+import { marketDayKey } from "@/lib/wall-clock-zone";
 
 /**
  * The single pre-flight for a service booking: **price it and say whether it
@@ -76,16 +76,6 @@ export interface ServiceBookingQuote {
   chargedOnAcceptance: true;
 }
 
-/** Today in the market zone, as `YYYY-MM-DD`. */
-function marketToday(now: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: MARKET_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
-}
-
 /**
  * Price and validate a prospective service booking.
  *
@@ -147,7 +137,7 @@ export async function quoteServiceBooking(
   // 3pm for 9am *today* is late, not invalid, and the provider is the one who
   // decides whether to accept it. Evaluated in the market zone, because the
   // stored value is a zoneless wall clock (F4).
-  if (input.proposedDate < marketToday(options.now ?? new Date())) {
+  if (input.proposedDate < marketDayKey(options.now ?? new Date())) {
     blockers.push({
       code: "PROPOSED_DATE_IN_PAST",
       message: "Proposed date cannot be in the past",

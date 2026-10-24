@@ -22,6 +22,8 @@ interface RentalContentProps {
   activeDispute?: DisputeWithRelations | null;
   canReview?: boolean;
   ownerOnboardingStatus?: OnboardingStatus;
+  /** See `RentalActions`. */
+  disputeOpensAt?: string;
 }
 
 export function RentalContent({
@@ -34,6 +36,7 @@ export function RentalContent({
   activeDispute,
   canReview,
   ownerOnboardingStatus,
+  disputeOpensAt,
 }: RentalContentProps) {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -60,7 +63,7 @@ export function RentalContent({
           activeDispute={activeDispute}
         />
         <RentalListingInfo rentalDetails={rentalDetails} />
-        <RentalDetailsCard rentalDetails={rentalDetails} />
+        <RentalDetailsCard rentalDetails={rentalDetails} isOwner={isOwner} />
         <RentalMessagesCard
           rentalDetails={rentalDetails}
           isRenter={isRenter}
@@ -90,6 +93,7 @@ export function RentalContent({
           activeDispute={activeDispute}
           canReview={canReview}
           ownerOnboardingStatus={ownerOnboardingStatus}
+          disputeOpensAt={disputeOpensAt}
         />
         <RentalProtection />
       </div>

@@ -4,6 +4,8 @@ import {
   and,
   sql,
   lte,
+  gte,
+  lt,
   isNull,
   inArray,
   or,
@@ -20,6 +22,8 @@ import { payments } from "@/db/schemas/payments.schema";
 import { user } from "@/db/schemas/user.schema";
 import { listings } from "@/db/schemas/listings.schema";
 import { auditLogs } from "@/db/schemas/audit-logs.schema";
+import { DEPOSIT_HOLD_LEAD_HOURS } from "@/constants/payments";
+import { startOfMarketToday } from "@/features/rentals/lib/availability";
 import { BaseDAL } from "./base";
 import type { PaginatedResult } from "./types";
 
@@ -491,13 +495,27 @@ export class PaymentLifecycleDAL extends BaseDAL {
    * Only `scheduled` rows: a `failed` hold is re-attempted solely by the
    * renter's retry (`retryDepositHold`), so the cron and the retry never place
    * competing holds for the same rental.
+   *
+   * "Pickup" is the start of the booked day in Central (`pickupInstant`), the
+   * instant approval measures the same 48 hours to. Compared on the stored
+   * DAYS: a pickup day whose midnight is after `now` and no later than 48h
+   * from now is exactly a day after the market's today and no later than the
+   * market day 48h from now. The raw column read as an instant held a
+   * mobile-stored day (00:00, 7pm Central the evening before) five hours
+   * early, and dropped it from the window five hours early too (HOA-124).
    */
   async findScheduledDepositsNearPickup(
     limit: number = 20,
   ): Promise<DepositScheduleRental[]> {
     try {
       const now = new Date();
-      const fortyEightHoursFromNow = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      // The first pickup day still ahead, and the first one past the window.
+      const firstDay = startOfMarketToday(now);
+      firstDay.setDate(firstDay.getDate() + 1);
+      const pastWindow = startOfMarketToday(
+        new Date(now.getTime() + DEPOSIT_HOLD_LEAD_HOURS * 60 * 60 * 1000),
+      );
+      pastWindow.setDate(pastWindow.getDate() + 1);
 
       const rows = await this.db
         .select({
@@ -519,8 +537,8 @@ export class PaymentLifecycleDAL extends BaseDAL {
         .where(
           and(
             eq(rentalPaymentLifecycle.depositHoldStatus, "scheduled"),
-            lte(rentals.startDate, fortyEightHoursFromNow),
-            sql`${rentals.startDate} > ${now}`,
+            gte(rentals.startDate, firstDay),
+            lt(rentals.startDate, pastWindow),
           ),
         )
         .orderBy(rentals.startDate)

@@ -7,6 +7,7 @@ import {
   formatDistanceToNow,
   formatDate,
   formatLocalDate,
+  formatStoredDay,
 } from "../date.utils";
 
 describe("date.utils", () => {
@@ -328,5 +329,33 @@ describe("date.utils", () => {
       expect(() => formatMMMd(negativeTimestamp)).not.toThrow();
       expect(() => formatPPP(negativeTimestamp)).not.toThrow();
     });
+  });
+});
+
+/**
+ * HOA-124: a stored booked day reaches a browser as the instant the server's
+ * driver parsed it to. Formatted in the browser's zone, a mobile-stored Oct 27
+ * (`2026-10-27T00:00Z`) read as Oct 26 in Central.
+ */
+describe("formatStoredDay", () => {
+  it("formats the booked day, whatever instant of it was stored", () => {
+    const booked = new Date(2026, 9, 27).toLocaleDateString();
+
+    expect(formatStoredDay(new Date("2026-10-27T00:00:00Z"))).toBe(booked);
+    expect(formatStoredDay(new Date("2026-10-27T05:00:00Z"))).toBe(booked);
+    expect(formatStoredDay("2026-10-27T00:00:00.000Z")).toBe(booked);
+  });
+
+  it("passes locale and options through", () => {
+    expect(
+      formatStoredDay(new Date("2026-10-27T00:00:00Z"), "en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+    ).toBe("Oct 27");
+  });
+
+  it("is empty for an unreadable value", () => {
+    expect(formatStoredDay("nope")).toBe("");
   });
 });

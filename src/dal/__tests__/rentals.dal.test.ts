@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { rentalDAL } from "../index";
 import {
   ConflictError,
@@ -10,6 +10,7 @@ import { mockRentalRequest, mockRentalDetails } from "@/test/fixtures/rentals";
 import { db } from "@/db/db";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
+import { startOfMarketToday } from "@/features/rentals/lib/availability";
 
 // Mock dependencies
 vi.mock("@/features/auth/utils/session");
@@ -228,6 +229,57 @@ describe("RentalDAL", () => {
       // Assert
       expect(result).toHaveProperty("currentRentals");
       expect(result).toHaveProperty("upcomingRentals");
+    });
+
+    // HOA-124: "current" and "upcoming" are Central calendar days. At 8pm
+    // Central on Oct 26 the UTC clock has already reached Oct 27: tomorrow's
+    // rental (stored at 00:00) read as current, and one ending today fell off
+    // the list entirely.
+    it("splits current from upcoming on the Central day", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-27T01:00:00Z"));
+      try {
+        const row = (id: string, startDate: Date, endDate: Date) => ({
+          id,
+          listingId: `listing-${id}`,
+          listingName: id,
+          ownerId: "owner-1",
+          ownerName: "Owner",
+          deliveryRequested: false,
+          startDate,
+          endDate,
+          totalAmount: "10.00",
+          status: "approved",
+          dailyRate: "5.00",
+        });
+        const rows = [
+          row("ends-today", new Date(2026, 9, 24), new Date(2026, 9, 26)),
+          row("starts-tomorrow", new Date(2026, 9, 27), new Date(2026, 9, 29)),
+        ];
+        const chain = {
+          from: vi.fn(),
+          innerJoin: vi.fn(),
+          where: vi.fn(),
+          orderBy: vi.fn(),
+        };
+        chain.from.mockReturnValue(chain);
+        chain.innerJoin.mockReturnValue(chain);
+        chain.where.mockReturnValue(chain);
+        let call = 0;
+        chain.orderBy.mockImplementation(() =>
+          Promise.resolve(call++ === 0 ? rows : []),
+        );
+        vi.mocked(db.select).mockReturnValue(chain as any);
+
+        const result = await rentalDAL.getBorrowedListings("user-456");
+
+        expect(result.currentRentals.map((r) => r.id)).toEqual(["ends-today"]);
+        expect(result.upcomingRentals.map((r) => r.id)).toEqual([
+          "starts-tomorrow",
+        ]);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("should return the exact expected shape for multiple listings with multiple images (characterization)", async () => {
@@ -1302,8 +1354,10 @@ describe("RentalDAL", () => {
     // A rental starting TODAY carries a midnight startDate, already behind
     // `now` by the time anyone taps anything — an instant comparison would be
     // correct at 00:00 and wrong for the rest of the day.
+    // "Today" is the market's day (HOA-124). A server-local midnight would be
+    // tomorrow in Central for part of every day on a UTC runner.
     it("allows a start on the start date itself, whatever the time", async () => {
-      arrangeStart(new Date(new Date().setHours(0, 0, 0, 0)));
+      arrangeStart(startOfMarketToday());
 
       await expect(
         rentalDAL.startRental("rental-123", "user-123"),
@@ -1316,7 +1370,7 @@ describe("RentalDAL", () => {
     // same-day start until 05:00 on the morning of the rental, which is exactly
     // when an owner is handing the item over.
     it("allows a start on a start date that is not midnight-normalized", async () => {
-      const today = new Date();
+      const today = startOfMarketToday();
       today.setHours(23, 30, 0, 0);
       arrangeStart(today);
 
@@ -1331,6 +1385,38 @@ describe("RentalDAL", () => {
       await expect(
         rentalDAL.startRental("rental-123", "user-123"),
       ).resolves.toBeDefined();
+    });
+
+    // HOA-124: the start day is the Central calendar day. `toDateString()` on
+    // the UTC server let an owner start tomorrow's rental from 7pm Central.
+    describe("the start day in Central (HOA-124)", () => {
+      // A stored booked day: local midnight, as the driver hands it back.
+      const oct27 = new Date(2026, 9, 27);
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+      const at = (now: string) => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date(now));
+      };
+
+      it("refuses an Oct 27 rental at 8pm Central on Oct 26 (01:00 UTC Oct 27)", async () => {
+        at("2026-10-27T01:00:00Z");
+        arrangeStart(oct27);
+
+        await expect(
+          rentalDAL.startRental("rental-123", "user-123"),
+        ).rejects.toThrow(/before its start date/i);
+      });
+
+      it("allows it from Central midnight (05:00 UTC Oct 27)", async () => {
+        at("2026-10-27T05:00:00Z");
+        arrangeStart(oct27);
+
+        await expect(
+          rentalDAL.startRental("rental-123", "user-123"),
+        ).resolves.toBeDefined();
+      });
     });
 
     it("records the pickup condition when one is given", async () => {
@@ -1586,8 +1672,8 @@ describe("RentalDAL", () => {
 
   describe("getOverdueItemsForUser", () => {
     const userId = "user-123";
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // The market's day, as the method now counts lateness from (HOA-124).
+    const today = startOfMarketToday();
 
     it("should return overdue items for user as borrower or owner", async () => {
       const overdueRows = [
@@ -2507,6 +2593,34 @@ describe("RentalDAL", () => {
   });
 
   describe("getActionableAlerts", () => {
+    // HOA-124: at 8pm Central on Oct 26 the UTC day is already Oct 27, which
+    // turned a rental ending today into "1 day late" on Home and the web
+    // dashboard. "Today" in these queries is the Central day.
+    it("compares against the Central day, not the server's UTC day", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-27T01:00:00Z"));
+      try {
+        const chain = {
+          from: vi.fn(),
+          innerJoin: vi.fn(),
+          where: vi.fn().mockResolvedValue([]),
+        };
+        chain.from.mockReturnValue(chain);
+        chain.innerJoin.mockReturnValue(chain);
+        vi.mocked(db.select).mockReturnValue(chain as any);
+
+        await rentalDAL.getActionableAlerts("user-1");
+
+        const { params } = renderWhere(chain.where.mock.calls[0][0]);
+        // Today is Oct 26 and tomorrow Oct 27, in the shape the stored days
+        // have. The UTC reading made them Oct 27 and Oct 28.
+        expect(params).toContain(new Date(2026, 9, 26).toISOString());
+        expect(params).not.toContain(new Date(2026, 9, 28).toISOString());
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("returns an empty array when no rows match any category", async () => {
       const chain = {
         from: vi.fn(),

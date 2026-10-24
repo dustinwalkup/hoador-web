@@ -7,6 +7,7 @@ import { getAuthenticatedUser } from "@/features/auth/utils/session";
 import { BlindReviewService } from "@/features/reviews/services/blind-review-service";
 import { getPayoutReadiness } from "@/features/payments/lib/payout-readiness";
 import { toRentalDetailResponse } from "@/features/rentals/lib/rental-detail-response";
+import { pickupInstant } from "@/features/rentals/lib/cancellation-eligibility";
 
 interface RentalDetailsServerProps {
   rentalId: string;
@@ -154,6 +155,9 @@ export async function RentalDetailsServer({
         activeDispute={activeDispute}
         canReview={canReview}
         ownerOnboardingStatus={ownerOnboardingStatus}
+        // Computed here, where the stored day reads as the day it is; the
+        // browser would read it in its own zone (HOA-124).
+        disputeOpensAt={pickupInstant(rentalRow.startDate).toISOString()}
       />
     </RentalLayout>
   );

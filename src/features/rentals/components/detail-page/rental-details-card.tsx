@@ -13,12 +13,18 @@ import type { RentalDetailsInfo } from "@/dal/rentals.dal";
 import { ServiceFeeLine } from "@/components/payments/service-fee-line";
 import { SecurityDepositLine } from "@/features/rentals/components/security-deposit-line";
 import { HowPaymentsWorkModal } from "@/components/payments/how-payments-work-modal";
+import { formatStoredDay } from "@/lib/utils/date.utils";
 
 interface RentalDetailsCardProps {
   rentalDetails: RentalDetailsInfo;
+  /** Whether the viewer owns the listing (the delivery address line differs). */
+  isOwner?: boolean;
 }
 
-export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
+export function RentalDetailsCard({
+  rentalDetails,
+  isOwner = false,
+}: RentalDetailsCardProps) {
   const deliveryTotal = parseFloat(rentalDetails.deliveryFee);
   const setupTotal = parseFloat(rentalDetails.setupFee || "0");
   const serviceFee = parseFloat(rentalDetails.serviceFee || "0");
@@ -42,13 +48,13 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
               <div className="flex justify-between">
                 <span>Start Date:</span>
                 <span className="font-medium">
-                  {new Date(rentalDetails.startDate).toLocaleDateString()}
+                  {formatStoredDay(rentalDetails.startDate)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>End Date:</span>
                 <span className="font-medium">
-                  {new Date(rentalDetails.endDate).toLocaleDateString()}
+                  {formatStoredDay(rentalDetails.endDate)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -85,6 +91,12 @@ export function RentalDetailsCard({ rentalDetails }: RentalDetailsCardProps) {
                       </span>
                       <ExternalLink className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
                     </a>
+                  ) : isOwner && rentalDetails.status === "pending" ? (
+                    // PRIV-01 withholds the renter's address from the owner
+                    // until they accept; it isn't missing.
+                    <p className="text-gray-600">
+                      The renter&apos;s address is shared once you accept.
+                    </p>
                   ) : (
                     <p className="text-gray-600">Address not specified</p>
                   )}

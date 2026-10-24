@@ -1,4 +1,5 @@
 import { toWallClock } from "@/features/schedule/lib/build-schedule";
+import { marketDayKey } from "@/lib/wall-clock-zone";
 
 /**
  * Listing availability: the one definition of "these days are taken".
@@ -105,9 +106,29 @@ export function findConflict(
  * A booking for *today* carries a `startDate` at midnight, which is already
  * behind `now` by the time anyone taps anything. Comparing instants would reject
  * every same-day rental — a bug that only shows up after lunch.
+ *
+ * "Today" is the **market's** day (`marketDayKey`), never the server's. Read from
+ * the server's own clock it was the UTC day on Vercel, so from 7pm Central a
+ * rental starting that evening's day already counted as past (HOA-124).
  */
 export function isPastDay(date: Date, now: Date = new Date()): boolean {
-  return (
-    toWallClock(date, { dateOnly: true }) < toWallClock(now, { dateOnly: true })
-  );
+  return toWallClock(date, { dateOnly: true }) < marketDayKey(now);
+}
+
+/** Whether a day is still ahead of the market's today. See `isPastDay`. */
+export function isFutureDay(date: Date, now: Date = new Date()): boolean {
+  return toWallClock(date, { dateOnly: true }) > marketDayKey(now);
+}
+
+/**
+ * The market's today in the shape a stored booked day has: a `Date` whose local
+ * components are that day at midnight, the same reading `toWallClock` gives a
+ * `start_date`/`end_date`.
+ *
+ * For range queries against those columns, which used to build "today" with
+ * `new Date().setHours(0, 0, 0, 0)` and so took the server's day (HOA-124).
+ */
+export function startOfMarketToday(now: Date = new Date()): Date {
+  const [year, month, day] = marketDayKey(now).split("-").map(Number);
+  return new Date(year, month - 1, day);
 }

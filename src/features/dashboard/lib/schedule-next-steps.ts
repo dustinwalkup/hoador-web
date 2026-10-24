@@ -7,6 +7,7 @@
  */
 
 import type { ScheduleEntry } from "@/features/dashboard/types";
+import { marketDayKey, storedDayKey } from "@/lib/wall-clock-zone";
 
 export interface NextStepInfo {
   /** Short primary action label, e.g. "Hand off item". Single verb + object. */
@@ -200,16 +201,26 @@ export function getNextStep(entry: ScheduleEntry): NextStepInfo | null {
 }
 
 /**
+ * Calendar days from the market's today to an entry's booked day.
+ *
+ * Runs in the browser, where an entry's `date` arrives as the instant the
+ * server built for a booked day. Its local date is the previous day in Central
+ * (a Central viewer saw "Today" a day early), so the day is read with
+ * `storedDayKey`, and "today" is the market's day, as on the server (HOA-124).
+ */
+function daysUntil(entryDate: Date, now: Date): number {
+  const dayMs = (key: string) => Date.parse(`${key}T00:00:00Z`);
+  return Math.round(
+    (dayMs(storedDayKey(entryDate)) - dayMs(marketDayKey(now))) /
+      (1000 * 60 * 60 * 24),
+  );
+}
+
+/**
  * Derives urgency from calendar-day difference (no external lib required).
  */
 export function getUrgency(entryDate: Date, today?: Date): Urgency {
-  const base = today ?? new Date();
-  const t = new Date(base);
-  t.setHours(0, 0, 0, 0);
-  const e = new Date(entryDate);
-  e.setHours(0, 0, 0, 0);
-  const diffMs = e.getTime() - t.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = daysUntil(entryDate, today ?? new Date());
   if (diffDays <= 0) return "today";
   if (diffDays === 1) return "tomorrow";
   return "upcoming";
@@ -217,17 +228,11 @@ export function getUrgency(entryDate: Date, today?: Date): Urgency {
 
 /**
  * Human-readable urgency label shown on the chip.
- * "Today" | "Tomorrow" | "Apr 15"
+ * "Today" | "Tomorrow" | "In 3 days"
  */
 export function formatUrgencyLabel(urgency: Urgency, date: Date): string {
   if (urgency === "today") return "Today";
   if (urgency === "tomorrow") return "Tomorrow";
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const days = Math.round(
-    (d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const days = daysUntil(date, new Date());
   return `In ${days} day${days === 1 ? "" : "s"}`;
 }

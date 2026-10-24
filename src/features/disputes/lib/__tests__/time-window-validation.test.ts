@@ -264,21 +264,23 @@ describe("TimeWindowValidation", () => {
     });
   });
 
-  // Local-time constructors throughout: `parseServiceDayStart` reads the date
-  // as local midnight, so these hold in any test-runner zone.
+  // The service day and time are a Central wall clock (`wallClockToInstant`),
+  // so every instant below is written in UTC: 10:00 on Jun 15 in Chicago (CDT)
+  // is 15:00Z, and the service day starts at 05:00Z. They hold in any
+  // test-runner zone, which the old server-zone parse did not (HOA-124).
   describe("validateServiceFilingWindow", () => {
     const serviceDate = "2026-06-15";
     const serviceTime = "10:00";
 
     it("opens on the service day for a booking completed on time", () => {
-      const completedAt = new Date(2026, 5, 15, 12, 0);
+      const completedAt = new Date("2026-06-15T17:00:00Z");
 
       expect(
         TimeWindowValidation.validateServiceFilingWindow(
           serviceDate,
           serviceTime,
           completedAt,
-          new Date(2026, 5, 14, 12, 0),
+          new Date("2026-06-14T17:00:00Z"),
         ).valid,
       ).toBe(false);
       expect(
@@ -286,19 +288,52 @@ describe("TimeWindowValidation", () => {
           serviceDate,
           serviceTime,
           completedAt,
-          new Date(2026, 5, 15, 18, 0),
+          new Date("2026-06-15T23:00:00Z"),
         ),
       ).toEqual({
         valid: true,
-        deadline: new Date(2026, 5, 16, 12, 0),
+        deadline: new Date("2026-06-16T17:00:00Z"),
       });
+    });
+
+    // HOA-124: the day starts at Central midnight, not the server's (UTC)
+    // midnight, which is 7pm Central the evening before.
+    it("opens at Central midnight on the service day", () => {
+      const at = (now: string) =>
+        TimeWindowValidation.validateServiceFilingWindow(
+          serviceDate,
+          serviceTime,
+          null,
+          new Date(now),
+        );
+
+      expect(at("2026-06-15T04:59:00Z").valid).toBe(false);
+      expect(at("2026-06-15T05:00:00Z").valid).toBe(true);
+    });
+
+    // HOA-124: a booking never marked complete closes 24 hours after its
+    // Central start time (10:00 CDT = 15:00Z), not after 10:00 UTC.
+    it("closes 24 hours after the Central start time when never completed", () => {
+      const at = (now: string) =>
+        TimeWindowValidation.validateServiceFilingWindow(
+          serviceDate,
+          serviceTime,
+          null,
+          new Date(now),
+        );
+
+      expect(at("2026-06-16T14:59:00Z")).toEqual({
+        valid: true,
+        deadline: new Date("2026-06-16T15:00:00Z"),
+      });
+      expect(at("2026-06-16T15:01:00Z").valid).toBe(false);
     });
 
     // BIZ-02 regression. Completed two days early, the window used to open at
     // the service day's start and close 24h after completion — a day before
     // it opened. It is now [completedAt, completedAt + 24h].
     describe("after an early completion", () => {
-      const completedAt = new Date(2026, 5, 13, 10, 0);
+      const completedAt = new Date("2026-06-13T15:00:00Z");
 
       it("is open right after completion", () => {
         expect(
@@ -306,11 +341,11 @@ describe("TimeWindowValidation", () => {
             serviceDate,
             serviceTime,
             completedAt,
-            new Date(2026, 5, 13, 20, 0),
+            new Date("2026-06-14T01:00:00Z"),
           ),
         ).toEqual({
           valid: true,
-          deadline: new Date(2026, 5, 14, 10, 0),
+          deadline: new Date("2026-06-14T15:00:00Z"),
         });
       });
 
@@ -320,7 +355,7 @@ describe("TimeWindowValidation", () => {
             serviceDate,
             serviceTime,
             completedAt,
-            new Date(2026, 5, 13, 9, 0),
+            new Date("2026-06-13T14:00:00Z"),
           ).valid,
         ).toBe(false);
       });
@@ -330,11 +365,25 @@ describe("TimeWindowValidation", () => {
           serviceDate,
           serviceTime,
           completedAt,
-          new Date(2026, 5, 14, 11, 0),
+          new Date("2026-06-14T16:00:00Z"),
         );
         expect(result.valid).toBe(false);
         expect(result.message).toMatch(/marked complete/);
       });
+    });
+  });
+
+  describe("parseServiceScheduledAt / parseServiceDayStart", () => {
+    it("reads the wall clock in Central, DST included", () => {
+      expect(
+        TimeWindowValidation.parseServiceScheduledAt("2026-06-15", "10:00"),
+      ).toEqual(new Date("2026-06-15T15:00:00Z"));
+      expect(
+        TimeWindowValidation.parseServiceScheduledAt("2026-12-15", "10:00:00"),
+      ).toEqual(new Date("2026-12-15T16:00:00Z"));
+      expect(TimeWindowValidation.parseServiceDayStart("2026-06-15")).toEqual(
+        new Date("2026-06-15T05:00:00Z"),
+      );
     });
   });
 });

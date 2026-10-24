@@ -27,6 +27,7 @@ import {
 import { MessageUserModal } from "@/features/messages/components/message-user-modal";
 import { PayoutSetupRequiredDialog } from "@/features/payments/components/payout-setup-required-dialog";
 import type { OnboardingStatus } from "@/features/payments/lib/payout-readiness";
+import { formatStoredDay } from "@/lib/utils/date.utils";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -120,9 +121,8 @@ export function LendingCard({
               <div className="mb-4 flex items-center gap-2 text-sm text-gray-700">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  {new Date(request.startDate).toLocaleDateString()} to{" "}
-                  {new Date(request.endDate).toLocaleDateString()} (
-                  {request.totalDays} days)
+                  {formatStoredDay(request.startDate)} to{" "}
+                  {formatStoredDay(request.endDate)} ({request.totalDays} days)
                 </span>
               </div>
 
@@ -287,8 +287,8 @@ export function LendingCard({
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar className="h-4 w-4" />
                         <span>
-                          {new Date(request.startDate).toLocaleDateString()} to{" "}
-                          {new Date(request.endDate).toLocaleDateString()} (
+                          {formatStoredDay(request.startDate)} to{" "}
+                          {formatStoredDay(request.endDate)} (
                           {request.totalDays} days)
                         </span>
                       </div>

@@ -8,6 +8,7 @@ import { createOwnerTransfer } from "@/services/stripe/payout";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { getLogger } from "@/lib/logger";
+import { pickupInstant } from "@/features/rentals/lib/cancellation-eligibility";
 
 export interface BatchResult {
   processedCount: number;
@@ -595,7 +596,10 @@ export class PaymentLifecycleService {
       return { success: false, error: "Deposit hold is not in a failed state" };
     }
 
-    if (new Date(rentalRequest.startDate) <= new Date()) {
+    // Started = the pickup day has begun in Central (`pickupInstant`), not the
+    // raw stored instant, which for a mobile-stored day is 7pm Central the
+    // evening before (HOA-124).
+    if (pickupInstant(new Date(rentalRequest.startDate)) <= new Date()) {
       return { success: false, error: "Rental has already started" };
     }
 

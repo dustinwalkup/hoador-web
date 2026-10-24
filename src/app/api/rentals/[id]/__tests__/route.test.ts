@@ -25,13 +25,19 @@ vi.mock("@/features/auth/utils/session", () => ({
 
 const mockGetRentalDetailsById = vi.fn();
 const mockGetRentalAgreementAcceptance = vi.fn();
+const mockGetRentalByRequestId = vi.fn();
+const mockGetPaymentByRentalId = vi.fn();
 vi.mock("@/dal", () => ({
   rentalDAL: {
     getRentalDetailsById: (...a: unknown[]) => mockGetRentalDetailsById(...a),
+    getRentalByRequestId: (...a: unknown[]) => mockGetRentalByRequestId(...a),
   },
   legalDocumentDAL: {
     getRentalAgreementAcceptance: (...a: unknown[]) =>
       mockGetRentalAgreementAcceptance(...a),
+  },
+  paymentDAL: {
+    getByRentalId: (...a: unknown[]) => mockGetPaymentByRentalId(...a),
   },
 }));
 
@@ -459,5 +465,88 @@ describe("GET /api/rentals/[id] — counterparty contact info (PRIV-01)", () => 
       expect(body).not.toHaveProperty("renterPhone");
       for (const value of stringValues(body)) expect(value).not.toContain("@");
     });
+  });
+});
+
+/**
+ * UAT E2E-007: rental 6f5c606c on staging was accepted ($26.06 charged), then
+ * cancelled by the renter with $25.00 refunded. `rental_requests.payment_status`
+ * stays `succeeded` (the refund is recorded on the `payments` row), so both
+ * parties' detail screens said "Paid". The route now says how much came back,
+ * and leaves `paymentStatus` as stored for clients that predate the field.
+ */
+describe("GET /api/rentals/[id] — refund status", () => {
+  const CANCELLED = {
+    ...RENTAL,
+    id: "req-1",
+    type: "request",
+    status: "cancelled",
+    paymentStatus: "succeeded",
+  };
+
+  const fetchBody = async () =>
+    (await GET(req(), params("req-1"))).json() as Promise<
+      Record<string, unknown>
+    >;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    asParty();
+    mockGetRentalDetailsById.mockResolvedValue(CANCELLED);
+    mockGetRentalAgreementAcceptance.mockResolvedValue(null);
+    mockGetRentalByRequestId.mockResolvedValue({ id: "rental-1" });
+  });
+
+  it("reads a partial refund from the charge's payment row", async () => {
+    mockGetPaymentByRentalId.mockResolvedValue({
+      amount: "26.06",
+      status: "refunded",
+      refundAmount: "25.00",
+    });
+
+    const body = await fetchBody();
+
+    expect(mockGetPaymentByRentalId).toHaveBeenCalledWith("rental-1");
+    expect(body.refundStatus).toBe("partial");
+    // Additive: the stored value is untouched for an app that predates it.
+    expect(body.paymentStatus).toBe("succeeded");
+  });
+
+  it("reads a full refund", async () => {
+    mockGetPaymentByRentalId.mockResolvedValue({
+      amount: "26.06",
+      status: "refunded",
+      refundAmount: "26.06",
+    });
+
+    expect((await fetchBody()).refundStatus).toBe("full");
+  });
+
+  it("is null for a charge nothing has been refunded from", async () => {
+    mockGetPaymentByRentalId.mockResolvedValue({
+      amount: "26.06",
+      status: "succeeded",
+      refundAmount: null,
+    });
+
+    expect((await fetchBody()).refundStatus).toBeNull();
+  });
+
+  it("is null, and looks nothing up, while the request has no rental yet", async () => {
+    mockGetRentalByRequestId.mockResolvedValue(null);
+
+    expect((await fetchBody()).refundStatus).toBeNull();
+    expect(mockGetPaymentByRentalId).not.toHaveBeenCalled();
+  });
+
+  // Supplementary to the screen, like the agreement and the dispute CTA.
+  it("degrades to null (does not 500) when the payment lookup throws", async () => {
+    mockGetPaymentByRentalId.mockRejectedValue(new Error("db down"));
+
+    const res = await GET(req(), params("req-1"));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).refundStatus).toBeNull();
   });
 });

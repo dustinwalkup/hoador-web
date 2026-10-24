@@ -20,6 +20,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { storedDayKey, wallClockToInstant } from "@/lib/wall-clock-zone";
+import { formatStoredDay } from "@/lib/utils/date.utils";
 import type { DisputeWithRelations } from "@/dal/types";
 import { DisputeStatusBadge } from "@/features/disputes/components/dispute-status-badge";
 import { RetryDepositButton } from "./retry-deposit-button";
@@ -77,12 +79,23 @@ function formatDate(date: Date | string | null | undefined): string {
   });
 }
 
-function formatShortDate(date: Date | string | null | undefined): string {
-  if (!date) return "";
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+/**
+ * A booked day ("Oct 27") as it was booked, in any browser zone. `startDate`
+ * and `endDate` are stored days that arrive here as instants; formatting them
+ * in the browser's zone put a mobile-stored day on the previous date in
+ * Central (HOA-124). See `storedDayKey`.
+ */
+function formatBookedDay(date: Date | string): string {
+  return formatStoredDay(date, "en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * When a booked day starts: midnight Central, the instant the server treats as
+ * the start of the rental day (`pickupInstant`). The amber "date passed" hint
+ * used the raw instant, which for a mobile-stored day is 7pm the evening before.
+ */
+function bookedDayStartMs(date: Date | string): number {
+  return wallClockToInstant(storedDayKey(date), "00:00")?.getTime() ?? NaN;
 }
 
 /**
@@ -497,16 +510,16 @@ export function RentalStatusProgress({
                   stepState === "future" && stepStates[idx - 1] !== "future";
                 const subLabel = isNextStep
                   ? step.key === "active"
-                    ? formatShortDate(startDate)
+                    ? formatBookedDay(startDate)
                     : step.key === "completed"
-                      ? formatShortDate(endDate)
+                      ? formatBookedDay(endDate)
                       : undefined
                   : undefined;
                 const subLabelWarning = isNextStep
                   ? step.key === "active"
-                    ? new Date(startDate).getTime() < now
+                    ? bookedDayStartMs(startDate) <= now
                     : step.key === "completed"
-                      ? new Date(endDate).getTime() < now
+                      ? bookedDayStartMs(endDate) <= now
                       : false
                   : false;
 

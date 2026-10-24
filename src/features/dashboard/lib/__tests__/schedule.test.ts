@@ -96,6 +96,64 @@ describe("getUpcomingSchedule", () => {
     expect(serviceBookingDAL.findByProviderForDashboard).not.toHaveBeenCalled();
   });
 
+  // HOA-124: "today" is the Central calendar day. At 8pm Central on Oct 26 the
+  // UTC day is already Oct 27, which dropped a return due today from Home's
+  // and the dashboard's upcoming list.
+  it("keeps a return due today on the list at 8pm Central", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-27T01:00:00Z"));
+
+    const result = await getUpcomingSchedule(userId, {
+      borrowed: {
+        currentRentals: [
+          {
+            id: "req-r",
+            listingName: "Drill",
+            ownerName: "Alex Owner",
+            deliveryRequested: false,
+            startDate: new Date(2026, 9, 24),
+            endDate: new Date(2026, 9, 26),
+          } as any,
+        ],
+        upcomingRentals: [],
+      },
+      lendingApproved: [],
+      lendingActive: [],
+      asClient: [],
+      asProvider: [],
+    });
+
+    expect(result.map((e) => e.id)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^rental-req-r-return/)]),
+    );
+  });
+
+  // A service booked for today (a zoneless `proposed_date`) stays on the list
+  // at 8pm Central, when the UTC day has already turned (HOA-124).
+  it("keeps a service booked for today on the list at 8pm Central", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-27T01:00:00Z"));
+
+    const result = await getUpcomingSchedule(userId, {
+      borrowed: { currentRentals: [], upcomingRentals: [] },
+      lendingApproved: [],
+      lendingActive: [],
+      asClient: [
+        {
+          id: "booking-today",
+          status: "accepted",
+          proposedDate: "2026-10-26",
+          proposedTime: "18:00",
+          listingTitle: "Lawn mowing",
+          counterparty: { firstName: "Grace", lastName: "Hopper" },
+        } as any,
+      ],
+      asProvider: [],
+    });
+
+    expect(result.map((e) => e.id)).toContain("service-booking-today");
+  });
+
   it("should return schedule entries for returns and pickups in next 7 days", async () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

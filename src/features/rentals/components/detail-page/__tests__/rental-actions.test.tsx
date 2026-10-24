@@ -30,8 +30,12 @@ vi.mock("@/features/rentals/components/renting-lending", () => ({
   EndRentalDialog: () => null,
 }));
 
+const mockFileDisputeDialog = vi.fn();
 vi.mock("@/features/disputes/components/file-dispute-dialog", () => ({
-  FileDisputeDialog: () => null,
+  FileDisputeDialog: (props: unknown) => {
+    mockFileDisputeDialog(props);
+    return null;
+  },
 }));
 
 function baseRentalDetails(
@@ -84,6 +88,76 @@ describe("RentalActions canFileDispute", () => {
     expect(
       screen.queryByRole("button", { name: /file dispute/i }),
     ).not.toBeInTheDocument();
+  });
+
+  // HOA-124: a rental dispute opens when the pickup day starts in Central
+  // (`pickupInstant`, computed by the server and handed down), not at the
+  // instant the stored day parses to, which for a mobile-stored day is 7pm
+  // Central the evening before.
+  describe("opens at the server's start of the pickup day", () => {
+    const yesterday = () => {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d;
+    };
+    const hoursFromNow = (h: number) =>
+      new Date(Date.now() + h * 60 * 60 * 1000).toISOString();
+
+    it("hides File Dispute until then, whatever the stored start says", () => {
+      render(
+        <RentalActions
+          rentalDetails={baseRentalDetails({
+            status: "approved",
+            startDate: yesterday(),
+          })}
+          disputeOpensAt={hoursFromNow(3)}
+          viewContext="renting"
+          isRenter={true}
+          isOwner={false}
+        />,
+      );
+      expect(
+        screen.queryByRole("button", { name: /file dispute/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows it once that instant has passed", () => {
+      render(
+        <RentalActions
+          rentalDetails={baseRentalDetails({
+            status: "approved",
+            startDate: yesterday(),
+          })}
+          disputeOpensAt={hoursFromNow(-1)}
+          viewContext="renting"
+          isRenter={true}
+          isOwner={false}
+        />,
+      );
+      expect(
+        screen.getByRole("button", { name: /file dispute/i }),
+      ).toBeInTheDocument();
+    });
+
+    // The form offers the no-show reasons from the same instant.
+    it("hands the dispute form the same instant as the rental's start", () => {
+      const opensAt = hoursFromNow(-1);
+      render(
+        <RentalActions
+          rentalDetails={baseRentalDetails({
+            status: "approved",
+            startDate: yesterday(),
+          })}
+          disputeOpensAt={opensAt}
+          viewContext="renting"
+          isRenter={true}
+          isOwner={false}
+        />,
+      );
+      expect(mockFileDisputeDialog).toHaveBeenLastCalledWith(
+        expect.objectContaining({ startDate: new Date(opensAt) }),
+      );
+    });
   });
 
   it("active → File Dispute visible", () => {

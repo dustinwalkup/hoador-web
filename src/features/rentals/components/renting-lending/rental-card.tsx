@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { RentalRequestItem, BorrowedListing } from "@/dal/rentals.dal";
 import { CancelRequestDialog } from "./cancel-request-dialog";
 import { MessageUserModal } from "@/features/messages/components/message-user-modal";
+import { formatStoredDay } from "@/lib/utils/date.utils";
 const getStatusIcon = (status: string) => {
   switch (status) {
     case "pending":
@@ -137,8 +138,8 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
               <div className="mb-4 flex items-center gap-2 text-sm text-gray-700">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  {new Date(rental.startDate).toLocaleDateString()} to{" "}
-                  {new Date(rental.endDate).toLocaleDateString()}
+                  {formatStoredDay(rental.startDate)} to{" "}
+                  {formatStoredDay(rental.endDate)}
                   {variant === "request" && ` (${totalDays} days)`}
                 </span>
               </div>
@@ -315,8 +316,8 @@ export function RentalCard({ rental, variant }: RentalCardProps) {
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  {new Date(rental.startDate).toLocaleDateString()} to{" "}
-                  {new Date(rental.endDate).toLocaleDateString()}
+                  {formatStoredDay(rental.startDate)} to{" "}
+                  {formatStoredDay(rental.endDate)}
                   {variant === "request" && ` (${totalDays} days)`}
                 </span>
               </div>

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { withRequestLogging } from "@/lib/api/with-request-logging";
-import { rentalDAL, legalDocumentDAL } from "@/dal";
+import { rentalDAL, legalDocumentDAL, paymentDAL } from "@/dal";
 import { tryCatch } from "@walkup/walkup-utils";
 import {
   handleApiError,
@@ -16,6 +16,10 @@ import {
   toRentalDetailResponse,
   type RentalViewerRole,
 } from "@/features/rentals/lib/rental-detail-response";
+import {
+  refundStatusFor,
+  type RefundStatus,
+} from "@/features/payments/lib/refund-status";
 
 /** Decimal string → integer cents, and back. Keeps the split off floats. */
 function toCents(value: string | undefined): number | null {
@@ -163,6 +167,12 @@ async function getHandler(
           ? "owner"
           : "admin";
 
+    // The `rentals.id` behind this request, which the dispute CTA and the
+    // refund status below both need. Looked up once; each consumer awaits it
+    // inside its own `tryCatch`, so a failed lookup degrades both rather than
+    // failing the response.
+    const rentalIdLookup = resolveRentalIdForDispute(data);
+
     // Whether "File a dispute" should be offered, decided here rather than by
     // each client re-implementing the filing window (P-E13-7). Degrades to
     // "not eligible" on a lookup failure, the same way `agreement` degrades to
@@ -170,8 +180,24 @@ async function getHandler(
     // is authoritative either way.
     const { data: dispute } = await tryCatch(
       (async () => {
-        const rentalId = await resolveRentalIdForDispute(data);
+        const rentalId = await rentalIdLookup;
         return rentalDisputeEligibility(rentalId, viewerRole !== "admin");
+      })(),
+    );
+
+    // How much of the charge has come back. `paymentStatus` stays `succeeded`
+    // after a refunded cancellation (the refund is recorded on the `payments`
+    // row), and on its own it put "Paid" on both parties' screens (UAT
+    // E2E-007). Sent beside it, not over it, so an older app reads what it
+    // always has. Null on a lookup failure: the screen then shows the status.
+    const { data: refundStatus } = await tryCatch(
+      (async (): Promise<RefundStatus | null> => {
+        const rentalId = await rentalIdLookup;
+        if (!rentalId) return null;
+        const payment = await paymentDAL.getByRentalId(rentalId);
+        return payment
+          ? refundStatusFor(payment.amount, payment.refundAmount)
+          : null;
       })(),
     );
 
@@ -186,6 +212,7 @@ async function getHandler(
       // P-E6-1). An admin viewing someone else's rental is neither party.
       viewerRole,
       earnings: buildEarningsPreview(viewerRole, data),
+      refundStatus: refundStatus ?? null,
       agreement,
       dispute: dispute ?? null,
     });

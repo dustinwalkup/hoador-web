@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 /**
@@ -140,24 +140,64 @@ describe("GET cancellation-preview — refund tiers (Req 9.3.1)", () => {
     expect(body.nonRefundable).toBe("0.00");
   });
 
-  // The renter reads this before an irreversible action; it must never be a
-  // device-clock derivation (rule #1 names deadlines explicitly).
-  it("reports hours-until-pickup as a server number", async () => {
-    const { body } = await preview();
+  describe("measured from the start of the pickup day in Central (HOA-124)", () => {
+    // A stored booked day: local midnight, as the driver hands it back. Pickup
+    // is midnight starting Oct 27 in Chicago, 2026-10-27T05:00Z.
+    const oct27 = new Date(2026, 9, 27);
+    const arrange = (now: string) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(now));
+      mockGetRentalRequestById.mockResolvedValue(request({ startDate: oct27 }));
+      mockGetRentalCancellationContext.mockResolvedValue(
+        context({ startDate: oct27 }),
+      );
+    };
+    afterEach(() => {
+      vi.useRealTimers();
+    });
 
-    expect(body.hoursUntilPickup).toBeGreaterThan(71);
-    expect(body.hoursUntilPickup).toBeLessThanOrEqual(72);
-  });
+    // The renter reads this before an irreversible action; it must never be a
+    // device-clock derivation (rule #1 names deadlines explicitly).
+    it("reports hours-until-pickup as a server number", async () => {
+      arrange("2026-10-24T17:00:00Z");
 
-  // The answer is a snapshot. Without this a renter can sit on the screen while
-  // the boundary passes and confirm against a tier that expired as they read it.
-  it("says when the quoted tier stops being true", async () => {
-    const { body } = await preview();
+      expect((await preview()).body.hoursUntilPickup).toBe(60);
+    });
 
-    const expiresAt = new Date(body.tierExpiresAt).getTime();
-    expect(expiresAt).toBeGreaterThan(Date.now());
-    // 72h out, the 100% tier survives another ~48 hours.
-    expect(expiresAt - Date.now()).toBeLessThan(49 * 60 * 60 * 1000);
+    // The answer is a snapshot. Without this a renter can sit on the screen
+    // while the boundary passes and confirm against a tier that expired as
+    // they read it.
+    it("says when the quoted tier stops being true", async () => {
+      arrange("2026-10-24T17:00:00Z");
+
+      // Midnight starting Oct 26 in Chicago, not 7pm on Oct 25 (the UTC
+      // midnight a mobile-stored day parses to, minus 24 hours).
+      expect((await preview()).body.tierExpiresAt).toBe(
+        "2026-10-26T05:00:00.000Z",
+      );
+    });
+
+    // The staging case: 8pm on Oct 25 in Chicago. The old arithmetic already
+    // called this "within 24 hours" of an Oct 27 pickup.
+    it("still quotes the full tier at 8pm Central two evenings before", async () => {
+      arrange("2026-10-26T01:00:00Z");
+
+      const { body } = await preview();
+
+      expect(body.tier).toBe("full_refund_24h");
+      expect(body.refundAmount).toBe("100.00");
+      expect(body.tierExpiresAt).toBe("2026-10-26T05:00:00.000Z");
+    });
+
+    it("quotes the half tier one second after that boundary, with no expiry", async () => {
+      arrange("2026-10-26T05:00:01Z");
+
+      const { body } = await preview();
+
+      expect(body.tier).toBe("half_refund_under_24h");
+      expect(body.refundAmount).toBe("50.00");
+      expect(body.tierExpiresAt).toBeNull();
+    });
   });
 
   it("has no tier expiry once the last tier is already in force", async () => {
