@@ -147,12 +147,24 @@ async function resolveListings(targetId: string, counterpartyId: string) {
   };
   // Two if the account has them: L1 (approved, starts today) and L3 (active
   // through today) cannot share a listing under `rental_requests_no_overlap`.
+  // On a shared environment the defaults can already hold real rentals on
+  // those dates; pin free ones with `LIFECYCLE_FIXTURE_OWNER_LISTING_IDS=a,b`.
+  const pinnedIds = (process.env.LIFECYCLE_FIXTURE_OWNER_LISTING_IDS ?? "")
+    .split(",")
+    .filter(Boolean);
   const [mine, mineSpare] = await db
     .select(columns)
     .from(listings)
-    .where(eq(listings.ownerId, targetId))
+    .where(
+      pinnedIds.length > 0
+        ? and(eq(listings.ownerId, targetId), inArray(listings.id, pinnedIds))
+        : eq(listings.ownerId, targetId),
+    )
     .limit(2);
   // Approved and active, so the checkout picker (8A.1) can actually open it.
+  // `seed:schedule` takes the same counterparty's first listing, so pin another
+  // with `LIFECYCLE_FIXTURE_COUNTERPARTY_LISTING_ID` when both are seeded.
+  const pinnedTheirs = process.env.LIFECYCLE_FIXTURE_COUNTERPARTY_LISTING_ID;
   const [theirs] = await db
     .select(columns)
     .from(listings)
@@ -161,6 +173,7 @@ async function resolveListings(targetId: string, counterpartyId: string) {
         eq(listings.ownerId, counterpartyId),
         eq(listings.approvalStatus, "approved"),
         eq(listings.isActive, true),
+        pinnedTheirs ? eq(listings.id, pinnedTheirs) : undefined,
       ),
     )
     .limit(1);
