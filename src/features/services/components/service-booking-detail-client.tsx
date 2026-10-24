@@ -41,6 +41,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatLocalDate } from "@/lib/utils/date.utils";
+import { useAgreementRefresh } from "@/hooks/use-agreement-refresh";
 import { FileDisputeDialog } from "@/features/disputes/components/file-dispute-dialog";
 import { TimeWindowValidation } from "@/features/disputes/lib/time-window-validation";
 import { ServiceStatusProgress } from "@/features/services/components/detail-page/service-status-progress";
@@ -96,6 +97,8 @@ export interface ServiceBookingPayload {
   updatedAt: string;
   completedAt: string | null;
   cancelledAt: string | null;
+  /** When the provider accepted, ISO (optional: not every caller sends it). */
+  acceptedAt?: string | null;
   /** Conversation between requester and provider, if any. */
   conversationId: string | null;
 }
@@ -254,6 +257,16 @@ export function ServiceBookingDetailClient({
       return booking.proposedTime;
     }
   }, [booking.proposedTime]);
+
+  // Just accepted, the agreement PDF is still being generated: the page
+  // refreshes itself until it lands, and says so meanwhile (Flow 6).
+  const { preparing: preparingAgreement } = useAgreementRefresh({
+    acceptedAt:
+      booking.status === "accepted" || booking.status === "completed"
+        ? (booking.acceptedAt ?? null)
+        : null,
+    ready: !!serviceAgreementUrl,
+  });
 
   const canFileServiceDispute = useMemo(() => {
     if (hasActiveDispute) {
@@ -781,7 +794,14 @@ export function ServiceBookingDetailClient({
                 </Button>
               )}
 
-              {/* Service Agreement */}
+              {/* Service Agreement. Generated after the accept returns, so just
+                  after acceptance it is still being prepared (Flow 6). */}
+              {!serviceAgreementUrl && preparingAgreement && (
+                <Button variant="outline" className="w-full" disabled>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Preparing service agreement…
+                </Button>
+              )}
               {serviceAgreementUrl && (
                 <Button
                   variant="outline"

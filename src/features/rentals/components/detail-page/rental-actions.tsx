@@ -12,6 +12,7 @@ import {
   PlayCircle,
   AlertTriangle,
   Star,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import { TimeWindowValidation } from "@/features/disputes/lib/time-window-valida
 import { ReviewFormDialog } from "@/features/reviews/components/review-form-dialog";
 import { PayoutSetupRequiredDialog } from "@/features/payments/components/payout-setup-required-dialog";
 import type { OnboardingStatus } from "@/features/payments/lib/payout-readiness";
+import { useAgreementRefresh } from "@/hooks/use-agreement-refresh";
 
 interface RentalActionsProps {
   rentalDetails: RentalActionsInfo;
@@ -49,7 +51,21 @@ interface RentalActionsProps {
    * Central the evening before (HOA-124). Falls back to `startDate` if absent.
    */
   disputeOpensAt?: string;
+  /**
+   * Whether `rentalAgreementUrl` is this rental's own generated PDF (`false`:
+   * the generic terms the server falls back to). Just after approval the page
+   * waits for the generated one (Flow 6). Absent: nothing to wait for.
+   */
+  rentalAgreementGenerated?: boolean;
 }
+
+/** The statuses that come after an approval, when the generated agreement is due. */
+const APPROVED_STATUSES = new Set([
+  "approved",
+  "active",
+  "overdue",
+  "completed",
+]);
 
 export function RentalActions({
   rentalDetails,
@@ -61,6 +77,7 @@ export function RentalActions({
   canReview: canReviewProp,
   ownerOnboardingStatus,
   disputeOpensAt,
+  rentalAgreementGenerated,
 }: RentalActionsProps) {
   const router = useRouter();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -112,6 +129,16 @@ export function RentalActions({
   const handleRentalStatusChanged = () => {
     router.refresh(); // RSC detail page (see above); intentional
   };
+
+  // Just approved, the rental's own agreement is still being generated: the
+  // page refreshes itself until it lands, and the button says so meanwhile
+  // rather than opening the generic terms as this rental's agreement.
+  const { preparing: preparingAgreement } = useAgreementRefresh({
+    acceptedAt: APPROVED_STATUSES.has(rentalDetails.status)
+      ? rentalDetails.approvedAt
+      : null,
+    ready: rentalAgreementGenerated !== false,
+  });
 
   const handleDownloadRentalAgreement = () => {
     if (rentalAgreementUrl) {
@@ -268,10 +295,19 @@ export function RentalActions({
           variant="outline"
           className="w-full bg-transparent"
           onClick={handleDownloadRentalAgreement}
-          disabled={!rentalAgreementUrl}
+          disabled={!rentalAgreementUrl || preparingAgreement}
         >
-          <ExternalLink className="mr-2 h-4 w-4" />
-          Rental Agreement
+          {preparingAgreement ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Preparing rental agreement…
+            </>
+          ) : (
+            <>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Rental Agreement
+            </>
+          )}
         </Button>
       </CardContent>
 

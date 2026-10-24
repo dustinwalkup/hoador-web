@@ -27,6 +27,8 @@ import { serviceBookingStatusEnum } from "@/db/schemas/_enums";
 import { conversations } from "@/db/schemas/messages.schema";
 import { blindReviews } from "@/db/schemas/blind-reviews.schema";
 import { REVIEW_WINDOW_DAYS } from "@/features/reviews/constants";
+import { serviceRequestDeadline } from "@/features/services/lib/request-deadline";
+import { marketDayKey } from "@/lib/wall-clock-zone";
 
 import { BaseDAL } from "./base";
 import { NotFoundError } from "./errors";
@@ -302,6 +304,9 @@ export class ServiceBookingDAL extends BaseDAL {
           providerId: serviceBookings.providerId,
           listingId: serviceBookings.listingId,
           listingTitle: serviceListings.title,
+          proposedDate: serviceBookings.proposedDate,
+          proposedTime: serviceBookings.proposedTime,
+          expiresAt: serviceBookings.expiresAt,
         })
         .from(serviceBookings)
         .innerJoin(
@@ -311,7 +316,14 @@ export class ServiceBookingDAL extends BaseDAL {
         .where(
           and(
             inArray(serviceBookings.status, ["pending", "payment_failed"]),
-            lt(serviceBookings.expiresAt, now),
+            // Candidates: past the 72 hours, or booked for a day no later
+            // than the market's today. The scheduled-start half of the
+            // response deadline is a Central wall clock, so it is decided
+            // below in code, not in SQL (Flow 6).
+            or(
+              lt(serviceBookings.expiresAt, now),
+              lte(serviceBookings.proposedDate, marketDayKey(now)),
+            ),
             // See markExpired: an allowlist, so a charge in flight or taken
             // is never expired.
             or(
@@ -320,7 +332,12 @@ export class ServiceBookingDAL extends BaseDAL {
             ),
           ),
         );
-      return rows;
+      // Past the response deadline: the 72 hours, or the scheduled Central
+      // start if that comes first (accept is refused after it). This catches
+      // rows created before `expires_at` was cut short at creation.
+      return rows.filter(
+        (row) => serviceRequestDeadline(row.expiresAt, row) < now,
+      );
     } catch (error) {
       this.handleError(error, "ServiceBookingDAL.findPendingExpired");
     }

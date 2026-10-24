@@ -82,6 +82,8 @@ describe("LegalDocumentDAL", () => {
       expect(result).toEqual({
         version: "1.0",
         url: "https://blob.example.com/rental-agreements/req-1.pdf",
+        // This rental's own PDF, so a client can stop waiting for it.
+        generated: true,
       });
     });
 
@@ -107,6 +109,7 @@ describe("LegalDocumentDAL", () => {
       expect(result).toEqual({
         version: "1.0",
         url: "https://blob.example.com/doc.pdf",
+        generated: true,
       });
     });
 
@@ -144,6 +147,8 @@ describe("LegalDocumentDAL", () => {
       expect(result).toEqual({
         version: "1.0",
         url: "https://legal.example.com/per-rental-agreement-1.0.pdf",
+        // The generic terms the renter accepted, not this rental's own PDF.
+        generated: false,
       });
     });
 
@@ -181,6 +186,7 @@ describe("LegalDocumentDAL", () => {
       expect(result).toEqual({
         version: "2.0",
         url: "https://legal.example.com/current.pdf",
+        generated: false,
       });
     });
   });

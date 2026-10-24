@@ -24,6 +24,8 @@ interface RentalContentProps {
   ownerOnboardingStatus?: OnboardingStatus;
   /** See `RentalActions`. */
   disputeOpensAt?: string;
+  /** See `RentalActions`. */
+  rentalAgreementGenerated?: boolean;
 }
 
 export function RentalContent({
@@ -37,6 +39,7 @@ export function RentalContent({
   canReview,
   ownerOnboardingStatus,
   disputeOpensAt,
+  rentalAgreementGenerated,
 }: RentalContentProps) {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -94,6 +97,7 @@ export function RentalContent({
           canReview={canReview}
           ownerOnboardingStatus={ownerOnboardingStatus}
           disputeOpensAt={disputeOpensAt}
+          rentalAgreementGenerated={rentalAgreementGenerated}
         />
         <RentalProtection />
       </div>

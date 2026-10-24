@@ -327,26 +327,61 @@ describe("ServiceBookingDAL", () => {
   });
 
   describe("findPendingExpired", () => {
-    it("finds pending and card-failed bookings, never a claimed or charged one", async () => {
-      const rows = [
-        {
-          id: "book-1",
-          status: "payment_failed",
-          requesterId: "req-1",
-          providerId: "prov-1",
-          listingId: "list-1",
-          listingTitle: "Lawn mowing",
-        },
-      ];
+    const candidate = (over: Record<string, unknown> = {}) => ({
+      id: "book-1",
+      status: "payment_failed",
+      requesterId: "req-1",
+      providerId: "prov-1",
+      listingId: "list-1",
+      listingTitle: "Lawn mowing",
+      proposedDate: "2026-10-30",
+      proposedTime: "09:00",
+      expiresAt: new Date("2026-10-24T20:00:00Z"),
+      ...over,
+    });
+    const stubRows = (rows: unknown[]) => {
       const mockWhere = vi.fn().mockResolvedValue(rows);
       const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
       const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
       vi.mocked(db.select).mockReturnValue({ from: mockFrom } as never);
+      return mockWhere;
+    };
 
-      const result = await serviceBookingDAL.findPendingExpired(new Date());
+    it("finds pending and card-failed bookings, never a claimed or charged one", async () => {
+      const mockWhere = stubRows([candidate()]);
 
-      expect(result).toEqual(rows);
+      const result = await serviceBookingDAL.findPendingExpired(
+        new Date("2026-10-25T00:00:00Z"),
+      );
+
+      expect(result.map((r) => r.id)).toEqual(["book-1"]);
       expectExpiryGuard(mockWhere.mock.calls[0][0]);
+    });
+
+    // Flow 6: a request stops being answerable at its scheduled Central start
+    // (accept is refused after it), even with 72 hours left on `expires_at`.
+    it("expires a request whose scheduled start has passed", async () => {
+      stubRows([
+        candidate({
+          id: "started",
+          proposedDate: "2026-10-24",
+          proposedTime: "18:00",
+          expiresAt: new Date("2026-10-27T20:44:00Z"),
+        }),
+        candidate({
+          id: "later-today",
+          proposedDate: "2026-10-24",
+          proposedTime: "21:00",
+          expiresAt: new Date("2026-10-27T20:44:00Z"),
+        }),
+      ]);
+
+      // 7pm CDT on Oct 24: past 6pm, before 9pm.
+      const result = await serviceBookingDAL.findPendingExpired(
+        new Date("2026-10-25T00:00:00Z"),
+      );
+
+      expect(result.map((r) => r.id)).toEqual(["started"]);
     });
   });
 

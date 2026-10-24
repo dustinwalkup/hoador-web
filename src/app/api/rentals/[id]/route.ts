@@ -7,6 +7,7 @@ import {
   getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
 import { toWallClock } from "@/features/schedule/lib/build-schedule";
+import { rentalRequestDeadline } from "@/features/rentals/lib/request-deadline";
 import {
   rentalDisputeEligibility,
   resolveRentalIdForDispute,
@@ -44,8 +45,9 @@ function fromCents(cents: number): string {
  * would risk quoting *today's* rules for *yesterday's* rental, and mobile's
  * rule #1 forbids the client doing the arithmetic at all.
  *
- * Returns `null` rather than a wrong number in two cases, and both matter
- * because this is the figure an owner reads before an irreversible action:
+ * Returns `null` rather than a wrong number in these cases, which matter
+ * because this is the figure an owner reads before an irreversible action
+ * (a cancelled or declined rental, which pays out nothing, is a third):
  *  - the viewer is not the owner (the renter's screen has no business showing
  *    what the owner takes home), and
  *  - the stored split is absent or zero on a rental that was not free, which is
@@ -55,6 +57,7 @@ function fromCents(cents: number): string {
 function buildEarningsPreview(
   viewerRole: string,
   data: {
+    status: string;
     ownerPayout?: string;
     applicationFeeAmount?: string;
     serviceFee?: string;
@@ -67,6 +70,9 @@ function buildEarningsPreview(
   platformFeePercent: number;
 } | null {
   if (viewerRole !== "owner") return null;
+  // A cancelled or declined rental never pays this out: the stored split is
+  // what an accepted rental would have paid (Flow 6, rental 6f5c606c).
+  if (data.status === "cancelled" || data.status === "denied") return null;
 
   const payoutCents = toCents(data.ownerPayout);
   const appFeeCents = toCents(data.applicationFeeAmount);
@@ -142,8 +148,15 @@ async function getHandler(
     const { data: agreementRow } = await tryCatch(
       legalDocumentDAL.getRentalAgreementAcceptance(id, userId),
     );
+    // `generated` says whether this is the rental's own PDF (created after
+    // approval, a few seconds late) or the generic terms it falls back to, so
+    // the app can wait for the real one instead of showing the terms as it.
     const agreement = agreementRow
-      ? { pdfUrl: agreementRow.url, templateVersion: agreementRow.version }
+      ? {
+          pdfUrl: agreementRow.url,
+          templateVersion: agreementRow.version,
+          generated: agreementRow.generated,
+        }
       : null;
 
     // `startDate`/`endDate` are BOOKED DAYS, not instants: `timestamp without
@@ -205,6 +218,12 @@ async function getHandler(
       // Never spread the raw DAL row: it carries both parties' contact info
       // and home addresses, which the mapper strips or gates by role (PRIV-01).
       ...toRentalDetailResponse(data, viewerRole),
+      // The response deadline: the stored 72 hours, or the end of the start
+      // day if sooner (approve is refused after it). Applied here as well as at
+      // creation so rows created before the rule read the same (Flow 6).
+      expiresAt: data.expiresAt
+        ? rentalRequestDeadline(data.expiresAt, data.startDate).toISOString()
+        : data.expiresAt,
       startDate: toWallClock(data.startDate, { dateOnly: true }),
       endDate: toWallClock(data.endDate, { dateOnly: true }),
       // Server-decided, so the client never compares ids to work out which side

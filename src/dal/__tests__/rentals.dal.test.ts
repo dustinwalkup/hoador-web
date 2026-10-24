@@ -161,6 +161,43 @@ describe("RentalDAL", () => {
       expect(inserted.platformNetRevenue).toBe(validPayload.platformNetRevenue);
       expect(inserted.paymentMethodId).toBe(validPayload.paymentMethodId);
     });
+
+    // Flow 6: the response deadline is the 72-hour window or the end of the
+    // start day in Central, whichever comes first (approve is refused after).
+    describe("expiresAt", () => {
+      const insertAt = async (now: string, startDate: Date) => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date(now));
+        const mockValues = vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([mockRentalRequest]),
+        });
+        vi.mocked(db.insert).mockReturnValue({ values: mockValues } as any);
+        try {
+          await rentalDAL.insertRentalRequest({ ...validPayload, startDate });
+        } finally {
+          vi.useRealTimers();
+        }
+        return mockValues.mock.calls[0][0].expiresAt as Date;
+      };
+
+      it("ends with the start day when that comes before 72 hours", async () => {
+        const expiresAt = await insertAt(
+          "2026-10-24T20:00:00Z",
+          new Date(2026, 9, 25),
+        );
+
+        expect(expiresAt.toISOString()).toBe("2026-10-26T05:00:00.000Z");
+      });
+
+      it("is 72 hours out for a rental further away", async () => {
+        const expiresAt = await insertAt(
+          "2026-10-24T20:00:00Z",
+          new Date(2026, 10, 5),
+        );
+
+        expect(expiresAt.toISOString()).toBe("2026-10-27T20:00:00.000Z");
+      });
+    });
   });
 
   describe("getBorrowedListings", () => {
@@ -2728,6 +2765,28 @@ describe("RentalDAL", () => {
       expect(sql).toContain('"rental_requests"."payment_status" is null');
       expect(sql).toContain('"rental_requests"."payment_status" <> $');
       expect(params).toContain("processing");
+    });
+
+    // Flow 6: a request stops being answerable once its start day is behind
+    // the market's today (approve is refused), even with time left on
+    // `expires_at`. At 8pm Central on Oct 26 that means start days before Oct 26.
+    it("also expires requests whose start day has passed in Central", async () => {
+      const mockWhere = vi.fn().mockResolvedValue([]);
+      const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+      await rentalDAL.findPendingExpiredRequests(
+        new Date("2026-10-27T01:00:00Z"),
+      );
+
+      const { sql, params } = renderWhere(mockWhere.mock.calls[0][0]);
+      const match = sql.match(/"rental_requests"\."start_date" < \$(\d+)/);
+      expect(match).not.toBeNull();
+      expect(params[Number(match![1]) - 1]).toBe(
+        new Date(2026, 9, 26).toISOString(),
+      );
+      expect(sql).toMatch(/"rental_requests"\."expires_at" < \$\d+ or/);
     });
   });
 

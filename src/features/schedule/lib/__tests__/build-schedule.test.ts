@@ -352,6 +352,32 @@ describe("expiresAt", () => {
   it("is null once the request is no longer pending", () => {
     expect(rentalToEvent(rental({ status: "approved" })).expiresAt).toBeNull();
   });
+
+  // Flow 6: the countdown is the response deadline, the 72-hour expiry or the
+  // last moment the request can still be accepted, whichever comes first.
+  it("ends a rental request's countdown with its start day in Central", () => {
+    const event = rentalToEvent(
+      rental({
+        status: "pending",
+        startDate: new Date(2026, 7, 19),
+        endDate: new Date(2026, 7, 20),
+      }),
+    );
+    // Central midnight after Aug 19 (CDT), before the Aug 20 14:41Z expiry.
+    expect(event.expiresAt).toBe("2026-08-20T05:00:00.000Z");
+  });
+
+  it("ends a booking request's countdown at its scheduled Central start", () => {
+    const event = serviceBookingToEvent(
+      booking({
+        status: "pending",
+        proposedDate: "2026-08-20",
+        proposedTime: "08:00",
+      }),
+    );
+    // 8am CDT is 13:00Z, before the 14:41Z expiry.
+    expect(event.expiresAt).toBe("2026-08-20T13:00:00.000Z");
+  });
 });
 
 describe("buildSchedule ordering", () => {

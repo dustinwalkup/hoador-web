@@ -11,6 +11,8 @@
 
 import type { ScheduleRentalRow } from "@/dal/rentals.dal";
 import type { ScheduleServiceBookingRow } from "@/dal/service-booking.dal";
+import { rentalRequestDeadline } from "@/features/rentals/lib/request-deadline";
+import { serviceRequestDeadline } from "@/features/services/lib/request-deadline";
 
 export type ScheduleRole = "renter" | "owner" | "client" | "provider";
 
@@ -255,10 +257,15 @@ function actionFor(
   return { needsAction: false, actionLabel: null };
 }
 
-/** A pending request's deadline is the only countdown Schedule renders. */
-function expiryFor(status: string, expiresAt: Date | null): string | null {
-  if (status !== "pending" || !expiresAt) return null;
-  return expiresAt.toISOString();
+/**
+ * A pending request's deadline is the only countdown Schedule renders. It is
+ * the response deadline: the stored expiry, or the last moment the request can
+ * still be accepted if that is sooner (Flow 6). See `rentalRequestDeadline`
+ * and `serviceRequestDeadline`.
+ */
+function expiryFor(status: string, deadline: Date | null): string | null {
+  if (status !== "pending" || !deadline) return null;
+  return deadline.toISOString();
 }
 
 /**
@@ -319,7 +326,10 @@ export function rentalToEvent(row: ScheduleRentalRow): ScheduleEvent {
     statusLabel: statusLabelFor(RENTAL_STATUS_LABEL, row.status, row.role),
     needsAction,
     actionLabel,
-    expiresAt: expiryFor(row.status, row.expiresAt),
+    expiresAt: expiryFor(
+      row.status,
+      row.expiresAt && rentalRequestDeadline(row.expiresAt, row.startDate),
+    ),
     moments,
   };
 }
@@ -356,7 +366,10 @@ export function serviceBookingToEvent(
     statusLabel: statusLabelFor(SERVICE_STATUS_LABEL, row.status, row.role),
     needsAction,
     actionLabel,
-    expiresAt: expiryFor(row.status, row.expiresAt),
+    expiresAt: expiryFor(
+      row.status,
+      row.expiresAt && serviceRequestDeadline(row.expiresAt, row),
+    ),
     moments: [],
   };
 }

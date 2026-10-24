@@ -65,6 +65,8 @@ export async function RentalDetailsServer({
   // Fetch the rental agreement document that was accepted for this rental
   // Fallback to current version if no acceptance found
   let rentalAgreementUrl: string | undefined;
+  // Whether that URL is this rental's own generated PDF, not a fallback.
+  let rentalAgreementGenerated: boolean | undefined;
   try {
     const acceptance = await legalDocumentDAL.getRentalAgreementAcceptance(
       rentalId,
@@ -72,6 +74,7 @@ export async function RentalDetailsServer({
     );
     if (acceptance) {
       rentalAgreementUrl = acceptance.url;
+      rentalAgreementGenerated = acceptance.generated;
     } else {
       // Fallback to current version if no acceptance found
       const currentVersion = await legalDocumentDAL.getCurrentVersion(
@@ -158,6 +161,7 @@ export async function RentalDetailsServer({
         // Computed here, where the stored day reads as the day it is; the
         // browser would read it in its own zone (HOA-124).
         disputeOpensAt={pickupInstant(rentalRow.startDate).toISOString()}
+        rentalAgreementGenerated={rentalAgreementGenerated}
       />
     </RentalLayout>
   );

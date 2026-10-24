@@ -66,6 +66,12 @@ function serializeBooking(b: ServiceBookingWithDetails): ServiceBookingPayload {
       : rest.cancelledAt
         ? String(rest.cancelledAt)
         : null;
+  const acceptedAt =
+    rest.acceptedAt instanceof Date
+      ? rest.acceptedAt.toISOString()
+      : rest.acceptedAt
+        ? String(rest.acceptedAt)
+        : null;
 
   return {
     ...rest,
@@ -81,6 +87,7 @@ function serializeBooking(b: ServiceBookingWithDetails): ServiceBookingPayload {
     },
     completedAt,
     cancelledAt,
+    acceptedAt,
     createdAt:
       rest.createdAt instanceof Date
         ? rest.createdAt.toISOString()

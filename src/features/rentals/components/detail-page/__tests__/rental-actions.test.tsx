@@ -315,3 +315,52 @@ describe("RentalActions canFileDispute", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Flow 6: the rental's own agreement PDF lands a few seconds after approval.
+ * Until then the page has only the generic terms; just after approval the
+ * button says the agreement is being prepared instead of opening the terms
+ * as this rental's agreement, and the page refreshes itself meanwhile.
+ */
+describe("RentalActions — agreement just after approval", () => {
+  it("says the agreement is being prepared, not ready", () => {
+    render(
+      <RentalActions
+        rentalDetails={baseRentalDetails({
+          status: "approved",
+          approvedAt: new Date(Date.now() - 5_000),
+        })}
+        rentalAgreementUrl="https://legal.example.com/terms.pdf"
+        rentalAgreementGenerated={false}
+        viewContext="renting"
+        isRenter={true}
+        isOwner={false}
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: /preparing rental agreement/i,
+    });
+    expect(button).toBeDisabled();
+  });
+
+  it("offers the agreement once it is the rental's own", () => {
+    render(
+      <RentalActions
+        rentalDetails={baseRentalDetails({
+          status: "approved",
+          approvedAt: new Date(Date.now() - 5_000),
+        })}
+        rentalAgreementUrl="https://blob.example.com/req-1.pdf"
+        rentalAgreementGenerated={true}
+        viewContext="renting"
+        isRenter={true}
+        isOwner={false}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /^rental agreement$/i }),
+    ).toBeEnabled();
+  });
+});

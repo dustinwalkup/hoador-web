@@ -47,6 +47,7 @@ import type { CancellationReason } from "./types";
 import { conversationBetween } from "./conversation-pair";
 import { alias } from "drizzle-orm/pg-core";
 import { PENDING_BOOKING_EXPIRY_WINDOW_HOURS } from "@/constants/payments";
+import { rentalRequestDeadline } from "@/features/rentals/lib/request-deadline";
 import { REVIEW_WINDOW_DAYS } from "@/features/reviews/constants";
 
 /**
@@ -456,6 +457,7 @@ export type RentalUserInfo = Pick<
 export type RentalActionsInfo = Pick<
   RentalDetails,
   | "id"
+  | "approvedAt"
   | "listingId"
   | "listingName"
   | "renterName"
@@ -638,8 +640,13 @@ export class RentalDAL extends BaseDAL {
     payload: InsertRentalRequestPayload,
   ): Promise<{ id: string }> {
     try {
-      const expiresAt = new Date(
-        Date.now() + PENDING_BOOKING_EXPIRY_WINDOW_HOURS * 60 * 60 * 1000,
+      // The 72-hour window, cut short by the end of the start day in Central
+      // when that comes first: approve is refused after it (Flow 6).
+      const expiresAt = rentalRequestDeadline(
+        new Date(
+          Date.now() + PENDING_BOOKING_EXPIRY_WINDOW_HOURS * 60 * 60 * 1000,
+        ),
+        payload.startDate,
       );
       const [rentalRequest] = await this.db
         .insert(rentalRequests)
@@ -1793,7 +1800,14 @@ export class RentalDAL extends BaseDAL {
         .where(
           and(
             eq(rentalRequests.status, "pending"),
-            lt(rentalRequests.expiresAt, now),
+            // Past its response deadline: the 72 hours, or the start day once
+            // that is behind the market's today (approve is refused then;
+            // `rentalRequestDeadline`). The second clause catches rows created
+            // before `expires_at` was cut short at creation (Flow 6).
+            or(
+              lt(rentalRequests.expiresAt, now),
+              lt(rentalRequests.startDate, startOfMarketToday(now)),
+            ),
             // See markRequestExpired: a claimed request is mid-charge or charged.
             notPaymentProcessing,
           ),

@@ -282,6 +282,50 @@ describe("ServiceBookingService", () => {
       ]);
     });
 
+    // Flow 6 (BK3): booked two hours out, the request still expired in 72h.
+    // The deadline is the scheduled Central start when that comes first.
+    it("expires the request at the scheduled start when that is sooner than 72h", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-24T20:44:11Z"));
+      mockListingGetById.mockResolvedValue(listingActive);
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus_1",
+        paymentMethodId: "pm_1",
+      });
+      mockBookingCreate.mockResolvedValue(bookingPending);
+
+      await ServiceBookingService.createBooking(
+        { ...form, proposedDate: "2026-10-24", proposedTime: "18:00" },
+        "req-1",
+        ctx,
+      );
+
+      expect(mockBookingCreate.mock.calls[0][0].expiresAt.toISOString()).toBe(
+        "2026-10-24T23:00:00.000Z",
+      );
+    });
+
+    it("keeps the 72-hour expiry for a job further out", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-24T20:44:11Z"));
+      mockListingGetById.mockResolvedValue(listingActive);
+      mockGetStripePm.mockResolvedValue({
+        customerId: "cus_1",
+        paymentMethodId: "pm_1",
+      });
+      mockBookingCreate.mockResolvedValue(bookingPending);
+
+      await ServiceBookingService.createBooking(
+        { ...form, proposedDate: "2026-11-05", proposedTime: "09:00" },
+        "req-1",
+        ctx,
+      );
+
+      expect(mockBookingCreate.mock.calls[0][0].expiresAt.toISOString()).toBe(
+        "2026-10-27T20:44:11.000Z",
+      );
+    });
+
     it("throws NotFoundError when listing is not active", async () => {
       mockListingGetById.mockResolvedValue(null);
 

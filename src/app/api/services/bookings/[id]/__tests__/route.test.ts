@@ -497,3 +497,111 @@ describe("GET /api/services/bookings/[id] — scheduledAt", () => {
     expect(body.scheduledAt).toBeNull();
   });
 });
+
+/**
+ * Flow 6 (staging BK2 05cfd007, BK3 87568d26): a provider opening a booking
+ * the client cancelled after acceptance was shown the payout stored at accept
+ * time, "Your payout $112.00", for a booking that paid them nothing, and
+ * "$80.00" for one that paid them a $30.00 late-cancellation transfer.
+ *
+ * A cancelled booking has no `earnings` (an older app then says the payout
+ * isn't available instead of a wrong figure). `cancellationPayout` says what
+ * the provider was actually paid: the recorded transfer, or "0.00".
+ */
+describe("GET /api/services/bookings/[id] — a cancelled booking's payout", () => {
+  beforeEach(() => {
+    mockGetCurrentUserId.mockResolvedValue("provider-1");
+  });
+
+  const fetchBody = async () => (await GET(req(), params("booking-1"))).json();
+
+  it("reports the late-cancellation transfer, not the stored payout", async () => {
+    setup({
+      status: "cancelled",
+      paymentStatus: "succeeded",
+      refundAmount: "60.00",
+    });
+    mockGetLifecycle.mockResolvedValue({
+      providerPayout: "96.00",
+      transferAmount: "36.00",
+      ownerTransferStatus: "completed",
+    });
+
+    const body = await fetchBody();
+
+    expect(body.earnings).toBeNull();
+    expect(body.cancellationPayout).toBe("36.00");
+  });
+
+  it("reports nothing paid after a full refund", async () => {
+    setup({
+      status: "cancelled",
+      paymentStatus: "succeeded",
+      refundAmount: "124.02",
+    });
+    mockGetLifecycle.mockResolvedValue({
+      providerPayout: "96.00",
+      transferAmount: null,
+      ownerTransferStatus: "pending",
+    });
+
+    const body = await fetchBody();
+
+    expect(body.earnings).toBeNull();
+    expect(body.cancellationPayout).toBe("0.00");
+  });
+
+  // Cancelled before anyone accepted: nothing was charged, so there is no
+  // payout to explain, and no forward quote for a request that is over.
+  it("has no payout at all for a request cancelled before acceptance", async () => {
+    setup({ status: "cancelled", paymentStatus: null });
+    mockGetLifecycle.mockResolvedValue(null);
+
+    const body = await fetchBody();
+
+    expect(body.earnings).toBeNull();
+    expect(body.cancellationPayout).toBeNull();
+  });
+
+  it("is null for the requester and for a booking that is not cancelled", async () => {
+    setup({ status: "accepted", paymentStatus: "succeeded" });
+    mockGetLifecycle.mockResolvedValue({ providerPayout: "96.00" });
+    expect((await fetchBody()).cancellationPayout).toBeNull();
+
+    mockGetCurrentUserId.mockResolvedValue("requester-1");
+    setup({ status: "cancelled", paymentStatus: "succeeded" });
+    expect((await fetchBody()).cancellationPayout).toBeNull();
+  });
+});
+
+/**
+ * Flow 6 (BK2): the request expired at Oct 27 3:24 PM, after its own 10am
+ * start, and accept is refused once the start has passed. `expiresAt` is the
+ * response deadline: the stored expiry or the scheduled Central start,
+ * whichever is first, so rows created before the rule read correctly too.
+ */
+describe("GET /api/services/bookings/[id] — the response deadline", () => {
+  it("is the scheduled start when that is before the stored expiry", async () => {
+    setup({
+      proposedDate: "2026-10-27",
+      proposedTime: "10:00",
+      expiresAt: new Date("2026-10-27T20:24:51.273Z"),
+    });
+
+    const body = await (await GET(req(), params("booking-1"))).json();
+
+    expect(body.expiresAt).toBe("2026-10-27T15:00:00.000Z");
+  });
+
+  it("is the stored expiry when the job is later", async () => {
+    setup({
+      proposedDate: "2026-11-05",
+      proposedTime: "10:00",
+      expiresAt: new Date("2026-10-27T20:24:51.273Z"),
+    });
+
+    const body = await (await GET(req(), params("booking-1"))).json();
+
+    expect(body.expiresAt).toBe("2026-10-27T20:24:51.273Z");
+  });
+});

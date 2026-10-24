@@ -96,6 +96,20 @@ describe("GET /api/rentals/[id] — agreement serialization", () => {
     expect(body.status).toBe("active");
   });
 
+  // Whether this is the rental's own generated PDF or the generic terms it
+  // falls back to: the app waits for the generated one right after approval.
+  it("says whether the agreement is the rental's own generated PDF", async () => {
+    mockGetRentalAgreementAcceptance.mockResolvedValue({
+      version: "v2",
+      url: "https://blob.hoador.com/agreements/rental-1.pdf",
+      generated: false,
+    });
+
+    const body = await (await GET(req(), params("rental-1"))).json();
+
+    expect(body.agreement.generated).toBe(false);
+  });
+
   it("returns agreement: null when none is resolvable", async () => {
     mockGetRentalAgreementAcceptance.mockResolvedValue(null);
 
@@ -225,6 +239,23 @@ describe("GET /api/rentals/[id] — mobile detail payload (8A.2)", () => {
     expect(body.createdAt).toBe("2026-08-17T14:30:00.000Z");
   });
 
+  // Flow 6: the countdown is the response deadline. A request whose start day
+  // ends before its 72 hours do (approve is refused after it) reads the end of
+  // that day in Central, including rows created before the rule.
+  it("sends the response deadline when the start day ends first", async () => {
+    mockGetRentalDetailsById.mockResolvedValue({
+      ...RENTAL,
+      status: "pending",
+      startDate: new Date(2026, 7, 18),
+      endDate: new Date(2026, 7, 19),
+      expiresAt: new Date("2026-08-20T14:30:00.000Z"),
+    });
+
+    const body = await (await GET(req(), params("rental-1"))).json();
+
+    expect(body.expiresAt).toBe("2026-08-19T05:00:00.000Z");
+  });
+
   // Mobile Req 9.2.4: an expired request is `cancelled` in the enum, and only
   // the reason tells it apart from a renter's own cancellation.
   it("passes the cancellation reason through so an expiry reads as one", async () => {
@@ -311,6 +342,21 @@ describe("GET /api/rentals/[id] — owner earnings preview (8A.4)", () => {
       platformFeePercent: 20,
     });
   });
+
+  // Flow 6's rental twin: the stored payout is what an accepted rental would
+  // pay, not what a cancelled or declined one did (rental 6f5c606c paid the
+  // owner nothing). The app hides the block for these statuses; the payload
+  // no longer carries a figure that was never paid.
+  it.each(["cancelled", "denied"])(
+    "sends no earnings for a %s rental",
+    async (status) => {
+      mockGetRentalDetailsById.mockResolvedValue({ ...PRICED, status });
+
+      const body = await (await GET(req(), params("rental-1"))).json();
+
+      expect(body.earnings).toBeNull();
+    },
+  );
 
   it("splits on integer cents, so a half-cent rate cannot drift", async () => {
     mockGetRentalDetailsById.mockResolvedValue({

@@ -1,5 +1,6 @@
 import type { ServiceBookingDashboardRow } from "@/dal/service-booking.dal";
 import type { ServicePaymentLifecycleRecord } from "@/db/schemas/service-payment-lifecycle.schema";
+import { serviceRequestDeadline } from "./request-deadline";
 
 /**
  * Payment identifiers the dashboard row carries only because the DAL selects
@@ -50,7 +51,8 @@ export function toServiceBookingListItem(
     cancelledBy: row.cancelledBy,
     cancellationReason: row.cancellationReason,
     completedAt: row.completedAt,
-    expiresAt: row.expiresAt,
+    // The response deadline (Flow 6): see `serviceRequestDeadline`.
+    expiresAt: serviceRequestDeadline(row.expiresAt, row),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     listingTitle: row.listingTitle,

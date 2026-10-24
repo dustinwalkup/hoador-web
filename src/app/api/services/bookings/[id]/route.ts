@@ -23,6 +23,7 @@ import {
   type RefundStatus,
 } from "@/features/payments/lib/refund-status";
 import { serviceInstant } from "@/features/services/lib/booking-cancellation";
+import { serviceRequestDeadline } from "@/features/services/lib/request-deadline";
 
 /** Which side of the booking the viewer is on — decided here, never by the client. */
 export type ServiceBookingViewerRole = "requester" | "provider";
@@ -105,6 +106,13 @@ export interface ServiceBookingDetailResponse {
   conversationId: string | null;
   viewerRole: ServiceBookingViewerRole;
   earnings: ServiceBookingEarnings | null;
+  /**
+   * Provider-only, on a cancelled booking that was charged: what the
+   * cancellation actually paid them, as a decimal string ("30.00" for a
+   * late-cancellation transfer, "0.00" when they were paid nothing). `null`
+   * otherwise. `earnings` is `null` on every cancelled booking.
+   */
+  cancellationPayout: string | null;
   agreement: { pdfUrl: string; templateVersion: string } | null;
   /**
    * Whether "File a dispute" should be offered, and the dispute that already
@@ -165,6 +173,11 @@ function serializeProposedDate(value: string | Date): string {
  * Returns `null` — never `$0.00` — for a non-provider, and for an already
  * charged booking whose lifecycle row is missing (a legacy row). The client
  * then says the payout will be confirmed rather than promising a number.
+ *
+ * Also `null` for a **cancelled** booking. The stored payout is what an
+ * accepted booking would have paid, not what a cancelled one did: providers
+ * were shown "Your payout $112.00" on a booking refunded in full (Flow 6).
+ * What a cancellation actually paid is `cancellationPayout`.
  */
 function buildProviderEarnings(
   viewerRole: ServiceBookingViewerRole,
@@ -172,6 +185,7 @@ function buildProviderEarnings(
   storedPayout: string | null,
 ): ServiceBookingEarnings | null {
   if (viewerRole !== "provider") return null;
+  if (booking.status === "cancelled") return null;
 
   const servicePriceCents = toCents(booking.servicePrice);
   if (servicePriceCents === null) return null;
@@ -199,6 +213,26 @@ function buildProviderEarnings(
     providerPayout: fromCents(payoutCents),
     platformFeePercent: Math.round(PLATFORM_FEE_PERCENTAGE * 100),
   };
+}
+
+/**
+ * What a cancelled booking paid the provider: the late-cancellation transfer
+ * recorded on the lifecycle row (`transfer_amount`, written when the transfer
+ * succeeds), else "0.00". `null` when there is nothing to report: not the
+ * provider, not cancelled, or never charged (no lifecycle row, which is
+ * created at the charge).
+ */
+function buildCancellationPayout(
+  viewerRole: ServiceBookingViewerRole,
+  booking: { status: string },
+  lifecycle: { transferAmount: string | null } | null,
+): string | null {
+  if (viewerRole !== "provider" || booking.status !== "cancelled") return null;
+  if (!lifecycle) return null;
+  const transferCents = toCents(lifecycle.transferAmount);
+  return fromCents(
+    transferCents !== null && transferCents > 0 ? transferCents : 0,
+  );
 }
 
 /**
@@ -307,11 +341,15 @@ async function getHandler(
     // failure degrades to the forward quote (or `null` on a charged booking)
     // rather than failing a screen whose main job is the booking itself.
     let storedPayout: string | null = null;
+    let lifecycleRow: { transferAmount: string | null } | null = null;
     if (viewerRole === "provider") {
       const { data: lifecycle } = await tryCatch(
         servicePaymentLifecycleDAL.getByBookingId(id),
       );
       storedPayout = lifecycle?.providerPayout ?? null;
+      lifecycleRow = lifecycle
+        ? { transferAmount: lifecycle.transferAmount ?? null }
+        : null;
     }
 
     // See the rental route's twin: the filing window lives on the server so a
@@ -358,7 +396,13 @@ async function getHandler(
       declinedAt: toIso(booking.declinedAt),
       completedAt: toIso(booking.completedAt),
       cancelledAt: toIso(booking.cancelledAt),
-      expiresAt: booking.expiresAt.toISOString(),
+      // The response deadline: the stored 72 hours, or the scheduled start if
+      // sooner (accept is refused after it), so rows created before the rule
+      // read the same (Flow 6).
+      expiresAt: serviceRequestDeadline(
+        booking.expiresAt,
+        booking,
+      ).toISOString(),
 
       listing: {
         id: booking.listing.id,
@@ -386,6 +430,11 @@ async function getHandler(
 
       viewerRole,
       earnings: buildProviderEarnings(viewerRole, booking, storedPayout),
+      cancellationPayout: buildCancellationPayout(
+        viewerRole,
+        booking,
+        lifecycleRow,
+      ),
       agreement,
       dispute: dispute ?? null,
     });

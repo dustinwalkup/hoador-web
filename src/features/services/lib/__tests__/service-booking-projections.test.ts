@@ -76,6 +76,19 @@ describe("toServiceBookingListItem (SEC-07 / PRIV-04)", () => {
     expect(toServiceBookingListItem(row)).toEqual(expected);
   });
 
+  // Flow 6: the list carries the response deadline too, so no surface shows
+  // a request as answerable after its scheduled start.
+  it("sends the response deadline, not an expiry after the job's start", () => {
+    const out = toServiceBookingListItem({
+      ...row,
+      status: "pending",
+      expiresAt: new Date("2026-10-03T12:00:00Z"),
+    });
+
+    // 9am CDT on Oct 1.
+    expect(out.expiresAt).toEqual(new Date("2026-10-01T14:00:00Z"));
+  });
+
   // The point of an allowlist: a column added later doesn't leak by default.
   it("drops unknown keys, on the row and on the counterparty", () => {
     const out = toServiceBookingListItem({

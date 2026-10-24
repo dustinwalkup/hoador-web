@@ -55,6 +55,7 @@ import { processRefund } from "@/services/stripe/refund";
 import { after } from "next/server";
 import { closeNeedsFulfilledByBooking } from "@/features/neighborhood-needs/services/neighborhood-needs-service";
 import type { AuditContext, CreateBookingInput } from "../types";
+import { serviceRequestDeadline } from "../lib/request-deadline";
 
 /**
  * Throws `CounterpartyUnavailableError` unless the requester is an active
@@ -145,8 +146,13 @@ export class ServiceBookingService {
       cancellationReason: null,
       completedAt: null,
       selectedPaymentMethodId: formData.paymentMethodId ?? null,
-      expiresAt: new Date(
-        Date.now() + PENDING_BOOKING_EXPIRY_WINDOW_HOURS * 60 * 60 * 1000,
+      // The 72-hour window, cut short by the scheduled Central start when that
+      // comes first: accept is refused after it (Flow 6).
+      expiresAt: serviceRequestDeadline(
+        new Date(
+          Date.now() + PENDING_BOOKING_EXPIRY_WINDOW_HOURS * 60 * 60 * 1000,
+        ),
+        formData,
       ),
     });
 

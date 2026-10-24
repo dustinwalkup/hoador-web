@@ -521,12 +521,13 @@ export class LegalDocumentDAL extends BaseDAL {
    *
    * @param rentalIdOrRequestId - Rental request id or rental id (same id used for getRentalDetailsById).
    * @param userId - Current user (must be renter or owner).
-   * @returns { version, url } or null if unauthorized or not found.
+   * @returns { version, url, generated } or null if unauthorized or not found.
+   *   `generated` is true for this rental's own PDF, false for a fallback.
    */
   async getRentalAgreementAcceptance(
     rentalIdOrRequestId: string,
     userId: string,
-  ): Promise<{ version: string; url: string } | null> {
+  ): Promise<{ version: string; url: string; generated: boolean } | null> {
     try {
       const requestId =
         await this.resolveRentalIdToRequestId(rentalIdOrRequestId);
@@ -566,6 +567,7 @@ export class LegalDocumentDAL extends BaseDAL {
         return {
           version: generated[0].templateVersion,
           url: generated[0].pdfUrl,
+          generated: true,
         };
       }
 
@@ -593,6 +595,7 @@ export class LegalDocumentDAL extends BaseDAL {
           return {
             version: documentVersion.version,
             url: documentVersion.url,
+            generated: false,
           };
         }
       }
@@ -605,6 +608,7 @@ export class LegalDocumentDAL extends BaseDAL {
         return {
           version: currentVersion.version,
           url: currentVersion.url,
+          generated: false,
         };
       }
 
