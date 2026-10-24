@@ -22,6 +22,8 @@
  * Usage:
  *   DATABASE_URL=... bun run seed:schedule -- you@example.com
  *   DATABASE_URL=... SCHEDULE_FIXTURE_EMAIL=you@example.com bun run seed:schedule
+ *   SCHEDULE_FIXTURE_COUNTERPARTY_EMAIL=owner@example.com pins the other party
+ *   (see `resolveCounterparty`).
  */
 
 import "dotenv/config";
@@ -87,22 +89,37 @@ async function resolveTargetUser(email: string) {
   return target;
 }
 
-/** Someone to be on the other side of every fixture. */
+/**
+ * Someone to be on the other side of every fixture. Unpinned, it is the first
+ * other user — on a shared environment that can be a real tester's account (or
+ * B's), so pin it there with `SCHEDULE_FIXTURE_COUNTERPARTY_EMAIL`. A pinned
+ * counterparty also owns the "theirs" listing and service, so a fixture's
+ * owner and its listing's owner agree.
+ */
 async function resolveCounterparty(targetId: string) {
+  const pinned = process.env.SCHEDULE_FIXTURE_COUNTERPARTY_EMAIL;
   const [other] = await db
     .select({ id: user.id, firstName: user.firstName, lastName: user.lastName })
     .from(user)
-    .where(ne(user.id, targetId))
+    .where(pinned ? eq(user.email, pinned) : ne(user.id, targetId))
     .limit(1);
   if (!other) {
     throw new Error(
-      "Need at least one other user to act as counterparty. Run `bun run seed` against a LOCAL database first.",
+      pinned
+        ? `No user "${pinned}" (SCHEDULE_FIXTURE_COUNTERPARTY_EMAIL).`
+        : "Need at least one other user to act as counterparty. Run `bun run seed` against a LOCAL database first.",
     );
   }
-  return other;
+  if (other.id === targetId) {
+    throw new Error(
+      "The counterparty must be a different user from the target.",
+    );
+  }
+  return { ...other, pinned: Boolean(pinned) };
 }
 
-async function resolveListings(targetId: string) {
+/** `theirs` is the pinned counterparty's when there is one, else anyone's. */
+async function resolveListings(targetId: string, pinnedOwnerId?: string) {
   const owned = await db
     .select({
       id: listings.id,
@@ -119,7 +136,11 @@ async function resolveListings(targetId: string) {
       securityDeposit: listings.securityDeposit,
     })
     .from(listings)
-    .where(ne(listings.ownerId, targetId))
+    .where(
+      pinnedOwnerId
+        ? eq(listings.ownerId, pinnedOwnerId)
+        : ne(listings.ownerId, targetId),
+    )
     .limit(1);
 
   if (!owned[0] || !theirs[0]) {
@@ -130,7 +151,10 @@ async function resolveListings(targetId: string) {
   return { mine: owned[0], theirs: theirs[0] };
 }
 
-async function resolveServiceListings(targetId: string) {
+async function resolveServiceListings(
+  targetId: string,
+  pinnedProviderId?: string,
+) {
   const mine = await db
     .select({
       id: serviceListings.id,
@@ -148,7 +172,11 @@ async function resolveServiceListings(targetId: string) {
       providerId: serviceListings.providerId,
     })
     .from(serviceListings)
-    .where(ne(serviceListings.providerId, targetId))
+    .where(
+      pinnedProviderId
+        ? eq(serviceListings.providerId, pinnedProviderId)
+        : ne(serviceListings.providerId, targetId),
+    )
     .limit(1);
 
   if (!theirs[0]) {
@@ -218,8 +246,9 @@ async function main(): Promise<void> {
 
   const target = await resolveTargetUser(email);
   const other = await resolveCounterparty(target.id);
-  const rentalListings = await resolveListings(target.id);
-  const svc = await resolveServiceListings(target.id);
+  const pinnedId = other.pinned ? other.id : undefined;
+  const rentalListings = await resolveListings(target.id, pinnedId);
+  const svc = await resolveServiceListings(target.id, pinnedId);
 
   await clearPreviousFixtures();
 

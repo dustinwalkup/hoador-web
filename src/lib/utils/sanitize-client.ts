@@ -28,8 +28,18 @@ function sanitizeServerSide(text: string): string {
   // Remove common event handler attributes that might be in attributes
   sanitized = sanitized.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, "");
 
-  // Decode HTML entities for display
-  sanitized = sanitized
+  return decodeEntitiesForDisplay(sanitized).trim();
+}
+
+/**
+ * Decodes HTML entities for display. Runs after tags are stripped, never
+ * before: stored text keeps a typed `<` as `&lt;` (SEC-12 in sanitize.ts), so
+ * decoding first would let the tag strip eat "<3 5 >". The result is safe only
+ * as React text, which escapes it again; it must never reach
+ * dangerouslySetInnerHTML.
+ */
+function decodeEntitiesForDisplay(text: string): string {
+  return text
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -37,8 +47,6 @@ function sanitizeServerSide(text: string): string {
     .replace(/&#x27;/g, "'")
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, " ");
-
-  return sanitized.trim();
 }
 
 /**
@@ -109,8 +117,10 @@ export function sanitizeForDisplay(text: string): string {
       });
 
       // DOMPurify may return HTML string even with ALLOWED_TAGS: [] in some environments
-      // Strip any remaining tags manually as a fallback to ensure complete sanitization
-      return result.replace(/<[^>]*>/g, "");
+      // Strip any remaining tags manually as a fallback to ensure complete sanitization.
+      // DOMPurify returns markup, so `&lt;3` comes back as `&lt;3`; decode it
+      // like the server branch does, or React shows the entity (UAT SEC-009).
+      return decodeEntitiesForDisplay(result.replace(/<[^>]*>/g, ""));
     } catch {
       // Fallback to regex-based sanitization if DOMPurify fails
       return sanitizeServerSide(text);

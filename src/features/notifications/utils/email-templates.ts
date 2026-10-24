@@ -1,3 +1,4 @@
+import { escapeHtml } from "@/lib/utils/escape-html";
 import { EMAIL_LOGO_HTML } from "./email-logo";
 
 /**
@@ -111,12 +112,7 @@ export function generateListingRejectionEmailHtml({
   garageUrl,
 }: ListingRejectionEmailData): string {
   // Escape HTML in rejection reason
-  const escapedReason = rejectionReason
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  const escapedReason = escapeHtml(rejectionReason);
 
   return `
     <!DOCTYPE html>
@@ -220,13 +216,7 @@ export function generateReEngagementEmailHtml({
   message,
   dashboardUrl,
 }: ReEngagementEmailData): string {
-  const escapedMessage = message
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;")
-    .replace(/\n/g, "<br>");
+  const escapedMessage = escapeHtml(message).replace(/\n/g, "<br>");
   return `
     <!DOCTYPE html>
     <html>

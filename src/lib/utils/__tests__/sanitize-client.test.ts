@@ -75,8 +75,15 @@ describe("sanitize-client", () => {
 
     it("should handle special characters", () => {
       expect(sanitizeForDisplay("Hello & World")).toBe("Hello & World");
-      // DOMPurify encodes HTML entities
-      expect(sanitizeForDisplay("Test < > &")).toBe("Test &lt; &gt; &amp;");
+      // DOMPurify encodes them; the result is decoded again for React text
+      expect(sanitizeForDisplay("Test < > &")).toBe("Test < > &");
+    });
+
+    // UAT SEC-009: the server stores a typed `<` / `>` as `&lt;` / `&gt;`.
+    it("should show stored text as typed", () => {
+      expect(sanitizeForDisplay(`Tom's drill & "saw" &lt;3 5 &gt; 4  😀`)).toBe(
+        `Tom's drill & "saw" <3 5 > 4  😀`,
+      );
     });
 
     it("should handle unicode characters", () => {
@@ -88,8 +95,8 @@ describe("sanitize-client", () => {
     it("should handle malformed HTML", () => {
       expect(sanitizeForDisplay("<div>Unclosed")).toBe("Unclosed");
       expect(sanitizeForDisplay("</div>")).toBe("");
-      // DOMPurify encodes bare < > characters
-      expect(sanitizeForDisplay("<>")).toBe("&lt;&gt;");
+      // DOMPurify encodes bare < > characters; they're decoded for display
+      expect(sanitizeForDisplay("<>")).toBe("<>");
     });
   });
 

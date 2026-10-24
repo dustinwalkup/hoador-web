@@ -1,4 +1,5 @@
 import { EMAIL_LOGO_HTML } from "@/features/notifications/utils/email-logo";
+import { escapeHtml } from "@/lib/utils/escape-html";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { serviceListingDAL, userDAL } from "@/dal";
 import { formatPPP } from "@/lib/utils/date.utils";
@@ -9,14 +10,6 @@ import type {
 
 function appBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 /**
