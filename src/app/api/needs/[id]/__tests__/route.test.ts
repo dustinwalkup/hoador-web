@@ -34,6 +34,7 @@ vi.mock("@/features/auth/utils/session", () => ({
 const mockGetNeedDetail = vi.fn();
 const mockGetVisibleCommunityIds = vi.fn();
 const mockIsVisibleInCommunity = vi.fn();
+const mockAreMutuallyVisible = vi.fn();
 const mockGetUserPrimaryLocation = vi.fn();
 
 vi.mock("@/dal", () => ({
@@ -46,6 +47,7 @@ vi.mock("@/dal", () => ({
     getVisibleCommunityIds: (...a: unknown[]) =>
       mockGetVisibleCommunityIds(...a),
     isVisibleInCommunity: (...a: unknown[]) => mockIsVisibleInCommunity(...a),
+    areMutuallyVisible: (...a: unknown[]) => mockAreMutuallyVisible(...a),
   },
 }));
 
@@ -105,6 +107,7 @@ beforeEach(() => {
   mockGetNeedDetail.mockResolvedValue(OPEN_NEED_DETAIL);
   mockGetVisibleCommunityIds.mockResolvedValue(["comm-1"]);
   mockIsVisibleInCommunity.mockResolvedValue(true);
+  mockAreMutuallyVisible.mockResolvedValue(true);
   mockGetUserPrimaryLocation.mockResolvedValue(null);
   mockUpdateNeed.mockResolvedValue({ ...OPEN_NEED_DETAIL, title: "Updated" });
   mockDeleteNeed.mockResolvedValue(undefined);
@@ -168,6 +171,19 @@ describe("GET /api/needs/[id]", () => {
     const { GET } = await import("../route");
     const res = await GET(getReq("need-1"), params("need-1"));
     expect(res.status).toBe(404);
+  });
+
+  // SETTINGS-004: the creator hid the viewer's home community (or the viewer
+  // hid the creator's). Both are visible in the need's own community, which
+  // is the creator's unhideable home, so only the member check catches it.
+  it("returns 404 when the creator and viewer have hidden each other's communities", async () => {
+    mockGetAuthenticatedUserResponse.mockResolvedValue(AUTH_OTHER);
+    mockIsVisibleInCommunity.mockResolvedValue(true);
+    mockAreMutuallyVisible.mockResolvedValue(false);
+    const { GET } = await import("../route");
+    const res = await GET(getReq("need-1"), params("need-1"));
+    expect(res.status).toBe(404);
+    expect(mockAreMutuallyVisible).toHaveBeenCalledWith("user-2", "user-1");
   });
 
   it("allows admin to view any need without visibility check", async () => {

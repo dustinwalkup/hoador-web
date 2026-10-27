@@ -87,6 +87,7 @@ const mockIsActiveAccount = vi.fn().mockResolvedValue(true);
 vi.mock("@/dal", () => ({
   communityDAL: {
     isVisibleInCommunity: vi.fn().mockResolvedValue(true),
+    areMutuallyVisible: vi.fn().mockResolvedValue(true),
   },
   rentalDAL: {
     getRentalRequestById: (...args: unknown[]) =>

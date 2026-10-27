@@ -7,7 +7,8 @@ import { BackButton } from "@/components/back-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { blindReviewDAL, communityDAL, serviceListingDAL } from "@/dal";
+import { blindReviewDAL, serviceListingDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { formatServiceUsd } from "@/features/services/lib/service-labels";
 import { getCurrentUserId } from "@/features/auth/utils/session";
 import { getStripeCustomerContext } from "@/services/stripe/payment-method";
@@ -35,19 +36,17 @@ export default async function ServiceListingDetailPage({ params }: PageProps) {
 
   const isProvider = listing.providerId === userId;
 
-  // Symmetric per-community visibility (R5): a non-provider may view an active
-  // listing only if both the viewer and the provider are visible in the
-  // listing's home community — the same rule the services browse applies.
+  // Symmetric visibility (R5 + SETTINGS-004): a non-provider may view an
+  // active listing only if both the viewer and the provider are visible in the
+  // listing's home community and neither has hidden the other's home
+  // community — the same rule the services browse applies.
   let canView = isProvider;
   if (!canView && listing.status === "active") {
-    const [viewerVisible, providerVisible] = await Promise.all([
-      communityDAL.isVisibleInCommunity(userId, listing.communityId),
-      communityDAL.isVisibleInCommunity(
-        listing.providerId,
-        listing.communityId,
-      ),
-    ]);
-    canView = viewerVisible && providerVisible;
+    canView = await canViewOwnerItem(
+      userId,
+      listing.providerId,
+      listing.communityId,
+    );
   }
   if (!canView) {
     notFound();

@@ -7,6 +7,15 @@ import {
   mockNotificationsWithUser,
 } from "@/test/fixtures/notifications";
 import { db } from "@/db/db";
+import { PgDialect } from "drizzle-orm/pg-core";
+import { sql as rawSql, type SQL } from "drizzle-orm";
+import { pushSubscriptionDAL } from "../index";
+import { ownerVisibleToViewerHome } from "../visibility-sql";
+import { communityVisibility } from "@/db/schemas/communities.schema";
+
+/** Placeholder numbers and whitespace differ once a fragment is embedded. */
+const normalizeSql = (text: string) =>
+  text.replace(/\$\d+/g, "$?").replace(/\s+/g, " ");
 
 // Mock dependencies
 vi.mock("@/db/db", () => {
@@ -25,6 +34,7 @@ vi.mock("@/db/db", () => {
       update: vi.fn(),
       delete: vi.fn(),
       select: mockSelect,
+      execute: vi.fn(),
     },
   };
 });
@@ -506,5 +516,63 @@ describe("NotificationDAL", () => {
       // Assert
       expect(result).toBe(0);
     });
+  });
+});
+
+// SETTINGS-004 (member-based rule, approved 2026-10-26): a new need reaches
+// only members the poster can see. The recipient's own flag for the need's
+// community (the poster's home) was already checked; the poster's flag for
+// each recipient's home is the half that was missing.
+describe("need fan-out recipients", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("bulkCreateForVisibleCommunity skips members whose home the poster hid", async () => {
+    vi.mocked(db.execute).mockResolvedValue({ rowCount: 0 } as never);
+
+    await notificationsDAL.bulkCreateForVisibleCommunity({
+      communityId: "comm-g",
+      excludeUserId: "poster-a",
+      posterId: "poster-a",
+      type: "neighborhood_need_created",
+      title: "New need",
+      message: "m",
+      data: {},
+    });
+
+    const dialect = new PgDialect();
+    const { sql, params } = dialect.sqlToQuery(
+      vi.mocked(db.execute).mock.calls[0][0] as SQL,
+    );
+    const expected = dialect.sqlToQuery(
+      ownerVisibleToViewerHome("poster-a", rawSql`cv.user_id`),
+    ).sql;
+    expect(normalizeSql(sql)).toContain(normalizeSql(expected));
+    expect(params).toContain("poster-a");
+  });
+
+  it("getOptInPushTargetsInCommunity skips members whose home the poster hid", async () => {
+    const where = vi.fn().mockResolvedValue([]);
+    const leftJoin = vi.fn().mockReturnValue({ where });
+    const innerJoin2 = vi.fn().mockReturnValue({ leftJoin });
+    const innerJoin1 = vi.fn().mockReturnValue({ innerJoin: innerJoin2 });
+    const from = vi.fn().mockReturnValue({ innerJoin: innerJoin1 });
+    vi.mocked(db.select).mockReturnValue({ from } as never);
+
+    await pushSubscriptionDAL.getOptInPushTargetsInCommunity({
+      communityId: "comm-g",
+      excludeUserId: "poster-a",
+      posterId: "poster-a",
+      category: "neighborhood_needs",
+    });
+
+    const dialect = new PgDialect();
+    const { sql, params } = dialect.sqlToQuery(where.mock.calls[0][0]);
+    const expected = dialect.sqlToQuery(
+      ownerVisibleToViewerHome("poster-a", communityVisibility.userId),
+    ).sql;
+    expect(normalizeSql(sql)).toContain(normalizeSql(expected));
+    expect(params).toContain("poster-a");
   });
 });

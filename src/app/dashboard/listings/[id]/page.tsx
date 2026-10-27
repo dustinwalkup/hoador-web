@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { ListingDetailView } from "@/features/listings/components/listing-detail-view";
 import { TrackViewContent } from "@/components/analytics/track-view-content";
-import { communityDAL, listingDAL } from "@/dal";
+import { listingDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 
 export const metadata = {
   title: "Listing Details",
@@ -28,18 +29,20 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
 
   const isOwner = currentUser.id === listing.owner.id;
 
-  // Symmetric per-community visibility (R5): a non-owner may view a browseable
-  // listing only if both the viewer and the owner are visible in the listing's
-  // home community — the same rule the tool search applies.
+  // Symmetric visibility (R5 + SETTINGS-004): a non-owner may view a
+  // browseable listing only if both the viewer and the owner are visible in
+  // the listing's home community and neither has hidden the other's home
+  // community — the same rule the tool search applies.
   if (!isOwner) {
     if (!BROWSEABLE_STATUSES.has(listing.status)) {
       notFound();
     }
-    const [viewerVisible, ownerVisible] = await Promise.all([
-      communityDAL.isVisibleInCommunity(currentUser.id, listing.communityId),
-      communityDAL.isVisibleInCommunity(listing.owner.id, listing.communityId),
-    ]);
-    if (!viewerVisible || !ownerVisible) {
+    const visible = await canViewOwnerItem(
+      currentUser.id,
+      listing.owner.id,
+      listing.communityId,
+    );
+    if (!visible) {
       notFound();
     }
   }

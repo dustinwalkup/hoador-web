@@ -50,7 +50,7 @@ async function getHandler(request: NextRequest) {
     const visibleCommunityIds = await getCurrentUserVisibleCommunityIds();
 
     const { data, error } = await tryCatch(
-      serviceListingDAL.findByCommunityForBrowse(visibleCommunityIds, {
+      serviceListingDAL.findByCommunityForBrowse(userId, visibleCommunityIds, {
         categoryId,
         excludeProviderId: userId,
       }),

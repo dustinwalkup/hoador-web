@@ -28,6 +28,7 @@ vi.mock(
 
 const mockListingGetById = vi.fn();
 const mockIsVisibleInCommunity = vi.fn();
+const mockAreMutuallyVisible = vi.fn();
 const mockBookingCreate = vi.fn();
 const mockBookingGetById = vi.fn();
 const mockBookingUpdate = vi.fn();
@@ -38,6 +39,8 @@ const mockGetUserById = vi.fn();
 const mockIsActiveAccount = vi.fn().mockResolvedValue(true);
 const mockAuditCreate = vi.fn();
 const mockPaymentCreate = vi.fn();
+const mockPaymentGetByServiceBookingId = vi.fn();
+const mockPaymentRecordRefund = vi.fn();
 const mockChargeServicePayment = vi.fn();
 const mockProcessRefund = vi.fn();
 const mockSendNotification = vi.fn();
@@ -66,6 +69,7 @@ vi.mock("@/dal", () => ({
   auditLogDAL: { create: (...a: unknown[]) => mockAuditCreate(...a) },
   communityDAL: {
     isVisibleInCommunity: (...a: unknown[]) => mockIsVisibleInCommunity(...a),
+    areMutuallyVisible: (...a: unknown[]) => mockAreMutuallyVisible(...a),
   },
   disputeDAL: {
     getActiveByServiceBookingId: vi.fn().mockResolvedValue(null),
@@ -74,7 +78,12 @@ vi.mock("@/dal", () => ({
     getAllCurrentVersions: (...a: unknown[]) => mockLegalGetAllVersions(...a),
     recordAcceptance: (...a: unknown[]) => mockLegalRecordAcceptance(...a),
   },
-  paymentDAL: { createPayment: (...a: unknown[]) => mockPaymentCreate(...a) },
+  paymentDAL: {
+    createPayment: (...a: unknown[]) => mockPaymentCreate(...a),
+    getByServiceBookingId: (...a: unknown[]) =>
+      mockPaymentGetByServiceBookingId(...a),
+    recordRefund: (...a: unknown[]) => mockPaymentRecordRefund(...a),
+  },
   serviceBookingDAL: {
     create: (...a: unknown[]) => mockBookingCreate(...a),
     getById: (...a: unknown[]) => mockBookingGetById(...a),
@@ -211,6 +220,7 @@ describe("ServiceBookingService", () => {
     vi.clearAllMocks();
     mockIsActiveAccount.mockResolvedValue(true);
     mockIsVisibleInCommunity.mockResolvedValue(true);
+    mockAreMutuallyVisible.mockResolvedValue(true);
     mockGetPaymentErrorMessage.mockReturnValue("card declined");
     mockLegalGetAllVersions.mockResolvedValue({});
     mockLifecycleCreate.mockResolvedValue({});
@@ -230,6 +240,14 @@ describe("ServiceBookingService", () => {
     // Post-charge persistence resolves by default (clearAllMocks keeps prior
     // mockRejectedValue implementations, so reset it here for order-independence).
     mockPaymentCreate.mockResolvedValue(undefined);
+    // The charge row acceptBooking wrote; a refund is recorded against it.
+    mockPaymentGetByServiceBookingId.mockResolvedValue({
+      id: "pay-1",
+      serviceBookingId: "book-1",
+      amount: "103.30",
+      status: "succeeded",
+    });
+    mockPaymentRecordRefund.mockResolvedValue(undefined);
     mockCloseNeedsFulfilledByBooking.mockResolvedValue(undefined);
   });
 
@@ -353,6 +371,19 @@ describe("ServiceBookingService", () => {
         ServiceBookingService.createBooking(form, "req-1", ctx),
       ).rejects.toThrow(CommunityNotVisibleError);
       expect(mockIsVisibleInCommunity).toHaveBeenCalledWith("req-1", "comm-1");
+      expect(mockBookingCreate).not.toHaveBeenCalled();
+    });
+
+    // SETTINGS-004: both visible in the listing's community (the provider's
+    // unhideable home), but one has hidden the other's home community.
+    it("throws CommunityNotVisibleError when the requester and provider have hidden each other's communities", async () => {
+      mockListingGetById.mockResolvedValue(listingActive);
+      mockAreMutuallyVisible.mockResolvedValue(false);
+
+      await expect(
+        ServiceBookingService.createBooking(form, "req-1", ctx),
+      ).rejects.toThrow(CommunityNotVisibleError);
+      expect(mockAreMutuallyVisible).toHaveBeenCalledWith("req-1", "prov-1");
       expect(mockBookingCreate).not.toHaveBeenCalled();
     });
 
@@ -997,6 +1028,20 @@ describe("ServiceBookingService", () => {
         ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
       ).rejects.toThrow(CommunityNotVisibleError);
       expect(mockIsVisibleInCommunity).toHaveBeenCalledWith("req-1", "comm-1");
+      expect(mockBookingClaim).not.toHaveBeenCalled();
+      expect(mockChargeServicePayment).not.toHaveBeenCalled();
+    });
+
+    // SETTINGS-004: one party hid the other's home community after the
+    // request. Refused before the claim and any charge.
+    it("refuses when the provider and requester have since hidden each other's communities, before claiming", async () => {
+      mockBookingGetById.mockResolvedValue(bookingPending);
+      mockAreMutuallyVisible.mockResolvedValue(false);
+
+      await expect(
+        ServiceBookingService.acceptBooking("book-1", "prov-1", ctx),
+      ).rejects.toThrow(CommunityNotVisibleError);
+      expect(mockAreMutuallyVisible).toHaveBeenCalledWith("req-1", "prov-1");
       expect(mockBookingClaim).not.toHaveBeenCalled();
       expect(mockChargeServicePayment).not.toHaveBeenCalled();
     });
@@ -1721,6 +1766,204 @@ describe("ServiceBookingService", () => {
       await ServiceBookingService.cancelBooking("book-1", "req-1", "bye", ctx);
 
       expect(mockCreateServiceTransfer).not.toHaveBeenCalled();
+    });
+
+    // Payment history reads `payments`, not `service_bookings`. A refund
+    // recorded only on the booking left the client's history at "Paid" with
+    // no refund line (staging UAT, 2026-10-24).
+    describe("records the refund on the payment row", () => {
+      it.each([
+        {
+          name: "requester, more than 24h out (full)",
+          now: "2025-12-18T12:00:00Z",
+          cancelledBy: "req-1",
+          refundAmount: "103.30",
+        },
+        {
+          name: "requester, within 24h (half the service price)",
+          now: "2025-12-20T13:00:00Z",
+          cancelledBy: "req-1",
+          refundAmount: "50.00",
+        },
+        {
+          name: "provider (full)",
+          now: "2025-12-20T13:00:00Z",
+          cancelledBy: "prov-1",
+          refundAmount: "103.30",
+        },
+      ])("$name", async ({ now, cancelledBy, refundAmount }) => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date(now));
+
+        mockBookingGetById.mockResolvedValue(accepted);
+        mockLifecycleGetByBookingId.mockResolvedValue({ id: "spl-1" });
+        mockProcessRefund.mockResolvedValue({
+          success: true,
+          refundId: "re_1",
+        });
+        mockBookingUpdate.mockResolvedValue({
+          ...accepted,
+          status: "cancelled",
+        });
+
+        await ServiceBookingService.cancelBooking(
+          "book-1",
+          cancelledBy,
+          "  Schedule changed  ",
+          ctx,
+        );
+
+        expect(mockPaymentGetByServiceBookingId).toHaveBeenCalledWith("book-1");
+        expect(mockPaymentRecordRefund).toHaveBeenCalledTimes(1);
+        expect(mockPaymentRecordRefund).toHaveBeenCalledWith("pay-1", {
+          refundedAt: new Date(now),
+          refundAmount,
+          // The same reason the Stripe refund carries, so this write and the
+          // `charge.refunded` webhook's fallback write agree.
+          refundReason: "Schedule changed",
+        });
+        // Recorded after the money moved, never before.
+        expect(mockProcessRefund.mock.invocationCallOrder[0]).toBeLessThan(
+          mockPaymentRecordRefund.mock.invocationCallOrder[0],
+        );
+      });
+
+      it("falls back to the service_booking_cancelled code when no reason was given", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2025-12-18T12:00:00Z"));
+
+        mockBookingGetById.mockResolvedValue(accepted);
+        mockProcessRefund.mockResolvedValue({
+          success: true,
+          refundId: "re_1",
+        });
+        mockBookingUpdate.mockResolvedValue({
+          ...accepted,
+          status: "cancelled",
+        });
+
+        await ServiceBookingService.cancelBooking("book-1", "req-1");
+
+        expect(mockPaymentRecordRefund).toHaveBeenCalledWith(
+          "pay-1",
+          expect.objectContaining({
+            refundReason: "service_booking_cancelled",
+          }),
+        );
+      });
+
+      it("records nothing when the Stripe refund fails", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2025-12-18T12:00:00Z"));
+
+        mockBookingGetById.mockResolvedValue(accepted);
+        mockProcessRefund.mockResolvedValue({
+          success: false,
+          error: "card_declined",
+        });
+        mockBookingUpdate.mockResolvedValue({
+          ...accepted,
+          status: "cancelled",
+        });
+
+        await ServiceBookingService.cancelBooking(
+          "book-1",
+          "req-1",
+          "bye",
+          ctx,
+        );
+
+        expect(mockPaymentRecordRefund).not.toHaveBeenCalled();
+      });
+
+      it("records nothing for a pending request, which was never charged", async () => {
+        mockBookingGetById.mockResolvedValue(bookingPending);
+        mockBookingUpdate.mockResolvedValue({
+          ...bookingPending,
+          status: "cancelled",
+        });
+
+        await ServiceBookingService.cancelBooking("book-1", "req-1", "n", ctx);
+
+        expect(mockPaymentRecordRefund).not.toHaveBeenCalled();
+      });
+
+      it("still finishes the cancellation when recording the refund fails", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2025-12-20T13:00:00Z"));
+
+        mockBookingGetById.mockResolvedValue(accepted);
+        mockProcessRefund.mockResolvedValue({
+          success: true,
+          refundId: "re_1",
+        });
+        mockPaymentRecordRefund.mockRejectedValue(new Error("db down"));
+        mockBookingUpdate.mockResolvedValue({
+          ...accepted,
+          status: "cancelled",
+        });
+        mockGetUserById.mockResolvedValue({
+          stripeConnectedAccountId: "acct_provider",
+        });
+        mockCreateServiceTransfer.mockResolvedValue({
+          success: true,
+          transferId: "tr_1",
+        });
+
+        await ServiceBookingService.cancelBooking(
+          "book-1",
+          "req-1",
+          "bye",
+          ctx,
+        );
+
+        // The money already moved: the provider's share, the booking's own
+        // refund record and both notifications must not be skipped.
+        expect(mockCreateServiceTransfer).toHaveBeenCalled();
+        expect(mockBookingUpdate).toHaveBeenCalledWith("book-1", {
+          refundAmount: "50.00",
+          stripeRefundId: "re_1",
+        });
+        expect(mockSendNotification).toHaveBeenCalledTimes(2);
+        expect(mockCaptureError).toHaveBeenCalledWith(
+          expect.any(Error),
+          expect.objectContaining({
+            action: "cancel_booking_record_payment_refund_failed",
+          }),
+        );
+      });
+
+      it("reports, and does not throw, when the booking has no payment row", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2025-12-18T12:00:00Z"));
+
+        mockBookingGetById.mockResolvedValue(accepted);
+        mockProcessRefund.mockResolvedValue({
+          success: true,
+          refundId: "re_1",
+        });
+        mockPaymentGetByServiceBookingId.mockResolvedValue(null);
+        mockBookingUpdate.mockResolvedValue({
+          ...accepted,
+          status: "cancelled",
+        });
+
+        await ServiceBookingService.cancelBooking(
+          "book-1",
+          "req-1",
+          "bye",
+          ctx,
+        );
+
+        expect(mockPaymentRecordRefund).not.toHaveBeenCalled();
+        expect(mockCaptureError).toHaveBeenCalledWith(
+          expect.any(Error),
+          expect.objectContaining({
+            action: "cancel_booking_record_payment_refund_failed",
+          }),
+        );
+        expect(mockSendNotification).toHaveBeenCalledTimes(2);
+      });
     });
   });
 

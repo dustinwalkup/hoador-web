@@ -14,6 +14,7 @@ import { reviewEvents } from "@/db/schemas/review-events.schema";
 
 import { BaseDAL } from "./base";
 import { NotFoundError } from "./errors";
+import { ownerVisibleToViewerHome } from "./visibility-sql";
 import type { PaginatedResult, PaginationOptions } from "./types";
 import type { ReviewEvent } from "./review-events.dal";
 
@@ -270,14 +271,19 @@ export class ServiceListingDAL extends BaseDAL {
    * through its own community (`serviceListings.communityId`). It is returned
    * when (a) that community is in the viewer's visible set AND (b) the
    * provider has `community_visibility.is_visible = true` for that exact
-   * community. A missing provider row = not visible (fail-closed).
+   * community AND (c) the provider has not hidden the viewer's home community
+   * (a listing lives in its provider's primary community, which can't be
+   * hidden, so (b) alone never fails; SETTINGS-004). A missing provider row =
+   * not visible (fail-closed).
    *
+   * @param viewerId - The authenticated viewer, for check (c).
    * @param visibleCommunityIds - The viewer's visible community IDs. Empty
    *   array short-circuits to an empty result with no DB hit (fail-closed).
    * @param filters.categoryId - Optional category filter.
    * @param filters.excludeProviderId - When set, omits listings owned by this user (browse parity with tool explore).
    */
   async findByCommunityForBrowse(
+    viewerId: string,
     visibleCommunityIds: string[],
     filters?: { categoryId?: string; excludeProviderId?: string },
     pagination?: { limit: number; offset: number },
@@ -295,6 +301,7 @@ export class ServiceListingDAL extends BaseDAL {
         eq(serviceListings.status, "active"),
         inArray(serviceListings.communityId, visibleCommunityIds),
         eq(communityVisibility.isVisible, true),
+        ownerVisibleToViewerHome(serviceListings.providerId, viewerId),
       ];
 
       if (filters?.categoryId) {

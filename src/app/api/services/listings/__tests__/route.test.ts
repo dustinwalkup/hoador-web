@@ -99,7 +99,10 @@ describe("GET /api/services/listings", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.listings).toHaveLength(1);
+    // The viewer is passed for the provider-side check against the viewer's
+    // home community (SETTINGS-004), not only to exclude their own listings.
     expect(mockFindBrowse).toHaveBeenCalledWith(
+      "user-1",
       ["comm-1", "comm-2"],
       expect.objectContaining({ excludeProviderId: "user-1" }),
     );
@@ -114,10 +117,14 @@ describe("GET /api/services/listings", () => {
       ),
     );
 
-    expect(mockFindBrowse).toHaveBeenCalledWith(["comm-1", "comm-2"], {
-      categoryId: "123e4567-e89b-12d3-a456-426614174000",
-      excludeProviderId: "user-1",
-    });
+    expect(mockFindBrowse).toHaveBeenCalledWith(
+      "user-1",
+      ["comm-1", "comm-2"],
+      {
+        categoryId: "123e4567-e89b-12d3-a456-426614174000",
+        excludeProviderId: "user-1",
+      },
+    );
   });
 
   it("passes an empty visibility set straight through (fail-closed)", async () => {
@@ -132,6 +139,7 @@ describe("GET /api/services/listings", () => {
     const body = await res.json();
     expect(body.listings).toEqual([]);
     expect(mockFindBrowse).toHaveBeenCalledWith(
+      "user-1",
       [],
       expect.objectContaining({ excludeProviderId: "user-1" }),
     );

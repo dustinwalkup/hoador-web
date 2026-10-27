@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // --- Mocks ---
 const mockGetRentalRequestById = vi.fn();
 const mockIsVisibleInCommunity = vi.fn();
+const mockAreMutuallyVisible = vi.fn();
 const mockClaimRentalRequestPaymentProcessing = vi.fn();
 const mockReserveDatesForApproval = vi.fn();
 const mockUpdateRentalRequestPaymentStatus = vi.fn();
@@ -22,6 +23,7 @@ vi.mock("@/dal", () => ({
   communityDAL: {
     isVisibleInCommunity: (...args: unknown[]) =>
       mockIsVisibleInCommunity(...args),
+    areMutuallyVisible: (...args: unknown[]) => mockAreMutuallyVisible(...args),
   },
   auditLogDAL: {
     create: (...args: unknown[]) => mockAuditLogCreate(...args),
@@ -199,6 +201,7 @@ describe("RentalService.approveRentalRequest", () => {
     vi.clearAllMocks();
     mockIsActiveAccount.mockResolvedValue(true);
     mockIsVisibleInCommunity.mockResolvedValue(true);
+    mockAreMutuallyVisible.mockResolvedValue(true);
     mockGetRentalRequestById.mockResolvedValue(createMockRentalRequest());
     mockGetOrCreateStripeCustomerId.mockResolvedValue("cus_123");
     mockAssertConnectReady.mockResolvedValue(undefined);
@@ -286,6 +289,22 @@ describe("RentalService.approveRentalRequest", () => {
     expect(mockAssertConnectReady).not.toHaveBeenCalled();
     expect(mockGetOrCreateStripeCustomerId).not.toHaveBeenCalled();
     expect(mockClaimRentalRequestPaymentProcessing).not.toHaveBeenCalled();
+    expect(mockChargeRentalPayment).not.toHaveBeenCalled();
+  });
+
+  // SETTINGS-004: one party hid the other's home community after the request
+  // was made. Both are still visible in the listing's community (the owner's
+  // unhideable home), so only the member check catches it. Refused before any
+  // Stripe work, like the other visibility failures.
+  it("refuses when the owner and renter have since hidden each other's communities", async () => {
+    mockAreMutuallyVisible.mockResolvedValue(false);
+
+    await expect(
+      RentalService.approveRentalRequest("req-1", "owner-1", {}, context),
+    ).rejects.toThrow(CommunityNotVisibleError);
+
+    expect(mockAreMutuallyVisible).toHaveBeenCalledWith("renter-1", "owner-1");
+    expect(mockGetOrCreateStripeCustomerId).not.toHaveBeenCalled();
     expect(mockChargeRentalPayment).not.toHaveBeenCalled();
   });
 

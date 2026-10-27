@@ -6,7 +6,8 @@ import {
   parseFormData,
   getAuthenticatedUserResponse,
 } from "@/lib/api/route-helpers";
-import { communityDAL, listingDAL, rentalDAL } from "@/dal";
+import { listingDAL, rentalDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { NotFoundError } from "@/dal/errors";
 import {
   createListingSchemaServer,
@@ -97,14 +98,14 @@ async function getHandler(
         return handleApiError(new NotFoundError("listing", listingId));
       }
 
-      const [viewerVisible, ownerVisible] = await Promise.all([
-        communityDAL.isVisibleInCommunity(userId, listing.communityId),
-        communityDAL.isVisibleInCommunity(
-          listing.owner.id,
-          listing.communityId,
-        ),
-      ]);
-      if (!viewerVisible || !ownerVisible) {
+      // Both visible in the listing's community, and neither has hidden the
+      // other's home community (SETTINGS-004).
+      const visible = await canViewOwnerItem(
+        userId,
+        listing.owner.id,
+        listing.communityId,
+      );
+      if (!visible) {
         return handleApiError(new NotFoundError("listing", listingId));
       }
 

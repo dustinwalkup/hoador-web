@@ -1,7 +1,9 @@
 import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { BaseDAL } from "./base";
 import { ConflictError, NotFoundError } from "./errors";
+import { ownerVisibleToViewerHome } from "./visibility-sql";
 import { type PaginatedResult, type PaginationOptions } from "./types";
+import { alias } from "drizzle-orm/pg-core";
 import {
   neighborhoodNeedListings,
   neighborhoodNeeds,
@@ -25,7 +27,11 @@ const {
   userAddresses,
   listingCategories,
   serviceListingCategories,
+  communityVisibility,
 } = schema;
+
+// The creator's visibility row for the need's community, in the count.
+const creatorCv = alias(communityVisibility, "creator_cv");
 
 export type NeedType = (typeof needTypeEnum.enumValues)[number];
 export type NeedCloseReason = (typeof needCloseReasonEnum.enumValues)[number];
@@ -252,9 +258,14 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
    * Symmetric visibility feed mirroring searchListings:
    * - Viewer side: need.community_id IN (visibleCommunityIds)
    * - Creator side: JOIN community_visibility on (creator, community_id) requiring is_visible = true
+   * - Creator side, viewer's home: the creator has not hidden the viewer's
+   *   home community. A need is posted in its creator's primary community,
+   *   which can't be hidden, so the join above never fails on its own
+   *   (SETTINGS-004).
    * Empty visibleCommunityIds → empty result without hitting the DB.
    */
   async listFeed(
+    viewerId: string,
     visibleCommunityIds: string[],
     filters: NeedFeedFilters,
     pagination: PaginationOptions,
@@ -305,6 +316,7 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
 
       const baseWhere = sql`
         n.community_id IN (${communityFilter})
+        AND ${ownerVisibleToViewerHome(sql`n.created_by_user_id`, viewerId)}
         AND n.deleted_at IS NULL${openOnlyClause}${typeClause}${categoryClause}${createdByClause}
       `;
 
@@ -692,8 +704,16 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
     }
   }
 
-  /** Open needs visible in the given communities — for Dashboard Pulse. */
-  async countOpenVisibleNeeds(visibleCommunityIds: string[]): Promise<number> {
+  /**
+   * Open needs the viewer's feed would show — for Dashboard Pulse. The same
+   * rule as `listFeed`: the need's community is in the viewer's visible set,
+   * its creator is visible there, and the creator has not hidden the viewer's
+   * home community (SETTINGS-004).
+   */
+  async countOpenVisibleNeeds(
+    viewerId: string,
+    visibleCommunityIds: string[],
+  ): Promise<number> {
     if (visibleCommunityIds.length === 0) return 0;
 
     try {
@@ -710,6 +730,17 @@ export class NeighborhoodNeedsDAL extends BaseDAL {
             // pattern one refactor away from taking client input, and `inArray`
             // binds them. Leave no interpolated identifier lists in this file.
             inArray(neighborhoodNeeds.communityId, visibleCommunityIds),
+            sql`EXISTS (
+              SELECT 1
+              FROM ${communityVisibility} AS ${creatorCv}
+              WHERE ${creatorCv.userId} = ${neighborhoodNeeds.createdByUserId}
+                AND ${creatorCv.communityId} = ${neighborhoodNeeds.communityId}
+                AND ${creatorCv.isVisible} = true
+            )`,
+            ownerVisibleToViewerHome(
+              neighborhoodNeeds.createdByUserId,
+              viewerId,
+            ),
           ),
         );
       return Number(result?.total ?? 0);

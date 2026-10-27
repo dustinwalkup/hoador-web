@@ -5,6 +5,7 @@ import { schema } from "@/db/schemas";
 const {
   user,
   communities,
+  communityMemberships,
   communityVisibility,
   listingCategories,
   listings,
@@ -67,11 +68,20 @@ export async function createCommunity(
  * Make each user visible in `communityId` — what signup's visibility
  * initialization does. Quote, approve and accept require both parties to be
  * visible in the listing's community (BIZ-08).
+ *
+ * A user with no home yet also gets `communityId` as their primary
+ * membership, as signup gives them: the member-based rule (SETTINGS-004)
+ * reads each party's home community and fails closed without one. A user who
+ * already has a home keeps it.
  */
 export async function createVisibility(
   communityId: string,
   ...userIds: string[]
 ) {
+  await db
+    .insert(communityMemberships)
+    .values(userIds.map((userId) => ({ userId, communityId, isPrimary: true })))
+    .onConflictDoNothing();
   return db
     .insert(communityVisibility)
     .values(userIds.map((userId) => ({ userId, communityId, isVisible: true })))

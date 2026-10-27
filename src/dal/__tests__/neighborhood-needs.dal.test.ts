@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
-import type { SQL } from "drizzle-orm";
+import { sql as rawSql, type SQL } from "drizzle-orm";
 import { neighborhoodNeedsDAL } from "../index";
+import { ownerVisibleToViewerHome } from "../visibility-sql";
+import { neighborhoodNeeds } from "@/db/schemas/neighborhood-needs.schema";
 import { ConflictError, NotFoundError } from "../errors";
 import { db } from "@/db/db";
 import { haversineMiles } from "@/lib/utils/geo.utils";
@@ -25,6 +27,10 @@ function renderFeedQuery(callIndex = 0): { sql: string; params: unknown[] } {
   const { sql, params } = new PgDialect().sqlToQuery(chunk);
   return { sql, params };
 }
+
+/** Placeholder numbers and whitespace differ once a fragment is embedded. */
+const normalizeSql = (text: string) =>
+  text.replace(/\$\d+/g, "$?").replace(/\s+/g, " ");
 
 vi.mock("@/db/db", () => ({
   db: {
@@ -272,6 +278,7 @@ describe("NeighborhoodNeedsDAL", () => {
   describe("listFeed", () => {
     it("returns empty result without hitting DB when visibleCommunityIds is empty", async () => {
       const result = await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         [],
         {},
         { page: 1, limit: 10 },
@@ -295,6 +302,7 @@ describe("NeighborhoodNeedsDAL", () => {
         .mockResolvedValueOnce({ rows: [{ total: "1" }] } as any);
 
       const result = await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1"],
         { openOnly: true },
         { page: 1, limit: 10 },
@@ -317,6 +325,7 @@ describe("NeighborhoodNeedsDAL", () => {
         .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
 
       await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1"],
         { createdByUserId: "user-1" },
         { page: 1, limit: 10 },
@@ -333,6 +342,7 @@ describe("NeighborhoodNeedsDAL", () => {
         .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
 
       await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1"],
         { openOnly: true },
         { page: 1, limit: 10 },
@@ -363,6 +373,7 @@ describe("NeighborhoodNeedsDAL", () => {
         .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
 
       await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1"],
         { categoryId: value },
         { page: 1, limit: 10 },
@@ -383,6 +394,7 @@ describe("NeighborhoodNeedsDAL", () => {
         .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
 
       await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1", "community-2"],
         {},
         { page: 1, limit: 10 },
@@ -393,6 +405,37 @@ describe("NeighborhoodNeedsDAL", () => {
       expect(params).toContain("community-1");
       expect(params).toContain("community-2");
       expect(sql).not.toContain("'community-1'");
+    });
+
+    // ── SETTINGS-004: a creator who hid the viewer's home community ──────────
+    //
+    // Needs are always posted in the creator's primary community, which can't
+    // be hidden, so the community_visibility join pinned to the need's
+    // community always passes. A creator who hid community X stayed in the
+    // feed of every member of X. Both the page and the count must also check
+    // the creator's flag for the VIEWER's home community.
+    it("drops needs whose creator hid the viewer's home community, in the page and the count", async () => {
+      vi.mocked(db.execute)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
+
+      await neighborhoodNeedsDAL.listFeed(
+        "viewer-b",
+        ["community-1"],
+        {},
+        { page: 1, limit: 10 },
+      );
+
+      const expected = normalizeSql(
+        new PgDialect().sqlToQuery(
+          ownerVisibleToViewerHome(rawSql`n.created_by_user_id`, "viewer-b"),
+        ).sql,
+      );
+      for (const callIndex of [0, 1]) {
+        const { sql, params } = renderFeedQuery(callIndex);
+        expect(normalizeSql(sql)).toContain(expected);
+        expect(params).toContain("viewer-b");
+      }
     });
 
     // ── P-E13-6: the feed row can name who posted it and what it is ──────────
@@ -417,6 +460,7 @@ describe("NeighborhoodNeedsDAL", () => {
         .mockResolvedValueOnce({ rows: [{ total: "1" }] } as any);
 
       const result = await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1"],
         {},
         { page: 1, limit: 10 },
@@ -450,6 +494,7 @@ describe("NeighborhoodNeedsDAL", () => {
         .mockResolvedValueOnce({ rows: [{ total: "1" }] } as any);
 
       const result = await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1"],
         {},
         { page: 1, limit: 10 },
@@ -466,6 +511,7 @@ describe("NeighborhoodNeedsDAL", () => {
         .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
 
       await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1"],
         {},
         { page: 1, limit: 10 },
@@ -487,6 +533,7 @@ describe("NeighborhoodNeedsDAL", () => {
         .mockResolvedValueOnce({ rows: [{ total: "0" }] } as any);
 
       await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1"],
         { type: "service" },
         { page: 1, limit: 10 },
@@ -539,6 +586,7 @@ describe("NeighborhoodNeedsDAL", () => {
         } as any)
         .mockResolvedValueOnce({ rows: [{ total: "1" }] } as any);
       const result = await neighborhoodNeedsDAL.listFeed(
+        "viewer-1",
         ["community-1"],
         {},
         { page: 1, limit: 10 },
@@ -648,7 +696,10 @@ describe("NeighborhoodNeedsDAL", () => {
   // -------------------------------------------------------------------------
   describe("countOpenVisibleNeeds", () => {
     it("returns 0 without hitting DB when visibleCommunityIds is empty", async () => {
-      const result = await neighborhoodNeedsDAL.countOpenVisibleNeeds([]);
+      const result = await neighborhoodNeedsDAL.countOpenVisibleNeeds(
+        "viewer-1",
+        [],
+      );
       expect(result).toBe(0);
       expect(db.select).not.toHaveBeenCalled();
     });
@@ -658,12 +709,37 @@ describe("NeighborhoodNeedsDAL", () => {
       const from = vi.fn().mockReturnValue({ where });
       vi.mocked(db.select).mockReturnValue({ from } as any);
 
-      const result = await neighborhoodNeedsDAL.countOpenVisibleNeeds([
-        "c-1",
-        "c-2",
-      ]);
+      const result = await neighborhoodNeedsDAL.countOpenVisibleNeeds(
+        "viewer-1",
+        ["c-1", "c-2"],
+      );
 
       expect(result).toBe(5);
+    });
+
+    // SETTINGS-004: the count applies the feed's rule, so it never counts a
+    // need the feed would hide: the creator must be visible in the need's
+    // community and must not have hidden the viewer's home community.
+    it("counts only needs the feed would show the viewer", async () => {
+      const where = vi.fn().mockResolvedValue([{ total: 0 }]);
+      const from = vi.fn().mockReturnValue({ where });
+      vi.mocked(db.select).mockReturnValue({ from } as any);
+
+      await neighborhoodNeedsDAL.countOpenVisibleNeeds("viewer-b", ["c-1"]);
+
+      const dialect = new PgDialect();
+      const { sql, params } = dialect.sqlToQuery(where.mock.calls[0][0]);
+      const expected = dialect.sqlToQuery(
+        ownerVisibleToViewerHome(neighborhoodNeeds.createdByUserId, "viewer-b"),
+      ).sql;
+      expect(normalizeSql(sql)).toContain(normalizeSql(expected));
+      expect(normalizeSql(sql)).toContain(
+        '"creator_cv"."user_id" = "neighborhood_needs"."created_by_user_id"',
+      );
+      expect(normalizeSql(sql)).toContain(
+        '"creator_cv"."community_id" = "neighborhood_needs"."community_id"',
+      );
+      expect(params).toContain("viewer-b");
     });
   });
 

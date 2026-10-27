@@ -21,25 +21,27 @@ existing data is preserved via backfill SQL.
 
 Reproduced here as the design's input contract — not re-litigated:
 
-| #   | Decision                                                                                                                                                                 | Source              |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
-| D1  | Replace `/join-code` with `/community-select` (dropdown)                                                                                                                 | R1, AD#1            |
-| D2  | `listings.community_id` / `service_listings.community_id` = the listing's home community; it's the visibility key (symmetric: owner + viewer must both be visible there) | R5, AD#2            |
-| D3  | Single-layer visibility table; symmetric; all-or-nothing                                                                                                                 | R4, AD#11           |
-| D4  | Pending users have full marketplace access                                                                                                                               | R2.7, AD#5          |
-| D5  | `join_code` becomes nullable; legacy path preserved                                                                                                                      | R1.5, AD#6          |
-| D6  | Lat/lng on communities; no polygon column in MVP                                                                                                                         | R7, AD#7            |
-| D7  | One network per community (single `network_id` FK)                                                                                                                       | R6, AD#9            |
-| D8  | Eager creation of `community_visibility` rows                                                                                                                            | resolved this phase |
-| D9  | Schema migration + separate backfill migration                                                                                                                           | resolved this phase |
-| D10 | Extend existing `CommunityDAL` (do not split)                                                                                                                            | resolved this phase |
-| D11 | Pre-compute viewer's visible community IDs per-request via React `cache()`                                                                                               | resolved this phase |
-| D12 | New `POST /api/auth/select-community`; deprecate-but-keep join-community                                                                                                 | resolved this phase |
-| D13 | New `PATCH /api/users/me/visibility` (bulk)                                                                                                                              | resolved this phase |
-| D14 | Visibility settings = dedicated card on `/dashboard/profile`                                                                                                             | resolved this phase |
-| D15 | Admin verification queue = new tab in `/admin/dashboard/users`                                                                                                           | resolved this phase |
-| D16 | Inline migration SQL seeds the network + 8 KC communities                                                                                                                | resolved this phase |
-| D17 | Dev seeds keep the 3 existing communities as a separate "Test Network"                                                                                                   | resolved this phase |
+| #   | Decision                                                                                                                                                                 | Source    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| D1  | Replace `/join-code` with `/community-select` (dropdown)                                                                                                                 | R1, AD#1  |
+| D2  | `listings.community_id` / `service_listings.community_id` = the listing's home community; it's the visibility key (symmetric: owner + viewer must both be visible there) | R5, AD#2  |
+| D3  | Single-layer visibility table; symmetric; all-or-nothing                                                                                                                 | R4, AD#11 |
+
+> **Amendment (2026-10-26, user-approved after mobile UAT SETTINGS-004).** D2 alone is not enough. Items always live in the owner's unhideable primary community, so the owner's side of D2 never takes effect. Every visibility gate now also requires that neither party has hidden the other's home community (member-based rule). See the amendment under R4 in `1-requirements.md`.
+> | D4 | Pending users have full marketplace access | R2.7, AD#5 |
+> | D5 | `join_code` becomes nullable; legacy path preserved | R1.5, AD#6 |
+> | D6 | Lat/lng on communities; no polygon column in MVP | R7, AD#7 |
+> | D7 | One network per community (single `network_id` FK) | R6, AD#9 |
+> | D8 | Eager creation of `community_visibility` rows | resolved this phase |
+> | D9 | Schema migration + separate backfill migration | resolved this phase |
+> | D10 | Extend existing `CommunityDAL` (do not split) | resolved this phase |
+> | D11 | Pre-compute viewer's visible community IDs per-request via React `cache()` | resolved this phase |
+> | D12 | New `POST /api/auth/select-community`; deprecate-but-keep join-community | resolved this phase |
+> | D13 | New `PATCH /api/users/me/visibility` (bulk) | resolved this phase |
+> | D14 | Visibility settings = dedicated card on `/dashboard/profile` | resolved this phase |
+> | D15 | Admin verification queue = new tab in `/admin/dashboard/users` | resolved this phase |
+> | D16 | Inline migration SQL seeds the network + 8 KC communities | resolved this phase |
+> | D17 | Dev seeds keep the 3 existing communities as a separate "Test Network" | resolved this phase |
 
 ---
 

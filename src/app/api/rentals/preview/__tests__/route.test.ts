@@ -22,9 +22,11 @@ vi.mock("@/features/auth/utils/session", () => ({
 const mockGetListingById = vi.fn();
 const mockGetBookedDatesForListing = vi.fn();
 const mockIsVisibleInCommunity = vi.fn();
+const mockAreMutuallyVisible = vi.fn();
 vi.mock("@/dal", () => ({
   communityDAL: {
     isVisibleInCommunity: (...a: unknown[]) => mockIsVisibleInCommunity(...a),
+    areMutuallyVisible: (...a: unknown[]) => mockAreMutuallyVisible(...a),
   },
   listingDAL: { getListingById: (...a: unknown[]) => mockGetListingById(...a) },
   rentalDAL: {
@@ -105,6 +107,7 @@ beforeEach(() => {
   mockGetListingById.mockResolvedValue(listing());
   mockGetBookedDatesForListing.mockResolvedValue([]);
   mockIsVisibleInCommunity.mockResolvedValue(true);
+  mockAreMutuallyVisible.mockResolvedValue(true);
 });
 
 describe("POST /api/rentals/preview — itemization (Req 9.1.3)", () => {
@@ -237,6 +240,18 @@ describe("POST /api/rentals/preview — blockers are data (Req 9.1.6)", () => {
       expect(codes(body)).toContain("COMMUNITY_NOT_VISIBLE");
     },
   );
+
+  // SETTINGS-004: both are visible in the listing's community (the owner's
+  // unhideable home), but one has hidden the other's home community.
+  it("reports COMMUNITY_NOT_VISIBLE when the renter and owner have hidden each other's communities", async () => {
+    mockAreMutuallyVisible.mockResolvedValue(false);
+
+    const { body } = await preview();
+
+    expect(mockAreMutuallyVisible).toHaveBeenCalledWith("renter-1", "owner-1");
+    expect(body.canBook).toBe(false);
+    expect(codes(body)).toContain("COMMUNITY_NOT_VISIBLE");
+  });
 
   it("reports a period below the listing's minimum", async () => {
     mockGetListingById.mockResolvedValue(listing({ minimumRentalPeriod: 5 }));

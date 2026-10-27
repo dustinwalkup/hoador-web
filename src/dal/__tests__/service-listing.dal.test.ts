@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { serviceListingDAL } from "../index";
 import { NotFoundError } from "../errors";
+import { ownerVisibleToViewerHome } from "../visibility-sql";
 import { db } from "@/db/db";
+import { serviceListings } from "@/db/schemas/services.schema";
+
+/** Placeholder numbers and whitespace differ once a fragment is embedded. */
+const normalizeSql = (text: string) =>
+  text.replace(/\$\d+/g, "$?").replace(/\s+/g, " ");
 
 vi.mock("@/db/db", () => ({
   db: {
@@ -239,6 +246,7 @@ describe("ServiceListingDAL", () => {
       vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as never);
 
       const result = await serviceListingDAL.findByCommunityForBrowse(
+        "viewer-1",
         ["c1"],
         undefined,
         { limit: 10, offset: 5 },
@@ -261,7 +269,10 @@ describe("ServiceListingDAL", () => {
     });
 
     it("returns empty result without DB hit when visibleCommunityIds is empty", async () => {
-      const result = await serviceListingDAL.findByCommunityForBrowse([]);
+      const result = await serviceListingDAL.findByCommunityForBrowse(
+        "viewer-1",
+        [],
+      );
 
       expect(result).toEqual([]);
       expect(db.selectDistinct).not.toHaveBeenCalled();
@@ -283,11 +294,10 @@ describe("ServiceListingDAL", () => {
       const { mockFrom } = buildBrowseChain([row]);
       vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as never);
 
-      const result = await serviceListingDAL.findByCommunityForBrowse([
-        "c1",
-        "c2",
-        "c3",
-      ]);
+      const result = await serviceListingDAL.findByCommunityForBrowse(
+        "viewer-1",
+        ["c1", "c2", "c3"],
+      );
 
       expect(result).toHaveLength(1);
       expect(db.selectDistinct).toHaveBeenCalledTimes(1);
@@ -297,18 +307,36 @@ describe("ServiceListingDAL", () => {
       const { mockFrom, mockWhere } = buildBrowseChain([]);
       vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as never);
 
-      await serviceListingDAL.findByCommunityForBrowse(["c1"], {
+      await serviceListingDAL.findByCommunityForBrowse("viewer-1", ["c1"], {
         categoryId: "cat-9",
       });
 
       expect(mockWhere).toHaveBeenCalled();
     });
 
+    // SETTINGS-004: services live in the provider's primary community, which
+    // can't be hidden, so the join pinned to the listing's community always
+    // passes. The provider's flag for the VIEWER's home must be checked too.
+    it("drops listings whose provider hid the viewer's home community", async () => {
+      const { mockFrom, mockWhere } = buildBrowseChain([]);
+      vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as never);
+
+      await serviceListingDAL.findByCommunityForBrowse("viewer-b", ["c1"]);
+
+      const dialect = new PgDialect();
+      const { sql, params } = dialect.sqlToQuery(mockWhere.mock.calls[0][0]);
+      const expected = dialect.sqlToQuery(
+        ownerVisibleToViewerHome(serviceListings.providerId, "viewer-b"),
+      ).sql;
+      expect(normalizeSql(sql)).toContain(normalizeSql(expected));
+      expect(params).toContain("viewer-b");
+    });
+
     it("applies excludeProviderId filter when provided", async () => {
       const { mockFrom, mockWhere } = buildBrowseChain([]);
       vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as never);
 
-      await serviceListingDAL.findByCommunityForBrowse(["c1"], {
+      await serviceListingDAL.findByCommunityForBrowse("viewer-1", ["c1"], {
         excludeProviderId: "prov-2",
       });
 

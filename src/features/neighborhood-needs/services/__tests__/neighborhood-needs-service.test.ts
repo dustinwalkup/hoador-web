@@ -228,6 +228,8 @@ describe("createNeed", () => {
     expect(mockBulkCreate).toHaveBeenCalledWith({
       communityId: "comm-1",
       excludeUserId: "user-1",
+      // SETTINGS-004: only members whose home community the poster can see.
+      posterId: "user-1",
       type: "neighborhood_need_created",
       title: "New need",
       message: 'Sarah Lee is looking for an item: "Need a drill"',
@@ -276,6 +278,7 @@ describe("createNeed", () => {
     expect(mockGetPushTargets).toHaveBeenCalledWith({
       communityId: "comm-1",
       excludeUserId: "user-1",
+      posterId: "user-1",
       category: "neighborhood_needs",
     });
     expect(mockBroadcastPush).toHaveBeenCalledTimes(1);

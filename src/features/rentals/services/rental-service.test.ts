@@ -14,6 +14,7 @@ import { startOfMarketToday } from "@/features/rentals/lib/availability";
 const mockInsertRentalRequest = vi.fn();
 const mockGetListingById = vi.fn();
 const mockIsVisibleInCommunity = vi.fn();
+const mockAreMutuallyVisible = vi.fn();
 const mockGetRentalRequestById = vi.fn();
 const mockGetUserById = vi.fn();
 const mockAuditLogCreate = vi.fn();
@@ -26,6 +27,7 @@ vi.mock("@/dal", () => ({
   communityDAL: {
     isVisibleInCommunity: (...args: unknown[]) =>
       mockIsVisibleInCommunity(...args),
+    areMutuallyVisible: (...args: unknown[]) => mockAreMutuallyVisible(...args),
   },
   listingDAL: {
     getListingById: (...args: unknown[]) => mockGetListingById(...args),
@@ -103,6 +105,7 @@ const context = { ipAddress: "127.0.0.1", userAgent: "test" };
 // (BIZ-08). File-level so every sibling describe gets it.
 beforeEach(() => {
   mockIsVisibleInCommunity.mockResolvedValue(true);
+  mockAreMutuallyVisible.mockResolvedValue(true);
 });
 
 describe("RentalService", () => {
@@ -239,6 +242,20 @@ describe("RentalService", () => {
         expect(mockInsertRentalRequest).not.toHaveBeenCalled();
       },
     );
+
+    // SETTINGS-004: both visible in the listing's community (the owner's
+    // unhideable home), but one has hidden the other's home community.
+    it("refuses when the renter and owner have hidden each other's communities", async () => {
+      mockAreMutuallyVisible.mockResolvedValue(false);
+      await expect(
+        RentalService.createRentalRequest(validFormData, "renter-789", context),
+      ).rejects.toThrow(CommunityNotVisibleError);
+      expect(mockAreMutuallyVisible).toHaveBeenCalledWith(
+        "renter-789",
+        "owner-123",
+      );
+      expect(mockInsertRentalRequest).not.toHaveBeenCalled();
+    });
 
     it("refuses when the owner is not visible in the listing's community", async () => {
       mockIsVisibleInCommunity.mockImplementation(

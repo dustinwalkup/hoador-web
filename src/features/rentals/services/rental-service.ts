@@ -1,6 +1,5 @@
 import {
   auditLogDAL,
-  communityDAL,
   legalDocumentDAL,
   paymentDAL,
   paymentLifecycleDAL,
@@ -12,6 +11,7 @@ import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { trackActivity } from "@/features/activity/lib/track-activity";
 import type { CreateRentalRequestFormData } from "@/features/rentals/lib/form-schema";
 import { quoteRentalRequest } from "@/features/rentals/services/rental-quote";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { isPastDay } from "@/features/rentals/lib/availability";
 import { hoursUntilPickup } from "@/features/rentals/lib/cancellation-eligibility";
 import {
@@ -463,17 +463,14 @@ export class RentalService {
       const { ListingNotApprovedError } = await import("@/dal/errors");
       throw new ListingNotApprovedError();
     }
-    const [ownerVisible, renterVisible] = await Promise.all([
-      communityDAL.isVisibleInCommunity(
-        rentalRequest.ownerId,
-        rentalRequest.listingCommunityId,
-      ),
-      communityDAL.isVisibleInCommunity(
-        rentalRequest.renterId,
-        rentalRequest.listingCommunityId,
-      ),
-    ]);
-    if (!ownerVisible || !renterVisible) {
+    // ...nor, since the request, hidden each other's home community
+    // (SETTINGS-004): the same gate the quote applied at request time.
+    const visible = await canViewOwnerItem(
+      rentalRequest.renterId,
+      rentalRequest.ownerId,
+      rentalRequest.listingCommunityId,
+    );
+    if (!visible) {
       const { CommunityNotVisibleError } = await import("@/dal/errors");
       throw new CommunityNotVisibleError();
     }

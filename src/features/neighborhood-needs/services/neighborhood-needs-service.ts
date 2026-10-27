@@ -356,9 +356,12 @@ async function fanOutNewNeed(
   // (with `linkUrl` in `data`, as `sendNotification` wrote it), no email, and
   // push only for members who opted in to the neighborhood_needs category
   // (default off, R12.4 / task 7.2).
+  // Only members the poster can see: none whose home community the poster
+  // hid, and none who hid the poster's (SETTINGS-004).
   await notificationsDAL.bulkCreateForVisibleCommunity({
     communityId: need.communityId,
     excludeUserId: creatorUserId,
+    posterId: creatorUserId,
     type: "neighborhood_need_created",
     title,
     message,
@@ -371,6 +374,7 @@ async function fanOutNewNeed(
     .getOptInPushTargetsInCommunity({
       communityId: need.communityId,
       excludeUserId: creatorUserId,
+      posterId: creatorUserId,
       category: "neighborhood_needs",
     })
     .then((targets) =>

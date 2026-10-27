@@ -239,10 +239,29 @@ describe("GET /api/needs", () => {
     expect(mockListFeed).not.toHaveBeenCalled();
   });
 
+  // SETTINGS-004: the DAL needs the viewer to check each creator's flag for
+  // the viewer's home community; it must come from the session.
+  it("passes the authenticated viewer to listFeed", async () => {
+    mockGetAuthenticatedUserResponse.mockResolvedValue({
+      ...AUTH_USER,
+      userId: "viewer-b",
+    });
+    const { GET } = await import("../route");
+    await GET(getReq());
+    expect(mockListFeed).toHaveBeenCalledWith(
+      "viewer-b",
+      ["comm-1"],
+      expect.any(Object),
+      expect.any(Object),
+      null,
+    );
+  });
+
   it("passes type filter to listFeed", async () => {
     const { GET } = await import("../route");
     await GET(getReq("?type=service"));
     expect(mockListFeed).toHaveBeenCalledWith(
+      "user-1",
       expect.any(Array),
       expect.objectContaining({ type: "service" }),
       expect.any(Object),
@@ -254,6 +273,7 @@ describe("GET /api/needs", () => {
     const { GET } = await import("../route");
     await GET(getReq());
     expect(mockListFeed).toHaveBeenCalledWith(
+      "user-1",
       expect.any(Array),
       expect.objectContaining({ openOnly: true }),
       expect.any(Object),
@@ -265,6 +285,7 @@ describe("GET /api/needs", () => {
     const { GET } = await import("../route");
     await GET(getReq("?openOnly=false"));
     expect(mockListFeed).toHaveBeenCalledWith(
+      "user-1",
       expect.any(Array),
       expect.objectContaining({ openOnly: false }),
       expect.any(Object),
@@ -285,6 +306,7 @@ describe("GET /api/needs", () => {
     const { GET } = await import("../route");
     await GET(getReq("?page=2&limit=10"));
     expect(mockListFeed).toHaveBeenCalledWith(
+      "user-1",
       expect.any(Array),
       expect.any(Object),
       { page: 2, limit: 10 },
@@ -296,6 +318,7 @@ describe("GET /api/needs", () => {
     const { GET } = await import("../route");
     await GET(getReq("?type=invalid"));
     expect(mockListFeed).toHaveBeenCalledWith(
+      "user-1",
       expect.any(Array),
       expect.objectContaining({ type: undefined }),
       expect.any(Object),
@@ -307,6 +330,7 @@ describe("GET /api/needs", () => {
     const { GET } = await import("../route");
     await GET(getReq("?mine=true"));
     expect(mockListFeed).toHaveBeenCalledWith(
+      "user-1",
       expect.any(Array),
       expect.objectContaining({ createdByUserId: "user-1" }),
       expect.any(Object),
@@ -318,6 +342,7 @@ describe("GET /api/needs", () => {
     const { GET } = await import("../route");
     await GET(getReq());
     expect(mockListFeed).toHaveBeenCalledWith(
+      "user-1",
       expect.any(Array),
       expect.objectContaining({ createdByUserId: undefined }),
       expect.any(Object),
@@ -329,6 +354,7 @@ describe("GET /api/needs", () => {
     const { GET } = await import("../route");
     await GET(getReq("?mine=true&userId=someone-else"));
     expect(mockListFeed).toHaveBeenCalledWith(
+      "user-1",
       expect.any(Array),
       expect.objectContaining({ createdByUserId: "user-1" }),
       expect.any(Object),
@@ -341,6 +367,7 @@ describe("GET /api/needs", () => {
     const id = "00000000-0000-4000-a000-000000000001";
     await GET(getReq(`?categoryId=${id}`));
     expect(mockListFeed).toHaveBeenCalledWith(
+      "user-1",
       expect.any(Array),
       expect.objectContaining({ categoryId: id }),
       expect.any(Object),

@@ -114,6 +114,7 @@ async function getHandler(request: NextRequest) {
       await neighborhoodNeedsDAL.getUserPrimaryLocation(userId);
 
     const result = await neighborhoodNeedsDAL.listFeed(
+      userId,
       visibleCommunityIds,
       filters,
       { page, limit },

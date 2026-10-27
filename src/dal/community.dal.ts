@@ -28,6 +28,7 @@ import {
   VisibilityPrimaryLockedError,
 } from "./errors";
 import type { MembershipByCommunityRow, PaginatedResult } from "./types";
+import { ownerVisibleToViewerHome } from "./visibility-sql";
 
 /** Every `communities` column except `joinCode` (SEC-09). */
 const PUBLIC_COMMUNITY_COLUMNS = {
@@ -1054,6 +1055,41 @@ export class CommunityDAL extends BaseDAL {
       return row?.isVisible === true;
     } catch (error) {
       this.handleError(error, "isVisibleInCommunity");
+    }
+  }
+
+  /**
+   * Member-based visibility between two people (SETTINGS-004, approved
+   * 2026-10-26): true iff neither has hidden the other's home community.
+   * "Hiding a community hides you from its members, and hides its members
+   * from you."
+   *
+   * Item gates pair this with `isVisibleInCommunity` for the item's own
+   * community (see `canViewOwnerItem`): an item lives in its owner's primary
+   * community, which can't be hidden, so the item-community checks alone
+   * never catch an owner who hid the viewer's community. Fail-closed when
+   * either user has no primary membership or no visibility row for the
+   * other's home. Always true for the same user.
+   */
+  async areMutuallyVisible(
+    userId: string,
+    otherUserId: string,
+  ): Promise<boolean> {
+    if (userId === otherUserId) return true;
+    try {
+      const [row] = await this.db
+        .select({
+          visible: sql<boolean>`(${ownerVisibleToViewerHome(
+            otherUserId,
+            userId,
+          )}) AND (${ownerVisibleToViewerHome(userId, otherUserId)})`,
+        })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1);
+      return row?.visible === true;
+    } catch (error) {
+      this.handleError(error, "areMutuallyVisible");
     }
   }
 

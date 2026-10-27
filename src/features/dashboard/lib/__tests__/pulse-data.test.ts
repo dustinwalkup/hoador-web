@@ -111,7 +111,9 @@ describe("getDashboardPulseData — needs section", () => {
 
     await getDashboardPulseData(USER_ID);
 
+    // The viewer too: the count applies the feed's member-based rule.
     expect(neighborhoodNeedsDAL.countOpenVisibleNeeds).toHaveBeenCalledWith(
+      USER_ID,
       communityIds,
     );
   });

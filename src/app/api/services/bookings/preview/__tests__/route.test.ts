@@ -22,9 +22,11 @@ vi.mock("@/features/auth/utils/session", () => ({
 
 const mockListingGetById = vi.fn();
 const mockIsVisibleInCommunity = vi.fn();
+const mockAreMutuallyVisible = vi.fn();
 vi.mock("@/dal", () => ({
   communityDAL: {
     isVisibleInCommunity: (...a: unknown[]) => mockIsVisibleInCommunity(...a),
+    areMutuallyVisible: (...a: unknown[]) => mockAreMutuallyVisible(...a),
   },
   serviceListingDAL: { getById: (...a: unknown[]) => mockListingGetById(...a) },
 }));
@@ -74,6 +76,7 @@ beforeEach(() => {
   });
   mockListingGetById.mockResolvedValue(LISTING);
   mockIsVisibleInCommunity.mockResolvedValue(true);
+  mockAreMutuallyVisible.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -175,6 +178,24 @@ describe("POST /api/services/bookings/preview — blockers are data, not errors"
       );
     },
   );
+
+  // SETTINGS-004: both are visible in the listing's community (the
+  // provider's unhideable home), but one has hidden the other's home.
+  it("reports COMMUNITY_NOT_VISIBLE when the requester and provider have hidden each other's communities", async () => {
+    mockAreMutuallyVisible.mockResolvedValue(false);
+
+    const res = await POST(req(base()));
+    const body = await res.json();
+
+    expect(mockAreMutuallyVisible).toHaveBeenCalledWith(
+      "requester-1",
+      "provider-1",
+    );
+    expect(body.canBook).toBe(false);
+    expect(body.blockers.map((b: { code: string }) => b.code)).toContain(
+      "COMMUNITY_NOT_VISIBLE",
+    );
+  });
 
   it("still prices an unbookable input, so the screen can show what it would cost", async () => {
     mockGetAuthenticatedUser.mockResolvedValue({

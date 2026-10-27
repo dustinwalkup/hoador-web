@@ -5,6 +5,8 @@ import { NotFoundError, ValidationError } from "../errors";
 import { mockListing } from "@/test/fixtures/listings";
 import { db } from "@/db/db";
 import { PRIVACY_GRID_DEGREES } from "@/lib/utils/geo-privacy";
+import { listings } from "@/db/schemas/listings.schema";
+import { ownerVisibleToViewerHome } from "../visibility-sql";
 
 // Mock dependencies
 vi.mock("@/features/auth/utils/session");
@@ -640,7 +642,7 @@ describe("ListingDAL", () => {
       const mockFromCount = vi.fn().mockReturnValue({
         innerJoin: mockInnerJoin1Count,
       });
-      return { mockFromCount };
+      return { mockFromCount, mockWhereCount };
     };
 
     // Builds the data-query mock chain (3 inner joins + 1 left join, then
@@ -661,7 +663,7 @@ describe("ListingDAL", () => {
         innerJoin: mockInnerJoin2,
       });
       const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin1 });
-      return { mockFrom };
+      return { mockFrom, mockWhere };
     };
 
     it("should return paginated search results", async () => {
@@ -1029,6 +1031,51 @@ describe("ListingDAL", () => {
       expect(params).toContain(PRIVACY_GRID_DEGREES / 2);
       // The viewer's own point stays exact.
       expect(params).toEqual(expect.arrayContaining([-122.4194, 37.7749]));
+    });
+
+    // SETTINGS-004: listings live in the owner's primary community, which
+    // can't be hidden, so the community_visibility join pinned to the
+    // listing's community always passes. The owner's flag for the VIEWER's
+    // home community must be checked too, in the page and the count.
+    it("drops listings whose owner hid the viewer's home community", async () => {
+      vi.mocked(db.query.userAddresses.findFirst).mockResolvedValue(
+        null as any,
+      );
+      const { mockFromCount, mockWhereCount } = buildCountChain(0);
+      const { mockFrom, mockWhere } = buildDataChain([]);
+      vi.mocked(db.select).mockImplementation(() => {
+        if ((db.select as any).mock.calls.length === 1) {
+          return { from: mockFromCount } as any;
+        }
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([]),
+          }),
+        } as any;
+      });
+      vi.mocked(db.selectDistinct).mockReturnValue({ from: mockFrom } as any);
+
+      await listingDAL.searchListings(
+        {},
+        { page: 1, limit: 12 },
+        "viewer-b",
+        ["community-123"],
+        false,
+      );
+
+      const dialect = new PgDialect();
+      const normalize = (text: string) =>
+        text.replace(/\$\d+/g, "$?").replace(/\s+/g, " ");
+      const expected = normalize(
+        dialect.sqlToQuery(
+          ownerVisibleToViewerHome(listings.ownerId, "viewer-b"),
+        ).sql,
+      );
+      for (const where of [mockWhereCount, mockWhere]) {
+        const { sql, params } = dialect.sqlToQuery(where.mock.calls[0][0]);
+        expect(normalize(sql)).toContain(expected);
+        expect(params).toContain("viewer-b");
+      }
     });
 
     it("should validate pagination parameters", async () => {

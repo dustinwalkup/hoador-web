@@ -1,6 +1,7 @@
 import {
   disputeDAL,
   auditLogDAL,
+  paymentDAL,
   paymentLifecycleDAL,
   rentalDAL,
   serviceBookingDAL,
@@ -507,6 +508,12 @@ export class DisputeResolutionService {
         performedBy: adminId,
       });
 
+      await DisputeResolutionService.recordServiceRefund(
+        dispute,
+        refund,
+        refundAmountDollars,
+      );
+
       return "refunded";
     } catch (error) {
       const errorMessage =
@@ -522,6 +529,61 @@ export class DisputeResolutionService {
       });
 
       return "failed";
+    }
+  }
+
+  /**
+   * Record a service refund that already went through where the client sees
+   * it: the `payments` row (payment history) and the booking's own refund
+   * columns (booking detail). Without this a dispute refund left both reading
+   * "Paid".
+   *
+   * Never throws: the money has moved and the dispute must still resolve. A
+   * failure alerts ops instead; the `charge.refunded` webhook also records the
+   * payment side if it is delivered.
+   */
+  private static async recordServiceRefund(
+    dispute: DisputeWithRelations,
+    refund: Pick<Stripe.Refund, "id" | "amount">,
+    refundAmountDollars: number | null,
+  ): Promise<void> {
+    const bookingId = dispute.serviceBookingId;
+    if (!bookingId) return;
+
+    try {
+      const payment = await paymentDAL.getByServiceBookingId(bookingId);
+      if (!payment) {
+        throw new Error("No payment row for service booking");
+      }
+
+      // Stripe's figure is what actually went back. The fallbacks cover a
+      // response without one: the requested partial, or the whole charge.
+      const refundAmount =
+        typeof refund.amount === "number"
+          ? (refund.amount / 100).toFixed(2)
+          : refundAmountDollars !== null
+            ? refundAmountDollars.toFixed(2)
+            : payment.amount;
+
+      await paymentDAL.recordRefund(payment.id, {
+        refundedAt: new Date(),
+        refundAmount,
+        refundReason: "dispute_refund",
+      });
+      await serviceBookingDAL.update(bookingId, {
+        refundAmount,
+        stripeRefundId: refund.id,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error("Failed to record service dispute refund:", error);
+      await sendOpsAlert({
+        event: "service_dispute_refund_record_failed",
+        serviceBookingId: bookingId,
+        message: `Refund ${refund.id} succeeded for dispute ${dispute.id} but was not recorded: ${errorMessage}`,
+        metadata: { disputeId: dispute.id, stripeRefundId: refund.id },
+      }).catch(() => {});
     }
   }
 

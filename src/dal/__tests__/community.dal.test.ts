@@ -10,6 +10,7 @@ import {
   VisibilityPrimaryLockedError,
 } from "../errors";
 import type { AuditLogDAL } from "../audit-log.dal";
+import { ownerVisibleToViewerHome } from "../visibility-sql";
 import {
   mockCommunity,
   mockCommunityWithStats,
@@ -1995,6 +1996,66 @@ describe("CommunityDAL", () => {
       mockChain(undefined);
       await expect(
         communityDAL.isVisibleInCommunity("user-1", "comm-1"),
+      ).resolves.toBe(false);
+    });
+  });
+
+  // Member-based rule (SETTINGS-004, approved 2026-10-26): hiding a community
+  // hides you from its members and its members from you.
+  describe("areMutuallyVisible", () => {
+    const mockChain = (rows: Array<{ visible: boolean }>) => {
+      const limit = vi.fn().mockResolvedValueOnce(rows);
+      const where = vi.fn().mockReturnValue({ limit });
+      const from = vi.fn().mockReturnValue({ where });
+      vi.mocked(db.select).mockReturnValue({ from } as any);
+    };
+    const normalize = (text: string) =>
+      text.replace(/\$\d+/g, "$?").replace(/\s+/g, " ");
+
+    it("is true for the same user, without a query", async () => {
+      await expect(
+        communityDAL.areMutuallyVisible("user-1", "user-1"),
+      ).resolves.toBe(true);
+      expect(db.select).not.toHaveBeenCalled();
+    });
+
+    it("checks each user's flag for the other's home community", async () => {
+      mockChain([{ visible: true }]);
+
+      await expect(
+        communityDAL.areMutuallyVisible("viewer-b", "owner-a"),
+      ).resolves.toBe(true);
+
+      const fields = vi.mocked(db.select).mock.calls[0][0] as unknown as {
+        visible: SQL;
+      };
+      const dialect = new PgDialect();
+      const { sql, params } = dialect.sqlToQuery(fields.visible);
+      // A's flag for B's home, and B's flag for A's home.
+      for (const [owner, viewer] of [
+        ["owner-a", "viewer-b"],
+        ["viewer-b", "owner-a"],
+      ]) {
+        expect(normalize(sql)).toContain(
+          normalize(
+            dialect.sqlToQuery(ownerVisibleToViewerHome(owner, viewer)).sql,
+          ),
+        );
+      }
+      expect(params).toEqual(expect.arrayContaining(["owner-a", "viewer-b"]));
+    });
+
+    it("is false when either side hid the other's home", async () => {
+      mockChain([{ visible: false }]);
+      await expect(
+        communityDAL.areMutuallyVisible("viewer-b", "owner-a"),
+      ).resolves.toBe(false);
+    });
+
+    it("is false (fail-closed) when the user row is missing", async () => {
+      mockChain([]);
+      await expect(
+        communityDAL.areMutuallyVisible("viewer-b", "owner-a"),
       ).resolves.toBe(false);
     });
   });

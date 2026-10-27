@@ -18,11 +18,12 @@ import { patchServiceProviderSchema } from "@/features/services/lib/service-api-
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 
 /**
- * Symmetric per-community visibility (R5): a non-self viewer may see a
- * provider's profile only when they share at least one community where both
- * are visible. Returns the set of shared visible community IDs (used to scope
- * the listings in the response), or `null` for self (no filtering), or a 403
- * response when access is denied.
+ * Symmetric visibility (R5 + SETTINGS-004): a non-self viewer may see a
+ * person's profile only when neither has hidden the other's home community
+ * and they share at least one community where both are visible. Returns the
+ * set of shared visible community IDs (used to scope the listings in the
+ * response), or `null` for self (no filtering), or a 403 response when access
+ * is denied (the app's "You can't see this profile" state, 14.1.2).
  */
 async function resolveProviderProfileVisibility(
   viewerId: string,
@@ -32,14 +33,15 @@ async function resolveProviderProfileVisibility(
     return { sharedVisibleCommunityIds: null };
   }
 
-  const [viewerVisible, providerVisible] = await Promise.all([
+  const [viewerVisible, providerVisible, mutuallyVisible] = await Promise.all([
     communityDAL.getVisibleCommunityIds(viewerId),
     communityDAL.getVisibleCommunityIds(targetUserId),
+    communityDAL.areMutuallyVisible(viewerId, targetUserId),
   ]);
   const providerSet = new Set(providerVisible);
   const shared = new Set(viewerVisible.filter((c) => providerSet.has(c)));
 
-  if (shared.size === 0) {
+  if (!mutuallyVisible || shared.size === 0) {
     return NextResponse.json(
       { error: "You cannot view this profile" },
       { status: 403 },

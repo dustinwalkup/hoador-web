@@ -4,11 +4,13 @@ import { NextRequest, NextResponse } from "next/server";
 const mockDeleteListing = vi.fn();
 const mockGetById = vi.fn();
 const mockIsVisibleInCommunity = vi.fn();
+const mockAreMutuallyVisible = vi.fn();
 
 vi.mock("@/dal", () => ({
   communityDAL: {
     isVisibleInCommunity: (...args: unknown[]) =>
       mockIsVisibleInCommunity(...args),
+    areMutuallyVisible: (...args: unknown[]) => mockAreMutuallyVisible(...args),
   },
   serviceListingDAL: {
     getById: (...args: unknown[]) => mockGetById(...args),
@@ -84,6 +86,7 @@ describe("GET /api/services/listings/[id]", () => {
     vi.mocked(getCurrentUserId).mockResolvedValue("viewer-1");
     mockGetById.mockResolvedValue(activeListing);
     mockIsVisibleInCommunity.mockResolvedValue(true);
+    mockAreMutuallyVisible.mockResolvedValue(true);
   });
 
   it("returns 401 when requireAuthResponse blocks", async () => {
@@ -178,6 +181,20 @@ describe("GET /api/services/listings/[id]", () => {
 
     expect(res.status).toBe(403);
   });
+
+  // SETTINGS-004: both are visible in the listing's community (the
+  // provider's unhideable home), but one has hidden the other's home.
+  it("returns 403 to a non-provider when they and the provider have hidden each other's communities", async () => {
+    mockAreMutuallyVisible.mockResolvedValue(false);
+
+    const res = await GET(reqFor(), paramsFor());
+
+    expect(res.status).toBe(403);
+    expect(mockAreMutuallyVisible).toHaveBeenCalledWith(
+      "viewer-1",
+      "provider-1",
+    );
+  });
 });
 
 /**
@@ -216,6 +233,7 @@ describe("GET /api/services/listings/[id] — provider email and moderation note
     vi.mocked(requireAuthResponse).mockResolvedValue(null);
     mockGetById.mockResolvedValue(moderatedListing);
     mockIsVisibleInCommunity.mockResolvedValue(true);
+    mockAreMutuallyVisible.mockResolvedValue(true);
   });
 
   it("gives a non-provider no email and no moderation notes", async () => {

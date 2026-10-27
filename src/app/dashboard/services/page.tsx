@@ -36,7 +36,7 @@ export default async function ServicesBrowsePage() {
   }
 
   const [listings, categories] = await Promise.all([
-    serviceListingDAL.findByCommunityForBrowse(visibleCommunityIds, {
+    serviceListingDAL.findByCommunityForBrowse(user.id, visibleCommunityIds, {
       excludeProviderId: user.id,
     }),
     serviceListingDAL.listCategories(),

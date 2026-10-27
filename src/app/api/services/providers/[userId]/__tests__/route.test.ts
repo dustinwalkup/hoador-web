@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 
 const mockGetVisibleCommunityIds = vi.fn();
+const mockAreMutuallyVisible = vi.fn();
 const mockFindByProvider = vi.fn();
 const mockGetUserById = vi.fn();
 const mockGetAggregate = vi.fn();
@@ -12,6 +13,7 @@ vi.mock("@/dal", () => ({
   communityDAL: {
     getVisibleCommunityIds: (...args: unknown[]) =>
       mockGetVisibleCommunityIds(...args),
+    areMutuallyVisible: (...args: unknown[]) => mockAreMutuallyVisible(...args),
     getPrimaryMembershipForUser: (...args: unknown[]) =>
       mockGetPrimaryMembershipForUser(...args),
   },
@@ -92,6 +94,7 @@ describe("GET /api/services/providers/[userId]", () => {
     mockGetAggregate.mockResolvedValue({ averageRating: 0, totalReviews: 0 });
     mockFindReleasedByReviewee.mockResolvedValue({ data: [] });
     mockGetPrimaryMembershipForUser.mockResolvedValue(null);
+    mockAreMutuallyVisible.mockResolvedValue(true);
     mockFindByProvider.mockResolvedValue([
       listingIn("l-shared", "comm-shared"),
       listingIn("l-private", "comm-provider-only"),
@@ -124,6 +127,22 @@ describe("GET /api/services/providers/[userId]", () => {
     const res = await GET(reqFor(), paramsFor());
     expect(res.status).toBe(403);
     expect(mockGetUserById).not.toHaveBeenCalled();
+  });
+
+  // SETTINGS-004: they still share visible communities (the network), but one
+  // has hidden the other's home community. 403 is what the app renders as
+  // "You can't see this profile" (14.1.2); nothing about the person is read.
+  it("returns 403 when the viewer and the person have hidden each other's communities", async () => {
+    mockAreMutuallyVisible.mockResolvedValue(false);
+
+    const res = await GET(reqFor(), paramsFor());
+    expect(res.status).toBe(403);
+    expect(mockAreMutuallyVisible).toHaveBeenCalledWith(
+      "viewer-1",
+      "provider-1",
+    );
+    expect(mockGetUserById).not.toHaveBeenCalled();
+    expect(mockFindReleasedByReviewee).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the target user does not exist", async () => {

@@ -31,21 +31,25 @@ export default async function ServiceProviderProfilePage({
   if (!viewerId) return null;
   const isSelf = viewerId === targetUserId;
 
-  // Symmetric per-community visibility (R5): a non-self viewer may see a
-  // provider's profile only when they share at least one community where both
-  // are visible — the precondition for any of the provider's listings to be
-  // visible to them. Listings shown are then scoped to that shared set.
+  // Symmetric visibility (R5 + SETTINGS-004): a non-self viewer may see a
+  // provider's profile only when neither has hidden the other's home
+  // community and they share at least one community where both are visible —
+  // the precondition for any of the provider's listings to be visible to
+  // them. Listings shown are then scoped to that shared set.
   let sharedVisibleCommunityIds: Set<string> | null = null; // null = self (no filter)
   if (!isSelf) {
-    const [viewerVisible, providerVisible] = await Promise.all([
-      communityDAL.getVisibleCommunityIds(viewerId),
-      communityDAL.getVisibleCommunityIds(targetUserId),
-    ]);
+    const [viewerVisible, providerVisible, mutuallyVisible] = await Promise.all(
+      [
+        communityDAL.getVisibleCommunityIds(viewerId),
+        communityDAL.getVisibleCommunityIds(targetUserId),
+        communityDAL.areMutuallyVisible(viewerId, targetUserId),
+      ],
+    );
     const providerSet = new Set(providerVisible);
     sharedVisibleCommunityIds = new Set(
       viewerVisible.filter((c) => providerSet.has(c)),
     );
-    if (sharedVisibleCommunityIds.size === 0) {
+    if (!mutuallyVisible || sharedVisibleCommunityIds.size === 0) {
       notFound();
     }
   }

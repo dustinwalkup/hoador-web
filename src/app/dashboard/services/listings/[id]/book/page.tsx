@@ -6,7 +6,8 @@ import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { communityDAL, legalDocumentDAL, serviceListingDAL } from "@/dal";
+import { legalDocumentDAL, serviceListingDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { listStripeCardPaymentMethodsForUser } from "@/services/stripe/payment-method";
 import { ServiceBookingFlow } from "@/features/services/components/service-booking-flow";
@@ -48,14 +49,16 @@ export default async function BookServicePage({ params }: PageProps) {
     notFound();
   }
 
-  // Symmetric per-community visibility (R5): the requester may book only if
-  // both they and the provider are visible in the listing's home community —
-  // the same gate the services browse and listing detail apply.
-  const [viewerVisible, providerVisible] = await Promise.all([
-    communityDAL.isVisibleInCommunity(userId, listing.communityId),
-    communityDAL.isVisibleInCommunity(listing.providerId, listing.communityId),
-  ]);
-  if (!viewerVisible || !providerVisible) {
+  // Symmetric visibility (R5 + SETTINGS-004): the requester may book only if
+  // both they and the provider are visible in the listing's home community and
+  // neither has hidden the other's home community — the same gate the
+  // services browse and listing detail apply.
+  const visible = await canViewOwnerItem(
+    userId,
+    listing.providerId,
+    listing.communityId,
+  );
+  if (!visible) {
     notFound();
   }
 

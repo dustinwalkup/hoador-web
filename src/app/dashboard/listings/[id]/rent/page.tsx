@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { communityDAL, listingDAL, rentalDAL, legalDocumentDAL } from "@/dal";
+import { listingDAL, rentalDAL, legalDocumentDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { getCurrentUser } from "@/features/auth/utils/session";
 import { LEGAL_DOCUMENT_IDS } from "@/constants/legal-documents";
 import { RentListingPageContent } from "@/features/rentals/components/rent-flow/rent-listing-page-content";
@@ -28,15 +29,17 @@ export default async function RentListingPage({
   if (!listing) notFound();
   if (listing.owner.id === currentUser.id) notFound();
 
-  // Symmetric per-community visibility (R5): a renter may reach the rent flow
+  // Symmetric visibility (R5 + SETTINGS-004): a renter may reach the rent flow
   // only for a browseable listing whose home community is visible to both them
-  // and the owner — the same gate the tool search and listing detail apply.
+  // and the owner, when neither has hidden the other's home community — the
+  // same gate the tool search and listing detail apply.
   if (!RENTABLE_STATUSES.has(listing.status)) notFound();
-  const [viewerVisible, ownerVisible] = await Promise.all([
-    communityDAL.isVisibleInCommunity(currentUser.id, listing.communityId),
-    communityDAL.isVisibleInCommunity(listing.owner.id, listing.communityId),
-  ]);
-  if (!viewerVisible || !ownerVisible) notFound();
+  const visible = await canViewOwnerItem(
+    currentUser.id,
+    listing.owner.id,
+    listing.communityId,
+  );
+  if (!visible) notFound();
 
   const legalDocuments = {
     rentalAgreement: documentVersions[LEGAL_DOCUMENT_IDS.PER_RENTAL_AGREEMENT],

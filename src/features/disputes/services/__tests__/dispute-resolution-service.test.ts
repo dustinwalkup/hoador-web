@@ -5,6 +5,7 @@ import {
 } from "../dispute-resolution-service";
 import {
   disputeDAL,
+  paymentDAL,
   paymentLifecycleDAL,
   rentalDAL,
   serviceBookingDAL,
@@ -25,6 +26,10 @@ vi.mock("@/dal", () => ({
     createAuditLog: vi.fn(),
   },
   auditLogDAL: { create: vi.fn() },
+  paymentDAL: {
+    getByServiceBookingId: vi.fn(),
+    recordRefund: vi.fn(),
+  },
   paymentLifecycleDAL: {
     getByRentalId: vi.fn(),
     unfreezeAfterResolution: vi.fn(),
@@ -38,6 +43,7 @@ vi.mock("@/dal", () => ({
   },
   serviceBookingDAL: {
     getById: vi.fn(),
+    update: vi.fn(),
     updateIfStatus: vi.fn(),
   },
   servicePaymentLifecycleDAL: {
@@ -408,6 +414,138 @@ describe("DisputeResolutionService.resolveDispute", () => {
       expect(
         servicePaymentLifecycleDAL.markRefundedAfterDispute,
       ).not.toHaveBeenCalled();
+      expect(paymentDAL.recordRefund).not.toHaveBeenCalled();
+      expect(serviceBookingDAL.update).not.toHaveBeenCalled();
+    });
+
+    // Payment history reads `payments`; the booking detail reads the booking's
+    // own refund columns. A dispute refund used to reach neither, so the client
+    // saw "Paid" for money that had gone back to their card.
+    describe("records the refund where the client sees it", () => {
+      beforeEach(() => {
+        vi.mocked(paymentDAL.getByServiceBookingId).mockResolvedValue({
+          id: "pay-svc-1",
+          amount: "110.00",
+        } as never);
+        vi.mocked(paymentDAL.recordRefund).mockResolvedValue(undefined);
+        vi.mocked(serviceBookingDAL.update).mockResolvedValue({} as never);
+      });
+
+      it("records a full refund at Stripe's amount", async () => {
+        arrange("completed");
+        vi.mocked(PAYMENT_SERVER_INSTANCE.refunds.create).mockResolvedValue({
+          id: "re_svc_1",
+          amount: 11000,
+        } as never);
+
+        await DisputeResolutionService.resolveDispute({
+          disputeId: "dispute-123",
+          outcome: "favor_renter",
+          reason,
+          adminId,
+        });
+
+        expect(paymentDAL.getByServiceBookingId).toHaveBeenCalledWith(
+          "booking-123",
+        );
+        expect(paymentDAL.recordRefund).toHaveBeenCalledWith("pay-svc-1", {
+          refundedAt: expect.any(Date),
+          refundAmount: "110.00",
+          refundReason: "dispute_refund",
+        });
+        expect(serviceBookingDAL.update).toHaveBeenCalledWith("booking-123", {
+          refundAmount: "110.00",
+          stripeRefundId: "re_svc_1",
+        });
+      });
+
+      it("records a partial refund at the partial amount", async () => {
+        arrange("completed");
+        vi.mocked(PAYMENT_SERVER_INSTANCE.refunds.create).mockResolvedValue({
+          id: "re_svc_2",
+          amount: 3000,
+        } as never);
+
+        await DisputeResolutionService.resolveDispute({
+          disputeId: "dispute-123",
+          outcome: "partial_provider",
+          reason,
+          adminId,
+          partialAmount: 30,
+        });
+
+        expect(paymentDAL.recordRefund).toHaveBeenCalledWith("pay-svc-1", {
+          refundedAt: expect.any(Date),
+          refundAmount: "30.00",
+          refundReason: "dispute_refund",
+        });
+        expect(serviceBookingDAL.update).toHaveBeenCalledWith("booking-123", {
+          refundAmount: "30.00",
+          stripeRefundId: "re_svc_2",
+        });
+      });
+
+      it("falls back to the charge amount when Stripe's response has none", async () => {
+        arrange("accepted");
+        vi.mocked(PAYMENT_SERVER_INSTANCE.refunds.create).mockResolvedValue({
+          id: "re_svc_1",
+        } as never);
+
+        await DisputeResolutionService.resolveDispute({
+          disputeId: "dispute-123",
+          outcome: "favor_renter",
+          reason,
+          adminId,
+        });
+
+        expect(paymentDAL.recordRefund).toHaveBeenCalledWith(
+          "pay-svc-1",
+          expect.objectContaining({ refundAmount: "110.00" }),
+        );
+      });
+
+      it("records nothing when the outcome moves no money", async () => {
+        arrange("completed");
+
+        await DisputeResolutionService.resolveDispute({
+          disputeId: "dispute-123",
+          outcome: "favor_provider",
+          reason,
+          adminId,
+        });
+
+        expect(paymentDAL.recordRefund).not.toHaveBeenCalled();
+        expect(serviceBookingDAL.update).not.toHaveBeenCalled();
+      });
+
+      it("still resolves, and alerts ops, when recording the refund fails", async () => {
+        arrange("completed");
+        vi.mocked(PAYMENT_SERVER_INSTANCE.refunds.create).mockResolvedValue({
+          id: "re_svc_1",
+          amount: 11000,
+        } as never);
+        vi.mocked(paymentDAL.recordRefund).mockRejectedValue(
+          new Error("db down"),
+        );
+
+        await DisputeResolutionService.resolveDispute({
+          disputeId: "dispute-123",
+          outcome: "favor_renter",
+          reason,
+          adminId,
+        });
+
+        expect(disputeDAL.resolve).toHaveBeenCalled();
+        expect(
+          servicePaymentLifecycleDAL.markRefundedAfterDispute,
+        ).toHaveBeenCalledWith("booking-123");
+        expect(sendOpsAlert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            event: "service_dispute_refund_record_failed",
+            serviceBookingId: "booking-123",
+          }),
+        );
+      });
     });
   });
 

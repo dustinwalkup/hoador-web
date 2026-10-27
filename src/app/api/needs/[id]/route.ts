@@ -5,7 +5,8 @@ import {
   getAuthenticatedUserResponse,
   handleApiError,
 } from "@/lib/api/route-helpers";
-import { communityDAL, neighborhoodNeedsDAL } from "@/dal";
+import { neighborhoodNeedsDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import {
   updateNeed,
   deleteNeed,
@@ -44,16 +45,15 @@ async function getHandler(_request: NextRequest, { params }: RouteContext) {
     if (!isAdmin && detail.createdByUserId !== userId) {
       // Symmetric visibility (same rule as the feed + listing detail): the need
       // is viewable only if BOTH the viewer and the creator are visible in its
-      // community. A viewer-only check leaks needs whose creator is no longer
-      // visible (e.g. stale community_visibility after a network move).
-      const [viewerVisible, creatorVisible] = await Promise.all([
-        communityDAL.isVisibleInCommunity(userId, detail.communityId),
-        communityDAL.isVisibleInCommunity(
-          detail.createdByUserId,
-          detail.communityId,
-        ),
-      ]);
-      if (!viewerVisible || !creatorVisible) {
+      // community, and neither has hidden the other's home community. A
+      // viewer-only check leaks needs whose creator is no longer visible (e.g.
+      // stale community_visibility after a network move).
+      const visible = await canViewOwnerItem(
+        userId,
+        detail.createdByUserId,
+        detail.communityId,
+      );
+      if (!visible) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
     }

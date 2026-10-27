@@ -20,11 +20,13 @@ vi.mock("@/lib/api/with-request-logging", () => ({
 
 const mockGetListingById = vi.fn();
 const mockIsVisibleInCommunity = vi.fn();
+const mockAreMutuallyVisible = vi.fn();
 const mockGetBookedDatesForListing = vi.fn();
 vi.mock("@/dal", () => ({
   listingDAL: { getListingById: (...a: any[]) => mockGetListingById(...a) },
   communityDAL: {
     isVisibleInCommunity: (...a: any[]) => mockIsVisibleInCommunity(...a),
+    areMutuallyVisible: (...a: any[]) => mockAreMutuallyVisible(...a),
   },
   rentalDAL: {
     getBookedDatesForListing: (...a: any[]) =>
@@ -61,6 +63,7 @@ describe("GET /api/listings/[listingId]", () => {
     mockGetCurrentUser.mockResolvedValue({ id: "viewer-1", userType: "user" });
     mockGetListingById.mockResolvedValue(listing());
     mockIsVisibleInCommunity.mockResolvedValue(true);
+    mockAreMutuallyVisible.mockResolvedValue(true);
     mockGetBookedDatesForListing.mockResolvedValue([]);
   });
 
@@ -192,6 +195,18 @@ describe("GET /api/listings/[listingId]", () => {
     expect(res.status).toBe(404);
   });
 
+  // SETTINGS-004: both are visible in the listing's community (the owner's
+  // unhideable home), but one has hidden the other's home community.
+  it("404s when the owner and viewer have hidden each other's communities", async () => {
+    mockAreMutuallyVisible.mockResolvedValue(false);
+
+    const { GET } = await import("../route");
+    const res = await GET(req(), params());
+
+    expect(res.status).toBe(404);
+    expect(mockAreMutuallyVisible).toHaveBeenCalledWith("viewer-1", "owner-1");
+  });
+
   it("404s when the listing does not exist", async () => {
     const { NotFoundError } = await import("@/dal/errors");
     mockGetListingById.mockRejectedValue(new NotFoundError("listing", "l-1"));
@@ -222,6 +237,7 @@ describe("GET /api/listings/[listingId] — bookedRanges (P-E8A-2)", () => {
     mockGetCurrentUser.mockResolvedValue({ id: "viewer-1", userType: "user" });
     mockGetListingById.mockResolvedValue(listing());
     mockIsVisibleInCommunity.mockResolvedValue(true);
+    mockAreMutuallyVisible.mockResolvedValue(true);
     mockGetBookedDatesForListing.mockResolvedValue([]);
   });
 

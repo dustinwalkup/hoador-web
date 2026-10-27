@@ -205,7 +205,8 @@ export async function getDashboardPulseData(
     [],
   );
   const openNeeds = await safe(
-    () => neighborhoodNeedsDAL.countOpenVisibleNeeds(visibleCommunityIds),
+    () =>
+      neighborhoodNeedsDAL.countOpenVisibleNeeds(userId, visibleCommunityIds),
     0,
   );
 

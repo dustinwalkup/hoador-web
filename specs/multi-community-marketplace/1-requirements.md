@@ -68,6 +68,8 @@ they are not re-litigated:
     `community_visibility(X).is_visible = true`. There is no per-listing
     override (deferred to a future phase if needed). A user CANNOT toggle
     visibility off for their own primary community.
+    _(Amended 2026-10-26: the rule is member-based. Hiding community X hides
+    the user from X's members and X's members from the user; see the 2026-10-26 amendment under Requirement 4.)_
 12. **MVP admin scope** — Membership verification queue and community CRUD.
     Network assignment is a single dropdown on the community CRUD form (no
     dedicated networks-management UI). Per-user visibility audit deferred.
@@ -234,6 +236,37 @@ so that opting out of a community is unambiguous and all-or-nothing.
      filtered to community X.
    - Listings owned by users in community X SHALL NOT appear in this user's
      feed when sliced to community X.
+
+   > **Amendment (2026-10-26, user-approved after mobile UAT SETTINGS-004).**
+   > Criterion 4 and R5.3 are superseded by a **member-based** rule, matching
+   > the in-app explainer: "Hiding a community hides you from its members, and
+   > hides its members from you." Content owned by O (listings, services,
+   > needs) is visible to viewer V only when:
+   >
+   > - both are visible in the item's `community_id` (R5.3, unchanged), AND
+   > - neither has hidden the other's home (primary) community:
+   >   `community_visibility(O, V's home).is_visible = true` and
+   >   `community_visibility(V, O's home).is_visible = true`.
+   >
+   > The original criteria checked only the item's `community_id`. Every item
+   > is created in its owner's primary community, which can't be hidden, so
+   > the owner's side of that check never took effect. In SETTINGS-004, A hid
+   > Verona Hills and A's need still appeared to Verona Hills members.
+   >
+   > The member-based rule applies to:
+   >
+   > - search and browse (items, services, needs), and the dashboard
+   >   open-needs count;
+   > - item, service and need detail;
+   > - request and booking quotes, and approve/accept;
+   > - the public/provider profile (403);
+   > - new-need notifications (in-app and push).
+   >
+   > Implementation: `ownerVisibleToViewerHome` in `src/dal/visibility-sql.ts`,
+   > `communityDAL.areMutuallyVisible`, and `canViewOwnerItem` in
+   > `src/features/community/utils/item-visibility.ts`. Existing rentals,
+   > bookings and conversations between the two are unaffected.
+
 5. The system SHALL prevent a user from toggling `is_visible = false` for
    the community where their membership has `is_primary = true`. The UI
    SHALL display the primary community's toggle as disabled with copy
@@ -274,7 +307,8 @@ connection both ways, with no per-listing fiddling.
    owner O, is visible to viewer V using the rule: visible **if and only if
    both** O has `community_visibility(X).is_visible = true` **and** V has
    `community_visibility(X).is_visible = true`. Absence of a row counts as
-   `false` (fail-closed).
+   `false` (fail-closed). _(Amended 2026-10-26: additionally, neither O nor V
+   may have hidden the other's home community; see the 2026-10-26 amendment under Requirement 4.)_
 4. The system SHALL apply the same rule uniformly to both `listings`
    (rental/tool) and `service_listings`.
 5. The system SHALL NOT require any data migration to `listings` or
@@ -365,6 +399,8 @@ feed (and mine from theirs).
    - The VIEWER has `community_visibility(viewer, X).is_visible = true`
      (i.e. `X` is in the viewer's precomputed visible-community set), AND
    - The OWNER has `community_visibility(O, X).is_visible = true`, AND
+   - The OWNER has not hidden the VIEWER's home community (and vice versa;
+     added 2026-10-26, see the 2026-10-26 amendment under Requirement 4), AND
    - Existing filters (status, approval, isActive, owner ≠ viewer) still apply.
      A missing `community_visibility` row counts as `false` (fail-closed).
 2. WHEN a user filters the feed to a specific community X
@@ -403,6 +439,8 @@ true` (else return empty / 403-equivalent state).
     provider share at least one community where **both** have
     `is_visible = true`; the active listings shown SHALL be scoped to that
     shared set. The provider sees their own profile and listings unfiltered.
+    _(Amended 2026-10-26: R8.9 and R8.10 also require that neither has hidden
+    the other's home community; see the 2026-10-26 amendment under Requirement 4.)_
 
 ---
 

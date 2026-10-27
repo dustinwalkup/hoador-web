@@ -1,4 +1,5 @@
-import { communityDAL, serviceListingDAL } from "@/dal";
+import { serviceListingDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { NotFoundError } from "@/dal/errors";
 import { calculateServiceFee } from "@/constants/payments";
 import { marketDayKey } from "@/lib/wall-clock-zone";
@@ -103,14 +104,16 @@ export async function quoteServiceBooking(
     });
   }
 
-  // BIZ-08: both parties must be visible in the listing's community — the same
-  // symmetric rule search and listing detail apply. (Status is already gated
-  // above: services fold approval and archive into `status`.)
-  const [providerVisible, requesterVisible] = await Promise.all([
-    communityDAL.isVisibleInCommunity(listing.providerId, listing.communityId),
-    communityDAL.isVisibleInCommunity(requesterId, listing.communityId),
-  ]);
-  if (!providerVisible || !requesterVisible) {
+  // BIZ-08: both parties must be visible in the listing's community, and
+  // neither may have hidden the other's home community (SETTINGS-004) — the
+  // same symmetric rule search and listing detail apply. (Status is already
+  // gated above: services fold approval and archive into `status`.)
+  const visible = await canViewOwnerItem(
+    requesterId,
+    listing.providerId,
+    listing.communityId,
+  );
+  if (!visible) {
     blockers.push({
       code: "COMMUNITY_NOT_VISIBLE",
       message: "This service isn't visible to you right now.",

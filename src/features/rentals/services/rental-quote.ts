@@ -1,4 +1,5 @@
-import { communityDAL, listingDAL, rentalDAL } from "@/dal";
+import { listingDAL, rentalDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { NotFoundError } from "@/dal/errors";
 import {
   findConflict,
@@ -141,11 +142,13 @@ export async function quoteRentalRequest(
       message: "This listing hasn't been approved yet.",
     });
   }
-  const [viewerVisible, ownerVisible] = await Promise.all([
-    communityDAL.isVisibleInCommunity(userId, listing.communityId),
-    communityDAL.isVisibleInCommunity(listing.owner.id, listing.communityId),
-  ]);
-  if (!viewerVisible || !ownerVisible) {
+  // ...and neither may have hidden the other's home community (SETTINGS-004).
+  const visible = await canViewOwnerItem(
+    userId,
+    listing.owner.id,
+    listing.communityId,
+  );
+  if (!visible) {
     blockers.push({
       code: "COMMUNITY_NOT_VISIBLE",
       message: "This listing isn't visible to you right now.",

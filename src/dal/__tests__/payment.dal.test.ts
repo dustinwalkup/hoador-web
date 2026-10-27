@@ -64,4 +64,34 @@ describe("PaymentDAL", () => {
       expect(result).toBe(0);
     });
   });
+
+  describe("getByServiceBookingId", () => {
+    const chain = (rows: unknown[]) => {
+      const mockLimit = vi.fn().mockResolvedValue(rows);
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+      return { mockWhere, mockLimit };
+    };
+
+    it("returns the booking's charge row", async () => {
+      const row = { id: "pay-1", serviceBookingId: "book-1", amount: "110.00" };
+      const { mockWhere, mockLimit } = chain([row]);
+
+      const result = await paymentDAL.getByServiceBookingId("book-1");
+
+      expect(result).toEqual(row);
+      expect(mockWhere).toHaveBeenCalledTimes(1);
+      expect(mockLimit).toHaveBeenCalledWith(1);
+    });
+
+    it("returns null when the booking was never charged", async () => {
+      chain([]);
+
+      const result = await paymentDAL.getByServiceBookingId("book-1");
+
+      expect(result).toBeNull();
+    });
+  });
 });

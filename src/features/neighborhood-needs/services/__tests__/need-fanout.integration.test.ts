@@ -62,16 +62,25 @@ const {
 
 type Community = Awaited<ReturnType<typeof createCommunity>>;
 
-/** A member visible (or not) in the community. */
+/**
+ * A member visible (or not) in the community, whose home (primary) community
+ * is `opts.home` (default: the same community). The member-based rule
+ * (SETTINGS-004) reads each recipient's home and fails closed without one.
+ */
 async function member(
   community: Community,
-  opts: { visible?: boolean; id?: string } = {},
+  opts: { visible?: boolean; id?: string; home?: Community } = {},
 ) {
   const row = await createUser(opts.id ? { id: opts.id } : {});
   await db.insert(communityVisibility).values({
     userId: row.id,
     communityId: community.id,
     isVisible: opts.visible ?? true,
+  });
+  await db.insert(communityMemberships).values({
+    userId: row.id,
+    communityId: (opts.home ?? community).id,
+    isPrimary: true,
   });
   return row;
 }
@@ -111,11 +120,6 @@ async function webSub(userId: string) {
 /** A creator who can post: primary membership, visible, and a category. */
 async function poster(community: Community) {
   const creator = await member(community);
-  await db.insert(communityMemberships).values({
-    userId: creator.id,
-    communityId: community.id,
-    isPrimary: true,
-  });
   const [category] = await db
     .insert(listingCategories)
     .values({ name: `Tools ${creator.id}` })
@@ -145,6 +149,7 @@ describe("notificationsDAL.bulkCreateForVisibleCommunity", () => {
     const written = await notificationsDAL.bulkCreateForVisibleCommunity({
       communityId: community.id,
       excludeUserId: creator.id,
+      posterId: creator.id,
       type: "neighborhood_need_created",
       title: "New Neighborhood Need",
       message: 'A neighbor posted a new rental request: "Drill"',
@@ -209,12 +214,68 @@ describe("pushSubscriptionDAL.getOptInPushTargetsInCommunity", () => {
     const targets = await pushSubscriptionDAL.getOptInPushTargetsInCommunity({
       communityId: community.id,
       excludeUserId: creator.id,
+      posterId: creator.id,
       category: "neighborhood_needs",
     });
 
     expect(targets.map((t) => t.id).sort()).toEqual(
       [optedInSub.id, webUserSub.id].sort(),
     );
+  });
+});
+
+// SETTINGS-004 (member-based rule, approved 2026-10-26): a poster who hid a
+// community reaches none of its members, in-app or by push.
+describe("need fan-out skips members whose home community the poster hid", () => {
+  async function setup() {
+    const posterHome = await createCommunity();
+    const hiddenHome = await createCommunity();
+    const creator = await member(posterHome);
+    await db.insert(communityVisibility).values({
+      userId: creator.id,
+      communityId: hiddenHome.id,
+      isVisible: false,
+    });
+    // Both are visible in the poster's home; only their homes differ.
+    const neighbor = await member(posterHome);
+    const hiddenMember = await member(posterHome, { home: hiddenHome });
+    for (const id of [neighbor.id, hiddenMember.id]) {
+      await optIn(id);
+    }
+    const neighborSub = await nativeSub(neighbor.id);
+    await nativeSub(hiddenMember.id);
+    return { posterHome, creator, neighbor, neighborSub };
+  }
+
+  it("writes no in-app row for them", async () => {
+    const { posterHome, creator, neighbor } = await setup();
+
+    const written = await notificationsDAL.bulkCreateForVisibleCommunity({
+      communityId: posterHome.id,
+      excludeUserId: creator.id,
+      posterId: creator.id,
+      type: "neighborhood_need_created",
+      title: "New need",
+      message: "m",
+      data: {},
+    });
+
+    expect(written).toBe(1);
+    const rows = await db.select().from(notifications);
+    expect(rows.map((r) => r.userId)).toEqual([neighbor.id]);
+  });
+
+  it("returns no push target for them", async () => {
+    const { posterHome, creator, neighborSub } = await setup();
+
+    const targets = await pushSubscriptionDAL.getOptInPushTargetsInCommunity({
+      communityId: posterHome.id,
+      excludeUserId: creator.id,
+      posterId: creator.id,
+      category: "neighborhood_needs",
+    });
+
+    expect(targets.map((t) => t.id)).toEqual([neighborSub.id]);
   });
 });
 
@@ -236,6 +297,13 @@ describe("createNeed fan-out", () => {
     await db
       .insert(communityVisibility)
       .values(ids.map((userId) => ({ userId, communityId: community.id })));
+    await db.insert(communityMemberships).values(
+      ids.map((userId) => ({
+        userId,
+        communityId: community.id,
+        isPrimary: true,
+      })),
+    );
     // A handful opted in to push; the rest get the in-app row only.
     for (const id of ids.slice(0, 3)) {
       await optIn(id);

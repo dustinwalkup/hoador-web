@@ -27,6 +27,7 @@ import {
 } from "./errors";
 import { MAX_PUSH_SUBSCRIPTIONS_PER_USER } from "@/constants/rate-limits";
 import { BaseDAL } from "./base";
+import { ownerVisibleToViewerHome } from "./visibility-sql";
 import type { PaginatedResult } from "./types";
 
 /** Category preference row for a user. */
@@ -110,10 +111,16 @@ export class NotificationDAL extends BaseDAL {
    * large network (PERF-02). No existence check is needed here:
    * `community_visibility.user_id` references `user.id`, so every recipient
    * exists by construction. Rows match what `create` writes.
+   *
+   * `posterId` limits recipients to members the poster can see: a member
+   * whose home community the poster hid is skipped (member-based rule,
+   * SETTINGS-004). A member who hid the poster's home is already skipped,
+   * because the community here is the poster's home.
    */
   async bulkCreateForVisibleCommunity(params: {
     communityId: string;
     excludeUserId: string;
+    posterId: string;
     type: CreateNotificationData["type"];
     title: string;
     message: string;
@@ -132,6 +139,7 @@ export class NotificationDAL extends BaseDAL {
         WHERE cv.community_id = ${params.communityId}
           AND cv.is_visible = true
           AND cv.user_id <> ${params.excludeUserId}
+          AND ${ownerVisibleToViewerHome(params.posterId, sql`cv.user_id`)}
       `);
       return result.rowCount ?? 0;
     } catch (error) {
@@ -864,10 +872,14 @@ export class PushSubscriptionDAL extends BaseDAL {
    * `push = true`, where `shouldSendPush` falls back to the category default
    * when no row exists. The master toggle defaults to on when the user has no
    * `user_preferences` row, as `userDAL.getUserPreferences` does.
+   *
+   * `posterId` skips members whose home community the poster hid, as
+   * `bulkCreateForVisibleCommunity` does (SETTINGS-004).
    */
   async getOptInPushTargetsInCommunity(params: {
     communityId: string;
     excludeUserId: string;
+    posterId: string;
     category: (typeof notificationCategoryEnum.enumValues)[number];
   }): Promise<PushSubscriptionRow[]> {
     try {
@@ -901,6 +913,10 @@ export class PushSubscriptionDAL extends BaseDAL {
             eq(communityVisibility.communityId, params.communityId),
             eq(communityVisibility.isVisible, true),
             ne(communityVisibility.userId, params.excludeUserId),
+            ownerVisibleToViewerHome(
+              params.posterId,
+              communityVisibility.userId,
+            ),
             sql`COALESCE(${userPreferences.pushNotifications}, true)`,
           ),
         );

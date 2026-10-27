@@ -27,6 +27,7 @@ import {
 } from "./types";
 import { schema } from "@/db/schemas";
 import { NotFoundError, ValidationError } from "./errors";
+import { ownerVisibleToViewerHome } from "./visibility-sql";
 import { sanitizeTextWithMaxLength } from "@/lib/utils/sanitize";
 import {
   bucketDistanceMiles,
@@ -820,11 +821,16 @@ export class ListingDAL extends BaseDAL {
       //                  exact community; here we require it to be `true`.
       // Absence of an owner row = not visible (fail-closed) — the INNER JOIN
       // drops the listing.
+      //   - owner side, viewer's home: a listing lives in its owner's primary
+      //                  community, which can't be hidden, so the join above
+      //                  never fails on its own. The owner must also not have
+      //                  hidden the viewer's home community (SETTINGS-004).
       const whereConditions = [
         statusFilter,
         eq(listings.isActive, true),
         inArray(listings.communityId, visibleCommunityIds),
         eq(communityVisibility.isVisible, true),
+        ownerVisibleToViewerHome(listings.ownerId, userId),
       ];
 
       // Filter by approval status based on user type

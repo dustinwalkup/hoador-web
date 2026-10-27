@@ -58,6 +58,7 @@ vi.mock("@/features/auth/utils/session", () => {
 vi.mock("@/dal", () => ({
   communityDAL: {
     isVisibleInCommunity: vi.fn().mockResolvedValue(true),
+    areMutuallyVisible: vi.fn().mockResolvedValue(true),
   },
   rentalDAL: {
     getRentalRequestById: vi.fn(),

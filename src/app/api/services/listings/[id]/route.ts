@@ -9,7 +9,8 @@ import {
   parseFormData,
   getCurrentUserId,
 } from "@/lib/api/route-helpers";
-import { communityDAL, serviceListingDAL } from "@/dal";
+import { serviceListingDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { patchServiceListingSchema } from "@/features/services/lib/service-api-schemas";
 import { ServiceListingService } from "@/features/services/services/service-listing-service";
 import { toServiceListingDetailResponse } from "@/features/services/lib/service-listing-response";
@@ -53,14 +54,13 @@ async function getHandler(
     const isProvider = listing.providerId === userId;
     let canView = isProvider;
     if (!canView && listing.status === "active") {
-      const [viewerVisible, providerVisible] = await Promise.all([
-        communityDAL.isVisibleInCommunity(userId, listing.communityId),
-        communityDAL.isVisibleInCommunity(
-          listing.providerId,
-          listing.communityId,
-        ),
-      ]);
-      canView = viewerVisible && providerVisible;
+      // Both visible in the listing's community, and neither has hidden the
+      // other's home community (SETTINGS-004).
+      canView = await canViewOwnerItem(
+        userId,
+        listing.providerId,
+        listing.communityId,
+      );
     }
     if (!canView) {
       return NextResponse.json(

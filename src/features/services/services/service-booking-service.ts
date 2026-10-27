@@ -1,6 +1,5 @@
 import {
   auditLogDAL,
-  communityDAL,
   disputeDAL,
   legalDocumentDAL,
   paymentDAL,
@@ -35,6 +34,7 @@ import {
 } from "@/features/services/lib/booking-cancellation";
 import { assertConnectReady } from "@/features/payments/lib/assert-connect-ready";
 import { quoteServiceBooking } from "@/features/services/services/service-booking-quote";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { sendNotification } from "@/features/notifications/utils/send-notification";
 import { captureNonCriticalError } from "@/lib/api/route-helpers";
 import { sendOpsAlert } from "@/features/notifications/lib/ops-alerts";
@@ -69,6 +69,38 @@ async function assertRequesterActive(requesterId: string): Promise<void> {
 
 function appBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "https://hoador-web.vercel.app";
+}
+
+/**
+ * Record a refund that already went through on the booking's `payments` row.
+ *
+ * Never throws: by the time this runs the money has moved, and a failed
+ * bookkeeping write must not skip the provider's transfer, the booking's own
+ * refund record or the notifications. The `charge.refunded` webhook records
+ * the same refund if it is delivered, so a failure here is reported, not fatal.
+ */
+async function recordServicePaymentRefund(
+  bookingId: string,
+  refund: { refundAmount: string; refundReason: string },
+): Promise<void> {
+  try {
+    const payment = await paymentDAL.getByServiceBookingId(bookingId);
+    if (!payment) {
+      throw new Error(
+        `No payment row for service booking ${bookingId}; refund not recorded`,
+      );
+    }
+    await paymentDAL.recordRefund(payment.id, {
+      refundedAt: new Date(),
+      refundAmount: refund.refundAmount,
+      refundReason: refund.refundReason,
+    });
+  } catch (error) {
+    captureNonCriticalError(error, {
+      route: "/api/services/bookings",
+      action: "cancel_booking_record_payment_refund_failed",
+    });
+  }
 }
 
 /**
@@ -298,21 +330,17 @@ export class ServiceBookingService {
       );
     }
     // BIZ-08: re-check the listing at accept time — it may have been
-    // deactivated, or either party left the community, since the request.
+    // deactivated, either party left the community, or one hid the other's
+    // home community (SETTINGS-004), since the request.
     if (detail.listing.status !== "active") {
       throw new ListingNotBookableError();
     }
-    const [providerVisible, requesterVisible] = await Promise.all([
-      communityDAL.isVisibleInCommunity(
-        detail.providerId,
-        detail.listing.communityId,
-      ),
-      communityDAL.isVisibleInCommunity(
-        detail.requesterId,
-        detail.listing.communityId,
-      ),
-    ]);
-    if (!providerVisible || !requesterVisible) {
+    const visible = await canViewOwnerItem(
+      detail.requesterId,
+      detail.providerId,
+      detail.listing.communityId,
+    );
+    if (!visible) {
       throw new CommunityNotVisibleError();
     }
     // Never charge a requester who can no longer see or dispute it: a deleted
@@ -847,11 +875,16 @@ export class ServiceBookingService {
     }
 
     if (refundAmountCents > 0 && detail.stripeChargeId) {
+      // One value for both the Stripe refund's metadata and the payment row:
+      // the `charge.refunded` webhook records `metadata.reason` when it lands
+      // first, so the two writes agree. The app maps the fallback code to copy
+      // and shows a typed reason as written (HOA-123).
+      const refundReason = reason?.trim() || "service_booking_cancelled";
       const refundResult = await processRefund({
         serviceBookingId: detail.id,
         chargeId: detail.stripeChargeId,
         refundAmountCents,
-        reason: reason?.trim() || "service_booking_cancelled",
+        reason: refundReason,
       });
 
       if (!refundResult.success) {
@@ -868,6 +901,14 @@ export class ServiceBookingService {
       } else {
         stripeRefundId = refundResult.refundId;
         refundAmountStr = (refundAmountCents / 100).toFixed(2);
+        // Payment history reads the `payments` row, not the booking. Without
+        // this the client's history said "Paid" with no refund line after a
+        // refunded cancellation (staging UAT, 2026-10-24) — the same write the
+        // rental cancellation makes.
+        await recordServicePaymentRefund(detail.id, {
+          refundAmount: refundAmountStr,
+          refundReason,
+        });
       }
     }
 

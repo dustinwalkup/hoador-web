@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic";
 import { notFound, redirect } from "next/navigation";
 import { getAuthenticatedUser } from "@/features/auth/utils/session";
-import { communityDAL, neighborhoodNeedsDAL } from "@/dal";
+import { neighborhoodNeedsDAL } from "@/dal";
+import { canViewOwnerItem } from "@/features/community/utils/item-visibility";
 import { NeedDetail } from "@/features/neighborhood-needs/components/need-detail";
 
 interface NeedDetailPageProps {
@@ -26,15 +27,17 @@ export default async function NeedDetailPage({ params }: NeedDetailPageProps) {
 
   // Creator and admins always have access; everyone else needs SYMMETRIC
   // visibility — both the viewer AND the creator must be visible in the need's
-  // community (mirrors the feed + listing-detail rule). A viewer-only check
-  // leaks needs whose creator is no longer visible (stale community_visibility,
-  // e.g. after a community changes networks).
+  // community, and neither may have hidden the other's home community
+  // (mirrors the feed + listing-detail rule). A viewer-only check leaks needs
+  // whose creator is no longer visible (stale community_visibility, e.g.
+  // after a community changes networks).
   if (!isOwner && !auth.isAdmin) {
-    const [viewerVisible, creatorVisible] = await Promise.all([
-      communityDAL.isVisibleInCommunity(auth.userId, need.communityId),
-      communityDAL.isVisibleInCommunity(need.createdByUserId, need.communityId),
-    ]);
-    if (!viewerVisible || !creatorVisible) {
+    const visible = await canViewOwnerItem(
+      auth.userId,
+      need.createdByUserId,
+      need.communityId,
+    );
+    if (!visible) {
       notFound();
     }
   }

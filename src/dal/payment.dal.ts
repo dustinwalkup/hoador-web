@@ -375,6 +375,31 @@ export class PaymentDAL extends BaseDAL {
   }
 
   /**
+   * Get the charge row for a service booking — the one `acceptBooking` writes
+   * once the charge succeeds. A refund is recorded against it, which is what
+   * the payer's payment history reads.
+   *
+   * @param serviceBookingId - The service booking ID
+   * @returns The payment record or null if not found
+   */
+  async getByServiceBookingId(
+    serviceBookingId: string,
+  ): Promise<InferSelectModel<typeof payments> | null> {
+    try {
+      const [payment] = await this.db
+        .select()
+        .from(payments)
+        .where(eq(payments.serviceBookingId, serviceBookingId))
+        .orderBy(desc(payments.createdAt))
+        .limit(1);
+
+      return payment || null;
+    } catch (error) {
+      this.handleError(error, "getByServiceBookingId");
+    }
+  }
+
+  /**
    * Get sum of earnings for a user (as payee) within a date range.
    * Used for dashboard summary (e.g. "This month earnings").
    *
