@@ -9,6 +9,8 @@ import {
   gte,
   inArray,
   isNotNull,
+  isNull,
+  or,
   sql,
 } from "drizzle-orm";
 import {
@@ -927,10 +929,20 @@ export class PushSubscriptionDAL extends BaseDAL {
   }
 
   /**
-   * Deactivate all of a user's subscriptions (account deletion, task 2.6.2).
+   * Deactivate all of a user's subscriptions (account deletion, task 2.6.2),
+   * or all but the calling device's when its sessions are revoked (UAT
+   * E2E-015): a device signed out that way never gets to unsubscribe itself,
+   * its cookie is already dead.
+   *
+   * `exceptToken` is the Expo token of the device that keeps its session (a
+   * password change rotates it rather than revoking it). Rows are matched by
+   * user, so a token belonging to anyone else spares nothing.
    * Requirements: 2.5.1.
    */
-  async deactivateAllForUser(userId: string): Promise<void> {
+  async deactivateAllForUser(
+    userId: string,
+    { exceptToken }: { exceptToken?: string } = {},
+  ): Promise<void> {
     try {
       await this.db
         .update(pushSubscriptions)
@@ -939,6 +951,14 @@ export class PushSubscriptionDAL extends BaseDAL {
           and(
             eq(pushSubscriptions.userId, userId),
             eq(pushSubscriptions.isActive, true),
+            // `token <> x` is NULL for a web row (no token), which would spare
+            // every web subscription; the IS NULL branch reaches them.
+            exceptToken
+              ? or(
+                  isNull(pushSubscriptions.token),
+                  ne(pushSubscriptions.token, exceptToken),
+                )
+              : undefined,
           ),
         );
     } catch (error) {

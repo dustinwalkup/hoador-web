@@ -5,6 +5,7 @@ import { ConflictError, NotFoundError } from "../errors";
 import { ValidationError } from "../errors";
 import { mockUser, mockUserMinimal, mockAddress } from "@/test/fixtures/users";
 import { db } from "@/db/db";
+import { pushSubscriptions } from "@/db/schemas/notifications.schema";
 import { PgDialect } from "drizzle-orm/pg-core";
 
 // Mock dependencies
@@ -1595,6 +1596,38 @@ describe("UserDAL", () => {
       await userDAL.adminUpdateUser("user-123", { userType: "admin" });
 
       expect(db.delete).not.toHaveBeenCalled();
+    });
+
+    // UAT E2E-015: a device whose session was deleted here is signed out by
+    // its next 401, which can't unsubscribe it (no cookie), so the push
+    // subscriptions go with the sessions.
+    it.each(["suspended", "inactive"] as const)(
+      "deactivates the user's push subscriptions when status becomes %s",
+      async (status) => {
+        const where = vi.fn().mockResolvedValue(undefined);
+        const set = vi.fn().mockReturnValue({ where });
+        vi.mocked(db.update).mockReturnValue({ set } as any);
+
+        await userDAL.adminUpdateUser("user-123", { status });
+
+        const pushUpdate = vi
+          .mocked(db.update)
+          .mock.calls.findIndex(([table]) => table === pushSubscriptions);
+        expect(pushUpdate).toBeGreaterThanOrEqual(0);
+        expect(set.mock.calls[pushUpdate][0]).toEqual(
+          expect.objectContaining({ isActive: false }),
+        );
+        const { params } = new PgDialect().sqlToQuery(
+          where.mock.calls[pushUpdate][0],
+        );
+        expect(params).toContain("user-123");
+      },
+    );
+
+    it("leaves push subscriptions alone when the account is reactivated", async () => {
+      await userDAL.adminUpdateUser("user-123", { status: "active" });
+
+      expect(db.update).not.toHaveBeenCalledWith(pushSubscriptions);
     });
   });
 

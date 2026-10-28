@@ -7,6 +7,10 @@ import { MOBILE_APP_SCHEME } from "@/constants/mobile";
 import { betterAuthRateLimitStorage } from "@/lib/api/rate-limit";
 import { generateAppleClientSecret } from "./apple-client-secret";
 import { e2eGoogleCallbackPlugin } from "./e2e-google-plugin";
+import {
+  deactivatePushAfterRevocation,
+  deactivatePushForUser,
+} from "./push-on-session-revocation";
 
 export const EMAIL_VERIFICATION_CALLBACK_URL = "signup/email/callback";
 
@@ -139,8 +143,11 @@ export function buildAuthOptions({ database }: AuthDependencies) {
       // them alive unless this is set (SEC-05).
       revokeSessionsOnPasswordReset: true,
       onPasswordReset: async ({ user }) => {
-        // logic here
         console.log(`Password reset for user ${user.id}.`);
+        // Every session is revoked next, so every device is signed out, and
+        // none can unsubscribe itself (no cookie left): deactivate them all
+        // here (UAT E2E-015). Never throws, so the revocation still runs.
+        await deactivatePushForUser(user.id, undefined, "/reset-password");
       },
     },
 
@@ -312,8 +319,12 @@ export function buildAuthOptions({ database }: AuthDependencies) {
         };
       }),
 
-      // Track login activity for admin inactivity filtering
       after: createAuthMiddleware(async (ctx) => {
+        // A revocation's signed-out devices stop receiving pushes; the
+        // caller's own device is spared by its `pushToken` (UAT E2E-015).
+        await deactivatePushAfterRevocation(ctx);
+
+        // Track login activity for admin inactivity filtering
         const newSession = ctx.context?.newSession as
           | {
               user: { id: string };

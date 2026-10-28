@@ -576,3 +576,57 @@ describe("need fan-out recipients", () => {
     expect(params).toContain("poster-a");
   });
 });
+
+/**
+ * UAT E2E-015: revoking a user's sessions must stop pushes to the devices it
+ * signed out, while the device that asked (a password change) keeps its own.
+ */
+describe("deactivateAllForUser", () => {
+  function captureUpdate() {
+    const where = vi.fn().mockResolvedValue(undefined);
+    const set = vi.fn().mockReturnValue({ where });
+    vi.mocked(db.update).mockReturnValue({ set } as never);
+    return { set, where };
+  }
+
+  function renderWhere(where: ReturnType<typeof vi.fn>) {
+    return new PgDialect().sqlToQuery(where.mock.calls[0][0] as SQL);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("deactivates every active subscription of the user", async () => {
+    const { set, where } = captureUpdate();
+
+    await pushSubscriptionDAL.deactivateAllForUser("user-1");
+
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ isActive: false }),
+    );
+    const { sql, params } = renderWhere(where);
+    expect(sql).toContain(`"push_subscriptions"."user_id" = $`);
+    expect(sql).toContain(`"push_subscriptions"."is_active" = $`);
+    expect(sql).not.toContain(`"push_subscriptions"."token"`);
+    expect(params).toEqual(["user-1", true]);
+  });
+
+  it("spares the calling device's token, and still reaches web rows (null token)", async () => {
+    const { where } = captureUpdate();
+
+    await pushSubscriptionDAL.deactivateAllForUser("user-1", {
+      exceptToken: "ExponentPushToken[device-1]",
+    });
+
+    const { sql, params } = renderWhere(where);
+    // `token <> $x` alone is NULL for a web row, which would leave every web
+    // subscription active: the IS NULL branch is what reaches them.
+    expect(normalizeSql(sql)).toContain(
+      normalizeSql(
+        `("push_subscriptions"."token" is null or "push_subscriptions"."token" <> $1)`,
+      ),
+    );
+    expect(params).toEqual(["user-1", true, "ExponentPushToken[device-1]"]);
+  });
+});

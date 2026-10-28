@@ -35,6 +35,7 @@ Everything the backend-audit fixes need done **by hand, outside the code**, when
 | A5  | Confirm the cron moves: a clean deploy, then an hourly run that calls payouts | R-PERF-05     | n/a                                   | TODO                                  | TODO |
 | A6  | Confirm Vercel's Git auto-deploy is off for `main`/`develop`                  | R-ARCH-06     | n/a                                   | TODO                                  | TODO |
 | A7  | Confirm exactly one deploy per push, pinned to the pushed commit              | R-ARCH-06     | n/a                                   | TODO                                  | TODO |
+| A8  | Backfill service refunds onto `payments` (fix 58972c46, 2026-10-26)           | UAT 10-26     | n/a                                   | TODO (preview 10 rows on 10-27)       | TODO |
 
 ## Before deploying
 
@@ -121,6 +122,8 @@ If the leftovers matter, **don't just call `anonymizeUser` again**: nobody has c
 **A6. Vercel Git integration (R-ARCH-06).** `vercel.json` now sets `git.deploymentEnabled` to `false` for `main` and `develop`, so only the gated workflows deploy those branches. The repo can't show whether the Vercel project's Git integration was ever connected. Open Vercel → Project → Settings → Git and confirm that automatic deploys for those branches are off, whether because the integration was never connected or because it honors the new setting. If the deploy errors on the `git` key, stop and check the dashboard.
 
 **A7. One pinned deploy per push (R-ARCH-06).** `deploy.yml` and `deploy-staging.yml` now fire on both **CI/CD Pipeline** and **E2E Tests**, and deploy only when both passed on the same commit. **`workflow_run` workflows run from the default branch's copy**, so neither change takes effect until it's on `main`. After that, push to `develop` and then to `main`. Each push should produce two **Deploy** runs: the first (whichever upstream finishes first) logs "Not deploying on this trigger", and the second deploys. The Vercel deployment's `githubCommitSha` metadata must match the pushed commit. If `check-ci` fails on reading workflow runs, the `GITHUB_TOKEN` lacks `actions: read` under the org policy. Report that; don't widen the token.
+
+**A8. Service refund backfill (UAT 2026-10-26).** Before 58972c46, cancelling a service booking saved the refund only on `service_bookings`, so `payments` stayed `succeeded` with a null `refund_amount` and payment history showed "Paid". Service dispute refunds recorded nothing on either table. The `charge.refunded` webhook would have filled the payment row, but on staging it never did, so check prod's webhook subscription too. Run [`a8-backfill-service-refunds.sql`](a8-backfill-service-refunds.sql): first its preview counts at the bottom, then the script, which is idempotent and touches only rows whose `refund_amount` is null. Staging preview on 2026-10-27: Part A 10 rows, Part B 0. If prod's preview is 0, mark prod N/A.
 
 ## Standing rules
 

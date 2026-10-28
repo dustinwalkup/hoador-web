@@ -16,6 +16,7 @@ import {
 import { geocodeAddress } from "@/services/geocoding";
 import { schema } from "@/db/schemas";
 import { account, session } from "@/db/schemas/user.schema";
+import { pushSubscriptions } from "@/db/schemas/notifications.schema";
 import { BaseDAL } from "./base";
 import {
   type CreateUserDTO,
@@ -617,6 +618,18 @@ export class UserDAL extends BaseDAL {
         // (SEC-01). Covers the single-user PATCH and bulk actions alike.
         if (updates.status === "suspended" || updates.status === "inactive") {
           await this.db.delete(session).where(eq(session.userId, userId));
+          // Each device learns it is signed out from a 401, with no cookie
+          // left to unsubscribe itself, so its pushes would keep arriving
+          // (UAT E2E-015). It registers again on its next sign-in.
+          await this.db
+            .update(pushSubscriptions)
+            .set({ isActive: false, updatedAt: new Date() })
+            .where(
+              and(
+                eq(pushSubscriptions.userId, userId),
+                eq(pushSubscriptions.isActive, true),
+              ),
+            );
         }
       }
       if (updates.userType !== undefined) {
