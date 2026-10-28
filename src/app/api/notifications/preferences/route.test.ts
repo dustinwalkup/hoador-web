@@ -137,6 +137,28 @@ describe("PATCH /api/notifications/preferences", () => {
     expect(mockGetCategoryPreferences).toHaveBeenCalledWith("user-1");
   });
 
+  it("passes a single-channel change to the DAL without filling the other channel", async () => {
+    // The mobile app sends one channel per switch. Filling the missing one
+    // here (it used to become `true` in the DAL) would overwrite the stored
+    // value: turning Needs push off turned Needs email on.
+    const { notificationCategoryPreferencesDAL } = await import("@/dal");
+    const req = new NextRequest(
+      "http://localhost/api/notifications/preferences",
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          categories: { neighborhood_needs: { push: false } },
+        }),
+      },
+    );
+    const res = await PATCH(req);
+    expect(res.status).toBe(200);
+    expect(notificationCategoryPreferencesDAL.upsertMany).toHaveBeenCalledWith(
+      "user-1",
+      { neighborhood_needs: { push: false } },
+    );
+  });
+
   it("returns 400 on invalid payload", async () => {
     const req = new NextRequest(
       "http://localhost/api/notifications/preferences",

@@ -524,8 +524,14 @@ export class NotificationCategoryPreferencesDAL extends BaseDAL {
   }
 
   /**
-   * Bulk upsert category preferences for a user.
-   * @param categories - Map of category to { email, push }
+   * Bulk upsert category preferences for a user, changing **only the channels
+   * named**. The mobile app sends one channel per switch
+   * (`{neighborhood_needs: {push: false}}`): an existing row keeps its other
+   * channel, and a new row takes it from `CATEGORY_DEFAULTS`. A missing
+   * channel used to be written as `true`, so turning Needs push off on mobile
+   * turned Needs email on (fixed 2026-10-27). A category naming neither
+   * channel is skipped.
+   * @param categories - Map of category to a partial { email?, push? }
    */
   async upsertMany(
     userId: string,
@@ -537,9 +543,30 @@ export class NotificationCategoryPreferencesDAL extends BaseDAL {
       for (const category of categoryValues) {
         const prefs = categories[category];
         if (prefs === undefined) continue;
-        const email = prefs.email ?? true;
-        const push = prefs.push ?? true;
-        const row = await this.upsert(userId, category, email, push);
+        const changed: { email?: boolean; push?: boolean } = {};
+        if (typeof prefs.email === "boolean") changed.email = prefs.email;
+        if (typeof prefs.push === "boolean") changed.push = prefs.push;
+        if (Object.keys(changed).length === 0) continue;
+
+        const defaults = CATEGORY_DEFAULTS[category];
+        const [row] = await this.db
+          .insert(notificationCategoryPreferences)
+          .values({
+            userId,
+            category,
+            email: changed.email ?? defaults.email,
+            push: changed.push ?? defaults.push,
+          })
+          .onConflictDoUpdate({
+            target: [
+              notificationCategoryPreferences.userId,
+              notificationCategoryPreferences.category,
+            ],
+            // Only the named channels: the other keeps its stored value.
+            set: { ...changed, updatedAt: new Date() },
+          })
+          .returning();
+        if (!row) throw new DALError("Upsert failed", "UNKNOWN", 500);
         results.push(row);
       }
       return results;
