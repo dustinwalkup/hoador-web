@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { DisputeDAL } from "../dispute.dal";
+import { DisputeDAL, EVIDENCE_WINDOW_MS } from "../dispute.dal";
 import { NotFoundError, ValidationError } from "../errors";
 import { db } from "@/db/db";
 import { mockDispute } from "@/test/fixtures/disputes";
@@ -115,13 +115,13 @@ describe("DisputeDAL", () => {
       const valuesCall = mockValues.mock.calls[0][0];
       expect(valuesCall.evidenceDeadline).toBeInstanceOf(Date);
       const deadline = valuesCall.evidenceDeadline as Date;
-      const expectedDeadline = new Date(beforeCreate);
-      expectedDeadline.setDate(expectedDeadline.getDate() + 7);
+      // A fixed 7 x 24h, not 7 calendar days: `setDate(+7)` across a DST
+      // change is an hour off, which failed this the week before Nov 1.
       expect(deadline.getTime()).toBeGreaterThanOrEqual(
-        expectedDeadline.getTime() - 1000,
+        beforeCreate.getTime() + EVIDENCE_WINDOW_MS,
       );
       expect(deadline.getTime()).toBeLessThanOrEqual(
-        afterCreate.getTime() + 7 * 24 * 60 * 60 * 1000 + 1000,
+        afterCreate.getTime() + EVIDENCE_WINDOW_MS,
       );
     });
 

@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/db/db-e2e";
 import { schema } from "@/db/schemas";
+import { startOfMarketToday } from "@/features/rentals/lib/availability";
+import { toWallClock } from "@/features/schedule/lib/build-schedule";
 
 const {
   user,
@@ -27,11 +29,20 @@ const {
 const unique = () => randomUUID().slice(0, 8);
 
 const DAY = 24 * 60 * 60 * 1000;
-/** Local midnight, `days` from today: how booked days sit in the DB. */
+/**
+ * Midnight of the day `days` after the MARKET's (Central) today, in the shape
+ * a stored booked day has: what the app's day checks (`isPastDay`,
+ * `isFutureDay`, `startOfMarketToday`) compare against.
+ *
+ * Not the runner's today: on a UTC runner from 7pm Central (6pm in winter) the
+ * UTC day has already turned, so a rental "starting today" started tomorrow
+ * as far as the app was concerned (HOA-124). Stepped with `setDate`, not in
+ * 24-hour multiples, so a count across a DST change still lands on midnight.
+ */
 export const daysFromToday = (days: number) => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return new Date(d.getTime() + days * DAY);
+  const d = startOfMarketToday();
+  d.setDate(d.getDate() + days);
+  return d;
 };
 
 export async function createUser(
@@ -185,7 +196,7 @@ export async function createServiceBooking(
       providerId: listing.providerId,
       communityId: listing.communityId,
       requesterId,
-      proposedDate: daysFromToday(3).toISOString().slice(0, 10),
+      proposedDate: toWallClock(daysFromToday(3), { dateOnly: true }),
       proposedTime: "10:00",
       servicePrice: "50.00",
       serviceFee: "4.00",
