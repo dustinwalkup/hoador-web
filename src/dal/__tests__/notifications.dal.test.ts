@@ -552,15 +552,15 @@ describe("need fan-out recipients", () => {
     expect(params).toContain("poster-a");
   });
 
-  it("getOptInPushTargetsInCommunity skips members whose home the poster hid", async () => {
+  it("getPushTargetsInCommunity skips members whose home the poster hid", async () => {
     const where = vi.fn().mockResolvedValue([]);
-    const leftJoin = vi.fn().mockReturnValue({ where });
-    const innerJoin2 = vi.fn().mockReturnValue({ leftJoin });
-    const innerJoin1 = vi.fn().mockReturnValue({ innerJoin: innerJoin2 });
-    const from = vi.fn().mockReturnValue({ innerJoin: innerJoin1 });
+    const leftJoin2 = vi.fn().mockReturnValue({ where });
+    const leftJoin1 = vi.fn().mockReturnValue({ leftJoin: leftJoin2 });
+    const innerJoin = vi.fn().mockReturnValue({ leftJoin: leftJoin1 });
+    const from = vi.fn().mockReturnValue({ innerJoin });
     vi.mocked(db.select).mockReturnValue({ from } as never);
 
-    await pushSubscriptionDAL.getOptInPushTargetsInCommunity({
+    await pushSubscriptionDAL.getPushTargetsInCommunity({
       communityId: "comm-g",
       excludeUserId: "poster-a",
       posterId: "poster-a",

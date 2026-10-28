@@ -417,9 +417,10 @@ export default function HowItWorksNotificationsPage() {
           <p className="text-sm">
             <strong>Category toggles</strong>{" "}
             (notification_category_preferences): bookings, payments, messages,
-            disputes, reminders. Each category can be enabled or disabled for
-            email and push. If no category preference exists, it defaults to
-            enabled.
+            disputes, reminders, neighborhood_needs. Each category can be
+            enabled or disabled for email and push. If no category preference
+            exists, it defaults to enabled, except neighborhood_needs email,
+            which defaults to off (its push defaults to on).
           </p>
           <p className="text-sm">
             <strong>Logic:</strong> For email or push to be sent, the

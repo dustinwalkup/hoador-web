@@ -68,7 +68,8 @@ not re-litigated:
    user-mutable **Neighborhood Needs** notification category. Email is OFF by
    default; push is opt-in. This avoids notification fatigue and avoids
    inventing an interest model. "Category matching" from the source brief is
-   explicitly deferred.
+   explicitly deferred. _(Amended 2026-10-27, user-approved: Needs push
+   defaults on. Email stays off; see R12.3.)_
 3. **Analytics deferred entirely.** No product-analytics platform exists
    (only Meta Pixel + Sentry + internal payment logs). No events table and no
    dashboards ship in MVP. The schema SHOULD nonetheless be designed so the
@@ -405,9 +406,13 @@ network without being spammed, so that I can respond while the request is fresh.
    with `community_visibility(need.community_id).is_visible = true` — **excluding
    the creator**.
 3. For the new **Neighborhood Needs** category, the system SHALL default
-   **email = OFF** and **push = opt-in (off by default)**; in-app SHALL be on by
-   default. Users SHALL be able to mute the category via the existing
-   notification-preferences UI.
+   **email = OFF** and **push = ON**; in-app SHALL be on by default. Users
+   SHALL be able to mute the category via the existing notification-preferences
+   UI. _(Amended 2026-10-27, user-approved: Needs push defaults on. It was
+   opt-in (off by default). A member with no stored `neighborhood_needs` row
+   now gets new-need pushes; an explicit `push = false` row still mutes them.
+   No data migration: no row is written at sign-up, so the default is read at
+   send time.)_
 4. The fan-out SHALL respect each recipient's category preferences (a user who
    muted the category receives nothing).
 5. The "new need" notification SHALL deep-link to the need detail.

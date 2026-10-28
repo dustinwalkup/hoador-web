@@ -6,7 +6,7 @@ import type { Pool } from "pg";
  * PERF-02 + SEC-15 against a REAL Postgres. Posting a Neighborhood Need used
  * to cost ~4 queries per network member, all released into the pool at once.
  * These tests pin the set-based replacement: the raw INSERT … SELECT, the
- * opt-in push-target join, the posting throttle's counts, and a total query
+ * push-target join, the posting throttle's counts, and a total query
  * count that doesn't grow with the network. Expo is mocked; every database
  * statement is real.
  */
@@ -171,8 +171,8 @@ describe("notificationsDAL.bulkCreateForVisibleCommunity", () => {
   });
 });
 
-describe("pushSubscriptionDAL.getOptInPushTargetsInCommunity", () => {
-  it("returns only visible, opted-in members with active subscriptions and push on", async () => {
+describe("pushSubscriptionDAL.getPushTargetsInCommunity", () => {
+  it("returns visible members with active subscriptions whose Needs push is on (explicitly or by default)", async () => {
     const community = await createCommunity();
     const creator = await member(community);
     await optIn(creator.id);
@@ -189,9 +189,10 @@ describe("pushSubscriptionDAL.getOptInPushTargetsInCommunity", () => {
     await optIn(webUser.id);
     const webUserSub = await webSub(webUser.id);
 
-    // Excluded: no category row (the opt-in default is OFF).
+    // Included: no category row. Needs push defaults ON (amended 2026-10-27,
+    // user-approved), so a member who never touched the setting gets the push.
     const noRow = await member(community);
-    await nativeSub(noRow.id);
+    const noRowSub = await nativeSub(noRow.id);
 
     // Excluded: category row with push off.
     const pushOff = await member(community);
@@ -211,7 +212,7 @@ describe("pushSubscriptionDAL.getOptInPushTargetsInCommunity", () => {
     await optIn(hidden.id);
     await nativeSub(hidden.id);
 
-    const targets = await pushSubscriptionDAL.getOptInPushTargetsInCommunity({
+    const targets = await pushSubscriptionDAL.getPushTargetsInCommunity({
       communityId: community.id,
       excludeUserId: creator.id,
       posterId: creator.id,
@@ -219,7 +220,7 @@ describe("pushSubscriptionDAL.getOptInPushTargetsInCommunity", () => {
     });
 
     expect(targets.map((t) => t.id).sort()).toEqual(
-      [optedInSub.id, webUserSub.id].sort(),
+      [optedInSub.id, webUserSub.id, noRowSub.id].sort(),
     );
   });
 });
@@ -268,7 +269,7 @@ describe("need fan-out skips members whose home community the poster hid", () =>
   it("returns no push target for them", async () => {
     const { posterHome, creator, neighborSub } = await setup();
 
-    const targets = await pushSubscriptionDAL.getOptInPushTargetsInCommunity({
+    const targets = await pushSubscriptionDAL.getPushTargetsInCommunity({
       communityId: posterHome.id,
       excludeUserId: creator.id,
       posterId: creator.id,

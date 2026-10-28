@@ -15,7 +15,8 @@ UI, navigation, and the dashboard Pulse. The central behaviors to prove are:
 3. **Creator-only auto-close** — a need closes only when _its creator_ books a
    linked listing; a stranger's booking leaves it open.
 4. **Opt-out, no-spam notifications** — new-need fan-out is in-app by default
-   (email off, push opt-in), and never blocks or fails the create.
+   (email off, push on by default; amended 2026-10-27, was opt-in), and never
+   blocks or fails the create.
 5. **Non-critical hooks** — fan-out, auto-close, and notify-on-approval can fail
    without failing the host money operation.
 
@@ -264,7 +265,8 @@ References:
 
 - [ ] Creating a need dispatches in-app notifications to the visible-community
       audience minus the creator; with the default category matrix, no email is
-      sent and push only to opt-in users
+      sent and push goes to every member who has not turned Needs push off
+      _(amended 2026-10-27: push defaults on)_
 - [ ] Creating a need with a large audience does not block the create response
       (dispatched in `after()`)
 - _Requirements: R12.2, R12.3, R12.7_

@@ -29,20 +29,20 @@ booking flow, payment lifecycle, or proposal/quote system is introduced.**
 
 Reproduced here as the design's input contract — not re-litigated:
 
-| #   | Decision                                                                                                                                       | Source        |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| D1  | A need's `community_id` = creator's **primary** community; feed visibility uses the **same symmetric `community_visibility` rule as listings** | R1, AD#1, R5  |
-| D2  | Notifications: in-app default, push opt-in, email off; new mutable `neighborhood_needs` category; **no interest matching**                     | R12, AD#2     |
-| D3  | Analytics deferred entirely; schema keeps metrics derivable but nothing computed/surfaced                                                      | AD#3          |
-| D4  | Two category tables; `type` + `category_id` with **no DB FK**; validated in the service layer                                                  | AD#4, R2/R4   |
-| D5  | Auto-close only when the need's **creator** books a linked listing                                                                             | AD#5, R10     |
-| D6  | Reuse existing flows; add 2 tables, 1 category, a few routes/pages, 3 hooks                                                                    | AD#6          |
-| D7  | Polymorphic listing reference disambiguated by `listing_type` on the join table                                                                | R3            |
-| D8  | Link row created at listing creation; requester notified when the listing goes **live/approved**                                               | R9.4, R9.5    |
-| D9  | Admin delete = **soft delete** (`deleted_at`); linked rows preserved                                                                           | R16.4         |
-| D10 | New `NeighborhoodNeedsDAL` + `NeighborhoodNeedsService` (do not overload Community/Listing DALs)                                               | resolved here |
-| D11 | App-Router **server pages read `searchParams`** for listing pre-fill (not client `useSearchParams`)                                            | resolved here |
-| D12 | Fan-out + auto-close + notify all run in Next.js `after()` blocks, fire-and-forget, `captureNonCriticalError`                                  | resolved here |
+| #   | Decision                                                                                                                                                           | Source        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| D1  | A need's `community_id` = creator's **primary** community; feed visibility uses the **same symmetric `community_visibility` rule as listings**                     | R1, AD#1, R5  |
+| D2  | Notifications: in-app default, push on by default (was opt-in; amended 2026-10-27), email off; new mutable `neighborhood_needs` category; **no interest matching** | R12, AD#2     |
+| D3  | Analytics deferred entirely; schema keeps metrics derivable but nothing computed/surfaced                                                                          | AD#3          |
+| D4  | Two category tables; `type` + `category_id` with **no DB FK**; validated in the service layer                                                                      | AD#4, R2/R4   |
+| D5  | Auto-close only when the need's **creator** books a linked listing                                                                                                 | AD#5, R10     |
+| D6  | Reuse existing flows; add 2 tables, 1 category, a few routes/pages, 3 hooks                                                                                        | AD#6          |
+| D7  | Polymorphic listing reference disambiguated by `listing_type` on the join table                                                                                    | R3            |
+| D8  | Link row created at listing creation; requester notified when the listing goes **live/approved**                                                                   | R9.4, R9.5    |
+| D9  | Admin delete = **soft delete** (`deleted_at`); linked rows preserved                                                                                               | R16.4         |
+| D10 | New `NeighborhoodNeedsDAL` + `NeighborhoodNeedsService` (do not overload Community/Listing DALs)                                                                   | resolved here |
+| D11 | App-Router **server pages read `searchParams`** for listing pre-fill (not client `useSearchParams`)                                                                | resolved here |
+| D12 | Fan-out + auto-close + notify all run in Next.js `after()` blocks, fire-and-forget, `captureNonCriticalError`                                                      | resolved here |
 
 ---
 
@@ -408,7 +408,7 @@ class NeighborhoodNeedsService {
     //   .filter(id => id !== need.createdByUserId)
     // for each: sendNotification({ type:'neighborhood_need_created',
     //   linkUrl:`/dashboard/needs/${need.id}`, /* no email payload */ })
-    //   category 'neighborhood_needs' default push=off -> push only for opt-in users
+    //   category 'neighborhood_needs' default push=on (amended 2026-10-27; was off)
   }
 }
 ```
@@ -420,10 +420,17 @@ class NeighborhoodNeedsService {
 - **New category** `neighborhood_needs`; both new types map to it in
   `NOTIFICATION_TYPE_TO_CATEGORY`.
 - **Default channel matrix** for the new category: `inApp: true, email: false,
-push: false` — set in the preference-service defaults
-  ([preference-service.ts](src/features/notifications/lib/preference-service.ts)).
-  Fan-out passes **no `email` payload** (so email never sends) and relies on the
-  push default (`false`) so push reaches only opt-in users → satisfies R12.3.
+push: true` — set in `CATEGORY_DEFAULTS`
+  ([category-defaults.ts](src/features/notifications/lib/category-defaults.ts)),
+  read by both `preference-service.ts` and the fan-out's push-target query.
+  Fan-out passes **no `email` payload** (so email never sends) and pushes to
+  every visible member whose category push is on, explicitly or by default →
+  satisfies R12.3.
+  _(Amended 2026-10-27, user-approved: Needs push defaults on. The matrix was
+  `push: false` and the push-target query inner-joined an explicit
+  `push = true` row; it now left-joins and treats a missing row as the
+  default. No backfill: a member's stored row only exists if they flipped a
+  switch.)_
 - The requester "listing created" notification (R11) may carry email (it's a
   direct, low-volume, high-signal event); channel still governed by the user's
   category preference.

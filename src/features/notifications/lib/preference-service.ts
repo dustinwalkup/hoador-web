@@ -1,25 +1,9 @@
 import { userDAL, notificationCategoryPreferencesDAL } from "@/dal";
 import { notificationCategoryEnum } from "@/db/schemas/_enums";
+import { CATEGORY_DEFAULTS } from "./category-defaults";
 import type { NotificationCategory } from "./notification-type-map";
 
 const CATEGORIES = notificationCategoryEnum.enumValues;
-
-/**
- * Per-category defaults when no user preference row exists.
- * neighborhood_needs defaults email/push to OFF (opt-in) to avoid notification fatigue.
- * All other categories default to ON (opt-out) per existing behavior.
- */
-const CATEGORY_DEFAULTS: Record<
-  NotificationCategory,
-  { email: boolean; push: boolean }
-> = {
-  bookings: { email: true, push: true },
-  payments: { email: true, push: true },
-  messages: { email: true, push: true },
-  disputes: { email: true, push: true },
-  reminders: { email: true, push: true },
-  neighborhood_needs: { email: false, push: false },
-};
 
 /** Master and per-category notification preferences. */
 export interface CategoryPreferencesResult {
@@ -30,7 +14,8 @@ export interface CategoryPreferencesResult {
 /**
  * Notification preference service: decides whether to send email or push
  * based on user_preferences and notification_category_preferences.
- * Missing preferences default to true for both channels.
+ * A missing master row defaults to on; a missing category row falls back to
+ * `CATEGORY_DEFAULTS` (on, except `neighborhood_needs` email).
  * Requirements: 1.4, 1.5, 1.8, 1.9
  */
 
@@ -70,7 +55,7 @@ export async function shouldSendPush(
 
 /**
  * Returns master notification preferences and per-category email/push toggles.
- * When no row exists for a category, defaults to { email: true, push: true }.
+ * When no row exists for a category, returns that category's `CATEGORY_DEFAULTS`.
  */
 export async function getCategoryPreferences(
   userId: string,

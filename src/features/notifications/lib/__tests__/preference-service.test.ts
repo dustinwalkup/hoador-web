@@ -39,11 +39,12 @@ describe("preference-service", () => {
       expect(await shouldSendEmail(userId, "neighborhood_needs")).toBe(false);
     });
 
-    it("shouldSendPush returns false by default for neighborhood_needs", async () => {
+    // Amended 2026-10-27, user-approved: Needs push defaults on (email stays off).
+    it("shouldSendPush returns true by default for neighborhood_needs", async () => {
       vi.mocked(
         notificationCategoryPreferencesDAL.getByUserId,
       ).mockResolvedValue([]);
-      expect(await shouldSendPush(userId, "neighborhood_needs")).toBe(false);
+      expect(await shouldSendPush(userId, "neighborhood_needs")).toBe(true);
     });
 
     it("shouldSendEmail returns true once user opts in for neighborhood_needs", async () => {
@@ -65,7 +66,7 @@ describe("preference-service", () => {
       expect(await shouldSendEmail(userId, "neighborhood_needs")).toBe(true);
     });
 
-    it("shouldSendPush returns true once user opts in for neighborhood_needs", async () => {
+    it("shouldSendPush returns false once user turns neighborhood_needs push off", async () => {
       vi.mocked(
         notificationCategoryPreferencesDAL.getByUserId,
       ).mockResolvedValue([
@@ -74,14 +75,14 @@ describe("preference-service", () => {
           userId,
           category: "neighborhood_needs",
           email: false,
-          push: true,
+          push: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
       ] as Awaited<
         ReturnType<typeof notificationCategoryPreferencesDAL.getByUserId>
       >);
-      expect(await shouldSendPush(userId, "neighborhood_needs")).toBe(true);
+      expect(await shouldSendPush(userId, "neighborhood_needs")).toBe(false);
     });
   });
 
@@ -218,11 +219,11 @@ describe("preference-service", () => {
       });
     });
 
-    it("defaults neighborhood_needs to email:false, push:false when no row exists", async () => {
+    it("defaults neighborhood_needs to email:false, push:true when no row exists", async () => {
       const result = await getCategoryPreferences(userId);
       expect(result.categories.neighborhood_needs).toEqual({
         email: false,
-        push: false,
+        push: true,
       });
     });
 

@@ -73,8 +73,7 @@ vi.mock("@/dal", () => ({
     bulkCreateForVisibleCommunity: (...a: unknown[]) => mockBulkCreate(...a),
   },
   pushSubscriptionDAL: {
-    getOptInPushTargetsInCommunity: (...a: unknown[]) =>
-      mockGetPushTargets(...a),
+    getPushTargetsInCommunity: (...a: unknown[]) => mockGetPushTargets(...a),
   },
   serviceListingDAL: {
     listCategories: (...a: unknown[]) => mockListCategories(...a),
@@ -263,7 +262,7 @@ describe("createNeed", () => {
     );
   });
 
-  it("pushes only to the opted-in targets, in one broadcast", async () => {
+  it("pushes to the targets the DAL returns, in one broadcast", async () => {
     mockGetPrimary.mockResolvedValue(PRIMARY);
     mockGetListingCategories.mockResolvedValue([RENTAL_CAT]);
     mockCreateNeed.mockResolvedValue(OPEN_NEED);

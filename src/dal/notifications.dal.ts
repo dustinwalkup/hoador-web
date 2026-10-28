@@ -28,6 +28,7 @@ import {
   ValidationError,
 } from "./errors";
 import { MAX_PUSH_SUBSCRIPTIONS_PER_USER } from "@/constants/rate-limits";
+import { CATEGORY_DEFAULTS } from "@/features/notifications/lib/category-defaults";
 import { BaseDAL } from "./base";
 import { ownerVisibleToViewerHome } from "./visibility-sql";
 import type { PaginatedResult } from "./types";
@@ -869,21 +870,25 @@ export class PushSubscriptionDAL extends BaseDAL {
    * query instead of three per member (PERF-02). Returns one row per
    * subscription, web and native alike.
    *
-   * ⚠️ Only correct for an OPT-IN category (push default off, i.e.
-   * `neighborhood_needs`): it requires an explicit category row with
-   * `push = true`, where `shouldSendPush` falls back to the category default
-   * when no row exists. The master toggle defaults to on when the user has no
-   * `user_preferences` row, as `userDAL.getUserPreferences` does.
+   * Mirrors `shouldSendPush`: the master toggle defaults to on when the user
+   * has no `user_preferences` row (as `userDAL.getUserPreferences` does), and
+   * a missing category row falls back to `CATEGORY_DEFAULTS[category].push`.
+   * For `neighborhood_needs` that default is ON (amended 2026-10-27,
+   * user-approved), so only an explicit `push = false` row opts a member out.
    *
    * `posterId` skips members whose home community the poster hid, as
    * `bulkCreateForVisibleCommunity` does (SETTINGS-004).
    */
-  async getOptInPushTargetsInCommunity(params: {
+  async getPushTargetsInCommunity(params: {
     communityId: string;
     excludeUserId: string;
     posterId: string;
     category: (typeof notificationCategoryEnum.enumValues)[number];
   }): Promise<PushSubscriptionRow[]> {
+    const categoryPush = notificationCategoryPreferences.push;
+    const categoryPushOn = CATEGORY_DEFAULTS[params.category].push
+      ? or(isNull(categoryPush), eq(categoryPush, true))
+      : eq(categoryPush, true);
     try {
       const rows = await this.db
         .select({ subscription: pushSubscriptions })
@@ -895,7 +900,7 @@ export class PushSubscriptionDAL extends BaseDAL {
             eq(pushSubscriptions.isActive, true),
           ),
         )
-        .innerJoin(
+        .leftJoin(
           notificationCategoryPreferences,
           and(
             eq(
@@ -903,7 +908,6 @@ export class PushSubscriptionDAL extends BaseDAL {
               communityVisibility.userId,
             ),
             eq(notificationCategoryPreferences.category, params.category),
-            eq(notificationCategoryPreferences.push, true),
           ),
         )
         .leftJoin(
@@ -919,12 +923,13 @@ export class PushSubscriptionDAL extends BaseDAL {
               params.posterId,
               communityVisibility.userId,
             ),
+            categoryPushOn,
             sql`COALESCE(${userPreferences.pushNotifications}, true)`,
           ),
         );
       return rows.map((r) => r.subscription);
     } catch (error) {
-      this.handleError(error, "get opt-in push targets in community");
+      this.handleError(error, "get push targets in community");
     }
   }
 

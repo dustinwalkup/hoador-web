@@ -354,8 +354,9 @@ async function fanOutNewNeed(
   // for push targets, one batched Expo send with bulk-written audit rows.
   // What recipients get is unchanged: an in-app row for every visible member
   // (with `linkUrl` in `data`, as `sendNotification` wrote it), no email, and
-  // push only for members who opted in to the neighborhood_needs category
-  // (default off, R12.4 / task 7.2).
+  // push for every member whose neighborhood_needs push is on: by default it
+  // is (amended 2026-10-27, user-approved; was opt-in), so only members who
+  // turned it off are skipped (R12.3).
   // Only members the poster can see: none whose home community the poster
   // hid, and none who hid the poster's (SETTINGS-004).
   await notificationsDAL.bulkCreateForVisibleCommunity({
@@ -371,7 +372,7 @@ async function fanOutNewNeed(
   // Push failures never fail the fan-out, and never block the in-app rows
   // above, which are already written.
   await pushSubscriptionDAL
-    .getOptInPushTargetsInCommunity({
+    .getPushTargetsInCommunity({
       communityId: need.communityId,
       excludeUserId: creatorUserId,
       posterId: creatorUserId,

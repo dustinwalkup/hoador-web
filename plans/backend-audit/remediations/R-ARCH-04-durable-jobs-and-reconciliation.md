@@ -784,7 +784,7 @@ export async function handleNeedFanOut(raw: unknown): Promise<void> {
   if (!need || need.deletedAt) return; // deleted before the job ran — nothing to notify about
 
   // ...body unchanged from the old fanOutNewNeed (creatorVisible check,
-  // bulkCreateForVisibleCommunity, getOptInPushTargetsInCommunity +
+  // bulkCreateForVisibleCommunity, getPushTargetsInCommunity +
   // broadcastPush)...
 }
 ```
